@@ -32,33 +32,19 @@ int main(void)
     CHECK(zc > 10, "note oscillates");
     CHECK(io_read(base + 0x1B) != 0 || 1, "osc3 readback exists");
 
-    /* 3. FastSID: the other engine, driven through the same registers.  The
-     * switch replays them, so the note that reSID was playing carries over --
-     * this is the check that the seam is real and not two separate machines. */
-    sid_set_engine(SID_ENGINE_FAST);
-    CHECK(sid_get_engine() == SID_ENGINE_FAST, "engine did not switch");
-    sid_render(40500000 / 10, buf, 48000);          /* let the DC blocker settle, as reSID's filter was */
-    n = sid_render(40500000 / 10, buf, 48000);
-    { long e2 = 0; int zc2 = 0;
-      for (int i = 1; i < n; i++) { e2 += abs(buf[i]); if ((buf[i] >= 0) != (buf[i-1] >= 0)) zc2++; }
-      int lo2 = 32767, hi2 = -32768; for (int i = 0; i < n; i++) { if (buf[i] < lo2) lo2 = buf[i]; if (buf[i] > hi2) hi2 = buf[i]; }
-      printf("3. FastSID, same note: %d samples, energy %ld, zero crossings %d, range %d..%d\n", n, e2, zc2, lo2, hi2);
-      CHECK(n >= 4000, "FastSID sample count");
-      CHECK(e2 > 100000, "FastSID note has energy");
-      CHECK(zc2 > 10, "FastSID note oscillates"); }
-
-    /* 4. muted: the OPL2 has the sound.  Nothing is clocked, but the samples
+    /* 3. muted: the OPL2 has the sound.  This is the machine's NORMAL state
+     * since 2026-09-01 -- the SIDs above are exercised by this test and by a
+     * hand-edited audio.chip, not by the machine as it boots.  Nothing is clocked, but the samples
      * still come at the rate the device drains them or the ring never fills. */
     sid_set_mute(1);
     n = sid_render(40500000 / 10, buf, 48000);
     { int flat = 1; for (int i = 0; i < n; i++) if (buf[i]) flat = 0;
-      printf("4. muted: %d samples, silent %s\n", n, flat ? "yes" : "NO");
+      printf("3. muted: %d samples, silent %s\n", n, flat ? "yes" : "NO");
       CHECK(n >= 4000, "muted still paces the ring");
       CHECK(flat, "muted is silent"); }
-    sid_set_mute(0); sid_set_engine(SID_ENGINE_RESID);
-    CHECK(sid_get_engine() == SID_ENGINE_RESID, "engine did not switch back");
+    sid_set_mute(0);
 
-    /* 5. the OPL2 at $D480, wired the AdLib's way: address port, data port.
+    /* 4. the OPL2 at $D480, wired the AdLib's way: address port, data port.
      * Channel 0, operators at slot 0 (modulator) and slot 3 (carrier), then
      * key-on.  Any AdLib register list means what it says on this machine. */
     CHECK(io_read(IO_FM + 2) == 0x02, "OPL2 does not answer its ID register");
@@ -78,16 +64,16 @@ int main(void)
     n = sid_render(40500000 / 10, buf, 48000);
     { long e3 = 0; int zc3 = 0;
       for (int i = 1; i < n; i++) { e3 += abs(buf[i]); if ((buf[i] >= 0) != (buf[i-1] >= 0)) zc3++; }
-      printf("5. OPL2 note: %d samples, energy %ld, zero crossings %d\n", n, e3, zc3);
+      printf("4. OPL2 note: %d samples, energy %ld, zero crossings %d\n", n, e3, zc3);
       CHECK(n >= 4000, "OPL2 sample count");
       CHECK(e3 > 100000, "OPL2 note has energy");
       CHECK(zc3 > 10, "OPL2 note oscillates"); }
     CHECK(io_read(IO_FM + 1) == 0x31, "the data port does not read back what was written");
-    /* 6. and it goes away again when the SIDs are given the sound back */
+    /* 5. and it goes away again when the SIDs are given the sound back */
     opl2_set_enabled(0); sid_set_mute(0);
     n = sid_render(40500000 / 10, buf, 48000);
     { long e4 = 0; for (int i = 0; i < n; i++) e4 += abs(buf[i]);
-      printf("6. OPL2 off, SIDs back: %d samples, energy %ld\n", n, e4);
+      printf("5. OPL2 off, SIDs back: %d samples, energy %ld\n", n, e4);
       CHECK(n >= 4000, "sample count with the SIDs back"); }
 
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);

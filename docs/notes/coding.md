@@ -1172,3 +1172,67 @@ it only sleeps when the frame came early and cannot fight the flip.
 is the machine keeping its own 60 Hz, on hands pacing to the display, which
 costs frames (and therefore sound) if the display is not 60 — and saves a
 compositor a great deal of work.
+
+---
+
+## 2026-09-01 — the consolidation, round one
+
+Full account in `docs/BUILD-LOG.md`; the standing inventory Doc rules on is
+`docs/CAPABILITIES.md`. What changed under the machine, in one place:
+
+- **The SIDs are OFF on both hosts and the OPL2 is the default.** Not
+  deleted — reSID builds, `test/sidtest` exercises it, `audio.chip = reSID`
+  in `k4510.cfg` gives it the sound back — but the Sound chip and Active SIDs
+  rows are gone from F7 entirely, and `sid_set_mute(1)` is the boot state.
+- **FastSID is gone from the tree**, with `SID_ENGINE_*` and
+  `sid_set_engine`. `core/sid.cc`'s muted path kept the sample accumulator it
+  used (renamed `out_acc`) because the OPL2 and the silence case need it.
+- **`core/calib.c` is gone**; `core/hostid.c` holds the host fingerprint that
+  was the only live thing in it.
+- **`cmd_two` (RENAME/REN/MV, CP) STATs the destination and refuses**, `-f`
+  overwrites.
+- **`fs_dir_first` no longer stats every entry**; `FS_DIR_NEXT` stats the one
+  it serves, and the sort is `qsort`. A TNFS listing still carries its sizes,
+  so `fs_list_size` non-NULL means "already known".
+- **MS BASIC has star commands and `*BYE`**, caught in `MONRDKEY` so nothing
+  under `basic/msbasic/` is touched.
+
+**For the handbook agent, three user-visible changes:**
+
+1. **The Audio menu has two fewer rows.** No Sound chip, no Active SIDs. The
+   machine sounds through its OPL2 and that is not a choice offered in the
+   interface any more; the config file is the way back to the SIDs. Any figure
+   showing that menu needs recapturing, and the sound chapter's "three chips,
+   one at a time" framing is no longer what the machine does.
+2. **The boot banner changed**, again: `CHIPS: OPL2, 4 SIDs, VICKY, SHEILA,
+   FRED, JIM`. It is in a dozen figures.
+3. **MS BASIC now has a way out and a shell escape.** `*BYE` returns to K:OS;
+   anything else after `*` is run as a K:OS command line. The cold-start banner
+   says so in a second line. This is worth documenting beside EhBASIC's `@`,
+   and the difference is worth a sentence: `@BYE` cold-starts the machine to
+   reach the shell, `*BYE` returns to it.
+
+And one thing that is now wrong in the manual if it says otherwise: `RENAME`
+and `CP` refuse to overwrite. `-f` is how you mean it.
+
+**Later the same day — retirements, and the sound audit.**
+
+`retired/` is new: `sids.c`, `sid6.c`, `sid12.c`, `sidorch.h`, the four
+`sidplay` files and `romout.c`, out of `fs/PRG` and out of the build on Doc's
+instruction. `retired/README.md` says what each was.
+
+**For the handbook agent, and this one is load-bearing:**
+
+- `SIDS`, `SID6`, `SID12`, `SIDPLAY` and `ROMOUT` are no longer on the
+  machine. Any chapter, figure or program list naming them is now wrong.
+- `INFO`'s SOUND section is rewritten: it leads with the OPL2 as the
+  machine's chip and marks the SIDs "off unless chosen". Recapture.
+- `HUSH` now silences the OPL2 as well as the SIDs.
+- **BBC BASIC's `SOUND` statement is silent as the machine ships**, and so is
+  Mad Pascal's `Sound`, and so is any EhBASIC example that POKEs `$D400`.
+  Nothing is broken — they drive the SIDs, and the SIDs are muted. Until the
+  sequencer learns the OPL2 (`docs/TODO.md`), any sound example in the
+  handbook needs `audio.chip = reSID` in `k4510.cfg` stated beside it, or it
+  will read as a machine that does not work.
+- `fs/SID` is still a symlink to `sidfiles/EC64SC_SID_Files` with nothing left
+  to read it. Doc's call whether it goes.

@@ -18,9 +18,10 @@ Thank you:
 - **Dag Lem** — [reSID](https://en.wikipedia.org/wiki/ReSID), the
   SID emulation behind all four sound chips (as shipped in VICE 3.3).
 - **Teemu Rantanen, Michael Schwendt, Ettore Perazzoli** and VICE's
-  team — FastSID, the second SID engine: the same four chips for about a
-  twentieth of the work, which is what makes four of them affordable on a
-  Raspberry Pi. Taken from VICE 3.3 as BMC64 vendors it.
+  team — FastSID, which was the machine's second SID engine from
+  2026-08-30 until 2026-09-01. It is no longer in the tree (the machine
+  sounds through its OPL2 now), but it did the job it was brought in for
+  and the thanks stand.
 - **Jarek Burczynski** and **Tatsuyuki Satoh** — fmopl, the OPL/OPL2 FM
   sound generator written for MAME, which is the machine's YM3812 at
   $D480; and **Marco van den Heuvel**, who adapted it for VICE, where

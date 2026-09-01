@@ -48,17 +48,16 @@ that the code is unknown; those are listed again at the end.
 | Altered | No. |
 | Verify | `dir: 69adec626fd3713d` |
 
-## FastSID
+## FastSID — REMOVED 2026-09-01
 
-| | |
-|---|---|
-| Role | The second SID engine: the same four chips, stepped once per output sample from wavetables rather than cycle by cycle. Roughly a twentieth of reSID's cost, and it does not sound the same. The two are mutually exclusive. |
-| Local path | `core/fastsid/` — `fastsid.c`, `fastsid.h`, `fixpoint.h`, `wave6581.h`, `wave8580.h`. The wrapper `core/fsid.c` is ours. |
-| Upstream | VICE (https://vice-emu.sourceforge.io/), by Teemu Rantanen, Michael Schwendt and Ettore Perazzoli. Taken from **BMC64's** vendored copy — `third_party/vice-3.3/src/sid/` in https://github.com/randyrossi/bmc64 — which is what the Pi side already builds against. |
-| Version | VICE 3.3 with BMC64's changes, vendored 2026-08-30. Its `RASPI_COMPILE` blocks are present but not compiled: they assume two SIDs and the K4510 has four. `core/fastsid/VENDORED-FROM.txt` |
-| Licence | GPL-2.0-or-later |
-| Altered | No — the five files above are byte-for-byte upstream. Every other header in that directory is a K4510 shim standing in for the emulator `fastsid.c` expects around it (an allocator, a CPU clock, two settings, the hook struct). |
-| Verify | `dir: 052b449b6300892b` (the five upstream files only) |
+VICE's wavetable SID engine was vendored here on 2026-08-30 and removed on
+2026-09-01, in the consolidation that made the machine an OPL2 machine.  It
+had been the cheap answer to a Pi that could not afford four cycle-accurate
+SIDs; once the Pi stopped sounding SIDs at all, it was a second engine for a
+chip neither host plays by default, and it was the one that sounded worst.
+No file of it remains in the tree (`core/fastsid/`, `core/fsid.[ch]`); the
+git history has all of it, unaltered from upstream, if it is ever wanted
+back.  Nothing else here depended on it.
 
 ## fmopl (the OPL2)
 

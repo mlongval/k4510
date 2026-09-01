@@ -16,6 +16,7 @@
 #define DMA    0xD200u
 #define FS     0xD300u
 #define SID0   0xD400u
+#define FM     0xD480u          /* the OPL2: $D480 address port, $D481 data */
 #define SYS    0xD500u
 #define SYSOPT_STATUS 0x08           /* $D521 bit 3: the host's status-bar mode is switched on */
 #define BANK   0xD600u
@@ -887,8 +888,9 @@ static void info_video(void)
 static void info_sound(void)
 {
     uint8_t c, v, gates;
-    label("SOUND"); puts_("SID 6581 (reSID): "); putdec(REG(SYS + 0x2C));
-    puts_(" of 4 clocked at $D400 $D420 $D440 $D460, mono mix"); newline();
+    label("SOUND"); puts_("OPL2 (YM3812) at $D480, nine FM voices -- the machine's chip"); newline();
+    pad(8); puts_("SID 6581 (reSID): "); putdec(REG(SYS + 0x2C));
+    puts_(" of 4 at $D400/20/40/60, off unless chosen"); newline();
     for (c = 0; c < 4; c++) {
         uint16_t b = SID0 + c * 0x20;
         gates = 0; for (v = 0; v < 3; v++) if (REG(b + 4 + v * 7) & 1) gates |= 1 << v;
@@ -896,7 +898,6 @@ static void info_sound(void)
         puts_(", gates "); k_chrout((gates & 1) ? '1' : '-'); k_chrout((gates & 2) ? '2' : '-'); k_chrout((gates & 4) ? '3' : '-');
         puts_(", filter $"); puthex(REG(b + 0x17)); newline();
     }
-    pad(8); puts_("OPL2 at $D480: not fitted yet"); newline();
 }
 
 static void info_files(void)
@@ -1062,11 +1063,22 @@ static void cmd_swap(const char *p)
     REG(DMA + 12) = 1;
 }
 
-/* RENAME old new / CP old new: two names, the second passed via the ADDR reg */
+/* RENAME old new / CP old new: two names, the second passed via the ADDR reg
+ *
+ * The device takes the HOST's semantics, which is to say it overwrites the
+ * destination in silence -- the same trap that cost RANGER's first trash a
+ * file (docs/BUILD-LOG.md, 2026-08-29).  Down here it is worse, because this
+ * is what a person types: RENAME onto an existing name, or CP over one, and
+ * the old contents are gone with nothing said.  So ask first, with STAT, and
+ * refuse.  -f overwrites, spelled the way RM spells it, because a default
+ * you cannot get out of is a restriction rather than a default. */
 static void cmd_two(uint8_t cmdno, const char *p)
 {
     char a[NAMEMAX], b[NAMEMAX];
-    if (!getname(&p, a) || !getname(&p, b)) { error("old new?"); return; }
+    uint8_t force = 0;
+    if (is_cmd(&p, "-f")) force = 1;
+    if (!getname(&p, a) || !getname(&p, b)) { error("old new?  (-f overwrites)"); return; }
+    if (!force) { fs_name(b); if (!fs_cmd(8)) { error("exists: -f overwrites"); return; } }
     fs_name(a); w32(FS + 8, (uint16_t)b);
     if (fs_cmd(cmdno)) error("failed");
 }
@@ -1095,11 +1107,26 @@ static void cmd_xd(const char *p)
     fs_cmd(5);
 }
 
+/* HUSH: stop every noise the machine can be making.
+ *
+ * It used to zero the four SIDs and flush the sound sequencer, which was the
+ * whole of the machine's sound.  Since 2026-09-01 it is not: the OPL2 has the
+ * machine, and a HUSH that leaves nine FM voices sounding is not a hush.  Key
+ * off all nine ($B0-$B8, bit 5) and drop their levels; the SIDs and the
+ * sequencer are still done too, because either may be what is making the
+ * noise depending on audio.chip, and HUSH is what you type when you do not
+ * want to have to know which. */
 static void cmd_hush(const char *p)
 {
     uint8_t c, r; (void)p;
     REG(SYS + 0xE0) = 0x80;
     for (c = 0; c < 4; c++) for (r = 0; r < 25; r++) REG(SID0 + (uint16_t)c * 32 + r) = 0;
+    for (c = 0; c < 9; c++) {                       /* key off, then silence both operators */
+        REG(FM) = (uint8_t)(0xB0 + c); REG(FM + 1) = 0;
+    }
+    for (r = 0x40; r <= 0x55; r++) {                /* total level: $3F is quietest */
+        REG(FM) = r; REG(FM + 1) = 0x3F;
+    }
     puts_("hushed"); newline();
 }
 #pragma code-name (pop)
@@ -1747,7 +1774,7 @@ static void banner(void)
          * force is INFO's business, and it says it in kHz. */
         case 2: fg = C_FG; puts_("CPU: 45GS10"); break;
         case 3: fg = C_FG;  puts_("RAM: 256 000 000 bytes"); break;
-        case 4: fg = C_FG;  puts_("CHIPS: 1-4 reSID, VICKY, SHEILA, FRED, JIM"); break;
+        case 4: fg = C_FG;  puts_("CHIPS: OPL2, 4 SIDs, VICKY, SHEILA, FRED, JIM"); break;
         }
         fg = ofg;
         newline();

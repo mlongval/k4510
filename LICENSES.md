@@ -15,7 +15,6 @@ where each one came from and how to verify it):
 |---|---|---|
 | `core/xemu/cpu65.c`, `cpu65.h`, `cpu65_mega65_timings.h`, `cpu65ce02_disasm_tables.c` | 65xx / 45GS02 CPU core from Xemu, Gábor Lénárt | GPL-2.0-or-later |
 | `core/resid/` | reSID, Dag Lem (as shipped in VICE 3.3) | GPL-2.0-or-later |
-| `core/fastsid/` (`fastsid.c`, `fastsid.h`, `fixpoint.h`, `wave6581.h`, `wave8580.h`) | FastSID, Teemu Rantanen / Michael Schwendt / Ettore Perazzoli, from VICE 3.3 as vendored by BMC64. The other headers there are K4510 shims. | GPL-2.0-or-later |
 | `core/opl2/` (`fmopl.c`, `fmopl.h`) | fmopl 0.72 — the OPL/OPL2 FM sound generator, Jarek Burczynski and Tatsuyuki Satoh (MAME), adapted for VICE by Marco van den Heuvel. The other headers there are K4510 shims. | GPL-2.0-or-later |
 | `tube/` | BBCSDL console edition ("BBCTTY"), Richard T. Russell (vendored, altered -- see `tube/ALTERED.md`; the name "BBC BASIC" is Richard Russell's interpreter's, and this project holds no licence to it) | zlib |
 | `data/font8.bin`, built by `data/mkfont.py` | the Linux kernel's 8x8 console font (`lib/fonts/font_8x8.c`) | GPL-2.0 |

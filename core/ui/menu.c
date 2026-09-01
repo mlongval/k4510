@@ -23,11 +23,12 @@ static const item_t video_items[] = {
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
     { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
 };
+/* No "Sound chip" and no "Active SIDs" row since 2026-09-01: the machine is
+ * an OPL2 machine on both hosts, and the OPL2 is one chip with nine voices,
+ * so neither row has anything left to choose.  The settings themselves are
+ * still there and still honoured -- `audio.chip = reSID` in k4510.cfg brings
+ * the four SIDs back -- they are just not offered. */
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
-#ifndef K4510_PI
-                                      { "Sound chip", MI_SETTING, SET_AUDIO_CHIP },    /* the Pi has only the OPL2: nothing to choose */
-                                      { "Active SIDs", MI_SETTING, SET_AUDIO_SIDS },   /* and the OPL2 is one chip with nine voices */
-#endif
                                       { "Sound on core 3", MI_SETTING, SET_AUDIO_CORE3 } };
 static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },
@@ -66,7 +67,7 @@ static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
 };
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
-static const menu_t audio_menu   = { "Audio",   audio_items,   4 };
+static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
 static const menu_t machine_menu = { "Machine", machine_items, (int)(sizeof machine_items / sizeof machine_items[0]) };   /* was a hard 8: the CPU clock entry never drew */
 static const menu_t shell_menu   = { "Shell",   shell_items,   2 };

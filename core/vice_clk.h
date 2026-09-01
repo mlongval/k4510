@@ -1,5 +1,5 @@
 /* The machine's microsecond clock, shared by the two pieces of VICE the
- * K4510 vendors: FastSID ages its last register store against it, and the
+ * K4510 vendors: the OPL2 ages its last register store against it, and the
  * OPL2 sets its two timers by it.  It is NOT the CPU's clock -- the CPU's
  * rate is a setting and moves -- so a timer period means the same number of
  * microseconds whatever the machine is clocked at.  core/sid.cc advances it

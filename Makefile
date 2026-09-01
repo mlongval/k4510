@@ -22,16 +22,15 @@ FORCE:
 CXX     ?= g++
 CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
 RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-FASTSID_OBJS = core/fastsid/fastsid.o core/fsid.o
 OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sidq.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/calib.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS) $(FASTSID_OBJS) $(OPL2_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS) $(OPL2_OBJS)
 LDLIBS  = -lstdc++ -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/opl2.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/oplplay.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/oplplay.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -91,14 +90,8 @@ core/ui/settings.o: core/ui/settings.c core/ui/settings.h
 core/ui/menu.o: core/ui/menu.c core/ui/menu.h core/ui/settings.h core/ui/ui_draw.h core/io.h
 core/ui/ui_draw.o: core/ui/ui_draw.c core/ui/ui_draw.h
 core/io.o: core/ui/menu.h
-core/sid.o: core/sid.cc core/sid.h core/fsid.h
+core/sid.o: core/sid.cc core/sid.h core/opl2.h
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-core/fsid.o: core/fsid.c core/fsid.h core/sid.h core/fastsid/fastsid.h
-	$(CC) $(CFLAGS) -Icore/fastsid -c -o $@ $<
-# VICE's fastsid.c is used unaltered; core/fastsid/ holds it and the shim
-# headers that stand in for the emulator it came from.
-core/fastsid/fastsid.o: core/fastsid/fastsid.c
-	$(CC) $(CFLAGS) -Icore/fastsid -Wno-unused-parameter -c -o $@ $<
 core/opl2.o: core/opl2.c core/opl2.h core/vice_clk.h core/opl2/fmopl.h
 core/vice_clk.o: core/vice_clk.c core/vice_clk.h core/opl2/alarm.h
 # MAME's fmopl.c, by way of VICE, used unaltered; core/opl2/ holds it and the
@@ -177,16 +170,16 @@ test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/wozt
 	./test/deletetest.sh
 
 clean: clean-demos
-# Only the .s files cc65 generates -- one per .c, plus the three built under a
-# different name.  `rm -f demo/*.s` used to be here, and it deleted six
-# HAND-WRITTEN sources (prg0.s, romcalls.s, the three *-header.s, sidplay0.s):
-# a clean checkout could not be built after a `make clean`.
+# Only the .s files cc65 generates -- one per .c, plus the two built under a
+# different name.  `rm -f demo/*.s` used to be here, and it deleted the
+# HAND-WRITTEN sources (prg0.s, romcalls.s, the *-header.s files): a clean
+# checkout could not be built after a `make clean`.
 GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c)) \
-        demo/tiny_c.s demo/segdemo_c.s demo/sidplay_c.s
+        demo/tiny_c.s demo/segdemo_c.s
 clean-demos:
 	rm -f $(DEMOS) demo/*.o $(GEN_S) demo/*.map
 
-	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o core/fastsid/*.o core/opl2/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
+	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o core/opl2/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 
@@ -203,7 +196,7 @@ fs/PRG/%.prg: demo/pas/%.pas $(wildcard pascal/mp/base/k4510/*) $(wildcard pasca
 	$(MADS) demo/pas/$*.a65 -x -i:$(MP_DIR)/base -o:$@ >/dev/null
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sids.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/romout.prg fs/PRG/sid6.prg fs/PRG/sid12.prg fs/PRG/opl2.prg fs/PRG/sidplay.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/oplplay.prg
+DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/oplplay.prg
 # bomber: the Bomb Party sheet (CC-BY 3.0, data/bombparty/) as arena tiles and
 # sprites; tools/mkbomber.py crops, composites and palettizes into bomber.h
 demo/bomber.h: tools/mkbomber.py data/bombparty/bomb_party_v4.png
@@ -216,7 +209,7 @@ demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s
 	ca65 --cpu 65c02 -o $@ $<
-fs/PRG/%.prg: demo/%.c demo/k4510.h demo/far.h demo/sidorch.h demo/prg0.o demo/romcalls.o demo/prg.cfg
+fs/PRG/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
@@ -239,12 +232,6 @@ fs/PRG/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h
 	ld65 -C demo/seg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/segdemo_c.o demo/segdemo_h.o none.lib -m demo/segdemo.map
 
 # the SID player: a cc65 program under the ROM ($E000, block 7 banked by the K4SG loader)
-fs/PRG/sidplay.prg: demo/sidplay.c demo/sidplay0.s demo/sidplay-header.s demo/sidplay.cfg demo/far.h demo/k4510.h demo/romcalls.o
-	cc65 -O -t none --cpu 65c02 -o demo/sidplay_c.s demo/sidplay.c
-	ca65 --cpu 65c02 -o demo/sidplay_c.o demo/sidplay_c.s
-	ca65 --cpu 65c02 -o demo/sidplay0.o demo/sidplay0.s
-	ca65 --cpu 65c02 -o demo/sidplay_h.o demo/sidplay-header.s
-	ld65 -C demo/sidplay.cfg -o $@ demo/sidplay0.o demo/romcalls.o demo/sidplay_c.o demo/sidplay_h.o none.lib -m demo/sidplay.map
 
 # Microsoft BASIC for 6502 as a .prg at $7000 (msbasic/: mist64's ca65
 # reconstruction of Microsoft's MIT source release, vendored unmodified --

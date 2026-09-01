@@ -63,4 +63,41 @@ RUN
 ' 3000 2>&1) || fail "MS BASIC did not run (break test)"
 echo "$out" | grep -q "BREAK IN  10"   || fail "Ctrl-C did not break into line 10"
 
-echo "msbasictest: OK (cold start answered, echo, FOR/NEXT, 9-digit FP, strings, case folding, Ctrl-C break)"
+# ---- star commands --------------------------------------------------------
+# A line beginning with "*" at the READY prompt belongs to K:OS, not to
+# BASIC.  Three things are worth guarding, and each of them broke once:
+#
+#  1. the line reaches the shell at all.  The read loop cannot keep its index
+#     in Y -- the ROM's jump-table stubs do not preserve it (rom/crt0.s) --
+#     and when it did, the shell was handed an empty line and printed
+#     nothing, silently, which looked exactly like the feature not existing.
+#  2. *BYE returns to the shell, in the same directory, at a working prompt.
+#     It gets there by putting back the stack frame saved before COLD_START.
+#  3. a "*" typed at an INPUT prompt inside a running program is DATA.  The
+#     guard is CURLIN+1 = $FF, MS BASIC's own direct-mode marker.
+out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+RUN msbasic
+*ECHO STARWORKS
+PRINT 1
+' 12000 2>&1) || fail "MS BASIC did not run (star test)"
+echo "$out" | grep -q "^STARWORKS" || fail "*ECHO did not reach the K:OS shell"
+echo "$out" | grep -q "^ 1"        || fail "BASIC did not get its prompt back after a star command"
+
+out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+RUN msbasic
+*BYE
+ECHO BACKINSHELL
+' 12000 2>&1) || fail "MS BASIC did not run (BYE test)"
+echo "$out" | grep -q "BACKINSHELL"  || fail "*BYE did not return to a working shell"
+echo "$out" | grep -q "/MSBASIC]"    || fail "*BYE lost the shell's working directory"
+
+out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+RUN msbasic
+10 INPUT A$
+20 PRINT "GOT ";A$
+RUN
+*ZZ
+' 16000 2>&1) || fail "MS BASIC did not run (INPUT test)"
+echo "$out" | grep -q "GOT \*ZZ" || fail "a star at an INPUT prompt was eaten as a command"
+
+echo "msbasictest: OK (cold start answered, echo, FOR/NEXT, 9-digit FP, strings, case folding, Ctrl-C break, star commands, *BYE)"

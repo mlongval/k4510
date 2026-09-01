@@ -1,7 +1,6 @@
 #include "resid/sid.h"
 extern "C" {
 #include "sid.h"
-#include "fsid.h"
 #include "opl2.h"
 #include "vice_clk.h"
 #include "sidq.h"
@@ -11,10 +10,9 @@ extern "C" {
 static reSID::SID chips[K4510_SIDS];
 static double cpu_hz = 40500000.0; static int rate = 48000;
 static bool active[K4510_SIDS];                  /* written since reset: clocked and mixed */
-static uint8_t shadow[K4510_SIDS][32];           /* every register as last written: replayed into the other engine on a switch */
-static int  engine = SID_ENGINE_RESID;
+static uint8_t shadow[K4510_SIDS][32];           /* every register as last written */
 static int  muted;                               /* the OPL2 has the sound (they are mutually exclusive) */
-static double fast_acc = 0;                      /* FastSID counts SAMPLES, not cycles */
+static double out_acc = 0;                       /* the muted path counts SAMPLES, not cycles */
 static double clk_frac = 0;                      /* the microsecond clock's fraction; see clk_advance_us */
 static short carry[K4510_SIDS][8]; static int ncarry[K4510_SIDS];   /* the phase surplus; see sid_render */
 static int  sid_max = K4510_SIDS;                /* the menu caps how many chips are clocked: on the Pi four sounding
@@ -31,7 +29,6 @@ extern "C" void sid_set_clock(int sel)          /* 0 = 1 MHz, 1 = PAL C64 (98524
 {
     SID_HZ = sel == 1 ? 985248.0 : sel == 2 ? 1022730.0 : 1000000.0;
     for (int i = 0; i < 4; i++) chips[i].set_sampling_parameters(SID_HZ, reSID::SAMPLE_FAST, sid_rate_saved);
-    fsid_set_clock(SID_HZ);
 }
 
 extern "C" void sid_init(double hz, int sample_rate)
@@ -43,24 +40,22 @@ extern "C" void sid_init(double hz, int sample_rate)
         chips[i].set_sampling_parameters(SID_HZ, reSID::SAMPLE_FAST, rate);
         chips[i].reset();
     }
-    fsid_init(SID_HZ, rate);
     opl2_init(rate);
 }
 extern "C" void sid_set_cpu_hz(double hz) { cpu_hz = hz; }   /* the CPU clock changed: same SID clock, different ratio */
 extern "C" void sid_reset(void)
 {
-    sid_acc = 0; fast_acc = 0;
+    sid_acc = 0; out_acc = 0;
     memset(shadow, 0, sizeof shadow);
     for (int i = 0; i < K4510_SIDS; i++) { chips[i].reset(); active[i] = false; ncarry[i] = 0; }
-    fsid_reset(); opl2_reset(); vice_clk_reset(); clk_frac = 0; sidq_reset();
+    opl2_reset(); vice_clk_reset(); clk_frac = 0; sidq_reset();
 }
 /* The write, once it is the rendering side's turn to perform it. */
 static void sid_apply(int c, uint8_t r, uint8_t v)
 {
     if (c == K4510_SIDS) { opl2_apply(r, v); return; }   /* the OPL2 rides the same queue */
     active[c] = true;
-    if (engine == SID_ENGINE_FAST) fsid_write(c, (uint8_t)(r & 0x1F), v);
-    else chips[c].write(r & 0x1F, v);
+    chips[c].write(r & 0x1F, v);
 }
 extern "C" void sid_write(int c, uint8_t r, uint8_t v)
 {
@@ -77,34 +72,14 @@ extern "C" void sid_drain_to(uint32_t us) { sidq_drain(us, sid_apply); }
 extern "C" uint8_t sid_read(int c, uint8_t r)
 {
     if (c < 0 || c >= K4510_SIDS) return 0xFF;
-    return engine == SID_ENGINE_FAST ? fsid_read(c, r) : chips[c].read(r & 0x1F);
+    return chips[c].read(r & 0x1F);
 }
 extern "C" void sid_set_model(int c, int m8580)
 {
     if (c < 0 || c >= K4510_SIDS) return;
     chips[c].set_chip_model(m8580 ? reSID::MOS8580 : reSID::MOS6581);
-    fsid_set_model(c, m8580);
 }
-extern "C" int sid_get_engine(void) { return engine; }
 extern "C" void sid_set_mute(int m) { muted = m ? 1 : 0; }
-/* Switching engine mid-note: the registers are replayed into the one being
- * turned on, so a tune carries across.  Only the registers -- the oscillator
- * and envelope state inside the old engine has no counterpart in the new one,
- * so a note that is sounding restarts its envelope.  That is the whole cost,
- * and it is heard once. */
-extern "C" void sid_set_engine(int e)
-{
-    e = (e == SID_ENGINE_FAST) ? SID_ENGINE_FAST : SID_ENGINE_RESID;
-    if (e == engine) return;
-    engine = e;
-    for (int c = 0; c < K4510_SIDS; c++) {
-        if (!active[c]) continue;
-        for (int r = 0; r < 32; r++)
-            if (engine == SID_ENGINE_FAST) fsid_write(c, (uint8_t)r, shadow[c][r]);
-            else chips[c].write(r, shadow[c][r]);
-    }
-}
-
 /* Samples a chip produced that its neighbours have not caught up with yet.
  * A call advances every clocked chip by the same number of SID cycles, but
  * each chip carries its OWN resampling phase, and the phases do not agree:
@@ -125,7 +100,7 @@ extern "C" void sid_set_engine(int e)
  * surplus goes here and is prepended to that chip's next call.  All four run
  * at one average rate, so a carry never holds more than a sample or two. */
 /* The machine's microsecond clock (core/vice_clk.h) moves with the sound, so
- * it moves at the same rate whichever engine is rendering and whether the
+ * it moves at the same rate whichever chip is rendering and whether the
  * SIDs are the ones being heard.  Fractions are kept, or the OPL2's timers
  * would run slow by however much is thrown away each call. */
 static void clk_advance_us(double us)
@@ -141,29 +116,22 @@ extern "C" int sid_render(int cycles, int16_t *out, int max)
 {
     static short tmp[K4510_SIDS][4096];
     int n = 0, nact = 0, got[K4510_SIDS];
-    /* FastSID advances per OUTPUT SAMPLE, not per cycle, so it is asked for a
-     * sample count and every chip hands back exactly that: none of the phase
-     * reconciliation below applies to it.  The count comes straight from the
-     * CPU cycles, on its own accumulator, so switching engine does not lose
-     * or duplicate a fraction of a sample. */
-    if ((engine == SID_ENGINE_FAST || muted) && true) {
-        int sounding[K4510_SIDS];
-        fast_acc += (double)cycles * rate / cpu_hz;
-        int want = (int)fast_acc; fast_acc -= want;
+    /* Muted means the SIDs are not the ones sounding -- which since
+     * 2026-09-01 is the machine's normal state, the OPL2 being the default.
+     * This path counts OUTPUT SAMPLES rather than SID cycles, on its own
+     * accumulator: none of the phase reconciliation below applies, because
+     * whatever renders here hands back exactly the count it was asked for.
+     * If nothing at all is selected the ring is still fed silence at the
+     * device's rate, or the frontend would top it up for ever. */
+    if (muted) {
+        out_acc += (double)cycles * rate / cpu_hz;
+        int want = (int)out_acc; out_acc -= want;
         if (want <= 0) return 0;
-        if (want > max) { fast_acc += want - max; want = max; }
+        if (want > max) { out_acc += want - max; want = max; }
         clk_advance_samples(want);
-        /* Muted means the SIDs are not the ones sounding.  If the OPL2 is what
-         * the machine has instead, it renders here; if nothing is selected the
-         * ring is still fed silence at the device's rate, or the frontend
-         * would top it up for ever. */
-        if (muted) {
-            if (opl2_enabled()) return opl2_render(want, out, max);
-            for (int i = 0; i < want; i++) out[i] = 0;
-            return want;
-        }
-        for (int c = 0; c < K4510_SIDS; c++) sounding[c] = active[c] ? 1 : 0;
-        return fsid_render(want, out, max, sid_max, sounding);
+        if (opl2_enabled()) return opl2_render(want, out, max);
+        for (int i = 0; i < want; i++) out[i] = 0;
+        return want;
     }
     sid_acc += (double)cycles * SID_HZ / cpu_hz;
     int sid_cycles = (int)sid_acc; sid_acc -= sid_cycles;

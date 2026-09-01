@@ -79,18 +79,19 @@ on, and the BMC-K4510 boots in about three seconds.
   blitter with copy/fill/logic/line/triangle ops, and **SHEILA**, a
   display-list coprocessor in the Amiga copper's tradition. No video RAM:
   every pointer is a 28-bit address.
-- **Sound: three chips, one at a time.** One to four **SIDs** at $D400,
-  through either of two engines — **reSID** (Dag Lem's, cycle-accurate,
-  and what a 6581 sounds like) or **FastSID** (VICE's, stepped once per
-  output sample, and measured here at an eighth of reSID's cost with four
-  chips sounding). Or an **OPL2** at $D480, a Yamaha YM3812 with nine FM
-  voices, wired the AdLib's way — an address port, a data port, a status
-  register — so any AdLib register list or instrument patch means what it
-  says. F7 → Audio → Sound chip picks one; they are mutually exclusive,
-  which is the honest arrangement on a Pi, where the frame will not hold
-  two. Active SIDs (1-4) applies to whichever SID engine is chosen.
-  `SIDS`, `SID6` and `SID12` play the same progression on the SIDs that
-  `OPL2` plays on the FM chip, so you can hear the difference.
+- **Sound: an OPL2, with four SIDs behind it.** The machine sounds
+  through a **YM3812** at $D480 — nine FM voices wired the AdLib's way,
+  an address port, a data port, a status register, so any AdLib register
+  list or instrument patch means what it says. `OPLPLAY` plays `.OPL`
+  streams; `tools/vgm2opl.py` makes them from VGM/VGZ logs.
+  One to four **SIDs** are still there at $D400, still cycle-accurate
+  (reSID, Dag Lem's), still emulated register for register — but they are
+  **off by default on both hosts** as of 2026-09-01, because on a Pi they
+  do not sound good enough to be what the machine is. The two are
+  mutually exclusive; `audio.chip = reSID` in `k4510.cfg` gives the SIDs
+  the sound back, and there is no menu row for it. The demos that showed
+  them off (`SIDS`, `SID6`, `SID12`, `SIDPLAY`) moved to `retired/` the
+  same day: a demo playing into a muted chip demonstrates nothing.
 - **MATH unit:** eight IEEE-single registers with in-place ops and the
   transcendentals, a MEGA65-compatible multiplier/divider, and **math
   lists** — programs the unit runs by itself.
@@ -136,7 +137,6 @@ on, and the BMC-K4510 boots in about three seconds.
   with counts, operators, unlimited undo, `:s`, `:map`/`:imap`, a
   `/SYSTEM/VI.RC` startup file, and the whole file in far memory — 32000
   lines. `*SWAP EDIT name` edits from inside a BASIC.
-- **SID player:** `SIDPLAY`, a chooser over `fs/SID`.
 - **Two file managers,** because they are two different ideas about what
   one is for: `KOMMANDER`, two panels and function keys, and `RANGER`,
   three miller columns and vi's fingers. Enter on a directory descends;
@@ -191,12 +191,12 @@ it in the tree is the K4510 itself, and boots identically either way.
     core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
     core/        memory, I/O devices, VICKY, SID glue, MATH unit, JIM, the network, host seam
     core/resid/  reSID (GPL-2.0-or-later)
-    core/fastsid/ FastSID, from VICE by way of BMC64 (GPL-2.0-or-later)
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend (desktop and Pi alike) + POSIX host glue
     pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout
     rom/         system ROM (cc65) and Wozmon
     demo/        programs in C -> fs/PRG/*.prg  (the editors, TELNET, BUG, the demos)
+    retired/     programs that were part of the machine and are not any more (see its README)
     basic/       EhBASIC 2.22 + K4510 glue
     forth/       Tali Forth 2 (vendored) + the platform file
     tube/        Richard Russell's BBC BASIC, console edition (vendored, altered as marked)

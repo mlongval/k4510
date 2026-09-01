@@ -4,6 +4,10 @@
 #include <string.h>
 #include <stdlib.h>
 
+/* Bumped when an old file needs interpreting differently; see settings_load. */
+#define SETTINGS_VERSION     2
+#define SETTINGS_VERSION_STR "2"
+
 static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen",   /* "C64 chargen" is renamed by the host if /SYSTEM/chargen.bin is absent */
     "Bauhaus", "Broadway", "Computer", "Cyberwire", "NLQ", "Benguiat",   /* ZX Origins, in the FONT_ZX_* order */
     "Chicago", "Courier", "Eurostile", "OCR-A", "Pristine", "Anvil" };
@@ -11,22 +15,20 @@ static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
 static const char *const sids_names[]  = { "1", "2", "3", "4" };
-/* The three are mutually exclusive by construction.  reSID models the SID
- * cycle by cycle; FastSID is VICE's, a twentieth of the work and a different
- * sound; the OPL2 is the AdLib's YM3812 at $D480 and is not a SID at all.
- * Active SIDs applies to whichever SID engine is chosen and is ignored by the
- * OPL2, which is one chip with nine voices. */
-#ifdef K4510_PI
-/* The Pi is an OPL2 machine (Doc, 2026-09-01: "both reSID and FastSid sound
- * terrible [there], OPL2 however sounds really nice").  Neither SID engine is
- * deleted -- they are still built, still tested, and still the desktop's
- * default -- but the Pi does not offer them, and forces the OPL2 on regardless
- * of what an older k4510.cfg carried over from a desktop.  One label, so the
- * row cannot be stepped somewhere the hardware will not follow. */
-static const char *const chip_names[]  = { "OPL2" };
-#else
-static const char *const chip_names[]  = { "reSID", "FastSID", "OPL2" };
-#endif
+/* The two are mutually exclusive by construction: reSID models the SID cycle
+ * by cycle, and the OPL2 is the AdLib's YM3812 at $D480, which is not a SID
+ * at all.  The machine is an OPL2 machine as of 2026-09-01 -- that is the
+ * default and there is no menu row to change it (core/ui/menu.c).  The
+ * setting stays, because a setting is how you get the SIDs back: put
+ * `audio.chip = reSID` in k4510.cfg and they sound.  Active SIDs (audio.sids)
+ * likewise applies only to them, and the OPL2 ignores it, being one chip with
+ * nine voices.
+ *
+ * FastSID was the third entry here and was cut; a config file that still says
+ * "FastSID" is read as OPL2 rather than silently landing on reSID. */
+static const char *const chip_names[]  = { "reSID", "OPL2" };
+#define CHIP_RESID 0
+#define CHIP_OPL2  1
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
                                            "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
@@ -51,12 +53,8 @@ static const set_desc desc[SET_COUNT] = {
      * right for every host, which is why it is a row and not a decision. */
     { "video.vsync",         "Vertical sync",  ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
-    { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four */
-#ifdef K4510_PI
-    { "audio.chip",          "Sound chip",     ST_ENUM,  0, 0, 0, 0, chip_names, 1, SF_LIVE },   /* the only one: OPL2 */
-#else
-    { "audio.chip",          "Sound chip",     ST_ENUM,  0, 0, 0, 0, chip_names, 3, SF_LIVE },   /* 0 reSID, 1 FastSID, 2 OPL2 */
-#endif
+    { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four; only meaningful if audio.chip is reSID */
+    { "audio.chip",          "Sound chip",     ST_ENUM,  CHIP_OPL2, 0, 0, 0, chip_names, 2, SF_LIVE },   /* not in the menu: see chip_names */
     /* The Pi's core 3 holds the Tube and is asleep until the ROM runs BBC or
      * CPM, which on most sessions is never; the sound can have it until then.
      * Off by default: it moves the audio path onto another core, and that is
@@ -159,6 +157,11 @@ static int find_key(const char *k) { for (int i = 0; i < SET_COUNT; i++) if (!st
 static int parse_value(set_id id, const char *v)
 {
     const set_desc *d = &desc[id];
+    /* A config written before FastSID was cut names an engine that no longer
+     * exists.  atoi("FastSID") is 0, which is reSID -- so without this it
+     * would quietly turn the SIDs back on for anyone who had chosen the
+     * cheapest sound.  Read it as the OPL2 instead: the machine's default. */
+    if (id == SET_AUDIO_CHIP && !strcasecmp(v, "FastSID")) return CHIP_OPL2;
     if (d->type == ST_ENUM || d->type == ST_CHORD) { for (int i = 0; i < d->nlabels; i++) if (!strcasecmp(d->labels[i], v)) return i; return clampv(id, atoi(v)); }
     if (d->type == ST_BOOL) return (!strcasecmp(v, "on") || !strcasecmp(v, "true") || !strcasecmp(v, "yes") || atoi(v)) ? 1 : 0;
     return clampv(id, atoi(v));
@@ -175,15 +178,30 @@ static int split(char *line, char **k, char **v)         /* "key = value" -> 1; 
 }
 int settings_load(const char *path)
 {
-    FILE *f = fopen(path, "r"); char line[256];
+    FILE *f = fopen(path, "r"); char line[256]; int filever = 1;
     settings_defaults();
     if (!f) return -1;
     while (fgets(line, sizeof line, f)) {
         char *k, *v; char copy[256]; strcpy(copy, line);
         if (!split(copy, &k, &v)) continue;
+        if (!strcmp(k, "version")) { filever = atoi(v); continue; }
         int id = find_key(k);
         if (id >= 0) value[id] = parse_value((set_id) id, v);
     }
+    /* MIGRATION, version 1 -> 2 (2026-09-01).  Every config written before
+     * this says `audio.chip = reSID`, because that was the default, and an
+     * explicit setting rightly beats a new default -- so without this, the
+     * machine would go on sounding through the SIDs on every host that has
+     * ever been run, which is all of them, and the change Doc asked for
+     * would appear not to have happened.  Worse on the Pi, which used to
+     * force the OPL2 in code and no longer does.
+     *
+     * So a version-1 file's audio.chip is treated as "never chosen" and
+     * reset to the default.  This costs the person who genuinely wanted the
+     * SIDs before today one line of editing, once.  A version-2 file is
+     * taken at its word, which is what makes the setting a real escape
+     * hatch from here on. */
+    if (filever < SETTINGS_VERSION) value[SET_AUDIO_CHIP] = desc[SET_AUDIO_CHIP].def;
     /* and again on the way in, in case the file was edited by hand */
     if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_MAX;
     fclose(f); changed = 0;
@@ -195,11 +213,17 @@ int settings_save(const char *path)
     FILE *f = fopen(path, "r"); char line[256];
     if (f) { while (nold < 128 && fgets(line, sizeof line, f)) { old[nold] = malloc(strlen(line) + 1); strcpy(old[nold++], line); } fclose(f); }
     f = fopen(path, "w"); if (!f) { for (int i = 0; i < nold; i++) free(old[i]); return -1; }
-    if (!nold) fprintf(f, "# K4510 settings -- written by the F7 menu; edit freely, unknown keys are kept\nversion = 1\n");
+    if (!nold) fprintf(f, "# K4510 settings -- written by the F7 menu; edit freely, unknown keys are kept\nversion = " SETTINGS_VERSION_STR "\n");
     for (int i = 0; i < nold; i++) {                      /* the old lines, known keys rewritten in place */
         char *k, *v; char copy[256]; strcpy(copy, old[i]);
-        int id = split(copy, &k, &v) ? find_key(k) : -1;
+        int split_ok = split(copy, &k, &v);
+        int id = split_ok ? find_key(k) : -1;
         if (id >= 0 && !seen[id]) { char b[32]; fprintf(f, "%s = %s\n", desc[id].key, file_text((set_id) id, b, sizeof b)); seen[id] = 1; }
+        /* The version line is the one unknown key that is NOT passed through:
+         * it has to be rewritten, or a migrated file would still say version 1
+         * and be migrated again on the next boot -- undoing, every time, any
+         * choice the person made after the first migration. */
+        else if (split_ok && !strcmp(k, "version")) fputs("version = " SETTINGS_VERSION_STR "\n", f);
         else if (id < 0) fputs(old[i], f);
         free(old[i]);
     }

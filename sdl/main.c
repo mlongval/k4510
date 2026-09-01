@@ -19,7 +19,7 @@
 #include "../core/sidq.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
-#include "../core/calib.h"
+#include "../core/hostid.h"
 #include "../core/ui/menu.h"
 #include "../core/ui/ui_draw.h"
 #include "../core/state.h"
@@ -60,14 +60,8 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
 /* the emulated clock is a setting (cpu.clock): full on the desktop, 20 MHz on
  * the Pi by default, where the whole machine would otherwise run at 20 fps */
 static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGHT;
-/* for core/calib.c: the SDL performance counter in milliseconds, and how much
- * of a frame the chosen clock may use.  0.7 leaves room for a program heavier
- * than the workload and for the frontend's own share of the frame -- the
- * texture and the present are outside what calibration times. */
-static double sdl_now_ms(void) { return (double)SDL_GetPerformanceCounter() * 1000.0 / (double)SDL_GetPerformanceFrequency(); }
 /* what the guest reads at SYS+$36: the wall clock, not the frame count */
 static uint32_t sdl_ms_now(void) { return (uint32_t)SDL_GetTicks(); }
-#define CALIB_MARGIN 0.7
 /* the governor steps down above this much of the frame spent inside the
  * machine: 14 ms of 16.67 leaves the frontend its texture and its present,
  * and a machine costing more than that is not holding 60 frames a second */
@@ -318,52 +312,30 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
     SDL_StartTextInput();
     /* ---- the clock: measured, not guessed (docs/CPU-CLOCK-POLICY.md) ------
-     * With cpu.auto on, the first boot on a host runs the real core over a
-     * fixed workload with sound on, fits the line, and sets cpu.clock to the
-     * highest step that leaves margin; the answer is kept in k4510.cfg with
-     * the host it was measured on, so later boots pay nothing.  A clock
-     * chosen in the menu turns auto off: an explicit setting always wins.
-     * The machine is power-cycled afterwards, SIDs included -- a chip once
-     * written is rendered until reset, sounding or not. */
+     * SETUP.prg measures this host and writes the answer to k4510.cfg with
+     * the host it was measured on.  With cpu.auto on, a later boot on the
+     * SAME host reuses it and pays nothing; on any other host the fingerprint
+     * disagrees and the machine runs at the compiled-in safe step until
+     * someone runs SETUP there.  A clock chosen in the menu turns auto off:
+     * an explicit setting always wins. */
     if (settings_get(SET_CPU_AUTO)) {
-        int hash = calib_host_hash();
-        if (settings_get(SET_CPU_HOST) == hash) {
+        if (settings_get(SET_CPU_HOST) == host_id_hash()) {
             settings_set(SET_CPU_CLOCK, settings_get(SET_CPU_MEASURED));
             io_set_clock_measured(1);
-        } else if (0) {                 /* the boot probe: kept, not run.  See below. */
-            calib_result cr; unsigned ladder[CPUCLK_COUNT]; static char host_line[96];
-            for (int i = 0; i < CPUCLK_COUNT; i++) ladder[i] = settings_cpu_hz_of(i);
-            int rc = calib_run(sdl_now_ms, ladder, CPUCLK_COUNT, 1000.0 / 60.0, CALIB_MARGIN, &cr);
-            settings_set(SET_CPU_MEASURED, cr.step); settings_set(SET_CPU_HOST, hash); settings_set(SET_CPU_CLOCK, cr.step);
-            settings_save(cfg);
-            fprintf(stderr, "clock: interpreter %.3f ms/MHz + %.2f, i/o %.3f ms/MHz + %.2f"
-                            " -> holds ~%.0f MHz; %s %.1f MHz%s\n",
-                    cr.phase_per[CALIB_INTERP], cr.phase_fixed[CALIB_INTERP],
-                    cr.phase_per[CALIB_IO], cr.phase_fixed[CALIB_IO], cr.ceiling_mhz,
-                    rc ? "too slow even for" : "chosen", cr.step_hz / 1e6, rc ? " (the lowest step)" : "");
-#ifdef K4510_PI
-            snprintf(host_line, sizeof host_line, "Raspberry Pi 3B+, Circle -- holds ~%.0f MHz", cr.ceiling_mhz);
-#else
-            snprintf(host_line, sizeof host_line, "desktop, SDL2 -- holds ~%.0f MHz", cr.ceiling_mhz);
-#endif
-            menu_info(INFO_HOST, host_line);
-            host_zero(k4510_ram, 0x10000); io_reset(); cpu65_reset();     /* the workload and the sounding SIDs go */
         } else {
             /* No measured clock for this host, and we do not stop to find one.
              * Doc's decision, 2026-08-27: the boot is instantaneous, always.
              * A machine nobody has measured runs at the compiled-in safe step
-             * -- 40.5 MHz on the desktop, 15 on the Pi -- and the banner says
-             * so, because a quiet guess is worse than a stated one.  SETUP.prg
-             * measures the machine properly, with sound and video and the
-             * network, and writes the answer here through SYS+$28.
+             * -- 40.5 MHz on the desktop, 15 on the Pi -- and SETUP.prg is how
+             * it gets measured properly, from inside the machine, with sound
+             * and video and the network really running.
              *
-             * calib.c is not deleted: it is still the honest two-phase engine,
-             * and the branch above is what would run it.  It is disabled rather
-             * than removed so that whoever wants a fast unattended measurement
-             * can turn it back on without rebuilding it from the design record.
-             * The engine leaves the machine dirty by contract, which is exactly
-             * why SETUP cannot call it from inside the machine and sweeps the
-             * ladder from the guest side instead. */
+             * There used to be a second answer here: a two-phase boot probe
+             * (core/calib.c) that measured the host before the shell.  It was
+             * compiled but switched off, and had been since the boot was made
+             * instantaneous.  Cut 2026-09-01 -- an engine that never runs is a
+             * capability the machine appears to have and does not.  The design
+             * is in docs/CPU-CLOCK-POLICY.md; the code is in the history. */
             io_set_clock_measured(0);
         }
     }
@@ -655,7 +627,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * which host this is, and where the file lives. */
         if (io_adopt_requested()) {
             settings_set(SET_CPU_MEASURED, settings_get(SET_CPU_CLOCK));
-            settings_set(SET_CPU_HOST, calib_host_hash());
+            settings_set(SET_CPU_HOST, host_id_hash());
             settings_save(cfg);
             io_set_clock_measured(1);
             fprintf(stderr, "clock: SETUP measured this machine at %.1f MHz; kept\n", settings_cpu_hz() / 1e6);
@@ -693,7 +665,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * rather than drowning.  Reading it was reading the one meter that
          * fix insulated from the fault.
          *
-         * Frame time is the direct measure, it is what calibration predicted,
+         * Frame time is the direct measure, it is what SETUP measured,
          * and unlike a frames-per-second floor it does not mistake a 50 Hz
          * display for a slow machine.  Gaps stay as a second trigger, for the
          * drowning case.  The window is three seconds and restarts whenever
@@ -720,7 +692,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                      * a three-second window impersonate a full measurement and
                      * silence that prompt -- and it wrote cpu.measured without
                      * cpu.host, so the pair said "measured on host 0", which no
-                     * fingerprint can ever equal (calib_host_hash never returns
+                     * fingerprint can ever equal (host_id_hash never returns
                      * 0) and no boot could ever reuse.  The archive session
                      * found that in hdieu's k4510.cfg, 2026-08-27.
                      *
@@ -738,22 +710,15 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         sid_set_max(settings_get(SET_AUDIO_SIDS) + 1);   /* live: the Active SIDs menu index is 0-based, the count is +1 */
         io_set_sid_active(settings_get(SET_AUDIO_SIDS) + 1);   /* so INFO reports the count in force, not a constant */
-        /* Sound chip: 0 reSID, 1 FastSID, 2 OPL2.  The three are exclusive,
-         * and one setting cannot hold two of them at once -- which is why it
-         * is one row and not three toggles policing each other.  Muting the
-         * SIDs is what stops them being clocked; the OPL2 renders in their
-         * place, at the same rate, so the ring is fed either way. */
+        /* Sound chip.  Two, exclusive, and the machine's answer is the OPL2
+         * on both hosts (2026-09-01).  There is no menu row for this any
+         * more; the setting is the way back to the SIDs, for whoever wants
+         * them.  Muting is what stops the SIDs being clocked, and the OPL2
+         * renders in their place at the same rate, so the ring is fed either
+         * way. */
         { int chip = settings_get(SET_AUDIO_CHIP);
-#ifdef K4510_PI
-          chip = 2;                          /* the Pi is an OPL2 machine: the SIDs are built but never
-                                              * clocked there.  Forced rather than defaulted, so a
-                                              * k4510.cfg carried over from a desktop cannot turn them
-                                              * back on -- the settings file stores labels, and "reSID"
-                                              * is not a label the Pi's own row has. */
-#endif
-          sid_set_engine(chip == 1 ? SID_ENGINE_FAST : SID_ENGINE_RESID);
-          opl2_set_enabled(chip == 2);
-          sid_set_mute(chip == 2); }
+          opl2_set_enabled(chip != 0);
+          sid_set_mute(chip != 0); }
         if (settings_cpu_hz() != cpu_hz_now) {
             cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
             io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);

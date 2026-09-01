@@ -176,7 +176,7 @@ Nothing else in the design depends on that answer.
 | # | Feature | Decision |
 |---|---|---|
 | A-01 | SID chips | **4** — engine already supports it; 8 as a stretch goal if the Pi allows |
-| A-02 | Engine | ReSID default, FastSID as escape hatch |
+| A-02 | Engine | ~~ReSID default, FastSID as escape hatch~~ — **superseded 2026-09-01**: the OPL2 is the default on both hosts, reSID is the escape hatch (`audio.chip` in k4510.cfg, no menu row), and FastSID was removed from the tree |
 | A-03 | Models | 6581 and 8580, selectable per chip |
 | A-04 | teensy-resid | Drop — Pi 3B+ only |
 | A-05 | FM | **Built-in fitted chip** at a documented address, always present |

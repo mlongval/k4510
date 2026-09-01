@@ -1,10 +1,12 @@
 /* K4510: the OPL2 -- nine FM voices at $D480.
  *
  * The same Pachelbel progression the SID demos play (SIDS, SID6, SID12), so
- * the two chips can be put side by side: switch F7 -> Audio -> Sound chip
- * between reSID, FastSID and OPL2 and run the matching demo.  The OPL2 and
- * the SIDs are mutually exclusive on this machine, which is why this is its
- * own program rather than another voice in the orchestra.
+ * the two chips can be put side by side.  Since 2026-09-01 the OPL2 is what
+ * the machine sounds through and the SIDs are off, so this is the one of the
+ * four that plays as things stand; hearing the others means putting
+ * `audio.chip = reSID` in k4510.cfg, there being no menu row for it any more.
+ * The OPL2 and the SIDs are mutually exclusive on this machine, which is why
+ * this is its own program rather than another voice in the orchestra.
  *
  * The chip is wired the AdLib's way -- $D480 is the address port, $D481 the
  * data port -- so the register numbers below are the ones in any OPL2 or
@@ -119,7 +121,7 @@ void main(void)
         return;
     }
     text8_print(TEXTMAP, 80, 1, 3, "Pachelbel in D, 8 bars at 120 bpm -- the same progression SIDS and SID12 play.");
-    text8_print(TEXTMAP, 80, 1, 4, "F7 -> Audio -> Sound chip switches between reSID, FastSID and this.");
+    text8_print(TEXTMAP, 80, 1, 4, "This chip has the machine; the SIDs are off (audio.chip in k4510.cfg).");
     for (v = 0; v < NCH; v++) {
         far_poke(TEXTMAP + (uint32_t)(6 + v * 2) * 80 + 1, (uint8_t)('1' + v));
         text8_print(TEXTMAP, 80, 3, 6 + v * 2, vname[v]);

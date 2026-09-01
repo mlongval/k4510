@@ -87,11 +87,20 @@ strike through or delete; when the file is empty, delete it.
       core 3 rendered from OPL2 state that core 0 was mutating.  Harmless
       while the Pi was a SID machine; a live race the moment it became an
       OPL2 one.  The OPL2 now rides the same queue (`chip = K4510_SIDS`).
-- [ ] **The SIDs on the Pi.**  Disabled there, not deleted: both engines still
-      build, still pass their tests, and are still the desktop's default.  If
-      the Pi's SID sound is ever worth revisiting, the reason it was dropped
-      was quality, not cost — Doc, 2026-09-01: "both reSid and FastSid sound
-      terrible.  OPL2 however sounds really nice."
+- [x] ~~**The SIDs on the Pi**~~ — settled 2026-09-01, and further than the Pi:
+      Doc ruled the SIDs OFF on **both** hosts and the OPL2 the default, with
+      the Sound chip and Active SIDs rows out of the menu.  reSID still builds
+      and still passes its tests; `audio.chip = reSID` in k4510.cfg is the way
+      back.  FastSID was CUT outright.  See `docs/CAPABILITIES.md`.
+- [ ] **The SID demos are silent as the machine boots.**  SIDS, SID6, SID12 and
+      SIDPLAY write to a muted chip now.  Not broken, not gone — but a person
+      running them gets nothing and no explanation.  Decide: a line of output
+      from each saying how to give the SIDs the sound back, or leave it to the
+      handbook.
+- [ ] **INFO does not say which chip has the machine.**  Its SOUND section still
+      describes only the four SIDs, which is now the arrangement that is NOT
+      sounding.  It needs the OPL2, and ideally the chip actually selected —
+      which means a byte the guest can read, and there is no register for it.
 
 ## JIM, the console (2026-08-31)
 
@@ -185,6 +194,53 @@ Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
       name, and every figure was recaptured (the banner is in a dozen).
       Done by the coding session because Doc asked for the whole job in
       one pass — handbook session, it is yours to revise.
+
+## The consolidation (2026-09-01)
+
+`docs/CAPABILITIES.md` is the standing inventory: every capability, one line,
+with a disposition Doc edits.  Round one is built (SIDs off, FastSID and the
+boot speed test cut, MS BASIC's exit, RENAME/CP guards, DIR streaming).
+Round two happens after the testing pass.
+
+- [ ] **THE LANGUAGES THAT MAKE SOUND ARE NOW SILENT.**  Doc asked, 2026-09-01,
+      whether any language needed changing for the OPL2 becoming the machine's
+      chip.  Three do, and each is a different size.  Audited: Forth, CP/M and
+      MS BASIC have no sound words at all and are unaffected.
+      1. **BBC BASIC's `SOUND` / `quiet`** (`tube/src/bbccon.c`) sends an OSC
+         escape over the Tube; `tula_snd` in `core/io.c` feeds the host-side
+         four-channel sound sequencer (`seq_write`/`seq_start`/`seq_off`),
+         which writes SID registers.  **This is the cheap one**: the sequencer
+         is host C and one chokepoint, so teaching `seq_start`/`seq_off` to
+         emit OPL2 key-on/key-off when the OPL2 has the sound fixes `SOUND`
+         for every BBC BASIC program without touching the Tube or the guest.
+         What it needs from Doc is an instrument: what should a BBC `SOUND`
+         note *sound* like on FM?
+      2. **Mad Pascal's `Sound` / `NoSound`** (`pascal/mp/lib/crt_k4510.inc`)
+         write SID 0's registers from guest assembler, and `k4510.pas` exposes
+         `SID_BASE` / `SIDREG` for anyone who wants the chip directly.  A real
+         port: an FM patch and a different register layout, in asm.
+      3. **EhBASIC has no SOUND keyword** — programs POKE $D400 themselves,
+         which the handbook teaches.  Nothing to modify; it is a documentation
+         and design question, and the honest answer today is "those examples
+         need `audio.chip = reSID`".
+      Fixed already in the same sweep: the shell's `HUSH` (it zeroed the SIDs
+      and the sequencer and left nine FM voices sounding) and `INFO`'s SOUND
+      section (it said "OPL2 at $D480: not fitted yet", which stopped being
+      true some time ago and is now the opposite of the truth).
+
+- [ ] **ROMOUT is broken** (found by the 2026-09-01 smoke pass, and broken
+      before it).  Prints three lines, then hangs.  Certain first cause: it
+      fills $A000-$CFFF and its own C stack is $CC00-$CFFF -- the same RAM the
+      banking exposes, so it overwrites the return addresses of the call doing
+      the filling.  Stopping at $CC00 gets past that and it dies differently
+      (blank screen), so there is a second fault behind it.  Nothing suggests
+      the banking itself is wrong -- BANKTEST and MAPTEST pass and the machine
+      is fine afterwards.  The fix was attempted and reverted rather than left
+      half-landed.
+
+- [ ] **The testing pass.**  Doc's sequence: consolidate, then test rigorously,
+      then rule on the rest.  Everything still marked `?` in CAPABILITIES.md is
+      waiting on it, and the Pi half of it has not been run since alpha-0.3-105.
 
 ## Strays
 

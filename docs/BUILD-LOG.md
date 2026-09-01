@@ -5630,3 +5630,229 @@ emulator's own `K4510_KEYS` feed go through `kbd_push` — the same door,
 and neither of them can show you a screen with nothing on it. Worth
 remembering: a passing headless test says the machine computed the right
 answer, not that a person could have used it.
+
+---
+
+## 2026-09-01 — the consolidation, first round
+
+Doc asked for a capability inventory he could rule on before any more
+building: "consolidating things and removing some other things, then
+more rigorous testing". `docs/CAPABILITIES.md` is that inventory — every
+capability the machine claims, one line each, with a disposition token
+(KEEP / WORK / OFF / CUT / ?) he edits. It stays in the tree after the
+ballot, because a list of what the machine does turns out to be a thing
+the repo did not have.
+
+The advice that went with it, and which shaped the order of work: most
+of what is listed costs the ROM nothing (every `.prg` is on disk), so
+CUT mostly buys attention rather than bytes; the scarce resources are
+ROM1A/1C/2, zero page and BSSR, and those are consumed almost entirely
+by the shell. And `OFF` is the underused answer — the Pi's SIDs are the
+model, where code that still builds and still passes its tests simply
+stops being offered.
+
+**What Doc ruled, and what was built for it:**
+
+### The SIDs are OFF, the OPL2 is the machine
+Not on the Pi only — everywhere. `audio.chip` now defaults to the OPL2
+on both hosts, and the "Sound chip" and "Active SIDs" rows are gone from
+the F7 menu entirely (they were `#ifndef K4510_PI` before). Nothing SID
+is deleted: reSID still builds, `test/sidtest` still exercises all four
+chips, `SIDS`/`SID6`/`SID12`/`SIDPLAY` still drive them, and
+`audio.chip = reSID` in `k4510.cfg` gives them the sound back. That
+escape hatch is the whole point of OFF rather than CUT.
+
+Consequences worth writing down: **the SID demos are silent as the
+machine now boots.** They are not broken and they are not gone; they
+play into a muted chip. Anyone reaching for them edits one line of
+config first. And the boot banner said `CHIPS: 1-4 reSID, ...`, which
+had become a lie, so it now says `CHIPS: OPL2, 4 SIDs, ...`. `INFO`'s
+sound section still describes only the SIDs and does not say which chip
+actually has the machine — that is still owed.
+
+A live bug fell out of the same file: `audio_menu` was declared with a
+hard-coded item count of 4 while its item array was conditionally 2
+items long on the Pi, so the Pi's Audio menu had been reading two items
+past the end of the array. It counts with `sizeof` now.
+
+### FastSID is CUT
+`core/fastsid/` and `core/fsid.[ch]` are gone, with the Makefile rules,
+the `SID_ENGINE_*` API and the engine-switch test. It was vendored on
+2026-08-30 to make four cycle-accurate SIDs affordable on a Pi; a Pi
+that sounds no SIDs at all does not need it, and of the three chips it
+was the one Doc liked least. `THIRD_PARTY_SOURCES.md` keeps a section
+saying it was removed and why, because a vendored thing silently
+vanishing is worse than a vendored thing recorded as gone.
+
+A config file written before this says `audio.chip = FastSID`, a label
+that no longer exists — and `atoi("FastSID")` is 0, which is reSID. So
+the parser reads that one string as the OPL2: the person who chose the
+cheapest sound does not get the most expensive one handed back.
+
+### The boot speed test is CUT
+`core/calib.c`'s two-phase probe had been `else if (0)` since the boot
+was made instantaneous (2026-08-27) — compiled, documented, unreachable.
+An engine that never measures reads as a capability the machine has and
+does not, so it is out. What it also held, the host fingerprint, is
+still needed (it is how a cached clock is trusted only on the machine it
+was measured on) and moved to `core/hostid.c` under its own name.
+`SETUP.prg` remains the way a machine gets measured, from inside, with
+sound and video and the network really running.
+
+### MS BASIC has a way out, and star commands
+It had none: MS BASIC has no `BYE`, and `COLD_START` resets the stack
+pointer before BASIC is up, so the shell's frame is gone by the time
+anything of ours runs. Doc asked whether `*BYE` and other star commands
+were possible. They are, and it is the better design anyway.
+
+`k4510_start` now copies the live hardware stack out before
+`COLD_START` — the stack pointer and the bytes above it, which are the
+RAM trampoline's JSR, `_call_prog`'s, and the ROM C code above them.
+`*BYE` puts them back and returns normally, so the ROM's trampoline
+turns the banks off and `_call_prog` restores the ROM's zero page on the
+way, exactly as for any program that ends. The shell comes back to its
+own prompt in its own working directory. That is better than EhBASIC's
+`@BYE`, which reaches the shell by cold-starting the machine.
+
+Everything else after `*` goes to K:OS through the SHELL call at $FF8F,
+so `*DIR`, `*TYPE`, `*CD` all work from inside BASIC. This is the BBC's
+arrangement, borrowed deliberately: 1977 Microsoft BASIC has no vendor
+words, and the alternative — adding tokens — means editing the vendored
+interpreter, which the licence research was careful to avoid. The catch
+is in `MONRDKEY`, one level below BASIC, so not a byte of `msbasic/`
+knows it happened.
+
+Two things had to be right and were not, first time:
+
+- **The read loop cannot keep its index in Y.** `ROM_CHRIN` is a
+  jump-table stub and the stubs do not preserve Y — this file's own
+  header comment says so about `k4510_out`/`k4510_in`, and I wrote the
+  new loop as if it did. The symptom was maddening: the line echoed
+  perfectly, the shell was called, and nothing happened, because the
+  buffer length came back as zero and K:OS was handed an empty string,
+  which it correctly does nothing with, silently. The index lives in
+  `k4510_lp` now.
+- **A `*` typed at an INPUT prompt is data.** The guard is
+  `CURLIN+1 = $FF`, MS BASIC's own direct-mode marker, so a star command
+  is only recognised at the READY prompt. `test/msbasictest.sh` checks
+  all three cases now, including that one.
+
+### RENAME and CP no longer overwrite in silence
+The device takes the host's semantics, which is to overwrite without a
+word — the same trap that cost RANGER's first trash a file on
+2026-08-29. At the shell it is worse, because this is what a person
+types. `cmd_two` now STATs the destination first and refuses; `-f`
+overwrites, spelled the way `RM` spells it. 94 bytes of ROM1A.
+
+### DIR streams
+Doc, on the Pi with an 826-file `/OPL`: "takes about 10 seconds before
+it starts". Two causes, both in `fs_dir_first`. The sort was an
+insertion sort — 340,000 `strcasecmp` calls at 826 names, against about
+8,000 for `qsort`. And every entry was `stat`ed before the first name
+was served, to learn a size the guest had not asked for yet: on a card,
+826 round trips through FAT. The stat now happens in `FS_DIR_NEXT`, on
+the one entry being served, so the listing streams and an `Esc` out of a
+long `DIR` never pays for the rest. A TNFS listing is the exception —
+its sizes arrive with its names — so `fs_list_size` survives as the
+"already known" case.
+
+### The settings file has a version, and it means something now
+Turning the SIDs off would have changed nothing on any machine that had
+ever been run. Every existing `k4510.cfg` says `audio.chip = reSID` —
+that was the default when it was written — and an explicit setting
+rightly beats a new default, so the machine would have gone on sounding
+through the SIDs everywhere while appearing to have been changed. Worse
+on the Pi, which used to force the OPL2 in code and, after this round,
+does not.
+
+So `settings_load` reads the `version` line (it was written and never
+read) and treats a version-1 file's `audio.chip` as never chosen,
+resetting it to the default. `settings_save` rewrites the line as
+version 2 — it is the one unknown key that is *not* passed through
+verbatim, because a file that stayed at version 1 would be migrated
+again on every boot, undoing any choice made after the first migration.
+From version 2 on, the setting is taken at its word, which is what makes
+it a real escape hatch. Cost to someone who genuinely wanted the SIDs
+before today: one line of editing, once.
+
+### The testing pass, desktop half
+Twenty-one automated tests green, including the new star-command checks.
+Then a smoke pass over every program in `fs/PRG`, plus the shell's
+commands and all four guest systems: does it start, do something, and
+hand the shell back?
+
+Everything does, with two exceptions. `KEYTEST` asks for named keys and
+a scripted harness cannot answer it — not a fault. **`ROMOUT` is
+genuinely broken**, and was before today: it prints three lines and
+hangs, on the committed ROM as well as this one, so it is not a
+regression from the consolidation. One cause is certain and satisfying
+— it calls `fill_check(0xA000, 0xD000, ...)`, and `$CC00-$CFFF` is its
+own C stack (`demo/prg.cfg` puts PRG at `$6000` for `$7000`, with
+`__STACKSIZE__` `$0400`). The RAM under the ROM is the *same RAM*:
+banking blocks 5-7 does not move the stack out of the way, it stops the
+ROM covering what is already there. So the fill overwrote the return
+addresses of the call doing the filling. Stopping at `$CC00` gets past
+that and it then dies differently, with a blank screen, so there is a
+second fault behind the first. Nothing points at the banking itself —
+`BANKTEST` and `MAPTEST` pass and the machine is healthy afterwards.
+The fix was attempted and **reverted**: half a repair to a demo whose
+whole job is to demonstrate that banking works is worse than a known
+broken demo on the list.
+
+Also confirmed by the same pass: EhBASIC's `@BYE` really does cold-start
+the machine (the banner reprints), which is the contrast `*BYE` was
+built against; and BBC BASIC on the Tube already says `*QUIT`. MS BASIC
+answers to `*QUIT` as well as `*BYE` now — same family, same word.
+
+### Retiring what the change stranded
+Doc, after reading the above: move the SID demos out of `fs/`, and
+ROMOUT with them — "I never used it anyway". So `retired/` now holds
+`sids.c`, `sid6.c`, `sid12.c`, `sidorch.h`, the four `sidplay` files and
+`romout.c`, with a README saying what each was and why it left. Out of
+`fs/PRG`, out of `DEMOS`, out of `all`, sources kept and history intact.
+The reasoning is the one that runs through this whole round: the
+machine's filesystem is what a person browses with `DIR`, and it should
+hold what the machine actually does. A demo playing into a muted chip
+demonstrates nothing.
+
+`fs/SID` is left alone for now — it is a symlink to
+`sidfiles/EC64SC_SID_Files`, and with SIDPLAY gone nothing reads it.
+Flagged for Doc rather than moved: it is data, and that is his call.
+
+### The languages that make sound
+Doc then asked the question this round should have prompted on its own:
+does any language need changing now that the OPL2 is the machine's chip?
+Audited all five. **Forth, CP/M and MS BASIC have no sound words** and
+are unaffected. Three are:
+
+- **BBC BASIC's `SOUND` and `quiet`** (`tube/src/bbccon.c`) send an OSC
+  escape over the Tube; `tula_snd` feeds the host-side four-channel
+  sequencer in `core/io.c`, and `seq_start`/`seq_off` write SID
+  registers. Silent now. This is the *cheap* one — the sequencer is host
+  C and a single chokepoint, so `SOUND` could be restored for every BBC
+  program without touching the Tube or any guest code. What it needs is
+  a decision, not a design: what should a BBC `SOUND` note sound like on
+  FM?
+- **Mad Pascal's `Sound`/`NoSound`** (`pascal/mp/lib/crt_k4510.inc`)
+  write SID 0 from guest assembler, and `k4510.pas` publishes
+  `SID_BASE`/`SIDREG`. A real port: an FM patch and a different register
+  layout, in asm.
+- **EhBASIC** has no SOUND keyword at all — programs POKE `$D400`, which
+  is what the handbook teaches. Nothing to modify; those examples now
+  need `audio.chip = reSID`, and saying so is a handbook job.
+
+Two things in the ROM were fixed on the spot, because they were not
+choices but faults the change had created:
+
+- **`HUSH` did not hush.** It zeroed the four SIDs and flushed the
+  sequencer — which used to be the whole of the machine's sound — and
+  left nine FM voices sounding. It keys off all nine now and drops their
+  levels, and still does the SIDs and the sequencer, because HUSH is
+  what you type when you do not want to have to know which chip is
+  making the noise.
+- **`INFO` said "OPL2 at $D480: not fitted yet"**, which had been untrue
+  for a while and was now the opposite of the truth. Its SOUND section
+  leads with the OPL2 and marks the SIDs "off unless chosen".
+
+**Not yet heard on hardware.** The `DIR` fix, the keyboard layout and
+the OPL millisecond pacing all need a card and a real Pi.

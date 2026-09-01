@@ -148,48 +148,63 @@ static int fs_path(char *out, size_t max, int search)
     }
     return 0;
 }
-/* directory listing: read, sort, serve */
-static char (*fs_list)[64]; static uint32_t *fs_list_size; static int fs_list_n, fs_list_i;
+/* directory listing: read, sort, serve.
+ *
+ * TWO THINGS HERE ARE ABOUT SPEED, and both were measured on a Pi 3B+ with
+ * an 826-file directory (Doc, 2026-09-01: "the 800+ entries in the OPL
+ * directory kinda kill the DIR command... takes about 10 seconds before it
+ * starts").  Ten seconds before the FIRST name, which is the part that
+ * matters: a listing that streams is usable at any length.
+ *
+ *   1. The sort was an insertion sort, which is n-squared -- 340,000
+ *      strcasecmp calls for 826 names, against about 8,000 for qsort.
+ *   2. Every entry was stat()ed here, before the first name was served, to
+ *      learn its size.  On a card that is 826 round trips through FAT for a
+ *      number the guest has not asked for yet.  The stat now happens in
+ *      FS_DIR_NEXT, on the one entry being served: the same work in total,
+ *      but paid a name at a time and only for as far as the listing is read
+ *      (Esc out of a long DIR and the rest is never paid at all).
+ *
+ * That is why the directory's own path is kept here: by the time an entry is
+ * served, the guest may have been told anything about where it is. */
+static char (*fs_list)[64]; static int fs_list_n, fs_list_i;
+static char fs_list_dir[768];
+/* Sizes are normally NOT held: a local listing stats an entry as it serves it
+ * (see above).  A listing from a TNFS server is the exception -- the sizes
+ * arrive with the names and there is nothing local to stat -- so it fills
+ * this, and a non-NULL fs_list_size means "the sizes are already known". */
+static uint32_t *fs_list_size;
 static int fs_cmp(const void *a, const void *b) { return strcasecmp((const char *)a, (const char *)b); }
 static int fs_dir_first(int all)
 {
-    char path[768], rel[256]; DIR *d; struct dirent *e; int n = 0, cap = 64;
-    fs_resolve("", rel, sizeof rel, path, sizeof path);
-    if (!(d = opendir(path))) return 2;
-    free(fs_list); free(fs_list_size); fs_list = malloc(cap * sizeof *fs_list); fs_list_size = malloc(cap * sizeof *fs_list_size);
-    if (!fs_list || !fs_list_size) { free(fs_list); free(fs_list_size); fs_list = NULL; fs_list_size = NULL; closedir(d); return 2; }
+    char rel[256]; DIR *d; struct dirent *e; int n = 0, cap = 64;
+    fs_resolve("", rel, sizeof rel, fs_list_dir, sizeof fs_list_dir);
+    if (!(d = opendir(fs_list_dir))) return 2;
+    free(fs_list); free(fs_list_size); fs_list_size = NULL;
+    fs_list = malloc(cap * sizeof *fs_list);
+    if (!fs_list) { closedir(d); return 2; }
     while ((e = readdir(d))) {
-        char full[1024]; struct stat sb;
         if (e->d_name[0] == '.' && (!all || !e->d_name[1] || (e->d_name[1] == '.' && !e->d_name[2]))) continue;
         if (n == cap) {
             char (*nl_)[64] = realloc(fs_list, 2 * cap * sizeof *fs_list);
-            uint32_t *ns_ = realloc(fs_list_size, 2 * cap * sizeof *fs_list_size);
-            if (nl_) fs_list = nl_;
-            if (ns_) fs_list_size = ns_;
-            if (!nl_ || !ns_) break;                 /* out of memory: serve what we have */
-            cap *= 2;
+            if (!nl_) break;                         /* out of memory: serve what we have */
+            fs_list = nl_; cap *= 2;
         }
         snprintf(fs_list[n], 64, "%.63s", e->d_name);
-        snprintf(full, sizeof full, "%s/%s", path, e->d_name);
-        fs_list_size[n] = stat(full, &sb) ? 0 : S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size;
         n++;
     }
     closedir(d);
-    /* sort names and sizes together: sort an index */
-    if (n) {                                     /* sort names and sizes together -- but an unsorted
-                                                  * listing beats a dead emulator if memory is short */
-      int *idx = malloc(n * sizeof *idx);
-      char (*nl)[64] = malloc(n * sizeof *nl); uint32_t *ns = malloc(n * sizeof *ns);
-      if (idx && nl && ns) {
-          for (int i = 0; i < n; i++) idx[i] = i;
-          for (int i = 1; i < n; i++) { int k = idx[i], j = i; while (j > 0 && strcasecmp(fs_list[idx[j - 1]], fs_list[k]) > 0) { idx[j] = idx[j - 1]; j--; } idx[j] = k; }
-          for (int i = 0; i < n; i++) { memcpy(nl[i], fs_list[idx[i]], 64); ns[i] = fs_list_size[idx[i]]; }
-          free(fs_list); free(fs_list_size); fs_list = nl; fs_list_size = ns;
-      } else { free(nl); free(ns); }
-      free(idx); }
-    (void)fs_cmp;
+    if (n > 1) qsort(fs_list, n, sizeof *fs_list, fs_cmp);
     fs_list_n = n; fs_list_i = 0;
     return 0;
+}
+/* the size of one listed entry, asked for only when it is served.
+ * 0xFFFFFFFF means a directory, which is what the ROM prints as <DIR>. */
+static uint32_t fs_list_size_of(const char *name)
+{
+    char full[1024]; struct stat sb;
+    snprintf(full, sizeof full, "%s/%s", fs_list_dir, name);
+    return stat(full, &sb) ? 0 : S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size;
 }
 #include <stdlib.h>
 static void fs_run(uint8_t cmd)
@@ -271,7 +286,7 @@ static void fs_run(uint8_t cmd)
         size_t i = 0; const char *nm = fs_list[fs_list_i];
         for (; nm[i] && i < 63; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)nm[i];
         k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0;
-        fs_wr32(0x10, fs_list_size[fs_list_i]);
+        fs_wr32(0x10, fs_list_size ? fs_list_size[fs_list_i] : fs_list_size_of(nm));
         fs_list_i++;
         break; }
     case FS_CHDIR: {

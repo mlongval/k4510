@@ -1,26 +1,28 @@
-/* K4510 sound: four reSID chips at IO_SID ($D400), $20 bytes each; the
- * Audio menu clocks 1-4 of them (sid_set_max).
+/* K4510 sound: four SID chips at IO_SID ($D400), $20 bytes each.
  * C wrapper over the vendored C++ reSID (core/resid/, Dag Lem, GPL2+).
+ *
+ * SINCE 2026-09-01 THE SIDS ARE OFF BY DEFAULT on every host: the machine
+ * boots with the OPL2 sounding and sid_set_mute(1) in force.  Nothing here is
+ * deleted -- the chips are still emulated, still register-accurate, still
+ * tested (test/sidtest) -- and audio.chip in k4510.cfg still selects them.
+ * They are simply not what the machine offers.  Doc, 2026-09-01: on the Pi
+ * "both reSid and FastSid sound terrible.  OPL2 however sounds really nice",
+ * and rather than have one machine on each host, both hosts got the OPL2.
+ *
+ * FastSID (VICE's wavetable engine) WAS a second engine here and was cut on
+ * 2026-09-01: it existed to save frame time on a host that no longer runs
+ * SIDs at all, and it was the one Doc liked least.  git has it.
  */
 #ifndef K4510_SID_H
 #define K4510_SID_H
 #include <stdint.h>
 #define K4510_SIDS 4
-/* The two engines are mutually exclusive: reSID (core/resid) models the chip
- * cycle by cycle and sounds like one; FastSID (core/fastsid, from VICE) steps
- * once per output sample from wavetables for about a twentieth of the cost.
- * Both drive the same four chips at $D400 and the same registers, so a switch
- * is heard, not seen -- sid_set_engine replays the registers into the engine
- * it turns on, and a tune plays through it. */
-#define SID_ENGINE_RESID 0
-#define SID_ENGINE_FAST  1
 #ifdef __cplusplus
 extern "C" {
 #endif
-void sid_set_max(int n);      /* clock/mix only the first n chips: the Machine menu's Active SIDs */
-void sid_set_engine(int e);   /* SID_ENGINE_RESID or SID_ENGINE_FAST */
-int  sid_get_engine(void);
-void sid_set_mute(int mute);  /* the OPL2 has the sound: clock nothing, mix silence */
+void sid_set_max(int n);      /* clock/mix only the first n chips (audio.sids) */
+void sid_set_mute(int mute);  /* the OPL2 has the sound: clock nothing, render in their place.
+                                 On by default -- see the note at the top of this file. */
 void sid_drain_to(uint32_t us);  /* the rendering core: perform every queued write due by then (core/sidq.h) */
 #ifdef __cplusplus
 }

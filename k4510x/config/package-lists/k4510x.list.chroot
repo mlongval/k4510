@@ -13,6 +13,7 @@ alsa-utils
 build-essential
 libsdl2-dev
 cc65
+acme
 64tass
 nasm
 fp-compiler

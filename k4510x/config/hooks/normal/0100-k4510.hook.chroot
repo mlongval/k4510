@@ -8,17 +8,28 @@ set -e
 USER=k4510
 HOME_DIR=/home/$USER
 
-adduser --disabled-password --gecos "K4510" $USER
+adduser --disabled-password --gecos "K4510" --home $HOME_DIR $USER 2>/dev/null || true
 # DRM master, evdev and the sound card.  Without video and input there is no
 # KMSDRM and no keyboard, which is the whole user interface.
 for g in video input audio render; do adduser $USER $g 2>/dev/null || true; done
 
 # The tree is copied in by config/includes.chroot; build it as the user who
 # will run it, so the artefacts are not root's.
+#
+# NOT `make all`.  That target includes pascal-prgs, which needs a Mad Pascal
+# checkout (MP_DIR) that is not vendored and is not in this image; the .prg
+# files it would produce are tracked in the repo and ship as they are.  What
+# has to be built here is what git does not carry: the emulator, the ROM, and
+# the two acme-assembled images.  ACME= because the Makefile defaults it to
+# ~/.local/bin/acme and Debian's is on the PATH.
 if [ -d $HOME_DIR/k4510 ]; then
     chown -R $USER:$USER $HOME_DIR/k4510
-    su - $USER -c 'cd ~/k4510 && make -j$(nproc) all' || \
-        echo "k4510x: BUILD FAILED -- the image will boot to a shell, not the machine"
+    rm -f $HOME_DIR/k4510/fs/SID          # a symlink to tunes the repo does not carry
+    su - $USER -c 'cd ~/k4510 && make ACME=/usr/bin/acme -j"$(nproc)" \
+                       sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm' \
+        || echo "k4510x: BUILD FAILED -- the image will boot to a shell, not the machine"
+    su - $USER -c 'cd ~/k4510 && make -C tube' \
+        || echo "k4510x: the Tube (BBC BASIC) did not build; everything else works"
 fi
 
 # A conservative starting clock.  Two Jaguar cores will not hold what a

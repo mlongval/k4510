@@ -92,3 +92,4 @@ demo/bomber.h
 # PERF.TXT by the io profiler, BENCH-NN.TXT by SETUP/BENCH.  Results, not source.
 fs/SYSTEM/PERF.TXT
 fs/SYSTEM/BENCH-*.TXT
+k4510x/*.img

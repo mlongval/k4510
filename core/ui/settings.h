@@ -17,7 +17,9 @@ typedef enum {
     SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
     SET_VIDEO_MODE,          /* ENUM the machine's video mode: shown live, and the ROM performs a change */
     SET_VIDEO_MARGIN,        /* BOOL the one-cell gap at the top and the left (79 columns, not 80) */
-    SET_VIDEO_STATUSBAR,     /* BOOL the status-bar mode: console as a scroll region between two hardware bands */
+    SET_VIDEO_STATUSBAR,     /* BOOL the status bands; keyed term.bands, and its row lives in the Terminal menu.
+                              * The console becomes a scroll region between two bands the ROM draws.
+                              * (Key renamed from video.statusbar 2026-09-02; the old name still loads.) */
     SET_VIDEO_SCANLINES,     /* ENUM a dark line between each of the machine's */
     SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
@@ -39,6 +41,15 @@ typedef enum {
     SET_CPU_AUTO,            /* BOOL measure the host at boot and set the clock from that (an explicit clock turns it off) */
     SET_CPU_MEASURED,        /* ENUM what the last measurement chose (not in the menu) */
     SET_CPU_HOST,            /* INT  the host the measurement was taken on; 0 = never (not in the menu) */
+    /* The status bands.  Heights are INDEPENDENT (Doc, 2026-09-02) and reach
+     * the guest as $D52D/$D52E; the ROM clamps them so the console keeps a
+     * workable minimum whatever is asked for.  0 and 0 is the same thing as
+     * turning the bands off, and the ROM treats it that way. */
+    SET_TERM_BAND_TOP,       /* INT  rows in the top band (default 1) */
+    SET_TERM_BAND_BOT,       /* INT  rows in the bottom band (default 2) */
+    SET_TERM_CLOCK24,        /* BOOL 24-hour clock; off is 12-hour with AM/PM */
+    SET_TERM_DATEFMT,        /* ENUM DD.MM.YYYY / YYYY-MM-DD / MM/DD/YYYY -- all ten cells wide, which is
+                              * what lets the IRQ's clock painter stay a fixed-width digit poker */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
@@ -46,6 +57,7 @@ typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
  * plus a round 60: the MEGA65 number was always a suggestion, and a host
  * that can do more should be allowed to.  Saved by NAME in k4510.cfg, so
  * this list may be reordered without stranding an existing config. */
+enum { DATEFMT_DMY, DATEFMT_ISO, DATEFMT_MDY, DATEFMT_COUNT };
 enum { CPUCLK_202_5, CPUCLK_162, CPUCLK_121_5, CPUCLK_81, CPUCLK_60,
        CPUCLK_40_5, CPUCLK_30, CPUCLK_20, CPUCLK_15, CPUCLK_10, CPUCLK_COUNT };
 unsigned settings_cpu_hz(void);                /* the emulated clock, from SET_CPU_CLOCK */

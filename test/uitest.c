@@ -42,14 +42,17 @@ int main(void)
     { CHECK(cell_is(1, 2, UIC_FRAME) > 0, "the frame is drawn");
       CHECK(cell_is(2, 5, UIC_BAR) > 0, "the category cursor wears the bar");
       CHECK(ov[0] != 0 && ov[(UI_H - 1) * UI_W + UI_W - 1] != 0, "opaque corner to corner: the machine's picture is hidden"); }
-    kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);          /* Audio */
+    /* The categories, in order: Video, Terminal, Audio, Input, Machine, Shell,
+     * Info.  This walk counts DOWNs, so inserting a category shifts it -- as
+     * Terminal did on 2026-09-02.  Counts are from the top each time. */
+    kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);          /* Audio */
     kbd_push(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
     kbd_push(KEY_LEFT); kbd_push(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
-    kbd_push(KEY_ESC); kbd_push(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
+    kbd_push(KEY_ESC); kbd_push(KEY_UP); kbd_push(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
     kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);  /* Screen font: a popup */
     kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);
     CHECK(settings_get(SET_VIDEO_FONT) == FONT_OPENROMS, "popup chose open-roms (%d)", settings_get(SET_VIDEO_FONT));
-    kbd_push(KEY_ESC); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
+    kbd_push(KEY_ESC); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
     kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
     CHECK(menu_closed_pending() == 1 && menu_closed_pending() == 0, "close reported once");
@@ -114,16 +117,27 @@ int main(void)
      * acts on by name is checked here. */
     { static const struct { set_id id; const char *key; } pairs[] = {
         { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_MARGIN, "video.margin" },
-        { SET_VIDEO_STATUSBAR, "video.statusbar" }, { SET_VIDEO_BORDER, "video.border" },
+        { SET_VIDEO_STATUSBAR, "term.bands" }, { SET_VIDEO_BORDER, "video.border" },
         { SET_VIDEO_FULLSCREEN, "video.fullscreen" }, { SET_VIDEO_VSYNC, "video.vsync" },
         { SET_AUDIO_VOLUME, "audio.volume" }, { SET_AUDIO_SIDS, "audio.sids" },
         { SET_AUDIO_CHIP, "audio.chip" }, { SET_AUDIO_CORE3, "audio.core3" },
         { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },
-        { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" } };
+        { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" },
+        { SET_TERM_BAND_TOP, "term.band.top" }, { SET_TERM_BAND_BOT, "term.band.bottom" },
+        { SET_TERM_CLOCK24, "term.clock24" }, { SET_TERM_DATEFMT, "term.datefmt" } };
       for (unsigned i = 0; i < sizeof pairs / sizeof pairs[0]; i++)
           CHECK(!strcmp(settings_key(pairs[i].id), pairs[i].key),
                 "id %d is \"%s\", expected \"%s\"", (int)pairs[i].id, settings_key(pairs[i].id), pairs[i].key);
       printf("6. every set_id names the setting it is supposed to\n"); }
+
+    /* 7. term.bands was video.statusbar until 2026-09-02.  A renamed key is a
+     * silently lost setting: every config with the bands on would have come
+     * back with them off.  The old name still loads. */
+    { FILE *f = fopen(cfg, "w");
+      fprintf(f, "version = 2\nvideo.statusbar = on\n"); fclose(f);
+      settings_load(cfg);
+      CHECK(settings_get(SET_VIDEO_STATUSBAR) == 1, "the old video.statusbar key no longer loads");
+      printf("7. a config written before the rename still turns the bands on\n"); }
 
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;

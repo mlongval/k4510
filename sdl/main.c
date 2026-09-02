@@ -536,6 +536,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     | (uint8_t)((mode_pending ? mode_pending
                                               : settings_get(SET_VIDEO_MODE) + 1) << SYSOPT_MODE_SHIFT)
                     | (mode_pending ? SYSOPT_MODEREQ : 0));
+        io_set_bands((uint8_t)settings_get(SET_TERM_BAND_TOP),
+                     (uint8_t)settings_get(SET_TERM_BAND_BOT),
+                     (uint8_t)((settings_get(SET_TERM_CLOCK24) ? 1 : 0)
+                               | (settings_get(SET_TERM_DATEFMT) << 1)));
 
         Uint64 p_a = SDL_GetPerformanceCounter();
         int open = menu_is_open();

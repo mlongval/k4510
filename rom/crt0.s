@@ -3,11 +3,14 @@
         .import   _main, __DATA_LOAD__, __DATA_RUN__, __DATA_SIZE__, __BSS_RUN__, __BSS_SIZE__
         .import   __RAM_START__, __RAM_SIZE__, __STACKSIZE__, __STK_START__, __STK_SIZE__
         .import   copydata, zerobss, initlib
-        .importzp sp
+        .importzp sp, sreg
         .import   incsp4
         .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video, _k_args
-        .import   _bband                    ; nonzero in status mode: the IRQ ticks the clock
-        .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _call_prog
+        .import   _bband                    ; bottom-band height
+        .import   _OY                       ; top-band height: the clock lives there, so this is what
+                                            ; decides whether the IRQ paints it (a bottom band of zero
+                                            ; must not stop the clock -- the heights are independent)
+        .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _far_peek, _call_prog
 
         .zeropage
 cnt:          .res 2
@@ -78,7 +81,10 @@ irq:    pha
         bne @ack
         ; --- the status-bar clock, the machine's own tick: when the minute
         ; rolls, repaint the eight digit cells (in status mode only) ---
-        lda _bband
+        lda $D521               ; the host's own switch: are the bands up at all?
+        and #$08
+        beq @curs
+        lda _OY                 ; ... and is there a top band to put a clock in?
         beq @curs
         lda $D504               ; latch the RTC
         lda $D506               ; the minute
@@ -127,28 +133,47 @@ clk_paint:
         sta zp_save,x
         dex
         bpl @sv
-        lda #$00                ; $02-$05 = $00030100
-        sta $02
+        ; The field is right-anchored and its width depends on the format: 16
+        ; cells at 24-hour, 19 with the AM/PM.  Status mode is always 80
+        ; columns, so the row-0 byte offset is 64*4 = $0100 or 61*4 = $00F4.
+        lda $D52F
+        and #$01                ; bit 0: 24-hour
+        beq @h12
+        lda #$00                ; 24-hour: start at column 64
+        bra @addr
+@h12:   lda #$F4                ; 12-hour: three cells further left
+@addr:  sta $02
         lda #$01
         sta $03
         lda #$03
         sta $04
         lda #$00
         sta $05
-        lda $D507               ; hours
-        jsr cp_field
+        lda $D507               ; hours, as the RTC has them
+        ldx $D52F
+        cpx #$00                ; (only bit 0 matters; the branch below reads it)
+        pha
+        lda $D52F
+        and #$01
+        bne @h24
+        pla                     ; 12-hour: 0 and 12 both read 12
+        cmp #12
+        bcc @lt
+        sec
+        sbc #12
+@lt:    cmp #0
+        bne @go
+        lda #12
+        bra @go
+@h24:   pla
+@go:    jsr cp_field
         lda #':'
         jsr cp_put
         lda $D506               ; minutes
         jsr cp_field
-        lda #' '
-        jsr cp_put
-        lda $D508               ; day
-        jsr cp_field
-        lda #'.'
-        jsr cp_put
-        lda $D509               ; month
-        jsr cp_field
+        ; The date is NOT painted here.  It changes once a day, and teaching
+        ; the interrupt three date orders would be a lot of assembler guarding
+        ; that.  k_getin repaints it instead, off a far_peek of the day cell.
         ldx #3
 @rs:    lda zp_save,x
         sta $02,x
@@ -204,6 +229,28 @@ _far_poke:
         .byte $EA               ; NOP prefix: 32-bit flat
         sta (fp)                ; STA [fp],Z
         jmp incsp4
+
+; unsigned char __fastcall__ far_peek(unsigned long a)
+; The counterpart of far_poke, which the ROM went without until 2026-09-02.
+; peek() in kernal.c reads far memory through a one-byte DMA -- right for a
+; monitor dump, far too heavy for anything in a poll loop.  This is the flat
+; load the 45GS10 already has, about ten cycles.
+;
+; With ONE argument and __fastcall__, cc65 passes the whole long in registers:
+; A and X the low half, sreg and sreg+1 the high.  Nothing on the C stack.
+; (far_poke reads its address off the stack because there the long is not the
+; last argument -- the char is.)
+_far_peek:
+        sta fp
+        stx fp+1
+        lda sreg
+        sta fp+2
+        lda sreg+1
+        sta fp+3
+        .byte $EA               ; NOP prefix: 32-bit flat
+        lda (fp)                ; LDA [fp],Z
+        ldx #0
+        rts
 
 ; void __fastcall__ call_prog(unsigned addr): run a program that may own the
 ; whole zero page. The ROM's $02-$1F is kept in zp_rom and swapped back in

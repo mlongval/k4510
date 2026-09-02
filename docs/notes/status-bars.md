@@ -3,7 +3,12 @@
 Doc, 2026-09-01, raised three things together: make the bands software
 definable (0-10 rows at 640x480, 0-5 at 640x240), decide what actually
 goes in them, and make the clock and date format the user's choice
-(12h/24h among others). This is the design discussion, not a decision.
+(12h/24h among others).
+
+**Decided and built, 2026-09-02.** Doc's rulings are folded in below and
+the first half is in the machine. What is NOT built is the part that
+would let a *program* take the bands: heights are the user's, through F7,
+and a program cannot yet claim them. See "What is still owed".
 
 ## What exists today
 
@@ -51,6 +56,15 @@ agreements:
    losing the shell inside its own furniture.
 3. **A way to give it back**, so leaving a program does not leave the
    machine wearing its bands.
+
+**DECIDED (Doc, 2026-09-02):** the window keeps excluding the bands. The
+alternative -- window = the whole screen, DECSTBM keeping the bands out
+of the scroll -- was put to him and rejected on one fact: **DECSTBM
+constrains scrolling, not cursor addressing.** VI, RANGER and KOMMANDER
+all read JIM's COLS/ROWS/OX/OY and confine themselves to that window, so
+today's model protects the bands for free; the other one would have had
+every full-screen program painting over them until each was taught not
+to.
 
 Suggested shape, and it is small:
 
@@ -140,6 +154,46 @@ First step, if this is wanted before the whole design: the heights and
 the ownership bit. The widget table can come later and the two do not
 block each other.
 
+## What was built, 2026-09-02
+
+- **Independent heights**, default **1 top + 2 bottom in both modes**
+  (Doc). They were `PROWS/15` and `PROWS/10` -- 4+6 at 640x480, 2+3 at
+  640x240 -- a sixth of the screen holding four strings. They reach the
+  guest at **`$D52D`/`$D52E`**, and the ROM clamps so the console keeps
+  ten rows whatever is asked for.
+- **The nameplates are gone**: `K4510  K/OS` and `status mode` both, on
+  Doc's ruling. What is left is the clock and the MHz, which is exactly
+  what the test above says earns a place.
+- **Either band may be zero.** That broke an assumption worth recording:
+  `bband` had been doing double duty as "the bands are on", so a bottom
+  height of zero would have stopped the clock ticking in the *top* band.
+  It is `bands_on()` now, which asks the host's own switch and costs no
+  state -- and BSSR being 447 of 448 bytes used, no state was available.
+- **12/24-hour and three date orders**, F7 -> Terminal, reaching the
+  guest at `$D52F`.
+- **An F7 Terminal menu**, which is where all of this now lives: Status
+  bands, Top band rows, Bottom band rows, 24-hour clock, Date format.
+  The bands row moved out of Video (`video.statusbar` became
+  `term.bands`; the old key still loads, or every config with the bands
+  on would have come back with them off).
+- **`far_peek`**, which the ROM did not have. `peek()` reads far memory
+  through a one-byte DMA -- right for a monitor dump, far too heavy for
+  the key poll -- so the flat 45GS10 load the machine already has is now
+  a ROM primitive, about ten cycles.
+
+## What is still owed
+
+The heights are the **user's**, not a **program's**. A program cannot
+yet claim the bands, and that was the other half of "software
+definable":
+
+- `BANDTOP`/`BANDBOT` as JIM registers (`$DA0F`, `$DA16` are free), so a
+  guest can set them and have the console re-lay itself.
+- The ownership bit in `FLAGS`, so `cls()` and the IRQ leave a program's
+  bands alone.
+- The widget table the IRQ walks, which is the real answer to
+  software-defined *content*.
+
 ## The clock and the date
 
 Doc wants the format to be the user's: 12h/24h, and the date order.
@@ -173,13 +227,11 @@ for the date order.
 That also gives the next three menu settings somewhere to land, which
 `$D521` cannot do for anybody.
 
-## Open questions for Doc
+## Answered, 2026-09-02
 
-- Should the two bands be set **independently** (top and bottom), or as
-  one total the ROM splits as it does now? Independent is more useful
-  and no harder.
-- When a program claims the bands, should the ROM's widgets come back
-  automatically when it exits, or only when asked? (PETSCII mode says:
-  the program must hand it back, and the test enforces it.)
-- Is the **top-left nameplate** worth keeping for the look of the thing,
-  or should it go and take a widget that changes?
+- **Independent**, top and bottom. Built.
+- **The program hands them back**, as PETSCII mode does: claiming is a
+  flag the program sets and must clear, and the test enforces that the
+  shell survives a program which forgot. Not built yet -- there is no
+  claiming to hand back from.
+- **The nameplate goes.** Built.

@@ -203,15 +203,18 @@ Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
       work.  Named and defined in `docs/NAMING.md`; nothing built.  Note it is
       a *distribution*, not a port: same binary, same ROM as the hosted build.
       The Pi 4 is wanted for BMC-K4510 at the same time.
-- [ ] **Software-definable status bands, and what goes in them** —
-      `docs/notes/status-bars.md` is the write-up: the mechanism (mostly
-      already there, since JIM's OX/OY/COLS/ROWS are writable and the console
-      is a scroll region between the bands), what earns a place up there, and
-      user-definable clock/date format including 12h/24h.  Needs Doc's answers
-      to the three questions at the end of that file before any of it is code.
-      One finding worth carrying: **`$D521` is full**, all eight bits, so any
-      further menu setting that must reach the guest needs a second options
-      byte -- `$D52D` is free.
+- [x] ~~**Status bands: the user's half**~~ — built 2026-09-02.  Independent
+      heights (default 1+2 in both modes) at `$D52D`/`$D52E`, the two
+      nameplates dropped, 12/24-hour and three date orders at `$D52F`, and an
+      F7 **Terminal** menu holding all of it.  `docs/notes/status-bars.md`.
+- [ ] **Status bands: the program's half.**  A program still cannot claim the
+      bands, which was the other half of "software definable":
+      `BANDTOP`/`BANDBOT` as JIM registers (`$DA0F`, `$DA16` are free), an
+      ownership bit in `FLAGS` so `cls()` and the IRQ leave a claimed band
+      alone, and the hand-back discipline PETSCII mode already models -- with
+      a jimtest-shaped test that the shell survives a program that forgot.
+      Then the widget table the IRQ walks, which is the real answer to
+      software-defined *content*.
 
 ## The consolidation (2026-09-01)
 

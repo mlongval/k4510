@@ -27,6 +27,7 @@ static const char *const sids_names[]  = { "1", "2", "3", "4" };
  * FastSID was the third entry here and was cut; a config file that still says
  * "FastSID" is read as OPL2 rather than silently landing on reSID. */
 static const char *const chip_names[]  = { "reSID", "OPL2" };
+static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 #define CHIP_RESID 0
 #define CHIP_OPL2  1
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
@@ -40,7 +41,7 @@ static const set_desc desc[SET_COUNT] = {
     { "video.font",          "Screen font",    ST_ENUM,  FONT_KERNEL8, 0, 0, 0, font_names, FONT_COUNT, SF_LIVE },
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x240, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "video.margin",        "Left/top margin",ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: the full 80x30; use the border instead */
-    { "video.statusbar",     "Status bar",     ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* 80x25: two static bands frame a scrolling console */
+    { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.scanlines",     "Scanlines",      ST_ENUM,  SCAN_OFF, 0, 0, 0, scan_names, SCAN_COUNT, SF_LIVE },
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_SHARP, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
@@ -88,6 +89,10 @@ static const set_desc desc[SET_COUNT] = {
     { "cpu.auto",            "Auto clock",     ST_BOOL,  1, 0, 1, 1, 0, 0, SF_RESTART },
     { "cpu.measured",        "Measured clock", ST_ENUM,  CPUCLK_15, 0, 0, 0, cpu_names, CPUCLK_COUNT, 0 },
     { "cpu.host",            "Measured on",    ST_INT,   0, 0, 0x7FFFFFFF, 1, 0, 0, 0 },
+    { "term.band.top",       "Top band rows",  ST_INT,   1, 0, 10, 1, 0, 0, SF_LIVE },
+    { "term.band.bottom",    "Bottom band rows", ST_INT, 2, 0, 10, 1, 0, 0, SF_LIVE },
+    { "term.clock24",        "24-hour clock",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },
+    { "term.datefmt",        "Date format",    ST_ENUM,  DATEFMT_DMY, 0, 0, 0, date_names, DATEFMT_COUNT, SF_LIVE },
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
                                                      40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
@@ -185,7 +190,11 @@ int settings_load(const char *path)
         char *k, *v; char copy[256]; strcpy(copy, line);
         if (!split(copy, &k, &v)) continue;
         if (!strcmp(k, "version")) { filever = atoi(v); continue; }
-        int id = find_key(k);
+        /* term.bands was video.statusbar until 2026-09-02, when its row moved
+         * into the Terminal menu.  A renamed key is silently a lost setting --
+         * every config that had the bands ON would have come back with them
+         * off -- so the old name still loads.  It is not written back. */
+        int id = !strcmp(k, "video.statusbar") ? (int)SET_VIDEO_STATUSBAR : find_key(k);
         if (id >= 0) value[id] = parse_value((set_id) id, v);
     }
     /* MIGRATION, version 1 -> 2 (2026-09-01).  Every config written before

@@ -596,6 +596,9 @@ static uint8_t sys_opts;                 /* the menu's switches, readable by the
 uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
 static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
+static uint8_t sys_band_top = 1, sys_band_bot = 2, sys_clockfmt;
+void io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt)
+{ sys_band_top = top; sys_band_bot = bot; sys_clockfmt = clockfmt; }
 int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
 /* SETUP measures the machine and then asks to keep the answer.  The guest
  * cannot write k4510.cfg -- it is outside the machine's filesystem -- and has
@@ -647,6 +650,9 @@ static uint8_t sys_read(uint8_t r)
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0x21) return sys_opts;
+    if (r == 0x2D) return sys_band_top;      /* rows in the top band */
+    if (r == 0x2E) return sys_band_bot;      /* rows in the bottom band */
+    if (r == 0x2F) return sys_clockfmt;      /* bit0 24-hour; bits1-2 the date order */
     if (r == 0x22) return K4510_HOST_KIND;       /* which machine this is, for BUG and INFO */
     /* The clock's index in the frontend's ladder.  Deliberately NOT documented
      * as a fixed table: the ladder is reordered when steps are added, and a

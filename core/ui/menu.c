@@ -17,7 +17,6 @@ static const item_t video_items[] = {
     { "Screen font",   MI_SETTING, SET_VIDEO_FONT },
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
     { "Left/top margin", MI_SETTING, SET_VIDEO_MARGIN },
-    { "Status bar",    MI_SETTING, SET_VIDEO_STATUSBAR },
     { "Scanlines",     MI_SETTING, SET_VIDEO_SCANLINES },
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
@@ -30,6 +29,18 @@ static const item_t video_items[] = {
  * the four SIDs back -- they are just not offered. */
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
                                       { "Sound on core 3", MI_SETTING, SET_AUDIO_CORE3 } };
+/* The Terminal menu (2026-09-02).  The status bands are the console's own
+ * furniture rather than a property of the picture, so they moved out of Video
+ * and brought the things that belong with them: how tall each band is, and
+ * what the clock in the top one says. */
+static const item_t term_items[] = {
+    { "Status bands",     MI_SETTING, SET_VIDEO_STATUSBAR },
+    { "Top band rows",    MI_SETTING, SET_TERM_BAND_TOP },
+    { "Bottom band rows", MI_SETTING, SET_TERM_BAND_BOT },
+    { "",                 MI_SEP },
+    { "24-hour clock",    MI_SETTING, SET_TERM_CLOCK24 },
+    { "Date format",      MI_SETTING, SET_TERM_DATEFMT },
+};
 static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },
     { "Menu key",    MI_SETTING, SET_INPUT_MENU_KEY },
@@ -68,19 +79,21 @@ static const item_t info_items[] = {
 };
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
 static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
+static const menu_t term_menu    = { "Terminal", term_items,   (int)(sizeof term_items / sizeof term_items[0]) };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
 static const menu_t machine_menu = { "Machine", machine_items, (int)(sizeof machine_items / sizeof machine_items[0]) };   /* was a hard 8: the CPU clock entry never drew */
 static const menu_t shell_menu   = { "Shell",   shell_items,   2 };
 static const menu_t info_menu    = { "Info",    info_items,    4 };
 static const item_t main_items[] = {
     { "Video",   MI_SUBMENU, 0, &video_menu },
+    { "Terminal",MI_SUBMENU, 0, &term_menu },
     { "Audio",   MI_SUBMENU, 0, &audio_menu },
     { "Input",   MI_SUBMENU, 0, &input_menu },
     { "Machine", MI_SUBMENU, 0, &machine_menu },
     { "Shell",   MI_SUBMENU, 0, &shell_menu },
     { "Info",    MI_SUBMENU, 0, &info_menu },
 };
-static const menu_t main_menu = { "K4510", main_items, 6 };
+static const menu_t main_menu = { "K4510", main_items, (int)(sizeof main_items / sizeof main_items[0]) };
 
 /* ---- state ----------------------------------------------------------------
  * Two panes: the categories on the left, the chosen one's settings on the

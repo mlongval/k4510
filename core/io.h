@@ -38,6 +38,12 @@
                                  *    puts its menu setting back) if VICKY's CTRL never changes. */
 #define SYSOPT_MODE_SHIFT 5
 void    io_set_opts(uint8_t v);
+/* The status bands and the clock's format, for the guest at $D52D-$D52F.
+ * $D521 was the natural home and is FULL: all eight bits are spoken for
+ * (CP/M-by-name, margin, STARTUP.BAT, the bands, the mode request, and three
+ * of the video mode).  So these are their own bytes, and there is room after
+ * them for whatever the menu grows next. */
+void    io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt);
 int     io_mode_acked(void);      /* 1 once: the guest performed the video-mode request */
 void    io_set_clock_measured(int yes);  /* the frontend: has this host a measured clock in k4510.cfg? */
 int     io_clock_measured(void);         /* ...and back again */

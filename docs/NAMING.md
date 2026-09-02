@@ -13,10 +13,11 @@ Doc described a Linux appliance built round the emulator.
   is Randy Rossi's, for BMC64, the platform it was built on.
 - **K4510x** — a minimal Linux distribution that boots straight into the
   emulator, with no Wayland and no X under it. Intended for old laptops,
-  thin clients and whatever else is on its way to being e-waste. Unlike
-  the appliance, **the Linux underneath is reachable**: the emulator can
-  shell out to it, so cross-compiling Mad Pascal and the rest works there
-  exactly as it does on a K4510 desktop.
+  thin clients and whatever else is on its way to being e-waste. What it
+  shares with the hosted build and the appliance does not have is a
+  **Linux underneath**: the machine's filesystem is a real directory on a
+  real operating system, so the cross-compilers, git and an editor are
+  all right there beside it.
 
 The three are one machine and one ROM. What differs is what is beneath
 it: somebody else's desktop, nothing at all, or a Linux that exists only
@@ -27,16 +28,28 @@ to hold it up.
 The 2026-08-29 test still decides most cases and is still the one to
 reach for. Two more, for the new name:
 
-> **Is there an operating system under it, and can the machine reach
-> it?** No OS at all: **BMC-K4510**. An OS that is somebody else's and
-> was there first: **K4510**. An OS that exists only to run the machine,
-> and that the machine can still shell into: **K4510x**.
+> **What is underneath, and whose is it?** Nothing at all, only Circle:
+> **BMC-K4510**. An operating system that is somebody else's and was
+> there first: **K4510**. An operating system that exists only to hold
+> the machine up: **K4510x**.
 
-The reachable-Linux part is the point of K4510x and the thing that
-distinguishes it from the appliance. `SWAP`, the shell escape, the CP/M
-bridge and the cross-compilers all want a host underneath; the Pi has
-none and never will. So K4510x is not "the appliance on a PC" — it is
-the *desktop* build with the desktop taken away.
+**A correction, 2026-09-01 (Doc).** This section first said that `SWAP`,
+the CP/M bridge and the shell escape "want a host underneath; the Pi has
+none". That is wrong on every count. `SWAP` is a K/OS command, `CPM` is
+RunCPM compiled into the machine, and the shell escape is K/OS's own —
+all three are on the SD card and always have been. There is no escape to
+a *host* shell anywhere in the tree, on any of the three, and the machine
+cannot shell into Linux.
+
+The real difference is quieter and it is about **you**, not the machine.
+On a K4510 or a K4510x the machine's filesystem is an ordinary directory
+on a running Linux, so cc65, Mad Pascal, git and an editor are beside it
+while it runs — you cross-compile into `fs/` and the machine sees it. On
+a BMC-K4510 the same files are on an SD card with Circle over them, and
+the only way to reach them from outside is to take the card out.
+
+So K4510x is not "the appliance on a PC". It is the *hosted* build with
+the desktop taken away and the toolchain kept.
 
 ## A caution about the first name
 

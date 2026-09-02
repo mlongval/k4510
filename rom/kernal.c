@@ -19,6 +19,11 @@
 #define FM     0xD480u          /* the OPL2: $D480 address port, $D481 data */
 #define SYS    0xD500u
 #define SYSOPT_STATUS 0x08           /* $D521 bit 3: the host's status-bar mode is switched on */
+#define SYS_BANDTOP   0x2D           /* $D52D/$D52E: rows in each band, the F7 Terminal menu's.  $D521 is
+                                      * full -- all eight bits -- so these are their own bytes. */
+#define SYS_BANDBOT   0x2E
+#define SYS_CLOCKFMT  0x2F           /* bit0 24-hour; bits1-2 the date order (0 D.M.Y, 1 ISO, 2 M/D/Y) */
+#define BAND_MIN_ROWS 10             /* the console never shrinks below this, whatever is asked for */
 #define BANK   0xD600u
 #define TUBE   0xD800u
 #define TERM   0xDA00u                /* JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
@@ -35,8 +40,13 @@
  * banks 1+ are appended 8 KB images called through sw_call(). */
 static uint8_t COLS, ROWS, vmode, margin;            /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
 static uint8_t PCOLS, PROWS;                         /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
-static uint8_t OY;                                   /* status mode: top-band height (the console origin) */
-uint8_t bband;                                       /* bottom-band height; bband != 0 means status mode is on -- the IRQ (crt0.s) reads it to know whether to tick the clock */
+uint8_t OY;                                          /* status mode: top-band height (the console origin).
+                                                      * Exported since 2026-09-02: the IRQ reads it, because
+                                                      * the clock lives in the TOP band and a bottom height
+                                                      * of zero must not stop it ticking. */
+uint8_t bband;                                       /* bottom-band height.  NOT the "bands are on" flag any
+                                                      * more -- the heights are independent, so either may be
+                                                      * zero with the other set; ask bands_on() instead. */
 #define OX margin
 #define ROM_VERSION "stage 4"
 
@@ -55,6 +65,7 @@ extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
 extern uint32_t cursor_far;                      /* crt0.s: far address of the cell attribute under the cursor */
 uint16_t speed_loop(void);                       /* crt0.s */
 void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS10 flat store */
+unsigned char __fastcall__ far_peek(unsigned long a);           /* crt0.s: 45GS10 flat load, ~10 cycles */
 void __fastcall__ call_prog(unsigned addr);                     /* crt0.s: JSR with the ROM zero page saved around it */
 
 static void w32(uint16_t r, uint32_t v) { REG(r) = v; REG(r + 1) = v >> 8; REG(r + 2) = v >> 16; REG(r + 3) = v >> 24; }
@@ -98,7 +109,14 @@ static void draw_cursor(uint8_t on)
  * blank spacer rows are where the widgets go later. */
 #define BAND_FG  C_HI                 /* white on grey: a status bar, ancient or modern */
 #define BAND_BG  0x0C
-static void draw_clock(void);         /* the top-right widget; lives in ROM2 (ROM1C has no room) */
+static void draw_clock(void);         /* the top-right widget.  It lived in ROM2 while ROM1C was full;
+                                       * the 2026-09-01/02 savings gave ROM1C the room, and it belongs
+                                       * beside bar_str, which is what it draws through. */
+/* Are the bands up?  Not "is either height nonzero": with the bands off, OY
+ * carries the one-cell margin instead, so OY alone would say yes to a margin.
+ * The host's own switch is the only honest answer, and it costs no state --
+ * which matters, BSSR being 447 of 448 bytes used. */
+static uint8_t bands_on(void) { return (uint8_t)((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80); }
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {
@@ -113,45 +131,79 @@ static void bar_num(uint8_t rx, uint8_t py, uint16_t v)     /* right-anchored at
 {
     do { put_at(rx--, py, (uint8_t)('0' + v % 10), BAND_FG, BAND_BG); v /= 10; } while (v);
 }
+static uint8_t day_col(void)
+{
+    uint8_t k = (uint8_t)((REG(SYS + SYS_CLOCKFMT) >> 1) & 3);
+    return (uint8_t)(PCOLS - (k == 1 ? 2 : k == 2 ? 7 : 10));
+}
 static void draw_bands(void)
 {
     uint8_t i, ofg = fg, obg = bg, last = PROWS - 1;
     uint16_t mhz = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
-    fg = BAND_FG; bg = BAND_BG; blank_row(0); blank_row(last);   /* the two bars */
+    fg = BAND_FG; bg = BAND_BG;                                  /* the bars, each only if it has a band */
+    if (OY) blank_row(0);
+    if (bband) blank_row(last);
     fg = ofg; bg = obg;                                          /* the spacers, in the console's colours */
     for (i = 1; i < OY; i++) blank_row(i);
     for (i = OY + ROWS; i < last; i++) blank_row(i);
-    bar_str(1, 0, "K4510  K/OS");                            /* top bar: the machine, and the clock at the right */
-    (void)REG(SYS + 4); draw_clock();
-    bar_str(1, last, "status mode");                             /* bottom bar: the mode, and the live CPU clock */
-    bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz);
+    /* Dropped 2026-09-02, both of them (Doc): "K4510  K/OS" top left and
+     * "status mode" bottom left.  A status bar should carry what is otherwise
+     * invisible and what changes without being asked; those two told you what
+     * you already knew, never changed, and held the best real estate on the
+     * screen between them.  What is left earns its place: the clock, and the
+     * CPU clock -- which the governor steps DOWN on its own when frames run
+     * late, and is the one widget that shows the machine acting behind your
+     * back. */
+    if (OY) { (void)REG(SYS + 4); draw_clock(); }
+    if (bband) { bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz); }
 }
 #pragma code-name (pop)
 
+/* Two digits, then four.  Written as helpers because cc65 inlines a division
+ * at every site and the spelled-out version cost ROM2 more than it has. */
+static char *dig2(char *d, uint8_t v) { *d++ = (char)('0' + v / 10); *d++ = (char)('0' + v % 10); return d; }
+static char *dig4(char *d, uint16_t v) { d = dig2(d, (uint8_t)(v / 100)); return dig2(d, (uint8_t)(v % 100)); }
+static void draw_clock(void)
+{
+    /* Three date orders over one set of fields, rather than three spelled-out
+     * layouts.  ord[] says which field goes where; the separator comes with it. */
+    static const char sep[3] = { '.', '-', '/' };
+    static const uint8_t ord[3][3] = { { 0, 1, 2 }, { 2, 1, 0 }, { 1, 0, 2 } };
+    char b[20], *d = b;
+    uint8_t f = REG(SYS + SYS_CLOCKFMT), j, w, h;
+    uint8_t hh = REG(SYS + 7);
+    uint8_t k = (uint8_t)((f >> 1) & 3);
+    if (k > 2) k = 0;
+    h = hh;
+    if (!(f & 1)) { h = hh % 12; if (!h) h = 12; }        /* 12-hour: 0 and 12 both read 12 */
+    d = dig2(d, h); *d++ = ':';                           /* the hour is PADDED, never narrowed: */
+    d = dig2(d, REG(SYS + 6)); *d++ = ' ';                /* fixed width keeps the IRQ a digit poker */
+    if (!(f & 1)) { *d++ = (hh >= 12) ? 'P' : 'A'; *d++ = 'M'; *d++ = ' '; }
+    for (j = 0; j < 3; j++) {
+        w = ord[k][j];
+        if (w == 2) d = dig4(d, r16(SYS + 0x0A));
+        else        d = dig2(d, REG(SYS + (w ? 9 : 8)));   /* 8 = day, 9 = month */
+        if (j < 2) *d++ = sep[k];
+    }
+    *d = 0;
+    /* Right-anchored, so the date always ends in the last column and always
+     * occupies the last ten: 16 cells at 24-hour, 19 with the AM/PM. */
+    bar_str((uint8_t)(PCOLS - (uint8_t)(d - b)), 0, b);
+}
+
+/* Which column holds the first digit of the day, for the once-a-day repaint
+ * in k_getin.  The date is the last ten cells whatever the format; only the
+ * day's place inside it moves. */
 /* The clock widget: HH:MM DD.MM.YYYY at the top-right.  This lays down the
  * whole string once (separators and the year included); the machine's IRQ
  * (crt0.s) then repaints the eight digits every minute, so it ticks even
  * inside a program that never calls the console.  The caller latches the RTC
  * (a read of SYS+4) first.  In ROM2, called from ROM1C's draw_bands. */
-static void draw_clock(void)
-{
-    char b[17];
-    uint8_t hh = REG(SYS + 7), mi = REG(SYS + 6), dd = REG(SYS + 8), mo = REG(SYS + 9);
-    uint16_t yr = r16(SYS + 0x0A);
-    b[0]  = '0' + hh / 10; b[1]  = '0' + hh % 10; b[2]  = ':';
-    b[3]  = '0' + mi / 10; b[4]  = '0' + mi % 10; b[5]  = ' ';
-    b[6]  = '0' + dd / 10; b[7]  = '0' + dd % 10; b[8]  = '.';
-    b[9]  = '0' + mo / 10; b[10] = '0' + mo % 10; b[11] = '.';
-    b[12] = '0' + (uint8_t)(yr / 1000);     b[13] = '0' + (uint8_t)(yr / 100 % 10);
-    b[14] = '0' + (uint8_t)(yr / 10 % 10);  b[15] = '0' + (uint8_t)(yr % 10);
-    b[16] = 0;
-    bar_str(PCOLS - 16, 0, b);
-}
 
 static void cls(void)
 {
     uint8_t i;
-    if (bband) {                                       /* status mode: clear the console window, keep the bands */
+    if (bands_on()) {                                  /* status mode: clear the console window, keep the bands */
         for (i = OY; i < OY + ROWS; i++) blank_row(i);
         draw_bands();
     } else {
@@ -277,10 +329,25 @@ uint8_t k_getin(void)
      * a clock changed in F7 used to leave yesterday's number sitting in the bar
      * until something cleared the screen (Doc, 2026-09-01).  This is the poll
      * every program already goes through, so it is where the number is kept
-     * honest -- and it costs a compare per key poll, only while the bands are up. */
+     * honest -- and it costs a compare per key poll, only while the bands are up.
+     * The MHz sits in the BOTTOM band, so this asks for that one specifically:
+     * with a bottom height of zero there is nowhere to put it. */
     if (bband) {
         uint16_t m = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
         if (m != band_mhz) { band_mhz = m; bar_num(PCOLS - 5, (uint8_t)(PROWS - 1), m); }
+    }
+    /* And the date, once a day.  The IRQ keeps HH:MM right -- that is the part
+     * that has to tick inside a program which never polls -- but it is
+     * deliberately not taught the three date orders, because a format-aware
+     * painter in the interrupt is a lot of assembler guarding a thing that
+     * changes at midnight.  So the day is checked HERE, against what is
+     * actually on the glass rather than against a remembered value: BSSR has
+     * one byte left in it, and this needs none.  It also self-heals if
+     * anything else scribbles on the clock. */
+    if (OY) {
+        uint8_t c = day_col();
+        (void)REG(SYS + 4);                                   /* latch the RTC */
+        if (far_peek(SCREEN + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();
     }
     if (REG(TERM + 0x0E)) { if (cursor_vis) draw_cursor(0); }
     else if (!cursor_vis) draw_cursor(1);
@@ -1590,8 +1657,18 @@ static void video_init(void)
     /* status mode: two static bands frame the console (the 80-column modes only).
      * The band heights scale with the screen: 640x240 -> 2 top + 3 bottom (25 rows);
      * 640x480 -> 4 + 6 (50 rows).  bband != 0 is the flag the rest of the ROM reads. */
-    if ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80) { OY = PROWS / 15; bband = PROWS / 10; }
-    else                                                  { OY = margin;    bband = 0; }
+    /* The bands are the F7 Terminal menu's now, and independent (Doc,
+     * 2026-09-02): a top height and a bottom height, either of which may be
+     * zero.  They used to be PROWS/15 and PROWS/10 -- 4+6 at 640x480 and 2+3
+     * at 640x240 -- which spent a sixth of the screen on furniture holding
+     * four strings, two of which were a nameplate.  The default is 1+2 in
+     * both modes.  Clamped so the console always keeps BAND_MIN_ROWS: a
+     * program may ask for anything, and gets the clamp rather than the ask. */
+    if ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80) {
+        uint8_t t = REG(SYS + SYS_BANDTOP), b = REG(SYS + SYS_BANDBOT);
+        if (t + b > PROWS - BAND_MIN_ROWS) { t = 1; b = 2; }
+        OY = t; bband = b;
+    } else                                                { OY = margin;    bband = 0; }
     COLS = PCOLS - (bband ? 0 : margin); ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
     REG(VICKY + 1) = C_BG;

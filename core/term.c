@@ -18,6 +18,13 @@ static struct {
                                         * ends its lines with a bare \n and expects column 0 back,
                                         * which is exactly what LNM is for. */
     uint8_t petscii, pet_lower;        /* PETSCII mode (FLAGS bit 2), and its case set ($0E / $8E) */
+    /* The status bands, when a PROGRAM has taken them (FLAGS bit 3).  JIM does
+     * not draw them and never reads these -- the ROM does, in video_init.  They
+     * live here because this is where the console's geometry lives, and the
+     * band heights are what the geometry is made of; and because the frontend
+     * rewrites the USER's heights ($D52D/$D52E) every frame, so a guest has
+     * nowhere else to put a request of its own that would survive. */
+    uint8_t bandclaim, bandtop, bandbot;
     uint8_t g0, g1, shift;             /* charsets: 0 ASCII, 1 DEC line drawing; shift = SO */
     uint8_t tabs[32];                  /* tab stops, one bit per column */
     struct { uint8_t cx, cy, fg, bg, bold, rev, uline, g0, g1, shift, origin; } saved;
@@ -470,9 +477,11 @@ uint8_t term_read(uint8_t r)
     case 0x09: return T.cx;    case 0x0A: return T.cy;
     case 0x0B: return T.fg;    case 0x0C: return T.bg;
     case 0x0D: return T.stride;
-    case 0x0E: return (uint8_t)((T.shown ? 1 : 0) | (T.ckm ? 2 : 0) | (T.petscii ? 4 : 0));
+    case 0x0E: return (uint8_t)((T.shown ? 1 : 0) | (T.ckm ? 2 : 0) | (T.petscii ? 4 : 0) | (T.bandclaim ? 8 : 0));
+    case 0x0F: return T.bandtop;
     case 0x10: case 0x11: case 0x12: case 0x13: return (uint8_t)(T.base >> (8 * (r - 0x10)));
     case 0x14: return T.deffg; case 0x15: return T.defbg;
+    case 0x16: return T.bandbot;
     default: return 0;
     }
 }
@@ -503,11 +512,14 @@ void term_write(uint8_t r, uint8_t v)
     case 0x0D: cur_undraw(); T.stride = v; clamp_geometry(); cur_draw(); return;
     case 0x0E: cur_undraw(); T.shown = v & 1;
                if (((v >> 2) & 1) != T.petscii) { T.petscii = (v >> 2) & 1; T.pet_lower = 0; }
+               T.bandclaim = (v >> 3) & 1;
                cur_draw(); return;
+    case 0x0F: T.bandtop = v; return;
     case 0x10: case 0x11: case 0x12: case 0x13:
         cur_undraw(); T.base = (T.base & ~(0xFFu << (8 * (r - 0x10)))) | ((uint32_t) v << (8 * (r - 0x10))); T.base &= K4510_PHYS_MASK; cur_draw(); return;
     case 0x14: T.deffg = v; return;
     case 0x15: T.defbg = v; return;
+    case 0x16: T.bandbot = v; return;
     default: return;
     }
 }

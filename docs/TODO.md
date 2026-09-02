@@ -207,14 +207,15 @@ Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
       heights (default 1+2 in both modes) at `$D52D`/`$D52E`, the two
       nameplates dropped, 12/24-hour and three date orders at `$D52F`, and an
       F7 **Terminal** menu holding all of it.  `docs/notes/status-bars.md`.
-- [ ] **Status bands: the program's half.**  A program still cannot claim the
-      bands, which was the other half of "software definable":
-      `BANDTOP`/`BANDBOT` as JIM registers (`$DA0F`, `$DA16` are free), an
-      ownership bit in `FLAGS` so `cls()` and the IRQ leave a claimed band
-      alone, and the hand-back discipline PETSCII mode already models -- with
-      a jimtest-shaped test that the shell survives a program that forgot.
-      Then the widget table the IRQ walks, which is the real answer to
-      software-defined *content*.
+- [x] ~~**Status bands: the program's half**~~ — built 2026-09-02.  `$DA0F` /
+      `$DA16` + `FLAGS` bit 3, applied by the existing VIDEO call (`$FF92`);
+      `BANDS.PRG` is the worked example and `test/jimtest.sh` checks the
+      hand-back.  See `docs/notes/status-bars.md`.
+- [ ] **The widget table.**  Software-defined *space* is done; software-defined
+      *content* is not.  Generalise what `crt0.s` does for the clock's digit
+      cells into a table of (cell, source, format) the IRQ walks, so a program
+      can put a live readout in a band without having to be running to paint
+      it.
 
 ## The consolidation (2026-09-01)
 

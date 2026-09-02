@@ -1236,3 +1236,23 @@ instruction. `retired/README.md` says what each was.
   will read as a machine that does not work.
 - `fs/SID` is still a symlink to `sidfiles/EC64SC_SID_Files` with nothing left
   to read it. Doc's call whether it goes.
+
+**2026-09-02, the program's half of the bands.**
+
+`$DA0F` BANDTOP, `$DA16` BANDBOT, `FLAGS` bit 3 to claim; apply with VIDEO
+(`$FF92`), which now draws K/OS's bands when they are *not* claimed so that
+handing them back is one step. `BANDS.PRG` is the worked example.
+
+**For the handbook agent:** there is a new program, `BANDS`, and a new thing a
+program can do. If the F7 chapter gained a Terminal section yesterday, this is
+its programmer-facing counterpart — worth a short section beside PETSCII mode,
+since it is the same claim-and-hand-back discipline and the same failure if a
+program forgets.
+
+**A lesson I re-learned twice in one sitting**, and it is already in the
+project's own notes: *stale binaries lie*. After changing `core/term.c` I
+rebuilt the ROM and `test/headless` but not `sdl/k4510`, and spent a while
+chasing a "bug" where the claim was ignored — first in the harness, then again
+in the emulator. Both times the code was right and the binary was old. When a
+change spans the host and the guest, `make` everything before believing
+anything.

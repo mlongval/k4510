@@ -64,4 +64,28 @@ ECHO JIMANSIBACK
 ' 1800 2>&1) || fail "PETSCII did not run (handback)"
 echo "$out" | grep -q "JIMANSIBACK"        || fail "PETSCII: the shell was left in PETSCII mode"
 
-echo "jimtest: OK (LNM column reset, CR folded onto newline, both demos, PETSCII hands the terminal back)"
+# BANDS.PRG takes the status bands ($DA0F/$DA16 + FLAGS bit 3), draws in them,
+# and hands them back.  The same discipline as PETSCII mode above, and checked
+# the same way, because nothing but the program enforces it.
+#
+# Note this runs with the bands switched OFF in the host's settings -- the
+# headless harness has no k4510.cfg -- which is deliberate: a program claiming
+# the bands gets them whether or not the user has them on, and if that ever
+# stopped being true this test would go quiet rather than fail.
+out=$(./test/headless rom/kernal.bin 'RUN bands
+' 300 2>&1) || fail "BANDS did not run"
+echo "$out" | grep -q "belong to this program"   || fail "BANDS: the claimed top band was not drawn"
+echo "$out" | grep -q "K/OS is not drawing here" || fail "BANDS: the second row of the claimed band is missing"
+echo "$out" | grep -q "console text scrolls"     || fail "BANDS: the console did not scroll between the bands"
+
+# Two runs, as with PETSCII: the demo clears the console as it hands back, so
+# one screen cannot show both the claim and the proof that the shell survived.
+out=$(./test/headless rom/kernal.bin 'RUN bands
+~~~~~~
+q
+ECHO BANDSBACK
+' 2000 2>&1) || fail "BANDS did not run (handback)"
+echo "$out" | grep -q "handed back"  || fail "BANDS: never reached its hand-back"
+echo "$out" | grep -q "BANDSBACK"    || fail "BANDS: the shell did not survive the hand-back"
+
+echo "jimtest: OK (LNM column reset, CR folded onto newline, both demos, PETSCII and BANDS hand back)"

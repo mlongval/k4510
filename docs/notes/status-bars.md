@@ -181,18 +181,46 @@ block each other.
   the key poll -- so the flat 45GS10 load the machine already has is now
   a ROM primitive, about ten cycles.
 
+## The program's half, built 2026-09-02
+
+Three registers and one existing call:
+
+    $DA0F  BANDTOP   rows wanted in the top band
+    $DA16  BANDBOT   rows wanted in the bottom band
+    $DA0E  FLAGS bit 3   the bands are the program's
+
+Write the heights, set bit 3, call **VIDEO (`$FF92`)**. K/OS re-lays the
+console around them, publishes the new window to JIM, and then leaves
+those rows entirely alone: no clock, no MHz, and a `CLS` from inside the
+program clears the console without touching them. Clear bit 3, call
+VIDEO again, and K/OS's own bands come back.
+
+Three things fell out of building it:
+
+- **VIDEO now draws the bands** when they are not claimed. It did not
+  before -- only `cls()` did -- which would have made handing back a
+  two-step dance (clear the bit, call VIDEO, then CLS). Drawing the
+  bands is part of laying the screen out, so VIDEO is where it belongs,
+  and the hand-back is one step.
+- **A claim beats the F7 switch.** `bands_on()` is true while claimed
+  even if the user has the bands off, because a program asking for the
+  furniture should not first have to ask the user to enable it. The
+  demo is tested in exactly that state.
+- **Claiming does not blank the rows.** They still hold whatever K/OS
+  last drew. That is deliberate and the demo says so: the ROM has
+  stopped touching those rows, and "stopped touching" includes not
+  wiping them for you.
+
+`fs/PRG/bands.prg` (`demo/bands.c`) is the worked example: it asks for
+2+1, draws a title in the top band and a live frame counter and a
+walking marker in the bottom, scrolls text through the console to show
+the bands sitting still, and hands them back on a key.
+`test/jimtest.sh` checks both halves, the way it checks PETSCII's.
+
 ## What is still owed
 
-The heights are the **user's**, not a **program's**. A program cannot
-yet claim the bands, and that was the other half of "software
-definable":
-
-- `BANDTOP`/`BANDBOT` as JIM registers (`$DA0F`, `$DA16` are free), so a
-  guest can set them and have the console re-lay itself.
-- The ownership bit in `FLAGS`, so `cls()` and the IRQ leave a program's
-  bands alone.
 - The widget table the IRQ walks, which is the real answer to
-  software-defined *content*.
+  software-defined *content* rather than software-defined *space*.
 
 ## The clock and the date
 

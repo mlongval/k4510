@@ -81,6 +81,9 @@ irq:    pha
         bne @ack
         ; --- the status-bar clock, the machine's own tick: when the minute
         ; rolls, repaint the eight digit cells (in status mode only) ---
+        lda $DA0E               ; has a PROGRAM claimed the bands?  Then they are not ours to paint,
+        and #$08                ; and a clock ticking through somebody else's status line is the
+        bne @curs               ; loudest possible way to get this wrong
         lda $D521               ; the host's own switch: are the bands up at all?
         and #$08
         beq @curs

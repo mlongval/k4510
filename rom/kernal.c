@@ -24,6 +24,9 @@
 #define SYS_BANDBOT   0x2E
 #define SYS_CLOCKFMT  0x2F           /* bit0 24-hour; bits1-2 the date order (0 D.M.Y, 1 ISO, 2 M/D/Y) */
 #define BAND_MIN_ROWS 10             /* the console never shrinks below this, whatever is asked for */
+#define T_BANDTOP     0x0F           /* JIM: a PROGRAM's band heights, and FLAGS bit 3 to claim them */
+#define T_BANDBOT     0x16
+#define T_CLAIMED     0x08
 #define BANK   0xD600u
 #define TUBE   0xD800u
 #define TERM   0xDA00u                /* JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
@@ -116,7 +119,11 @@ static void draw_clock(void);         /* the top-right widget.  It lived in ROM2
  * carries the one-cell margin instead, so OY alone would say yes to a margin.
  * The host's own switch is the only honest answer, and it costs no state --
  * which matters, BSSR being 447 of 448 bytes used. */
-static uint8_t bands_on(void) { return (uint8_t)((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80); }
+static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS == 80); }
+/* A program that has claimed the bands gets them whether or not the user's F7
+ * switch is on -- that is the point of claiming: a program wants the furniture
+ * for its own, and asking the user to enable it first would be absurd. */
+static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80)); }
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {
@@ -205,7 +212,8 @@ static void cls(void)
     uint8_t i;
     if (bands_on()) {                                  /* status mode: clear the console window, keep the bands */
         for (i = OY; i < OY + ROWS; i++) blank_row(i);
-        draw_bands();
+        if (!claimed()) draw_bands();                  /* claimed: the rows are the program's, and a CLS
+                                                        * from inside it must not wipe what it drew */
     } else {
         for (i = 0; i < PROWS; i++) blank_row(i);       /* every physical row, the margins with them */
     }
@@ -332,7 +340,7 @@ uint8_t k_getin(void)
      * honest -- and it costs a compare per key poll, only while the bands are up.
      * The MHz sits in the BOTTOM band, so this asks for that one specifically:
      * with a bottom height of zero there is nowhere to put it. */
-    if (bband) {
+    if (bband && !claimed()) {
         uint16_t m = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
         if (m != band_mhz) { band_mhz = m; bar_num(PCOLS - 5, (uint8_t)(PROWS - 1), m); }
     }
@@ -344,7 +352,7 @@ uint8_t k_getin(void)
      * actually on the glass rather than against a remembered value: BSSR has
      * one byte left in it, and this needs none.  It also self-heals if
      * anything else scribbles on the clock. */
-    if (OY) {
+    if (OY && !claimed()) {
         uint8_t c = day_col();
         (void)REG(SYS + 4);                                   /* latch the RTC */
         if (far_peek(SCREEN + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();
@@ -1664,8 +1672,10 @@ static void video_init(void)
      * four strings, two of which were a nameplate.  The default is 1+2 in
      * both modes.  Clamped so the console always keeps BAND_MIN_ROWS: a
      * program may ask for anything, and gets the clamp rather than the ask. */
-    if ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80) {
-        uint8_t t = REG(SYS + SYS_BANDTOP), b = REG(SYS + SYS_BANDBOT);
+    if (bands_on()) {
+        uint8_t t, b;
+        if (claimed()) { t = REG(TERM + T_BANDTOP); b = REG(TERM + T_BANDBOT); }   /* the program's */
+        else           { t = REG(SYS + SYS_BANDTOP); b = REG(SYS + SYS_BANDBOT); } /* the user's */
         if (t + b > PROWS - BAND_MIN_ROWS) { t = 1; b = 2; }
         OY = t; bband = b;
     } else                                                { OY = margin;    bband = 0; }
@@ -1696,6 +1706,11 @@ static void video_init(void)
     REG(TERM) = 27; REG(TERM) = '['; REG(TERM) = '2'; REG(TERM) = '0'; REG(TERM) = 'h';  /* LNM: \n returns the column */
     REG(TERM + 9) = cx; REG(TERM + 10) = cy;                                             /* and JIM starts where the console is */
     jim_fg = jim_bg = 0xFF;                                                              /* colours re-pushed on the next character */
+    /* The bands are part of laying the screen out, so VIDEO ($FF92) draws
+     * them -- which makes handing them back one step for a program: clear
+     * FLAGS bit 3, call VIDEO, done.  Claimed, it draws nothing: the rows are
+     * the program's and it is about to fill them itself. */
+    if (bands_on() && !claimed()) draw_bands();
 }
 
 #pragma code-name (pop)

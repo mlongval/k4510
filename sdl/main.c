@@ -280,7 +280,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * a few hundred RenderDrawLines, and it is rebuilt only when the colour or
      * the scanline setting changes. */
     uint32_t border_lit = 0, border_dim = 0;
-    SDL_Texture *btex = NULL; int btex_scan = -1, btex_col = -1;
+    SDL_Texture *btex = NULL; int btex_scan = -1, btex_col = -1, btex_smooth = -1;
     const int shooting = getenv("K4510_SHOT") != NULL && getenv("K4510_SHOT_FX") == NULL;
                                      /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
 
@@ -838,13 +838,22 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               SDL_RenderSetLogicalSize(ren, VICKY_WIDTH * k, VICKY_HEIGHT * k);
           }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
-          if (!btex || btex_scan != scan_applied || btex_col != bcol) {
+          if (!btex || btex_scan != scan_applied || btex_col != bcol || btex_smooth != smooth_applied) {
               if (btex) SDL_DestroyTexture(btex);
               btex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                        1, VICKY_HEIGHT * 2);
-              btex_scan = scan_applied; btex_col = bcol;
+              btex_scan = scan_applied; btex_col = bcol; btex_smooth = smooth_applied;
               if (btex) { void *bp; int bpitch;
-                  SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);
+                  /* The SAME filter as the picture (line ~760), which this used
+                   * to ignore -- it was always Nearest.  With Scaling = soft the
+                   * screen's scanlines are blurred by the linear filter and the
+                   * border's stayed crisp, so the two halves of one picture were
+                   * striped differently: Doc, 2026-09-01, "borders are weird, not
+                   * the same as screen".  Measured on his shot: the screen's blue
+                   * ran through every value from 146 to 191 while the border sat
+                   * on exactly two, 135 and 101. */
+                  SDL_SetTextureScaleMode(btex, smooth_applied == SMOOTH_SOFT ? SDL_ScaleModeLinear
+                                                                             : SDL_ScaleModeNearest);
                   if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
                       for (int y = 0; y < VICKY_HEIGHT * 2; y++)
                           *(uint32_t *)((uint8_t *)bp + y * bpitch) =
@@ -852,12 +861,51 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                       SDL_UnlockTexture(btex);
                   } }
           }
-          /* RenderClear still paints the letterbox outside the logical area,
-           * where a stripe would only be an edge artefact. */
+          /* RenderClear is now only the floor under everything: the border
+           * colour flat, in case a rounding edge shows through. */
           SDL_SetRenderDrawColor(ren, (bc >> 16) & 255, (bc >> 8) & 255, bc & 255, 255);
           SDL_RenderClear(ren);
-          if (btex) { SDL_Rect bsrc = { 0, 0, 1, tall ? VICKY_HEIGHT * 2 : VICKY_HEIGHT };
-                      SDL_RenderCopy(ren, btex, &bsrc, NULL); }
+          /* The letterbox -- the bars where the window is not 4:3 -- is part of
+           * the same surface and gets the same stripes.  It used to be left
+           * flat, on the reasoning that a stripe out there would only be an
+           * edge artefact; on Doc's 16:10 screen it read instead as a third
+           * kind of grey beside the screen and the border, 2026-09-01: "extra
+           * borders (stretch) are different still".
+           *
+           * It cannot be reached through the logical size, which is the whole
+           * difficulty: SDL_RenderSetLogicalSize clips every RenderCopy to the
+           * picture's own rect, so a dst of NULL means the picture, not the
+           * window, and the bars are outside it by construction.  So step out
+           * of the mapping for this one draw, work out where the picture will
+           * land exactly as SDL would, and tile the border texture at the
+           * PICTURE's vertical scale -- which is what carries the stripe pitch
+           * and phase across the seam instead of restarting them at the window
+           * edge.  Then put the mapping back for the picture itself. */
+          if (btex) {
+              SDL_Rect bsrc = { 0, 0, 1, tall ? VICKY_HEIGHT * 2 : VICKY_HEIGHT };
+              int ow = 0, oh = 0, lw = VICKY_WIDTH * k, lh = VICKY_HEIGHT * k;
+              SDL_GetRendererOutputSize(ren, &ow, &oh);
+              if (ow > 0 && oh > 0) {
+                  /* ASK SDL where the picture lands rather than working it out
+                   * again here.  Reimplementing the rule was tried first and it
+                   * was right for two of the three Scaling modes and wrong for
+                   * sharp-fit, where SDL_RenderSetIntegerScale floors the scale
+                   * by its own arithmetic -- the bars came out a stripe out of
+                   * step with the border, which is the exact fault this is
+                   * meant to remove.  LogicalToWindow is SDL's own answer and
+                   * cannot disagree with SDL. */
+                  int wy0 = 0, wy1 = 0, wx = 0;
+                  SDL_RenderLogicalToWindow(ren, 0.0f, 0.0f, &wx, &wy0);
+                  SDL_RenderLogicalToWindow(ren, 0.0f, (float)lh, &wx, &wy1);
+                  int py = wy0, ph = wy1 - wy0;
+                  if (ph > 0) {
+                      SDL_RenderSetLogicalSize(ren, 0, 0);
+                      for (int y = py; y > -ph; y -= ph) { SDL_Rect d = { 0, y, ow, ph }; SDL_RenderCopy(ren, btex, &bsrc, &d); }
+                      for (int y = py + ph; y < oh; y += ph) { SDL_Rect d = { 0, y, ow, ph }; SDL_RenderCopy(ren, btex, &bsrc, &d); }
+                      SDL_RenderSetLogicalSize(ren, lw, lh);
+                  } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
+              } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
+          }
           SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;

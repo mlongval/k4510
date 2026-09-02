@@ -1,0 +1,39 @@
+# K4510x, the package list.  Three groups: what the machine needs to run,
+# what it needs to be REBUILT (the point of this distribution), and what the
+# hardware needs to come up at all.
+
+# --- the machine ---
+libsdl2-2.0-0
+alsa-utils
+
+# --- the toolchain, installed by default (Doc, 2026-09-02) ---
+# K4510x is the hosted build with the desktop taken away and the compilers
+# kept.  cc65 builds the ROM; 64tass rebuilds Forth; nasm the Tube; FPC is
+# what rebuilds Mad Pascal's mp (pascal/README.md).
+build-essential
+libsdl2-dev
+cc65
+64tass
+nasm
+fp-compiler
+python3
+git
+make
+unzip
+
+# --- somewhere to work ---
+vim
+less
+ca-certificates
+
+# --- the hardware ---
+# KMSDRM is the ONLY video path here, so the GPU firmware is not optional:
+# without it there is no KMS, and that appears as a black screen and an SDL
+# failure rather than as anything naming a driver.  amd64 covers the t520's
+# Radeon; the intel and misc blobs are there for whatever else this lands on.
+firmware-amd-graphics
+firmware-misc-nonfree
+firmware-linux-free
+
+# --- installing to the internal flash ---
+debian-installer-launcher

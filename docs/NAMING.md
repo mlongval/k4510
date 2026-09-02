@@ -19,6 +19,12 @@ Doc described a Linux appliance built round the emulator.
   real operating system, so the cross-compilers, git and an editor are
   all right there beside it.
 
+  Settled 2026-09-02 (Doc): **Debian, x86-64, the toolchain installed by
+  default**, delivered as an image that boots from a USB stick and can
+  install itself to internal storage. First target: an **HP t520** thin
+  client. `docs/K4510X.md` has the reasoning and the build recipe;
+  `k4510x/` is the live-build configuration.
+
 The three are one machine and one ROM. What differs is what is beneath
 it: somebody else's desktop, nothing at all, or a Linux that exists only
 to hold it up.

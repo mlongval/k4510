@@ -1,0 +1,27 @@
+#!/bin/sh
+# K4510x: build the machine inside the image, from the same sources and the
+# same Makefile everything else uses.  Nothing here is K4510x-specific except
+# where it lands and who owns it -- that is the point: one machine, one ROM,
+# three ways to deliver it (docs/NAMING.md).
+set -e
+
+USER=k4510
+HOME_DIR=/home/$USER
+
+adduser --disabled-password --gecos "K4510" $USER
+# DRM master, evdev and the sound card.  Without video and input there is no
+# KMSDRM and no keyboard, which is the whole user interface.
+for g in video input audio render; do adduser $USER $g 2>/dev/null || true; done
+
+# The tree is copied in by config/includes.chroot; build it as the user who
+# will run it, so the artefacts are not root's.
+if [ -d $HOME_DIR/k4510 ]; then
+    chown -R $USER:$USER $HOME_DIR/k4510
+    su - $USER -c 'cd ~/k4510 && make -j$(nproc) all' || \
+        echo "k4510x: BUILD FAILED -- the image will boot to a shell, not the machine"
+fi
+
+# A conservative starting clock.  Two Jaguar cores will not hold what a
+# desktop does, and SETUP is how a host gets measured honestly (see
+# docs/K4510X.md and docs/CPU-CLOCK-POLICY.md).
+su - $USER -c "printf 'version = 2\ncpu.auto = on\ncpu.clock = 20 MHz\nterm.bands = on\n' > ~/k4510/k4510.cfg"

@@ -197,12 +197,16 @@ Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
 
 ## Raised 2026-09-01, not yet decided
 
-- [ ] **K4510x** — a third delivery: a minimal Linux distribution that boots
-      straight into the emulator, no Wayland or X, for old laptops and thin
-      clients, with the Linux underneath still reachable so the cross-compilers
-      work.  Named and defined in `docs/NAMING.md`; nothing built.  Note it is
-      a *distribution*, not a port: same binary, same ROM as the hosted build.
-      The Pi 4 is wanted for BMC-K4510 at the same time.
+- [ ] **K4510x — build the image and run it on the t520.**  Decided 2026-09-02:
+      Debian, x86-64, toolchain by default, USB-or-install image, first target
+      an HP t520.  `docs/K4510X.md` and the live-build config in `k4510x/` are
+      written and reviewed but **have never been built** — `live-build` is not
+      installed on any build host, no ISO exists, and nothing has run on the
+      hardware.  Until then it is a recipe.  Watch for: the AMD GPU firmware
+      (no KMS without it, and the symptom is a black screen rather than a
+      driver message), the t520's M.2 being SATA and not NVMe, and a clock
+      SETUP will have to measure honestly on two 1.2 GHz Jaguar cores.
+- [ ] **A Pi 4 for BMC-K4510**, wanted alongside the 3B+.
 - [x] ~~**Status bands: the user's half**~~ — built 2026-09-02.  Independent
       heights (default 1+2 in both modes) at `$D52D`/`$D52E`, the two
       nameplates dropped, 12/24-hour and three date orders at `$D52F`, and an

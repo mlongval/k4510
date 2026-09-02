@@ -1,7 +1,60 @@
-# The two names
+# The names
 
-**Decision, 2026-08-29 (Doc).** The project has been using one name for
-two different things. From here:
+**Decision, 2026-08-29 (Doc), extended 2026-09-01.** There are now
+THREE names, because there are three ways to deliver the machine. The
+2026-08-29 decision below settled the first two; the third arrived when
+Doc described a Linux appliance built round the emulator.
+
+- **K4510** — the machine, and the emulator that runs it on somebody
+  else's operating system. Linux under SDL2 today; macOS and Windows are
+  wanted. You have a desktop, and one of the windows on it is a K4510.
+- **BMC-K4510** — the bare-metal appliance: a Raspberry Pi 3B+ (a 4 is
+  wanted too) with an SD card and no operating system underneath. *BMC*
+  is Randy Rossi's, for BMC64, the platform it was built on.
+- **K4510x** — a minimal Linux distribution that boots straight into the
+  emulator, with no Wayland and no X under it. Intended for old laptops,
+  thin clients and whatever else is on its way to being e-waste. Unlike
+  the appliance, **the Linux underneath is reachable**: the emulator can
+  shell out to it, so cross-compiling Mad Pascal and the rest works there
+  exactly as it does on a K4510 desktop.
+
+The three are one machine and one ROM. What differs is what is beneath
+it: somebody else's desktop, nothing at all, or a Linux that exists only
+to hold it up.
+
+## Where the line falls between the three
+
+The 2026-08-29 test still decides most cases and is still the one to
+reach for. Two more, for the new name:
+
+> **Is there an operating system under it, and can the machine reach
+> it?** No OS at all: **BMC-K4510**. An OS that is somebody else's and
+> was there first: **K4510**. An OS that exists only to run the machine,
+> and that the machine can still shell into: **K4510x**.
+
+The reachable-Linux part is the point of K4510x and the thing that
+distinguishes it from the appliance. `SWAP`, the shell escape, the CP/M
+bridge and the cross-compilers all want a host underneath; the Pi has
+none and never will. So K4510x is not "the appliance on a PC" — it is
+the *desktop* build with the desktop taken away.
+
+## A caution about the first name
+
+`K4510` now does two jobs: the machine in the abstract, and the hosted
+build specifically. That is how the project already spoke and it is
+usually harmless, because on a desktop the two are the same thing. It
+goes wrong in one place: **performance**. "The K4510 holds 40.5 MHz" is
+the old error in new clothes — what holds a clock is the host, not the
+machine. Say "the hosted build holds 40.5", "the BMC-K4510 holds 15",
+and let `SETUP` answer for K4510x, which will be different on every
+scrapped ThinkPad it lands on.
+
+---
+
+## The original decision, 2026-08-29
+
+The project had been using one name for two different things. From
+here:
 
 - **K4510** is the machine — the architecture and its software. The
   45GS02, VICKY, SHEILA, the four SIDs, K/OS, the ROM, the handbook,
@@ -58,12 +111,12 @@ runs at 15 MHz".
 
 ## What each name owns
 
-| | K4510 | BMC-K4510 |
-|---|---|---|
-| Code | `rom/`, `core/`, `sdl/`, `basic/`, `forth/`, `demo/`, `mon/`, `cpm/`, `tube/`, `fs/` | `pi/` |
-| Docs | the handbook, `VICKY-SPEC.md`, `K4510-Design.md`, Appendix A | `pi/README-SD.txt`, the SD-card sections |
-| Anything the guest can see | banner, status bar, `INFO`, the settings file | — |
-| Anything you hold | — | the card, the board, the cables |
+| | K4510 | BMC-K4510 | K4510x |
+|---|---|---|---|
+| Code | `rom/`, `core/`, `sdl/`, `basic/`, `forth/`, `demo/`, `mon/`, `cpm/`, `tube/`, `fs/` | `pi/` | nothing yet — it is a distribution, not a port |
+| Docs | the handbook, `VICKY-SPEC.md`, `K4510-Design.md`, Appendix A | `pi/README-SD.txt`, the SD-card sections | its own image-building notes, when it exists |
+| Anything the guest can see | banner, status bar, `INFO`, the settings file | — | — |
+| Anything you hold | — | the card, the board, the cables | the USB stick, the laptop it rescued |
 
 The dividing line falls almost exactly on `pi/`. Seven mentions of
 `BMC-K4510` live there and belong there; the other ~150 across the tree
@@ -108,7 +161,9 @@ are the machine and should read `K4510`.
   naming (`alpha-N`) — untouched. This is about prose and chrome.
 - **The desktop build gets no new name of its own.** It is the K4510.
   There is no silicon for it to be an emulation *of*: for a fantasy
-  machine, the emulator is the machine.
+  machine, the emulator is the machine. (Still true in 2026-09-01's
+  three-name world: K4510x names the *distribution*, not a third
+  build of the emulator. Same binary, same ROM.)
 
 ## The guest names itself correctly — done
 

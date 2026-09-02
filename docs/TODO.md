@@ -195,6 +195,24 @@ Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
       Done by the coding session because Doc asked for the whole job in
       one pass — handbook session, it is yours to revise.
 
+## Raised 2026-09-01, not yet decided
+
+- [ ] **K4510x** — a third delivery: a minimal Linux distribution that boots
+      straight into the emulator, no Wayland or X, for old laptops and thin
+      clients, with the Linux underneath still reachable so the cross-compilers
+      work.  Named and defined in `docs/NAMING.md`; nothing built.  Note it is
+      a *distribution*, not a port: same binary, same ROM as the hosted build.
+      The Pi 4 is wanted for BMC-K4510 at the same time.
+- [ ] **Software-definable status bands, and what goes in them** —
+      `docs/notes/status-bars.md` is the write-up: the mechanism (mostly
+      already there, since JIM's OX/OY/COLS/ROWS are writable and the console
+      is a scroll region between the bands), what earns a place up there, and
+      user-definable clock/date format including 12h/24h.  Needs Doc's answers
+      to the three questions at the end of that file before any of it is code.
+      One finding worth carrying: **`$D521` is full**, all eight bits, so any
+      further menu setting that must reach the guest needs a second options
+      byte -- `$D52D` is free.
+
 ## The consolidation (2026-09-01)
 
 `docs/CAPABILITIES.md` is the standing inventory: every capability, one line,

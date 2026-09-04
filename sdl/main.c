@@ -8,6 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>   /* access(): is this K4510x? */
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
@@ -247,6 +248,19 @@ int k4510_frontend_main(int argc, char **argv)
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     sid_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    /* The machine has no mouse -- no pointer, nothing to click, not one byte
+     * of mouse in the I/O map -- so a cursor sitting on the glass is never
+     * anything but wrong.  It showed up as a white arrow parked in the top
+     * left corner on K4510x, where KMSDRM draws one because there is no
+     * desktop to own it.  Hidden everywhere: in a window the pointer is still
+     * there for the frame and the title bar, it just stops being drawn over
+     * the picture. */
+    SDL_ShowCursor(SDL_DISABLE);
+    /* K4510x is a whole computer that exists to be this machine, so its menu
+     * gets a row the others must not have.  The marker file is written by
+     * k4510x/build-live.sh; on any other host this call never happens and the
+     * row stays off the end of the Machine menu. */
+    if (access("/etc/k4510x", F_OK) == 0) menu_set_shutdown(1);
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
 /* No vsync by default, anywhere.  It was off on the Pi already, because the
@@ -339,7 +353,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             io_set_clock_measured(0);
         }
     }
-    int running = 1;
+    int running = 1, shutdown_req = 0;
     int paused = 0;                                 /* F8: freeze the machine with the screen still showing (unless F8 is the menu key) */
     int clock_at_open = -1;                        /* the clock when the menu opened: changed on close = the user's choice */
     const int ring_log = getenv("K4510_RINGLOG") != NULL;
@@ -624,6 +638,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: running = 0; break;
+        case ACT_SHUTDOWN: shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
         } }
         if (open && clock_at_open < 0) clock_at_open = settings_get(SET_CPU_CLOCK);
         /* SETUP has finished measuring and asks us to keep the clock it settled
@@ -942,6 +957,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     }
     if (settings_changed()) settings_save(cfg);
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
+    /* Shut the computer down, in this order and not another: the settings are
+     * already written above, SDL has given the console back, and only then do
+     * we ask for the power off.  The helper syncs and unmounts the persistence
+     * partition before halting, which is what makes it safe to pull the stick
+     * out afterwards -- see k4510x/build-live.sh. */
+    if (shutdown_req) execl("/usr/local/sbin/k4510x-poweroff", "k4510x-poweroff", (char *) NULL);
     return 0;
 }
 

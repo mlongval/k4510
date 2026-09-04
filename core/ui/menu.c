@@ -69,7 +69,18 @@ static const item_t machine_items[] = {
     { "",                  MI_SEP },
     { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* the ladder, 202.5 down to 10; after Reset so uitest's walk to it is unchanged */
     { "Auto clock",        MI_SETTING, SET_CPU_AUTO },    /* measured at boot (core/calib.c); choosing a clock above turns this off */
+    /* The last two rows are K4510x's and nobody else's, which is why they are
+     * LAST: the menu simply stops short of them everywhere else (menu_set_
+     * shutdown below), so no host that cannot honour them ever draws them and
+     * uitest's walk is unchanged.  On a desktop the emulator is a program and
+     * quitting it is enough; on the Pi "Power off" already halts the board.
+     * K4510x is the case in between -- a whole computer whose only job is to
+     * be this machine -- and there, ending the session should be able to end
+     * the machine, not drop you on a login prompt you did not ask for. */
+    { "",                  MI_SEP },
+    { "Shut down the computer", MI_ACTION, ACT_SHUTDOWN },
 };
+#define MACHINE_N ((int)(sizeof machine_items / sizeof machine_items[0]))
 static const item_t shell_items[] = {
     { "CP/M .COM by name", MI_SETTING, SET_SHELL_CPMCOM },
     { "Run STARTUP.BAT",   MI_SETTING, SET_SHELL_STARTUP },
@@ -81,7 +92,10 @@ static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof vide
 static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
 static const menu_t term_menu    = { "Terminal", term_items,   (int)(sizeof term_items / sizeof term_items[0]) };
 static const menu_t input_menu   = { "Input",   input_items,   2 };
-static const menu_t machine_menu = { "Machine", machine_items, (int)(sizeof machine_items / sizeof machine_items[0]) };   /* was a hard 8: the CPU clock entry never drew */
+/* NOT const, and not the full count: the shutdown row and its separator are
+ * off the end until a host says it can honour them.  (Was a hard 8 once, and
+ * the CPU clock entry never drew.) */
+static menu_t machine_menu = { "Machine", machine_items, MACHINE_N - 2 };
 static const menu_t shell_menu   = { "Shell",   shell_items,   2 };
 static const menu_t info_menu    = { "Info",    info_items,    4 };
 static const item_t main_items[] = {
@@ -124,6 +138,10 @@ void menu_close(void) { if (open_) { open_ = 0; closed = 1; dirty = 1; } }
 int  menu_is_open(void) { return open_; }
 void menu_dirty(void) { dirty = 1; }
 int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
+/* The host tells us whether shutting the computer down is a thing it can do.
+ * Only K4510x says yes (sdl/main.c looks for /etc/k4510x): on a desktop this
+ * would offer to power off Doc's workstation from inside a toy computer. */
+void menu_set_shutdown(int available) { machine_menu.n = available ? MACHINE_N : MACHINE_N - 2; dirty = 1; }
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }
 void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { snprintf(info[row], sizeof info[row], "%s", text); dirty = 1; } }
 void menu_slot(int n, const char *text) { if (n >= 0 && n < MENU_SLOTS) { snprintf(slot[n], sizeof slot[n], "%s", text); dirty = 1; } }

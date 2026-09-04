@@ -55,7 +55,17 @@ NODISK="nvme,nvme_core,ahci,libahci,ata_piix,ata_generic,pata_acpi"
 
 # No `quiet`.  This is a first bring-up on hardware that has never run it; if
 # KMS or live-boot fails, Doc needs to see which one, not a silent black screen.
-CMDLINE="boot=live components toram union=overlay modprobe.blacklist=$NODISK"
+#
+# `persistence` turns on the fourth partition (see PERSIST_MB).  Note what it
+# costs: the system still lives in RAM, but SAVING now needs the stick, so
+# "pull it out once the banner is up" and "keep my changes" are no longer both
+# true at once.  Leave it in, and use F7 -> Shut down.
+CMDLINE="boot=live components toram union=overlay persistence modprobe.blacklist=$NODISK"
+
+# The persistence partition.  100 MB is Doc's number and it is a good one: an
+# overlay stores only what CHANGED, not the base it sits on, so this holds
+# settings, saved programs and wifi credentials many times over.
+PERSIST_MB=${PERSIST_MB:-100}
 
 [ "$(id -u)" = 0 ] || { echo "build-live.sh: run me with sudo"; exit 1; }
 
@@ -186,12 +196,68 @@ exec /bin/login "$@" k4510
 EOF
 chmod 755 "$ROOT/usr/local/sbin/k4510-telnet-login"
 
+echo "== shutting the computer down from the F7 menu =="
+# The marker the emulator looks for (sdl/main.c): its presence is what reveals
+# the "Shut down the computer" row, so a desktop build never offers to power
+# off Doc's workstation.
+: > "$ROOT/etc/k4510x"
+# Two scripts, because only the second may run as root.  The emulator execs
+# the first after SDL has given the console back and the settings are written.
+cat > "$ROOT/usr/local/sbin/k4510x-poweroff" <<'EOF'
+#!/bin/sh
+# Run by the emulator (F7 -> Shut down) as the k4510 user.  All it may do is
+# ask for the real one, which sudoers permits by name and by name only.
+exec sudo -n /usr/local/sbin/k4510x-halt
+EOF
+cat > "$ROOT/usr/local/sbin/k4510x-halt" <<'EOF'
+#!/bin/sh
+# The clean stop.  The persistence partition is the only thing on the stick
+# that is ever written, so flush it and take it read-only BEFORE halting: after
+# this returns, pulling the stick out cannot lose anything.  It is mounted
+# `sync` anyway (k4510x-persistence-sync.service), so this is belt and braces.
+sync
+for m in /run/live/persistence/*; do
+    [ -d "$m" ] || continue
+    mountpoint -q "$m" && mount -o remount,ro "$m" 2>/dev/null
+done
+sync
+exec systemctl poweroff
+EOF
+chmod 755 "$ROOT/usr/local/sbin/k4510x-poweroff" "$ROOT/usr/local/sbin/k4510x-halt"
+mkdir -p "$ROOT/etc/sudoers.d"
+echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510x-halt" > "$ROOT/etc/sudoers.d/k4510x-halt"
+chmod 440 "$ROOT/etc/sudoers.d/k4510x-halt"
+
+# Doc asked whether the save partition could be "mounted and automatically
+# unmounted after write".  It cannot: an overlay's upper directory has to stay
+# mounted for the whole session, or the files it is holding vanish underneath
+# you.  `sync` is the honest version of the same wish -- every write reaches
+# the flash as it happens, instead of sitting in the page cache waiting for a
+# clean unmount that an unplugged stick never gets.  On 100 MB of small files
+# the cost of this is not measurable.
+cat > "$ROOT/etc/systemd/system/k4510x-persistence-sync.service" <<'EOF'
+[Unit]
+Description=Make the K4510x save partition write straight through
+DefaultDependencies=no
+After=local-fs.target
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'for m in /run/live/persistence/*; do mountpoint -q "$m" && mount -o remount,sync "$m"; done; exit 0'
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
 echo "== the machine =="
 mkdir -p "$ROOT/home/$USER_NAME/k4510"
 git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k4510"
 rm -f "$ROOT/home/$USER_NAME/k4510/fs/SID"   # a symlink to tunes the repo does not carry
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 systemctl enable k4510-telnet.socket
+systemctl enable k4510x-persistence-sync.service
 adduser --disabled-password --gecos "K4510" $USER_NAME
 echo '$USER_NAME:$USER_PASS' | chpasswd
 for g in video input audio render sudo netdev plugdev; do adduser $USER_NAME \$g 2>/dev/null || true; done
@@ -258,15 +324,40 @@ echo "== image =="
 # Sized to fit, not to a round number: this gets written to a USB stick that
 # measured about 4 MB/s, so every gigabyte of empty image is four wasted
 # minutes.  ESP 512 MiB + squashfs + kernel + 512 MiB of slack.
-MIB=$(( (SQ / 1048576) + 512 + 512 + 128 ))
+LIVE_MB=$(( (SQ / 1048576) + 128 ))                       # squashfs + kernel + initrd
+LIVE_END=$(( 514 + LIVE_MB ))
+MIB=$(( LIVE_END + PERSIST_MB + 8 ))
 rm -f "$OUT"; truncate -s "${MIB}M" "$OUT"
+# Four partitions now.  The fourth MUST be labelled exactly `persistence` and
+# MUST contain persistence.conf -- that pair is how live-boot finds it; a
+# different label is simply not looked at, with no error anywhere.
 parted -s "$OUT" mklabel gpt \
     mkpart bios  1MiB   2MiB   set 1 bios_grub on \
     mkpart ESP   fat32 2MiB 514MiB set 2 esp on \
-    mkpart live  ext4  514MiB 100%
+    mkpart live  ext4  514MiB "${LIVE_END}MiB" \
+    mkpart save  ext4  "${LIVE_END}MiB" 100%
 LOOP=$(losetup --show -f -P "$OUT")
 mkfs.vfat -F32 -n K4510X-EFI "${LOOP}p2" >/dev/null
 mkfs.ext4 -q -L k4510x-live "${LOOP}p3"
+mkfs.ext4 -q -L persistence  "${LOOP}p4"
+
+# What survives a reboot.  Custom mounts, not `/ union`: a whole-root overlay
+# would also persist every log, every apt lock and every bit of /var churn,
+# and the point of this machine is that each boot is clean except for the
+# things Doc actually chose.
+#
+#   /home/k4510   the machine's own filesystem (fs/, saved programs), k4510.cfg
+#                 and the Mad Pascal checkouts -- an overlay stores only what
+#                 changed, so the 200 MB of checkouts cost nothing here.
+#   the wifi      because otherwise nmtui has to be redone at every boot, which
+#                 was the one real annoyance of the first build.
+PSAVE=$(mktemp -d)
+mount "${LOOP}p4" "$PSAVE"
+cat > "$PSAVE/persistence.conf" <<'EOF'
+/home/k4510 union
+/etc/NetworkManager/system-connections union
+EOF
+umount "$PSAVE"; rmdir "$PSAVE"
 
 mount "${LOOP}p3" "$MNT"
 mkdir -p "$MNT/boot/efi"

@@ -139,6 +139,28 @@ int main(void)
       CHECK(settings_get(SET_VIDEO_STATUSBAR) == 1, "the old video.statusbar key no longer loads");
       printf("7. a config written before the rename still turns the bands on\n"); }
 
+    /* 8. The shutdown row is K4510x's alone.  A desktop that could power the
+     * host off from inside the Machine menu would be a nasty surprise, and the
+     * row is kept off the end of the table rather than hidden mid-list, so
+     * this also pins that legs 2's walk does not shift under it. */
+    /* END lands on the last row of the Machine menu, which is the whole point
+     * of putting the shutdown row there: by default that is "Auto clock" and
+     * pressing it can only touch a setting. */
+    { menu_open();
+      menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_ENTER);   /* Machine */
+      menu_key(KEY_END); menu_key(KEY_ENTER);
+      CHECK(menu_take_action() != ACT_SHUTDOWN, "a plain host can shut the computer down from the menu");
+      menu_close(); menu_take_action();
+
+      menu_set_shutdown(1);
+      menu_open();
+      menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_ENTER);   /* Machine */
+      menu_key(KEY_END); menu_key(KEY_ENTER);
+      CHECK(menu_take_action() == ACT_SHUTDOWN, "K4510x asked for the shutdown row and did not get it");
+      menu_close(); menu_take_action();
+      menu_set_shutdown(0);
+      printf("8. \"Shut down\" stays off the menu until the host says it can\n"); }
+
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

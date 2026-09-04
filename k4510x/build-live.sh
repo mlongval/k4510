@@ -395,9 +395,13 @@ menuentry "K4510x -- load to RAM, internal drives locked out" {
 EOF
 
 binds_down
-umount "$ROOT/mnt/live/boot/efi"
-umount "$ROOT/mnt/live"
-umount "$MNT/boot/efi"
+# -R and then a guard: the chroot view is an rbind of $MNT, and unmounting
+# through it propagates, so $MNT/boot/efi is usually already gone by the time
+# we get here.  Unguarded, that umount fails, `set -e` takes the script out
+# before the final sync, and the build reports failure having done everything
+# right.  (It did exactly that twice.)
+umount -R "$ROOT/mnt/live"
+mountpoint -q "$MNT/boot/efi" && umount "$MNT/boot/efi"
 umount "$MNT"
 losetup -d "$LOOP"; LOOP=""
 sync

@@ -1,0 +1,63 @@
+# K4510x LIVE, the package list.  Diverges from k4510x.list.chroot in four
+# ways, each of them a consequence of Doc's 2026-09-03 requirements:
+#
+#   + networking      there was NONE in the original list -- no DHCP client,
+#                     no NetworkManager, nothing.  The t520 image would have
+#                     come up with no way to reach anything.  The machine's
+#                     TELNET needs the outside world to dial BBSes.
+#   + iwlwifi         the T480's Intel 8265.  Absent from the original, which
+#                     was built for a wired thin client.
+#   + Mad Pascal deps FPC was already here; git and the checkouts do the rest.
+#   - installer       nothing can be installed: the internal drives are
+#                     blacklisted out of existence, so the launcher would only
+#                     ever show an empty list.
+
+# --- the machine ---
+libsdl2-2.0-0
+alsa-utils
+
+# --- the toolchain, installed by default (Doc, 2026-09-02) ---
+# K4510x is the hosted build with the desktop taken away and the compilers
+# kept.  cc65 builds the ROM; 64tass rebuilds Forth; nasm the Tube; FPC is
+# what rebuilds Mad Pascal's mp AND the MADS assembler beside it.
+build-essential
+libsdl2-dev
+cc65
+acme
+64tass
+nasm
+fp-compiler
+fp-units-fcl
+python3
+git
+make
+unzip
+
+# --- somewhere to work ---
+# neovim by name (Doc, 2026-09-03).  vim stays: the machine's own VI is a
+# different thing entirely, and muscle memory for `vi` should land somewhere.
+neovim
+vim
+less
+ca-certificates
+
+# --- the network ---
+# NetworkManager because the answer to "how do I get on the wifi" has to be a
+# thing you can do from a text console with no notes: Ctrl+Alt+F2, `sudo
+# nmtui`, pick the SSID.  Ethernet needs no ceremony -- DHCP just runs.
+network-manager
+wpasupplicant
+iproute2
+iputils-ping
+telnet
+inetutils-telnetd
+
+# --- the hardware ---
+# KMSDRM is the ONLY video path here, so the GPU firmware is not optional:
+# without it there is no KMS, and that appears as a black screen and an SDL
+# failure rather than as anything naming a driver.  The T480 is Intel (UHD
+# 620); the AMD blob stays so the same image still boots the t520.
+firmware-iwlwifi
+firmware-misc-nonfree
+firmware-linux-free
+firmware-amd-graphics

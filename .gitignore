@@ -93,3 +93,6 @@ demo/bomber.h
 fs/SYSTEM/PERF.TXT
 fs/SYSTEM/BENCH-*.TXT
 k4510x/*.img
+# build-live.sh works in here: a debootstrapped rootfs and a squashfs,
+# about 2.5 GB. REUSE=1 rebuilds an image from it in seconds.
+k4510x/.live-work/

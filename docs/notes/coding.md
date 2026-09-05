@@ -6,9 +6,13 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## Now
 
-- A code review of the machine (core/, rom/, sdl/, tests) and a smoke-test
-  triage of every demo and language package, both as reports for Doc to
-  rule on.  Nothing changes until he has.
+- Waiting on Doc's ruling over two reports written today:
+  `docs/notes/review-2026-09-05.md` (13 findings, two reproduced: a DIR
+  buffer overflow in the ROM, a text32 out-of-bounds store in VICKY) and
+  `docs/notes/triage-2026-09-05.md` (every program and package smoke-tested
+  after the SID cut: nothing to retire, one hint fixed in OPLPLAY).
+  Nothing from the review is changed until he says which.
+- The K4510x live image on the stick predates the SID cut and the review.
 
 ## Done 2026-09-05 — THE SIDs ARE GONE
 

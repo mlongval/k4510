@@ -378,10 +378,10 @@ static void caption(uint8_t s)
                   b[i++] = 'P'; b[i++] = 'L'; b[i] = 0;
                   text8_print(TEXTMAP, 80, 55, 3, b); }
     text8_print(TEXTMAP, 80, 2, 57, "each orb is one FM voice; a note-on throws it up");
-    /* $D482 answers "an OPL2 is fitted" whether or not it is the chip the menu
-     * has clocked, so the program cannot tell silence from sound.  Say it
-     * instead.  On the Pi there is nothing to choose -- it is an OPL2 machine. */
-    text8_print(TEXTMAP, 80, 2, 5, "silent on a desktop?  F7 - Audio - Sound chip - OPL2");
+    /* The program cannot tell silence from sound, so say where the volume is.
+     * (Until 2026-09-05 this pointed at a Sound chip row; the OPL2 is the only
+     * chip now and that row is gone.) */
+    text8_print(TEXTMAP, 80, 2, 5, "silent?  F7 - Audio - Volume, then the host's own mixer");
     for (i = 0; i < NCH; i++) {
         char b[2]; b[0] = (char)('1' + i); b[1] = 0;
         text8_print(TEXTMAP, 80, (uint8_t)(5 + i * 8), 54, b);

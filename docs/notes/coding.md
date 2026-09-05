@@ -2,11 +2,70 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-29 16:4x**
+**Updated: 2026-09-05**
 
 ## Now
 
-- Nothing in flight.
+- A code review of the machine (core/, rom/, sdl/, tests) and a smoke-test
+  triage of every demo and language package, both as reports for Doc to
+  rule on.  Nothing changes until he has.
+
+## Done 2026-09-05 — THE SIDs ARE GONE
+
+Doc: "nuke anything having to do with SIDs, tell handbook agent".  Done, in
+one commit.  The machine has ONE sound chip, the OPL2 at $D480.
+
+**For the handbook agent — every one of these is a handbook change:**
+
+- **$D400-$D47F is empty.** Reads $FF, writes are ignored.  The register
+  map's SID block, the four-chip diagram, `$D5F3` (the SID clock select)
+  and `SYS+$2C` (SIDs active) are all gone.  `doc/guide/mkregs.py` still
+  says "System registers, and the SIDs" for the SYS block and lists SID in
+  `NOT_A_NAME`; `docs/CAPABILITIES.md` and `docs/TODO.md` (items 84-101,
+  229-254) describe an arrangement that no longer exists.  Appendix C.
+- **`audio.chip` and `audio.sids` are not settings any more.**  A k4510.cfg
+  that still has them is fine (unknown keys are kept), but the handbook
+  must not tell anyone to write `audio.chip = reSID`: it does nothing.
+- **The sound sequencer ($D5E0) plays through the OPL2 now**, so BBC
+  BASIC's `SOUND`, Mad Pascal's `Sound`/`NoSound` and INVADERS.BAS all
+  SOUND AGAIN with no setting.  Channel 0 is a fed-back FM "noise", 1-3 a
+  plain two-operator tone; amplitude 0 to -15 as before, pitch in quarter
+  semitones as before.  `test/seqtest` proves it.
+- **Mad Pascal's `Sound(Chan,Freq,Dist,Vol)` changed meaning**: Chan 0-2
+  are the tone channels, 3 the noise channel; Freq is the sequencer's
+  pitch (53 = middle C, 4 per semitone), no longer a SID frequency byte;
+  the note holds until `NoSound` or the next `Sound` on that channel.
+  `SID_BASE`/`SIDREG`/`k4_sid` are gone from `k4510.pas`/`k4510.hea`;
+  `k4_seq` ($D5E0) is new.
+- **EhBASIC examples that POKE 54272** are wrong now, all of them: SIDWAVE,
+  SIDBEAT, SIDFILT, SID6, SID12 are deleted from fs/EHBASIC; INVADERS.BAS
+  was rewritten to POKE the sequencer (54752-54755).  Any handbook listing
+  that teaches `POKE 54272+…` teaches a dead address; teach 54752 instead.
+- **INFO's SOUND section** is one OPL2 line ("voices keyed on: n of 9;
+  sequencer at $D5E0") — recapture.  **The LOGO banner** says "CHIPS: OPL2,
+  VICKY, SHEILA, FRED, JIM" — recapture.  **HUSH** flushes the sequencer and
+  keys off nine voices, nothing else.
+- **PERF.TXT** says "OPL2 render" where it said "SID render"; BENCH and
+  SETUP sweep the clock with an OPL2 note, SETUP's audio page plays "four
+  notes, rising" on the OPL2 instead of one per SID.
+- **`fs/SID`, `sidfiles/`, `SIDPLAY`, `SIDS`, `SID6`, `SID12`** are gone
+  from the tree, `retired/` included.  `fs/OPL` + `OPLPLAY` is the player
+  now; the SD card README says so.
+- **Save states**: magic is `K4510ST2`; a state from before today refuses
+  to load (the SID chunks are gone from the format).  The OPL2's registers
+  are not in a state — it loads with the chip reset.
+- Credits: reSID is now "was" in CREDITS.md, LICENSES.md,
+  THIRD_PARTY_SOURCES.md and README.md (I edited those four; shared area,
+  saying so here).  The `alpha-0.5 'Timbre'` paragraph at the top of
+  README.md still describes the release as it shipped, which is right.
+
+What moved in the code, for the record: `core/sid.cc`, `core/sid.h`,
+`core/resid/` deleted; `core/audio.[ch]` is the render seam the frontends
+call (`audio_init/reset/render/drain_to/set_cpu_hz`); `core/sidq` is
+`core/sndq` and carries OPL2 port writes only; `opl2_write_reg()` is how
+the sequencer writes a register without disturbing a program's address
+latch.  Both Makefiles lose the C++ objects; the desktop binary no longer
+links libstdc++.  20 tests green plus the new `seqtest`.
 
 ## Done today (2026-08-29) — the ROM segment rebalance
 

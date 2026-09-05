@@ -27,11 +27,6 @@ typedef enum {
                               * OFF is the machine's own 60 Hz (see sdl/main.c); ON hands the pacing to the
                               * display, which costs frames on a host whose refresh is not 60. */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
-    SET_AUDIO_SIDS,          /* ENUM how many of the four SIDs are clocked (1-4); only meaningful with audio.chip = reSID */
-    SET_AUDIO_CHIP,          /* ENUM which sound chip has the machine: reSID or OPL2.  ONE value, because the
-                              * two are mutually exclusive and a single value cannot reach an illegal state --
-                              * two toggles policing each other can, and would.  DEFAULT IS THE OPL2 and there
-                              * is no menu row: this is now a k4510.cfg-only escape hatch back to the SIDs. */
     SET_AUDIO_CORE3,         /* BOOL Pi only: render the sound on core 3 while the Tube is idle */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */

@@ -254,7 +254,6 @@ EOF
 echo "== the machine =="
 mkdir -p "$ROOT/home/$USER_NAME/k4510"
 git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k4510"
-rm -f "$ROOT/home/$USER_NAME/k4510/fs/SID"   # a symlink to tunes the repo does not carry
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 systemctl enable k4510-telnet.socket
 systemctl enable k4510x-persistence-sync.service

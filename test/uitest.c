@@ -111,16 +111,15 @@ int main(void)
 
     /* 6. the settings table is indexed by set_id, and nothing in the compiler
      * checks that the enum's order matches it.  When SET_AUDIO_CORE3 was
-     * added ABOVE SET_AUDIO_CHIP in the enum and BELOW it in the table, the
-     * two swapped in silence: the Sound chip row set a boolean, and the
-     * machine stayed on reSID whatever the menu said.  Every id the frontend
-     * acts on by name is checked here. */
+     * added ABOVE the (since removed) SET_AUDIO_CHIP in the enum and BELOW
+     * it in the table, the two swapped in silence: the Sound chip row set a
+     * boolean, and the machine stayed on the wrong chip whatever the menu
+     * said.  Every id the frontend acts on by name is checked here. */
     { static const struct { set_id id; const char *key; } pairs[] = {
         { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_MARGIN, "video.margin" },
         { SET_VIDEO_STATUSBAR, "term.bands" }, { SET_VIDEO_BORDER, "video.border" },
         { SET_VIDEO_FULLSCREEN, "video.fullscreen" }, { SET_VIDEO_VSYNC, "video.vsync" },
-        { SET_AUDIO_VOLUME, "audio.volume" }, { SET_AUDIO_SIDS, "audio.sids" },
-        { SET_AUDIO_CHIP, "audio.chip" }, { SET_AUDIO_CORE3, "audio.core3" },
+        { SET_AUDIO_VOLUME, "audio.volume" }, { SET_AUDIO_CORE3, "audio.core3" },
         { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },
         { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" },
         { SET_TERM_BAND_TOP, "term.band.top" }, { SET_TERM_BAND_BOT, "term.band.bottom" },

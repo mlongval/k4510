@@ -1,7 +1,7 @@
 /* The in-process Tube co-processor: rings, handshake, the co-processor's
  * little OS. See tube_cp.h for the picture. */
 #include "tube_cp.h"
-#include "sidq.h"
+#include "sndq.h"
 void k4510_audio_pump(void);   /* sdl/main.c: the frontend owns the ring */
 /* GCC's builtins rather than <stdatomic.h>: the Pi kernel compiles with
  * -nostdinc and its libc's headers, which do not carry it. */
@@ -54,7 +54,7 @@ int tube_cp_start(int prog)
     /* If the co-processor's core is holding the sound, take it back BEFORE
      * letting it run an interpreter -- it cannot do both, and this is the
      * quiescent moment the handover wants: the ROM is between commands. */
-    if (sidq_owner() != SIDQ_OWNER_CPU) sidq_request(SIDQ_OWNER_CPU);
+    if (sndq_owner() != SNDQ_OWNER_CPU) sndq_request(SNDQ_OWNER_CPU);
 #ifndef K4510_PI
     if (!cp_thread_up) { if (pthread_create(&cp_thread, NULL, cp_thread_main, NULL)) return -1; cp_thread_up = 1; }
 #endif
@@ -146,14 +146,14 @@ void tube_cp_run(void)
          *
          * Unless it has been given the sound.  From power-on until the ROM
          * runs BBC or CPM -- which on most sessions is never -- this core is
-         * doing nothing at all, and four sounding SIDs are 3.4 ms of the
+         * doing nothing at all, and the OPL2's synthesis is a slice of the
          * emulator's 16.7 ms frame.  So while it owns them it renders instead
          * of sleeping, and it hands them back the moment anything asks: the
          * emulator's core asks before it starts a program here, and waits. */
         for (;;) {
-            if (sidq_pending()) sidq_accept();
+            if (sndq_pending()) sndq_accept();
             if ((prog = atomic_load(&cp_req))) break;
-            if (sidq_owner() == SIDQ_OWNER_OTHER) k4510_audio_pump();
+            if (sndq_owner() == SNDQ_OWNER_OTHER) k4510_audio_pump();
             else __asm__ volatile("wfe" ::: "memory");
         }
 #else

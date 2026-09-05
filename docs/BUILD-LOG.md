@@ -5856,3 +5856,39 @@ choices but faults the change had created:
 
 **Not yet heard on hardware.** The `DIR` fix, the keyboard layout and
 the OPL millisecond pacing all need a card and a real Pi.
+
+## 2026-09-05 — the SIDs are gone
+
+Doc, in one line: "nuke anything having to do with SIDs".  They had been
+muted since 2026-09-01 with `audio.chip = reSID` as the way back; today the
+way back went too.  `core/resid/` (Dag Lem's reSID, 1.1 MB), `core/sid.cc`,
+the four-chip mix with its phase carry, the SID clock select at `$D5F3`,
+`SYS+$2C`, the `audio.chip`/`audio.sids` settings and their version-1→2
+migration, `test/sidtest`, the retired SID demos and player, `fs/SID`,
+`sidfiles/`, five EhBASIC SID programs, and every register write to `$D400`
+from a demo, the ROM, EhBASIC's Ctrl-C hush, or Mad Pascal's `crt`.
+
+What that forced, and what it gave:
+
+- **The sound sequencer had to learn the OPL2**, because it was the SIDs'
+  last real user: BBC BASIC's `SOUND`, Mad Pascal's `Sound` and INVADERS
+  all reach it.  Four channels are OPL2 voices 0-3; channel 0 (the Beeb's
+  noise) is a feedback-7 FM patch, 1-3 a plain two-operator tone; the
+  patch is rewritten on every note because a program may zero the chip
+  and the sequencer must still sound after it.  A new `opl2_write_reg()`
+  saves and restores the address latch so a note landing between a
+  program's ADDR and DATA writes does not misroute its DATA.  `SOUND` has
+  worked on this machine for the first time since 2026-09-01 —
+  `test/seqtest` holds, releases and queues.
+- **The render seam is `core/audio.c`**, a page of C that owes nothing to
+  any chip: cycles in, samples out at the device's rate, the microsecond
+  clock advanced.  `sidq` became `sndq` and carries port writes only.
+  The desktop binary no longer links libstdc++; the Pi build loses its
+  `.cc` rule.
+- **Save states are `K4510ST2`.**  Old ones refuse cleanly.
+- **Mad Pascal's `Sound` changed its contract** (channel, quarter-semitone
+  pitch, holds until `NoSound`); it is honest about it in its doc comment.
+
+ROM headroom after: ROM2 185, SW1 1241, SW2 454 — INFO lost its four SID
+lines and gained one.  Pi kernel: built on p15 (see the commit).  The
+K4510x live image on the stick predates this and needs a rebuild.

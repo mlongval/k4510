@@ -15,9 +15,9 @@
 #include "../core/io.h"
 #include "../core/vicky.h"
 #include "../core/build.h"   /* K4510_BUILD, for the frame profile */
-#include "../core/sid.h"
+#include "../core/audio.h"
 #include "../core/opl2.h"
-#include "../core/sidq.h"
+#include "../core/sndq.h"
 #include "../core/host.h"
 #include "../core/ui/settings.h"
 #include "../core/hostid.h"
@@ -36,10 +36,10 @@
  * so a late frame does not starve the device.  RING_CAP is the other side of
  * it, and it was missing: the writers would fill to RING_MASK, 683 ms, and
  * anything that made the machine produce sound slightly faster than the
- * device consumed it walked the lead up there and stayed.  Four sounding
- * SIDs did exactly that (see core/sid.cc): SID12 went from 56 ms of lead to
- * 226 ms in 38 seconds and was still climbing.  The chips are clocked either
- * way -- pitch is theirs and does not move -- but past the cap the samples
+ * device consumed it walked the lead up there and stayed (four sounding
+ * SIDs did exactly that, in the days the machine had them: 56 ms of lead to
+ * 226 ms in 38 seconds and still climbing).  The chip is clocked either
+ * way -- pitch is its own and does not move -- but past the cap the samples
  * are let go, so the lead cannot drift late however the two rates disagree. */
 static int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;
 #define RING_MASK ((1 << 15) - 1)
@@ -79,7 +79,7 @@ static int clock_step_below(int cur)
     return best;
 }
 #define CYCLES_PER_LINE  cycles_per_line
-/* Another core, while it owns the sound (core/sidq.h): the same top-up the
+/* Another core, while it owns the sound (core/sndq.h): the same top-up the
  * frame loop does, with the queued register writes performed as it passes
  * their moment.  It is the only writer of the ring while it owns it, which is
  * what makes the ring's single-producer rule hold across the handover. */
@@ -88,8 +88,8 @@ void k4510_audio_pump(void)
     int vol = settings_get(SET_AUDIO_VOLUME), guard = 4096;
     while (RING_DEPTH < RING_TARGET && guard--) {
         int16_t tmp[256];
-        sid_drain_to(sidq_now());
-        int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+        audio_drain_to(sndq_now());
+        int n = audio_render(CYCLES_PER_LINE, tmp, 256);
         for (int i = 0; i < n; i++)
             if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
     }
@@ -246,7 +246,7 @@ int k4510_frontend_main(int argc, char **argv)
 
     io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
-    sid_init((double)cpu_hz_now, AUDIO_RATE);
+    audio_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     /* The machine has no mouse -- no pointer, nothing to click, not one byte
      * of mouse in the I/O map -- so a cursor sitting on the glass is never
@@ -269,8 +269,8 @@ int k4510_frontend_main(int argc, char **argv)
  * fps.  The desktop kept vsync and had no pacing of its own, so it ran at
  * whatever the compositor gave it -- 51.8 fps on hdieu's 60 Hz display, with
  * the present taking 16.9 ms of a 19.3 ms frame.  And a machine at 51.8 fps
- * makes 51.8 frames of sound a second where the device wants 60, so the SIDs
- * fill in the missing seventh and you hear it.  The machine is a 60 Hz design:
+ * makes 51.8 frames of sound a second where the device wants 60, so the chip
+ * fills in the missing seventh and you hear it.  The machine is a 60 Hz design:
  * it keeps its own time below and presents when it is ready, which is what the
  * Pi has always done.
  *
@@ -370,7 +370,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * read per bucket per frame is nothing against a frame. */
     static Uint64 p_mach, p_tex, p_pres, p_tot, p_last; static unsigned p_n;
     static unsigned p_runs;                       /* windows written this run: the first truncates, the rest append */
-    static Uint64 p_cpu, p_vic, p_sid;            /* the machine, split three ways */
+    static Uint64 p_cpu, p_vic, p_snd;            /* the machine, split three ways */
 #ifdef K4510_PI
 #define PCLK() ({ Uint64 v_; asm volatile("mrs %0, cntvct_el0" : "=r"(v_)); v_; })
 #define PCLK_HZ() ({ Uint64 f_; asm volatile("mrs %0, cntfrq_el0" : "=r"(f_)); f_; })
@@ -384,7 +384,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           /* the window opens 20 s after start, so it measures the machine at
            * the prompt rather than BENCH, whose clock reads are dear on the Pi */
           if (p_last && SDL_GetTicks() > 20000) { p_tot += c - p_last; p_n++; }
-          if (p_n == 1) { io_prof_reset(); io_prof_on = 1; p_mach = p_tex = p_pres = p_cpu = p_vic = p_sid = 0; }   /* the window opens: every sum starts here */
+          if (p_n == 1) { io_prof_reset(); io_prof_on = 1; p_mach = p_tex = p_pres = p_cpu = p_vic = p_snd = 0; }   /* the window opens: every sum starts here */
           p_last = c;
           if (p_n == PERF_FRAMES) {
               char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
@@ -403,10 +403,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   fprintf(pf, "  whole frame      %8.3f ms   (%.1f fps)\n", tot, tot > 0 ? 1000.0 / tot : 0.0);
                   fprintf(pf, "  the machine      %8.3f ms   %5.1f%%\n", ma, tot > 0 ? 100.0 * ma / tot : 0.0);
                   { double ph = (double)PCLK_HZ();
-                    double cu = (double)p_cpu * 1000.0 / ph / f, vi = (double)p_vic * 1000.0 / ph / f, si = (double)p_sid * 1000.0 / ph / f;
+                    double cu = (double)p_cpu * 1000.0 / ph / f, vi = (double)p_vic * 1000.0 / ph / f, si = (double)p_snd * 1000.0 / ph / f;
                     fprintf(pf, "      CPU steps    %8.3f ms\n", cu);
                     fprintf(pf, "      VICKY lines  %8.3f ms\n", vi);
-                    fprintf(pf, "      SID render   %8.3f ms\n", si); }
+                    fprintf(pf, "      OPL2 render  %8.3f ms\n", si); }
                   fprintf(pf, "  building texture %8.3f ms   %5.1f%%\n", tx, tot > 0 ? 100.0 * tx / tot : 0.0);
                   fprintf(pf, "  onto the glass   %8.3f ms   %5.1f%%\n", pr, tot > 0 ? 100.0 * pr / tot : 0.0);
                   fprintf(pf, "  everything else  %8.3f ms   %5.1f%%\n", tot - ma - tx - pr,
@@ -567,14 +567,14 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 Uint64 t1 = PCLK();
                 vicky_line(y);
                 Uint64 t2 = PCLK();
-                /* The audio clock the SID writes are stamped with: one
-                 * scanline of it, whoever is rendering.  See core/sidq.h. */
-                sidq_tick(1000000u / (60u * VICKY_HEIGHT));
-                if (sidq_owner() == SIDQ_OWNER_CPU)
-                { int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+                /* The audio clock the OPL2 writes are stamped with: one
+                 * scanline of it, whoever is rendering.  See core/sndq.h. */
+                sndq_tick(1000000u / (60u * VICKY_HEIGHT));
+                if (sndq_owner() == SNDQ_OWNER_CPU)
+                { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
                   for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
                 Uint64 t3 = PCLK();
-                p_cpu += t1 - t0; p_vic += t2 - t1; p_sid += t3 - t2;
+                p_cpu += t1 - t0; p_vic += t2 - t1; p_snd += t3 - t2;
 #ifdef K4510_PI
                 /* The shim serves the audio callback only when this core pumps
                  * events, and its device runway is 30 ms: a frame longer than
@@ -585,7 +585,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if ((y & 127) == 127) {
                     int vol_ = settings_get(SET_AUDIO_VOLUME); int guard_ = 1024;
                     while (RING_DEPTH < RING_TARGET && guard_--) {
-                        int16_t t_[256]; int n_ = sid_render(CYCLES_PER_LINE, t_, 256);
+                        int16_t t_[256]; int n_ = audio_render(CYCLES_PER_LINE, t_, 256);
                         for (int i = 0; i < n_; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(t_[i] * vol_ / 100);
                     }
                     SDL_PumpEvents();
@@ -595,21 +595,21 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             vicky_end_frame();
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
         }
-        /* The SIDs keep sounding when the CPU is late.  Audio was made only by
+        /* The sound keeps going when the CPU is late.  Audio was made only by
          * the machine's frames -- 800 samples each -- so a machine at 58 fps
          * made 46,400 a second against the 48,000 the device consumes, and any
          * shortfall at all drained the ring and gapped for ever after (a lead
          * only delayed the first gap; BENCH went from 45 gaps to 55).  Real
-         * hardware does not stop its sound chips because the CPU stalled: here
-         * they are clocked on without it until the ring holds a target again.
-         * Pitch is the SID clock's and does not move; a slow frame sustains a
+         * hardware does not stop its sound chip because the CPU stalled: here
+         * it is clocked on without it until the ring holds a target again.
+         * Pitch is the chip's own and does not move; a slow frame sustains a
          * note a fraction longer instead of cutting it.  Only after a frame the
          * machine ran -- frozen under the menu, it is silent, as before. */
-        if (((!open && !paused) || mode_pending) && sidq_owner() == SIDQ_OWNER_CPU) {
+        if (((!open && !paused) || mode_pending) && sndq_owner() == SNDQ_OWNER_CPU) {
             int vol = settings_get(SET_AUDIO_VOLUME);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
-                int16_t tmp[256]; int n = sid_render(CYCLES_PER_LINE, tmp, 256);
+                int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
                 for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */
@@ -660,8 +660,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
              * asked: the request would spin out its whole bound for nothing,
              * which the person who opened the menu would feel. */
 #ifdef K4510_PI
-            { int want3 = settings_get(SET_AUDIO_CORE3) ? SIDQ_OWNER_OTHER : SIDQ_OWNER_CPU;
-              if (sidq_owner() != want3) sidq_request(want3); }
+            { int want3 = settings_get(SET_AUDIO_CORE3) ? SNDQ_OWNER_OTHER : SNDQ_OWNER_CPU;
+              if (sndq_owner() != want3) sndq_request(want3); }
 #endif
             if (clock_at_open >= 0 && settings_get(SET_CPU_CLOCK) != clock_at_open && settings_get(SET_CPU_AUTO))
                 settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
@@ -673,11 +673,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * machine watches itself and steps down when the guess was wrong.
          *
          * What it watches is how long the machine's own half of the frame
-         * takes -- CPU, VICKY, the SIDs -- against the 16.67 ms it has.  The
+         * takes -- CPU, VICKY, the OPL2 -- against the 16.67 ms it has.  The
          * first version of this counted audio gaps instead, and the archive
          * session found it useless on Doc's laptop: the machine sat at 38
          * frames a second with the sound perfectly clean and the governor
-         * content.  That is 952daa6 working as designed -- the SIDs were
+         * content.  That is 952daa6 working as designed -- the sound was
          * deliberately decoupled from a late CPU so a slow frame sustains a
          * note instead of cutting it -- and it means the gap counter says
          * nothing at all across the whole band where a host is merely losing,
@@ -727,20 +727,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 gov_t0 = 0;
             }
         }
-        sid_set_max(settings_get(SET_AUDIO_SIDS) + 1);   /* live: the Active SIDs menu index is 0-based, the count is +1 */
-        io_set_sid_active(settings_get(SET_AUDIO_SIDS) + 1);   /* so INFO reports the count in force, not a constant */
-        /* Sound chip.  Two, exclusive, and the machine's answer is the OPL2
-         * on both hosts (2026-09-01).  There is no menu row for this any
-         * more; the setting is the way back to the SIDs, for whoever wants
-         * them.  Muting is what stops the SIDs being clocked, and the OPL2
-         * renders in their place at the same rate, so the ring is fed either
-         * way. */
-        { int chip = settings_get(SET_AUDIO_CHIP);
-          opl2_set_enabled(chip != 0);
-          sid_set_mute(chip != 0); }
         if (settings_cpu_hz() != cpu_hz_now) {
             cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
-            io_set_cpu_khz(cpu_hz_now / 1000); sid_set_cpu_hz((double)cpu_hz_now);
+            io_set_cpu_khz(cpu_hz_now / 1000); audio_set_cpu_hz((double)cpu_hz_now);
             /* A new clock is a new machine to measure: open another PERF window
              * and append it.  This is how the Pi gets swept -- there is no
              * K4510_CPU_HZ on the card, only the menu. */

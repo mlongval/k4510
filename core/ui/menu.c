@@ -22,11 +22,8 @@ static const item_t video_items[] = {
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
     { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
 };
-/* No "Sound chip" and no "Active SIDs" row since 2026-09-01: the machine is
- * an OPL2 machine on both hosts, and the OPL2 is one chip with nine voices,
- * so neither row has anything left to choose.  The settings themselves are
- * still there and still honoured -- `audio.chip = reSID` in k4510.cfg brings
- * the four SIDs back -- they are just not offered. */
+/* One chip, the OPL2, so there is nothing to choose but the volume and,
+ * on the Pi, which core renders it. */
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
                                       { "Sound on core 3", MI_SETTING, SET_AUDIO_CORE3 } };
 /* The Terminal menu (2026-09-02).  The status bands are the console's own

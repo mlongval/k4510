@@ -7,7 +7,7 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicky.h"
-#include "../core/sid.h"
+#include "../core/audio.h"
 #include "../core/state.h"
 static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
@@ -17,7 +17,7 @@ static void frames(int n)
 {
     while (n--) {
         vicky_begin_frame(fb, VICKY_WIDTH);
-        for (int y = 0; y < VICKY_HEIGHT; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(CYCLES_PER_LINE); vicky_line(y); int16_t t[256]; sid_render(CYCLES_PER_LINE, t, 256); }
+        for (int y = 0; y < VICKY_HEIGHT; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(CYCLES_PER_LINE); vicky_line(y); int16_t t[256]; audio_render(CYCLES_PER_LINE, t, 256); }
         vicky_end_frame();
     }
 }
@@ -32,7 +32,7 @@ int main(void)
      * typed capitals as lower case -- correctly -- and every assertion here
      * about what is on screen then fails.  The test owns its boot. */
     io_set_opts(SYSOPT_NOBOOT);
-    mem_init(); io_reset(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); mem_load_rom("rom/kernal.bin"); sid_init(40500000.0, 48000); cpu65_reset();
+    mem_init(); io_reset(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); mem_load_rom("rom/kernal.bin"); audio_init(40500000.0, 48000); cpu65_reset();
     frames(120); type("ECHO SAVED HERE\n"); frames(30);
     uint32_t sum1 = screen_sum(); uint16_t pc1 = cpu65.pc; uint8_t cx = io_read(0xDA09), cy = io_read(0xDA0A);
     io_write(0xD702, 0x55);                                   /* a MATH register, a DMA register: device state, not RAM */

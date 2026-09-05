@@ -2,7 +2,7 @@
 // SDL_GetTicks and the performance counter read the system timer directly
 // from any core. The waits are deliberately NOT SDL_Delay: off core 0 the
 // shim's delay runs the audio callback from the calling context (docs/
-// CORE-SPLIT.md), and the SIDs belong to core 1. Core 3 exists only to run
+// CORE-SPLIT.md), and the sound belongs to core 1. Core 3 exists only to run
 // the interpreter, so spinning on the counter with a yield hint is the
 // right wait here -- exactly what the shim itself does off core 0.
 #include <SDL2/SDL.h>

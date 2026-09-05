@@ -1,5 +1,5 @@
 /* Headless frame-time benchmark: how much host time does one emulated
- * frame cost, split into CPU / VICKY / reSID?  bench ROM FRAMES "keys"
+ * frame cost, split into CPU / VICKY / OPL2?  bench ROM FRAMES "keys"
  * Keys are typed one per frame from frame 5 (like capture); timing starts
  * after WARMUP frames so the program being measured is already running. */
 #include <stdio.h>
@@ -11,7 +11,7 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicky.h"
-#include "../core/sid.h"
+#include "../core/audio.h"
 #define WARMUP 120
 static uint8_t fb[640 * 480];
 static double now(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return t.tv_sec + t.tv_nsec * 1e-9; }
@@ -23,7 +23,7 @@ int main(int argc, char **argv)
      * the question is where THIS host stops fitting a frame in 16.67 ms */
     unsigned cpu_hz = getenv("K4510_CPU_HZ") ? (unsigned)atol(getenv("K4510_CPU_HZ")) : 40500000u;
     int cyc_line = (int)(cpu_hz / 60 / 480);
-    sid_set_cpu_hz((double)cpu_hz);        /* reSID's 1 MHz is measured against the CPU clock: keep it honest at any clock */
+    audio_init((double)cpu_hz, 48000);     /* samples per cycle come from the CPU clock: keep it honest at any clock */
     uint8_t font[2048]; FILE *ff = fopen("data/font8.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) return 1; fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) return 1;
     io_reset(); cpu65_reset();
@@ -36,7 +36,7 @@ int main(int argc, char **argv)
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
             t0 = now(); cpu65_step(cyc_line); t1 = now(); if (m) tc += t1 - t0;
             t0 = t1; vicky_line(y); t1 = now(); if (m) tv += t1 - t0;
-            { int16_t tmp[256]; t0 = t1; sid_render(cyc_line, tmp, 256); t1 = now(); if (m) ts += t1 - t0; }
+            { int16_t tmp[256]; t0 = t1; audio_render(cyc_line, tmp, 256); t1 = now(); if (m) ts += t1 - t0; }
         }
         vicky_end_frame();
         /* palette expansion, as the SDL frontend does it (the Pi would write 8-bit directly) */
@@ -45,7 +45,7 @@ int main(int argc, char **argv)
     }
     (void)rgb;
     double f = 1000.0 / measured;
-    printf("%5.1f MHz %-14s %4d frames: cpu %6.2f ms  vicky %6.2f ms  resid %6.2f ms  palette %5.2f ms  = %6.2f ms/frame (budget 16.67)\n",
+    printf("%5.1f MHz %-14s %4d frames: cpu %6.2f ms  vicky %6.2f ms  opl2 %6.2f ms  palette %5.2f ms  = %6.2f ms/frame (budget 16.67)\n",
            cpu_hz / 1e6, kn ? "busy" : "(idle shell)", measured, tc * f, tv * f, ts * f, tp * f, (tc + tv + ts + tp) * f);
     return 0;
 }

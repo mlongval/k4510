@@ -2,9 +2,8 @@
  * K4510 vendors: the OPL2 ages its last register store against it, and the
  * OPL2 sets its two timers by it.  It is NOT the CPU's clock -- the CPU's
  * rate is a setting and moves -- so a timer period means the same number of
- * microseconds whatever the machine is clocked at.  core/sid.cc advances it
- * as the sound is rendered, whichever engine is doing the rendering, and
- * whether or not the SIDs are the ones being heard. */
+ * microseconds whatever the machine is clocked at.  core/audio.c advances
+ * it as the sound is rendered. */
 #ifndef K4510_VICE_CLK_H
 #define K4510_VICE_CLK_H
 #include <stdint.h>

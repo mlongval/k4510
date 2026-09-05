@@ -8,11 +8,11 @@ SID engine beside reSID, and nine voices of FM beside both.
 A fantasy 8/16-bit computer, built from scratch in August 2026. Project
 orchestrator: Michael Longval. It is not an emulation of any real
 machine: its CPU, video chip, sound and operating system are its own, and
-the parts it borrows — a 6502-family instruction set, the SID — it
-borrows openly and then outgrows.
+the parts it borrows — a 6502-family instruction set, the AdLib's FM
+chip — it borrows openly and then outgrows.
 
 **Two names, one machine.** The computer is the **K4510** — the 45GS10,
-VICKY, SHEILA, four SIDs, and K/OS. On a Linux desktop under SDL2, that
+VICKY, SHEILA, an OPL2, and K/OS. On a Linux desktop under SDL2, that
 is simply what you are running. Put it on an SD card and stand it on a
 **Raspberry Pi 3B+ with no operating system underneath**, and the
 appliance that boots is the **BMC-K4510** — *BMC* for Randy Rossi's
@@ -79,19 +79,15 @@ on, and the BMC-K4510 boots in about three seconds.
   blitter with copy/fill/logic/line/triangle ops, and **SHEILA**, a
   display-list coprocessor in the Amiga copper's tradition. No video RAM:
   every pointer is a 28-bit address.
-- **Sound: an OPL2, with four SIDs behind it.** The machine sounds
-  through a **YM3812** at $D480 — nine FM voices wired the AdLib's way,
-  an address port, a data port, a status register, so any AdLib register
-  list or instrument patch means what it says. `OPLPLAY` plays `.OPL`
-  streams; `tools/vgm2opl.py` makes them from VGM/VGZ logs.
-  One to four **SIDs** are still there at $D400, still cycle-accurate
-  (reSID, Dag Lem's), still emulated register for register — but they are
-  **off by default on both hosts** as of 2026-09-01, because on a Pi they
-  do not sound good enough to be what the machine is. The two are
-  mutually exclusive; `audio.chip = reSID` in `k4510.cfg` gives the SIDs
-  the sound back, and there is no menu row for it. The demos that showed
-  them off (`SIDS`, `SID6`, `SID12`, `SIDPLAY`) moved to `retired/` the
-  same day: a demo playing into a muted chip demonstrates nothing.
+- **Sound: an OPL2.** The machine sounds through a **YM3812** at $D480
+  — nine FM voices wired the AdLib's way, an address port, a data port, a
+  status register, so any AdLib register list or instrument patch means
+  what it says. `OPLPLAY` plays `.OPL` streams; `tools/vgm2opl.py` makes
+  them from VGM/VGZ logs. The BBC-style sound sequencer at $D5E0 (four
+  queued channels: BBC BASIC's `SOUND`, Mad Pascal's `Sound`) plays
+  through it too. The machine had four SIDs at $D400 until 2026-09-05;
+  they were muted from 2026-09-01 and then removed outright, reSID and
+  all. `git log` has them.
 - **MATH unit:** eight IEEE-single registers with in-place ops and the
   transcendentals, a MEGA65-compatible multiplier/divider, and **math
   lists** — programs the unit runs by itself.
@@ -189,8 +185,7 @@ it in the tree is the K4510 itself, and boots identically either way.
 ## Layout
 
     core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
-    core/        memory, I/O devices, VICKY, SID glue, MATH unit, JIM, the network, host seam
-    core/resid/  reSID (GPL-2.0-or-later)
+    core/        memory, I/O devices, VICKY, the OPL2 and the audio seam, MATH unit, JIM, the network, host seam
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend (desktop and Pi alike) + POSIX host glue
     pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout
@@ -202,11 +197,10 @@ it in the tree is the K4510 itself, and boots identically either way.
     tube/        Richard Russell's BBC BASIC, console edition (vendored, altered as marked)
     cpm/         RunCPM (vendored, unmodified)
     pascal/      the Mad Pascal target
-    fs/          the machine's filesystem: /PRG /EHBASIC /BBCBASIC /FORTH /CPM /SID /SYSTEM
+    fs/          the machine's filesystem: /PRG /EHBASIC /BBCBASIC /FORTH /CPM /SYSTEM
     test/        tests, headless capture and benchmark tools
     tools/       romfree.py, which measures what is left in each ROM bank
     data/        fonts (the kernel 8x8, open-roms, unscii, BESCII)
-    sidfiles/    199 SID tunes; fs/SID is a symlink to them
     doc/guide/   the handbook: source, style, generators, and the built PDF
     docs/        design records and the build diary (docs/README.md maps them)
 

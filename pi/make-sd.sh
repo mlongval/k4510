@@ -55,7 +55,7 @@ cp "$REPO/data/font8.bin" "$M/k4510/data/"
 # including data/fonts/zx (the ZX Origins fonts you regenerated locally --
 # personal use on your own card, they are not in the repo).
 [ -d "$REPO/data/fonts" ] && cp -rL "$REPO/data/fonts" "$M/k4510/data/"
-# -L because FAT32 has no symlinks and fs/SID is one.  fs/CPM is the
+# -L because FAT32 has no symlinks.  fs/CPM is the
 # exception and is done below: its drive letters are links that cannot be
 # followed -- K:/0 is deliberately cyclic (it *is* this filesystem) and
 # D:/P: point into a CP/M library that is installed but never committed.

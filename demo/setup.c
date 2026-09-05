@@ -18,6 +18,7 @@
  * The screen is JIM, the terminal chip at $DA00, driven with ANSI -- the same
  * road vi.c takes.  */
 #include "k4510.h"
+#include "oplnote.h"
 #include "far.h"
 
 #define TERM     0xDA00u
@@ -145,7 +146,7 @@ static void anykey(const char *s)
 
 /* ---- 1. the clock ladder ------------------------------------------------- */
 /* Every step the machine offers, two seconds each, with a note sounding on
- * SID 0.  The host counts the audio callbacks that found nothing to play --
+ * the OPL2.  The host counts the audio callbacks that found nothing to play --
  * that is what "choppy" is -- so each row says whether the machine kept up
  * AND whether the sound did.  A clock is right for this host when it holds
  * 60 fps with no gaps. */
@@ -169,16 +170,12 @@ static void test_clock(void)
     footer("measuring every step of the clock ladder, 2 s each");
     at(3, 3); say("The machine runs its cycles inside the host's frame, so the frame");
     at(3, 4); say("rate IS the machine's speed.  60 fps and no audio gaps means this");
-    at(3, 5); say("host holds it.  Gaps are silence; filled is sound the SIDs made");
+    at(3, 5); say("host holds it.  Gaps are silence; filled is sound the chip made");
     at(3, 6); say("while the machine was too late to -- what you hear as choppy.");
 
     clk0 = REG(SYS + 0x23);
     nclk = REG(SYS + 0x27);
     if (nclk == 0 || nclk > CLKMAX) nclk = CLKMAX;
-
-    REG(SID0 + 0x18) = 0x0F;                                  /* volume */
-    REG(SID0 + 0x05) = 0x00; REG(SID0 + 0x06) = 0xF0;         /* ADSR */
-    REG(SID0 + 0x00) = 0x45; REG(SID0 + 0x01) = 0x1D;         /* A-440 at 1 MHz */
 
     for (i = 0; i < nclk; i++) {
         y = (uint8_t)(7 + i);
@@ -187,14 +184,14 @@ static void test_clock(void)
         swp_khz[i] = clk_khz();
         at(3, y); sgr(1); say_mhz(swp_khz[i]); sgr(0); eol();
         at(3, y); csi(); num(14); put('C');                   /* a fixed column for the bar */
-        REG(SID0 + 0x04) = 0x11;                              /* triangle, gate on */
+        opl_note_on(0, OPL_A440_FNUM, OPL_A440_BLOCK);
         REG(SYS + 0x24) = 0;                                  /* clear the gap count */
         s0 = edge(); f0 = frames();
         do { s = now_s(); } while (since(s0, s) < SWEEP_S);
         swp_fps[i] = (uint8_t)((frames() - f0) / SWEEP_S);
         swp_gap[i] = (unsigned)REG(SYS + 0x24) | ((unsigned)REG(SYS + 0x25) << 8);
         swp_fill[i] = (unsigned)REG(SYS + 0x2A) | ((unsigned)REG(SYS + 0x2B) << 8);
-        REG(SID0 + 0x04) = 0x10;                              /* gate off */
+        opl_note_off(0);
         bar(18, y, swp_fps[i], swp_gap[i], swp_fill[i]);
         at(58, y); num(swp_fps[i]); say(" fps ");
         if (swp_gap[i])            { sgr(31); num(swp_gap[i]); say(" gaps"); sgr(0); }
@@ -204,7 +201,6 @@ static void test_clock(void)
         eol();
         if (chosen == 0xFF && swp_fps[i] >= 59 && !swp_gap[i] && swp_fill[i] < FILL_CLEAN) chosen = i;
     }
-    REG(SID0 + 0x18) = 0x00;
     REG(SYS + 0x23) = clk0;
     /* Nothing clean anywhere: rather than keep nothing, take the quietest step
      * that at least holds 60 fps without a gap, and say at the end that it is
@@ -269,23 +265,18 @@ static void test_video(void)
 static void test_audio(void)
 {
     uint8_t c, i;
-    uint16_t sid;
     head("3 of 4  --  audio");
-    footer("each SID a note in turn -- listen");
+    footer("four notes on the OPL2, rising -- listen");
     at(3, 3); say("The clock sweep counted audio gaps, which says the ring never ran");
     at(3, 4); say("dry.  It cannot say the sound reached the room.  That needs you.");
     for (c = 0; c < 4; c++) {
-        sid = (uint16_t)(SID0 + c * 0x20);
-        at(3, (uint8_t)(6 + c)); sgr(1); say("SID "); num(c); sgr(0); say("  ");
-        REG(sid + 0x18) = 0x0F;
-        REG(sid + 0x05) = 0x00; REG(sid + 0x06) = 0xF0;
-        REG(sid + 0x00) = 0x45; REG(sid + 0x01) = (uint8_t)(0x1D + c * 4);
-        REG(sid + 0x04) = 0x11;
+        static const uint16_t fn[4] = { 580, 651, 730, 819 };   /* A, B, C#, D#: block 4 */
+        at(3, (uint8_t)(6 + c)); sgr(1); say("note "); num(c + 1); sgr(0); say("  ");
+        opl_note_on(c, fn[c], 4);
         sgr2(1, 42);
         for (i = 0; i < 40; i++) { put(' '); wait_vblank(); }
         sgr(0);
-        REG(sid + 0x04) = 0x10;
-        REG(sid + 0x18) = 0x00;
+        opl_note_off(c);
         for (i = 0; i < 15; i++) wait_vblank();
     }
     aud_ok = ask("Did you hear four notes, rising?");
@@ -378,7 +369,7 @@ static void write_report(void)
     add("Machine:  "); add(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop"); add("\n");
     add("Build:    ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) BUF[blen++] = (char)REG(SYS + 0x10 + i);
-    add("\n\nClock ladder, a note sounding on SID 0, ");
+    add("\n\nClock ladder, a note sounding on the OPL2, ");
     addn(SWEEP_S); add(" s each:\n");
     for (i = 0; i < nclk; i++) {
         add("  "); addmhz(swp_khz[i]);
@@ -413,7 +404,7 @@ static void result(void)
         REG(SYS + 0x28) = 1;                          /* the frontend keeps it */
         if (settled_short) {
             at(3, 4); sgr2(1, 33); say("The quietest this machine manages is "); say_mhz(swp_khz[chosen]); sgr(0);
-            at(3, 6); say("It holds 60 fps with no gaps, but the SIDs are still filling in");
+            at(3, 6); say("It holds 60 fps with no gaps, but the sound is still filling in");
             at(3, 7); say("sound the machine is too late to make, so you may hear it.");
             at(3, 8); say("The host itself is the limit here, not the emulated clock.");
         } else {
@@ -452,7 +443,7 @@ void main(void)
     at(3, 5);  say("boot never has to.  It will:");
     at(5, 7);  sgr(1); say("1"); sgr(0); say("  sweep every CPU clock, with a note sounding");
     at(5, 8);  sgr(1); say("2"); sgr(0); say("  check VICKY's palette and the DMA engine");
-    at(5, 9);  sgr(1); say("3"); sgr(0); say("  play each SID and ask you what you heard");
+    at(5, 9);  sgr(1); say("3"); sgr(0); say("  play four notes and ask you what you heard");
     at(5, 10); sgr(1); say("4"); sgr(0); say("  look for the network");
     at(3, 12); say("The sound will change pitch and the picture may stutter while");
     at(3, 13); say("the clock is swept.  Both are the measurement, not a fault.");

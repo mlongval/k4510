@@ -99,7 +99,6 @@ EOF
 echo "== the machine =="
 mkdir -p "$MNT/home/$USER_NAME/k4510"
 git -C "$REPO" archive --format=tar HEAD | tar -x -C "$MNT/home/$USER_NAME/k4510"
-rm -f "$MNT/home/$USER_NAME/k4510/fs/SID"    # a symlink to tunes the repo does not carry
 env -i PATH=/usr/sbin:/usr/bin:/sbin:/bin TMPDIR=/tmp LC_ALL=C DEBIAN_FRONTEND=noninteractive chroot "$MNT" /bin/sh -e <<EOF
 adduser --disabled-password --gecos "K4510" $USER_NAME
 for g in video input audio render sudo; do adduser $USER_NAME \$g 2>/dev/null || true; done

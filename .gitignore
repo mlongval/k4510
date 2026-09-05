@@ -12,7 +12,6 @@ test/maptest
 test/dmatest
 test/vickytest
 test/capture
-test/sidtest
 test/fstest
 test/romtest
 rom/kernal.bin
@@ -28,10 +27,9 @@ test/headless
 test/banktest
 !demo/segdemo-header.s
 test/mathtest
+test/seqtest
 test/woztest
 dumps/
-!demo/sidplay0.s
-!demo/sidplay-header.s
 !demo/tiny-header.s
 !demo/prg0.s
 !demo/romcalls.s

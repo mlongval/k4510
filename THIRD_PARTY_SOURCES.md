@@ -9,7 +9,7 @@ file is the provenance: upstream URL, version, whether it was altered,
 and how to verify it.
 
 **Last checked: 2026-08-26** against the tree at that date. The digests
-for `core/xemu`, `core/resid` and `tube` were recomputed on that re-check:
+for `core/xemu`, `core/resid` (since removed) and `tube` were recomputed on that re-check:
 the first two had changed since they were recorded, and `tube` had not
 changed at all yet still did not reproduce, so that one was wrong when
 written. The other three reproduce exactly. Every
@@ -36,34 +36,27 @@ that the code is unknown; those are listed again at the end.
 | Altered | No. Used unchanged. |
 | Verify | `dir: 8b7cdc2fcb509484` |
 
-## reSID
+## reSID — REMOVED 2026-09-05
 
-| | |
-|---|---|
-| Role | All four SID chips. |
-| Local path | `core/resid/` |
-| Upstream | Dag Lem's reSID, as shipped in VICE 3.3 (https://sourceforge.net/projects/vice-emu/) |
-| Version | As shipped in VICE 3.3, vendored 2026-08-22 — for a library distributed inside another project that is firmer than a commit. The headers' `version 2` is the SID model constant, not a release. `core/resid/VENDORED-FROM.txt` |
-| Licence | GPL-2.0-or-later |
-| Altered | No. |
-| Verify | `dir: 69adec626fd3713d` |
+Dag Lem's reSID, as shipped in VICE 3.3, was `core/resid/` from 2026-08-22
+(the machine's four SID chips at `$D400`) until 2026-09-05, when Doc had
+every trace of the SIDs taken out; they had been muted since 2026-09-01.
+Unaltered from upstream throughout; the git history has it (last present
+at the commit before the removal, digest `dir: 69adec626fd3713d`).
 
 ## FastSID — REMOVED 2026-09-01
 
 VICE's wavetable SID engine was vendored here on 2026-08-30 and removed on
-2026-09-01, in the consolidation that made the machine an OPL2 machine.  It
-had been the cheap answer to a Pi that could not afford four cycle-accurate
-SIDs; once the Pi stopped sounding SIDs at all, it was a second engine for a
-chip neither host plays by default, and it was the one that sounded worst.
+2026-09-01, in the consolidation that made the machine an OPL2 machine.
 No file of it remains in the tree (`core/fastsid/`, `core/fsid.[ch]`); the
 git history has all of it, unaltered from upstream, if it is ever wanted
-back.  Nothing else here depended on it.
+back.
 
 ## fmopl (the OPL2)
 
 | | |
 |---|---|
-| Role | The Yamaha YM3812 at `$D480` — nine FM voices, the AdLib's chip, wired the AdLib's way. Mutually exclusive with the SIDs. |
+| Role | The Yamaha YM3812 at `$D480` — nine FM voices, the AdLib's chip, wired the AdLib's way. The machine's only sound chip. |
 | Local path | `core/opl2/` — `fmopl.c`, `fmopl.h`. The device and wrapper `core/opl2.c` are ours. |
 | Upstream | MAME's FM sound generator (Jarek Burczynski, Tatsuyuki Satoh), version 0.72, adapted for VICE by Marco van den Heuvel. Taken from **BMC64's** vendored copy — `third_party/vice-3.3/src/core/` in https://github.com/randyrossi/bmc64. |
 | Version | VICE 3.3's copy, vendored 2026-08-30. `core/opl2/VENDORED-FROM.txt` |
@@ -249,7 +242,6 @@ still cannot name an upstream commit, and say so rather than guessing:
 | Component | What is missing | Why |
 |---|---|---|
 | `core/xemu/` | the commit | no version in the sources |
-| `core/resid/` | the upstream commit | shipped inside VICE 3.3, which is the firmer statement anyway |
 | `data/font8.bin` | which kernel tree | `mkfont.py` takes the file as an argument; the output cannot say |
 | `data/fonts/openroms/` | the commit | fetch date recorded, a `.rom` carries no version |
 | `data/fonts/unscii/` | the release | the `.hex` has no header |
@@ -262,7 +254,7 @@ honest gap, so none were guessed.
 ## Re-check commands
 
     # a directory digest, as used above.  The same command for every
-    # component -- .cc for reSID, .asm/.s/.inc for Tali Forth and EhBASIC.
+    # component -- .asm/.s/.inc for Tali Forth and EhBASIC.
     # LC_ALL=C matters: without it the sort order and the digest change.
     dir_digest() {
       find "$1" -type f \( -name '*.c' -o -name '*.h' -o -name '*.cc' \

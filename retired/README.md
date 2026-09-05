@@ -9,24 +9,14 @@ each one.
 Moved out on Doc's instruction, 2026-09-01, in the consolidation whose
 standing record is `docs/CAPABILITIES.md`.
 
-## The SID demos — `sids.c`, `sid6.c`, `sid12.c`, `sidorch.h`
+## The SID demos and player — gone, 2026-09-05
 
-One, two and four SIDs playing the same Pachelbel progression, so the chips
-could be put beside each other and beside the OPL2's `OPL2.PRG`. They were
-the SIDs' showcase, and on 2026-09-01 the SIDs stopped being what the machine
-sounds through — the OPL2 is the default on both hosts now. A demo that
-plays into a muted chip demonstrates nothing, and a person running it gets
-silence with no explanation, which is worse than its absence.
-
-`sid12.c` earned its keep on the way out: sounding four chips at once is what
-exposed the phase-carry bug in `core/sid.cc` (one stale sample per lagging
-chip on 4.8% of calls). That fix is still in the machine.
-
-## The SID player — `sidplay.c`, `sidplay0.s`, `sidplay-header.s`, `sidplay.cfg`
-
-Played `.sid` files from `fs/SID`. Same reason. Note that `fs/SID` is a
-symlink to `sidfiles/EC64SC_SID_Files` and is still in place: nothing reads
-it now, and whether it stays is Doc's call.
+`sids.c`, `sid6.c`, `sid12.c`, `sidorch.h` (Pachelbel on one, two and four
+SIDs) and `sidplay.c` with its three build files (a `.sid` player) sat here
+from 2026-09-01, when the SIDs were muted, until 2026-09-05, when Doc had the
+SIDs removed from the machine altogether — chips, reSID, registers, tunes.
+Programs for a chip the machine no longer has are not retired, they are
+history: `git log -- retired/` finds them.
 
 ## `romout.c`
 

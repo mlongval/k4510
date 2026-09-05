@@ -15,12 +15,10 @@ include $(CIRCLESTDLIBHOME)/Config.mk
 
 CORE = ../core
 TUBE = ../tube/src
-RESID_SRC = $(wildcard $(CORE)/resid/*.cc)
 OBJS = main.o kernel.o host_circle.o c64kbd.o frontend.o tube_pi.o net_pi.o \
-       $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicky.o $(CORE)/sid.o $(CORE)/tube_cp.o $(CORE)/net.o $(CORE)/term.o $(CORE)/state.o $(CORE)/hostid.o $(CORE)/ui/settings.o $(CORE)/ui/menu.o $(CORE)/ui/ui_draw.o \
-       $(CORE)/opl2.o $(CORE)/opl2/fmopl.o $(CORE)/vice_clk.o $(CORE)/sidq.o \
+       $(CORE)/xemu/cpu65.o $(CORE)/mem.o $(CORE)/io.o $(CORE)/vicky.o $(CORE)/tube_cp.o $(CORE)/net.o $(CORE)/term.o $(CORE)/state.o $(CORE)/hostid.o $(CORE)/ui/settings.o $(CORE)/ui/menu.o $(CORE)/ui/ui_draw.o \
+       $(CORE)/opl2.o $(CORE)/opl2/fmopl.o $(CORE)/vice_clk.o $(CORE)/sndq.o $(CORE)/audio.o \
        bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o runcpm.o \
-       $(RESID_SRC:.cc=.o)
 
 STANDARD = -std=c++23 -Wno-volatile
 C_STANDARD = -std=gnu11
@@ -106,10 +104,6 @@ bb_data.o: $(TUBE)/bbdata_arm_64.s
 	@$(PREFIX)nm $@.raw | awk '$$NF ~ /^_/ && $$(NF-1) ~ /^[DTU]$$/ { print $$NF, ($$NF == "_pfree" ? "bbc_pfree" : substr($$NF, 2)) }' > bb_data.syms
 	@$(PREFIX)objcopy --redefine-syms=bb_data.syms $@.raw $@
 
-# reSID is .cc; Circle's rules only know .cpp
-%.o: %.cc
-	@echo "  CPP   $@"
-	@$(CPP) $(CPPFLAGS) -DVERSION=\"0.16\" -Wno-unused-parameter -c -o $@ $<
 
 -include $(DEPS)
 

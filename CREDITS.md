@@ -15,13 +15,12 @@ Thank you:
   though it is the emulator that community uses — and what this core
   emulates is the 4510 as the MEGA65 extended it, with thanks in its
   source to lydon for the Q-opcode work on mega65-core.)
-- **Dag Lem** — [reSID](https://en.wikipedia.org/wiki/ReSID), the
-  SID emulation behind all four sound chips (as shipped in VICE 3.3).
-- **Teemu Rantanen, Michael Schwendt, Ettore Perazzoli** and VICE's
-  team — FastSID, which was the machine's second SID engine from
-  2026-08-30 until 2026-09-01. It is no longer in the tree (the machine
-  sounds through its OPL2 now), but it did the job it was brought in for
-  and the thanks stand.
+- **Dag Lem** — [reSID](https://en.wikipedia.org/wiki/ReSID), which
+  was the machine's four SID chips from 2026-08-22 until 2026-09-05, and
+  **Teemu Rantanen, Michael Schwendt, Ettore Perazzoli** and VICE's team
+  for FastSID, its second SID engine for two days. Neither is in the tree
+  any more (the machine sounds through its OPL2 alone now), but both did
+  the job they were brought in for and the thanks stand.
 - **Jarek Burczynski** and **Tatsuyuki Satoh** — fmopl, the OPL/OPL2 FM
   sound generator written for MAME, which is the machine's YM3812 at
   $D480; and **Marco van den Heuvel**, who adapted it for VICE, where
@@ -107,7 +106,7 @@ build.
 - **Acorn Computers** — the Tube, the sideways ROM model, and the
   `*` prefix. The Beeb's ghost is all over this machine.
 - **Commodore** — the other half of the machine's soul: PETSCII,
-  SIDs, and the 8-bit line from PET to C65.
+  the SID the machine had for a fortnight, and the 8-bit line from PET to C65.
 - **Michael Steil** — [msbasic](https://github.com/mist64/msbasic),
   and **Microsoft** for the 2025 MIT release of 6502 BASIC v1.1.
   The machine's second native BASIC runs on it.
@@ -123,9 +122,6 @@ build.
   the guide is modelled on, down to the page size, and the rule that
   every example must be run and photographed before it is printed is
   his.
-- **The High Voltage SID Collection** and the composers in it, whose
-  tunes are what `SIDPLAY` plays on a good evening. None of that music
-  is distributed with this machine (see LICENSES.md); it is theirs.
 
 ## The machine's other author
 

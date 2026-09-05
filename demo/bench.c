@@ -22,6 +22,7 @@
  * time measured for fixed work. That keeps the run the same length whatever
  * the speed: a slow machine reports smaller numbers, not a longer wait. */
 #include "k4510.h"
+#include "oplnote.h"
 
 #define TERM 0xDA00u
 #define SECS 3                       /* per figure; four figures, so about 12 s */
@@ -132,11 +133,11 @@ void main(void)
     MEASURE(dma, { dma_copy(0x0E000000UL, 0x0E100000UL, 4096UL); });
 
     /* 5. the clock sweep: every CPU clock the host offers, two seconds each,
-     *    with a note sounding on SID 0 the whole time. The host counts the
+     *    with a note sounding on the OPL2 the whole time. The host counts the
      *    audio callbacks that found nothing to play -- that is what "choppy"
      *    is -- so each line says whether the machine kept up AND whether the
      *    sound did. The clock in force before is put back at the end. */
-    say("\nclock sweep, with a note on SID 0, every step the machine offers...\n");
+    say("\nclock sweep, with a note on the OPL2, every step the machine offers...\n");
     clk0 = REG(SYS + 0x23);
     /* How many steps are there?  The machine says, at SYS+0x27.  BENCH once
      * had the five clock names of 2026-08-26 frozen into a table and swept
@@ -150,13 +151,10 @@ void main(void)
      * SYS+4 latch comment above describes.  Tried; the sweep came out empty.) */
     nclk = REG(SYS + 0x27);
     if (nclk == 0 || nclk > CLKMAX) nclk = CLKMAX;
-    REG(SID0 + 0x18) = 0x0F;                                      /* volume */
-    REG(SID0 + 0x05) = 0x00; REG(SID0 + 0x06) = 0xF0;             /* attack/decay, sustain/release */
-    REG(SID0 + 0x00) = 0x45; REG(SID0 + 0x01) = 0x1D;             /* A-440 at 1 MHz */
     for (i = 0; i < nclk; i++) {
         REG(SYS + 0x23) = i;
         { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; }   /* two frames to settle */
-        REG(SID0 + 0x04) = 0x11;                                  /* triangle, gate on */
+        opl_note_on(0, OPL_A440_FNUM, OPL_A440_BLOCK);
         REG(SYS + 0x24) = 0;                                      /* clear the gap count */
         s0 = edge(); f0 = fcount();
         do { s = now(); } while (since(s0, s) < 2);
@@ -166,11 +164,10 @@ void main(void)
         sweep_fill[i] = (unsigned)REG(SYS + 0x2A) | ((unsigned)REG(SYS + 0x2B) << 8);
         /* the clock this step actually became, from the machine, not a table */
         sweep_khz[i] = clk_khz();
-        REG(SID0 + 0x04) = 0x10;                                  /* gate off */
+        opl_note_off(0);
         say("  "); saymhz(sweep_khz[i]); say(": "); sayn(sweep_fps[i]); say(" fps, "); sayn(sweep_gap[i]); say(" audio gaps\n");
     }
     REG(SYS + 0x23) = clk0;
-    REG(SID0 + 0x18) = 0x00;
 
     rom_shell("CLS");
     say("\nBENCH results\n\n");
@@ -200,7 +197,7 @@ void main(void)
     line("Console lines/second", chr, "");
     line("DMA 4K copies/second", dma, "");
     nl();
-    add("Clock sweep, a note sounding on SID 0, 2 s each:\n");
+    add("Clock sweep, a note sounding on the OPL2, 2 s each:\n");
     for (i = 0; i < nclk; i++) {
         add("  "); addmhz(sweep_khz[i]); addn(sweep_fps[i], 2); add(" fps   ");
         addn(sweep_gap[i], 0); add(" gaps  "); addn(sweep_fill[i], 0); add(" filled");
@@ -208,7 +205,7 @@ void main(void)
         add((sweep_fps[i] >= 59 && !sweep_gap[i] && sweep_fill[i] < 800) ? "   (clean)" : ""); nl();
     }
     add("  A clock is right when it holds 60 fps, 0 gaps and nothing filled.\n");
-    add("  Filled = samples the SIDs made while the machine was too late to.\n");
+    add("  Filled = samples the sound made while the machine was too late to.\n");
     add("  Gaps count only silence; filled is what you actually hear as choppy.\n");
     add("  (the clock in force before the sweep was put back)\n");
     nl();

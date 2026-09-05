@@ -12,17 +12,15 @@
  *          R          the last value written to the addressed register
  *   $D482  R  ID      $02 = an OPL2 is fitted, $00 = it is not
  *
- * The OPL2 and the SIDs are mutually exclusive -- Doc's rule, and the honest
- * one on a Pi, where the frame will not hold both.  core/ui picks; sid.cc is
- * muted while this chip has the sound.
+ * It is the machine's only sound chip.  Four SIDs shared this page until
+ * 2026-09-05 (muted since 2026-09-01) and were removed on Doc's instruction.
  *
  * MAME's fmopl.c does the synthesis, by way of VICE (core/opl2/, unaltered).
  * What it wants around it is an allocator and two alarms for its timers, and
  * that is what the top of this file is.
  */
 #include "opl2.h"
-#include "sidq.h"
-#include "sid.h"   /* K4510_SIDS: the queue slot the OPL2 uses */
+#include "sndq.h"
 #include "vice_clk.h"
 #include <string.h>
 #include "opl2/fmopl.h"
@@ -65,7 +63,6 @@ void alarm_poll(uint32_t now)
 #define OPL2_HZ 3579545.0            /* the AdLib's crystal, which every register list assumes */
 static FM_OPL *opl;
 static int     opl_rate = 48000;
-static int     opl_on;               /* the machine has the OPL2 selected */
 static uint8_t opl_addr;             /* the address port's latch */
 static uint8_t opl_shadow[256];      /* what was last written where, so DATA reads back */
 
@@ -86,8 +83,6 @@ void opl2_reset(void)
     opl_addr = 0;
     if (opl) ym3812_reset_chip(opl);
 }
-void opl2_set_enabled(int on) { opl_on = on ? 1 : 0; }
-int  opl2_enabled(void) { return opl_on; }
 
 /* The write, once it is the rendering side's turn to perform it.  Port 0 and
  * port 1 writes are queued in the order they were made, so the chip's own
@@ -112,14 +107,23 @@ void opl2_write(uint8_t reg, uint8_t v)
      * answer the readback at $D481 and must be right here, now, whoever is
      * doing the rendering. */
     if (reg == 0) opl_addr = v; else opl_shadow[opl_addr] = v;
-    /* Another core has the sound: hand the write over stamped, exactly as the
-     * SIDs do (core/sid.cc).  Without this the OPL2's state was being mutated
-     * here while core 3 rendered from it -- the race the SIDs were given the
-     * queue to avoid, which nobody had noticed because the OPL2 was not the
-     * Pi's chip when core 3 was written.  A full queue means that core has
-     * stopped, so write through instead: wrong sound beats none. */
-    if (sidq_owner() != SIDQ_OWNER_CPU && sidq_push(K4510_SIDS, reg, v)) return;
+    /* Another core has the sound: hand the write over stamped, and it is
+     * performed there as the render passes its moment (core/sndq.h).
+     * Without this the chip's state was being mutated here while core 3
+     * rendered from it.  A full queue means that core has stopped, so write
+     * through instead: wrong sound beats none. */
+    if (sndq_owner() != SNDQ_OWNER_CPU && sndq_push(reg, v)) return;
     ym3812_write(opl, reg, v);
+}
+/* One register, from the machine itself rather than a program: the sound
+ * sequencer ($D5E0) plays its notes through here from the frame tick, which
+ * can land between a program's ADDR write and its DATA write.  The latch is
+ * put back afterwards so that pair still lands where the program meant. */
+void opl2_write_reg(uint8_t reg, uint8_t v)
+{
+    uint8_t keep = opl_addr;
+    opl2_write(0, reg); opl2_write(1, v);
+    opl2_write(0, keep);
 }
 uint8_t opl2_read(uint8_t reg)
 {
@@ -132,8 +136,8 @@ uint8_t opl2_read(uint8_t reg)
 }
 
 /* n samples of FM, mixed down to the machine's one channel.  fmopl renders
- * into its own buffer and we scale: the OPL2 swings a good deal wider than a
- * SID and would clip the mix at full tilt. */
+ * into its own buffer and we scale: the OPL2 swings wide and would clip the
+ * mix at full tilt. */
 #define OPL2_BLOCK 1024
 int opl2_render(int n, int16_t *out, int max)
 {
@@ -141,13 +145,13 @@ int opl2_render(int n, int16_t *out, int max)
     int done = 0;
     if (n > max) n = max;
     if (n <= 0) return 0;
-    if (!opl || !opl_on) { for (int i = 0; i < n; i++) out[i] = 0; return n; }
+    if (!opl) { for (int i = 0; i < n; i++) out[i] = 0; return n; }
     while (done < n) {
         int want = n - done;
         if (want > OPL2_BLOCK) want = OPL2_BLOCK;
         ym3812_update_one(opl, tmp, want);
         for (int i = 0; i < want; i++) {
-            int v = tmp[i] / 2;                            /* headroom, as the SID mix has */
+            int v = tmp[i] / 2;                            /* headroom */
             out[done + i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
         }
         done += want;

@@ -239,39 +239,29 @@ end;
 
 procedure NoSound; assembler;
 (*
-@description: Silence SID 0
+@description: Silence every channel of the sound sequencer
 *)
 asm
-	stz k4_sid+$18
+	lda #$80
+	sta k4_seq
 end;
 
 
 procedure Sound(Chan,Freq,Dist,Vol: byte); assembler;
 (*
-@description: Plays a note on SID 0: Chan 0..2 the voice, Freq the high byte of the SID frequency, Dist ignored, Vol 0..15
+@description: Plays a note through the sound sequencer ($D5E0), which sounds on the OPL2: Chan 0..2 a tone channel (3 is the noise channel), Freq the pitch in quarter semitones (53 = middle C, 4 per semitone), Dist ignored, Vol 0..15. The note holds until NoSound or the next Sound on that channel.
 *)
 asm
-	txa:pha
-
 	lda Chan
-	asl @
-	asl @
-	asl @
-	sub Chan		; * 7
-	tax
-
-	stz k4_sid,x		; frequency
+	inc @			; 0..2 -> sequencer channels 1..3 (tones); 3 -> 0 (noise)
+	and #3
+	ora #$10		; flush the channel first: this note now
+	sta k4_seq
+	lda #0
+	sub Vol			; the amplitude is signed: 0 to -15
+	sta k4_seq+1
 	lda Freq
-	sta k4_sid+1,x
-	lda #$08		; ADSR: attack 0, decay 8
-	sta k4_sid+5,x
-	lda #$F8		; sustain 15, release 8
-	sta k4_sid+6,x
-	lda #$11		; triangle, gate on
-	sta k4_sid+4,x
-	lda Vol
-	and #$0F
-	sta k4_sid+$18
-
-	pla:tax
+	sta k4_seq+2
+	lda #255		; hold
+	sta k4_seq+3
 end;

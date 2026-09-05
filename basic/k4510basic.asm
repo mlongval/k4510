@@ -106,7 +106,7 @@ k4510_cc
 	BNE	k4510_cc_done		; checks inhibited (LOAD feeding a file)
 	LDA	$D103			; a Ctrl-C or RUN/STOP anywhere in the queue? (removed; other keys stay for GET)
 	BEQ	k4510_cc_done
-	JSR	k4510_hush		; both stop the program and silence the SIDs; @BYE leaves to the shell
+	JSR	k4510_hush		; both stop the program and silence the machine; @BYE leaves to the shell
 	LDA	#$03
 	STA	ccbyte
 	LDX	#$20
@@ -115,19 +115,20 @@ k4510_cc
 k4510_cc_done
 	JMP	LAB_FBA2		; the interrupt checks, as in the stock routine
 
-; silence the four SIDs: volume 0, every gate off
+; silence the machine: flush the sequencer, key off the OPL2's nine voices
 k4510_hush
 	PHA
 	PHX
-	LDX	#0
+	LDA	#$80
+	STA	$D5E0			; sequencer: silence everything now
+	LDX	#8
 k4510_hush1
-	STZ	$D400,X			; registers 0-24 of chip 0; the other chips are 32 bytes apart
-	STZ	$D420,X
-	STZ	$D440,X
-	STZ	$D460,X
-	INX
-	CPX	#25
-	BNE	k4510_hush1
+	TXA
+	ORA	#$B0			; $B0-$B8: key-on/block/F-number high of voice X
+	STA	$D480
+	STZ	$D481			; key off
+	DEX
+	BPL	k4510_hush1
 	PLX
 	PLA
 	RTS

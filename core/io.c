@@ -7,10 +7,9 @@ static void dbg_key(uint8_t k);
 static uint32_t sys_frames;
 static int dbg_num;
 static int dbg_auto; static uint32_t dbg_auto_next;
-static uint8_t sid_clock_sel;
 #include "vicky.h"
-#include "sid.h"
 #include "opl2.h"
+#include "audio.h"
 #include "net.h"
 #include "term.h"
 #include "ui/menu.h"
@@ -478,7 +477,6 @@ static void math_write(uint8_t r, uint8_t v)
 #include <time.h>
 extern uint32_t mem_rom_base;
 static uint8_t  sys_reg[0x10];
-static uint8_t  sid_shadow[4][32];
 /* The build, not the generation.  The Makefile stamps git describe in here, so
  * a BUG report names the exact commit it came from; without that both this and
  * ROM_VERSION only say which era the machine is from.  16 bytes, NUL included. */
@@ -502,34 +500,51 @@ static const char sys_version[16] = K4510_BUILD;
  * bit 7 = silence everything now), AMP (signed, 0 to -15; an envelope
  * number > 0 plays at a fixed loudness), PITCH (quarter semitones, 53 =
  * middle C) and DUR ($D5E3: 20ths of a second, 255 = hold forever); the
- * DUR write queues the note. Channels 1-3 are pulse voices 1-3 on SID 0,
- * channel 0 is noise on SID 1 voice 1. Each channel holds a playing note
- * plus 63 queued ones -- much deeper than the Beeb's four, because the Beeb
- * blocked BASIC when the queue filled and a one-way Tube cannot; a whole
- * tune fits instead. A note arriving on a full queue is dropped. */
+ * DUR write queues the note. The channels are OPL2 voices 0-3: channel 0
+ * is the Beeb's noise channel, a heavily fed-back FM patch here (the OPL2
+ * has no noise generator outside rhythm mode); 1-3 are a plain two-operator
+ * tone.  Each channel holds a playing note plus 63 queued ones -- much
+ * deeper than the Beeb's four, because the Beeb blocked BASIC when the
+ * queue filled and a one-way Tube cannot; a whole tune fits instead.  A
+ * note arriving on a full queue is dropped.
+ *
+ * Until 2026-09-05 the channels were SID voices; the SIDs are gone.  The
+ * patch is written on every note because a program is free to zero the
+ * chip (OPL2.PRG does, on its way out) and the sequencer must still sound
+ * after it. */
 #define SEQ_DEPTH 64
-typedef struct { uint16_t freq; uint8_t amp, dur; } seq_note;
+typedef struct { uint16_t freq; uint8_t amp, dur; } seq_note;   /* freq: OPL2 F-number | block << 10 */
 static seq_note seq_q[4][SEQ_DEPTH];
 static uint8_t  seq_head[4], seq_len[4], seq_reg[3];
 static int      seq_left[4];             /* frames left of the playing note; 0 idle, -1 forever */
 
-static void seq_sid(int chip, uint8_t reg, uint8_t v) { sid_shadow[chip][reg] = v; sid_write(chip, reg, v); }
+static const uint8_t seq_slot[4] = { 0, 1, 2, 8 };   /* the modulator slot of OPL2 voices 0-3; the carrier is 3 on */
 static void seq_off(int ch)
 {
-    seq_sid(ch ? 0 : 1, (uint8_t)(ch ? (ch - 1) * 7 + 4 : 4), ch ? 0x40 : 0x80);   /* gate off */
+    opl2_write_reg((uint8_t)(0xB0 + ch), 0);                      /* key off */
     seq_left[ch] = 0;
 }
 static void seq_start(int ch, const seq_note *n)
 {
-    int chip = ch ? 0 : 1, b = ch ? (ch - 1) * 7 : 0;
-    seq_sid(chip, 0x18, 0x0F);                                    /* volume up, filter routing off */
-    seq_sid(chip, (uint8_t)(b + 0), n->freq & 0xFF);
-    seq_sid(chip, (uint8_t)(b + 1), n->freq >> 8);
-    seq_sid(chip, (uint8_t)(b + 2), 0x00);
-    seq_sid(chip, (uint8_t)(b + 3), 0x08);                        /* 50 % pulse */
-    seq_sid(chip, (uint8_t)(b + 5), 0x00);                        /* attack/decay: instant */
-    seq_sid(chip, (uint8_t)(b + 6), (uint8_t)((n->amp << 4) | 6));/* sustain = loudness */
-    seq_sid(chip, (uint8_t)(b + 4), (uint8_t)((ch ? 0x40 : 0x80) | (n->amp ? 1 : 0)));
+    uint8_t m = seq_slot[ch], c = (uint8_t)(m + 3), noise = ch == 0;
+    uint8_t tl = (uint8_t)((15 - (n->amp > 15 ? 15 : n->amp)) * 3);   /* carrier level: 0 loudest, 63 silent */
+    opl2_write_reg(0x01, 0x20);                                   /* waveform select on */
+    opl2_write_reg((uint8_t)(0x20 + m), noise ? 0x0F : 0x21);     /* modulator: mult 15 for noise, else 1 + sustain */
+    opl2_write_reg((uint8_t)(0x40 + m), noise ? 0x00 : 0x18);
+    opl2_write_reg((uint8_t)(0x60 + m), 0xF0);                    /* attack instant, no decay */
+    opl2_write_reg((uint8_t)(0x80 + m), 0x0F);                    /* sustain full, release fast */
+    opl2_write_reg((uint8_t)(0xE0 + m), noise ? 0x00 : 0x01);
+    opl2_write_reg((uint8_t)(0x20 + c), 0x21);                    /* carrier: mult 1, sustain */
+    opl2_write_reg((uint8_t)(0x40 + c), tl);
+    opl2_write_reg((uint8_t)(0x60 + c), 0xF0);
+    opl2_write_reg((uint8_t)(0x80 + c), 0x0F);
+    opl2_write_reg((uint8_t)(0xE0 + c), 0x00);
+    opl2_write_reg((uint8_t)(0xC0 + ch), noise ? 0x0E : 0x00);   /* noise: feedback 7, FM */
+    opl2_write_reg((uint8_t)(0xB0 + ch), 0);                      /* key off first: a retrigger needs the envelope let go */
+    if (n->amp) {
+        opl2_write_reg((uint8_t)(0xA0 + ch), (uint8_t)(n->freq & 0xFF));
+        opl2_write_reg((uint8_t)(0xB0 + ch), (uint8_t)(0x20 | ((n->freq >> 8) & 0x1F)));
+    }
     seq_left[ch] = (n->dur == 255) ? -1 : (n->dur ? n->dur * 3 : 1);   /* 20ths at 60 fps */
 }
 static void seq_next(int ch)
@@ -550,7 +565,6 @@ static void seq_write(uint8_t r, uint8_t v)
         return;
     }
     {
-        static const double clocks[3] = { 1000000.0, 985248.0, 1022730.0 };
         static const double semiq[48] = {    /* 2^(i/48): a quarter-semitone ladder */
             1.000000000, 1.014545335, 1.029302237, 1.044273782, 1.059463094, 1.074873340,
             1.090507733, 1.106369533, 1.122462048, 1.138788635, 1.155352697, 1.172157689,
@@ -562,14 +576,16 @@ static void seq_write(uint8_t r, uint8_t v)
             1.834008086, 1.860684348, 1.887748625, 1.915206561, 1.943063882, 1.971326397 };
         int ch = seq_reg[0] & 3, q = (int)seq_reg[2] - 5;         /* pitch 5 = C3, 130.81 Hz */
         signed char a = (signed char)seq_reg[1];
-        double hz, f;
+        double hz, f; int block;
         seq_note n;
         n.amp = a < 0 ? (uint8_t)(-a > 15 ? 15 : -a) : (a > 0 ? 13 : 0);
         hz = 130.8127827;
         if (q < 0) hz = hz * semiq[q + 48] / 2.0;
         else       hz = hz * semiq[q % 48] * (double)(1 << (q / 48));
-        f = hz * 16777216.0 / clocks[sid_clock_sel];
-        n.freq = f > 65535.0 ? 65535 : (uint16_t)f;
+        /* the OPL2's F-number: hz * 2^(20-block) / 49716, in the lowest block that holds it */
+        for (block = 0; block < 7; block++) if (hz * (double)(1 << (20 - block)) / 49716.0 < 1024.0) break;
+        f = hz * (double)(1 << (20 - block)) / 49716.0;
+        n.freq = (uint16_t)((f > 1023.0 ? 1023 : (int)f) | (block << 10));
         n.dur = v;
         if (seq_reg[0] & 0x10) { seq_len[ch] = 0; seq_left[ch] = 0; }          /* flush: this note now */
         if (seq_left[ch] == 0) seq_start(ch, &n);
@@ -579,9 +595,7 @@ static void seq_write(uint8_t r, uint8_t v)
 
 void io_frame_tick(void) { sys_frames++; seq_tick(); term_tick(); if (dbg_auto && sys_frames >= dbg_auto_next) { dbg_auto_next = sys_frames + 900; dbg_dump("auto, 15 s"); } }
 static unsigned sys_cpu_khz = 40500;
-static int sys_sid_active = 4;   /* how many SIDs the Audio menu is clocking now */
 void io_set_cpu_khz(unsigned khz) { sys_cpu_khz = khz; }   /* the frontend, from the CPU clock setting */
-void io_set_sid_active(int n) { sys_sid_active = n; }      /* the frontend, from the Active SIDs setting */
 static void sys_latch(void)
 {
     time_t t = time(NULL); struct tm *m = localtime(&t);
@@ -618,7 +632,7 @@ int  io_adopt_requested(void) { int a = adopt_req; adopt_req = 0; return a; }
 static int measuring;
 int  io_measuring(void) { return measuring; }
 /* What "choppy" actually is, since 952daa6.  The gap counter asks whether the
- * ring ran dry, and that fix stops it running dry by clocking the SIDs on
+ * ring ran dry, and that fix stops it running dry by clocking the sound on
  * without the CPU when the machine is late -- so gaps read 0 across the whole
  * band where a host is merely losing, and Doc could hear drops on rows both
  * BENCH and SETUP called clean.  This counts the samples that came from that
@@ -668,7 +682,6 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x29) return (uint8_t)measuring;
     if (r == 0x2A) return (uint8_t)(io_audio_fill & 0xFF);       /* filled samples since last cleared, saturating */
     if (r == 0x2B) return (uint8_t)(io_audio_fill >> 8);
-    if (r == 0x2C) return (uint8_t)sys_sid_active;               /* SIDs the Audio menu is clocking now (1-4), for INFO */   /* how many steps the ladder has, so a guest need not probe for it */
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (r >= 0x30 && r <= 0x33) return (uint8_t)(dbg_watch_addr >> (8 * (r - 0x30)));
     if (r >= 0x36 && r <= 0x39) return (uint8_t)(sys_ms() >> (8 * (r - 0x36)));   /* the wall clock, in ms */
@@ -676,7 +689,6 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x35) return dbg_watch_hits;
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
-    if (r == 0xF3) return sid_clock_sel;
     return 0xFF;
 }
 
@@ -1083,7 +1095,6 @@ int dbg_dump(const char *why)
     fprintf(f, "VICKY ctrl=%02X bg=%02X irqst=%02X irqmask=%02X\n", vicky_read(0), vicky_read(1), vicky_read(4), vicky_read(5));
     for (int n = 0; n < 4; n++) { fprintf(f, "  layer %d:", n); for (int i = 0; i < 16; i++) fprintf(f, " %02X", vicky_read(0x10 + n * 16 + i)); fprintf(f, "\n"); }
     fprintf(f, "  sprites=%02X sheila=%02X list=", vicky_read(0x0E), vicky_read(0x64)); for (int i = 3; i >= 0; i--) fprintf(f, "%02X", vicky_read(0x60 + i)); fprintf(f, "\n");
-    for (int c = 0; c < 4; c++) { fprintf(f, "SID%d:", c); for (int i = 0; i < 25; i++) fprintf(f, " %02X", sid_shadow[c][i]); fprintf(f, "\n"); }
     fprintf(f, "FS   reg:"); for (int i = 0; i < 0x14; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
     fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
     fprintf(f, "\nSCREEN (text layer at $030000, 80 columns):\n");
@@ -1114,20 +1125,19 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
-    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from /SID came back in /SID, where there is no STARTUP.BAT (Doc) */
+    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
     /* Off by default on BOTH now (Doc, 2026-08-27): auto-dump every 15 s was
        intrusive, and dbg_rec -- the PC recorder -- costs a store per emulated
        instruction whether or not a dump is ever written.  DUMP ON re-arms both
        when you actually want to debug; DUMP writes state on demand without it. */
     dbg_auto = 0; dbg_rec = 0;
-    memset(sid_shadow, 0, sizeof sid_shadow); memset(math_reg, 0, sizeof math_reg); math_int_update();
+    memset(math_reg, 0, sizeof math_reg); math_int_update();
     memset(seq_q, 0, sizeof seq_q); memset(seq_head, 0, sizeof seq_head); memset(seq_len, 0, sizeof seq_len);
     memset(seq_reg, 0, sizeof seq_reg); memset(seq_left, 0, sizeof seq_left);
     kbd_head = kbd_tail = 0; kbd_last = 0;
     memset(dma_reg, 0, sizeof dma_reg);
     vicky_reset();
-    sid_clock_sel = 0; sid_set_clock(0);
-    sid_reset();
+    audio_reset();
 }
 
 /* ---- I/O profile: how often the CPU touches the I/O page, at what cost, and
@@ -1159,11 +1169,9 @@ static uint8_t io_read_inner(uint16_t addr)
     switch (addr & 0xFF00) {
     case IO_VICKY:
         return vicky_read(addr & 0xFF);
-    case IO_SID:
-        if (addr < IO_FM) return ((addr & 0x1F) < 0x19) ? sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F]
-                                                        : sid_read((addr - IO_SID) >> 5, addr & 0x1F);
-        if ((addr - IO_FM) < 3) return opl2_read((uint8_t)(addr - IO_FM));   /* the OPL2: STATUS, data readback, ID */
-        return 0xFF;
+    case IO_SOUND:
+        if (addr >= IO_FM && (addr - IO_FM) < 3) return opl2_read((uint8_t)(addr - IO_FM));   /* the OPL2: STATUS, data readback, ID */
+        return 0xFF;                                                       /* $D400-$D47F: nothing there (the SIDs, until 2026-09-05) */
     case IO_SYS:
         return sys_read(addr & 0xFF);
     case IO_MATH:
@@ -1218,9 +1226,8 @@ void io_write(uint16_t addr, uint8_t v)
     switch (addr & 0xFF00) {
     case IO_VICKY:
         vicky_write(addr & 0xFF, v); return;
-    case IO_SID:
-        if (addr < IO_FM) { sid_shadow[(addr - IO_SID) >> 5][addr & 0x1F] = v; sid_write((addr - IO_SID) >> 5, addr & 0x1F, v); }
-        else if ((addr - IO_FM) < 2) opl2_write((uint8_t)(addr - IO_FM), v);   /* the OPL2: ADDR, DATA */
+    case IO_SOUND:
+        if (addr >= IO_FM && (addr - IO_FM) < 2) opl2_write((uint8_t)(addr - IO_FM), v);   /* the OPL2: ADDR, DATA */
         return;
     case IO_MATH:
         math_write(addr & 0xFF, v); return;
@@ -1232,7 +1239,6 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF0) { dbg_rec = 1; dbg_dump("DUMP register"); }
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
-        if ((addr & 0xFF) == 0xF3) { sid_clock_sel = v > 2 ? 0 : v; sid_set_clock(sid_clock_sel); }
         if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v);   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
         if ((addr & 0xFF) == 0x24) { io_audio_gaps = 0; io_audio_fill = 0; }   /* any write clears both audio counts */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
@@ -1300,8 +1306,6 @@ void io_state_save(FILE *f)
     state_put(f, "DMA ", dma_reg, sizeof dma_reg);
     state_put(f, "MATH", math_reg, sizeof math_reg);
     state_put(f, "SYSR", sys_reg, sizeof sys_reg);
-    state_put(f, "SIDC", &sid_clock_sel, 1);
-    state_put(f, "SIDS", sid_shadow, sizeof sid_shadow);
     state_put(f, "SEQQ", seq_q, sizeof seq_q);
     state_put(f, "SEQH", seq_head, sizeof seq_head);
     state_put(f, "SEQL", seq_len, sizeof seq_len);
@@ -1319,8 +1323,7 @@ int io_state_load(FILE *f)
         || state_get(f, "KBDH", &kbd_head, sizeof kbd_head) || state_get(f, "KBDT", &kbd_tail, sizeof kbd_tail)
         || state_get(f, "FSCW", fs_cwd, sizeof fs_cwd) || state_get(f, "FSRG", fs_reg, sizeof fs_reg)
         || state_get(f, "DMA ", dma_reg, sizeof dma_reg) || state_get(f, "MATH", math_reg, sizeof math_reg)
-        || state_get(f, "SYSR", sys_reg, sizeof sys_reg) || state_get(f, "SIDC", &sid_clock_sel, 1)
-        || state_get(f, "SIDS", sid_shadow, sizeof sid_shadow)
+        || state_get(f, "SYSR", sys_reg, sizeof sys_reg)
         || state_get(f, "SEQQ", seq_q, sizeof seq_q) || state_get(f, "SEQH", seq_head, sizeof seq_head)
         || state_get(f, "SEQL", seq_len, sizeof seq_len) || state_get(f, "SEQR", seq_reg, sizeof seq_reg) || state_get(f, "SEQF", seq_left, sizeof seq_left)
         || state_get(f, "TULX", tula_x, sizeof tula_x) || state_get(f, "TULY", tula_y, sizeof tula_y)
@@ -1328,9 +1331,9 @@ int io_state_load(FILE *f)
         || state_get(f, "TULF", &tula_fg, 1) || state_get(f, "TULB", &tula_bg, 1) || state_get(f, "TULN", &tula_on, 1)
         || state_get(f, "TSPC", &tula_spr_cur, sizeof tula_spr_cur) || state_get(f, "TSPO", &tula_spr_on, sizeof tula_spr_on)
         || state_get(f, "TSPW", tula_spr_w, sizeof tula_spr_w) || state_get(f, "TSPH", tula_spr_h, sizeof tula_spr_h)) return -2;
-    /* the chips: registers written back in order, the file closed, the network dropped, the Tube stopped */
-    sid_set_clock(sid_clock_sel);
-    for (int c = 0; c < 4; c++) for (int r = 0; r < 0x19; r++) sid_write(c, (uint8_t) r, sid_shadow[c][r]);
+    /* the file closed, the network dropped, the Tube stopped.  The OPL2's
+     * registers are not carried: a state loads with the chip reset, and the
+     * sequencer's playing notes re-sound as their queues advance. */
     math_int_update();
     if (fs_file) { fclose(fs_file); fs_file = 0; }
     fs_net_drop(); fs_remote[0] = 0; net_reset();

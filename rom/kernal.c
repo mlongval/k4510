@@ -15,7 +15,6 @@
 #define KBDST  0xD101u
 #define DMA    0xD200u
 #define FS     0xD300u
-#define SID0   0xD400u
 #define FM     0xD480u          /* the OPL2: $D480 address port, $D481 data */
 #define SYS    0xD500u
 #define SYSOPT_STATUS 0x08           /* $D521 bit 3: the host's status-bar mode is switched on */
@@ -962,17 +961,10 @@ static void info_video(void)
 
 static void info_sound(void)
 {
-    uint8_t c, v, gates;
-    label("SOUND"); puts_("OPL2 (YM3812) at $D480, nine FM voices -- the machine's chip"); newline();
-    pad(8); puts_("SID 6581 (reSID): "); putdec(REG(SYS + 0x2C));
-    puts_(" of 4 at $D400/20/40/60, off unless chosen"); newline();
-    for (c = 0; c < 4; c++) {
-        uint16_t b = SID0 + c * 0x20;
-        gates = 0; for (v = 0; v < 3; v++) if (REG(b + 4 + v * 7) & 1) gates |= 1 << v;
-        pad(8); puts_("SID "); k_chrout('0' + c); puts_(": volume "); putdec(REG(b + 0x18) & 15);
-        puts_(", gates "); k_chrout((gates & 1) ? '1' : '-'); k_chrout((gates & 2) ? '2' : '-'); k_chrout((gates & 4) ? '3' : '-');
-        puts_(", filter $"); puthex(REG(b + 0x17)); newline();
-    }
+    uint8_t c, on = 0;
+    label("SOUND"); puts_("OPL2 (YM3812) at $D480, nine FM voices"); newline();
+    for (c = 0; c < 9; c++) { REG(FM) = (uint8_t)(0xB0 + c); if (REG(FM + 1) & 0x20) on++; }   /* key-on bits, from the data readback */
+    pad(8); puts_("voices keyed on: "); putdec(on); puts_(" of 9; sequencer at $D5E0, four channels"); newline();
 }
 
 static void info_files(void)
@@ -1182,20 +1174,12 @@ static void cmd_xd(const char *p)
     fs_cmd(5);
 }
 
-/* HUSH: stop every noise the machine can be making.
- *
- * It used to zero the four SIDs and flush the sound sequencer, which was the
- * whole of the machine's sound.  Since 2026-09-01 it is not: the OPL2 has the
- * machine, and a HUSH that leaves nine FM voices sounding is not a hush.  Key
- * off all nine ($B0-$B8, bit 5) and drop their levels; the SIDs and the
- * sequencer are still done too, because either may be what is making the
- * noise depending on audio.chip, and HUSH is what you type when you do not
- * want to have to know which. */
+/* HUSH: stop every noise the machine can be making -- flush the sequencer,
+ * key off all nine OPL2 voices ($B0-$B8, bit 5) and drop their levels. */
 static void cmd_hush(const char *p)
 {
     uint8_t c, r; (void)p;
     REG(SYS + 0xE0) = 0x80;
-    for (c = 0; c < 4; c++) for (r = 0; r < 25; r++) REG(SID0 + (uint16_t)c * 32 + r) = 0;
     for (c = 0; c < 9; c++) {                       /* key off, then silence both operators */
         REG(FM) = (uint8_t)(0xB0 + c); REG(FM + 1) = 0;
     }
@@ -1597,7 +1581,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
     if (is_cmd(&p, "CPM"))   { cmd_cpm(p); return; }
-    /* an unknown word: if it names a program, run it (SIDPLAY = RUN sidplay.prg) */
+    /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {
           uint8_t st = do_load(name, USER, 0);
@@ -1866,7 +1850,7 @@ static void banner(void)
          * force is INFO's business, and it says it in kHz. */
         case 2: fg = C_FG; puts_("CPU: 45GS10"); break;
         case 3: fg = C_FG;  puts_("RAM: 256 000 000 bytes"); break;
-        case 4: fg = C_FG;  puts_("CHIPS: OPL2, 4 SIDs, VICKY, SHEILA, FRED, JIM"); break;
+        case 4: fg = C_FG;  puts_("CHIPS: OPL2, VICKY, SHEILA, FRED, JIM"); break;
         }
         fg = ofg;
         newline();

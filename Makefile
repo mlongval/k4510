@@ -19,18 +19,15 @@ core/io.o: core/build.h
 .PHONY: FORCE
 FORCE:
 
-CXX     ?= g++
-CXXFLAGS ?= -O2 -g -Wall -Icore -fno-exceptions
-RESID_OBJS = $(patsubst %.cc,%.o,$(wildcard core/resid/*.cc))
-OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sidq.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/sid.o core/net.o core/net_posix.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(RESID_OBJS) $(OPL2_OBJS)
-LDLIBS  = -lstdc++ -lm -lutil
+OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sndq.o core/audio.o
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
+LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -45,6 +42,8 @@ rom/kernal.bin: rom/kernal.c rom/crt0.s rom/k4510.cfg
 	ca65 --cpu 65c02 -o rom/crt0.o rom/crt0.s
 	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/kernal.o none.lib -m rom/kernal.map
 
+test/seqtest: test/seqtest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 test/statetest: test/statetest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -77,7 +76,7 @@ core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicd
 core/mem.o: core/mem.c core/mem.h core/host.h core/xemu/emutools_basicdefs.h
 sdl/host_posix.o: sdl/host_posix.c core/host.h
 core/vicky.o: core/vicky.c core/vicky.h core/mem.h
-core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/sid.h core/net.h core/term.h
+core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/opl2.h core/audio.h core/net.h core/term.h
 core/net.o: core/net.c core/net.h core/net_plat.h core/mem.h
 core/net_posix.o: core/net_posix.c core/net_plat.h
 core/term.o: core/term.c core/term.h core/mem.h core/io.h
@@ -90,16 +89,14 @@ core/ui/settings.o: core/ui/settings.c core/ui/settings.h
 core/ui/menu.o: core/ui/menu.c core/ui/menu.h core/ui/settings.h core/ui/ui_draw.h core/io.h
 core/ui/ui_draw.o: core/ui/ui_draw.c core/ui/ui_draw.h
 core/io.o: core/ui/menu.h
-core/sid.o: core/sid.cc core/sid.h core/opl2.h
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-core/opl2.o: core/opl2.c core/opl2.h core/vice_clk.h core/opl2/fmopl.h
+core/opl2.o: core/opl2.c core/opl2.h core/vice_clk.h core/sndq.h core/opl2/fmopl.h
+core/audio.o: core/audio.c core/audio.h core/opl2.h core/vice_clk.h core/sndq.h
+core/sndq.o: core/sndq.c core/sndq.h
 core/vice_clk.o: core/vice_clk.c core/vice_clk.h core/opl2/alarm.h
 # MAME's fmopl.c, by way of VICE, used unaltered; core/opl2/ holds it and the
 # shim headers that stand in for the emulator it came from.
 core/opl2/fmopl.o: core/opl2/fmopl.c
 	$(CC) $(CFLAGS) -Icore/opl2 -Wno-unused-parameter -c -o $@ $<
-core/resid/%.o: core/resid/%.cc
-	$(CXX) $(CXXFLAGS) -DVERSION=\"1.0.0\" -Wno-unused-parameter -c -o $@ $<
 
 sdl/k4510: sdl/main.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ $^ $(SDL_LIBS) $(LDLIBS)
@@ -127,8 +124,6 @@ test/vickytest: test/vickytest.c $(CORE_OBJS)
 test/mathtest: test/mathtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-test/sidtest: test/sidtest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 # Are the tracked binaries what their sources actually produce?  They are
 # tracked because p15 has no cc65 and the Pi card needs them, which means a
@@ -146,14 +141,14 @@ check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/sidtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
 	./test/banktest
 	./test/dmatest
 	./test/vickytest
-	./test/sidtest
+	./test/seqtest
 	./test/fstest
 	./test/termtest
 	./test/uitest
@@ -179,7 +174,7 @@ GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c)) \
 clean-demos:
 	rm -f $(DEMOS) demo/*.o $(GEN_S) demo/*.map
 
-	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/resid/*.o core/opl2/*.o test/sidtest test/fstest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
+	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/opl2/*.o test/fstest test/seqtest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 
@@ -230,8 +225,6 @@ fs/PRG/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h
 	ca65 --cpu 65c02 -o demo/segdemo_c.o demo/segdemo_c.s
 	ca65 --cpu 65c02 -o demo/segdemo_h.o demo/segdemo-header.s
 	ld65 -C demo/seg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/segdemo_c.o demo/segdemo_h.o none.lib -m demo/segdemo.map
-
-# the SID player: a cc65 program under the ROM ($E000, block 7 banked by the K4SG loader)
 
 # Microsoft BASIC for 6502 as a .prg at $7000 (msbasic/: mist64's ca65
 # reconstruction of Microsoft's MIT source release, vendored unmodified --

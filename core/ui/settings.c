@@ -14,22 +14,7 @@ static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont"
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
-static const char *const sids_names[]  = { "1", "2", "3", "4" };
-/* The two are mutually exclusive by construction: reSID models the SID cycle
- * by cycle, and the OPL2 is the AdLib's YM3812 at $D480, which is not a SID
- * at all.  The machine is an OPL2 machine as of 2026-09-01 -- that is the
- * default and there is no menu row to change it (core/ui/menu.c).  The
- * setting stays, because a setting is how you get the SIDs back: put
- * `audio.chip = reSID` in k4510.cfg and they sound.  Active SIDs (audio.sids)
- * likewise applies only to them, and the OPL2 ignores it, being one chip with
- * nine voices.
- *
- * FastSID was the third entry here and was cut; a config file that still says
- * "FastSID" is read as OPL2 rather than silently landing on reSID. */
-static const char *const chip_names[]  = { "reSID", "OPL2" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
-#define CHIP_RESID 0
-#define CHIP_OPL2  1
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
                                            "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
@@ -54,8 +39,9 @@ static const set_desc desc[SET_COUNT] = {
      * right for every host, which is why it is a row and not a decision. */
     { "video.vsync",         "Vertical sync",  ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
-    { "audio.sids",          "Active SIDs",    ST_ENUM,  3, 0, 0, 0, sids_names, 4, SF_LIVE },   /* index 3 = all four; only meaningful if audio.chip is reSID */
-    { "audio.chip",          "Sound chip",     ST_ENUM,  CHIP_OPL2, 0, 0, 0, chip_names, 2, SF_LIVE },   /* not in the menu: see chip_names */
+    /* audio.chip and audio.sids lived here until 2026-09-05, when the SIDs
+     * were removed.  An old k4510.cfg still carrying them is fine: unknown
+     * keys are kept and ignored. */
     /* The Pi's core 3 holds the Tube and is asleep until the ROM runs BBC or
      * CPM, which on most sessions is never; the sound can have it until then.
      * Off by default: it moves the audio path onto another core, and that is
@@ -162,11 +148,6 @@ static int find_key(const char *k) { for (int i = 0; i < SET_COUNT; i++) if (!st
 static int parse_value(set_id id, const char *v)
 {
     const set_desc *d = &desc[id];
-    /* A config written before FastSID was cut names an engine that no longer
-     * exists.  atoi("FastSID") is 0, which is reSID -- so without this it
-     * would quietly turn the SIDs back on for anyone who had chosen the
-     * cheapest sound.  Read it as the OPL2 instead: the machine's default. */
-    if (id == SET_AUDIO_CHIP && !strcasecmp(v, "FastSID")) return CHIP_OPL2;
     if (d->type == ST_ENUM || d->type == ST_CHORD) { for (int i = 0; i < d->nlabels; i++) if (!strcasecmp(d->labels[i], v)) return i; return clampv(id, atoi(v)); }
     if (d->type == ST_BOOL) return (!strcasecmp(v, "on") || !strcasecmp(v, "true") || !strcasecmp(v, "yes") || atoi(v)) ? 1 : 0;
     return clampv(id, atoi(v));
@@ -197,20 +178,10 @@ int settings_load(const char *path)
         int id = !strcmp(k, "video.statusbar") ? (int)SET_VIDEO_STATUSBAR : find_key(k);
         if (id >= 0) value[id] = parse_value((set_id) id, v);
     }
-    /* MIGRATION, version 1 -> 2 (2026-09-01).  Every config written before
-     * this says `audio.chip = reSID`, because that was the default, and an
-     * explicit setting rightly beats a new default -- so without this, the
-     * machine would go on sounding through the SIDs on every host that has
-     * ever been run, which is all of them, and the change Doc asked for
-     * would appear not to have happened.  Worse on the Pi, which used to
-     * force the OPL2 in code and no longer does.
-     *
-     * So a version-1 file's audio.chip is treated as "never chosen" and
-     * reset to the default.  This costs the person who genuinely wanted the
-     * SIDs before today one line of editing, once.  A version-2 file is
-     * taken at its word, which is what makes the setting a real escape
-     * hatch from here on. */
-    if (filever < SETTINGS_VERSION) value[SET_AUDIO_CHIP] = desc[SET_AUDIO_CHIP].def;
+    /* Version 1 -> 2 (2026-09-01) migrated audio.chip, which no longer
+     * exists; the version line is kept so a future migration has a number
+     * to compare against. */
+    (void)filever;
     /* and again on the way in, in case the file was edited by hand */
     if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_MAX;
     fclose(f); changed = 0;

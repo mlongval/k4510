@@ -12,11 +12,10 @@
 #define IO_INPUT       0xD100u   /* $D100-$D1FF  keyboard, joysticks     */
 #define IO_DMA         0xD200u   /* $D200-$D2FF  block DMA (C-18)        */
 #define IO_STORAGE     0xD300u   /* $D300-$D3FF  host filesystem (D-09)  */
-#define IO_SID         0xD400u   /* $D400-$D47F  4 x SID (1-4 clocked)   */
+#define IO_SOUND       0xD400u   /* $D400-$D4FF  the sound page: $D400-$D47F is empty (the SIDs, until 2026-09-05) */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2 (YM3812), DigiMAX  */
 /* The OPL2, wired the AdLib's way, so every AdLib register list means what it
- * says here.  It and the SIDs are mutually exclusive: the Audio menu's Sound
- * chip row picks one, and the other is not clocked.
+ * says here.  The machine's one sound chip.
  *   $D480  W ADDR    the register to write next
  *          R STATUS  bit7 IRQ, bit6 timer 1 expired, bit5 timer 2 expired
  *   $D481  W DATA    write it;  R  the last value written to that register
@@ -49,7 +48,7 @@ void    io_set_clock_measured(int yes);  /* the frontend: has this host a measur
 int     io_clock_measured(void);         /* ...and back again */
 int     io_adopt_requested(void);        /* 1 once: the guest asked to keep the clock in force (SETUP) */
 int     io_measuring(void);              /* the guest is measuring: the governor must keep its hands off */
-extern uint16_t io_audio_fill;           /* samples the SIDs made WITHOUT the machine, because it was late */
+extern uint16_t io_audio_fill;           /* samples the sound made WITHOUT the machine, because it was late */
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
 #define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
 /*      IO_TERM        0xDA00     $DA00-$DAFF  JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
@@ -156,9 +155,7 @@ extern uint16_t io_audio_fill;           /* samples the SIDs made WITHOUT the ma
  *   $23     read: the CPU clock setting in force (0 = 40.5 MHz, 1 = 30, 2 = 20, 3 = 15, 4 = 10);
  *           write: ask for one -- the host applies it next frame (BENCH sweeps them)
  *   $24,25  audio gaps LE: callbacks that found the ring empty since last cleared; any write clears
- *   $F3     SID clock: 0 = 1 MHz (default), 1 = PAL C64 (985248 Hz), 2 = NTSC (1022730 Hz); read/write
- * SID registers $00-$18 read back the last value written (a shadow; real
- * SIDs are write-only there). $19-$1C come from reSID as on the chip. */
+ */
 
 /* --- input ($D100) ------------------------------------------------------ */
 /* Keyboard: a FIFO of key-down events. Printable keys arrive as ASCII
@@ -239,7 +236,6 @@ void    io_set_cpu_khz(unsigned khz);
  * moment the guest asks.  For anything that must keep real time rather than
  * frame time -- see the note in io.c. */
 void    io_set_ms_source(uint32_t (*fn)(void));
-void    io_set_sid_active(int n);   /* the Audio menu's Active SIDs, for INFO to report live */
 extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback */            /* what SYS $00/01 report */
 /* --- WATCH ($D530-$D535): who is trampling this byte? ------------------
  *   $30-$33  28-bit physical address to watch

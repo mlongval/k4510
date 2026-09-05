@@ -16,7 +16,6 @@ interface
 
 const
 	VICKY_BASE = $D000;
-	SID_BASE   = $D400;
 	SYS_BASE   = $D500;
 	MATH_BASE  = $D700;
 	TERM_BASE  = $DA00;
@@ -40,7 +39,6 @@ var
 	FS_ADDR: cardinal absolute $D308;
 	FS_LEN: cardinal absolute $D30C;
 	FS_SIZE: cardinal absolute $D310;
-	SIDREG: array[0..127] of byte absolute $D400;	(* @var the four SIDs, 32 bytes apart: voice v of chip c at c*32 + v*7 *)
 	SYS: array[0..255] of byte absolute $D500;
 	SYS_FRAMES: byte absolute $D50D;		(* @var frames since reset, low byte *)
 	SYS_FRAMES24: array[0..2] of byte absolute $D50D;

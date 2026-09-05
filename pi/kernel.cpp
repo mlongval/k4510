@@ -81,7 +81,7 @@ boolean CKernel::Initialize(void)
 
 TShutdownMode CKernel::Run(void)
 {
-    m_Logger.Write(From, LogNotice, "BMC-K4510 -- 45GS02 / VICKY / SHEILA / 4 x SID; core 0 devices, core 1 emulator, core 2 presentation, core 3 the Tube");
+    m_Logger.Write(From, LogNotice, "BMC-K4510 -- 45GS02 / VICKY / SHEILA / OPL2; core 0 devices, core 1 emulator, core 2 presentation, core 3 the Tube");
     if (SDL2Circle_DeclareVirtualDevice(32, 640, 480) != 0)
         m_Logger.Write(From, LogWarning, "virtual device: %s", SDL_GetError());
     int ok = 0;

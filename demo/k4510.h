@@ -10,7 +10,6 @@
 #define KBD    0xD100u
 #define KBDST  0xD101u
 #define DMA    0xD200u
-#define SID0   0xD400u
 #define SYS    0xD500u
 
 #define V_CTRL   0xD000u

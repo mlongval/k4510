@@ -165,6 +165,20 @@ extern uint16_t io_audio_fill;           /* samples the sound made WITHOUT the m
 #define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held */
 #define IO_KBDPEEK     (IO_INPUT + 0x02)  /* read: the next event without popping it; 0 if none */
 #define IO_KBDBREAK    (IO_INPUT + 0x03)  /* read: an ESC ($1B) or Ctrl-C ($03) waiting anywhere in the queue is removed and returned; 0 if none */
+/* The keys HELD right now, for games -- the queue above is events, and a
+ * machine that only reports presses cannot tell a game when to stop moving
+ * (LODE and BOMBER were unplayable for exactly that, 2026-09-05).  A joystick,
+ * in effect: the host refreshes it every frame from its own key state (SDL's
+ * on the desktop, the C64 matrix on the Pi).  Read-only, live, no queue. */
+#define IO_KBDHELD     (IO_INPUT + 0x04)  /* read: HELD_* bits for the keys down at this moment */
+#define HELD_UP    0x01
+#define HELD_DOWN  0x02
+#define HELD_LEFT  0x04
+#define HELD_RIGHT 0x08
+#define HELD_FIRE  0x10                   /* space */
+#define HELD_A     0x20                   /* Z */
+#define HELD_B     0x40                   /* X */
+void    kbd_held(uint8_t mask);           /* the host, once a frame: which of those are down */
 #define KEY_ENTER 0x0D
 #define KEY_BS    0x08
 #define KEY_TAB   0x09

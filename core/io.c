@@ -42,6 +42,8 @@ void kbd_push(uint8_t ascii)
     kbd_enqueue(ascii);
 }
 void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); }
+static uint8_t kbd_held_mask;
+void kbd_held(uint8_t mask) { kbd_held_mask = mask; }
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
 static uint8_t kbd_read(void)
 {
@@ -1198,6 +1200,7 @@ static uint8_t io_read_inner(uint16_t addr)
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
         if (addr == IO_KBDST + 1) return kbd_ready() ? kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
+        if (addr == IO_KBDHELD) return menu_is_open() ? 0 : kbd_held_mask;     /* the keys down now; none while the menu has them */
         if (addr == IO_KBDST + 2) {                                              /* break pending: an ESC or Ctrl-C anywhere in the queue is removed and returned */
             for (int i = kbd_head; i != kbd_tail; i = (i + 1) & 63) {
                 uint8_t k = kbd_fifo[i];

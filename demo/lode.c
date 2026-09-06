@@ -551,20 +551,27 @@ void main(void)
     tile_layer();
     init_tables(); write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
     REG(V_CTRL) = 1 | 2 | 4;                             /* 320 x 240 */
-    if (pause_msg("LODE -- COLLECT THE GOLD", "Z/X DIG   ANY KEY STARTS")) running = 0;
+    if (pause_msg("LODE -- COLLECT THE GOLD", "ARROWS RUN, Z/X DIG  ANY KEY")) running = 0;
 
     while (running) {
         uint32_t back = cur ? SPRTAB_A : SPRTAB_B;
         actor_t *p = &men[0];
         int8_t pcx, pcy;
+        /* Steering is the keys HELD ($D104), not the keys pressed: the man
+         * runs while an arrow is down and stops when it is let go, the way
+         * the original played.  Until 2026-09-05 this read the key queue,
+         * which only knows presses -- so the man ran until you said SPACE,
+         * and the keyboard's autorepeat kept re-sending the arrow anyway.
+         * Digging and leaving stay events: one press, one hole. */
+        { uint8_t h = keys_held();
+          if      (h & HELD_UP)    { p->dx = 0;  p->dy = -1; }
+          else if (h & HELD_DOWN)  { p->dx = 0;  p->dy = 1;  }
+          else if (h & HELD_LEFT)  { p->dx = -1; p->dy = 0;  }
+          else if (h & HELD_RIGHT) { p->dx = 1;  p->dy = 0;  }
+          else                     { p->dx = 0;  p->dy = 0;  } }
         k = key_get();
         switch (k) {
         case 0x1B: running = 0; break;
-        case 0x80: p->dx = 0; p->dy = -1; break;
-        case 0x81: p->dx = 0; p->dy = 1; break;
-        case 0x82: p->dx = -1; p->dy = 0; break;
-        case 0x83: p->dx = 1; p->dy = 0; break;
-        case ' ': p->dx = 0; p->dy = 0; break;
         case 'z': case 'Z': dig(-1); break;
         case 'x': case 'X': dig(1); break;
         }

@@ -319,13 +319,20 @@ void main(void)
     while (running) {
         uint32_t back = cur ? SPRTAB_A : SPRTAB_B;
         actor_t *p = &men[0];
+        /* The wish is the arrow HELD ($D104), adopted at the next cell as
+         * before; no arrow held, no wish, and he stops on the grid.  This
+         * used to toggle on each PRESS -- with the keyboard's autorepeat
+         * re-sending a held arrow, that was stop, go, stop, go (2026-09-05).
+         * The bomb stays an event: one press, one bomb. */
+        { uint8_t h = keys_held();
+          if      (h & HELD_UP)    { p->wx = 0;  p->wy = -1; p->base = H_U0; }
+          else if (h & HELD_DOWN)  { p->wx = 0;  p->wy = 1;  p->base = H_D0; }
+          else if (h & HELD_LEFT)  { p->wy = 0;  p->wx = -1; p->base = H_S0; }
+          else if (h & HELD_RIGHT) { p->wy = 0;  p->wx = 1;  p->base = H_S0; }
+          else                     { p->wx = 0;  p->wy = 0; } }
         k = key_get();
         switch (k) {
         case 0x1B: running = 0; break;
-        case 0x80: if (p->wy < 0) p->wy = 0; else { p->wx = 0; p->wy = -1; p->base = H_U0; } break;
-        case 0x81: if (p->wy > 0) p->wy = 0; else { p->wx = 0; p->wy = 1; p->base = H_D0; } break;
-        case 0x82: if (p->wx < 0) p->wx = 0; else { p->wy = 0; p->wx = -1; p->base = H_S0; } break;
-        case 0x83: if (p->wx > 0) p->wx = 0; else { p->wy = 0; p->wx = 1; p->base = H_S0; } break;
         case ' ': drop_bomb(); break;
         }
         tick_actor(p);

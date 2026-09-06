@@ -14,6 +14,30 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-05 (later) — a joystick register, and the two games play
+
+**For the handbook agent:**
+
+- **New register `$D104` KBDHELD** (core/io.h): the keys DOWN right now,
+  bit0 up, 1 down, 2 left, 3 right, 4 space, 5 Z, 6 X.  Read-only, live,
+  0 while the F7 menu is open.  The queue at `$D100` only ever reported
+  presses, so a game could not know when to stop — LODE ran until SPACE
+  and BOMBER's arrows toggled on every autorepeat; Doc: "neither is
+  playable".  Both now steer on `$D104` (run while held, stop on release).
+  Register map, the games' chapter, and the demo header's `keys_held()`.
+- **INVADER2 walks**: the aliens alternate two arcade frames on each march
+  step.  **It reads `/EHBASIC/INVADER2.CFG`** (new, shipped): `NAME VALUE`
+  lines for PLAYER, BULLET, BOMB, STEP, MARCH, FASTER, FASTEST, FIRE,
+  FIREWAVE; comments are any line not starting with a capital.  The game
+  reads it through the `$D300` device from BASIC (lines 9500+), which is
+  a worked example of a BASIC program reading a text file.  Its sprite
+  window moved from bank 1 (`$2000`) to bank 4 (`$8000`): the program text
+  starts at `$0800` and had outgrown `$2000`, which is why it threw random
+  "Function call" errors.  Worth a sentence wherever the handbook teaches
+  banking from BASIC: leave `$2000-$3FFF` alone once the program is big.
+- The Pi side of `$D104` (`pi/c64kbd.cpp`, from the C64 matrix) is written
+  but NOT built: p15 was unreachable all day.
+
 ## Done 2026-09-05 — THE SIDs ARE GONE
 
 Doc: "nuke anything having to do with SIDs, tell handbook agent".  Done, in

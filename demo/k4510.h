@@ -62,6 +62,18 @@ static void wait_vblank(void) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x
 static uint8_t key_hit(void) { if (REG(KBDST) & 0x80) { (void)REG(KBD); return 1; } return 0; }
 /* key pressed? return it (0 if none) */
 static uint8_t key_get(void) { return (REG(KBDST) & 0x80) ? REG(KBD) : 0; }
+/* The keys held right now (core/io.h $D104): a joystick for games.  The
+ * queue above says a key was PRESSED; this says it is still DOWN, which is
+ * what "stop when I let go" needs. */
+#define KBDHELD 0xD104u
+#define HELD_UP 1
+#define HELD_DOWN 2
+#define HELD_LEFT 4
+#define HELD_RIGHT 8
+#define HELD_FIRE 16
+#define HELD_A 32
+#define HELD_B 64
+static uint8_t keys_held(void) { return REG(KBDHELD); }
 
 /* frames-per-second meter: call fps_tick() once per drawn frame; fps_value
  * is refreshed every 60 vblanks (from the $D50D frame counter) */

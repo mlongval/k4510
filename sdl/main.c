@@ -483,6 +483,19 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             }
         }
         host_poll_input();                                   /* the Pi: C64 keyboard on GPIO */
+#ifndef K4510_PI
+        {   /* $D104: which of the game keys are down right now (core/io.h) */
+            const Uint8 *ks = SDL_GetKeyboardState(NULL); uint8_t held = 0;
+            if (ks[SDL_SCANCODE_UP])    held |= HELD_UP;
+            if (ks[SDL_SCANCODE_DOWN])  held |= HELD_DOWN;
+            if (ks[SDL_SCANCODE_LEFT])  held |= HELD_LEFT;
+            if (ks[SDL_SCANCODE_RIGHT]) held |= HELD_RIGHT;
+            if (ks[SDL_SCANCODE_SPACE]) held |= HELD_FIRE;
+            if (ks[SDL_SCANCODE_Z])     held |= HELD_A;
+            if (ks[SDL_SCANCODE_X])     held |= HELD_B;
+            kbd_held(held);
+        }
+#endif
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
           if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
           if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else kbd_push(k == '\n' ? 0x0D : k); } }

@@ -79,6 +79,16 @@ extern "C" void c64kbd_poll(void)
     int cbm   = (state[7] & 0x20) != 0;
     int ctrl  = (state[7] & 0x04) != 0;
     kbd_modifiers((uint8_t)shift, (uint8_t)ctrl, (uint8_t)cbm);
+    {   /* $D104, the keys held: CRSR LR is row 0 col 2 (shifted = left), CRSR UD row 0 col 7
+         * (shifted = up), space row 7 col 4, Z row 1 col 4, X row 2 col 7 (the keymap above) */
+        uint8_t held = 0;
+        if (state[0] & 0x04) held |= shift ? HELD_LEFT : HELD_RIGHT;
+        if (state[0] & 0x80) held |= shift ? HELD_UP : HELD_DOWN;
+        if (state[7] & 0x10) held |= HELD_FIRE;
+        if (state[1] & 0x10) held |= HELD_A;
+        if (state[2] & 0x80) held |= HELD_B;
+        kbd_held(held);
+    }
     for (int r = 0; r < 8; r++) {
         uint8_t pressed = (uint8_t)(state[r] & ~prev[r]);
         for (int c = 0; c < 8; c++) if (pressed & (1 << c)) { emit(r, c, shift, ctrl, cbm); held_r = r; held_c = c; held_frames = 0; }

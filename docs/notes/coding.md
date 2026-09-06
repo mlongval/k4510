@@ -14,6 +14,14 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-06 (last) — the Pi kernel built and on the card; the stick rewritten
+
+- **Pi build VERIFIED** on p15 after two fixes in `sdl/main.c` (the gamepad
+  probe, the K4510x marker/power-off calls: all desktop-only now).  The
+  SID cut, `$D104` from the C64 matrix, and the games are on the card.
+  The Pi has no gamepad, mouse or `!` yet.
+- **The K4510x stick is current** (built and written on p15).
+
 ## Done 2026-09-06 (night) — two games: SKYFIRE and FLUFFY
 
 **For the handbook agent** (the games chapter, CREDITS has both):

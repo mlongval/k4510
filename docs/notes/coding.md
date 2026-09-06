@@ -44,6 +44,10 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   PGN to `/CHESS/GAME-<date>-<time>.PGN` (SAN, with headers), a clock for
   two-player games (5/10/15 min, flag falls), coordinates on/off.  Mate,
   stalemate, fifty moves and insufficient material are called.
+- **Captured pieces** (Doc's ask, same night): two trays under the move
+  list, `W:` what White has taken and `B:` what Black has, as 16-px
+  minis sorted by value, with the material difference (`+3`) beside the
+  side ahead.  Options → Captured pieces hides them.
 - `fs/CHESS/README.TXT` explains ENGINE.CFG.  Sound: a click per move.
 - Verified on screenshots: the board, a game against the built-in engine,
   Stockfish over the Tube (1. e4 e6 — the same reply as the KoboChess

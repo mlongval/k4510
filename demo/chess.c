@@ -552,9 +552,12 @@ static void spr_at(uint8_t i, uint8_t sq, uint8_t img, uint8_t palofs, uint8_t o
 #define S_CURSOR 68
 #define S_HINT 69
 #define S_HINT2 70
-#define S_DOT 72                                      /* up to 32 target dots */
+#define S_DOT 72                                      /* up to 28 target dots (a queen has 27) */
+#define S_CAP 100                                     /* 28: the two trays of captured pieces, 14 each */
+#define NDOT 28
+#define NCAP 14
 static uint8_t cursor_sq = SQ(4, 1), selected = 0xFF, coords_on = 1;
-static uint8_t targets[32], ntargets;
+static uint8_t targets[NDOT], ntargets, captured_on = 1;
 static void draw_pieces(void)
 {
     uint8_t s, i = 0;
@@ -575,7 +578,7 @@ static void draw_marks(void)
     spr_at(S_CURSOR, cursor_sq, CH_MARK_THIN, 6, 1);
     if (hint_from != 0xFF) { spr_at(S_HINT, hint_from, CH_MARK_FRAME, 7, 1); spr_at(S_HINT2, hint_to, CH_MARK_FRAME, 7, 1); }
     else { far_poke(SPRTAB + S_HINT * 16 + 8, 0); far_poke(SPRTAB + S_HINT2 * 16 + 8, 0); }
-    for (i = 0; i < 32; i++) { if (i < ntargets) spr_at((uint8_t)(S_DOT + i), targets[i], CH_MARK_DOT, 3, 1); else far_poke(SPRTAB + (uint32_t)(S_DOT + i) * 16 + 8, 0); }
+    for (i = 0; i < NDOT; i++) { if (i < ntargets) spr_at((uint8_t)(S_DOT + i), targets[i], CH_MARK_DOT, 3, 1); else far_poke(SPRTAB + (uint32_t)(S_DOT + i) * 16 + 8, 0); }
 }
 static void draw_board(void)
 {
@@ -606,11 +609,11 @@ static void draw_panel_static(void)
 }
 static void draw_moves(void)
 {
-    uint16_t i, first = 0, rows = 44; uint8_t y = 5; char b[10];
+    uint16_t i, first = 0, rows = 40; uint8_t y = 5; char b[10];
     uint16_t pairs = (nhist + 1) / 2;
-    clear_rows(PANEL_COL, 5, 48, 28);
+    clear_rows(PANEL_COL, 5, 44, 28);
     if (pairs > rows) first = pairs - rows;
-    for (i = first; i < pairs && y < 49; i++, y++) {
+    for (i = first; i < pairs && y < 45; i++, y++) {
         uint16_t n = i + 1; uint8_t k = 0;
         if (n >= 100) b[k++] = (char)('0' + n / 100); if (n >= 10) b[k++] = (char)('0' + (n / 10) % 10); b[k++] = (char)('0' + n % 10); b[k++] = '.'; b[k] = 0;
         put_str(PANEL_COL, y, b);
@@ -626,6 +629,38 @@ static void draw_moves(void)
           put_str(x, 54, b); x += k; put_str(x, 54, san[i * 2]); x += slen(san[i * 2]) + 1;
           if (i * 2 + 1 < nhist) { put_str(x, 54, san[i * 2 + 1]); x += slen(san[i * 2 + 1]) + 1; }
       } }
+}
+/* the captured pieces: what each side has taken, most valuable first, and
+ * the material difference -- two trays under the move list, 16x16 minis */
+static void draw_captured(void)
+{
+    uint8_t taken[2][16], n[2] = { 0, 0 }, s, i, j, k; int16_t diff = 0; uint16_t h;
+    clear_rows(PANEL_COL, 46, 47, 28);
+    for (i = 0; i < NCAP * 2; i++) far_poke(SPRTAB + (uint32_t)(S_CAP + i) * 16 + 8, 0);
+    if (!captured_on) return;
+    for (h = 0; h < nhist; h++) {
+        uint8_t c = hist[h].cap, by; if (!c) continue;
+        by = (uint8_t)(h & 1);                          /* white moved on even plies */
+        if (n[by] < 16) taken[by][n[by]++] = KIND(c);
+        diff += by == WHITE ? VAL[KIND(c)] : (int16_t)-VAL[KIND(c)];
+    }
+    for (s = 0; s < 2; s++) {
+        for (i = 1; i < n[s]; i++) { k = taken[s][i]; for (j = i; j > 0 && VAL[taken[s][j - 1]] < VAL[k]; j--) taken[s][j] = taken[s][j - 1]; taken[s][j] = k; }
+        put_str(PANEL_COL, (uint8_t)(46 + s), s == WHITE ? "W:" : "B:");
+        for (i = 0; i < NCAP; i++) {
+            uint32_t t = SPRTAB + (uint32_t)(S_CAP + s * NCAP + i) * 16;
+            if (i >= n[s]) continue;
+            { uint32_t d = SPRD + CH_MINI_OFF + ((uint32_t)(taken[s][i] - 1 + (s == WHITE ? 6 : 0))) * CH_MINI_BYTES;   /* white took black pieces */
+              far_poke16(t, (uint16_t)(PANEL_COL * 8 + 20 + i * 12)); far_poke16(t + 2, (uint16_t)(368 + s * 16));
+              far_poke16(t + 4, (uint16_t)d); far_poke16(t + 6, (uint16_t)(d >> 16));
+              far_poke(t + 8, 1); far_poke(t + 9, 1 | (1 << 2)); far_poke(t + 10, s == WHITE ? 2 : 1); }
+        }
+        if ((s == WHITE && diff > 0) || (s == BLACK && diff < 0)) {
+            char b[6]; uint16_t v = (uint16_t)((diff < 0 ? -diff : diff) / 100); uint8_t q = 0;
+            b[q++] = '+'; if (v >= 10) b[q++] = (char)('0' + v / 10); b[q++] = (char)('0' + v % 10); b[q] = 0;
+            put_str(PANEL_COL + 24, (uint8_t)(46 + s), b);
+        }
+    }
 }
 static uint32_t clock_ms[2]; static uint8_t clock_min; static uint32_t clock_last;
 static void draw_clocks(void)
@@ -663,7 +698,7 @@ static void draw_engine_line(void)
     put_str(PANEL_COL, 56, "Level:  "); put_pad(PANEL_COL + 8, 56, LEVELS[level].name, 19);
     put_str(PANEL_COL, 58, "Esc leaves, F1-F5 buttons");
 }
-static void redraw(void) { draw_pieces(); draw_marks(); draw_status(); draw_moves(); draw_clocks(); }
+static void redraw(void) { draw_pieces(); draw_marks(); draw_status(); draw_moves(); draw_captured(); draw_clocks(); }
 
 /* ---- the palette and the colour schemes ------------------------------------ */
 typedef struct { uint8_t w[3][3], b[3][3]; } scheme_t;   /* ink, paper, edge for each side */
@@ -782,7 +817,7 @@ static void select_sq(uint8_t s)
     selected = 0xFF; ntargets = 0;
     if (!bd[s] || COLOUR(bd[s]) != stm) return;
     n = count_legal(0);
-    for (i = 0; i < n; i++) if (ml[0][i].from == s) { uint8_t j; for (j = 0; j < ntargets; j++) if (targets[j] == ml[0][i].to) break; if (j == ntargets && ntargets < 32) targets[ntargets++] = ml[0][i].to; }
+    for (i = 0; i < n; i++) if (ml[0][i].from == s) { uint8_t j; for (j = 0; j < ntargets; j++) if (targets[j] == ml[0][i].to) break; if (j == ntargets && ntargets < NDOT) targets[ntargets++] = ml[0][i].to; }
     if (ntargets) selected = s;
 }
 static uint8_t promote_menu(void)
@@ -887,14 +922,14 @@ static void game_menu(void)
 }
 static void options_menu(void)
 {
-    static const char *const O[6] = { "Piece colours", "Engine", "Level", "Clock (two players)", "Coordinates", "Back" };
+    static const char *const O[7] = { "Piece colours", "Engine", "Level", "Clock (two players)", "Coordinates", "Captured pieces", "Back" };
     static const char *const E[3] = { "Built-in", "Stockfish on the Tube", "Network engine (ENGINE.CFG)" };
     static const char *const L[6] = { "Beginner", "Easy", "Casual", "Intermediate", "Strong", "Maximum" };
     static const char *const C[4] = { "Off", "5 minutes", "10 minutes", "15 minutes" };
     static const char *const Y[2] = { "Shown", "Hidden" };
     uint8_t r, s;
     for (;;) {
-        r = menu("Options", O, 6, 0);
+        r = menu("Options", O, 7, 0);
         if (r == 0) { s = menu("Piece colours", SCHEME_NAME, 4, scheme); if (s != 255) { scheme = s; set_scheme(); } }
         else if (r == 1) {
             s = menu("Engine", E, 3, eng_kind);
@@ -908,6 +943,7 @@ static void options_menu(void)
         else if (r == 2) { s = menu("Level", L, 6, level); if (s != 255) { level = s; eng_level(); } }
         else if (r == 3) { s = menu("Clock", C, 4, clock_min == 0 ? 0 : clock_min / 5); if (s != 255) { clock_min = (uint8_t)(s * 5); clock_ms[0] = clock_ms[1] = (uint32_t)clock_min * 60000UL; } }
         else if (r == 4) { s = menu("Coordinates", Y, 2, coords_on ? 0 : 1); if (s != 255) { coords_on = !s; draw_board(); } }
+        else if (r == 5) { s = menu("Captured pieces", Y, 2, captured_on ? 0 : 1); if (s != 255) captured_on = !s; }
         else break;
         redraw(); draw_engine_line();
     }
@@ -931,7 +967,7 @@ static void setup(void)
     dma_fill(' ', TEXTMAP, 80 * 60);
     text8_layer(1, TEXTMAP, 80, CAPTION_PAL);
     dma_fill(0, SPRTAB, 4096);
-    for (i = 0; i < 104; i++) far_poke(SPRTAB + (uint32_t)i * 16 + 9, 3 | (3 << 2));
+    for (i = 0; i < 128; i++) far_poke(SPRTAB + (uint32_t)i * 16 + 9, 3 | (3 << 2));
     w32(V_SPRTAB, SPRTAB); REG(V_SPRCTL) = 1;
     REG(V_CTRL) = 1;                                    /* 640 x 480 */
     centre_in(1, 50, 1, "C h e s s");

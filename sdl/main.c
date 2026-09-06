@@ -322,7 +322,9 @@ int k4510_frontend_main(int argc, char **argv)
      * gets a row the others must not have.  The marker file is written by
      * k4510x/build-live.sh; on any other host this call never happens and the
      * row stays off the end of the Machine menu. */
+#ifndef K4510_PI
     if (access("/etc/k4510x", F_OK) == 0) menu_set_shutdown(1);
+#endif
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
 /* No vsync by default, anywhere.  It was off on the Pi already, because the
@@ -1053,7 +1055,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * we ask for the power off.  The helper syncs and unmounts the persistence
      * partition before halting, which is what makes it safe to pull the stick
      * out afterwards -- see k4510x/build-live.sh. */
+#ifndef K4510_PI
     if (shutdown_req) execl("/usr/local/sbin/k4510x-poweroff", "k4510x-poweroff", (char *) NULL);
+#endif
     return 0;
 }
 

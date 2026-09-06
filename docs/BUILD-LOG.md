@@ -5892,3 +5892,18 @@ What that forced, and what it gave:
 ROM headroom after: ROM2 185, SW1 1241, SW2 454 — INFO lost its four SID
 lines and gained one.  Pi kernel: built on p15 (see the commit).  The
 K4510x live image on the stick predates this and needs a rebuild.
+
+## 2026-09-06 — `!` at the prompt
+
+Doc asked for a way to call a Linux program from the machine's prompt on
+K4510x, a bang prefix, and no colour change while it runs.  Built on the
+Tube: program 4 forks the host's shell on the pty the co-processors
+already use, so JIM renders it and the same ROM loop pumps the keys.  No
+telnet, no login, no password; the machine's colours stay because there
+is no BBS trick in this path.  Gated: the ROM asks `$D800` bit 2 and
+refuses unless the frontend was started `--host-shell`, which only
+K4510x's launcher does.  Two things learned: the Tube loop left as soon
+as the child died and dropped what it had just printed (now it drains
+first, and the device does not reap while the ring is full); and `ansi`
+is the terminfo that matches JIM (vt100's has no colour).  nvim runs in
+the window, `ls --color` lands in the palette.  `test/bangtest.sh`.

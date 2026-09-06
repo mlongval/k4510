@@ -74,6 +74,9 @@ core/build.h
 # dependency files the compiler writes beside objects; a stale one
 # naming a renamed header broke the Pi build once
 *.d
+# ...but not DIRECTORIES so named: K4510x's profile.d/ and *.service.d/ under
+# k4510x/config were silently left out of every commit until 2026-09-06
+!*.d/
 
 # a convenience symlink into Doc's own Pictures folder, for handing
 # screenshots to a session. It was tracked by accident: a clone got a

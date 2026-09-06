@@ -1044,6 +1044,7 @@ static void shell_line(const char *p);
 static void banner(void);                 /* the logo: sideways window, not resident */
 static void cmd_mon(const char *p);
 static void cmd_bbcbasic(uint8_t prog);
+static void cmd_bang(const char *p);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
 #pragma code-name (push, "SWCODE0")
@@ -1547,6 +1548,7 @@ static void shell_line(const char *p)
     if (!*p || *p == '#') return;                        /* blank, or a comment: EXEC scripts want them */
     p0 = p;
     { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
+    if (*p == '!') { p++; skipsp(&p); cmd_bang(p); return; }   /* !ls -l  the host's shell, where there is one */
     if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
     if (is_cmd(&p, "MKDIR")) { cmd_mkdir(p); return; }
@@ -1746,12 +1748,12 @@ static void cmd_bbcbasic(uint8_t prog)
     REG(TUBE + 3) = prog;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
     if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
-    puts_(prog == 3 ? "CP/M 2.2 on the Z80 second processor. EXIT returns to the shell."
-                    : "BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline();
+    if (prog != 4) { puts_(prog == 3 ? "CP/M 2.2 on the Z80 second processor. EXIT returns to the shell."
+                                     : "BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline(); }
     tube_term();
     for (;;) {
         uint8_t st = REG(TUBE);
-        if (!(st & 1)) break;                            /* the co-processor ended (*QUIT) */
+        if (!(st & 0x81)) break;                         /* the co-processor ended (*QUIT) and its last bytes are shown */
         if (st & 0x80) {
             c = REG(TUBE + 1);
             if (esc == 2) {                              /* an OSC string: ESC ] ... BEL (into the shell line buffer) */
@@ -1799,7 +1801,18 @@ static void cmd_bbcbasic(uint8_t prog)
     if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
     else { cx = REG(TERM + 9); cy = REG(TERM + 10); }
     fg = ofg; bg = obg;
+    if (prog == 4) { if (cx) newline(); return; }        /* a host command: back to the prompt, no ceremony */
     newline(); puts_("the Tube co-processor has left."); newline();
+}
+/* `!cmd` / `!`: the host's shell on the Tube (program 4), in the machine's own
+ * colours -- the same loop as BBC BASIC, a different child.  Only where the
+ * device says the shell is fitted (K4510x); elsewhere it says so. */
+static void cmd_bang(const char *p)
+{
+    if (!(REG(TUBE) & 4)) { error("no host shell on this machine"); return; }
+    w32(TUBE + 4, (uint16_t)p);
+    REG(TUBE + 8) = ROWS; REG(TUBE + 9) = COLS;           /* the console window: bands and margin already out */
+    cmd_bbcbasic(4);
 }
 
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */

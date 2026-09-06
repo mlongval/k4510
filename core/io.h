@@ -53,6 +53,10 @@ extern uint16_t io_audio_fill;           /* samples the sound made WITHOUT the m
 #define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
 /*      IO_TERM        0xDA00     $DA00-$DAFF  JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
 #define IO_TUBE        0xD800u   /* $D800-$D8FF  the Tube: a co-processor running BBC BASIC (or CP/M, desktop only) */
+/* $D800 status: bit 0 a co-processor is up, bit 2 the host shell is fitted, bit 7 a byte waits.
+ * $D803 program: 1 BBC BASIC, 3 CP/M, 4 the host shell (`!`), 2 stop.  $D804-7 the command
+ * string's address for program 4 (empty = an interactive shell), $D808/9 its rows/columns. */
+extern int io_host_shell;   /* the frontend sets it (--host-shell / K4510_HOST_SHELL); only K4510x does */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
 /* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.

@@ -14,6 +14,8 @@
 #   - target is a ThinkPad T480 (i5 or i7), 32 GB
 #   - NO access to the internal SSD/NVMe.  Absolute -- one boot entry, no
 #     escape hatch in the menu
+#   - `!cmd` at the machine's prompt runs cmd in this Linux (the emulator is
+#     started --host-shell by profile.d/k4510x.sh; a bare `!` is a shell)
 #   - telnetd bound to loopback ONLY; from inside the machine that is
 #     TELNET 127.0.0.1 23
 #   - real network access outbound, so the machine's TELNET can reach BBSes

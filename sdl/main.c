@@ -216,6 +216,17 @@ int k4510_frontend_main(int argc, char **argv)
               argc--; i--;
           } }
     if (getenv("K4510_NO_STARTUP")) no_startup = 1;          /* the same thing, for a script that sets it once */
+    /* --host-shell: let `!` at the prompt run the host's shell on the Tube.
+     * K4510x turns it on (the Linux there is the user's); a plain desktop or
+     * the Pi never does, and `!` there says "no host shell on this machine". */
+    { int i, j;
+      for (i = 1; i < argc; i++)
+          if (!strcmp(argv[i], "--host-shell")) {
+              io_host_shell = 1;
+              for (j = i; j < argc - 1; j++) argv[j] = argv[j + 1];
+              argc--; i--;
+          } }
+    if (getenv("K4510_HOST_SHELL")) io_host_shell = 1;
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);

@@ -2,7 +2,7 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-09-05**
+**Updated: 2026-09-06**
 
 ## Now
 
@@ -13,6 +13,32 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   after the SID cut: nothing to retire, one hint fixed in OPLPLAY).
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
+
+## Done 2026-09-06 — `!`: the host's shell from the prompt (K4510x only)
+
+**For the handbook agent:**
+
+- **`!command` and `!`** at the shell prompt.  `!ls -l` runs the command in
+  the host's shell, in the machine's current directory, output through JIM
+  in the machine's own colours (no black-screen trick, unlike TELNET); a
+  bare `!` is an interactive shell and `exit` comes back.  Ctrl-C reaches
+  the command.  nvim runs full-window.  **Only where the emulator was
+  started `--host-shell`**, which K4510x's tty1 launcher does and nothing
+  else does: on a plain desktop or the Pi the ROM answers `no host shell
+  on this machine`.  This is the one deliberate exception to "no host
+  escape anywhere": K4510x is the build whose Linux is the user's.
+- **The Tube device grew** (`core/io.h`): `$D800` bit 2 = host shell
+  fitted; `$D803` program 4 = the host shell; `$D804-7` the command
+  string's address (0-terminated, empty = interactive); `$D808/9` the
+  window rows/columns the child gets.  Register map, appendix A.
+- The Tube loop now drains the last bytes before leaving (a `!pwd` used to
+  lose the end of its line); `$D800` bit 7 stays honest after the child ends.
+- Child environment: `TERM=ansi` (JIM has colour; vt100's terminfo does
+  not), `K4510_TERM` overrides; `$SHELL`, else `/bin/sh`.
+- Test: `test/bangtest.sh` (refused when not fitted; runs, output on
+  screen, prompt back), in `make test`.  HELP has a line.  The K4510x
+  telnet path is unchanged (still password; still loopback).
+- ROM1A 528 free after (about 100 spent).
 
 ## Done 2026-09-05 (later) — a joystick register, and the two games play
 

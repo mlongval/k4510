@@ -22,6 +22,7 @@ int main(int argc,char**argv){ int kwait=0;
      * skip STARTUP.BAT, bit 3 status bar, bits 5-7 mode+1), so a shot can be
      * taken of a machine that booted with the status bands up. */
     { const char*so=getenv("K4510_SYSOPT"); if(so) io_set_opts((uint8_t)strtol(so,NULL,0)); }
+    if (getenv("K4510_HOST_SHELL")) io_host_shell = 1;
     cpu65_reset();
     static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){

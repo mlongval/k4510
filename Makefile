@@ -163,6 +163,7 @@ test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/wozt
 	./test/mathtest
 	./test/rangertest.sh
 	./test/deletetest.sh
+	./test/bangtest.sh
 
 clean: clean-demos
 # Only the .s files cc65 generates -- one per .c, plus the two built under a

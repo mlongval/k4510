@@ -714,6 +714,11 @@ static int tube_was_alive;
 static pid_t tube_pid; static int tube_fd = -1;
 #endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
+/* The host shell (program 4, `!` at the prompt): only where the Linux beside
+ * the machine is meant to be reachable -- K4510x sets io_host_shell; the plain
+ * desktop and the Pi never do, so `!` there says so and does nothing. */
+int io_host_shell;
+static uint8_t tube_cmd[4], tube_rows, tube_cols;     /* $D804-7 the command string's address, $D808/9 the window */
 
 /* ---- the Tube ULA ------------------------------------------------------- 
  * On a real BBC Micro the Tube ULA was the FIFO chip between host and
@@ -992,16 +997,30 @@ static void tube_write(uint8_t v) { tube_cp_write(v); }
 #elif !defined(K4510_PI)
 static void tube_pump(void)
 {
-    uint8_t buf[256]; ssize_t n;
+    uint8_t buf[256]; ssize_t n; int full = 0;
     if (tube_fd < 0) return;
-    while (tube_w - tube_r < sizeof tube_ring - 600 && (n = read (tube_fd, buf, sizeof buf)) > 0)
+    for (;;) {
+        if (tube_w - tube_r >= sizeof tube_ring - 600) { full = 1; break; }
+        if ((n = read (tube_fd, buf, sizeof buf)) <= 0) break;
         for (ssize_t i = 0; i < n; i++) tula_in(buf[i]);
-    if (tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); }
+    }
+    /* Reap only once the pty has been read dry: a `!pwd` prints and exits in
+     * the same instant, and closing the master with bytes still in it lost
+     * the end of the line.  With the ring full the read stopped early, so
+     * the child's last words may still be in the pty -- next time. */
+    if (!full && tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); }
 }
-static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM) */
+static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM), 4 = the host shell */
 {
     struct winsize ws = { 29, 79, 0, 0 };
+    char cmd[256] = "";
     if (tube_pid) return;
+    if (prog == 4) {
+        if (!io_host_shell) return;
+        fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd);
+        if (tube_rows) ws.ws_row = tube_rows;          /* the console window as the ROM has it, bands and margin taken out */
+        if (tube_cols) ws.ws_col = tube_cols;
+    }
     tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
     if (tube_pid == 0) {
         /* Die with the emulator.  SDL turns SIGTERM into an SDL_QUIT *event*,
@@ -1017,7 +1036,17 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         /* Resolve the co-processor's binary to an absolute path BEFORE chdir
          * (the chdir below moves the CWD, so a relative exec path would miss);
          * realpath(...,NULL) mallocs, so no fixed buffer for the fortify check. */
-        if (prog == 3) {                          /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
+        if (prog == 4) {                          /* `!`: the host's own shell, in the machine's current directory.
+                                                   * JIM is a VT100 with ANSI colours, and "ansi" is the terminfo
+                                                   * that says so (vt100's has no colour); K4510_TERM overrides. */
+            const char *term = getenv ("K4510_TERM"), *sh = getenv ("SHELL");
+            char dir[800]; snprintf (dir, sizeof dir, "%.511s%s%.255s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
+            setenv ("TERM", term && *term ? term : "ansi", 1);
+            if (!sh || !*sh) sh = "/bin/sh";
+            if (chdir (dir) != 0) { if (chdir (fs_root) != 0) { } }
+            if (cmd[0]) execl (sh, sh, "-c", cmd, (char *) NULL);   /* !ls -l   one command, then back */
+            else        execl (sh, sh, (char *) NULL);              /* !        an interactive shell; exit returns */
+        } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);
             if (chdir ("fs/CPM") != 0) { }
             if (bin) execl (bin, "runcpm", (char *) NULL);
@@ -1044,7 +1073,7 @@ static void tube_stop(void)
     tube_w = tube_r = 0;
     tula_close();
 }
-static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
+static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (io_host_shell ? 4 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
 static void tube_write(uint8_t v) { if (tube_fd >= 0) { ssize_t n = write (tube_fd, &v, 1); (void) n; } }
 #else
@@ -1261,7 +1290,10 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3) tube_start(v); else if (v == 2) tube_stop(); }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4) tube_start(v); else if (v == 2) tube_stop(); }
+        if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
+        if ((addr & 0xFF) == 8) tube_rows = v;
+        if ((addr & 0xFF) == 9) tube_cols = v;
         return;
     case IO_FAR: {
         uint8_t r = addr & 0xFF;

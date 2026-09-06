@@ -296,14 +296,20 @@ int k4510_frontend_main(int argc, char **argv)
     io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     audio_init((double)cpu_hz_now, AUDIO_RATE);
+#ifndef K4510_PI
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+#else
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+#endif
     /* A USB gamepad or joystick, if one is plugged in (now or later): SDL's
      * controller layer knows the common ones (Xbox, PlayStation, 8BitDo,
      * Logitech) by their ids and gives every one the same buttons, so the
      * machine sees one thing -- the $D104 held-keys register, OR'd with the
      * keyboard.  Hot-plug: the first pad to appear is the one; unplug it and
      * the next one to appear takes over.  Nothing to configure. */
+#ifndef K4510_PI
     { int n = SDL_NumJoysticks(); for (int i = 0; i < n && !pad; i++) if (SDL_IsGameController(i)) pad_open(i); }
+#endif
     /* The machine has no mouse -- no pointer, nothing to click, not one byte
      * of mouse in the I/O map -- so a cursor sitting on the glass is never
      * anything but wrong.  It showed up as a white arrow parked in the top

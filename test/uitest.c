@@ -160,6 +160,25 @@ int main(void)
       menu_set_shutdown(0);
       printf("8. \"Shut down\" stays off the menu until the host says it can\n"); }
 
+    /* 9. the mouse: hover selects in the right pane, a click on a category
+     * picks it, the pointer is drawn into the overlay, a right click in the
+     * open backs out and, at the top, closes.  Cells are 8 wide and
+     * UI_H/UI_ROWS tall; the layout constants are menu.c's (LX 2, SEPX 18,
+     * RX 21, TOPY 5). */
+    { static uint8_t ov[640 * 480]; int ch = 480 / ui_rows();
+      menu_open();
+      menu_mouse(23 * 8 + 3, 6 * ch + 2, 0, 0);                    /* hover: right pane, second item */
+      menu_draw(ov);
+      CHECK(ov[(6 * ch + 2) * 640 + 23 * 8 + 3] != 0, "the pointer was not drawn into the overlay");
+      menu_mouse(4 * 8, 7 * ch + 2, 1, 0); menu_mouse(4 * 8, 7 * ch + 2, 0, 0);   /* click the third category */
+      menu_draw(ov);
+      CHECK(menu_is_open(), "a category click closed the menu");
+      menu_mouse(630, 470, 2, 0); menu_mouse(630, 470, 0, 0);      /* right click in the open: back to the categories, then... */
+      menu_mouse(630, 470, 2, 0); menu_mouse(630, 470, 0, 0);      /* ...closes */
+      CHECK(!menu_is_open(), "two right clicks in the open did not close the menu");
+      menu_take_action();
+      printf("9. the mouse hovers, clicks, draws its pointer, backs out\n"); }
+
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

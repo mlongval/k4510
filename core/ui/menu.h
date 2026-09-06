@@ -20,6 +20,9 @@ void menu_open(void);
 void menu_close(void);
 int  menu_is_open(void);
 void menu_key(uint8_t code);                  /* a K4510 key code or ASCII */
+void menu_mouse(int x, int y, int buttons, int wheel);   /* machine pixels; buttons bit0 left bit1 right; wheel +up/-down.
+                                                           * Hover highlights a setting, click selects, right-click steps
+                                                           * back, the wheel moves the cursor.  Draws the pointer itself. */
 int  menu_take_action(void);                  /* ACT_*, once */
 int  menu_closed_pending(void);               /* 1 once, after a close: the host saves the settings */
 void menu_info(int row, const char *text);    /* the Info page's rows, from the host */

@@ -23,6 +23,7 @@ int main(int argc,char**argv){ int kwait=0;
      * taken of a machine that booted with the status bands up. */
     { const char*so=getenv("K4510_SYSOPT"); if(so) io_set_opts((uint8_t)strtol(so,NULL,0)); }
     if (getenv("K4510_HOST_SHELL")) io_host_shell = 1;
+    { const char *m = getenv("K4510_MOUSE"); int x, y, b; if (m && sscanf(m, "%d,%d,%d", &x, &y, &b) == 3) mouse_set(x, y, (uint8_t) b, 0, 0, 0); }   /* MOUSETEST captures */
     cpu65_reset();
     static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){

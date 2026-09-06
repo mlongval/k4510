@@ -14,6 +14,34 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-06 (evening) — the mouse: `$D108-$D10F`, the F7 menu, MOUSETEST
+
+**For the handbook agent:**
+
+- **New registers `$D108-$D10F`** (core/io.h), read-only, fed once a
+  frame: X (`$D108/9`) and Y (`$D10A/B`) **in the pixels of the mode VICKY
+  is in** (0-639 x 0-479 at full size, 0-319 x 0-239 in 320x240, the
+  200-line field's top taken off); `$D10C` buttons (bit0 left, 1 right,
+  2 middle); `$D10D` wheel, `$D10E/F` movement, all signed and "since
+  last frame".  **The machine draws no pointer**: a program that wants
+  one uses a sprite (MOUSETEST shows how, 16x16 4 bpp, PALOFS 1).  While
+  the F7 menu is open the position still reads, buttons/wheel/deltas
+  are 0.  Register map, appendix A; a paragraph in the input chapter.
+- **The F7 menu takes the mouse**: hover highlights a setting, click is
+  Enter (an enum opens its list, a number steps), right click steps a
+  setting back or goes back a level, a right click in the open closes;
+  the wheel moves the cursor.  Categories on the left are click-only, so
+  passing the pointer over them does not throw a submenu away.  The menu
+  draws its own arrow.  Keys work exactly as before.
+- **MOUSETEST.PRG** (new): the registers live and a sprite arrow on the
+  pointer.  Esc leaves.
+- PADTEST and MOUSETEST rewrite their line through JIM's cursor
+  registers (`$DA09/$DA0A`), not CR: CR is folded onto newline.
+- Hosts: desktop and K4510x (SDL).  **The Pi has neither mouse nor
+  gamepad yet**; Circle has classes for both.  Owed with p15.
+- Tests: uitest leg 9 (the menu's mouse); `test/capture` takes
+  `K4510_MOUSE=x,y,buttons` for screenshots.
+
 ## Done 2026-09-06 (later) — USB gamepads into `$D104` (desktop; Pi owed)
 
 **For the handbook agent:**

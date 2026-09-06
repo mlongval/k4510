@@ -202,6 +202,14 @@ static uint8_t cp437_of(unsigned long cp)
 }
 
 #ifndef K4510_PI
+/* The mouse.  SDL hands us logical coordinates (the renderer's logical size
+ * is the machine's picture, x2 with scanlines), so machine pixels are one
+ * division and the border's shrink away.  geo_k/geo_b are copied from the
+ * frame code each frame; the picture cannot move between them. */
+static int geo_k = 1, geo_b = 0;
+static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
+static int to_machine(int v, int full) { int m = (v / geo_k - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
+static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
 static SDL_GameController *pad;
 static void pad_open(int idx)
 {
@@ -482,6 +490,18 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
 #ifndef K4510_PI
+            case SDL_MOUSEMOTION:
+                mouse_x = to_machine(e.motion.x, VICKY_WIDTH); mouse_y = to_machine(e.motion.y, VICKY_HEIGHT);
+                dx_acc += e.motion.xrel / geo_k; dy_acc += e.motion.yrel / geo_k;
+                mouse_to_menu(); break;
+            case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
+                int bit = e.button.button == SDL_BUTTON_LEFT ? 1 : e.button.button == SDL_BUTTON_RIGHT ? 2 : e.button.button == SDL_BUTTON_MIDDLE ? 4 : 0;
+                if (e.type == SDL_MOUSEBUTTONDOWN) mouse_btn |= bit; else mouse_btn &= ~bit;
+                mouse_to_menu(); break; }
+            case SDL_MOUSEWHEEL:
+                wheel_acc += e.wheel.y;
+                if (menu_is_open()) { menu_mouse(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, mouse_btn, e.wheel.y); wheel_acc = 0; }
+                break;
             case SDL_CONTROLLERDEVICEADDED: pad_open(e.cdevice.which); break;
             case SDL_CONTROLLERDEVICEREMOVED:
                 if (pad && e.cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad))) { SDL_GameControllerClose(pad); pad = NULL; fprintf(stderr, "gamepad: unplugged\n"); }
@@ -552,6 +572,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (ks[SDL_SCANCODE_Z])     held |= HELD_A;
             if (ks[SDL_SCANCODE_X])     held |= HELD_B;
             kbd_held(held | pad_held());
+            mouse_set(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, (uint8_t) mouse_btn, wheel_acc, dx_acc, dy_acc);   /* $D108-$D10F */
+            wheel_acc = dx_acc = dy_acc = 0;
         }
 #endif
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
@@ -910,6 +932,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
           int k = tall ? 2 : 1;                                  /* logical units per pixel of the machine */
+#ifndef K4510_PI
+          geo_k = k; geo_b = b;                                  /* for the mouse */
+#endif
           SDL_Rect half = { 0, 0, VICKY_WIDTH, VICKY_HEIGHT };
           SDL_Rect dr = { b * k, b * k, (VICKY_WIDTH - 2 * b) * k, (VICKY_HEIGHT - 2 * b) * k };
           if (tall != logical_tall) {                            /* 4:3 either way: 640x480, or 1280x960 */

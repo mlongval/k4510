@@ -27,7 +27,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -192,7 +192,7 @@ fs/PRG/%.prg: demo/pas/%.pas $(wildcard pascal/mp/base/k4510/*) $(wildcard pasca
 	$(MADS) demo/pas/$*.a65 -x -i:$(MP_DIR)/base -o:$@ >/dev/null
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg
+DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg
 # bomber: the Bomb Party sheet (CC-BY 3.0, data/bombparty/) as arena tiles and
 # sprites; tools/mkbomber.py crops, composites and palettizes into bomber.h
 demo/bomber.h: tools/mkbomber.py data/bombparty/bomb_party_v4.png

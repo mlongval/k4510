@@ -44,6 +44,13 @@ void kbd_push(uint8_t ascii)
 void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); }
 static uint8_t kbd_held_mask;
 void kbd_held(uint8_t mask) { kbd_held_mask = mask; }
+static int mouse_x, mouse_y; static uint8_t mouse_btn; static int8_t mouse_wheel, mouse_dx, mouse_dy;
+static int8_t clamp8(int v) { return (int8_t)(v > 127 ? 127 : v < -128 ? -128 : v); }
+void mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy)
+{
+    mouse_x = x < 0 ? 0 : x > 639 ? 639 : x; mouse_y = y < 0 ? 0 : y > 479 ? 479 : y;
+    mouse_btn = buttons; mouse_wheel = clamp8(wheel); mouse_dx = clamp8(dx); mouse_dy = clamp8(dy);
+}
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
 static uint8_t kbd_read(void)
 {
@@ -1230,6 +1237,22 @@ static uint8_t io_read_inner(uint16_t addr)
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
         if (addr == IO_KBDST + 1) return kbd_ready() ? kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
         if (addr == IO_KBDHELD) return menu_is_open() ? 0 : kbd_held_mask;     /* the keys down now; none while the menu has them */
+        if (addr >= IO_MOUSEX && addr <= IO_MOUSEDY) {                        /* the mouse; the menu keeps its clicks */
+            /* The host reports the glass (640x480); the program wants the pixels
+             * of the mode VICKY is in (core/vicky.h CTRL): halve or quarter the
+             * columns, halve the lines, take the 200-line field's top off. */
+            uint8_t ctrl = vicky_read(0); int xs = (ctrl & 16) ? 2 : (ctrl & 2) ? 1 : 0, ys = (ctrl & 4) ? 1 : 0;
+            int x = mouse_x >> xs, y = mouse_y - ((ctrl & 8) ? 40 : 0), ymax = ((ctrl & 8) ? 400 : 480) - 1;
+            y = (y < 0 ? 0 : y > ymax ? ymax : y) >> ys;
+            switch (addr - IO_MOUSEX) {
+            case 0: return (uint8_t) x;  case 1: return (uint8_t)(x >> 8);
+            case 2: return (uint8_t) y;  case 3: return (uint8_t)(y >> 8);
+            case 4: return menu_is_open() ? 0 : mouse_btn;
+            case 5: return menu_is_open() ? 0 : (uint8_t) mouse_wheel;
+            case 6: return menu_is_open() ? 0 : (uint8_t)(mouse_dx >> xs);
+            default: return menu_is_open() ? 0 : (uint8_t)(mouse_dy >> ys);
+            }
+        }
         if (addr == IO_KBDST + 2) {                                              /* break pending: an ESC or Ctrl-C anywhere in the queue is removed and returned */
             for (int i = kbd_head; i != kbd_tail; i = (i + 1) & 63) {
                 uint8_t k = kbd_fifo[i];

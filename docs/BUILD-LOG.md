@@ -5917,3 +5917,16 @@ Start = Enter, Back = Esc, so a game runs from the sofa.  PADTEST shows
 the bits.  No pad on the build host, so this is built blind; hdieu or the
 K4510x laptop is where the first one gets plugged in (the k4510 user is
 in `input` already).  The Pi needs Circle's gamepad class, owed.
+
+## 2026-09-06 — the mouse
+
+Doc: "what about mouse support?"  Eight bytes at `$D108`, fed a frame at
+a time like the held keys; the F7 menu clicks and wheels; MOUSETEST.
+Two things settled on the way.  The register reports in the pixels of
+the mode VICKY is in, not the glass: the first capture put the sprite at
+Y=400 for a mouse at 200, because the 240-line mode doubles lines and
+the program had no honest way to know.  And the machine draws no
+pointer: the menu draws its own arrow into the overlay (so it will look
+the same on the Pi), and a program uses a sprite.  Also learned that a
+demo cannot `\r` to rewrite a line -- CR is newline since JIM took the
+console -- so the readouts move the cursor through `$DA09/$DA0A`.

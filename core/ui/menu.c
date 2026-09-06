@@ -207,15 +207,79 @@ void menu_key(uint8_t k)
     else if (k == KEY_END) { stack[depth].cur = top()->n - 1; if (top()->items[stack[depth].cur].kind == MI_SEP) move_cur(-1); }
 }
 
-/* ---- drawing ----------------------------------------------------------------
- * The whole screen, opaque: the machine's picture is put away rather than
- * dimmed behind, so nothing of the guest shows through and the menu reads the
- * same whatever was on screen when it opened. */
 #define LX   2                       /* the category column */
 #define LW   16
 #define SEPX (LX + LW)
 #define RX   (SEPX + 3)
 #define TOPY 5
+/* ---- the mouse ---------------------------------------------------------------
+ * The menu is a text grid, so a pointer position is a cell.  The right pane
+ * follows the pointer (hover = cursor), a click is Enter, a right click on a
+ * setting steps it back and anywhere else is Escape; the categories on the
+ * left are click-only, so passing over them does not throw away a submenu.
+ * The pointer is drawn into the overlay: the machine has no host cursor. */
+static int mx = -1, my = -1, mbtn_last;
+static void popup_geom(int *px, int *py, int *w, int *h)
+{
+    const item_t *it = &top()->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
+    int nch = settings_choices((set_id) it->arg);
+    *w = 8; for (int i = 0; i < nch; i++) if ((int) strlen(d->labels[i]) + 6 > *w) *w = (int) strlen(d->labels[i]) + 6;
+    *h = nch + 2; *px = (UI_COLS - *w) / 2; *py = (UI_ROWS - *h) / 2;
+}
+void menu_mouse(int x, int y, int buttons, int wheel)
+{
+    int press = buttons & ~mbtn_last, ch = UI_H / UI_ROWS, col, row;
+    mbtn_last = buttons;
+    if (!open_) return;
+    if (x != mx || y != my) { mx = x; my = y; dirty = 1; }
+    col = x / 8; row = y / ch;
+    if (popup) {
+        const item_t *it = &top()->items[stack[depth].cur];
+        int nch = settings_choices((set_id) it->arg), px, py, w, h, i;
+        popup_geom(&px, &py, &w, &h);
+        i = row - py - 1;
+        if (wheel) { popup_cur = (popup_cur + (wheel < 0 ? 1 : nch - 1)) % nch; settings_set((set_id) it->arg, popup_cur); dirty = 1; return; }
+        if (i >= 0 && i < nch && col > px && col < px + w - 1) {
+            if (popup_cur != i) { popup_cur = i; settings_set((set_id) it->arg, i); dirty = 1; }
+            if (press & 1) { popup = 0; dirty = 1; }
+        } else if (press & 3) { settings_set((set_id) it->arg, popup_was); popup = 0; dirty = 1; }
+        return;
+    }
+    if (wheel) { dirty = 1; if (pane) move_cur(wheel < 0 ? +1 : -1); else set_cat(cat + (wheel < 0 ? 1 : -1)); return; }
+    if (col >= LX && col < SEPX && row >= TOPY && row < TOPY + main_menu.n) {        /* a category: click only */
+        if (press & 1) { set_cat(row - TOPY); pane = 0; dirty = 1; }
+        return;
+    }
+    if (col > SEPX && col < UI_COLS - 1 && row >= TOPY && row < TOPY + top()->n && top()->items[row - TOPY].kind != MI_SEP) {
+        const item_t *it = &top()->items[row - TOPY];
+        if (!pane || stack[depth].cur != row - TOPY) { pane = 1; stack[depth].cur = row - TOPY; dirty = 1; }
+        if (press & 1) { dirty = 1; enter(); }
+        else if (press & 2) { dirty = 1; if (it->kind == MI_SETTING) settings_step((set_id) it->arg, -1); else if (depth) depth--; else pane = 0; }
+        return;
+    }
+    if (press & 2) { dirty = 1; if (depth) depth--; else if (pane) pane = 0; else menu_close(); }   /* right click in the open: back */
+}
+static void draw_pointer(uint8_t *ov)
+{
+    /* an 8x12 arrow, bright with a dark edge, clipped at the overlay's edges */
+    static const uint8_t arrow[12] = { 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xF0, 0xD8, 0x98, 0x0C, 0x0C };
+    if (mx < 0) return;
+    for (int pass = 0; pass < 2; pass++)
+        for (int y = 0; y < 12; y++) for (int x = 0; x < 8; x++) {
+            if (!((arrow[y] << x) & 0x80)) continue;
+            if (pass == 0) {                          /* the edge: the eight neighbours */
+                for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) {
+                    int px = mx + x + dx, py = my + y + dy;
+                    if (px >= 0 && px < UI_W && py >= 0 && py < UI_H) ov[py * UI_W + px] = UIC_BAR;
+                }
+            } else if (mx + x < UI_W && my + y < UI_H) ov[(my + y) * UI_W + mx + x] = UIC_BARTEXT;
+        }
+}
+
+/* ---- drawing ----------------------------------------------------------------
+ * The whole screen, opaque: the machine's picture is put away rather than
+ * dimmed behind, so nothing of the guest shows through and the menu reads the
+ * same whatever was on screen when it opened. */
 int menu_draw(uint8_t *ov)
 {
     if (!dirty) return 0;
@@ -253,15 +317,14 @@ int menu_draw(uint8_t *ov)
           else if (it->kind == MI_SUBMENU) v = ">";
           if (v) ui_text(ov, UI_COLS - 3 - (int) strlen(v), y, it->kind == MI_INFO && !sel ? UIC_DIM : fg, bg, v);
       } }
-    { const char *legend = pane ? " Up/Down item   Left/Right change   Enter select   Esc back "
+    { const char *legend = pane ? " Up/Down item   Left/Right change   Enter select   Esc back   or the mouse "
                                : " Up/Down category   Enter or Right for its settings   Esc closes ";
       ui_text(ov, (UI_COLS - (int) strlen(legend)) / 2, UI_ROWS - 2, UIC_DIM, UIC_PANEL, legend); }
     if (popup) {
         const item_t *it = &top()->items[stack[depth].cur]; const set_desc *d = settings_desc((set_id) it->arg);
         char title[64];
         int nch = settings_choices((set_id) top()->items[stack[depth].cur].arg);
-        int w = 8; for (int i = 0; i < nch; i++) if ((int) strlen(d->labels[i]) + 6 > w) w = (int) strlen(d->labels[i]) + 6;
-        int h = nch + 2, px = (UI_COLS - w) / 2, py = (UI_ROWS - h) / 2;
+        int w, h, px, py; popup_geom(&px, &py, &w, &h);
         ui_box(ov, px, py, w, h, UIC_FRAME, UIC_PANEL);
         snprintf(title, sizeof title, " %s ", it->label);
         ui_text(ov, px + (w - (int) strlen(title)) / 2, py, UIC_TITLE, UIC_PANEL, title);
@@ -272,5 +335,6 @@ int menu_draw(uint8_t *ov)
             ui_text(ov, px + 4, py + 1 + i, fg, bg, d->labels[i]);
         }
     }
+    draw_pointer(ov);
     return 1;
 }

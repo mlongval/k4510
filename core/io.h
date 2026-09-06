@@ -183,6 +183,19 @@ extern int io_host_shell;   /* the frontend sets it (--host-shell / K4510_HOST_S
 #define HELD_A     0x20                   /* Z */
 #define HELD_B     0x40                   /* X */
 void    kbd_held(uint8_t mask);           /* the host, once a frame: which of those are down */
+/* The mouse, $D108-$D10F, read-only, fed by the host once a frame.  Position is
+ * in the pixels of the mode VICKY is in (0-639 x 0-479 at full size, 0-319 x
+ * 0-239 in a 320x240 mode, and so on) wherever the window puts the picture; the
+ * deltas and the wheel are "since the last frame", signed.  The machine draws
+ * no pointer: a program that wants one uses a sprite.  While the F7 menu is
+ * open the position still reads but buttons, wheel and deltas are 0. */
+#define IO_MOUSEX      (IO_INPUT + 0x08)  /* lo, $D109 hi */
+#define IO_MOUSEY      (IO_INPUT + 0x0A)  /* lo, $D10B hi */
+#define IO_MOUSEBTN    (IO_INPUT + 0x0C)  /* bit0 left, bit1 right, bit2 middle */
+#define IO_MOUSEWHEEL  (IO_INPUT + 0x0D)  /* signed clicks since last frame, + = away from you */
+#define IO_MOUSEDX     (IO_INPUT + 0x0E)  /* signed movement since last frame */
+#define IO_MOUSEDY     (IO_INPUT + 0x0F)
+void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /* the host, once a frame */
 #define KEY_ENTER 0x0D
 #define KEY_BS    0x08
 #define KEY_TAB   0x09

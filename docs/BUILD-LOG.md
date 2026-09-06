@@ -5907,3 +5907,13 @@ as the child died and dropped what it had just printed (now it drains
 first, and the device does not reap while the ring is full); and `ansi`
 is the terminfo that matches JIM (vt100's has no colour).  nvim runs in
 the window, `ls --color` lands in the palette.  `test/bangtest.sh`.
+
+## 2026-09-06 — gamepads
+
+Doc: "we need to start testing usb joysticks and gamepads".  The desktop
+side is SDL's game-controller layer OR'd into `$D104`, which is why that
+register was worth having yesterday: LODE and BOMBER get a pad for free.
+Start = Enter, Back = Esc, so a game runs from the sofa.  PADTEST shows
+the bits.  No pad on the build host, so this is built blind; hdieu or the
+K4510x laptop is where the first one gets plugged in (the k4510 user is
+in `input` already).  The Pi needs Circle's gamepad class, owed.

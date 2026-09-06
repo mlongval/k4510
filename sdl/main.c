@@ -201,6 +201,36 @@ static uint8_t cp437_of(unsigned long cp)
     }
 }
 
+#ifndef K4510_PI
+static SDL_GameController *pad;
+static void pad_open(int idx)
+{
+    if (pad) return;
+    pad = SDL_GameControllerOpen(idx);
+    if (pad) fprintf(stderr, "gamepad: %s\n", SDL_GameControllerName(pad));
+}
+/* the pad's part of $D104: d-pad or left stick -> the four directions,
+ * A/Y/right trigger -> FIRE (space), X/left shoulder -> A (Z),
+ * B/right shoulder -> B (X) -- so LODE digs left and right on the shoulders */
+static uint8_t pad_held(void)
+{
+    uint8_t h = 0; if (!pad) return 0;
+#define PB(b) SDL_GameControllerGetButton(pad, SDL_CONTROLLER_BUTTON_##b)
+#define PA(a) SDL_GameControllerGetAxis(pad, SDL_CONTROLLER_AXIS_##a)
+    const int dz = 10000;                            /* stick dead zone, of 32767 */
+    if (PB(DPAD_UP)    || PA(LEFTY) < -dz) h |= HELD_UP;
+    if (PB(DPAD_DOWN)  || PA(LEFTY) >  dz) h |= HELD_DOWN;
+    if (PB(DPAD_LEFT)  || PA(LEFTX) < -dz) h |= HELD_LEFT;
+    if (PB(DPAD_RIGHT) || PA(LEFTX) >  dz) h |= HELD_RIGHT;
+    if (PB(A) || PB(Y) || PA(TRIGGERRIGHT) > dz) h |= HELD_FIRE;
+    if (PB(X) || PB(LEFTSHOULDER))  h |= HELD_A;
+    if (PB(B) || PB(RIGHTSHOULDER)) h |= HELD_B;
+#undef PB
+#undef PA
+    return h;
+}
+#endif
+
 int k4510_frontend_main(int argc, char **argv)
 {
     /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F7 switch
@@ -258,7 +288,14 @@ int k4510_frontend_main(int argc, char **argv)
     io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     audio_init((double)cpu_hz_now, AUDIO_RATE);
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    /* A USB gamepad or joystick, if one is plugged in (now or later): SDL's
+     * controller layer knows the common ones (Xbox, PlayStation, 8BitDo,
+     * Logitech) by their ids and gives every one the same buttons, so the
+     * machine sees one thing -- the $D104 held-keys register, OR'd with the
+     * keyboard.  Hot-plug: the first pad to appear is the one; unplug it and
+     * the next one to appear takes over.  Nothing to configure. */
+    { int n = SDL_NumJoysticks(); for (int i = 0; i < n && !pad; i++) if (SDL_IsGameController(i)) pad_open(i); }
     /* The machine has no mouse -- no pointer, nothing to click, not one byte
      * of mouse in the I/O map -- so a cursor sitting on the glass is never
      * anything but wrong.  It showed up as a white arrow parked in the top
@@ -444,6 +481,16 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
+#ifndef K4510_PI
+            case SDL_CONTROLLERDEVICEADDED: pad_open(e.cdevice.which); break;
+            case SDL_CONTROLLERDEVICEREMOVED:
+                if (pad && e.cdevice.which == SDL_JoystickInstanceID(SDL_GameControllerGetJoystick(pad))) { SDL_GameControllerClose(pad); pad = NULL; fprintf(stderr, "gamepad: unplugged\n"); }
+                break;
+            case SDL_CONTROLLERBUTTONDOWN:                   /* the buttons that are keys, not held state: */
+                if (e.cbutton.button == SDL_CONTROLLER_BUTTON_START) kbd_push(0x0D);   /* Start = Enter (INVADER2's "press a key", a game's pause) */
+                if (e.cbutton.button == SDL_CONTROLLER_BUTTON_BACK)  kbd_push(0x1B);   /* Back/Select = Esc, how every game leaves */
+                break;
+#endif
             case SDL_TEXTINPUT: {
                 /* The host layout has already composed the character -- a dead key
                  * plus a vowel arrives here as one UTF-8 sequence.  ASCII goes
@@ -504,7 +551,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (ks[SDL_SCANCODE_SPACE]) held |= HELD_FIRE;
             if (ks[SDL_SCANCODE_Z])     held |= HELD_A;
             if (ks[SDL_SCANCODE_X])     held |= HELD_B;
-            kbd_held(held);
+            kbd_held(held | pad_held());
         }
 #endif
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */

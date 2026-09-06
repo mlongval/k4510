@@ -14,6 +14,27 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-06 (later) — USB gamepads into `$D104` (desktop; Pi owed)
+
+**For the handbook agent:**
+
+- **A USB gamepad or joystick works on the desktop and on K4510x** with no
+  setup: SDL's controller layer recognises Xbox, PlayStation, 8BitDo,
+  Logitech and the rest, hot-plug, first pad wins.  It is OR'd into the
+  `$D104` held-keys register, so every program that reads `$D104` (LODE,
+  BOMBER) plays on it unchanged.  Mapping: d-pad or left stick = the four
+  directions; A, Y or right trigger = FIRE (space); X or left shoulder = A
+  (Z); B or right shoulder = B (X), so LODE digs on the shoulders.  Start
+  types Enter and Back/Select types Esc into the key queue, so a game
+  starts and leaves without touching the keyboard.
+- **PADTEST.PRG** (new, `fs/PRG`) shows the seven bits as lamps; the first
+  thing to run with a new pad.
+- **The Pi does not have it yet**: Circle's USB gamepad class is the route
+  (`pi/`), owed when p15 is back.  INVADER2 (EhBASIC) still reads keys, not
+  `$D104`.
+- **Untested on real hardware**: no pad is attached to the build host.
+  Built and smoke-tested with the keyboard path only.  Doc is testing.
+
 ## Done 2026-09-06 — `!`: the host's shell from the prompt (K4510x only)
 
 **For the handbook agent:**

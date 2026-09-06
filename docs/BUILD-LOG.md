@@ -5944,3 +5944,19 @@ Galaxian rules (formation sway, divers, one shot); FLUFFY has variable
 jump height, stomping, spikes, two levels.  Both took an evening because
 the machine already had everything they needed: sprites with flips,
 scrolling tile layers, a caption layer, the sequencer, the held keys.
+
+## 2026-09-06 — CHESS
+
+Doc: "build a chess game ... UI similar to KoboChess ... use the Tube to
+Linux for Stockfish where possible ... KoboChess artwork but allow
+multicolour pieces ... your judgement for anything else (FujiNet?)".
+The board is KoboChess's, the pieces its drawn set (his own), sorted
+into ink/paper/edge by the converter so a palette bank per side colours
+them.  Stockfish is Tube program 5; the judgement call for the network
+was a UCI server over TCP through N:, because that is what gives the Pi
+Stockfish and it is one shell script on any Linux box.  The built-in
+engine is the KoboChess search cut to what a 6502 in C can do: depth 4
+in about five seconds at Intermediate.  Two traps: the harness binary
+was stale after the device change (again), and `pkill -f` killed my own
+shell (again).  A K4SG program can start at $2000, which this one does
+for the room.

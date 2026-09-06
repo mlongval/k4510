@@ -1,0 +1,10 @@
+The "drawn" piece set of KoboChess (github.com/mlongval/KoboChess), by
+Doc himself: twelve PNGs rendered 2026-09-06 with
+  python3 tools/gen_pieces.py --size 44 --out <here>
+from that repository's vector definitions.  No third party is involved;
+KoboChess is AGPL-3.0 and the author is the author of this machine, so
+the set is his to ship here.  wp..wk / bp..bk, 44x44 RGBA, black ink on
+white paper with anti-aliased edges.  Used by demo/chess.c through
+tools/mkchess.py, which sorts every pixel into ink, paper or edge so a
+palette bank per side can colour them -- "make allowances for
+multicolor pieces" (Doc, 2026-09-06).

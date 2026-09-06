@@ -61,3 +61,6 @@ firmware-iwlwifi
 firmware-misc-nonfree
 firmware-linux-free
 firmware-amd-graphics
+
+# CHESS.PRG's engine, on the Tube (program 5)
+stockfish

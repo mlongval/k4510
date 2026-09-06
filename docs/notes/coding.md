@@ -14,6 +14,42 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-06 (night, again) — CHESS
+
+**For the handbook agent** (a chapter of its own, I think; CREDITS has KoboChess and Stockfish):
+
+- **CHESS.PRG**: the KoboChess board on a 640x480 screen — the coordinates
+  inside the squares, "White to move · Intermediate" above, the moves
+  below, Game/Undo/Hint/Flip/Options as F1-F5 buttons (clickable), and
+  a panel on the right with the whole move list, the engine and the
+  clocks.  Pieces: KoboChess's drawn set as 64x64 4 bpp sprites with a
+  palette bank per side, so **Options → Piece colours** gives Classic,
+  Wood, Red and blue, Green and purple.  Input: arrows/pad to a square
+  and Enter/space, or click the square with the mouse; right click or
+  Esc backs out; Esc at rest leaves.
+- **Three engines.**  Built-in: alpha-beta + quiescence, material + PST,
+  the six KoboChess levels by name (Beginner..Maximum) with its noise so
+  weak levels vary; depth 1-6, 0.5-25 s.  **Stockfish on the Tube**:
+  Tube program 5 (`$D803` = 5), fitted when `$D800` bit 3 is set — the
+  device finds `K4510_UCI`, else `/usr/games/stockfish` and friends,
+  else `~/opt/stockfish-bin`; K4510x's package list now installs
+  stockfish.  **Network engine**: `/CHESS/ENGINE.CFG` holds
+  `tcp://host:port` and `tools/uci-server.sh` serves Stockfish from any
+  Linux box, so **the Pi gets Stockfish too**.  UCI levels: the KoboChess
+  Elo table (1320..2600, Maximum unlimited) and movetimes.  The engine is
+  chosen automatically at start (Tube, else network, else built-in) and
+  in Options → Engine.
+- Hint (the engine's move for you, framed green), Undo (two plies against
+  an engine), Flip, New game as White/Black/two players, Resign, Export
+  PGN to `/CHESS/GAME-<date>-<time>.PGN` (SAN, with headers), a clock for
+  two-player games (5/10/15 min, flag falls), coordinates on/off.  Mate,
+  stalemate, fifty moves and insufficient material are called.
+- `fs/CHESS/README.TXT` explains ENGINE.CFG.  Sound: a click per move.
+- Verified on screenshots: the board, a game against the built-in engine,
+  Stockfish over the Tube (1. e4 e6 — the same reply as the KoboChess
+  screenshot), Stockfish over TCP, a mouse pick with its target dots,
+  the Options menu, Flip, Hint, PGN export.
+
 ## Done 2026-09-06 (last) — the Pi kernel built and on the card; the stick rewritten
 
 - **Pi build VERIFIED** on p15 after two fixes in `sdl/main.c` (the gamepad

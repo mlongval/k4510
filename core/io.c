@@ -726,6 +726,25 @@ static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
  * desktop and the Pi never do, so `!` there says so and does nothing. */
 int io_host_shell;
 static uint8_t tube_cmd[4], tube_rows, tube_cols;     /* $D804-7 the command string's address, $D808/9 the window */
+/* Program 5: a UCI chess engine (Stockfish) on the pty, for CHESS.PRG.  Fitted
+ * where a binary is found -- K4510_UCI names one, else the usual places -- and
+ * said so in $D800 bit 3.  Not gated like the shell: it is one program, not a
+ * door.  The Pi has neither (its Tube is core 3), so CHESS plays its own engine
+ * there, or one over the network. */
+static const char *uci_path(void)
+{
+    static const char *found; static int looked;
+    if (!looked) {
+        static const char *const places[] = { "/usr/games/stockfish", "/usr/bin/stockfish", "/usr/local/bin/stockfish", NULL };
+        const char *e = getenv("K4510_UCI");
+        looked = 1;
+        if (e && *e && access(e, X_OK) == 0) found = e;
+        else for (int i = 0; places[i]; i++) if (access(places[i], X_OK) == 0) { found = places[i]; break; }
+        if (!found) { static char home[600]; const char *h = getenv("HOME");
+            if (h) { snprintf(home, sizeof home, "%.500s/opt/stockfish-bin", h); if (access(home, X_OK) == 0) found = home; } }
+    }
+    return found;
+}
 
 /* ---- the Tube ULA ------------------------------------------------------- 
  * On a real BBC Micro the Tube ULA was the FIFO chip between host and
@@ -1022,6 +1041,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     struct winsize ws = { 29, 79, 0, 0 };
     char cmd[256] = "";
     if (tube_pid) return;
+    if (prog == 5 && !uci_path()) return;
     if (prog == 4) {
         if (!io_host_shell) return;
         fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd);
@@ -1043,7 +1063,10 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         /* Resolve the co-processor's binary to an absolute path BEFORE chdir
          * (the chdir below moves the CWD, so a relative exec path would miss);
          * realpath(...,NULL) mallocs, so no fixed buffer for the fortify check. */
-        if (prog == 4) {                          /* `!`: the host's own shell, in the machine's current directory.
+        if (prog == 5) {                          /* the chess engine: UCI on stdin/stdout, nothing else */
+            const char *u = uci_path();
+            if (u) execl (u, "stockfish", (char *) NULL);
+        } else if (prog == 4) {                   /* `!`: the host's own shell, in the machine's current directory.
                                                    * JIM is a VT100 with ANSI colours, and "ansi" is the terminfo
                                                    * that says so (vt100's has no colour); K4510_TERM overrides. */
             const char *term = getenv ("K4510_TERM"), *sh = getenv ("SHELL");
@@ -1080,7 +1103,7 @@ static void tube_stop(void)
     tube_w = tube_r = 0;
     tula_close();
 }
-static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (io_host_shell ? 4 : 0) | (tube_w != tube_r ? 0x80 : 0); }
+static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (io_host_shell ? 4 : 0) | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
 static void tube_write(uint8_t v) { if (tube_fd >= 0) { ssize_t n = write (tube_fd, &v, 1); (void) n; } }
 #else
@@ -1313,7 +1336,7 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4) tube_start(v); else if (v == 2) tube_stop(); }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) tube_start(v); else if (v == 2) tube_stop(); }
         if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
         if ((addr & 0xFF) == 8) tube_rows = v;
         if ((addr & 0xFF) == 9) tube_cols = v;

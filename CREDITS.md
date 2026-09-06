@@ -77,6 +77,13 @@ Thank you:
   Character](https://opengameart.org/content/game-boy-platformer-tileset-character),
   the bricks, the grass, the spikes and Fluffy of the FLUFFY game, CC0.
   The levels and the slugs are the game's own.
+- **KoboChess** — [github.com/mlongval/KoboChess](https://github.com/mlongval/KoboChess),
+  Doc's own chess for the Kobo: the CHESS program's board layout, its six
+  levels and their names, and its "drawn" piece set (rendered from that
+  repository's `tools/gen_pieces.py`) are all his, brought over.
+- **The Stockfish developers** — [Stockfish](https://stockfishchess.org/),
+  GPL-3.0, which CHESS talks to over the Tube or the network when one is
+  fitted.  Not shipped here; K4510x installs Debian's package.
 
 ## The Raspberry Pi port
 

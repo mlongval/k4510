@@ -1,0 +1,11 @@
+Pixel Shmup 1.1 by Kenney (www.kenney.nl) -- CC0 1.0 (License.txt here).
+Fetched 2026-09-06 from
+  https://kenney.nl/assets/pixel-shmup
+  https://kenney.nl/media/pages/assets/pixel-shmup/640246b9cc-1677495782/kenney_pixel-shmup.zip
+Kept: ships_packed.png (128x192: 4x6 planes of 32x32, no gutters),
+tiles_packed.png (192x160: 12x10 tiles of 16x16, no gutters), the two
+Tilesheet .txt files, License.txt.
+Used by demo/skyfire.c through tools/mkskyfire.py: the planes become
+VICKY 32x32 8 bpp sprites, the tiles the scrolling ground and the
+shots, bursts and score digits.  Credit is voluntary under CC0; the
+game's title screen and CREDITS.md give it anyway.

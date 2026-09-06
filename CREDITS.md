@@ -71,6 +71,12 @@ Thank you:
 - **devurandom, richtaur (Matt Hackett) and cemkalyoncu** —
   [Bomb Party](https://opengameart.org/content/bomb-party-the-complete-set),
   the arena, the bombs and the cast of the BOMBER game, CC-BY 3.0.
+- **Kenney** — [Pixel Shmup](https://kenney.nl/assets/pixel-shmup),
+  the planes, the islands, the shots and the bursts of SKYFIRE, CC0.
+- **Chloe Wolfe** — [Game Boy Platformer Tileset &
+  Character](https://opengameart.org/content/game-boy-platformer-tileset-character),
+  the bricks, the grass, the spikes and Fluffy of the FLUFFY game, CC0.
+  The levels and the slugs are the game's own.
 
 ## The Raspberry Pi port
 

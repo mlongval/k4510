@@ -14,6 +14,37 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-06 (night) — two games: SKYFIRE and FLUFFY
+
+**For the handbook agent** (the games chapter, CREDITS has both):
+
+- **SKYFIRE.PRG** — a Galaxian.  Kenney's *Pixel Shmup* planes (CC0,
+  `data/pixelshmup/`) over a scrolling ground of its islands.  22 in
+  formation, swaying; divers peel off, home on you and bomb; one shot on
+  screen at a time; a diver pays double; waves get faster and dive more.
+  Left/right or a pad, space/fire, Esc.  Title screen names the art.
+  32x32 8 bpp sprites, a 16x16 8 bpp tile ground on layer 0 whose map is
+  two identical halves so a 512-px scroll never shows a seam, text8
+  caption on layer 1, the sequencer for shots, bursts, the death and
+  the wave fanfare.  `tools/mkskyfire.py` cuts the sheets and lays the
+  islands (seeded, so the ground is the same every build).
+- **FLUFFY.PRG** — a platformer in Game Boy green.  Chloe Wolfe's tileset
+  and Fluffy (CC0, `data/gbplatformer/`); the two levels, the slugs and
+  the gems are ours (`tools/mkfluffy.py`, level 1 by hand, level 2 from a
+  seed, longer).  Run, jump (hold for height), stomp slugs from above,
+  spikes kill, gems score, the smiling block ends the level; every gem
+  taken pays 2000 more.  `2` at the title starts at level 2.  4 bpp tiles
+  and sprites — the whole game is four greens plus the sky.
+- Both are K4SG programs (code at $6000, art dropped at $110000), both
+  read `$D104` so a gamepad just works, both hand the screen back clean.
+- Learned on the way: cc65 rounds `(40 - n) / 2` DOWN for n > 40 (so a
+  41-char line "centred" at column 255); a map whose air is tile 0 needs
+  tile 0 blank; a game must set `$D001` BGCOL to 0 itself, the ROM
+  leaves its blue there; a demo cannot use CR to rewrite a line.
+- No existing open-source Galaxian or Mario clone was portable: the ones
+  found (nasos, Critical Mass, the GL clones) are GPL or unlicensed and
+  desktop-shaped.  The designs are the arcade originals', the code is new.
+
 ## Done 2026-09-06 (evening) — the mouse: `$D108-$D10F`, the F7 menu, MOUSETEST
 
 **For the handbook agent:**

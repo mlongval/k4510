@@ -5930,3 +5930,17 @@ pointer: the menu draws its own arrow into the overlay (so it will look
 the same on the Pi), and a program uses a sprite.  Also learned that a
 demo cannot `\r` to rewrite a line -- CR is newline since JIM took the
 console -- so the readouts move the cursor through `$DA09/$DA0A`.
+
+## 2026-09-06 — SKYFIRE and FLUFFY
+
+Doc: "look around the net for a galaxian and mario type platformer, with
+permissable licenses, that you could port ... surprise me!"  The net has
+no permissively licensed 8-bit-shaped source for either (the clones are
+GPL and want OpenGL), but it has the art: Kenney's Pixel Shmup (CC0) and
+Chloe Wolfe's Game Boy platformer set (CC0).  So the port is of the
+designs, with new code, in the TINY/BOMBER pipeline: a converter makes a
+K4SG data segment, the game is a C program on `$D104`.  SKYFIRE has the
+Galaxian rules (formation sway, divers, one shot); FLUFFY has variable
+jump height, stomping, spikes, two levels.  Both took an evening because
+the machine already had everything they needed: sprites with flips,
+scrolling tile layers, a caption layer, the sequencer, the held keys.

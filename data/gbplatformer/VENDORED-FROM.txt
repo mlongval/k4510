@@ -1,0 +1,12 @@
+"Game Boy Platformer Tileset & Character" by Chloe Wolfe -- CC0 1.0.
+Fetched 2026-09-06 from
+  https://opengameart.org/content/game-boy-platformer-tileset-character
+  https://opengameart.org/sites/default/files/Gameboy%20Tileset_6.png   (gameboy_tileset.png here)
+  https://opengameart.org/sites/default/files/Game%20Boy%20Character%20-%20Fluffy.zip
+Kept: the green tileset (208x208, 16 px grid, four Game Boy greens on
+white), and Fluffy: IdleAndWalk_strip5.png, Jump.png, Fall.png,
+Roll_strip4.png (16x16 frames).  The brown variant was not kept.
+Used by demo/fluffy.c through tools/mkfluffy.py: the tiles become VICKY
+16x16 4 bpp tiles, Fluffy 4 bpp sprites; the level and the walking
+enemy are the game's own.  Credit is voluntary under CC0; the game's
+title screen and CREDITS.md give it anyway.

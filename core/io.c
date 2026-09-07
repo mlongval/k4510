@@ -712,6 +712,7 @@ static uint8_t sys_read(uint8_t r)
 static int tube_was_alive;
 #elif !defined(K4510_PI) && !defined(K4510_NOPROC)
 #include <pty.h>
+#include <termios.h>
 #ifdef __linux__
 #include <sys/prctl.h>          /* PR_SET_PDEATHSIG: the child dies with the emulator */
 #endif
@@ -1061,6 +1062,11 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         if (getppid () != parent) _exit (0); /* the parent died between fork and here */
 #endif
         setenv ("TERM", "dumb", 1);
+        /* The machine's backspace key is BS ($08).  The pty's erase character is
+         * DEL by default, so under dash, vi and anything without readline the key
+         * echoed as ^H and erased nothing (bash's readline hid it).  Make BS the
+         * erase character; DEL stays understood by the programs that read it. */
+        { struct termios tio; if (tcgetattr (0, &tio) == 0) { tio.c_cc[VERASE] = 0x08; tcsetattr (0, TCSANOW, &tio); } }
         /* Resolve the co-processor's binary to an absolute path BEFORE chdir
          * (the chdir below moves the CWD, so a relative exec path would miss);
          * realpath(...,NULL) mallocs, so no fixed buffer for the fortify check. */

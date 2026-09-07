@@ -22,8 +22,12 @@ TUBE=./test/tubetest; [ -x $TUBE ] || TUBE=./test/headless   # the in-process Tu
 out=$($TUBE rom/kernal.bin "BBC
 ~~~LOAD \"BBCBASIC/TEST.BBC\"
 ~~RUN
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*QUIT
-~~" 4200 2>&1) || { echo "$out"; echo "basictest: FAILED: BBC BASIC did not run"; exit 1; }
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~*QUIT
+~~" 12000 2>&1) || { echo "$out"; echo "basictest: FAILED: BBC BASIC did not run"; exit 1; }
+# 240 waits = 7200 frames before *QUIT: TEST.BBC's INKEY(500) is five seconds of the
+# co-processor's WALL clock, and this harness runs frames as fast as it can -- on a
+# fast host 1500 frames passed in under five seconds and *QUIT's keys landed in the
+# INKEY, which read them as "step mode" and then waited for a key forever (2026-09-07).
 echo "$out" | grep -q "BBCTEST PASSED" || { echo "$out"; echo "basictest: FAILED: BBC BASIC"; exit 1; }
 echo "$out" | grep -q "STAR OK" || { echo "$out"; echo "basictest: FAILED: BBC BASIC * escape"; exit 1; }
 rm -f fs/TESTOUT.TXT

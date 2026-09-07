@@ -31,8 +31,8 @@ enum { S_HERO, S_GEM, S_SLUG = S_GEM + MAXGEM, S_PUFF = S_SLUG + MAXSLUG, NSPR }
 /* positions in eighths of a pixel */
 #define U 8
 #define GRAV     3
-#define JUMP_V   (-46)
-#define JUMP_CUT (-14)
+#define JUMP_V   (-58)                    /* 70 px held: four tiles and a bit; -46 (44 px) could not reach the platforms (Doc, 2026-09-07) */
+#define JUMP_CUT (-16)
 #define MAXFALL  56
 #define RUN      14
 

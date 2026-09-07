@@ -64,6 +64,7 @@ static uint8_t mode_note;                  /* an F7 mode/status change was perfo
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
+static uint8_t prog_running;                     /* set around call_prog: no console cursor under a program (RANGER's stray block) */
 extern uint32_t cursor_far;                      /* crt0.s: far address of the cell attribute under the cursor */
 uint16_t speed_loop(void);                       /* crt0.s */
 void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS10 flat store */
@@ -356,7 +357,7 @@ uint8_t k_getin(void)
         (void)REG(SYS + 4);                                   /* latch the RTC */
         if (far_peek(SCREEN + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();
     }
-    if (REG(TERM + 0x0E)) { if (cursor_vis) draw_cursor(0); }
+    if (REG(TERM + 0x0E) || prog_running) { if (cursor_vis) draw_cursor(0); }   /* a program owns the screen: no console cursor under it */
     else if (!cursor_vis) draw_cursor(1);
     return 0;
 }
@@ -788,7 +789,7 @@ static void run_at(uint16_t a)
                                                  * with caps lock on, VI's :q arrives as :Q and
                                                  * there is no way out of the editor.  The shell
                                                  * gets its caps lock back when the program ends. */
-      call_prog(TRAMP);
+      prog_running = 1; call_prog(TRAMP); prog_running = 0;
       capslock = cl; }
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
     if (v0 != REG(VICKY + 0) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
@@ -1038,9 +1039,17 @@ static void cmd_time(const char *p) { (void)p; info_time(); }
  * one rule is that sideways code must not call bank 0's commands. */
 static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p)
 {
+    /* The base bytes are the PROGRAM's when this is reached through a
+     * system call: the stub banks 5-7 off around the call and re-engages
+     * them on return with whatever base is in the register.  Leaving the
+     * sideways bank's base there mapped the program's $A000-$BFFF onto the
+     * bank's RAM -- RANGER's file preview read a buffer the device had
+     * filled at the real address and saw only what the bank held (2026-09-07). */
+    uint8_t b0 = REG(BANK + 20), b1 = REG(BANK + 21), b2 = REG(BANK + 22);
     w32(BANK + 20, 0x0FF00000UL + ((uint32_t)(bank - 1) << 13));
     fn(p);
-    REG(BANK + 23) = 0x80;                    /* off: the ROM view returns */
+    REG(BANK + 20) = b0; REG(BANK + 21) = b1; REG(BANK + 22) = b2;   /* the base back, bytes 0-2 only: no engage */
+    REG(BANK + 23) = 0x80;                    /* off: the ROM view returns (the stub re-engages for a program) */
 }
 
 uint8_t k_shell(const char *p);

@@ -11,7 +11,8 @@ RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
         sudo ca-certificates libgl1-mesa-dri libegl1 libpipewire-0.3-0 libpulse0 \
         $PKGS \
     && rm -rf /var/lib/apt/lists/*
-RUN useradd -m -u $UID -s /bin/bash -G audio,video,input,render k4510 \
+RUN groupadd -f input && groupadd -f render \
+    && useradd -m -u $UID -s /bin/bash -G audio,video,input,render k4510 \
     && echo 'k4510 ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/k4510x-user && chmod 440 /etc/sudoers.d/k4510x-user
 USER k4510
 WORKDIR /home/k4510

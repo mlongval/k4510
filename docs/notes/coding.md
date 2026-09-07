@@ -2,7 +2,7 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-09-06**
+**Updated: 2026-09-07**
 
 ## Now
 
@@ -13,6 +13,36 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   after the SID cut: nothing to retire, one hint fixed in OPLPLAY).
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
+
+## Done 2026-09-07 — the day's five: palette, mouse capture, SKYFIRE levels, the distrobox, sudo
+
+**For the handbook agent:**
+
+- **A program's colours end with the program.**  The ROM snapshots all 256
+  palette entries before it runs a program and writes back what differs
+  afterwards; a `PALETTE LOAD` made at the prompt survives a game.  And
+  **RESET restores the VIC-II sixteen**, so a warm reset after a game no
+  longer keeps the game's palette (Doc's report).  Games need no cleanup
+  of their own any more, though it does no harm.
+- **Mouse capture** (F7 → Input → Mouse capture, on by default): a click
+  on the picture confines the host pointer to the window; opening the
+  menu or losing focus (alt-tab) frees it, closing the menu takes it
+  back.  Confine, not relative: `$D108` stays absolute.  Not in the
+  browser build.
+- **SKYFIRE has Easy / Normal / Hard** on the title (left/right), the HUD
+  shows the letter, and `/PRG/SKYFIRE.CFG` moves the numbers behind Normal
+  (DIVEGAP, DIVEMIN, DIVERS, BOMB, DIVE, SWAY).  Hard is what shipped
+  first; Doc found it too hard.
+- **K4510x has a third flavour: the distrobox** (`k4510x/distrobox.sh`,
+  create/run/shell/update/rm).  The same Debian as a container on your
+  own desktop, its own home (a `!rm -rf ~` inside cannot reach yours),
+  the repository bind-mounted read-only and cloned inside, built there,
+  run `--host-shell`; `!sudo apt install` sticks.  A launcher lands in
+  the desktop's application menu.
+- **The stick's k4510 user has passwordless sudo** (next image).  Installs
+  there last a boot: persistence keeps `/home` only.
+- Also: **the ROM images are tracked now** (`rom/*.bin`), after a host
+  without cc65 kept a pre-SID-cut ROM on the Pi card for a week.
 
 ## Done 2026-09-06 (late) — the K4510 in a browser
 

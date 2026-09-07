@@ -5970,3 +5970,13 @@ page yields to the browser every frame under ASYNCIFY.  It booted in
 headless Chrome on the first link.  Hosted like TeXbrain: an nginx
 container on a loopback port and a tailscale serve in front, which needs
 root, so that last step is Doc's.
+
+## 2026-09-07 — "why does it show 4 SIDs?", and the day's list
+
+The ROM images were never tracked, so a host that did not rebuild them
+kept September's ROM while the emulator reported the newest commit; the
+Pi card got it twice.  Tracked now, deterministic, guarded.  Then Doc's
+list in his order: the palette snapshot around a program run and the
+sixteen back at RESET; mouse capture on click, freed by the menu; three
+SKYFIRE levels (the original became Hard); K4510x as a distrobox with
+its own home, which is the place to add programs; sudo on the stick.

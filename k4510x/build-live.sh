@@ -14,6 +14,7 @@
 #   - target is a ThinkPad T480 (i5 or i7), 32 GB
 #   - NO access to the internal SSD/NVMe.  Absolute -- one boot entry, no
 #     escape hatch in the menu
+#   - the k4510 user has passwordless sudo (2026-09-07)
 #   - `!cmd` at the machine's prompt runs cmd in this Linux (the emulator is
 #     started --host-shell by profile.d/k4510x.sh; a bare `!` is a shell)
 #   - telnetd bound to loopback ONLY; from inside the machine that is
@@ -229,6 +230,13 @@ chmod 755 "$ROOT/usr/local/sbin/k4510x-poweroff" "$ROOT/usr/local/sbin/k4510x-ha
 mkdir -p "$ROOT/etc/sudoers.d"
 echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510x-halt" > "$ROOT/etc/sudoers.d/k4510x-halt"
 chmod 440 "$ROOT/etc/sudoers.d/k4510x-halt"
+# Passwordless sudo for the user, Doc's call 2026-09-07: the stick is a RAM-only
+# system with the internal drives locked out, and `!` already gives the shell.
+# Note what it does NOT buy: persistence keeps /home only, so `!sudo apt install`
+# here lasts until the next boot.  The distrobox flavour (distrobox.sh) is the
+# one where installs stick.
+echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" > "$ROOT/etc/sudoers.d/k4510x-user"
+chmod 440 "$ROOT/etc/sudoers.d/k4510x-user"
 
 # Doc asked whether the save partition could be "mounted and automatically
 # unmounted after write".  It cannot: an overlay's upper directory has to stay

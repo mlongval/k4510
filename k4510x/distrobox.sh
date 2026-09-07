@@ -69,6 +69,9 @@ inbox sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-inst
 echo "== the machine =="
 if [ -d "$HOME_DIR/k4510/.git" ]; then git -C "$HOME_DIR/k4510" fetch -q origin && git -C "$HOME_DIR/k4510" merge -q --ff-only origin/master
 else git clone -q "$REPO" "$HOME_DIR/k4510"; fi
+# your settings come along: the box's k4510.cfg starts as a copy of this checkout's
+# (status bands, mode, font, clock...) the first time; after that the box keeps its own
+if [ -f "$REPO/k4510.cfg" ] && [ ! -f "$HOME_DIR/k4510/k4510.cfg" ]; then cp "$REPO/k4510.cfg" "$HOME_DIR/k4510/k4510.cfg"; echo "settings copied from $REPO/k4510.cfg"; fi
 inbox sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
 inbox sh -c 'sudo -n true && echo "passwordless sudo inside the box: yes"'
 # a launcher on the host desktop

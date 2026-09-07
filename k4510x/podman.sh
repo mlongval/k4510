@@ -70,7 +70,7 @@ podman build -q -t "$IMAGE" --build-arg UID="$UIDN" --build-arg PKGS="$PKGS" -f 
 mkdir -p "$SHARE"
 podman rm -f "$NAME" >/dev/null 2>&1 || true
 RUNDIR=${XDG_RUNTIME_DIR:-/run/user/$UIDN}
-set -- --name "$NAME" --userns=keep-id --user "$UIDN" --group-add keep-groups \
+set -- --name "$NAME" --userns=keep-id:uid="$UIDN",gid="$(id -g)" --user "$UIDN:$(id -g)" --group-add keep-groups \
        --security-opt label=disable --hostname k4510x \
        -e HOME=/home/k4510 -e SHELL=/bin/bash -e XDG_RUNTIME_DIR=/run/user/"$UIDN" \
        -v "$SHARE:/home/k4510/k4510/fs/SHARE"

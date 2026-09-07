@@ -8,7 +8,7 @@ ARG UID=1000
 ARG PKGS
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
-        sudo ca-certificates libgl1-mesa-dri libegl1 libpipewire-0.3-0 libpulse0 \
+        sudo ca-certificates tzdata libgl1-mesa-dri libegl1 libpipewire-0.3-0 libpulse0 \
         $PKGS \
     && rm -rf /var/lib/apt/lists/*
 RUN groupadd -f input && groupadd -f render \
@@ -23,5 +23,5 @@ RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
     && mkdir -p ~/k4510/fs/SHARE
 # the settings a K4510x starts with (podman.sh copies your own over these if you have some)
 RUN printf 'version = 2\ncpu.auto = on\nterm.bands = on\n' > ~/k4510/k4510.cfg
-ENV SHELL=/bin/bash TERM=ansi
+ENV SHELL=/bin/bash TERM=ansi TZ=America/Toronto
 ENTRYPOINT ["/bin/sh", "-c", "cd ~/k4510 && exec ./sdl/k4510 --host-shell"]

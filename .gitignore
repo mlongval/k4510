@@ -14,7 +14,12 @@ test/vickytest
 test/capture
 test/fstest
 test/romtest
-rom/kernal.bin
+# rom/kernal.bin, wozmon.bin and demo.bin ARE tracked since 2026-09-07: a host without
+# cc65 (p15, the Pi card) kept a ROM from before the SID cut for a week -- "why does
+# it show 4 SIDs?"  The images are small and deterministic; check-artifacts guards them.
+!rom/kernal.bin
+!rom/wozmon.bin
+!rom/demo.bin
 rom/kernal.s
 rom/*.o
 rom/kernal.map

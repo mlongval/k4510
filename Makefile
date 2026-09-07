@@ -133,10 +133,10 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 .PHONY: check-artifacts
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
-check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg
-	@git diff --quiet -- fs/PRG fs/EHBASIC fs/MSBASIC || { \
+check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg rom/kernal.bin
+	@git diff --quiet -- fs/PRG fs/EHBASIC fs/MSBASIC rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
-	  git diff --name-only -- fs/PRG fs/EHBASIC fs/MSBASIC | sed 's/^/  /'; \
+	  git diff --name-only -- fs/PRG fs/EHBASIC fs/MSBASIC rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
 	  echo "Rebuild them and commit, or the next machine to build will look dirty."; \
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"

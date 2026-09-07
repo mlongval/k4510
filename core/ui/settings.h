@@ -30,6 +30,7 @@ typedef enum {
     SET_AUDIO_CORE3,         /* BOOL Pi only: render the sound on core 3 while the Tube is idle */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
+    SET_INPUT_MOUSE_GRAB,    /* BOOL a click on the picture confines the pointer to the window; F7 frees it */
     SET_SHELL_CPMCOM,        /* BOOL an unknown word may run a CP/M .COM */
     SET_SHELL_STARTUP,       /* BOOL run /STARTUP.BAT at power-on */
     SET_CPU_CLOCK,           /* ENUM the emulated CPU's clock: full 40.5 MHz, or less where the host cannot keep up */

@@ -50,6 +50,7 @@ static const set_desc desc[SET_COUNT] = {
     { "audio.core3",         "Sound on core 3",ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
+    { "input.mouse_grab",    "Mouse capture",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* a click captures the pointer; the menu releases it */
     { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */
     { "shell.startup",       "Run STARTUP.BAT", ST_BOOL, 1, 0, 1, 1, 0, 0, SF_RESTART },  /* read at power-on: the way out of a bad one */
     /* The machine is a fantasy and its timings are suggestions.  A Pi 3B+

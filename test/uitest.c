@@ -123,7 +123,8 @@ int main(void)
         { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },
         { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" },
         { SET_TERM_BAND_TOP, "term.band.top" }, { SET_TERM_BAND_BOT, "term.band.bottom" },
-        { SET_TERM_CLOCK24, "term.clock24" }, { SET_TERM_DATEFMT, "term.datefmt" } };
+        { SET_TERM_CLOCK24, "term.clock24" }, { SET_TERM_DATEFMT, "term.datefmt" },
+        { SET_INPUT_MENU_KEY, "input.menu_key" }, { SET_INPUT_MOUSE_GRAB, "input.mouse_grab" } };
       for (unsigned i = 0; i < sizeof pairs / sizeof pairs[0]; i++)
           CHECK(!strcmp(settings_key(pairs[i].id), pairs[i].key),
                 "id %d is \"%s\", expected \"%s\"", (int)pairs[i].id, settings_key(pairs[i].id), pairs[i].key);

@@ -213,6 +213,22 @@ static int geo_k = 1, geo_b = 0;
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
 static int to_machine(int v, int full) { int m = (v / geo_k - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
+/* Mouse capture: a click on the picture confines the host pointer to the
+ * window (the coordinates stay absolute, so CHESS still clicks squares);
+ * opening the menu, or the window losing focus, lets it go, and closing the
+ * menu takes it back.  Not in the browser: SDL's pointer lock there is
+ * relative-only and would stop the position registers. */
+static SDL_Window *grab_win; static int grabbed, grab_wanted;
+static void grab(int on)
+{
+#ifndef __EMSCRIPTEN__
+    if (!grab_win || on == grabbed) return;
+    SDL_SetWindowMouseGrab(grab_win, on ? SDL_TRUE : SDL_FALSE);
+    grabbed = on;
+#else
+    (void) on;
+#endif
+}
 static SDL_GameController *pad;
 static void pad_open(int idx)
 {
@@ -333,6 +349,9 @@ int k4510_frontend_main(int argc, char **argv)
 #endif
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
+#ifndef K4510_PI
+    grab_win = win;
+#endif
 /* No vsync by default, anywhere.  It was off on the Pi already, because the
  * shim blocked the present until the flip and a frame that overran by a
  * millisecond waited for the next one, stepping the machine down to 30 or 20
@@ -504,12 +523,16 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
 #ifndef K4510_PI
+            case SDL_WINDOWEVENT:
+                if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) grab(0);   /* alt-tab always frees the pointer */
+                break;
             case SDL_MOUSEMOTION:
                 mouse_x = to_machine(e.motion.x, VICKY_WIDTH); mouse_y = to_machine(e.motion.y, VICKY_HEIGHT);
                 dx_acc += e.motion.xrel / geo_k; dy_acc += e.motion.yrel / geo_k;
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
                 int bit = e.button.button == SDL_BUTTON_LEFT ? 1 : e.button.button == SDL_BUTTON_RIGHT ? 2 : e.button.button == SDL_BUTTON_MIDDLE ? 4 : 0;
+                if (e.type == SDL_MOUSEBUTTONDOWN && !menu_is_open() && settings_get(SET_INPUT_MOUSE_GRAB)) { grab_wanted = 1; grab(1); }
                 if (e.type == SDL_MOUSEBUTTONDOWN) mouse_btn |= bit; else mouse_btn &= ~bit;
                 mouse_to_menu(); break; }
             case SDL_MOUSEWHEEL:
@@ -576,6 +599,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         host_poll_input();                                   /* the Pi: C64 keyboard on GPIO */
 #ifndef K4510_PI
+        { static int menu_was; int m = menu_is_open();               /* the menu is the machine's outside: it frees the pointer */
+          if (m && !menu_was) grab(0);
+          else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
+          if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
+          menu_was = m; }
         {   /* $D104: which of the game keys are down right now (core/io.h) */
             const Uint8 *ks = SDL_GetKeyboardState(NULL); uint8_t held = 0;
             if (ks[SDL_SCANCODE_UP])    held |= HELD_UP;

@@ -747,6 +747,8 @@ static void video_init(void);
  * It must live in always-visible RAM: once block 7 engages, the ROM
  * half that built it is gone until the next system call. */
 #define TRAMP 0x02D8u
+static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p);
+static void pal_snap(const char *p); static void pal_restore(const char *p); static void pal_reset16(const char *p);
 static void run_at(uint16_t a)
 {
     static const uint8_t tpl[] = {
@@ -781,6 +783,7 @@ static void run_at(uint16_t a)
     t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
     draw_cursor(0);
     REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 11) = fg; REG(TERM + 12) = bg;   /* JIM starts where the console is */
+    sw_call(2, pal_snap, 0);                     /* the shell's palette, to come back to */
     { uint8_t cl = capslock; capslock = 0;       /* a program wants the keys as they were typed:
                                                  * with caps lock on, VI's :q arrives as :Q and
                                                  * there is no way out of the editor.  The shell
@@ -793,6 +796,7 @@ static void run_at(uint16_t a)
         video_init();
         cls();
     }
+    sw_call(2, pal_restore, 0);                  /* whatever the program did to the colours, undone */
 }
 
 /* EXEC name: run a file of shell lines (and /STARTUP.BAT at power-on). The file
@@ -1309,6 +1313,30 @@ static uint8_t pal_get(uint8_t i, uint8_t c)     /* c: 0 R, 1 G, 2 B */
 {
     REG(VICKY + 6) = i; return REG(VICKY + 7 + c);
 }
+/* The shell's palette, kept across a program: run_at snapshots all 256 entries
+ * to far RAM before a program runs and puts them back after -- so a game's
+ * colours end with the game, and a PALETTE LOAD made on purpose survives it.
+ * Only entries that differ are written back. */
+#define PALSNAP 0x0FDFF000UL
+static void pal_snap(const char *p)
+{
+    uint16_t i; uint32_t a = PALSNAP; (void) p;
+    for (i = 0; i < 256; i++) { REG(VICKY + 6) = (uint8_t)i; far_poke(a++, REG(VICKY + 7)); far_poke(a++, REG(VICKY + 8)); far_poke(a++, REG(VICKY + 9)); }
+}
+static void pal_restore(const char *p)
+{
+    uint16_t i; uint32_t a = PALSNAP; (void) p;
+    for (i = 0; i < 256; i++, a += 3) {
+        uint8_t r = far_peek(a), g = far_peek(a + 1), b = far_peek(a + 2);
+        REG(VICKY + 6) = (uint8_t)i;
+        if (REG(VICKY + 7) != r || REG(VICKY + 8) != g || REG(VICKY + 9) != b) pal_put((uint8_t)i, r, g, b);
+    }
+}
+static void pal_reset16(const char *p)           /* the VIC-II sixteen: PALETTE RESET, and every reset */
+{
+    uint8_t i; (void) p;
+    for (i = 0; i < 16; i++) pal_put(i, pal_vic2[i][0], pal_vic2[i][1], pal_vic2[i][2]);
+}
 static char pal_dig(uint8_t v) { v &= 15; return (char)(v < 10 ? '0' + v : 'A' + v - 10); }
 static void pal_hex2(uint8_t v) { k_chrout(pal_dig((uint8_t)(v >> 4))); k_chrout(pal_dig(v)); }
 
@@ -1408,10 +1436,7 @@ static void cmd_palette(const char *p)
         }
         return;
     }
-    if (pal_word(&p, "RESET")) {
-        for (i = 0; i < 16; i++) pal_put(i, pal_vic2[i][0], pal_vic2[i][1], pal_vic2[i][2]);
-        return;
-    }
+    if (pal_word(&p, "RESET")) { pal_reset16(0); return; }
     if (pal_word(&p, "LOAD"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: load name?"); return; } pal_load(nm); return; }
     if (pal_word(&p, "SAVE"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: save name?"); return; } pal_save(nm); return; }
     idx = parsehex(&p, &d); if (!d) { error("palette: [n rr gg bb | LOAD f | SAVE f | RESET]"); return; }
@@ -1891,6 +1916,7 @@ int main(void)
     vmode = (uint8_t)(REG(SYS + 0x21) >> 5);
     if (vmode) vmode--; else vmode = 1;
     video_init();
+    sw_call(2, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
     fg = C_FG;
     banner();
     /* /STARTUP.BAT.  No grace window and no "hold a key to skip" any more:

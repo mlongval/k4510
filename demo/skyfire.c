@@ -211,7 +211,7 @@ static uint8_t wait_key(uint8_t frames)                    /* space/fire to go o
 static uint8_t title(void)
 {
     uint8_t r;
-    REG(V_LAYER(0)) = 0;                                  /* plain sky behind the words */
+    REG(V_LAYER(0)) = 0; REG(V_SPRCTL) = 0;               /* plain sky behind the words, no planes */
     clear_text(0, 29);
     centre(6, "S K Y F I R E");
     centre(9, "a Galaxian, over Pixel Shmup islands");
@@ -224,7 +224,7 @@ static uint8_t title(void)
     while (key_get()) ;
     r = wait_key(0);
     clear_text(0, 29);
-    REG(V_LAYER(0)) = 1 | (1 << 1) | (3 << 3) | (1 << 5);
+    REG(V_LAYER(0)) = 1 | (1 << 1) | (3 << 3) | (1 << 5); REG(V_SPRCTL) = 1;
     return r;
 }
 
@@ -297,7 +297,7 @@ void main(void)
         hush();
         for (i = 0; i < NEN; i++) en[i].alive = 0;
         for (i = 0; i < NBOMB; i++) bomb[i].on = 0;
-        shot.on = 0; dead_timer = 1; write_table(cur ? SPRTAB_A : SPRTAB_B);
+        shot.on = 0; dead_timer = 1; write_table(SPRTAB_A); write_table(SPRTAB_B);   /* both tables: VICKY shows one of them */
         centre(13, "G A M E   O V E R");
         centre(15, "space plays again, Esc leaves");
         if (wait_key(0) == 2) break;

@@ -1,0 +1,26 @@
+# K4510x as a podman container (k4510x/podman.sh builds and runs this).
+# The same Debian as the stick, minus the kernel, firmware and network
+# stack; the machine built inside; the k4510 user with passwordless sudo,
+# as on the stick.  What the container can see of the host is decided by
+# podman.sh's mounts, not here: this file knows nothing about the host.
+FROM docker.io/library/debian:trixie
+ARG UID=1000
+ARG PKGS
+ENV DEBIAN_FRONTEND=noninteractive
+RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
+        sudo ca-certificates libgl1-mesa-dri libegl1 libpipewire-0.3-0 libpulse0 \
+        $PKGS \
+    && rm -rf /var/lib/apt/lists/*
+RUN useradd -m -u $UID -s /bin/bash -G audio,video,input,render k4510 \
+    && echo 'k4510 ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/k4510x-user && chmod 440 /etc/sudoers.d/k4510x-user
+USER k4510
+WORKDIR /home/k4510
+COPY --chown=k4510:k4510 . /home/k4510/k4510
+RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
+    && make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm \
+    && (make -C tube || echo "the Tube did not build; everything else did") \
+    && mkdir -p ~/k4510/fs/SHARE
+# the settings a K4510x starts with (podman.sh copies your own over these if you have some)
+RUN printf 'version = 2\ncpu.auto = on\nterm.bands = on\n' > ~/k4510/k4510.cfg
+ENV SHELL=/bin/bash TERM=ansi
+ENTRYPOINT ["/bin/sh", "-c", "cd ~/k4510 && exec ./sdl/k4510 --host-shell"]

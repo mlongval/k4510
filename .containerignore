@@ -1,0 +1,6 @@
+.git
+wasm/dist
+k4510x/.live-work
+k4510x/*.img
+**/*.o
+**/*.d

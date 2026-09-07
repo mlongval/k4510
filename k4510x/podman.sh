@@ -23,7 +23,9 @@
 #   k4510x/podman.sh              build the image and create the container
 #   k4510x/podman.sh run          start the machine
 #   k4510x/podman.sh shell        a shell in the container
-#   k4510x/podman.sh update       put this checkout's HEAD into the container and rebuild
+#   k4510x/podman.sh update       put this checkout's HEAD into the container and rebuild there
+#                                 (the kept container only: apt installs survive; the IMAGE
+#                                 is untouched -- run  podman.sh  again to rebuild it too)
 #   k4510x/podman.sh rm           delete the container (the image and the share folder stay)
 #   k4510x/podman.sh rm --all     the image too
 #

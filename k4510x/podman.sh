@@ -54,7 +54,7 @@ machine_env() {
     [ -n "$X11" ] && set -- "$@" -e DISPLAY="$X11"
     [ -n "$XAUTH" ] && set -- "$@" -e XAUTHORITY=/home/k4510/.Xauthority
     [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -e PULSE_SERVER="unix:/run/user/$UIDN/pulse/native"
-    echo "$@"
+    printf "%s " "$@"   # not echo: echo eats the leading -e
 }
 make_container() {
     # the container: idle (sleep) so the machine can be exec'd into it with today's

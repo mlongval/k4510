@@ -1,0 +1,24 @@
+/* CHESS.RX -- drive the chess program from a script.
+ * Each command swaps the program in, so the position lives in a file:
+ * /CHESS/PORT.GAM.  NEW starts it over.  Output goes to /RX/GAME.TXT
+ * because the screen is cleared when a script that used a port ends. */
+out = '/RX/GAME.TXT'
+address chess
+'NEW'
+'MOVE e2e4'
+say 'white:' result
+do i = 1 to 4
+  'GO'                                     /* the engine answers for black */
+  call lineout out, 'black:' result
+  'STATUS'
+  call lineout out, result
+  if pos('mate', result) > 0 then leave
+  'GO'                                     /* and for white */
+  call lineout out, 'white:' result
+end
+'BOARD'
+call lineout out, result
+'FEN'
+call lineout out, 'fen:' result
+call lineout out
+say 'the game is in' out

@@ -1,0 +1,21 @@
+/* SUMFILE.RX name -- add up the numbers in the first column of a text file */
+parse arg file
+if file = '' then do
+  say 'SUMFILE name -- adds the first number on each line'
+  exit 1
+end
+if exists(file) = 0 then do
+  say file 'is not there'
+  exit 1
+end
+total = 0
+n = 0
+do while lines(file)
+  parse value linein(file) with first .
+  if datatype(first, 'N') then do
+    total = total + first
+    n = n + 1
+  end
+end
+say n 'numbers, total' total
+if n > 0 then say 'average' total % n

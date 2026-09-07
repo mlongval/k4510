@@ -37,6 +37,7 @@ test/woztest
 dumps/
 !demo/tiny-header.s
 !demo/prg0.s
+!demo/rxasm.s
 !demo/romcalls.s
 doc/guide/shots/
 doc/guide/*.aux

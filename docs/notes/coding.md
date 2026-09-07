@@ -1600,3 +1600,27 @@ chasing a "bug" where the claim was ignored — first in the harness, then again
 in the emulator. Both times the code was right and the binary was old. When a
 change spans the host and the guest, `make` everything before believing
 anything.
+
+**2026-09-07, RX: a REXX interpreter, and a way for a script to drive a
+program.**
+
+`RX name [args]` runs `name`, `name.RX` or `/RX/name.RX`; an unknown word at
+the prompt with a matching `.RX` beside it does the same. `fs/RX/README.TXT`
+is the reference — the statements, the fifty-odd functions, the three kinds of
+environment (`COMMAND` for K/OS, `TUBE` for the co-processor's shell, a
+program's name for the port) and the two rough edges. `HELLO.RX`, `SUMFILE.RX`
+and `CHESS.RX` are worked examples.
+
+The port contract, for anyone adding it to another program: the program is
+started as `NAME @file`, reads command lines from that file, and writes the
+answer to the same name with `.RPL` for `.CMD` — the result code alone on the
+first line, the text after it. It keeps nothing in memory between calls, so
+state goes in a file of its own. `demo/chess.c` (`port_run` and the functions
+above it, about 200 lines) is the model; its state file is `/CHESS/PORT.GAM`.
+
+**For the handbook agent:** this is a new chapter's worth of material, and it
+is a *language*, so it belongs beside EhBASIC and Mad Pascal rather than in the
+programs chapter. Two things are worth stating plainly to a reader: values are
+strings and arithmetic is whole numbers only, and a script sees a program's
+answer through a file, never on the screen. The two open faults above should be
+in the issues appendix, not hidden in prose.

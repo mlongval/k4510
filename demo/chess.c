@@ -73,8 +73,15 @@ static uint8_t bd[128];
 static uint8_t stm, castle, half;
 static int8_t ep;
 static uint8_t ksq[2];
-static hist_t hist[MAXHIST]; static uint16_t nhist;
+/* The game's history is the biggest thing this program keeps, and since the
+ * port went in there is no room for it under the I/O page: it lives in the
+ * RAM above it, which a program owns as well.  prg0's zerobss does not reach
+ * this segment -- nhist (in BSS, zeroed) is what says how much of it is real. */
+#pragma bss-name (push, "BSS2")
+static hist_t hist[MAXHIST];
 static char san[MAXHIST][8];
+#pragma bss-name (pop)
+static uint16_t nhist;
 static move_t ml[MAXPLY][MAXMV]; static uint8_t mn[MAXPLY];
 static const int8_t KN_D[8] = { 33, 31, 18, 14, -33, -31, -18, -14 };
 static const int8_t KG_D[8] = { 1, -1, 16, -16, 17, 15, -17, -15 };
@@ -1004,9 +1011,198 @@ static void first_engine(void)                        /* after the board is up: 
     if (eng_start()) eng_level(); else { eng_kind = 0; message("no engine answered: the built-in one plays"); { uint8_t f = 90; while (f--) wait_vblank(); } }
     draw_status(); draw_engine_line();
 }
+
+/* ---- the port: chess driven from a script -------------------------------
+ * `CHESS @file` reads command lines from that file, does them, and writes the
+ * answer beside it (.CMD -> .RPL): the result code on the first line, the text
+ * after it.  No screen, no keyboard -- this is the mode RX's ADDRESS CHESS
+ * uses through SWAP, and the position is kept in /CHESS/PORT.GAM so the next
+ * call carries on where this one stopped (a swapped-in program starts fresh:
+ * the file IS the memory).  Commands, one per line, case does not matter:
+ *   NEW [WHITE|BLACK]   MOVE e2e4   GO   LEVEL 0-5   BOARD   FEN   STATUS
+ * Anything else answers "?" and sets the result code to 1. */
+#define PORTCMD  ((char *)0x0800)               /* the command file, whole */
+#define PORTRPL  ((char *)0x1400)               /* the reply, built here */
+#define PORTMAX  0x0B00u
+static unsigned char rom_load(void) { return ((unsigned char (*)(void))0xFF89)(); }
+static char port_name[40];
+static char *po;                                 /* where the reply is being built */
+static void po_str(const char *p) { while (*p && (uint16_t)(po - PORTRPL) < PORTMAX - 2) *po++ = *p++; }
+static void po_nl(void) { *po++ = '\n'; }
+static void po_sq(uint8_t sq) { *po++ = (char)('a' + FILE_OF(sq)); *po++ = (char)('1' + RANK_OF(sq)); }
+static uint8_t port_state(uint8_t save)          /* the position, to and from /CHESS/PORT.GAM */
+{
+    static char nm[] = "/CHESS/PORT.GAM";
+    uint8_t *b = (uint8_t *)PORTRPL + PORTMAX;   /* above the reply: 140 bytes of state */
+    uint8_t i;
+    if (save) {
+        for (i = 0; i < 128; i++) b[i] = bd[i];
+        b[128] = stm; b[129] = castle; b[130] = half; b[131] = (uint8_t)ep;
+        b[132] = ksq[0]; b[133] = ksq[1]; b[134] = game_over; b[135] = level; b[136] = 0x4B;
+        zp16(0xF0, (uint16_t)nm); zp32(0xF2, (uint32_t)(uint16_t)b); zp32(0xF6, 137);
+        return rom_save() == 0;
+    }
+    zp16(0xF0, (uint16_t)nm); zp32(0xF2, (uint32_t)(uint16_t)b);
+    if (rom_load() || b[136] != 0x4B) return 0;
+    for (i = 0; i < 128; i++) bd[i] = b[i];
+    stm = b[128]; castle = b[129]; half = b[130]; ep = (int8_t)b[131];
+    ksq[0] = b[132]; ksq[1] = b[133]; game_over = b[134]; level = b[135];
+    nhist = 0;
+    return 1;
+}
+static const char PGLYPH[] = ".PNBRQK";
+static char port_glyph(uint8_t p)                /* FEN's letter for a piece: black is lower case */
+{
+    char g;
+    if (p == EMPTY) return '.';
+    g = PGLYPH[KIND(p)];
+    if (COLOUR(p) == BLACK) g = (char)(g + 32);
+    return g;
+}
+static void port_board(void)
+{
+    int8_t r; uint8_t f;
+    for (r = 7; r >= 0; r--) {
+        for (f = 0; f < 8; f++) *po++ = port_glyph(bd[SQ(f, (uint8_t)r)]);
+        po_nl();
+    }
+}
+static void port_fen(void)
+{
+    int8_t r; uint8_t f, p, gap;
+    for (r = 7; r >= 0; r--) {
+        gap = 0;
+        for (f = 0; f < 8; f++) {
+            p = bd[SQ(f, (uint8_t)r)];
+            if (p == EMPTY) { gap++; continue; }
+            if (gap) { *po++ = (char)('0' + gap); gap = 0; }
+            *po++ = port_glyph(p);
+        }
+        if (gap) *po++ = (char)('0' + gap);
+        if (r) *po++ = '/';
+    }
+    *po++ = ' '; *po++ = stm == WHITE ? 'w' : 'b'; *po++ = ' ';
+    if (!castle) *po++ = '-';
+    else { if (castle & 1) *po++ = 'K'; if (castle & 2) *po++ = 'Q'; if (castle & 4) *po++ = 'k'; if (castle & 8) *po++ = 'q'; }
+    *po++ = ' ';
+    if (ep < 0) *po++ = '-'; else po_sq((uint8_t)ep);
+    po_nl();
+}
+static uint8_t port_move(char *a)                /* e2e4 or e7e8q; 1 played */
+{
+    uint8_t n = count_legal(0), i;
+    for (i = 0; a[i]; i++) if (a[i] >= 'A' && a[i] <= 'Z') a[i] = (char)(a[i] + 32);   /* the word arrived upper-cased */
+    if (a[0] < 'a' || a[0] > 'h' || a[1] < '1' || a[1] > '8') return 0;
+    for (i = 0; i < n; i++) {
+        const move_t *m = &ml[0][i];
+        if (FILE_OF(m->from) != a[0] - 'a' || RANK_OF(m->from) != a[1] - '1') continue;
+        if (FILE_OF(m->to) != a[2] - 'a' || RANK_OF(m->to) != a[3] - '1') continue;
+        if (m->promo && a[4] && "  nbrq"[m->promo] != (a[4] | 32)) continue;
+        if (m->promo && !a[4] && m->promo != QUEEN) continue;
+        { move_t mv; mv = *m; play(&mv); judge(); }   /* cc65: a struct is assigned, not initialised */
+        return 1;
+    }
+    return 0;
+}
+static uint8_t port_go(void)                     /* the engine moves; 1 played */
+{
+    move_t m; uint8_t r = 0;
+    if (game_over) return 0;
+    if (REG(TUBE) & 8) {                          /* Stockfish on the Tube, when this machine has one */
+        eng_kind = 1;
+        if (eng_start()) { eng_level(); r = eng_move(&m); if (r == 2) r = 0; }
+        eng_stop(); eng_kind = 0;
+    }
+    if (!r) { deadline = 0; r = think(&m); }
+    if (r != 1) return 0;
+    play(&m); judge();
+    po_str("move "); po_sq(m.from); po_sq(m.to);
+    if (m.promo) *po++ = "  nbrq"[m.promo];
+    *po++ = ' '; po_str(san[nhist - 1]); po_nl();
+    return 1;
+}
+static uint8_t port_word(const char **p, char *w, uint8_t n)   /* a word, upper-cased */
+{
+    uint8_t i = 0; char c;
+    /* Written the long way on purpose: the compact form, with the character
+     * declared inside the loop body, compiled to something that stored the
+     * buffer size instead of the character (cc65 2.19, 2026-09-07). */
+    while (**p == ' ' || **p == '\t') (*p)++;
+    for (;;) {
+        c = **p;
+        if (!c || c == ' ' || c == '\t' || c == '\r' || c == '\n' || i >= (uint8_t)(n - 1)) break;
+        (*p)++;
+        if (c >= 'a' && c <= 'z') c = (char)(c - 32);
+        w[i++] = c;
+    }
+    w[i] = 0;
+    return i;
+}
+static uint8_t port_line(const char *p)          /* one command; the result code */
+{
+    char w[12]; char a[8]; uint8_t rc = 0;
+    if (!port_word(&p, w, 12)) return 0;
+    if (!strcmp(w, "NEW") || !strcmp(w, "RESET")) {
+        port_word(&p, w, 12);
+        set_start(); game_over = 0; nhist = 0;
+        human_side = (w[0] == 'B') ? BLACK : WHITE; two_player = 0;
+        po_str("new game\n");
+    } else if (!strcmp(w, "MOVE")) {
+        port_word(&p, a, 8);
+        if (port_move(a)) { po_str("ok "); po_str(san[nhist - 1]); po_nl(); }
+        else { po_str("illegal move\n"); rc = 1; }
+    } else if (!strcmp(w, "GO")) {
+        if (!port_go()) { po_str("no move\n"); rc = 1; }
+    } else if (!strcmp(w, "LEVEL")) {
+        port_word(&p, a, 8);
+        if (a[0] >= '0' && a[0] <= '5') { level = (uint8_t)(a[0] - '0'); po_str(LEVELS[level].name); po_nl(); }
+        else { po_str("level 0 to 5\n"); rc = 1; }
+    } else if (!strcmp(w, "BOARD")) port_board();
+    else if (!strcmp(w, "FEN")) port_fen();
+    else if (!strcmp(w, "STATUS")) {
+        if (game_over) po_str(result_text);
+        else po_str(stm == WHITE ? "white to move" : "black to move");
+        po_nl();
+    } else { po_str("? "); po_str(w); po_nl(); rc = 1; }
+    return rc;
+}
+static void port_run(const char *file)
+{
+    const char *p; char *e; uint16_t n; uint8_t rc = 0, i;
+    for (i = 0; i < 39 && file[i] && file[i] != ' '; i++) port_name[i] = file[i];
+    port_name[i] = 0;
+    zp16(0xF0, (uint16_t)port_name); zp32(0xF2, (uint32_t)(uint16_t)PORTCMD);
+    if (rom_load()) return;                       /* no command file: nothing to answer */
+    n = (uint16_t)((uint32_t)REG(0xF6) | ((uint32_t)REG(0xF7) << 8));
+    if (n > 0x0B00u) n = 0x0B00u;
+    PORTCMD[n] = 0;
+    if (!port_state(0)) { set_start(); game_over = 0; human_side = WHITE; two_player = 0; }
+    eng_kind = 0; eng_up = 0; two_player = 0;
+    po = PORTRPL + 6;
+    for (p = PORTCMD; *p; ) {
+        char lbuf[80]; uint8_t k = 0;
+        while (*p && *p != '\n' && k < 79) { if (*p != '\r') lbuf[k++] = *p; p++; }
+        lbuf[k] = 0;
+        while (*p == '\n' || *p == '\r') p++;
+        if (port_line(lbuf)) rc = 1;
+    }
+    port_state(1);
+    while ((uint16_t)(po - PORTRPL) && po[-1] == '\n') po--;      /* one value: no trailing newline */
+    po_nl();
+    { char *q = PORTRPL; for (i = 0; i < 5; i++) q[i] = ' '; q[0] = (char)('0' + rc); q[5] = '\n'; }
+    e = port_name; while (*e) e++;
+    if (e - port_name > 4 && e[-4] == '.') { e[-3] = 'R'; e[-2] = 'P'; e[-1] = 'L'; }
+    else { *e++ = '.'; *e++ = 'R'; *e++ = 'P'; *e++ = 'L'; *e = 0; }
+    zp16(0xF0, (uint16_t)port_name); zp32(0xF2, (uint32_t)(uint16_t)PORTRPL); zp32(0xF6, (uint32_t)(uint16_t)(po - PORTRPL));
+    rom_save();
+}
+static unsigned char rom_args(void) { return ((unsigned char (*)(void))0xFF95)(); }
 void main(void)
 {
     uint8_t e;
+    { uint8_t na = rom_args(); const char *a = *(const char **)0xF0;
+      while (na && *a == ' ') { a++; na--; }
+      if (na && *a == '@') { port_run(a + 1); return; } }      /* CHESS @file: the port, no screen */
     setup();
     two_player = 0; human_side = WHITE; flipped = 0;
     new_game();

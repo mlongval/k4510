@@ -27,7 +27,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg fs/PRG/skyfire.prg fs/PRG/fluffy.prg fs/PRG/chess.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg fs/PRG/skyfire.prg fs/PRG/fluffy.prg fs/PRG/chess.prg fs/PRG/rx.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -154,6 +154,7 @@ test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/wozt
 	./test/uitest
 	./test/statetest
 	./test/pastest.sh
+	./test/rxtest.sh
 	./test/basictest.sh
 	./test/msbasictest.sh
 	./test/jimtest.sh
@@ -192,7 +193,7 @@ fs/PRG/%.prg: demo/pas/%.pas $(wildcard pascal/mp/base/k4510/*) $(wildcard pasca
 	$(MADS) demo/pas/$*.a65 -x -i:$(MP_DIR)/base -o:$@ >/dev/null
 
 # Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg fs/PRG/skyfire.prg fs/PRG/fluffy.prg fs/PRG/chess.prg
+DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg fs/PRG/skyfire.prg fs/PRG/fluffy.prg fs/PRG/chess.prg fs/PRG/rx.prg
 # bomber: the Bomb Party sheet (CC-BY 3.0, data/bombparty/) as arena tiles and
 # sprites; tools/mkbomber.py crops, composites and palettizes into bomber.h
 demo/bomber.h: tools/mkbomber.py data/bombparty/bomb_party_v4.png
@@ -239,6 +240,12 @@ fs/PRG/chess.prg: demo/chess.c demo/chess.h demo/chess.bin demo/chess-header.s d
 	ca65 --cpu 65c02 -o demo/chess_c.o demo/chess_c.s
 	ca65 --cpu 65c02 -o demo/chess_h.o demo/chess-header.s
 	ld65 -C demo/chess.cfg -o $@ demo/prg0.o demo/romcalls.o demo/chess_c.o demo/chess_h.o none.lib -m demo/chess.map
+# rx: the REXX interpreter (demo/rexx.c), a plain .prg at $2000 with its own cfg
+fs/PRG/rx.prg: demo/rexx.c demo/rxasm.s demo/k4510.h demo/prg0.o demo/romcalls.o demo/rexx.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/rexx.s.tmp demo/rexx.c && mv demo/rexx.s.tmp demo/rexx_c.s
+	ca65 --cpu 65c02 -o demo/rexx_c.o demo/rexx_c.s
+	ca65 --cpu 65c02 -o demo/rxasm.o demo/rxasm.s
+	ld65 -C demo/rexx.cfg -o $@ demo/prg0.o demo/romcalls.o demo/rexx_c.o demo/rxasm.o none.lib -m demo/rexx.map
 # fluffy: a platformer with the Game Boy tileset and Fluffy (CC0, data/gbplatformer/);
 # tools/mkfluffy.py cuts the tiles and the hero, draws the enemy and lays the level
 demo/fluffy.bin demo/fluffy.h: tools/mkfluffy.py data/gbplatformer/gameboy_tileset.png data/gbplatformer/IdleAndWalk_strip5.png

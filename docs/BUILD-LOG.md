@@ -5992,3 +5992,60 @@ that is handed exactly four things -- display, sound, /dev/dri,
 /dev/input -- and one folder, which the machine sees as /SHARE.  The
 lesson for the record: "container" is not "sandbox"; ask what crosses
 the wall.
+
+## 2026-09-07 — RX, a REXX for the machine
+
+The Amiga's ARexx was two things: the REXX language, and the port system
+that let one script drive Deluxe Paint and a terminal in the same ten
+lines.  The language is here now as `RX` (`demo/rexx.c`, 37 KB, loaded at
+$0800 because it needs nearly the whole program area).  It has strings
+and whole numbers, PARSE with its templates, DO in all its forms, SELECT,
+internal functions with PROCEDURE EXPOSE and recursion, compound
+variables, SIGNAL, and about fifty built-in functions; an unknown clause
+is a command for the current environment, which is what makes it glue.
+`ADDRESS COMMAND` types at K/OS's shell and reads the result back in RC
+(the shell now keeps a result byte at $03FF, set by `error()`); `ADDRESS
+TUBE` runs a command on the co-processor's shell and brings its output
+back in RESULT.  An unknown word at the prompt with a matching `name.RX`
+runs the script, the same rule that already made every `.prg` a command.
+
+The port half could not be copied as it was -- ports were message ports
+between running tasks, and this machine runs one program at a time -- so
+the file is the mailbox, which was Doc's own suggestion.  A script sends
+`/RX/MAIL.CMD`, SWAPs to the program with `@/RX/MAIL.CMD` as its
+argument, and reads `/RX/MAIL.RPL`: the result code on the first line,
+the text after it.  A program joins by honouring one argument.  CHESS
+does, as the worked example: NEW, MOVE, GO, LEVEL, BOARD, FEN, STATUS,
+with the position kept in `/CHESS/PORT.GAM` because a swapped-in program
+starts fresh every time -- the file is its memory.  `ADDRESS CHESS` now
+plays a game from a script, engine and all.
+
+What it cost to find out:
+
+- **Values and buffers had to shrink twice.**  cc65 allows 255 bytes of
+  locals in a function, and the C stack grows down from the top of the
+  program area straight at this program's own arrays.  Deep recursion
+  overran them and corrupted the variable pool, which then reported
+  nonsense ("out of variable space" with 30 variables in it).  There is a
+  guard now: `demo/rxasm.s` hands the interpreter cc65's stack pointer and
+  a call that would go too deep is refused in words.
+- **cc65 miscompiled a compact loop.**  `w[i++] = (c >= 'a' && c <= 'z')
+  ? c - 32 : c;` with the character declared inside the loop body stored
+  the buffer size instead of the character -- every letter came out $0C.
+  Written the long way it is right.  A nested ternary picking a glyph did
+  the same.  When output is uniformly wrong by a constant, suspect the
+  compiler, not the logic.
+- **`r = kw(r, "VALUE")` nulls the pointer when it does not match**, and
+  that one line made ADDRESS silently do nothing at all.  It was in
+  SIGNAL too.
+- **A program run from a script is loaded at $6000, through the middle of
+  the interpreter.**  So RX asks the filesystem whether the first word
+  names a file: a built-in runs directly and its output stays on the
+  screen; a program is swapped in.
+
+Still open, and written down rather than papered over: a script that has
+used SWAP loses the console when it ends, and a program's own output
+never survives a SWAP (SWAP restores the screen by design).  Restoring
+all of low memory after a SWAP is somehow part of the first one -- leaving
+the result byte out of the restore fixed the console and broke the port,
+so both stay as they were until the real cause is found.

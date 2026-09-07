@@ -369,6 +369,8 @@ uint8_t k_chrin(void)
     return k;
 }
 
+#pragma code-name (push, "SWCODE1")   /* the line editor: only ever run at a prompt, never under a program, so bank 1 (ROM2 full, 2026-09-07) */
+#pragma rodata-name (push, "SWRODATA1")
 static uint8_t readline(char *buf, uint8_t max)
 {
     uint8_t n = 0, k;
@@ -384,6 +386,9 @@ static uint8_t readline(char *buf, uint8_t max)
         if (k >= 0x20 && k != 0x7F && n < max - 1) { buf[n++] = k; k_chrout(k); }
     }
 }
+static void readline_sw(const char *buf) { readline((char *)buf, 96); }   /* 96 = sizeof line, declared below */
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 /* ---- filesystem -------------------------------------------------------- */
 static uint8_t fs_cmd(uint8_t cmd) { REG(FS) = cmd; return REG(FS + 1); }
@@ -458,7 +463,11 @@ static void dump(uint32_t from, uint32_t to)
     if (n) newline();
 }
 
-static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline(); fg = o; }
+/* $03FF is the shell's result byte: error() sets it, the SHELL system call
+ * ($FF8F) clears it before the line and returns it after, so a program (RX)
+ * learns whether the command it sent failed.  Page $03 belongs to programs. */
+#define SHELL_RC (*(volatile uint8_t *)0x03FF)
+static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline(); fg = o; SHELL_RC = 1; }
 static void put_cwd(void);
 
 #pragma code-name (push, "SWCODE0")
@@ -518,6 +527,8 @@ static void cmd_cd(const char *p)
     fs_name(name);
     if (fs_cmd(11)) { error("cd: no such directory"); return; }
 }
+#pragma code-name (push, "SWCODE1")   /* cold: bank 1 (ROM2 was full, 2026-09-07) */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_mkdir(const char *p)
 {
     char name[NAMEMAX];
@@ -525,6 +536,8 @@ static void cmd_mkdir(const char *p)
     fs_name(name);
     if (fs_cmd(12)) { error("mkdir: failed"); return; }
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 /* RM moves a file to /.TRASH; RM -f is the one that really removes it.
  *
  * The safe default is the machine's, not Unix's, and deliberately so: this
@@ -569,6 +582,8 @@ static void cmd_rm(const char *p)
     fs_name(name); w32(FS + 8, (uint16_t)dst);
     if (fs_cmd(16)) { error("rm: could not move it to the trash"); return; }
 }
+#pragma code-name (push, "SWCODE1")   /* cold: bank 1 (ROM2 was full, 2026-09-07) */
+#pragma rodata-name (push, "SWRODATA1")
 static void cmd_rmdir(const char *p)
 {
     char name[NAMEMAX]; uint8_t st;
@@ -578,6 +593,8 @@ static void cmd_rmdir(const char *p)
     if (st == 1) { error("rmdir: not found"); return; }
     if (st) { error("rmdir: not a directory, or not empty"); return; }
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 static void put_cwd(void) { char cwd[64]; w32(FS + 8, (uint16_t)cwd); fs_cmd(15); puts_(cwd); }
@@ -1578,6 +1595,25 @@ static uint8_t try_com(const char *nm, const char *args)
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 
+#pragma code-name (push, "SWCODE1")
+#pragma rodata-name (push, "SWRODATA1")
+/* The REXX rule's second half: HELLO WORLD with no HELLO.prg but a HELLO.RX
+ * runs "RX HELLO WORLD" -- the interpreter is a program like any other.
+ * Same contract as alias_expand: the line is rewritten and alias_hit says so. */
+static void try_rx(const char *p0)
+{
+    char nm[NAMEMAX]; const char *q = p0; char *w; uint8_t i;
+    if (!getname(&q, nm) || strlen(nm) > NAMEMAX - 4) return;
+    strcat(nm, ".RX"); fs_name(nm);
+    if (fs_cmd(8)) return;
+    w = ALIAS_SCRAP; *w++ = 'R'; *w++ = 'X'; *w++ = ' ';
+    while (*p0 && w < ALIAS_SEND) *w++ = *p0++;
+    *w = 0;
+    for (i = 0; i < sizeof line - 1 && ALIAS_SCRAP[i]; i++) line[i] = ALIAS_SCRAP[i];
+    line[i] = 0; alias_hit = 1;
+}
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -1588,9 +1624,9 @@ static void shell_line(const char *p)
     if (*p == '!') { p++; skipsp(&p); cmd_bang(p); return; }   /* !ls -l  the host's shell, where there is one */
     if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
-    if (is_cmd(&p, "MKDIR")) { cmd_mkdir(p); return; }
+    if (is_cmd(&p, "MKDIR")) { sw_call(1, cmd_mkdir, p); return; }
     if (is_cmd(&p, "RM") || is_cmd(&p, "ERASE") || is_cmd(&p, "DEL")) { cmd_rm(p); return; }
-    if (is_cmd(&p, "RMDIR")) { cmd_rmdir(p); return; }
+    if (is_cmd(&p, "RMDIR")) { sw_call(1, cmd_rmdir, p); return; }
     if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
     if (is_cmd(&p, "SAVE"))  { sw_call(1, cmd_save, p); return; }
     if (is_cmd(&p, "TYPE"))  { sw_call(1, cmd_type, p); return; }
@@ -1630,6 +1666,7 @@ static void shell_line(const char *p)
     { char nm[NAMEMAX]; const char *q = p0;               /* a CP/M program is a real program too */
       if (getname(&q, nm) && try_com(nm, q)) return; }
     if (alias_depth < 4) sw_call(ALIAS_BANK, alias_expand, p0);   /* last of all, so an alias never shadows a real command */
+    if (alias_depth < 4 && !alias_hit) sw_call(1, try_rx, p0);     /* and a script comes after a program of the same name */
     if (alias_depth < 4 && alias_hit) {
         alias_depth++; shell_line(line); alias_depth--; return;
     }
@@ -1667,7 +1704,7 @@ static void cmd_mon(const char *p)
     for (;;) {
         const char *q;
         puts_("*");
-        readline(line, sizeof line);   /* the shell line buffer: its previous contents were consumed above */
+        sw_call(1, readline_sw, line);   /* the shell line buffer: its previous contents were consumed above */
         q = line; skipsp(&q);
         if (!*q) continue;
         if (is_cmd(&q, "X") || is_cmd(&q, "EXIT") || is_cmd(&q, "Q")) return;
@@ -1855,7 +1892,7 @@ static void cmd_bang(const char *p)
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
 #pragma code-name (pop)
 #pragma rodata-name (pop)
-uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
+uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_line(p); if (cx) newline(); return SHELL_RC; }
 
 /* box-drawing glyphs of the CP437 font */
 #define B_H 0xC4
@@ -1868,10 +1905,6 @@ uint8_t k_shell(const char *p) { shell_line(p); if (cx) newline(); return 0; }
 #define B_RT 0xB4
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
-static void hline(uint8_t l, uint8_t r, uint8_t w) { uint8_t i; k_chrout(l); for (i = 0; i < w; i++) k_chrout(B_H); k_chrout(r); newline(); }
-static void row_open(void) { k_chrout(B_V); k_chrout(' '); }
-static void row_close(uint8_t w) { pad(w + 1); k_chrout(B_V); newline(); }
-static void field(const char *name, const char *text) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; puts_(text); }
 
 /* the logo: an hourglass of colour blocks, left-aligned, five rows; the
  * machine's name, speed and memory on its right. Everything else is INFO. */
@@ -1942,7 +1975,7 @@ int main(void)
     for (;;) {
         if (mode_note) { mode_note = 0; banner(); }   /* back from an F7 mode or status-bar change */
         put_cwd(); puts_("] ");
-        readline(line, sizeof line);
+        sw_call(1, readline_sw, line);
         shell_line(line);
     }
     return 0;

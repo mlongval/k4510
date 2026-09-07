@@ -14,6 +14,33 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-07 (night) — Doc's list of seven
+
+**For the handbook agent:**
+
+- **A ROM bug worth a sentence in the banking chapter**: a sideways call
+  reached through a system call left the sideways bank's base in the
+  block-5 register, and the stub re-engaged the block for the program
+  with it — so a program's own $A000-$BFFF silently became the bank's
+  RAM while devices kept writing to the real address.  RANGER's file
+  preview showed dots for a week because of it.  `sw_call` restores the
+  base now.
+- **No console cursor under a running program** (the stray block at the
+  bottom left of RANGER and KOMMANDER).
+- **Backspace in `!` shells**: the pty's erase character is BS now, so
+  dash, vi and anything without readline erase instead of echoing ^H.
+- **FLUFFY** jumps four tiles and a bit; the platforms were out of reach.
+- **CHESS pieces have eleven tones a side** (five inside from paper to
+  ink, three ink edges and two paper edges blended towards the board's
+  mid grey), computed from each scheme's ink and paper: softer edges in
+  every set and colour scheme.
+- `test/basictest.sh` waits out TEST.BBC's five wall-clock seconds before
+  typing *QUIT: on a fast host the keys landed inside the INKEY and
+  read as "step mode".
+- LODE: Doc reports moving up and down without ladders; not reproduced
+  on the harness (UP held off a ladder does nothing) — awaiting the
+  exact moves.
+
 ## Done 2026-09-07 (late) — CHESS piece sets; the container bug
 
 **For the handbook agent:**

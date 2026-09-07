@@ -14,10 +14,10 @@ Sets, in order: drawn (KoboChess's own, 44 px from its generator),
 vecteezy (Vecteezy.com, Free License, credited), lines (unknown licence,
 present only on Doc's machines -- skipped when the files are missing).
 
-Pixel classes, so a palette bank can colour a side: 1 ink (the dark of the
-drawing at full alpha), 2 paper (the light inside), 3 edge (part-alpha ink:
-the anti-aliasing, drawn in a tone between).  The markers use 1, 2, 3 of
-their own bank."""
+Pixel classes, so a palette bank can colour a side (see classify): 1..5 the
+inside from paper to ink in five steps, 6..8 ink edges at three coverages,
+9..10 paper edges at two; chess.c's set_scheme computes the fifteen tones
+from a scheme's ink and paper.  The markers use 1, 2, 3 of their own bank."""
 import os
 from PIL import Image
 
@@ -28,11 +28,21 @@ S = 64; P = 44; OFF = (S - P) // 2
 SETS = [("drawn", "Drawn"), ("vecteezy", "Icons"), ("lines", "Line icons")]
 
 def classify(px):
+    """Eleven classes for softer edges (Doc, 2026-09-07: "more colors ... better
+    antialiasing").  Inside the piece (opaque): five mixes of ink and paper,
+    1 = paper .. 5 = ink.  At the edge (part alpha): the same ink/paper mix at
+    three coverages, which the palette blends towards the board's mid grey --
+    6-8 ink at 75/50/25 %, 9-10 paper at 75/50 %.  0 is clear."""
     r, g, b, a = px
-    if a < 48: return 0
+    if a < 32: return 0
     lum = (r * 299 + g * 587 + b * 114) // 1000
-    if lum >= 128: return 2 if a >= 160 else 3
-    return 1 if a >= 160 else 3
+    inkness = (255 - lum) / 255.0                 # 0 paper .. 1 ink
+    if a >= 224:
+        return 1 + int(round(inkness * 4))        # 1..5
+    cov = a / 255.0
+    if inkness >= 0.5:
+        return 6 if cov >= 0.62 else 7 if cov >= 0.35 else 8
+    return 9 if cov >= 0.5 else 10
 def pack(pix):
     out = bytearray()
     for i in range(0, len(pix), 2): out.append((pix[i] << 4) | pix[i + 1])

@@ -713,10 +713,27 @@ static const scheme_t SCHEMES[4] = {
 };
 static const char *const SCHEME_NAME[4] = { "Classic", "Wood", "Red and blue", "Green and purple" };
 static uint8_t scheme;
+/* The eleven tones of a side from its ink and paper (tools/mkchess.py's
+ * classes): 1..5 paper to ink inside the piece; 6..8 ink at 75/50/25 %
+ * over the board's mid grey (the light and dark squares averaged, so an
+ * edge softens on both); 9..10 paper at 75/50 % the same way. */
+static uint8_t mix(uint8_t a, uint8_t b, uint8_t pct) { return (uint8_t)(((uint16_t)a * pct + (uint16_t)b * (100 - pct)) / 100); }
+static void bank_tones(uint8_t base, const uint8_t ink[3], const uint8_t paper[3])
+{
+    static const uint8_t SQ_MID[3] = { 216, 216, 216 };
+    uint8_t c, t[3];
+    static const uint8_t inside[5] = { 0, 25, 50, 75, 100 };            /* % ink */
+    static const uint8_t edge_ink[3] = { 75, 50, 25 }, edge_paper[2] = { 75, 50 };
+    uint8_t i;
+    for (i = 0; i < 5; i++) { for (c = 0; c < 3; c++) t[c] = mix(ink[c], paper[c], inside[i]); pal((uint8_t)(base + 1 + i), t[0], t[1], t[2]); }
+    for (i = 0; i < 3; i++) { for (c = 0; c < 3; c++) t[c] = mix(ink[c], SQ_MID[c], edge_ink[i]); pal((uint8_t)(base + 6 + i), t[0], t[1], t[2]); }
+    for (i = 0; i < 2; i++) { for (c = 0; c < 3; c++) t[c] = mix(paper[c], SQ_MID[c], edge_paper[i]); pal((uint8_t)(base + 9 + i), t[0], t[1], t[2]); }
+}
 static void set_scheme(void)
 {
-    const scheme_t *s = &SCHEMES[scheme]; uint8_t i;
-    for (i = 0; i < 3; i++) { pal((uint8_t)(17 + i), s->w[i][0], s->w[i][1], s->w[i][2]); pal((uint8_t)(33 + i), s->b[i][0], s->b[i][1], s->b[i][2]); }
+    const scheme_t *s = &SCHEMES[scheme];
+    bank_tones(16, s->w[0], s->w[1]);
+    bank_tones(32, s->b[0], s->b[1]);
 }
 static void make_palette(void)
 {

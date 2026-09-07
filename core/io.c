@@ -1072,10 +1072,13 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             const char *term = getenv ("K4510_TERM"), *sh = getenv ("SHELL");
             char dir[800]; snprintf (dir, sizeof dir, "%.511s%s%.255s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
             setenv ("TERM", term && *term ? term : "ansi", 1);
-            if (!sh || !*sh) sh = "/bin/sh";
+            /* $SHELL as the host has it, if it exists HERE: a distrobox hands the
+             * container the host's $SHELL, and Fedora's zsh is not in a Debian box. */
+            if (!sh || !*sh || access (sh, X_OK) != 0) sh = access ("/bin/bash", X_OK) == 0 ? "/bin/bash" : "/bin/sh";
             if (chdir (dir) != 0) { if (chdir (fs_root) != 0) { } }
             if (cmd[0]) execl (sh, sh, "-c", cmd, (char *) NULL);   /* !ls -l   one command, then back */
             else        execl (sh, sh, (char *) NULL);              /* !        an interactive shell; exit returns */
+            { const char *m = "!: the shell would not start\r\n"; ssize_t n = write (1, m, strlen (m)); (void) n; }
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);
             if (chdir ("fs/CPM") != 0) { }

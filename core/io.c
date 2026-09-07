@@ -1040,6 +1040,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
 {
     struct winsize ws = { 29, 79, 0, 0 };
     char cmd[256] = "";
+    pid_t parent = getpid ();                     /* NOT 1: in a container the emulator IS pid 1, and "getppid() == 1" then killed every child (2026-09-07) */
     if (tube_pid) return;
     if (prog == 5 && !uci_path()) return;
     if (prog == 4) {
@@ -1057,7 +1058,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
          * on here, so ask it to do the killing. */
 #ifdef PR_SET_PDEATHSIG
         prctl (PR_SET_PDEATHSIG, SIGKILL);
-        if (getppid () == 1) _exit (0);      /* the parent died between fork and here */
+        if (getppid () != parent) _exit (0); /* the parent died between fork and here */
 #endif
         setenv ("TERM", "dumb", 1);
         /* Resolve the co-processor's binary to an absolute path BEFORE chdir

@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>K4510</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  body { margin: 0; background: #101418; color: #cfd8dc; font: 14px/1.4 system-ui, sans-serif; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+  h1 { font-weight: 600; font-size: 18px; margin: 14px 0 6px; letter-spacing: .08em; }
+  #stage { position: relative; width: min(96vw, 1280px); aspect-ratio: 4 / 3; background: #000; }
+  canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; outline: none; }
+  #start { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.75); cursor: pointer; font-size: 22px; }
+  #start span { border: 1px solid #cfd8dc; padding: 12px 24px; border-radius: 6px; }
+  #status { margin: 8px 0; color: #90a4ae; font-size: 13px; }
+  p.keys { max-width: 900px; color: #90a4ae; font-size: 13px; margin: 6px 16px 20px; text-align: center; }
+  kbd { background: #263238; border-radius: 3px; padding: 1px 5px; color: #eceff1; }
+</style>
+</head>
+<body>
+<h1>K4510 &mdash; a fantasy 8/16-bit computer</h1>
+<div id="stage">
+  <canvas id="canvas" oncontextmenu="event.preventDefault()" tabindex="0"></canvas>
+  <div id="start"><span>click to switch on</span></div>
+</div>
+<div id="status">loading&hellip;</div>
+<p class="keys">
+  <kbd>F7</kbd> the menu &middot; <kbd>HELP</kbd> at the prompt &middot; <kbd>RUN chess</kbd>, <kbd>skyfire</kbd>, <kbd>fluffy</kbd>, <kbd>bomber</kbd>, <kbd>lode</kbd>, <kbd>basic</kbd>&hellip;
+  Click the screen first so it has the keyboard. Files you SAVE live only until the tab closes.
+  No Tube here (no BBC BASIC, CP/M or Stockfish) and no N: network: a page has no processes and no sockets.
+</p>
+<script>
+  var Module = {
+    canvas: document.getElementById('canvas'),
+    arguments: [],
+    setStatus: function (t) { document.getElementById('status').textContent = t || 'running'; },
+    onRuntimeInitialized: function () { document.getElementById('status').textContent = 'ready'; }
+  };
+  // the browser wants a click before sound may play, and the machine wants the keyboard: one click does both
+  var started = false;
+  function start() {
+    if (started) return; started = true;
+    document.getElementById('start').style.display = 'none';
+    Module.canvas.focus();
+    if (typeof Module.callMain === 'function') Module.callMain([]);
+    else Module.onRuntimeInitialized = function () { Module.callMain([]); };
+  }
+  document.getElementById('start').addEventListener('click', start);
+  if (location.search.indexOf('autostart') >= 0) { Module.onRuntimeInitialized = function () { document.getElementById('status').textContent = 'ready'; start(); }; }
+  Module.canvas.addEventListener('click', function () { Module.canvas.focus(); });
+</script>
+{{{ SCRIPT }}}
+</body>
+</html>

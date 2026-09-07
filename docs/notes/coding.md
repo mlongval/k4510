@@ -14,6 +14,29 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-06 (late) — the K4510 in a browser
+
+**For the handbook agent** (a short section under "hosts": the fourth host is a web page):
+
+- `wasm/build.sh` compiles the same core and SDL2 frontend with Emscripten
+  (emsdk in `~/opt/emsdk` on ubuntu-s1) into `wasm/dist/` — index.html,
+  index.js, index.wasm, index.data (the ROM, fonts and `fs/` minus CP/M,
+  3.4 MB).  Served on ubuntu-s1 by an nginx container
+  (`~/containers/k4510web`, 127.0.0.1:18687) and, once Doc runs the
+  `tailscale serve` line, at **https://ubuntu-s1.auroch-universe.ts.net:8687**.
+  Click the screen to switch on (the browser wants a click before sound).
+- The page has **no Tube** (no BBC BASIC, CP/M, `!`, Stockfish — no
+  processes), **no N:** (no sockets), and **SAVE lasts only until the tab
+  closes** (the filesystem is in memory).  Everything else runs: VICKY,
+  JIM, OPL2, the sequencer, the F7 menu, save states within the session,
+  all the games, CHESS with its built-in engine.
+- Build switches: `-DK4510_NOPROC` takes the Tube's no-process branch
+  (core/io.c), `core/net_wasm.c` is the N: platform half that says "not
+  fitted", and the frame pacer hands the browser its turn every frame
+  (`emscripten_sleep(0)`, ASYNCIFY).
+- Verified: headless Chrome boots it to the prompt, sound device opens.
+  Speed in a real browser is unmeasured; the CPU clock setting is the knob.
+
 ## Done 2026-09-06 (night, again) — CHESS
 
 **For the handbook agent** (a chapter of its own, I think; CREDITS has KoboChess and Stockfish):

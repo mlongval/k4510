@@ -5960,3 +5960,13 @@ in about five seconds at Intermediate.  Two traps: the harness binary
 was stale after the device change (again), and `pkill -f` killed my own
 shell (again).  A K4SG program can start at $2000, which this one does
 for the room.
+
+## 2026-09-06 — the browser
+
+Doc: "a wasm / html version ... hosted on ubuntu-s1".  Emscripten took the
+tree as it stood: the only surgery was a no-process switch for the Tube,
+a network half that answers "not fitted", and one line in the pacer so a
+page yields to the browser every frame under ASYNCIFY.  It booted in
+headless Chrome on the first link.  Hosted like TeXbrain: an nginx
+container on a loopback port and a tailscale serve in front, which needs
+root, so that last step is Doc's.

@@ -710,7 +710,7 @@ static uint8_t sys_read(uint8_t r)
 #if defined(K4510_TUBE_INPROC)
 #include "tube_cp.h"
 static int tube_was_alive;
-#elif !defined(K4510_PI)
+#elif !defined(K4510_PI) && !defined(K4510_NOPROC)
 #include <pty.h>
 #ifdef __linux__
 #include <sys/prctl.h>          /* PR_SET_PDEATHSIG: the child dies with the emulator */
@@ -1020,7 +1020,7 @@ static void tube_stop(void)
 static uint8_t tube_status(void) { tube_pump(); return (tube_cp_alive() ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
 static void tube_write(uint8_t v) { tube_cp_write(v); }
-#elif !defined(K4510_PI)
+#elif !defined(K4510_PI) && !defined(K4510_NOPROC)
 static void tube_pump(void)
 {
     uint8_t buf[256]; ssize_t n; int full = 0;

@@ -4,6 +4,9 @@
  * cycles, feed keys into the keyboard register, let VICKY render screen
  * RAM. The ROM (Wozmon) does everything else.
  */
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#endif
 #include <SDL.h>
 #include <stdio.h>
 #include <string.h>
@@ -296,6 +299,9 @@ int k4510_frontend_main(int argc, char **argv)
     io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     audio_init((double)cpu_hz_now, AUDIO_RATE);
+#ifdef __EMSCRIPTEN__
+    SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");   /* the keys are the canvas's once it is clicked, F-keys included */
+#endif
 #ifndef K4510_PI
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
 #else
@@ -1036,7 +1042,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           static Uint64 next; Uint64 now = SDL_GetPerformanceCounter(), per = SDL_GetPerformanceFrequency() / 60;
           if (!next || now > next + 4 * per) next = now;
           next += per;
-          if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / SDL_GetPerformanceFrequency())); }
+          if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / SDL_GetPerformanceFrequency()));
+#ifdef __EMSCRIPTEN__
+          else emscripten_sleep(0);                    /* a page must hand the browser its turn every frame, early or late */
+#endif
+        }
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }
           if (shot && --shot_fr == 0) {

@@ -97,3 +97,6 @@ k4510x/*.img
 # build-live.sh works in here: a debootstrapped rootfs and a squashfs,
 # about 2.5 GB. REUSE=1 rebuilds an image from it in seconds.
 k4510x/.live-work/
+
+# the browser build (wasm/build.sh); served from ~/containers/k4510web/site on ubuntu-s1
+wasm/dist/

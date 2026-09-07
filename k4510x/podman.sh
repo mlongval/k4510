@@ -38,9 +38,51 @@ HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/.." && pwd)
 UIDN=$(id -u)
 command -v podman >/dev/null 2>&1 || { echo "podman.sh: no podman on this host (dnf/apt install podman)"; exit 1; }
 
+RUNDIR=${XDG_RUNTIME_DIR:-/run/user/$UIDN}
+have_display() { { [ -n "$WAYLAND_DISPLAY" ] && [ -S "$RUNDIR/$WAYLAND_DISPLAY" ]; } || { [ -n "$DISPLAY" ] && [ -d /tmp/.X11-unix ]; }; }
+container_has_display() { podman inspect "$NAME" --format '{{.HostConfig.Binds}}' 2>/dev/null | grep -q -e wayland -e X11-unix; }
+make_container() {
+    # the container: what it sees of the host is exactly this list
+    mkdir -p "$SHARE"
+    podman rm -f "$NAME" >/dev/null 2>&1 || true
+    set -- --name "$NAME" --userns=keep-id:uid="$UIDN",gid="$(id -g)" --user "$UIDN:$(id -g)" --group-add keep-groups \
+           --security-opt label=disable --hostname k4510x \
+           -e HOME=/home/k4510 -e SHELL=/bin/bash -e XDG_RUNTIME_DIR=/run/user/"$UIDN" \
+           -v "$SHARE:/home/k4510/k4510/fs/SHARE"
+    # the display: Wayland if there is one, and X11 alongside if there is one
+    if [ -n "$WAYLAND_DISPLAY" ] && [ -S "$RUNDIR/$WAYLAND_DISPLAY" ]; then
+        set -- "$@" -v "$RUNDIR/$WAYLAND_DISPLAY:/run/user/$UIDN/$WAYLAND_DISPLAY" -e WAYLAND_DISPLAY="$WAYLAND_DISPLAY" -e SDL_VIDEODRIVER=wayland
+    fi
+    if [ -n "$DISPLAY" ] && [ -d /tmp/.X11-unix ]; then
+        set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY="$DISPLAY" --ipc=host
+        [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ] && set -- "$@" -v "$XAUTHORITY:/home/k4510/.Xauthority:ro" -e XAUTHORITY=/home/k4510/.Xauthority
+    fi
+    # the sound: PipeWire's socket, and Pulse's (PipeWire answers on it too)
+    [ -S "$RUNDIR/pipewire-0" ] && set -- "$@" -v "$RUNDIR/pipewire-0:/run/user/$UIDN/pipewire-0"
+    [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -v "$RUNDIR/pulse:/run/user/$UIDN/pulse" -e PULSE_SERVER="unix:/run/user/$UIDN/pulse/native"
+    # the hardware a game wants
+    [ -d /dev/dri ] && set -- "$@" --device /dev/dri
+    [ -d /dev/input ] && set -- "$@" --device /dev/input
+    podman create "$@" "$IMAGE" >/dev/null
+    # your settings, if this checkout has some (the status bands stay on either way)
+    if [ -f "$REPO/k4510.cfg" ]; then
+        podman cp "$REPO/k4510.cfg" "$NAME:/home/k4510/k4510/k4510.cfg"
+        grep -q '^term.bands' "$REPO/k4510.cfg" || { podman start "$NAME" >/dev/null && podman exec "$NAME" sh -c 'grep -q "^term.bands" ~/k4510/k4510.cfg || echo "term.bands = on" >> ~/k4510/k4510.cfg'; podman stop "$NAME" >/dev/null; }
+    fi
+    if have_display; then echo "container created with a screen ($([ -n "$WAYLAND_DISPLAY" ] && echo Wayland || echo X11))"
+    else echo "container created WITHOUT a screen: no display in this session (ssh?).  Run  $0 run  from your desktop and it will be recreated with one."; fi
+}
+
 case "${1:-create}" in
 run)
-    podman container exists "$NAME" 2>/dev/null || { echo "podman.sh: no container yet; run  $0  first"; exit 1; }
+    podman image exists "$IMAGE" 2>/dev/null || { echo "podman.sh: no image yet; run  $0  first"; exit 1; }
+    if ! podman container exists "$NAME" 2>/dev/null; then make_container
+    elif have_display && ! container_has_display; then
+        echo "podman.sh: this container was created without a screen; recreating it with this session's display"
+        echo "           (anything installed inside with apt is lost; the machine's files in /SHARE are not)"
+        make_container
+    fi
+    have_display || echo "podman.sh: no display in this session -- the machine will have no window"
     exec podman start -a "$NAME" ;;
 shell)
     podman container exists "$NAME" 2>/dev/null || { echo "podman.sh: no container yet; run  $0  first"; exit 1; }
@@ -69,33 +111,7 @@ PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510
 echo "== building $IMAGE from this checkout (a few minutes the first time) =="
 podman build -q -t "$IMAGE" --build-arg UID="$UIDN" --build-arg PKGS="$PKGS" -f "$HERE/Containerfile" "$REPO"
 
-mkdir -p "$SHARE"
-podman rm -f "$NAME" >/dev/null 2>&1 || true
-RUNDIR=${XDG_RUNTIME_DIR:-/run/user/$UIDN}
-set -- --name "$NAME" --userns=keep-id:uid="$UIDN",gid="$(id -g)" --user "$UIDN:$(id -g)" --group-add keep-groups \
-       --security-opt label=disable --hostname k4510x \
-       -e HOME=/home/k4510 -e SHELL=/bin/bash -e XDG_RUNTIME_DIR=/run/user/"$UIDN" \
-       -v "$SHARE:/home/k4510/k4510/fs/SHARE"
-# the display: Wayland if there is one, and X11 alongside if there is one
-if [ -n "$WAYLAND_DISPLAY" ] && [ -S "$RUNDIR/$WAYLAND_DISPLAY" ]; then
-    set -- "$@" -v "$RUNDIR/$WAYLAND_DISPLAY:/run/user/$UIDN/$WAYLAND_DISPLAY" -e WAYLAND_DISPLAY="$WAYLAND_DISPLAY" -e SDL_VIDEODRIVER=wayland
-fi
-if [ -n "$DISPLAY" ] && [ -d /tmp/.X11-unix ]; then
-    set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY="$DISPLAY" --ipc=host
-    [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ] && set -- "$@" -v "$XAUTHORITY:/home/k4510/.Xauthority:ro" -e XAUTHORITY=/home/k4510/.Xauthority
-fi
-# the sound: PipeWire's socket, and Pulse's (PipeWire answers on it too)
-[ -S "$RUNDIR/pipewire-0" ] && set -- "$@" -v "$RUNDIR/pipewire-0:/run/user/$UIDN/pipewire-0"
-[ -S "$RUNDIR/pulse/native" ] && set -- "$@" -v "$RUNDIR/pulse:/run/user/$UIDN/pulse" -e PULSE_SERVER="unix:/run/user/$UIDN/pulse/native"
-# the hardware a game wants
-[ -d /dev/dri ] && set -- "$@" --device /dev/dri
-[ -d /dev/input ] && set -- "$@" --device /dev/input
-podman create "$@" "$IMAGE" >/dev/null
-# your settings, if this checkout has some (the status bands stay on either way)
-if [ -f "$REPO/k4510.cfg" ]; then
-    podman cp "$REPO/k4510.cfg" "$NAME:/home/k4510/k4510/k4510.cfg"
-    grep -q '^term.bands' "$REPO/k4510.cfg" || podman start "$NAME" >/dev/null && podman exec "$NAME" sh -c 'grep -q "^term.bands" ~/k4510/k4510.cfg || echo "term.bands = on" >> ~/k4510/k4510.cfg' && podman stop "$NAME" >/dev/null
-fi
+make_container
 mkdir -p "$HOME/.local/share/applications"
 cat > "$HOME/.local/share/applications/k4510x-box.desktop" <<DESK
 [Desktop Entry]

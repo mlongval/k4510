@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
-"""KoboChess's drawn pieces -> VICKY: data/chess/ -> demo/chess.bin + demo/chess.h
+"""The chess piece sets -> VICKY: data/chess/<set>/ -> demo/chess.bin + demo/chess.h
 
-chess.bin, dropped at CHESS_PHYS by the K4SG header: 64x64 4 bpp sprites,
-2048 bytes each (two pixels a byte, high nibble left).  0-5 white P N B R
-Q K, 6-11 black, then the markers: 12 a square frame (3 px), 13 a dot,
-14 a thin frame; then twelve 16x16 minis (CH_MINI_OFF) for the captured
-trays.  The 44x44 piece sits centred in the 64x64 sprite so it
-is 10 px inside a 48 px square with the sprite placed 8 px up and left.
+chess.bin, dropped at CHESS_PHYS by the K4SG header, all 4 bpp, two pixels
+a byte, high nibble left:
+   +0                    the markers: three 64x64 sprites (2048 bytes each) --
+                         a square frame (3 px), a dot, a thin frame
+   +CH_SET0 + n*CH_SET_BYTES   set n: twelve 64x64 pieces (w P N B R Q K, then
+                         b), then twelve 16x16 minis (128 bytes each) for the
+                         captured trays.  The 44 px piece sits centred in the
+                         64 px sprite, so it is 10 px inside a 48 px square
+                         with the sprite placed 8 px up and left.
+Sets, in order: drawn (KoboChess's own, 44 px from its generator),
+vecteezy (Vecteezy.com, Free License, credited), lines (unknown licence,
+present only on Doc's machines -- skipped when the files are missing).
 
-Pixel classes, so a palette bank can colour a side: 1 ink (the black of
-the drawing, full alpha), 2 paper (the white inside), 3 edge (ink at part
-alpha: the anti-aliasing, drawn in a tone between ink and the square).
-The markers use 1, 2 and 3 of their own bank (frame, dot, thin frame)."""
+Pixel classes, so a palette bank can colour a side: 1 ink (the dark of the
+drawing at full alpha), 2 paper (the light inside), 3 edge (part-alpha ink:
+the anti-aliasing, drawn in a tone between).  The markers use 1, 2, 3 of
+their own bank."""
 import os
 from PIL import Image
 
@@ -19,6 +25,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SRC = os.path.join(HERE, "..", "data", "chess")
 OUT = os.path.join(HERE, "..", "demo")
 S = 64; P = 44; OFF = (S - P) // 2
+SETS = [("drawn", "Drawn"), ("vecteezy", "Icons"), ("lines", "Line icons")]
+
 def classify(px):
     r, g, b, a = px
     if a < 48: return 0
@@ -29,15 +37,11 @@ def pack(pix):
     out = bytearray()
     for i in range(0, len(pix), 2): out.append((pix[i] << 4) | pix[i + 1])
     return out
-data = bytearray()
-for side in "wb":
-    for kind in "pnbrqk":
-        im = Image.open(os.path.join(SRC, f"{side}{kind}.png")).convert("RGBA")
-        assert im.size == (P, P), im.size
-        pix = [0] * (S * S)
-        for y in range(P):
-            for x in range(P): pix[(y + OFF) * S + x + OFF] = classify(im.getpixel((x, y)))
-        data += pack(pix)
+def fit(im, size):
+    """the piece at `size` px: the source is square, and the drawn set is
+    already 44 -- a 256 px set is shrunk with a proper filter first"""
+    if im.size != (size, size): im = im.resize((size, size), Image.LANCZOS)
+    return im
 def frame(th, val):
     pix = [0] * (S * S)
     for y in range(8, 56):
@@ -50,20 +54,36 @@ def dot(r, val):
         for x in range(S):
             if (x - 31.5) ** 2 + (y - 31.5) ** 2 <= r * r: pix[y * S + x] = val
     return pack(pix)
-data += frame(3, 1) + dot(7, 2) + frame(2, 3)
-# the captured-piece trays: every piece again at 14 px in a 16x16 4 bpp
-# sprite (128 bytes), downscaled from the same drawings
-MINI_OFF = len(data)
-for side in "wb":
-    for kind in "pnbrqk":
-        im = Image.open(os.path.join(SRC, f"{side}{kind}.png")).convert("RGBA").resize((14, 14), Image.LANCZOS)
-        pix = [0] * 256
-        for y in range(14):
-            for x in range(14): pix[(y + 1) * 16 + x + 1] = classify(im.getpixel((x, y)))
-        data += pack(pix)
+
+data = frame(3, 1) + dot(7, 2) + frame(2, 3)
+SET0 = len(data)
+names = []
+for folder, label in SETS:
+    d = os.path.join(SRC, folder)
+    if not all(os.path.exists(os.path.join(d, f"{s}{k}.png")) for s in "wb" for k in "pnbrqk"):
+        print(f"mkchess: no {folder} set here, skipped"); continue
+    start = len(data)
+    for side in "wb":
+        for kind in "pnbrqk":
+            im = fit(Image.open(os.path.join(d, f"{side}{kind}.png")).convert("RGBA"), P)
+            pix = [0] * (S * S)
+            for y in range(P):
+                for x in range(P): pix[(y + OFF) * S + x + OFF] = classify(im.getpixel((x, y)))
+            data += pack(pix)
+    for side in "wb":
+        for kind in "pnbrqk":
+            im = fit(Image.open(os.path.join(d, f"{side}{kind}.png")).convert("RGBA"), 14)
+            pix = [0] * 256
+            for y in range(14):
+                for x in range(14): pix[(y + 1) * 16 + x + 1] = classify(im.getpixel((x, y)))
+            data += pack(pix)
+    names.append(label)
+    assert len(data) - start == 12 * 2048 + 12 * 128
 open(os.path.join(OUT, "chess.bin"), "wb").write(bytes(data))
 with open(os.path.join(OUT, "chess.h"), "w") as f:
-    f.write("/* generated by tools/mkchess.py from data/chess -- do not edit.\n * The KoboChess drawn set, by Doc. */\n")
-    f.write("#define CH_SPR_BYTES 2048UL\n#define CH_MARK_FRAME 12\n#define CH_MARK_DOT 13\n#define CH_MARK_THIN 14\n")
-    f.write(f"#define CH_MINI_OFF {MINI_OFF}UL\n#define CH_MINI_BYTES 128UL\n")
-print(f"chess.bin: {len(data)} bytes, 15 sprites")
+    f.write("/* generated by tools/mkchess.py from data/chess -- do not edit. */\n")
+    f.write("#define CH_SPR_BYTES 2048UL\n#define CH_MARK_FRAME 0\n#define CH_MARK_DOT 1\n#define CH_MARK_THIN 2\n")
+    f.write(f"#define CH_SET0 {SET0}UL\n#define CH_SET_BYTES {12 * 2048 + 12 * 128}UL\n#define CH_MINI_OFF {12 * 2048}UL\n#define CH_MINI_BYTES 128UL\n")
+    f.write(f"#define CH_NSETS {len(names)}\n")
+    f.write("static const char *const CH_SET_NAME[] = {" + ",".join('"%s"' % n for n in names) + "};\n")
+print(f"chess.bin: {len(data)} bytes, sets: {', '.join(names)}")

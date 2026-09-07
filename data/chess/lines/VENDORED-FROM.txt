@@ -1,0 +1,5 @@
+KoboChess's `pieces/line-icons/` set, imported there from a clip-art
+sheet whose licence is not known (KoboChess keeps it untracked for that
+reason).  NOT tracked here either: this folder is gitignored, and
+tools/mkchess.py builds the set only where the twelve PNGs exist.  Copied
+2026-09-07 from Doc's own KoboChess checkout.

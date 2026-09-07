@@ -14,6 +14,24 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   Nothing from the review is changed until he says which.
 - The K4510x live image on the stick predates the SID cut and the review.
 
+## Done 2026-09-07 (late) — CHESS piece sets; the container bug
+
+**For the handbook agent:**
+
+- **CHESS has three piece sets** under Options → Piece set: *Drawn* (the
+  default), *Icons* (Vecteezy, credited in CREDITS.md as its licence
+  asks) and, on Doc's own machines only, *Line icons* (unknown licence,
+  never shipped: `data/chess/lines/` is gitignored and the converter
+  skips it when absent).  The screen no longer says "KoboChess"; the
+  panel reads "K4510 chess".  The board is drawn before the engine is
+  started, with "starting the engine..." while it answers.
+- **A container bug in the Tube** (`core/io.c`): the fork guard
+  "getppid() == 1 means the parent died" was always true when the
+  emulator IS pid 1, as it is under `podman start`.  Every `!` child and
+  Stockfish exited at birth; CHESS waited 20 s for an engine and showed
+  no board.  Fixed by comparing with the recorded parent pid.  Nothing
+  else was wrong with the container.
+
 ## Done 2026-09-07 — the day's five: palette, mouse capture, SKYFIRE levels, the distrobox, sudo
 
 **For the handbook agent:**

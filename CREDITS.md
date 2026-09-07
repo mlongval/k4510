@@ -77,6 +77,10 @@ Thank you:
   Character](https://opengameart.org/content/game-boy-platformer-tileset-character),
   the bricks, the grass, the spikes and Fluffy of the FLUFFY game, CC0.
   The levels and the slugs are the game's own.
+- **Vecteezy** — [Piece artwork by Vecteezy.com](https://www.vecteezy.com/),
+  the "Icons" piece set of CHESS, used under the Vecteezy Free License,
+  which requires this attribution.  (The stock EPS is not redistributed;
+  the rendered pieces came over from KoboChess.)
 - **KoboChess** — [github.com/mlongval/KoboChess](https://github.com/mlongval/KoboChess),
   Doc's own chess for the Kobo: the CHESS program's board layout, its six
   levels and their names, and its "drawn" piece set (rendered from that

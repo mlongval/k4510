@@ -1,0 +1,6 @@
+Piece artwork by Vecteezy.com (https://www.vecteezy.com/), used under the
+Vecteezy Free License, which requires this attribution.  The twelve
+256x256 PNGs are KoboChess's `pieces/vecteezy/` set (github.com/mlongval/
+KoboChess), rasterised there from the stock EPS by tools/import_pieces.py;
+the EPS itself is not redistributed, here or there.  Copied 2026-09-07.
+Used by demo/chess.c through tools/mkchess.py (downscaled to 44 px).

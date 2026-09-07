@@ -530,20 +530,23 @@ static void centre_in(uint8_t x0, uint8_t w, uint8_t y, const char *s) { uint8_t
 
 static uint8_t view_sq(uint8_t f, uint8_t r, uint8_t *vx, uint8_t *vy)   /* board square -> view column/row (0..7, top-left origin) */
 { *vx = flipped ? (uint8_t)(7 - f) : f; *vy = flipped ? r : (uint8_t)(7 - r); return 1; }
-static void spr(uint8_t i, int16_t x, int16_t y, uint8_t img, uint8_t palofs, uint8_t on)
+static uint8_t pieceset;
+static uint32_t piece_img(uint8_t img) { return SPRD + CH_SET0 + (uint32_t)pieceset * CH_SET_BYTES + (uint32_t)img * CH_SPR_BYTES; }
+static void spr(uint8_t i, int16_t x, int16_t y, uint32_t d, uint8_t palofs, uint8_t on)
 {
-    uint32_t t = SPRTAB + (uint32_t)i * 16, d = SPRD + (uint32_t)img * CH_SPR_BYTES;
+    uint32_t t = SPRTAB + (uint32_t)i * 16;
     far_poke16(t, (uint16_t)x); far_poke16(t + 2, (uint16_t)y);
     far_poke16(t + 4, (uint16_t)d); far_poke16(t + 6, (uint16_t)(d >> 16));
     far_poke(t + 8, on ? 1 : 0);                      /* 4 bpp, after layer 0 */
     far_poke(t + 9, 3 | (3 << 2));                    /* 64 x 64 */
     far_poke(t + 10, palofs);
 }
-static void spr_at(uint8_t i, uint8_t sq, uint8_t img, uint8_t palofs, uint8_t on)
+static void spr_at(uint8_t i, uint8_t sq, uint32_t d, uint8_t palofs, uint8_t on)
 {
     uint8_t vx, vy; view_sq(FILE_OF(sq), RANK_OF(sq), &vx, &vy);
-    spr(i, (int16_t)(BX + vx * SQPX - 8), (int16_t)(BY + vy * SQPX - 8), img, palofs, on);
+    spr(i, (int16_t)(BX + vx * SQPX - 8), (int16_t)(BY + vy * SQPX - 8), d, palofs, on);
 }
+#define MARK(m) (SPRD + (uint32_t)(m) * CH_SPR_BYTES)
 #define S_PIECE 0                                     /* 64: one per square */
 #define S_SEL 64
 #define S_LAST 65
@@ -563,7 +566,7 @@ static void draw_pieces(void)
     uint8_t s, i = 0;
     for (s = 0; s < 128; s++) {
         if (OFFBOARD(s)) { s += 7; continue; }
-        if (bd[s]) spr_at((uint8_t)(S_PIECE + i), s, (uint8_t)(KIND(bd[s]) - 1 + (COLOUR(bd[s]) ? 6 : 0)), COLOUR(bd[s]) ? 2 : 1, 1);
+        if (bd[s]) spr_at((uint8_t)(S_PIECE + i), s, piece_img((uint8_t)(KIND(bd[s]) - 1 + (COLOUR(bd[s]) ? 6 : 0))), COLOUR(bd[s]) ? 2 : 1, 1);
         else far_poke(SPRTAB + (uint32_t)(S_PIECE + i) * 16 + 8, 0);
         i++;
     }
@@ -571,14 +574,14 @@ static void draw_pieces(void)
 static void draw_marks(void)
 {
     uint8_t i;
-    if (selected != 0xFF) spr_at(S_SEL, selected, CH_MARK_FRAME, 3, 1); else far_poke(SPRTAB + S_SEL * 16 + 8, 0);
-    if (nhist) { spr_at(S_LAST, last_from, CH_MARK_THIN, 4, 1); spr_at(S_LAST2, last_to, CH_MARK_THIN, 4, 1); }
+    if (selected != 0xFF) spr_at(S_SEL, selected, MARK(CH_MARK_FRAME), 3, 1); else far_poke(SPRTAB + S_SEL * 16 + 8, 0);
+    if (nhist) { spr_at(S_LAST, last_from, MARK(CH_MARK_THIN), 4, 1); spr_at(S_LAST2, last_to, MARK(CH_MARK_THIN), 4, 1); }
     else { far_poke(SPRTAB + S_LAST * 16 + 8, 0); far_poke(SPRTAB + S_LAST2 * 16 + 8, 0); }
-    if (!game_over && in_check(stm)) spr_at(S_CHECK, ksq[stm], CH_MARK_FRAME, 5, 1); else far_poke(SPRTAB + S_CHECK * 16 + 8, 0);
-    spr_at(S_CURSOR, cursor_sq, CH_MARK_THIN, 6, 1);
-    if (hint_from != 0xFF) { spr_at(S_HINT, hint_from, CH_MARK_FRAME, 7, 1); spr_at(S_HINT2, hint_to, CH_MARK_FRAME, 7, 1); }
+    if (!game_over && in_check(stm)) spr_at(S_CHECK, ksq[stm], MARK(CH_MARK_FRAME), 5, 1); else far_poke(SPRTAB + S_CHECK * 16 + 8, 0);
+    spr_at(S_CURSOR, cursor_sq, MARK(CH_MARK_THIN), 6, 1);
+    if (hint_from != 0xFF) { spr_at(S_HINT, hint_from, MARK(CH_MARK_FRAME), 7, 1); spr_at(S_HINT2, hint_to, MARK(CH_MARK_FRAME), 7, 1); }
     else { far_poke(SPRTAB + S_HINT * 16 + 8, 0); far_poke(SPRTAB + S_HINT2 * 16 + 8, 0); }
-    for (i = 0; i < NDOT; i++) { if (i < ntargets) spr_at((uint8_t)(S_DOT + i), targets[i], CH_MARK_DOT, 3, 1); else far_poke(SPRTAB + (uint32_t)(S_DOT + i) * 16 + 8, 0); }
+    for (i = 0; i < NDOT; i++) { if (i < ntargets) spr_at((uint8_t)(S_DOT + i), targets[i], MARK(CH_MARK_DOT), 3, 1); else far_poke(SPRTAB + (uint32_t)(S_DOT + i) * 16 + 8, 0); }
 }
 static void draw_board(void)
 {
@@ -650,7 +653,7 @@ static void draw_captured(void)
         for (i = 0; i < NCAP; i++) {
             uint32_t t = SPRTAB + (uint32_t)(S_CAP + s * NCAP + i) * 16;
             if (i >= n[s]) continue;
-            { uint32_t d = SPRD + CH_MINI_OFF + ((uint32_t)(taken[s][i] - 1 + (s == WHITE ? 6 : 0))) * CH_MINI_BYTES;   /* white took black pieces */
+            { uint32_t d = SPRD + CH_SET0 + (uint32_t)pieceset * CH_SET_BYTES + CH_MINI_OFF + ((uint32_t)(taken[s][i] - 1 + (s == WHITE ? 6 : 0))) * CH_MINI_BYTES;   /* white took black pieces */
               far_poke16(t, (uint16_t)(PANEL_COL * 8 + 20 + i * 12)); far_poke16(t + 2, (uint16_t)(368 + s * 16));
               far_poke16(t + 4, (uint16_t)d); far_poke16(t + 6, (uint16_t)(d >> 16));
               far_poke(t + 8, 1); far_poke(t + 9, 1 | (1 << 2)); far_poke(t + 10, s == WHITE ? 2 : 1); }
@@ -922,16 +925,17 @@ static void game_menu(void)
 }
 static void options_menu(void)
 {
-    static const char *const O[7] = { "Piece colours", "Engine", "Level", "Clock (two players)", "Coordinates", "Captured pieces", "Back" };
+    static const char *const O[8] = { "Piece set", "Piece colours", "Engine", "Level", "Clock (two players)", "Coordinates", "Captured pieces", "Back" };
     static const char *const E[3] = { "Built-in", "Stockfish on the Tube", "Network engine (ENGINE.CFG)" };
     static const char *const L[6] = { "Beginner", "Easy", "Casual", "Intermediate", "Strong", "Maximum" };
     static const char *const C[4] = { "Off", "5 minutes", "10 minutes", "15 minutes" };
     static const char *const Y[2] = { "Shown", "Hidden" };
     uint8_t r, s;
     for (;;) {
-        r = menu("Options", O, 7, 0);
-        if (r == 0) { s = menu("Piece colours", SCHEME_NAME, 4, scheme); if (s != 255) { scheme = s; set_scheme(); } }
-        else if (r == 1) {
+        r = menu("Options", O, 8, 0);
+        if (r == 0) { s = menu("Piece set", CH_SET_NAME, CH_NSETS, pieceset); if (s != 255) pieceset = s; }
+        else if (r == 1) { s = menu("Piece colours", SCHEME_NAME, 4, scheme); if (s != 255) { scheme = s; set_scheme(); } }
+        else if (r == 2) {
             s = menu("Engine", E, 3, eng_kind);
             if (s != 255 && s != eng_kind) {
                 eng_stop(); eng_kind = s;
@@ -940,10 +944,10 @@ static void options_menu(void)
                 if (eng_kind) { message("starting the engine..."); if (eng_start()) eng_level(); else { message("the engine did not answer"); eng_kind = 0; { uint8_t f = 90; while (f--) wait_vblank(); } } }
             }
         }
-        else if (r == 2) { s = menu("Level", L, 6, level); if (s != 255) { level = s; eng_level(); } }
-        else if (r == 3) { s = menu("Clock", C, 4, clock_min == 0 ? 0 : clock_min / 5); if (s != 255) { clock_min = (uint8_t)(s * 5); clock_ms[0] = clock_ms[1] = (uint32_t)clock_min * 60000UL; } }
-        else if (r == 4) { s = menu("Coordinates", Y, 2, coords_on ? 0 : 1); if (s != 255) { coords_on = !s; draw_board(); } }
-        else if (r == 5) { s = menu("Captured pieces", Y, 2, captured_on ? 0 : 1); if (s != 255) captured_on = !s; }
+        else if (r == 3) { s = menu("Level", L, 6, level); if (s != 255) { level = s; eng_level(); } }
+        else if (r == 4) { s = menu("Clock", C, 4, clock_min == 0 ? 0 : clock_min / 5); if (s != 255) { clock_min = (uint8_t)(s * 5); clock_ms[0] = clock_ms[1] = (uint32_t)clock_min * 60000UL; } }
+        else if (r == 5) { s = menu("Coordinates", Y, 2, coords_on ? 0 : 1); if (s != 255) { coords_on = !s; draw_board(); } }
+        else if (r == 6) { s = menu("Captured pieces", Y, 2, captured_on ? 0 : 1); if (s != 255) captured_on = !s; }
         else break;
         redraw(); draw_engine_line();
     }
@@ -971,11 +975,17 @@ static void setup(void)
     w32(V_SPRTAB, SPRTAB); REG(V_SPRCTL) = 1;
     REG(V_CTRL) = 1;                                    /* 640 x 480 */
     centre_in(1, 50, 1, "C h e s s");
-    put_str(PANEL_COL, 1, "K4510 \xFA KoboChess pieces");
+    put_str(PANEL_COL, 1, "K4510 chess");
     draw_buttons(); draw_panel_static();
     load_engine_cfg();
+}
+static void first_engine(void)                        /* after the board is up: an engine may take seconds to answer */
+{
     if (REG(TUBE) & 8) eng_kind = 1; else if (eng_url[0]) eng_kind = 2; else eng_kind = 0;
-    if (eng_kind) { if (eng_start()) eng_level(); else eng_kind = 0; }
+    if (!eng_kind) return;
+    message("starting the engine...");
+    if (eng_start()) eng_level(); else { eng_kind = 0; message("no engine answered: the built-in one plays"); { uint8_t f = 90; while (f--) wait_vblank(); } }
+    draw_status(); draw_engine_line();
 }
 void main(void)
 {
@@ -983,6 +993,7 @@ void main(void)
     setup();
     two_player = 0; human_side = WHITE; flipped = 0;
     new_game();
+    first_engine();
     for (;;) {
         engine_turn();
         e = get_event();

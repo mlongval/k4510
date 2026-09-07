@@ -105,3 +105,6 @@ k4510x/.live-work/
 
 # the browser build (wasm/build.sh); served from ~/containers/k4510web/site on ubuntu-s1
 wasm/dist/
+
+# a chess piece set of unknown licence: built where present, never shipped (data/chess/lines/VENDORED-FROM.txt)
+data/chess/lines/*.png

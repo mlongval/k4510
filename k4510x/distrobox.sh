@@ -31,6 +31,17 @@ IMAGE=${IMAGE:-docker.io/library/debian:trixie}
 HOME_DIR=${HOME_DIR:-$HOME/k4510x-home}
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/.." && pwd)
 export PATH="$HOME/.local/bin:$PATH"
+# distrobox itself, per-user, if this host has none; podman or docker must be there already
+if ! command -v distrobox >/dev/null 2>&1; then
+    if ! command -v podman >/dev/null 2>&1 && ! command -v docker >/dev/null 2>&1; then
+        echo "distrobox.sh: this host has neither podman nor docker; install podman first (dnf/apt install podman)"; exit 1
+    fi
+    echo "== installing distrobox under ~/.local (no root needed) =="
+    curl -sL https://raw.githubusercontent.com/89luca89/distrobox/main/install -o /tmp/distrobox-install.$$ \
+        && sh /tmp/distrobox-install.$$ --prefix "$HOME/.local" >/dev/null && rm -f /tmp/distrobox-install.$$ \
+        || { echo "distrobox.sh: could not install distrobox"; exit 1; }
+    command -v distrobox >/dev/null || { echo "distrobox.sh: distrobox still not on PATH"; exit 1; }
+fi
 inbox() { distrobox enter "$NAME" -- "$@"; }
 case "${1:-create}" in
 run)   exec distrobox enter "$NAME" -- sh -c 'cd ~/k4510 && exec ./sdl/k4510 --host-shell' ;;

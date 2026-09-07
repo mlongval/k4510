@@ -12,8 +12,10 @@
 #
 # The container gets ITS OWN HOME ($HOME_DIR), not yours: distrobox shares
 # the real home by default, and a `!rm -rf ~` from inside would then reach
-# it.  The repository is bind-mounted read-only at /mnt/k4510-src and
-# cloned from there, so the box builds from exactly this checkout.
+# it.  That home is a plain directory on the host, so the repository is
+# cloned into it FROM THE HOST SIDE (git on the host, this checkout as its
+# origin) and built inside; `update` pulls the same way.  (A --volume bind
+# mount was tried first and did not appear inside a rootless podman box.)
 #
 #   k4510x/distrobox.sh              create (or refresh) the box and build in it
 #   k4510x/distrobox.sh run          start the machine
@@ -35,7 +37,8 @@ run)   exec distrobox enter "$NAME" -- sh -c 'cd ~/k4510 && exec ./sdl/k4510 --h
 shell) exec distrobox enter "$NAME" ;;
 rm)    exec distrobox rm --force "$NAME" ;;
 update)
-    inbox sh -c 'cd ~/k4510 && git fetch -q origin && git merge -q --ff-only origin/master && find core sdl -name "*.d" -delete && make -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
+    git -C "$HOME_DIR/k4510" fetch -q origin && git -C "$HOME_DIR/k4510" merge -q --ff-only origin/master
+    inbox sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete && make -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
     exit 0 ;;
 create) ;;
 *) echo "distrobox.sh [create|run|shell|update|rm]"; exit 1 ;;
@@ -44,7 +47,7 @@ esac
 mkdir -p "$HOME_DIR"
 if ! distrobox list 2>/dev/null | grep -q "| $NAME "; then
     echo "== creating $NAME from $IMAGE, home $HOME_DIR =="
-    distrobox create --yes --name "$NAME" --image "$IMAGE" --home "$HOME_DIR" --volume "$REPO:/mnt/k4510-src:ro"
+    distrobox create --yes --name "$NAME" --image "$IMAGE" --home "$HOME_DIR"
 fi
 echo "== packages =="
 # the stick's list minus what only a bootable machine needs (kernel, firmware, the network stack, telnetd)
@@ -53,7 +56,8 @@ PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510
 inbox sudo -n apt-get update -q
 inbox sudo -n env DEBIAN_FRONTEND=noninteractive apt-get install -y -q --no-install-recommends $PKGS
 echo "== the machine =="
-inbox sh -c 'if [ -d ~/k4510/.git ]; then cd ~/k4510 && git fetch -q origin && git merge -q --ff-only origin/master; else git clone -q /mnt/k4510-src ~/k4510; fi'
+if [ -d "$HOME_DIR/k4510/.git" ]; then git -C "$HOME_DIR/k4510" fetch -q origin && git -C "$HOME_DIR/k4510" merge -q --ff-only origin/master
+else git clone -q "$REPO" "$HOME_DIR/k4510"; fi
 inbox sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
 inbox sh -c 'sudo -n true && echo "passwordless sudo inside the box: yes"'
 # a launcher on the host desktop

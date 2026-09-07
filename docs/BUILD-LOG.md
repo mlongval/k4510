@@ -5980,3 +5980,15 @@ list in his order: the palette snapshot around a program run and the
 sixteen back at RESET; mouse capture on click, freed by the menu; three
 SKYFIRE levels (the original became Hard); K4510x as a distrobox with
 its own home, which is the place to add programs; sudo on the stick.
+
+## 2026-09-07 — the container, twice
+
+The distrobox flavour worked in an hour and was wrong in a minute: Doc
+did `!sh`, `cd /`, and saw his host.  Distrobox integrates; it mounts
+the host's root at /run/host and shares /tmp and the sockets, and a
+separate home only moves one directory out of the way.  Replaced the
+same afternoon by a plain rootless podman container from a Containerfile
+that is handed exactly four things -- display, sound, /dev/dri,
+/dev/input -- and one folder, which the machine sees as /SHARE.  The
+lesson for the record: "container" is not "sandbox"; ask what crosses
+the wall.

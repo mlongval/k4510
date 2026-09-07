@@ -33,12 +33,17 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   shows the letter, and `/PRG/SKYFIRE.CFG` moves the numbers behind Normal
   (DIVEGAP, DIVEMIN, DIVERS, BOMB, DIVE, SWAY).  Hard is what shipped
   first; Doc found it too hard.
-- **K4510x has a third flavour: the distrobox** (`k4510x/distrobox.sh`,
-  create/run/shell/update/rm).  The same Debian as a container on your
-  own desktop, its own home (a `!rm -rf ~` inside cannot reach yours),
-  the repository bind-mounted read-only and cloned inside, built there,
-  run `--host-shell`; `!sudo apt install` sticks.  A launcher lands in
-  the desktop's application menu.
+- **K4510x has a third flavour: the podman container** (`k4510x/podman.sh`
+  + `Containerfile`, create/run/shell/update/rm).  The same Debian as a
+  rootless container on your own desktop, and a SANDBOX: it sees the
+  display and sound sockets, `/dev/dri`, `/dev/input` and one host
+  folder, `~/k4510x-share`, which is `/SHARE` at the machine's prompt —
+  `COPY /SHARE/FOO.BAS /PRG/` brings a file in.  No home, no /tmp, no
+  host root.  The container is kept, so `!sudo apt install` and SAVE
+  persist; `update` pushes the checkout's HEAD in and rebuilds.  A
+  launcher lands in the desktop's application menu.  (A distrobox was
+  tried first and withdrawn the same day: it mounts the host's root by
+  design.)
 - **The stick's k4510 user has passwordless sudo** (next image).  Installs
   there last a boot: persistence keeps `/home` only.
 - Also: **the ROM images are tracked now** (`rom/*.bin`), after a host

@@ -39,62 +39,73 @@ UIDN=$(id -u)
 command -v podman >/dev/null 2>&1 || { echo "podman.sh: no podman on this host (dnf/apt install podman)"; exit 1; }
 
 RUNDIR=${XDG_RUNTIME_DIR:-/run/user/$UIDN}
-have_display() { { [ -n "$WAYLAND_DISPLAY" ] && [ -S "$RUNDIR/$WAYLAND_DISPLAY" ]; } || { [ -n "$DISPLAY" ] && [ -d /tmp/.X11-unix ]; }; }
-container_has_display() { podman inspect "$NAME" --format '{{.HostConfig.Binds}}' 2>/dev/null | grep -q -e wayland -e X11-unix; }
+# The display and sound sockets are found ON DISK, not in this shell's
+# environment, so a container created over ssh still gets the desktop's screen:
+# the sockets exist whether or not this shell knows their names.
+WL=$(ls "$RUNDIR"/wayland-[0-9]* 2>/dev/null | grep -v '\.lock$' | head -1)
+WLNAME=${WL##*/}
+X11=""; [ -S /tmp/.X11-unix/X0 ] && X11=":0"
+XAUTH=$(ls "$RUNDIR"/.mutter-Xwaylandauth.* 2>/dev/null | head -1); [ -z "$XAUTH" ] && [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ] && XAUTH=$XAUTHORITY
+have_display() { [ -n "$WL" ] || [ -n "$X11" ]; }
+# what the machine is started with, at exec time (so a newer session's names apply)
+machine_env() {
+    set -- -e HOME=/home/k4510 -e SHELL=/bin/bash -e XDG_RUNTIME_DIR=/run/user/"$UIDN"
+    [ -n "$WL" ] && set -- "$@" -e WAYLAND_DISPLAY="$WLNAME" -e SDL_VIDEODRIVER=wayland
+    [ -n "$X11" ] && set -- "$@" -e DISPLAY="$X11"
+    [ -n "$XAUTH" ] && set -- "$@" -e XAUTHORITY=/home/k4510/.Xauthority
+    [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -e PULSE_SERVER="unix:/run/user/$UIDN/pulse/native"
+    echo "$@"
+}
 make_container() {
-    # the container: what it sees of the host is exactly this list
+    # the container: idle (sleep) so the machine can be exec'd into it with today's
+    # display, and so update/shell work whether or not there is a screen.
+    # What it sees of the host is exactly this list of mounts.
     mkdir -p "$SHARE"
     podman rm -f "$NAME" >/dev/null 2>&1 || true
     set -- --name "$NAME" --userns=keep-id:uid="$UIDN",gid="$(id -g)" --user "$UIDN:$(id -g)" --group-add keep-groups \
-           --security-opt label=disable --hostname k4510x \
-           -e HOME=/home/k4510 -e SHELL=/bin/bash -e XDG_RUNTIME_DIR=/run/user/"$UIDN" \
+           --security-opt label=disable --hostname k4510x --entrypoint /bin/sleep \
+           -e HOME=/home/k4510 -e SHELL=/bin/bash \
            -v "$SHARE:/home/k4510/k4510/fs/SHARE"
-    # the display: Wayland if there is one, and X11 alongside if there is one
-    if [ -n "$WAYLAND_DISPLAY" ] && [ -S "$RUNDIR/$WAYLAND_DISPLAY" ]; then
-        set -- "$@" -v "$RUNDIR/$WAYLAND_DISPLAY:/run/user/$UIDN/$WAYLAND_DISPLAY" -e WAYLAND_DISPLAY="$WAYLAND_DISPLAY" -e SDL_VIDEODRIVER=wayland
-    fi
-    if [ -n "$DISPLAY" ] && [ -d /tmp/.X11-unix ]; then
-        set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix -e DISPLAY="$DISPLAY" --ipc=host
-        [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ] && set -- "$@" -v "$XAUTHORITY:/home/k4510/.Xauthority:ro" -e XAUTHORITY=/home/k4510/.Xauthority
-    fi
-    # the sound: PipeWire's socket, and Pulse's (PipeWire answers on it too)
+    [ -n "$WL" ] && set -- "$@" -v "$WL:/run/user/$UIDN/$WLNAME"
+    [ -n "$X11" ] && set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix --ipc=host
+    [ -n "$XAUTH" ] && set -- "$@" -v "$XAUTH:/home/k4510/.Xauthority:ro"
     [ -S "$RUNDIR/pipewire-0" ] && set -- "$@" -v "$RUNDIR/pipewire-0:/run/user/$UIDN/pipewire-0"
-    [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -v "$RUNDIR/pulse:/run/user/$UIDN/pulse" -e PULSE_SERVER="unix:/run/user/$UIDN/pulse/native"
-    # the hardware a game wants
+    [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -v "$RUNDIR/pulse:/run/user/$UIDN/pulse"
     [ -d /dev/dri ] && set -- "$@" --device /dev/dri
     [ -d /dev/input ] && set -- "$@" --device /dev/input
-    podman create "$@" "$IMAGE" >/dev/null
+    podman create "$@" "$IMAGE" infinity >/dev/null
+    podman start "$NAME" >/dev/null
     # your settings, if this checkout has some (the status bands stay on either way)
-    if [ -f "$REPO/k4510.cfg" ]; then
-        podman cp "$REPO/k4510.cfg" "$NAME:/home/k4510/k4510/k4510.cfg"
-        grep -q '^term.bands' "$REPO/k4510.cfg" || { podman start "$NAME" >/dev/null && podman exec "$NAME" sh -c 'grep -q "^term.bands" ~/k4510/k4510.cfg || echo "term.bands = on" >> ~/k4510/k4510.cfg'; podman stop "$NAME" >/dev/null; }
-    fi
-    if have_display; then echo "container created with a screen ($([ -n "$WAYLAND_DISPLAY" ] && echo Wayland || echo X11))"
-    else echo "container created WITHOUT a screen: no display in this session (ssh?).  Run  $0 run  from your desktop and it will be recreated with one."; fi
+    if [ -f "$REPO/k4510.cfg" ]; then podman cp "$REPO/k4510.cfg" "$NAME:/home/k4510/k4510/k4510.cfg"; fi
+    podman exec "$NAME" sh -c 'grep -q "^term.bands" ~/k4510/k4510.cfg || echo "term.bands = on" >> ~/k4510/k4510.cfg'
+    podman stop -t 1 "$NAME" >/dev/null
+    if have_display; then echo "container created with a screen ($([ -n "$WL" ] && echo "Wayland $WLNAME" || echo "X11 $X11"))"
+    else echo "container created WITHOUT a screen: no display socket on this host; run  $0  again from a desktop"; fi
 }
+container_has_display() { podman inspect "$NAME" --format '{{.HostConfig.Binds}}' 2>/dev/null | grep -q -e wayland -e X11-unix; }
+up() { podman start "$NAME" >/dev/null 2>&1 || true; }
 
 case "${1:-create}" in
 run)
     podman image exists "$IMAGE" 2>/dev/null || { echo "podman.sh: no image yet; run  $0  first"; exit 1; }
     if ! podman container exists "$NAME" 2>/dev/null; then make_container
-    elif have_display && ! container_has_display; then
-        echo "podman.sh: this container was created without a screen; recreating it with this session's display"
-        echo "           (anything installed inside with apt is lost; the machine's files in /SHARE are not)"
-        make_container
+    elif have_display && ! container_has_display; then echo "podman.sh: this container has no screen; recreating it with this host's display"; make_container
+    elif [ "$(podman inspect "$NAME" --format '{{.Config.Entrypoint}}')" != "[/bin/sleep]" ]; then echo "podman.sh: an older container layout; recreating"; make_container
     fi
-    have_display || echo "podman.sh: no display in this session -- the machine will have no window"
-    exec podman start -a "$NAME" ;;
+    have_display || echo "podman.sh: no display socket on this host -- the machine will have no window"
+    up
+    podman exec -it $(machine_env) "$NAME" sh -c 'cd ~/k4510 && exec ./sdl/k4510 --host-shell'
+    podman stop -t 1 "$NAME" >/dev/null 2>&1; exit 0 ;;
 shell)
     podman container exists "$NAME" 2>/dev/null || { echo "podman.sh: no container yet; run  $0  first"; exit 1; }
-    podman start "$NAME" >/dev/null 2>&1 || true
-    exec podman exec -it "$NAME" /bin/bash ;;
+    up; exec podman exec -it $(machine_env) "$NAME" /bin/bash ;;
 update)
     podman container exists "$NAME" 2>/dev/null || { echo "podman.sh: no container yet; run  $0  first"; exit 1; }
-    podman start "$NAME" >/dev/null 2>&1 || true
+    up
     echo "== this checkout's HEAD into the container =="
     git -C "$REPO" archive --format=tar HEAD | podman exec -i "$NAME" tar -x -C /home/k4510/k4510
     podman exec "$NAME" sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
-    podman stop "$NAME" >/dev/null 2>&1 || true
+    podman stop -t 1 "$NAME" >/dev/null 2>&1 || true
     echo "podman.sh: updated"; exit 0 ;;
 rm)
     podman rm -f "$NAME" 2>/dev/null || true

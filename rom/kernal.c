@@ -767,7 +767,10 @@ static void run_at(uint16_t a)
     /* snapshot the video controls: a program that drew gets the text mode
      * put back and a clean screen; one that only printed keeps its output
      * on screen (so SAY, and disk commands like it, behave like commands) */
-    uint8_t v0 = REG(VICKY + 0), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E);
+    /* Layer 0 is the console itself, so it is in the list: a program that
+     * borrows it for a bitmap (CHESS at 640x480) and switches it off on the
+     * way out left the mode unchanged and the console dark (2026-09-07). */
+    uint8_t v0 = REG(VICKY + 0), bgc = REG(VICKY + 1), l0 = REG(VICKY + 0x10), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E);
     for (i = 0; i < sizeof tpl; i++) t[i] = tpl[i];
     for (b = 5; b <= 7; b++) {
         uint8_t *slot = t + 2 + 3 * (b - 5);
@@ -792,7 +795,7 @@ static void run_at(uint16_t a)
       prog_running = 1; call_prog(TRAMP); prog_running = 0;
       capslock = cl; }
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
-    if (v0 != REG(VICKY + 0) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
+    if (v0 != REG(VICKY + 0) || bgc != REG(VICKY + 1) || l0 != REG(VICKY + 0x10) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
         l3 != REG(VICKY + 0x40) || sc != REG(VICKY + 0x0E)) {
         video_init();
         cls();

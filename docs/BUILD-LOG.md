@@ -6184,3 +6184,11 @@ at the cursor, Home/End, Delete, Backspace, Esc, Up/Down leaving no
 glyph on the screen (it reads the raw cells), é arriving as a character,
 and editing across the wrap. It is also the first proof that bank 3 is
 callable.
+
+**Later, KEYTEST.PRG.** Doc ran it on hdieu: it asked for F7, which opens
+the menu — it was the bare-metal Pi's test, walking the C64 matrix the
+GPIO driver scanned. Rewritten for the PC keyboard the machine is
+actually driven from: every key with a code (Enter to F12, F7 left out
+and Shift+F7 in the shifted list), each `$80+` code checked for the kind
+bit as well as the byte, Shift/Ctrl/Alt, a dead-key letter if the
+keyboard makes one, and the free-typing echo marks a KEY code with a K.

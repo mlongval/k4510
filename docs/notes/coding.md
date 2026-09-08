@@ -1673,3 +1673,12 @@ the machine, K4510x the appliance you boot. `INFO` prints ", K4510x" or
 here as AGENTS.md asks. The second half of the ruling — BAT boots, REXX
 automates, BASIC is for programs — wants a sentence wherever the book
 introduces `STARTUP.BAT` and a chapter for `RX` when it has settled.
+
+**2026-09-08 — the shell edits, and a keyboard register bit.** The prompt
+has a line editor now: Left/Right, Home/End, Delete, Backspace, Esc
+clears, typing inserts at the cursor. Up/Down do nothing yet (no
+history). New in Appendix A: `$D101` bit 6 = the byte last read from
+`$D100` was a key code (arrows, F-keys, `$80-$9F`) rather than a
+character; bit 5 = the waiting byte is one. This is how é (`$82`) and
+Left (`$82`) are told apart; any program reading keys that wants
+accented letters should check it. EDIT does; VI does not yet.

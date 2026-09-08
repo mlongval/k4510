@@ -589,14 +589,14 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 case SDLK_BACKSPACE: kbd_push(KEY_BS); break;
                 case SDLK_TAB:       kbd_push(KEY_TAB); break;
                 case SDLK_ESCAPE:    if (m & KMOD_SHIFT) running = 0; else kbd_push(KEY_ESC); break;
-                case SDLK_UP: kbd_push(KEY_UP); break;     case SDLK_DOWN: kbd_push(KEY_DOWN); break;
-                case SDLK_LEFT: kbd_push(KEY_LEFT); break; case SDLK_RIGHT: kbd_push(KEY_RIGHT); break;
-                case SDLK_HOME: kbd_push(KEY_HOME); break; case SDLK_END: kbd_push(KEY_END); break;
-                case SDLK_PAGEUP: kbd_push(KEY_PGUP); break; case SDLK_PAGEDOWN: kbd_push(KEY_PGDN); break;
-                case SDLK_INSERT: kbd_push(KEY_INS); break; case SDLK_DELETE: kbd_push(KEY_DEL); break;
-                case SDLK_PAUSE: kbd_push(0x9F); break;
+                case SDLK_UP: kbd_push_key(KEY_UP); break;     case SDLK_DOWN: kbd_push_key(KEY_DOWN); break;
+                case SDLK_LEFT: kbd_push_key(KEY_LEFT); break; case SDLK_RIGHT: kbd_push_key(KEY_RIGHT); break;
+                case SDLK_HOME: kbd_push_key(KEY_HOME); break; case SDLK_END: kbd_push_key(KEY_END); break;
+                case SDLK_PAGEUP: kbd_push_key(KEY_PGUP); break; case SDLK_PAGEDOWN: kbd_push_key(KEY_PGDN); break;
+                case SDLK_INSERT: kbd_push_key(KEY_INS); break; case SDLK_DELETE: kbd_push_key(KEY_DEL); break;
+                case SDLK_PAUSE: kbd_push_key(0x9F); break;
                 default:
-                    if (k >= SDLK_F1 && k <= SDLK_F12) { kbd_push((uint8_t)(KEY_F1 + (k - SDLK_F1))); break; }
+                    if (k >= SDLK_F1 && k <= SDLK_F12) { kbd_push_key((uint8_t)(KEY_F1 + (k - SDLK_F1))); break; }
                     if (!(m & (KMOD_CTRL | KMOD_ALT | KMOD_GUI))) pend = key_ascii(k, m & KMOD_SHIFT);
                     break;
                 }
@@ -629,7 +629,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
           if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
-          if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else kbd_push(k == '\n' ? 0x0D : k); } }
+          /* a byte of $80 or more is a KEY_* code; $1F says "the next byte is a character whatever its value" (an accented letter) */
+          if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else if (k == 0x1F && *feed) kbd_push((uint8_t)*feed++); else if (k >= 0x80) kbd_push_key(k); else kbd_push(k == '\n' ? 0x0D : k); } }
         /* The machine's video mode.  Only the ROM can change it -- the console's
          * PCOLS/PROWS/stride are its -- so the menu asks through $D521 bits 5-7
          * and the ROM acts on its next key poll.  Which means the machine has to

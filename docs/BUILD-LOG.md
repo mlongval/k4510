@@ -6143,3 +6143,44 @@ interpreter on a thread) stays too, as the test build's transport.
 The suite, run leg by leg (check-artifacts refuses a changed ROM until
 it is committed, as designed): all green. The last tree with the port is
 `alpha-0.5`; the tag is the archive.
+
+## 2026-09-08 — the arrows printed Ç ü é â: the line editor, and a kind bit
+
+Doc, on hdieu, typed the name of each cursor key and then pressed it:
+`left é right â up Ç down ü`. Two faults under one symptom.
+
+The shell's `readline` never handled cursor keys at all — it took every
+byte from `$20` up as a character, and `$80-$FF` is the font's code page
+437 half, so an arrow printed the letter at its code. And the codes
+*collide*: `KEY_LEFT` is `$82` and so is é, because the KEY_* codes were
+given `$80-$9F` before the frontend learned to type accented letters.
+The queue held bare bytes; nothing downstream could tell the two apart.
+
+**The kind bit.** `core/io.c`'s FIFO is sixteen bits wide now: the byte
+and one bit saying whether it is a character (`kbd_push`) or a key code
+(`kbd_push_key`, new — the frontend uses it for the arrows, Home/End,
+PgUp/PgDn, Insert/Delete, the F-keys and Pause). `$D101` KBDST reports
+it: **bit 6 = the byte last read from `$D100` was a key code, bit 5 =
+the byte waiting is one.** A typed é and a Left both read as `$82`;
+bit 6 is the difference. The F7 menu opens only on the key-code kind.
+Type-ahead writes to `$D100` stay characters. The test harnesses'
+key strings (`K4510_KEYS`, headless) send `$80+` as codes and `$1F`
++ byte as a character, so a test can type an é.
+
+**The line editor.** `readline` edits: Left/Right, Home/End, Delete
+under the cursor, Backspace before it, Esc clears, characters insert at
+the cursor, and it walks back up a wrapped row (JIM's own `$08` stops at
+column 0, so `rl_left` steps the cursor registers itself). Up/Down do
+nothing — no history: the ROM has no RAM for one, and that is the next
+thing this wants. It grew from 15 lines to 60 and no longer fit bank 1,
+so it has **sideways bank 3** to itself (`SW3` in `rom/k4510.cfg`; the
+ROM image is 8 KB longer, the loader was already generic). EDIT takes an
+accented letter as a letter now too; VI is not touched (its mapping
+engine wants the same check, later). Under CP/M the WordStar-diamond
+translation checks the kind, so a typed é is no longer ^S.
+
+**The test Doc asked for**: `test/keytest.sh`, in `make test` — insert
+at the cursor, Home/End, Delete, Backspace, Esc, Up/Down leaving no
+glyph on the screen (it reads the raw cells), é arriving as a character,
+and editing across the wrap. It is also the first proof that bank 3 is
+callable.

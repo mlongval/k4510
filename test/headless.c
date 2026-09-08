@@ -32,7 +32,8 @@ int main(int argc, char **argv)
     if (getenv("K4510_HOST_SHELL")) io_host_shell = 1;      /* bangtest.sh: the `!` path, gated as the frontend gates it */
     io_reset(); cpu65_reset();
     for (fr = 0; fr < maxf; fr++) {
-        if (fr >= 5 && ki < kn && fr >= wait_until) { uint8_t k = (uint8_t)keys[ki++]; if (k == '~') wait_until = fr + 30; else kbd_push(k == '\n' ? 0x0D : k); }
+        /* as the frontend's K4510_KEYS: $80+ is a KEY_* code, $1F makes the next byte a character */
+        if (fr >= 5 && ki < kn && fr >= wait_until) { uint8_t k = (uint8_t)keys[ki++]; if (k == '~') wait_until = fr + 30; else if (k == 0x1F && ki < kn) kbd_push((uint8_t)keys[ki++]); else if (k >= 0x80) kbd_push_key(k); else kbd_push(k == '\n' ? 0x0D : k); }
         vicky_begin_frame(fb, 640);
         for (int y = 0; y < 480; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(40500000 / 60 / 480); vicky_line(y); }
         vicky_end_frame();

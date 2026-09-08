@@ -173,6 +173,9 @@ void main(void)
         do { k = rom_getin(); } while (!k);
         if (k != 0x18) quitp = 0;                     /* any other key takes back the intent to quit */
         msg = "";
+        /* $80-$FF is either a KEY_* code or an accented letter; KBDST bit 6
+         * says which the byte just read was.  A letter goes in like any other. */
+        if (k >= 0x80 && !(REG(KBDST) & 0x40)) { if (len < BUFMAX) { openup(cur, 1); BUF[cur++] = (char)k; dirty = 1; } scroll_into_view(); continue; }
         switch (k) {
         case 0x82: if (cur) cur--; break;                          /* left  */
         case 0x83: if (cur < len) cur++; break;                    /* right */

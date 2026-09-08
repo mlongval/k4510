@@ -32,11 +32,11 @@ int main(void)
       CHECK(strstr(buf, "video.border = 64 px") == 0 && strstr(buf, "video.border = 64"), "border rewritten in place");
       CHECK(strstr(buf, "input.reset_chord = Ctrl+Alt+Del") && strstr(buf, "input.menu_key = F7"), "missing keys appended: '%s'", buf); }
     printf("1. registry: load, clamp, wrap, save with unknown keys kept\n");
-    /* 2. keys reach the menu through kbd_push */
+    /* 2. keys reach the menu through kbd_push / kbd_push_key (the F-keys and arrows are KEY codes, since 2026-09-08 a kind of their own) */
     settings_defaults();
     kbd_push('a'); CHECK(io_read(IO_KBD) == 'a' && !menu_is_open(), "a plain key reaches the machine");
-    kbd_modifiers(1, 0, 0); kbd_push(KEY_F1 + 6); CHECK(!menu_is_open() && io_read(IO_KBD) == KEY_F1 + 6, "Shift+F7 reaches the machine");
-    kbd_modifiers(0, 0, 0); kbd_push(KEY_F1 + 6); CHECK(menu_is_open(), "F7 opens the menu");
+    kbd_modifiers(1, 0, 0); kbd_push_key(KEY_F1 + 6); CHECK(!menu_is_open() && io_read(IO_KBD) == KEY_F1 + 6, "Shift+F7 reaches the machine");
+    kbd_modifiers(0, 0, 0); kbd_push_key(KEY_F1 + 6); CHECK(menu_is_open(), "F7 opens the menu");
     kbd_push('x'); CHECK(io_read(IO_KBD) == 0, "keys do not reach the machine while open");
     CHECK(menu_draw(ov) == 1 && menu_draw(ov) == 0, "draws once, then clean");
     { CHECK(cell_is(1, 2, UIC_FRAME) > 0, "the frame is drawn");
@@ -45,20 +45,20 @@ int main(void)
     /* The categories, in order: Video, Terminal, Audio, Input, Machine, Shell,
      * Info.  This walk counts DOWNs, so inserting a category shifts it -- as
      * Terminal did on 2026-09-02.  Counts are from the top each time. */
-    kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);          /* Audio */
-    kbd_push(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
-    kbd_push(KEY_LEFT); kbd_push(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
-    kbd_push(KEY_ESC); kbd_push(KEY_UP); kbd_push(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
-    kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);  /* Screen font: a popup */
-    kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);
+    kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);          /* Audio */
+    kbd_push_key(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
+    kbd_push_key(KEY_LEFT); kbd_push_key(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
+    kbd_push(KEY_ESC); kbd_push_key(KEY_UP); kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
+    kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);  /* Screen font: a popup */
+    kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);
     CHECK(settings_get(SET_VIDEO_FONT) == FONT_OPENROMS, "popup chose open-roms (%d)", settings_get(SET_VIDEO_FONT));
-    kbd_push(KEY_ESC); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
-    kbd_push(KEY_DOWN); kbd_push(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
+    kbd_push(KEY_ESC); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
+    kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
     CHECK(menu_closed_pending() == 1 && menu_closed_pending() == 0, "close reported once");
     kbd_push('b'); CHECK(io_read(IO_KBD) == 'b', "keys reach the machine again");
-    settings_set(SET_INPUT_MENU_KEY, MENUKEY_F8); kbd_push(KEY_F1 + 6); CHECK(!menu_is_open(), "F7 is a plain key once the menu key moved");
-    kbd_push(KEY_F1 + 7); CHECK(menu_is_open(), "F8 opens it"); menu_close();
+    settings_set(SET_INPUT_MENU_KEY, MENUKEY_F8); kbd_push_key(KEY_F1 + 6); CHECK(!menu_is_open(), "F7 is a plain key once the menu key moved");
+    kbd_push_key(KEY_F1 + 7); CHECK(menu_is_open(), "F8 opens it"); menu_close();
     printf("2. menu: open/close, navigation, INT steps, ENUM popup, actions\n");
     /* 3. the shell toggle the ROM reads at $D521 */
     settings_defaults();

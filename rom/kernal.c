@@ -13,6 +13,11 @@
 #define VICKY  0xD000u
 #define KBD    0xD100u
 #define KBDST  0xD101u
+#define KEY_LEFT 0x82u                  /* the KEY_* codes readline edits with (core/io.h has the full set) */
+#define KEY_RIGHT 0x83u
+#define KEY_HOME 0x84u
+#define KEY_END  0x85u
+#define KEY_DEL  0x89u
 #define DMA    0xD200u
 #define FS     0xD300u
 #define FM     0xD480u          /* the OPL2: $D480 address port, $D481 data */
@@ -369,21 +374,63 @@ uint8_t k_chrin(void)
     return k;
 }
 
-#pragma code-name (push, "SWCODE1")   /* the line editor: only ever run at a prompt, never under a program, so bank 1 (ROM2 full, 2026-09-07) */
-#pragma rodata-name (push, "SWRODATA1")
+#pragma code-name (push, "SWCODE3")   /* the line editor: only ever run at a prompt, never under a program, so a bank of its own (bank 1 filled up when it learned to edit, 2026-09-08) */
+#pragma rodata-name (push, "SWRODATA3")
+/* The line editor.  The cursor can be anywhere in the line: Left/Right move
+ * it, Home/End jump, Backspace takes the character before it, Delete the one
+ * under it, Esc clears the line, Enter takes it.  Typed characters go in at
+ * the cursor.  Up/Down do nothing yet (no history: the ROM has no RAM for
+ * one).  Until 2026-09-08 none of this existed and an arrow key printed the
+ * accented letter that shares its code -- KBDST bit 6 is what tells an $82
+ * that is Left from an $82 that is é. */
+static void rl_left(void)                 /* one cell back, up a row if the line wrapped: JIM's own $08 stops at column 0 */
+{
+    if (REG(TERM + 9) == 0) { REG(TERM + 10) = (uint8_t)(REG(TERM + 10) - 1); REG(TERM + 9) = (uint8_t)(REG(TERM + 5) - 1); }
+    else REG(TERM) = 8;
+    cx = REG(TERM + 9); cy = REG(TERM + 10);
+}
+static void rl_tail(const char *buf, uint8_t p, uint8_t n, uint8_t pad)   /* repaint from p to the end, pad blanks, cursor back to p */
+{
+    uint8_t i;
+    for (i = p; i < n; i++) k_chrout((uint8_t)buf[i]);
+    for (i = 0; i < pad; i++) k_chrout(' ');
+    for (i = (uint8_t)(n - p + pad); i; i--) rl_left();
+}
 static uint8_t readline(char *buf, uint8_t max)
 {
-    uint8_t n = 0, k;
+    uint8_t n = 0, p = 0, k, i, key;
     for (;;) {
         draw_cursor(1);
         k = k_chrin();
-        if (k == 13) { draw_cursor(0); buf[n] = 0; newline(); return n; }
-        if (k == 8) { if (n) { n--; k_chrout(8); } continue; }
-        if (k == 27) { while (n) { n--; k_chrout(8); } continue; }
+        key = (uint8_t)(k >= 0x80 && (REG(KBDST) & 0x40));   /* a KEY_* code, not a character that shares its byte */
+        if (k == 13) { draw_cursor(0); for (i = p; i < n; i++) k_chrout((uint8_t)buf[i]); buf[n] = 0; newline(); return n; }
+        if (k == 8) {                                                   /* backspace: the character before the cursor */
+            if (!p) continue;
+            p--; n--; rl_left();
+            for (i = p; i < n; i++) buf[i] = buf[i + 1];
+            rl_tail(buf, p, n, 1); continue;
+        }
+        if (k == 27) { while (p) { p--; rl_left(); } rl_tail(buf, 0, 0, n); n = 0; continue; }   /* clear the line */
+        if (key) {
+            switch (k) {
+            case KEY_LEFT:  if (p) { p--; rl_left(); } break;
+            case KEY_RIGHT: if (p < n) { k_chrout((uint8_t)buf[p]); p++; } break;
+            case KEY_HOME:  while (p) { p--; rl_left(); } break;
+            case KEY_END:   while (p < n) { k_chrout((uint8_t)buf[p]); p++; } break;
+            case KEY_DEL:   if (p < n) { n--; for (i = p; i < n; i++) buf[i] = buf[i + 1]; rl_tail(buf, p, n, 1); } break;
+            default: break;                                             /* Up, Down, Insert, the F-keys: nothing, and no glyph */
+            }
+            continue;
+        }
         /* $80-$FF are the font's code page 437 half: accented letters a host
          * dead key composes and the frontend hands over as one byte.  $7F is
          * the only printable code excluded. */
-        if (k >= 0x20 && k != 0x7F && n < max - 1) { buf[n++] = k; k_chrout(k); }
+        if (k >= 0x20 && k != 0x7F && n < max - 1) {
+            for (i = n; i > p; i--) buf[i] = buf[i - 1];
+            buf[p] = (char)k; n++;
+            k_chrout(k); p++;
+            if (p < n) rl_tail(buf, p, n, 0);
+        }
     }
 }
 static void readline_sw(const char *buf) { readline((char *)buf, 96); }   /* 96 = sizeof line, declared below */
@@ -1722,7 +1769,7 @@ static void cmd_mon(const char *p)
     for (;;) {
         const char *q;
         puts_("*");
-        sw_call(1, readline_sw, line);   /* the shell line buffer: its previous contents were consumed above */
+        sw_call(3, readline_sw, line);   /* the shell line buffer: its previous contents were consumed above */
         q = line; skipsp(&q);
         if (!*q) continue;
         if (is_cmd(&q, "X") || is_cmd(&q, "EXIT") || is_cmd(&q, "Q")) return;
@@ -1882,7 +1929,7 @@ static void cmd_bbcbasic(uint8_t prog)
              * nothing at all. Under CP/M they go down as the diamond,
              * straight past JIM. BBC BASIC wants the VT sequences and is
              * left alone. */
-            if (prog == 3 && k >= 0x80 && k <= 0x83) {
+            if (prog == 3 && k >= 0x80 && k <= 0x83 && (REG(KBDST) & 0x40)) {   /* the arrows, not the letters that share their codes */
                 static const uint8_t ws[4] = { 0x05, 0x18, 0x13, 0x04 };   /* up down left right */
                 REG(TUBE + 2) = ws[k - 0x80];
             } else { REG(TERM + 3) = k; tube_keys(); }
@@ -1993,7 +2040,7 @@ int main(void)
     for (;;) {
         if (mode_note) { mode_note = 0; banner(); }   /* back from an F7 mode or status-bar change */
         put_cwd(); puts_("] ");
-        sw_call(1, readline_sw, line);
+        sw_call(3, readline_sw, line);
         shell_line(line);
     }
     return 0;

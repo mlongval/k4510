@@ -18,28 +18,39 @@ static uint32_t rd32(const uint8_t *p) { return p[0] | (p[1] << 8) | (p[2] << 16
 #include <string.h>
 #include <stdint.h>
 
-/* ---- keyboard: a FIFO behind two registers (Wozmon polls them) -------- */
-static uint8_t kbd_fifo[64];
-static int     kbd_head, kbd_tail;
-static uint8_t kbd_last, kbd_mods;
+/* ---- keyboard: a FIFO behind two registers (Wozmon polls them) --------
+ * Each entry is a byte and one bit saying what KIND of byte: a character
+ * (what a key or a dead-key sequence typed, in the font's code page 437) or
+ * a key code (the arrows, Home, the function keys: KEY_* in io.h, $80-$9F).
+ * The two ranges overlap -- KEY_LEFT is $82 and so is é -- and for as long
+ * as the queue held bare bytes the shell could not tell them apart: on a
+ * French keyboard the arrows printed Ç ü é â (Doc, hdieu, 2026-09-08).  The
+ * kind rides in bit 8 here and is reported through KBDST bits 5 and 6. */
+static uint16_t kbd_fifo[64];
+static int      kbd_head, kbd_tail;
+static uint8_t  kbd_last, kbd_mods, kbd_last_key;   /* kbd_last_key: the byte last read was a key code */
+#define KBD_KEY 0x100
 
 /* Every key passes here, from the frontend's SDL loop. The F7 menu (core/ui) takes them first: its own key
  * opens it (unshifted only -- Shift+F7 still reaches BBC BASIC) and,
  * while it is open, every key is the menu's. */
-static void kbd_enqueue(uint8_t ascii)
+static void kbd_enqueue(uint16_t ent)
 {
     int next = (kbd_tail + 1) & 63;
     if (next == kbd_head) return;
-    kbd_fifo[kbd_tail] = ascii;
+    kbd_fifo[kbd_tail] = ent;
     kbd_tail = next;
 }
-void kbd_push(uint8_t ascii)
+static void kbd_in(uint16_t ent)
 {
+    uint8_t ascii = (uint8_t)ent;
     if (menu_is_open()) { menu_key(ascii); return; }
-    if (ascii == menu_key_code() && !(kbd_mods & 1)) { menu_open(); return; }
+    if ((ent & KBD_KEY) && ascii == menu_key_code() && !(kbd_mods & 1)) { menu_open(); return; }
     dbg_key(ascii);
-    kbd_enqueue(ascii);
+    kbd_enqueue(ent);
 }
+void kbd_push(uint8_t ascii)   { kbd_in(ascii); }                    /* a character */
+void kbd_push_key(uint8_t code) { kbd_in((uint16_t)code | KBD_KEY); }  /* a KEY_* code */
 void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); }
 static uint8_t kbd_held_mask;
 void kbd_held(uint8_t mask) { kbd_held_mask = mask; }
@@ -54,7 +65,8 @@ static int kbd_ready(void) { return kbd_head != kbd_tail; }
 static uint8_t kbd_read(void)
 {
     if (!kbd_ready()) return 0;
-    kbd_last = kbd_fifo[kbd_head]; kbd_head = (kbd_head + 1) & 63;
+    kbd_last = (uint8_t)kbd_fifo[kbd_head]; kbd_last_key = (kbd_fifo[kbd_head] & KBD_KEY) ? 1 : 0;
+    kbd_head = (kbd_head + 1) & 63;
     return kbd_last;
 }
 
@@ -1255,8 +1267,9 @@ static uint8_t io_read_inner(uint16_t addr)
     }
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
-        if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | kbd_mods;
-        if (addr == IO_KBDST + 1) return kbd_ready() ? kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
+        if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | (kbd_last_key ? 0x40 : 0x00)
+                                   | (kbd_ready() && (kbd_fifo[kbd_head] & KBD_KEY) ? 0x20 : 0x00) | kbd_mods;
+        if (addr == IO_KBDST + 1) return kbd_ready() ? (uint8_t)kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
         if (addr == IO_KBDHELD) return menu_is_open() ? 0 : kbd_held_mask;     /* the keys down now; none while the menu has them */
         if (addr >= IO_MOUSEX && addr <= IO_MOUSEDY) {                        /* the mouse; the menu keeps its clicks */
             /* The host reports the glass (640x480); the program wants the pixels

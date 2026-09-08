@@ -28,7 +28,7 @@ int main(int argc,char**argv){ int kwait=0;
     cpu65_reset();
     static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){
-        if(fr>=5 && ki<kn && fr>=kwait){ uint8_t k=(uint8_t)keys[ki++]; if(k=='~') kwait=fr+30; else kbd_push(k=='\n'?0x0D:k); }   /* one key per frame; ~ waits 30 frames */
+        if(fr>=5 && ki<kn && fr>=kwait){ uint8_t k=(uint8_t)keys[ki++]; if(k=='~') kwait=fr+30; else if(k==0x1F && ki<kn) kbd_push((uint8_t)keys[ki++]); else if(k>=0x80) kbd_push_key(k); else kbd_push(k=='\n'?0x0D:k); }   /* $80+ = a KEY code, $1F = the next byte as a character (as headless) */   /* one key per frame; ~ waits 30 frames */
         vicky_begin_frame(fb,640);
         for(int y=0;y<480;y++){cpu65.irqLevel=vicky_irq()?1:0;cpu65_step(40500000/60/480);vicky_line(y);}
         vicky_end_frame();

@@ -168,7 +168,10 @@ extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
  * ($20-$7E, already shifted/dead-keyed by the host layout on the desktop);
  * control keys as ASCII controls; everything else as $80+ codes. */
 #define IO_KBD         (IO_INPUT + 0x00)  /* read: next event, pops; 0 if none.  write: push a key into the queue (type-ahead: a program types at the shell) */
-#define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held */
+#define IO_KBDST       (IO_INPUT + 0x01)  /* bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held;
+                                           * bit6 the byte LAST READ from KBD was a key code (KEY_*), not a character;
+                                           * bit5 the byte WAITING is a key code.  The two share $80-$9F -- KEY_LEFT
+                                           * and é are both $82 -- and these bits are how a line editor tells them apart. */
 #define IO_KBDPEEK     (IO_INPUT + 0x02)  /* read: the next event without popping it; 0 if none */
 #define IO_KBDBREAK    (IO_INPUT + 0x03)  /* read: an ESC ($1B) or Ctrl-C ($03) waiting anywhere in the queue is removed and returned; 0 if none */
 /* The keys HELD right now, for games -- the queue above is events, and a
@@ -306,6 +309,7 @@ void    io_reset(void);
  * (core/tube_cp.c); an unfitted program leaves status reading 0. The
  * console it talks to is JIM, the terminal at $DA00 (core/term.h). */
 void    kbd_push(uint8_t code);
+void    kbd_push_key(uint8_t code);      /* the host: a KEY_* code (arrows, Home, F-keys) -- never a typed character */
 void    dbg_pc(uint16_t pc);                 /* mem.c calls this on every opcode fetch */
 int     dbg_dump(const char *why);           /* write a dump; returns its number, -1 on failure */
 void    kbd_modifiers(uint8_t shift, uint8_t ctrl, uint8_t alt);

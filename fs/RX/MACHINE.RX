@@ -1,0 +1,23 @@
+/* MACHINE.RX -- what this machine says about itself, read from its own
+ * registers.  A short tour of PEEK: below 65536 it is the address space the
+ * processor sees, so these are the real chips answering, not a table. */
+sys = 54528                                  /* $D500, the system block */
+vicky = 53248                                /* $D000, the video chip   */
+tube = 55296                                 /* $D800, the co-processor */
+say 'K4510'
+say '  clock    ' (peek(sys) + peek(sys+1)*256 + peek(sys+38)*65536) % 1000 'MHz'
+say '  memory   ' peek(sys+2) + peek(sys+3)*256 'MB'
+call peek sys+4                              /* reading $D504 latches the clock */
+say '  the time ' time() 'on' date()
+say '  up for   ' (peek(sys+13) + peek(sys+14)*256) % 60 'seconds'
+say '  video    ' 'control byte' d2x(peek(vicky),2) 'background' d2x(peek(vicky+1),2)
+say '  console  ' 'a text layer reading from $030000'
+t = peek(tube)
+fitted = ''
+if t // 2 = 1 then fitted = fitted 'a program is running,'
+if t % 4 // 2 = 1 then fitted = fitted 'a host shell,'
+if t % 8 // 2 = 1 then fitted = fitted 'a chess engine,'
+if fitted = '' then fitted = 'nothing fitted'
+say '  tube     ' strip(strip(fitted), 'T', ',')
+say
+say '(INFO at the prompt says all of this at length, and more)'

@@ -1,0 +1,29 @@
+/* GUESS.RX -- the smallest game worth writing.  It shows PULL, arithmetic
+ * and a DO loop, and it is fair: the number is drawn from the clock. */
+say 'I am thinking of a number between 1 and 100.'
+say 'Type a guess and press Return.  Type Q to give up.'
+say
+n = random(1, 100)
+tries = 0
+do forever
+  say 'your guess?'
+  pull g
+  if g = 'Q' then do
+    say 'it was' n
+    leave
+  end
+  if datatype(g, 'N') = 0 then do
+    say '  that is not a number'
+    iterate
+  end
+  tries = tries + 1
+  select
+    when g < n then say '  higher'
+    when g > n then say '  lower'
+    otherwise do
+      say '  that is it, in' tries 'guesses.'
+      if tries <= 7 then say '  which is as good as anyone can do.'
+      leave
+    end
+  end
+end

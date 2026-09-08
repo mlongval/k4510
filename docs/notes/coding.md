@@ -1624,3 +1624,20 @@ programs chapter. Two things are worth stating plainly to a reader: values are
 strings and arithmetic is whole numbers only, and a script sees a program's
 answer through a file, never on the screen. The two open faults above should be
 in the issues appendix, not hidden in prose.
+
+**2026-09-07, later: SWAP was moving K/OS's stack, and there are demos now.**
+
+Two things a handbook reader will care about. First, `SWAP -k command` is new:
+plain SWAP puts the screen back as it was (which is what RANGER wants when the
+editor closes), `-k` leaves what the command drew (which is what a script
+wants). Second, `/RX` now holds eight worked scripts — `MACHINE.RX` reads the
+machine's own registers through PEEK, `HOSTINFO.RX` is the Tube, `WUMPUS.RX` is
+a real game, and `CHESS.RX` plays chess against the engine through the port,
+drawing the board itself from what the program sends back.
+
+The fault behind the two "known rough edges" I filed this morning was one bug:
+SWAP's save fired from inside `dma_copy`, so the zero page it recorded carried
+that function's stack pointer, twelve bytes below `cmd_swap`'s own — and the
+inline restore then handed those twelve bytes to every frame above. Anything
+that swapped came back to a K/OS reading its locals out of place. Both edges
+are gone; the issues appendix can drop them.

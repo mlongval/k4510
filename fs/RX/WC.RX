@@ -1,0 +1,27 @@
+/* WC.RX name -- lines, words and characters in a text file, the way the
+ * REXX way is short: LINES asks whether there is more, LINEIN takes the
+ * next line, WORDS counts what is in it. */
+parse arg file
+if file = '' then do
+  say 'WC name  -- counts the lines, words and characters of a file'
+  exit 1
+end
+if exists(file) = 0 then do
+  say file 'is not there'
+  exit 1
+end
+l = 0; w = 0; c = 0
+longest = ''
+do while lines(file)
+  s = linein(file)
+  l = l + 1
+  w = w + words(s)
+  c = c + length(s) + 1
+  if length(s) > length(longest) then longest = s
+end
+say right(l, 6) 'lines'
+say right(w, 6) 'words'
+say right(c, 6) 'characters'
+say
+say 'the longest line is' length(longest) 'characters:'
+say '  ' left(longest, 60)

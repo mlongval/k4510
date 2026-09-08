@@ -6043,9 +6043,43 @@ What it cost to find out:
   names a file: a built-in runs directly and its output stays on the
   screen; a program is swapped in.
 
-Still open, and written down rather than papered over: a script that has
-used SWAP loses the console when it ends, and a program's own output
-never survives a SWAP (SWAP restores the screen by design).  Restoring
-all of low memory after a SWAP is somehow part of the first one -- leaving
-the result byte out of the restore fixed the console and broke the port,
-so both stay as they were until the real cause is found.
+Both of the day's open faults were closed the same evening, and the first
+one was worth the hunt.
+
+## 2026-09-07, later — what SWAP had been doing all along
+
+The console that vanished after a script had swapped was not a console
+fault at all.  SWAP keeps a copy of the whole 64 KB, and the 64 KB
+includes the zero page, and the zero page holds cc65's software stack
+pointer.  The save fired from *inside* `dma_copy`, so the copy recorded
+that function's stack pointer -- twelve bytes below the one `cmd_swap`
+itself was using.  The restore is written inline, deliberately, so it
+fired with the real one.  Twelve bytes of drift, handed to every frame
+above: after a swap, K/OS was reading its own locals out of place.  At the
+prompt nothing showed; under a program it did, because `run_at` then
+compared video registers it had never saved, decided the program had
+changed the mode, and cleared the screen.  RANGER's stray cursor is very
+likely the same twelve bytes.  The save fires from `cmd_swap` now.
+
+Finding it took a probe rather than a theory: `$D5F1` appends a character
+to the shell log, the log comes out in a dump, and three characters
+written from the failing branch said which program was returning and what
+the stack pointer was at both ends.  Snapshot at entry $87, comparison at
+$7B.  Everything before that -- the ROM's stack, the banks, the loader --
+had been ruled out by guessing, which is to say not ruled out at all.
+
+The second fault was a decision, not a bug: SWAP restores the screen so a
+file manager gets its display back, which also threw away anything a
+program printed for a script.  `SWAP -k` keeps it, and RX uses that form.
+
+Then the demos, because a language with nothing written in it proves
+nothing.  `/RX` now holds eight scripts: the machine reading its own
+registers, a word count, a column adder, the host asked about itself over
+the Tube, a guessing game, Hunt the Wumpus in 150 lines, and a game of
+chess played against the engine through the port -- the board drawn by the
+script from what CHESS sends back.  Wumpus alone found three real
+interpreter bugs: EXPOSE of a stem *assigned* the stem, which silently
+dropped every member of the caller's map; LEAVE stopped at the first END
+it met instead of the loop's, so leaving from inside SELECT ... WHEN ...
+THEN DO went nowhere; and a plain DO group counted as a loop for LEAVE.
+Games are good tests.

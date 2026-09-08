@@ -1,0 +1,163 @@
+/* WUMPUS.RX -- Hunt the Wumpus, Gregory Yob's 1973 game, in REXX.
+ *
+ * Twenty rooms, each joined to three others: the corners of a dodecahedron.
+ * Somewhere in it sleeps the wumpus.  Two rooms have bottomless pits and two
+ * hold giant bats that will pick you up and drop you anywhere.  You carry
+ * five crooked arrows, which fly through up to five rooms of your choosing.
+ *
+ *   M 12   move to room 12          S 3 4    shoot through rooms 3 then 4
+ *   Q      give up                  ?        the rules again
+ */
+t.1  = '2 5 8';    t.2  = '1 3 10';   t.3  = '2 4 12';   t.4  = '3 5 14'
+t.5  = '1 4 6';    t.6  = '5 7 15';   t.7  = '6 8 17';   t.8  = '1 7 9'
+t.9  = '8 10 18';  t.10 = '2 9 11';   t.11 = '10 12 19'; t.12 = '3 11 13'
+t.13 = '12 14 20'; t.14 = '4 13 15';  t.15 = '6 14 16';  t.16 = '15 17 20'
+t.17 = '7 16 18';  t.18 = '9 17 19';  t.19 = '11 18 20'; t.20 = '13 16 19'
+
+call setup
+say 'HUNT THE WUMPUS'
+say 'You are in a cave of twenty rooms.  Somewhere in it is the wumpus.'
+say 'Type ? for the rules.  M room to move, S rooms to shoot, Q to leave.'
+say
+do forever
+  call look
+  say 'what now?'
+  pull cmd
+  parse var cmd verb rest
+  select
+    when verb = 'Q' then do
+      say 'The wumpus was in room' wumpus'.'
+      leave
+    end
+    when verb = '?' then call rules
+    when verb = 'M' then do
+      if move(rest) then leave
+    end
+    when verb = 'S' then do
+      if shoot(rest) then leave
+    end
+    otherwise say '  M room, S rooms, ? or Q.'
+  end
+end
+exit 0
+
+/* ---- the cave ------------------------------------------------------- */
+setup:
+  arrows = 5
+  do forever                                 /* five different rooms */
+    you = random(1, 20); wumpus = random(1, 20)
+    pit1 = random(1, 20); pit2 = random(1, 20)
+    bat1 = random(1, 20); bat2 = random(1, 20)
+    all = you wumpus pit1 pit2 bat1 bat2
+    same = 0
+    do i = 1 to 6
+      do j = i + 1 to 6
+        if word(all, i) = word(all, j) then same = 1
+      end
+    end
+    if same = 0 then leave
+  end
+  return
+
+look:
+  say 'You are in room' you'.  Tunnels lead to' t.you'.'
+  near = t.you
+  do i = 1 to 3
+    r = word(near, i)
+    if r = wumpus then say '  You smell something terrible.'
+    if r = pit1 | r = pit2 then say '  You feel a draught.'
+    if r = bat1 | r = bat2 then say '  You hear wings.'
+  end
+  say '  You have' arrows 'arrows.'
+  return
+
+/* moving: returns 1 when the game is over */
+move: procedure expose you wumpus pit1 pit2 bat1 bat2 arrows t.
+  parse arg where
+  if datatype(where, 'N') = 0 then do
+    say '  which room?'
+    return 0
+  end
+  if wordpos(where, t.you) = 0 then do
+    say '  you cannot get there from here'
+    return 0
+  end
+  you = where
+  return hazard()
+
+/* what is in the room you just entered */
+hazard: procedure expose you wumpus pit1 pit2 bat1 bat2 arrows t.
+  do forever
+    if you = wumpus then do
+      say '  ... you have walked into the wumpus.'
+      if random(1, 4) = 1 then do
+        say '  It was asleep, and stumbles off into another room.'
+        wumpus = word(t.wumpus, random(1, 3))
+      end
+      else do
+        say '  It eats you.  THE WUMPUS WINS.'
+        return 1
+      end
+    end
+    if you = pit1 | you = pit2 then do
+      say '  ... the floor is not there.  You fall for a long time.'
+      return 1
+    end
+    if you = bat1 | you = bat2 then do
+      say '  ... a giant bat takes you somewhere else.'
+      you = random(1, 20)
+      iterate
+    end
+    return 0
+  end
+
+/* shooting: an arrow through up to five rooms */
+shoot: procedure expose you wumpus pit1 pit2 bat1 bat2 arrows t.
+  parse arg path
+  if words(path) = 0 then do
+    say '  shoot through which rooms?  S 3 4 5'
+    return 0
+  end
+  if words(path) > 5 then do
+    say '  an arrow flies through five rooms at most'
+    return 0
+  end
+  arrows = arrows - 1
+  at = you
+  do i = 1 to words(path)
+    r = word(path, i)
+    if datatype(r, 'N') = 0 then do
+      say '  that is not a room'
+      return 0
+    end
+    if wordpos(r, t.at) = 0 then r = word(t.at, random(1, 3))   /* it bends */
+    at = r
+    if at = wumpus then do
+      say '  Your arrow finds the wumpus.  YOU WIN.'
+      return 1
+    end
+    if at = you then do
+      say '  The arrow curves back and hits you.  Bad luck.'
+      return 1
+    end
+  end
+  say '  The arrow clatters away into the dark.'
+  say '  The wumpus stirs.'
+  if random(1, 4) \= 1 then wumpus = word(t.wumpus, random(1, 3))
+  if wumpus = you then do
+    say '  It walks into your room, and eats you.  THE WUMPUS WINS.'
+    return 1
+  end
+  if arrows = 0 then do
+    say '  That was your last arrow.  You will not leave this cave.'
+    return 1
+  end
+  return 0
+
+rules:
+  say '  The cave is twenty rooms, each with three tunnels.'
+  say '  Near the wumpus you smell it; near a pit you feel a draught;'
+  say '  near bats you hear wings.  Bats carry you off; pits are the end.'
+  say '  M room moves you.  S room room ... shoots an arrow through them,'
+  say '  and an arrow that cannot go where you aimed goes somewhere else.'
+  return

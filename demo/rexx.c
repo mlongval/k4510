@@ -74,7 +74,8 @@ static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1
 #define CMAX 256                    /* a clause */
 #define RUNMAX 6                    /* nested function calls in expressions */
 #define TMAX 20                     /* expression temporaries */
-#define NVAR 80
+#define NVAR 176                  /* EXPOSE of a stem links each member, so a procedure
+                                 * that exposes a 20-room map costs 20 of these */
 #define POOL 1536
 #define NLAB 16
 #define NFRAME 16
@@ -119,7 +120,10 @@ static label_t labels[NLAB]; static uint8_t nlabels;
 #define CT_SEL 2
 #define CT_IF 3
 #define CT_CALL 4
-typedef struct { uint8_t type; uint8_t flag; uint16_t dopos; uint16_t body; long cnt; long to, by; char var[24]; uint8_t rl; uint8_t vl; } frame_t;
+typedef struct { uint8_t type; uint8_t flag; uint8_t rep; uint16_t dopos; uint16_t body; long cnt; long to, by; char var[24]; uint8_t rl; uint8_t vl; } frame_t;
+/* rep: this DO repeats (a count, a control variable, WHILE or UNTIL).  A
+ * plain DO ... END is a group, not a loop, and LEAVE and ITERATE step over
+ * it to the loop outside -- which is what SELECT ... WHEN x THEN DO needs. */
 static frame_t frames[NFRAME]; static uint8_t fsp;
 
 /* LINEIN streams and the LINEOUT file */
@@ -279,6 +283,15 @@ static void var_set(const char *name, const char *val)
     memcpy(pool + v->val, val, n); pool[v->val + n] = 0;
 }
 static void var_setn(const char *name, long n) { char b[14]; putnum(b, n); var_set(name, b); }
+/* one variable of the level below, made visible at this one under its own
+ * name: a link entry, so an assignment through it reaches the original. */
+static void expose_one(uint8_t src)
+{
+    uint8_t i;
+    for (i = 0; i < nvars && vars[i].lvl != 0xFF; i++) ;
+    if (i == nvars) { if (nvars >= NVAR) die("too many variables"); nvars++; }
+    vars[i].lvl = var_lvl; vars[i].link = (uint8_t)(src + 1); vars[i].cap = 0; vars[i].val = 0; vars[i].name = vars[src].name;
+}
 static void var_drop(const char *name) { uint8_t ix = var_find(name, var_lvl); if (ix) vars[ix - 1].lvl = 0xFF; }
 /* a compound name: the tail's symbols replaced by their values */
 static void resolve(const char *sym, char *out)
@@ -1003,7 +1016,8 @@ static uint8_t do_step(frame_t *f, uint8_t first)
     if (first) {
         char *e;
         f->cnt = -1;                                          /* -1: no count */
-        if (!*body || kw(body, "FOREVER")) { if (!*body && !w && !u) f->cnt = 1; }
+        f->rep = (uint8_t)(w || u ? 1 : 0);
+        if (!*body || kw(body, "FOREVER")) { if (kw(body, "FOREVER")) f->rep = 1; else if (!w && !u) f->cnt = 1; }
         else if ((e = ctrl_eq(body)) != 0) {                   /* i = a TO b BY c FOR n */
             char *to, *by, *fr; long v;
             *e = 0; word_at(body, f->var, 24); body = e + 1;
@@ -1012,11 +1026,12 @@ static uint8_t do_step(frame_t *f, uint8_t first)
             if (!fr && to) fr = find_kw(to, "FOR");
             if (!fr && by) fr = find_kw(by, "FOR");
             if (!to && by) to = find_kw(by, "TO");
+            f->rep = 1;
             v = evaln(body); var_setn(f->var, v);
             f->to = to ? evaln(to) : 0x7FFFFFFFL; f->by = by ? evaln(by) : 1; f->flag = (uint8_t)(to != 0);
             if (fr) f->cnt = evaln(fr);
             if (f->by >= 0 ? v > f->to : v < f->to) go = 0;
-        } else f->cnt = evaln(body);
+        } else { f->cnt = evaln(body); f->rep = 1; }
         if (f->cnt == 0) go = 0;
     } else {
         if (u) { char *t = tpush(); eval(u, t); go = !logical(t); tpop(); if (!go) return 0; }
@@ -1200,11 +1215,20 @@ static void exec_stmt(const char *s)
     if (!strcmp(w, "END")) { end_of_loop(); return; }
     if (!strcmp(w, "LEAVE") || !strcmp(w, "ITERATE")) {
         uint8_t i = fsp; char nm[24]; word_at(r, nm, 24);
-        while (i) { frame_t *f = &frames[i - 1]; if (f->type == CT_CALL) i = 0; else if (f->type == CT_DO && (!nm[0] || !strcmp(nm, f->var))) break; else i--; }
+        while (i) { frame_t *f = &frames[i - 1];
+            if (f->type == CT_CALL) i = 0;
+            else if (f->type == CT_DO && f->rep && (!nm[0] || !strcmp(nm, f->var))) break;
+            else i--; }
         if (!i) die(w[0] == 'L' ? "LEAVE outside a loop" : "ITERATE outside a loop");
-        fsp = i;
-        if (w[0] == 'L') { fsp--; skip_to_end(); after_block(); }
-        else { if (!do_step(&frames[fsp - 1], 0)) { fsp--; after_block(); } }
+        /* Every block still open between here and the loop ends with its own
+         * END, and LEAVE has to walk past all of them -- a LEAVE inside
+         * SELECT ... WHEN ... THEN DO stopped at the first one otherwise
+         * (WUMPUS found it, 2026-09-07). */
+        { uint8_t k, extra = 0;
+          for (k = i; k < fsp; k++) if (frames[k].type == CT_DO || frames[k].type == CT_SEL) extra++;
+          fsp = i;
+          if (w[0] == 'L') { fsp--; while (extra--) skip_to_end(); skip_to_end(); after_block(); }
+          else { if (!do_step(&frames[fsp - 1], 0)) { fsp--; after_block(); } } }
         return;
     }
     if (!strcmp(w, "SELECT")) { push_frame(CT_SEL); return; }
@@ -1261,11 +1285,19 @@ static void exec_stmt(const char *s)
         if (var_lvl >= 250) die("PROCEDURE too deep");
         var_lvl++;
         if ((r = kw(r, "EXPOSE")) != 0) {
-            while (*r) { char nm[32]; uint8_t k = word_at(r, nm, 32); uint8_t ox; r = skipsp(r + k); if (!k) { r++; continue; }
+            while (*r) { char nm[32]; uint8_t k = word_at(r, nm, 32); uint8_t ox, i, n0 = nvars, ln; r = skipsp(r + k); if (!k) { r++; continue; }
+                ln = (uint8_t)strlen(nm);
+                if (nm[ln - 1] == '.') {                      /* a whole stem: link the members that exist.
+                                                               * NOT var_set(nm, "") -- assigning a stem drops
+                                                               * its members, which quietly emptied the caller's
+                                                               * (WUMPUS found it, 2026-09-07). */
+                    for (i = 0; i < n0; i++)
+                        if (vars[i].lvl == (uint8_t)(var_lvl - 1) && !strncmp(pool + vars[i].name, nm, ln)) expose_one(i);
+                    continue;
+                }
                 ox = var_find(nm, (uint8_t)(var_lvl - 1));
                 if (!ox) { var_lvl--; var_set(nm, ""); ox = var_find(nm, var_lvl); var_lvl++; }
-                { uint8_t i; for (i = 0; i < nvars && vars[i].lvl != 0xFF; i++) ; if (i == nvars) { if (nvars >= NVAR) die("too many variables"); nvars++; }
-                  vars[i].lvl = var_lvl; vars[i].link = ox; vars[i].cap = 0; vars[i].val = 0; vars[i].name = vars[ox - 1].name; } }
+                expose_one((uint8_t)(ox - 1)); }
         }
         return;
     }

@@ -48,13 +48,27 @@ The port contract, for a program that wants to be driven
   calls -- it is swapped in fresh each time -- so anything that must last
   goes in a file of its own (CHESS keeps the position in /CHESS/PORT.GAM).
 
-What a script may and may not run (2026-09-07)
-  K/OS's own commands (DIR, CD, TYPE, MKDIR, PALETTE ...) run as they would
-  at the prompt and their output stays on the screen.  A word that names a
-  program is swapped in instead, because a program is loaded at $6000 --
-  through the middle of the interpreter -- and SWAP is what saves and
-  restores it.  SWAP also puts the screen back as it was, so a program's
-  output never reaches the eye: drive programs through the port, which
-  answers in a file, and do not expect to see anything a program prints.
-  A script that has used a port loses the screen when it ends, so write
-  what matters with LINEOUT.  Both of these are being worked on.
+What a script runs, and how
+  K/OS's own commands (DIR, CD, TYPE, MKDIR, PALETTE ...) run as if typed.
+  A word that names a program is different: a program is loaded at $6000,
+  through the middle of the interpreter, so K/OS swaps -- it puts the
+  interpreter aside, runs the program, and brings it back.  The script sees
+  RC either way, and what the program drew stays on the screen (SWAP -k).
+  A program that a script wants to *talk* to should answer the port instead:
+  a file is a better channel than a screen.
+
+Two things to know about PROCEDURE EXPOSE
+  EXPOSE var makes one variable of the caller's visible and writable here.
+  EXPOSE stem. does the same for every member the stem has NOW; a member
+  the procedure invents is its own.  Twenty exposed members cost twenty of
+  the interpreter's 176 variables, so expose what you use.
+
+The examples in this directory
+  HELLO.RX     the shape of a script: arguments, a loop, a command, RC
+  MACHINE.RX   what the machine says about itself, read from its registers
+  WC.RX        lines, words and characters of a file (LINEIN, LINES)
+  SUMFILE.RX   adds up a column of numbers in a text file
+  HOSTINFO.RX  ADDRESS TUBE: asks the Linux on the other side about itself
+  GUESS.RX     a small game: PULL, RANDOM, SELECT
+  WUMPUS.RX    Hunt the Wumpus: a cave of twenty rooms, in 150 lines
+  CHESS.RX     plays a game against the chess engine through the port

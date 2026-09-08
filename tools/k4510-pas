@@ -1,0 +1,53 @@
+#!/bin/sh
+# k4510-pas NAME[.pas]   compile a Mad Pascal program, here, into NAME.prg
+#
+# The on-machine half of "self-hosted Pascal": at the K4510x prompt
+#   PAS HELLO          (a K/OS word: it runs `!k4510-pas HELLO`)
+# compiles HELLO.PAS in the current directory and leaves HELLO.prg beside
+# it, which HELLO then runs.  The compiler is the cross-compiler the
+# Makefile uses (pascal/README.md) -- mp compiles to 6502 assembly, MADS
+# assembles it -- found where build-live.sh and the Containerfile put it,
+# or where MP_DIR / MADS say.  Intermediates go to a scratch directory so
+# the machine's folder holds only the source and the program.
+#
+# Exit status is the compiler's, so RC in a REXX script is 0 on success.
+set -u
+MP_DIR=${MP_DIR:-$HOME/Projects/neo6502_dev/Mad-Pascal}
+MADS=${MADS:-$HOME/Projects/neo6502_dev/Mad-Assembler/mads}
+[ $# -ge 1 ] || { echo "usage: k4510-pas NAME[.pas]   (compiles NAME.pas here into NAME.prg)" >&2; exit 2; }
+[ -x "$MP_DIR/bin/mp" ] || { echo "k4510-pas: no Mad Pascal at $MP_DIR (MP_DIR)" >&2; exit 2; }
+[ -x "$MADS" ] || { echo "k4510-pas: no MADS at $MADS (MADS)" >&2; exit 2; }
+
+src=$1
+case "$src" in *.pas|*.PAS|*.Pas) ;; *) src="$src.pas" ;; esac
+# the machine's names are case-fixed on the way in, a shell's are not:
+# take whichever spelling of the file exists
+if [ ! -f "$src" ]; then
+    f=$(find . -maxdepth 1 -iname "$(basename "$src")" | head -1)
+    [ -n "$f" ] || { echo "k4510-pas: $src: no such file" >&2; exit 1; }
+    src=${f#./}
+fi
+base=${src%.*}
+out=$base.prg
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/k4510-pas.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+# mp resolves `uses` against its own lib/ and the source's directory; run it
+# where the source is so a unit beside the program is found.
+"$MP_DIR/bin/mp" "$src" -target:k4510 -o:"$tmp/prog.a65" > "$tmp/mp.log" 2>&1
+st=$?
+if [ $st -ne 0 ]; then
+    # mp's log is long; the errors are the lines that name the file and a line
+    grep -i 'error\|fatal\|([0-9]*,[0-9]*)' "$tmp/mp.log" | head -20 >&2
+    [ -s "$tmp/mp.log" ] || echo "k4510-pas: mp failed with no output" >&2
+    exit $st
+fi
+"$MADS" "$tmp/prog.a65" -x -i:"$MP_DIR/base" -o:"$tmp/prog.prg" > "$tmp/mads.log" 2>&1
+st=$?
+if [ $st -ne 0 ]; then
+    grep -i 'error' "$tmp/mads.log" | head -20 >&2
+    [ -s "$tmp/mads.log" ] || echo "k4510-pas: mads failed with no output" >&2
+    exit $st
+fi
+cp "$tmp/prog.prg" "$out" || exit 1
+echo "$out: $(wc -c < "$out") bytes"

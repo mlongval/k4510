@@ -6192,3 +6192,44 @@ actually driven from: every key with a code (Enter to F12, F7 left out
 and Shift+F7 in the shifted list), each `$80+` code checked for the kind
 bit as well as the byte, Shift/Ctrl/Alt, a dead-key letter if the
 keyboard makes one, and the free-typing echo marks a KEY code with a K.
+
+## 2026-09-08 — PAS and CC: the machine compiles its own programs
+
+Doc: "setup MadPascal inside the mini-linux so that Pascal can be
+'self-hosted' (almost.... :)) — maybe we could setup the C compiler like
+this also." The compilers were already on the appliance (the stick has
+FPC, cc65 and the two Mad Pascal checkouts since 2026-09-03); what was
+missing was a way to reach them from the machine's side that did not
+mean typing `!mp` with four options. Two host-side scripts, `tools/
+k4510-pas` and `tools/k4510-cc`, take one name and compile the source
+of that name **in the machine's current directory** into `name.prg`
+beside it, intermediates in a scratch directory, the compiler's own
+errors on the screen and its exit status back as RC. Two shell words
+in the ROM front them: `PAS HELLO` then `HELLO` runs it; `CC SIEVE` the
+same for C. Words, not `STARTUP.BAT` aliases, because that file is
+per-machine and untracked, so an alias would never reach a fresh
+appliance. It is the `!` host shell that carries them, so on a plain
+desktop they say "no host shell on this machine" and do nothing. ROM2
+has 36 bytes left after them.
+
+`k4510-cc` is the Makefile's `fs/PRG/%.prg` rule verbatim (cc65 -O for
+the 65C02, `demo/prg.cfg`, `prg0.o` + `romcalls.o`, `#include "k4510.h"`
+resolving to `demo/`); the header's unused-static warnings are filtered
+because they are the header's, not the user's. The Pascal output is
+byte-for-byte what `make pascal` makes; the C output is identical to
+the tracked `sieve.prg`. The stick puts `tools/` on PATH for every tty
+(`profile.d/k4510x.sh`), the container image clones and builds the two
+Mad Pascal checkouts and proves both compilers before it is finished
+(`Containerfile`). `test/bangtest.sh` now compiles HELLO.PAS and SIEVE.C
+through the prompt, runs the result, and checks that a broken source
+reports its error — where mp and cc65 are; skipped otherwise.
+
+"Almost" self-hosted is the right word: the compiler still runs on the
+Linux beside the machine. What the machine owns is the loop — VI the
+source, PAS it, run it — which is the part that matters for writing
+programs on it.
+
+**Also today:** `docs/notes/fs-layout-2026-09-08.md`, a proposal for the
+filesystem (SYSTEM / LANG / APPS / HOME / CPM / MNT, one search path)
+answering Doc's "the filesystem is getting crowded". For his ruling;
+nothing moved.

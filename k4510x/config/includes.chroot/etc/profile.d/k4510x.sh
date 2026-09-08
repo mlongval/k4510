@@ -8,6 +8,10 @@
 # Quitting the emulator (F7 -> Quit) falls out of the exec and back to a login
 # prompt on tty1, because agetty respawns.  That is deliberate: on the Pi that
 # menu entry halts the board; here it should hand you the host.
+# The machine's tools -- k4510-pas and k4510-cc, which PAS and CC at the
+# prompt run through `!` -- on every tty, so they are the same command in a
+# Linux shell as at the machine's prompt.
+case ":$PATH:" in *":$HOME/k4510/tools:"*) ;; *) export PATH="$HOME/k4510/tools:$PATH" ;; esac
 if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510X_NO_AUTOSTART" ]; then
     export SDL_VIDEODRIVER=kmsdrm
     export SDL_AUDIODRIVER=alsa

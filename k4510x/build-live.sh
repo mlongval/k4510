@@ -20,7 +20,8 @@
 #   - telnetd bound to loopback ONLY; from inside the machine that is
 #     TELNET 127.0.0.1 23
 #   - real network access outbound, so the machine's TELNET can reach BBSes
-#   - Mad Pascal toolchain and neovim on the Linux side
+#   - Mad Pascal toolchain and neovim on the Linux side; PAS name and CC name
+#     at the prompt compile a .PAS / .C in the machine's directory (tools/)
 #
 #   sudo ./build-live.sh              # -> k4510x-live-<date>-amd64.img
 #   sudo REBUILD=1 ./build-live.sh    # the same, but keep the rootfs from last
@@ -332,6 +333,9 @@ $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
 # Prove the whole chain works here rather than discovering it on the laptop.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make pascal' \
     || { echo "build-live.sh: MAD PASCAL BUILT BUT DID NOT COMPILE THE DEMOS"; exit 1; }
+# The C side of the same thing: k4510-cc links every program with these two.
+$CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make demo/prg0.o demo/romcalls.o' \
+    || { echo "build-live.sh: THE C STARTUP OBJECTS DID NOT BUILD"; exit 1; }
 
 # Two Jaguar cores at 1.2 GHz will not hold a desktop clock; a T480 is a very
 # different machine, but SETUP measures either way.

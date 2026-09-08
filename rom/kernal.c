@@ -1125,6 +1125,7 @@ static void banner(void);                 /* the logo: sideways window, not resi
 static void cmd_mon(const char *p);
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
+static void cmd_compile(const char *tool, const char *p);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
 #pragma code-name (push, "SWCODE0")
@@ -1687,6 +1688,8 @@ static void shell_line(const char *p)
     p0 = p;
     { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
     if (*p == '!') { p++; skipsp(&p); cmd_bang(p); return; }   /* !ls -l  the host's shell, where there is one */
+    if (is_cmd(&p, "PAS")) { cmd_compile("k4510-pas", p); return; }   /* PAS HELLO: HELLO.PAS -> HELLO.prg, here (K4510x) */
+    if (is_cmd(&p, "CC"))  { cmd_compile("k4510-cc", p); return; }
     if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
     if (is_cmd(&p, "MKDIR")) { sw_call(1, cmd_mkdir, p); return; }
@@ -1952,6 +1955,19 @@ static void cmd_bang(const char *p)
     w32(TUBE + 4, (uint16_t)p);
     REG(TUBE + 8) = ROWS; REG(TUBE + 9) = COLS;           /* the console window: bands and margin already out */
     cmd_bbcbasic(4);
+}
+/* PAS name / CC name: the compilers on the Linux beside the machine (K4510x),
+ * tools/k4510-pas and tools/k4510-cc, which compile name.PAS / name.C in the
+ * current directory into name.prg.  A shell word rather than an alias so it
+ * is there on every appliance, STARTUP.BAT or not. */
+static void cmd_compile(const char *tool, const char *p)
+{
+    char buf[NAMEMAX + 12]; uint8_t n = 0;
+    while (*tool) buf[n++] = *tool++;
+    buf[n++] = ' ';
+    while (*p && n < sizeof buf - 1) buf[n++] = *p++;
+    buf[n] = 0;
+    cmd_bang(buf);
 }
 
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */

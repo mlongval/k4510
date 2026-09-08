@@ -1,0 +1,48 @@
+#!/bin/sh
+# k4510-cc NAME[.c]   compile a C program, here, into NAME.prg
+#
+# The on-machine half of "self-hosted C": at the K4510x prompt
+#   CC SIEVE           (a K/OS word: it runs `!k4510-cc SIEVE`)
+# compiles SIEVE.C in the current directory with cc65 and leaves SIEVE.prg
+# beside it.  The same recipe as the Makefile's fs/PRG/%.prg rule: cc65 -O
+# for the 65C02, ca65, ld65 with demo/prg.cfg (a .prg loaded at $6000, its
+# own zero page and C stack) and the two startup objects demo/prg0.o and
+# demo/romcalls.o.  #include "k4510.h" and "far.h" resolve to demo/.
+#
+# K4510 names the checkout (default: the one this script lives in); cc65
+# must be on PATH.  Exit status is the compiler's.
+set -u
+K4510=${K4510:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}
+[ $# -ge 1 ] || { echo "usage: k4510-cc NAME[.c]   (compiles NAME.c here into NAME.prg)" >&2; exit 2; }
+command -v cc65 >/dev/null 2>&1 || { echo "k4510-cc: no cc65 on PATH" >&2; exit 2; }
+for f in demo/prg.cfg demo/k4510.h demo/prg0.s demo/romcalls.s; do
+    [ -f "$K4510/$f" ] || { echo "k4510-cc: $K4510/$f missing (K4510 must name the checkout)" >&2; exit 2; }
+done
+
+src=$1
+case "$src" in *.c|*.C) ;; *) src="$src.c" ;; esac
+if [ ! -f "$src" ]; then
+    f=$(find . -maxdepth 1 -iname "$(basename "$src")" | head -1)
+    [ -n "$f" ] || { echo "k4510-cc: $src: no such file" >&2; exit 1; }
+    src=${f#./}
+fi
+base=${src%.*}
+out=$base.prg
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/k4510-cc.XXXXXX") || exit 1
+trap 'rm -rf "$tmp"' EXIT
+# the two startup objects: use the checkout's if make has built them, else
+# assemble them here (a fresh checkout has only the .s)
+for o in prg0 romcalls; do
+    if [ -f "$K4510/demo/$o.o" ]; then cp "$K4510/demo/$o.o" "$tmp/$o.o"
+    else ca65 --cpu 65c02 -o "$tmp/$o.o" "$K4510/demo/$o.s" || exit 1; fi
+done
+# k4510.h defines its helpers static, so every program that skips one gets a
+# "defined but never used" warning; those are the header's, not the user's
+cc65 -O -t none --cpu 65c02 -I "$K4510/demo" -o "$tmp/prog.s" "$src" > "$tmp/cc.log" 2>&1; st=$?
+grep -v "is defined but never used" "$tmp/cc.log" >&2
+[ $st -eq 0 ] || exit $st
+ca65 --cpu 65c02 -o "$tmp/prog.o" "$tmp/prog.s" || exit $?
+ld65 -C "$K4510/demo/prg.cfg" -o "$tmp/prog.prg" "$tmp/prg0.o" "$tmp/romcalls.o" "$tmp/prog.o" none.lib || exit $?
+cp "$tmp/prog.prg" "$out" || exit 1
+echo "$out: $(wc -c < "$out") bytes"

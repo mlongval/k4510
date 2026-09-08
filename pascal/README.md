@@ -4,6 +4,10 @@ A cross-compiler, like cc65: [Mad Pascal](https://github.com/tebe6502/Mad-Pascal
 (Tomasz Biela, MIT) compiles on the desktop to 6502 assembly, MADS
 assembles it, the ROM's `RUN` loads the `.prg`. Not an on-machine
 compiler -- that role is Turbo Pascal under CP/M on the Tube.
+On K4510x, though, the loop closes: `PAS name` at the prompt runs
+`tools/k4510-pas` on the Linux beside the machine and leaves `name.prg`
+next to `name.PAS` in the current directory (`CC name` does the same
+for C with `tools/k4510-cc`); errors come back on the screen.
 
 `mp/` holds the K4510 target as it lives inside a Mad-Pascal checkout:
 

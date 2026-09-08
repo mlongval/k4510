@@ -81,8 +81,11 @@ tongues: BBC (BBC BASIC on the Tube)
          end with EXIT to leave CP/M as well)
          FORTH (Tali Forth 2, native)
          EHBASIC
-         Mad Pascal: cross-compiled .prg files
-         (pascal/): PMANDEL PSIEVE HELLO
+         Mad Pascal: PMANDEL PSIEVE HELLO (pascal/)
+         PAS name / CC name (K4510x: compile
+         name.PAS or name.C here into name.prg,
+         then name runs it; tools/k4510-pas and
+         k4510-cc on the Linux side)
 network: a URL is a file name (Meatloaf):
          TYPE http://host/file
          CP http://host/x.prg x.prg

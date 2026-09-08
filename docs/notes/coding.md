@@ -1687,3 +1687,17 @@ accented letters should check it. EDIT does; VI does not yet.
 far: it asks for F8, which is the frontend's PAUSE key and never reaches
 the machine (F7 was already left out for the same reason). Others unlisted
 yet.
+
+**2026-09-08 — PAS and CC at the prompt (K4510x only).** `PAS name` and
+`CC name` compile `name.PAS` / `name.C` in the current directory into
+`name.prg` (two ROM words in front of `tools/k4510-pas` and
+`tools/k4510-cc`, run through `!`). The handbook's Pascal section says "not an on-machine
+compiler"; that stays true of the compiler, but the loop — edit, PAS,
+run — now happens at the machine's prompt on the appliance. Worth a
+paragraph where the stick is introduced. HELP's "tongues" block has the
+two lines. Errors appear as the compiler prints them.
+
+**Proposal awaiting Doc: `docs/notes/fs-layout-2026-09-08.md`** — a new
+directory shape (`/SYSTEM /LANG /APPS /HOME /CPM /MNT`). If he takes it,
+every DIR screenshot and `/PRG` in the book changes; recapture after the
+move, not before.

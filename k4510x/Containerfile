@@ -3,12 +3,19 @@
 # stack; the machine built inside; the k4510 user with passwordless sudo,
 # as on the stick.  What the container can see of the host is decided by
 # podman.sh's mounts, not here: this file knows nothing about the host.
+#
+# libdecor: on GNOME's Wayland a window gets no title bar unless it draws
+# its own, and SDL draws one only where libdecor is found at run time.  The
+# stick never needs it (kmsdrm, no windows); this flavour is the one that
+# lives on a desktop, so it is here and not in the package list.  Doc,
+# hdieu, 2026-09-08: "no Gnome window around emulator".
 FROM docker.io/library/debian:trixie
 ARG UID=1000
 ARG PKGS
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
         sudo ca-certificates tzdata libgl1-mesa-dri libegl1 libpipewire-0.3-0 libpulse0 \
+        libdecor-0-0 libdecor-0-plugin-1-gtk \
         $PKGS \
     && rm -rf /var/lib/apt/lists/*
 RUN groupadd -f input && groupadd -f render \

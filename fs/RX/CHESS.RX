@@ -45,14 +45,14 @@ exit 0
 board:
   'BOARD'
   b = result
-  say '     a b c d e f g h'
+  say '      a b c d e f g h'
   do r = 8 to 1 by -1
     parse var b line (nl) b
     out = ''
     do c = 1 to 8
       out = out substr(line, c, 1)
     end
-    say '  ' r out ' ' r
+    say '  ' r out ' ' r                      /* the blank operator puts ONE space between operands */
   end
-  say '     a b c d e f g h'
+  say '      a b c d e f g h'
   return

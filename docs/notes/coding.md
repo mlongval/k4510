@@ -1682,3 +1682,8 @@ history). New in Appendix A: `$D101` bit 6 = the byte last read from
 character; bit 5 = the waiting byte is one. This is how é (`$82`) and
 Left (`$82`) are told apart; any program reading keys that wants
 accented letters should check it. EDIT does; VI does not yet.
+
+**Open, 2026-09-08 (Doc): KEYTEST.PRG has bugs to come back to.** Known so
+far: it asks for F8, which is the frontend's PAUSE key and never reaches
+the machine (F7 was already left out for the same reason). Others unlisted
+yet.

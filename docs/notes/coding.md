@@ -1641,3 +1641,10 @@ that function's stack pointer, twelve bytes below `cmd_swap`'s own — and the
 inline restore then handed those twelve bytes to every frame above. Anything
 that swapped came back to a K/OS reading its locals out of place. Both edges
 are gone; the issues appendix can drop them.
+
+**2026-09-07, the volume keys.** A laptop's own volume keys now work on the
+machine: Fn+F2 / Fn+F3 on a ThinkPad (XF86AudioLowerVolume / RaiseVolume) step
+the F7 Volume setting by ten and save it, Fn+F1 mutes and unmutes, and
+Ctrl+Alt with plus, minus or zero does the same where a desktop has taken the
+media keys. It matters most on K4510x, where there is no mixer behind the
+emulator at all.

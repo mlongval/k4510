@@ -578,6 +578,29 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
                 if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; }
+                /* The volume, without opening the menu.  A laptop's own volume
+                 * keys (a ThinkPad's Fn+F1/F2/F3) arrive as these three, and
+                 * Ctrl+Alt with the plus, minus and zero keys does the same
+                 * where those are taken -- on K4510x there is no desktop mixer
+                 * behind this program, so this is the only volume there is. */
+                { int dv = 0, mute = 0;
+                  if (k == SDLK_VOLUMEUP) dv = 10; else if (k == SDLK_VOLUMEDOWN) dv = -10;
+                  else if (k == SDLK_AUDIOMUTE || k == SDLK_MUTE) mute = 1;   /* X11 sends one, evdev the other */
+                  else if ((m & KMOD_CTRL) && (m & KMOD_ALT)) {
+                      if (k == SDLK_EQUALS || k == SDLK_PLUS || k == SDLK_KP_PLUS) dv = 10;
+                      else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) dv = -10;
+                      else if (k == SDLK_0 || k == SDLK_KP_0) mute = 1;
+                  }
+                  if (dv || mute) {
+                      static int was;                      /* what to come back to after a mute */
+                      int v = settings_get(SET_AUDIO_VOLUME);
+                      if (mute) { if (v) { was = v; v = 0; } else v = was ? was : 50; }
+                      else { v += dv; if (v < 0) v = 0; if (v > 100) v = 100; }
+                      settings_set(SET_AUDIO_VOLUME, v);
+                      settings_save(cfg);
+                      printf("volume %d%%\n", v); fflush(stdout);
+                      break;
+                  } }
                 if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
                 switch (k) {
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;

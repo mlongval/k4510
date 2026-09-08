@@ -182,6 +182,41 @@ static void apply_font(int which)
     mem_load(K4510_FONT8_PHYS, font, 2048);
 }
 
+/* The keyboard when SDL sends no text.
+ *
+ * A printable character normally arrives as SDL_TEXTINPUT, already composed by
+ * the host's layout.  On K4510x that never happens: the appliance draws
+ * straight on the screen (SDL_VIDEODRIVER=kmsdrm) and SDL's own evdev keyboard
+ * gives us key codes and no text at all, so the F7 menu -- which is arrow keys
+ * and Enter -- worked while nothing could be TYPED (Doc, on the T480,
+ * 2026-09-07: "the keyboard is unresponsive outside of the menu").
+ *
+ * So every printable key press is remembered as it comes, and any TEXTINPUT
+ * that follows cancels it; whatever is still pending when the frame's events
+ * run out is typed from the key code instead.  On a desktop the text always
+ * arrives and this costs nothing; where it never arrives the keyboard works,
+ * one frame late and in the American arrangement, which is the arrangement the
+ * key codes are named in.  An accented layout still needs the text events. */
+static uint8_t key_ascii(SDL_Keycode k, int shift)
+{
+    static const char plain[]   = "`1234567890-=[]\\;',./";
+    static const char shifted[] = "~!@#$%^&*()_+{}|:\"<>?";
+    const char *c;
+    if (k >= SDLK_a && k <= SDLK_z) return (uint8_t)(shift ? k - 'a' + 'A' : k);
+    if (k == SDLK_SPACE) return ' ';
+    if (k >= SDLK_KP_1 && k <= SDLK_KP_9) return (uint8_t)('1' + (k - SDLK_KP_1));
+    if (k == SDLK_KP_0) return '0';
+    switch (k) {
+    case SDLK_KP_PERIOD: return '.';  case SDLK_KP_DIVIDE: return '/';
+    case SDLK_KP_MULTIPLY: return '*'; case SDLK_KP_MINUS: return '-';
+    case SDLK_KP_PLUS: return '+';
+    default: break;
+    }
+    c = strchr(plain, (int)k);
+    if (k && c && *c) return (uint8_t)(shift ? shifted[c - plain] : k);
+    return 0;
+}
+
 /* Unicode -> code page 437, for the half of the machine's font above ASCII.
  * Only the letters and marks a keyboard can actually produce are here; the box
  * drawing has no key.  0 means "this machine cannot show it". */
@@ -519,6 +554,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           }
         }
         SDL_Event e;
+        uint8_t pend = 0;               /* a printable key waiting to see whether SDL sends its text */
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
@@ -549,6 +585,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 break;
 #endif
             case SDL_TEXTINPUT: {
+                pend = 0;                                    /* SDL does send text here: the key code is not needed */
                 /* The host layout has already composed the character -- a dead key
                  * plus a vowel arrives here as one UTF-8 sequence.  ASCII goes
                  * straight through; anything above it is decoded and looked up in
@@ -614,11 +651,17 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 case SDLK_INSERT: kbd_push(KEY_INS); break; case SDLK_DELETE: kbd_push(KEY_DEL); break;
                 case SDLK_PAUSE: kbd_push(0x9F); break;
                 default:
-                    if (k >= SDLK_F1 && k <= SDLK_F12) kbd_push((uint8_t)(KEY_F1 + (k - SDLK_F1)));
+                    if (k >= SDLK_F1 && k <= SDLK_F12) { kbd_push((uint8_t)(KEY_F1 + (k - SDLK_F1))); break; }
+                    if (!(m & (KMOD_CTRL | KMOD_ALT | KMOD_GUI))) pend = key_ascii(k, m & KMOD_SHIFT);
                     break;
                 }
                 break; }
             }
+        }
+        if (pend) {                                          /* no text event came: type the key itself */
+            static int said;
+            if (!said) { said = 1; fprintf(stderr, "keyboard: SDL sends no text on the %s driver; typing from the key codes\n", SDL_GetCurrentVideoDriver()); }
+            kbd_push(pend);
         }
         host_poll_input();                                   /* the Pi: C64 keyboard on GPIO */
 #ifndef K4510_PI

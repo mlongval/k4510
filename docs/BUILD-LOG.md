@@ -6083,3 +6083,32 @@ dropped every member of the caller's map; LEAVE stopped at the first END
 it met instead of the loop's, so leaving from inside SELECT ... WHEN ...
 THEN DO went nowhere; and a plain DO group counted as a loop for LEAVE.
 Games are good tests.
+
+## 2026-09-07 (evening) — K4510x could not be typed on
+
+Doc booted the new stick on the ThinkPad: "f7 menu works but the keyboard is
+unresponsive outside of the menu."
+
+One path explains exactly that. A printable character normally reaches the
+machine as an `SDL_TEXTINPUT` event — the host layout has already composed it,
+which is how an accented key works at all. Every *other* key (F7, the arrows,
+Enter, Escape, the function keys) is read from `SDL_KEYDOWN`. The appliance
+runs on `SDL_VIDEODRIVER=kmsdrm` with SDL's own evdev keyboard behind it, and
+that combination sends the key events and no text at all: the menu, which is
+arrows and Enter, worked perfectly while the shell prompt was deaf.
+
+`sdl/main.c` now keeps a printable key press pending for the rest of the frame
+and types it from the key code if no text event has cancelled it by then. Where
+text events do arrive — every desktop build, and the container flavour — the
+cancel always happens and nothing changes. Where they never arrive the keyboard
+works, one frame late and in the American arrangement, and the emulator says so
+once on stderr.
+
+`k4510x/build-live.sh` grew a middle mode for exactly this kind of fix:
+
+    sudo REBUILD=1 ./k4510x/build-live.sh
+
+keeps the rootfs from the last full build, drops today's HEAD into it, rebuilds
+the machine inside it and squashes it again — about two minutes against about
+thirty. `REUSE=1` (image only) and the full build are unchanged. Anything that
+adds a *package* still needs the full build.

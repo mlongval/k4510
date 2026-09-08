@@ -1648,3 +1648,13 @@ the F7 Volume setting by ten and save it, Fn+F1 mutes and unmutes, and
 Ctrl+Alt with plus, minus or zero does the same where a desktop has taken the
 media keys. It matters most on K4510x, where there is no mixer behind the
 emulator at all.
+
+**2026-09-07, the appliance's keyboard.** On K4510x the machine draws straight
+on the screen (SDL's `kmsdrm` driver, no desktop underneath), and that path
+delivers key codes but no *text* events. Everything the machine reads as a key
+— F7, the arrows, Enter, Escape — worked; nothing could be typed. So a printable
+key press is now held for the rest of the frame and typed from the key code
+unless the host's own text event arrives first and cancels it. On a desktop
+nothing changes at all. Worth a line in the appendix only if the appliance is
+described there: the fallback is the American arrangement, because that is what
+the key codes are named in, so an accented layout still wants a desktop.

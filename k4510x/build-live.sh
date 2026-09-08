@@ -22,7 +22,11 @@
 #   - real network access outbound, so the machine's TELNET can reach BBSes
 #   - Mad Pascal toolchain and neovim on the Linux side
 #
-#   sudo ./build-live.sh          # -> k4510x-live-<date>-amd64.img
+#   sudo ./build-live.sh              # -> k4510x-live-<date>-amd64.img
+#   sudo REBUILD=1 ./build-live.sh    # the same, but keep the rootfs from last
+#                                     # time and only rebuild the machine in it
+#                                     # (two minutes; use it after a code fix)
+#   sudo REUSE=1 ./build-live.sh      # only re-assemble the image
 #
 # Needs, on the build host: debootstrap, parted, dosfstools, e2fsprogs,
 # squashfs-tools.
@@ -98,9 +102,38 @@ trap cleanup EXIT
 # already in $WORK.  The expensive half of this script is twenty-five minutes
 # of debootstrap, apt and three compilers; the image half is thirty seconds.
 # Getting the second one wrong should not cost the first one again.
+squash() {
+    echo "== squashfs =="
+    # zstd: decompresses fast, and the whole thing is read into RAM once at boot.
+    mksquashfs "$ROOT" "$STAGE/live/filesystem.squashfs" \
+        -comp zstd -Xcompression-level 19 -noappend -no-progress \
+        -e proc sys dev/pts mnt tmp var/cache/apt/archives
+}
+
 if [ "$REUSE" = 1 ] && [ -f "$STAGE/live/filesystem.squashfs" ]; then
     echo "== reusing the rootfs and squashfs already in $WORK =="
     mkdir -p "$MNT"
+elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
+    # The middle mode, and the one to reach for after a fix to the emulator:
+    # keep the rootfs that debootstrap and three compilers took half an hour to
+    # make, put THIS checkout's HEAD into it, rebuild the machine there, and
+    # squash it again.  Two minutes instead of thirty.  Anything that changes a
+    # PACKAGE still needs the full build.
+    echo "== rebuilding the machine inside the rootfs already in $WORK =="
+    mkdir -p "$MNT"
+    binds_up
+    git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k4510"
+    $CHROOT_ENV chroot "$ROOT" chown -R "$USER_NAME:$USER_NAME" "/home/$USER_NAME"
+    # The .d files name the paths of the last build; a fresh checkout over them
+    # is exactly the case where a stale one keeps a changed file from compiling.
+    $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
+        'cd ~/k4510 && find core sdl -name "*.d" -delete && make ACME=/usr/bin/acme -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm' \
+        || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
+    $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
+        || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
+    binds_down
+    sync
+    squash
 else
 
 rm -rf "$WORK"
@@ -319,11 +352,7 @@ rm -rf "$ROOT/var/lib/apt/lists"/* "$ROOT/tmp"/*
 binds_down
 sync
 
-echo "== squashfs =="
-# zstd: decompresses fast, and the whole thing is read into RAM once at boot.
-mksquashfs "$ROOT" "$STAGE/live/filesystem.squashfs" \
-    -comp zstd -Xcompression-level 19 -noappend -no-progress \
-    -e proc sys dev/pts mnt tmp var/cache/apt/archives
+squash
 fi
 
 SQ=$(stat -c %s "$STAGE/live/filesystem.squashfs")

@@ -1146,15 +1146,33 @@ static void cmd_cpm(const char *p)
 #define SWAPRAM 0x0FD00000UL
 #define SWAPSCR 0x0FD10000UL
 static uint8_t swapping;
+/* SWAP command            run it over this program, then put this one back
+ * SWAP -k command         ...and leave on the screen whatever it drew
+ *
+ * The screen is part of what SWAP restores, because a file manager wants its
+ * display back when the editor closes.  A script wants the opposite: a
+ * command it ran should look the way it would at the prompt.  -k is that. */
 static void cmd_swap(const char *p)
 {
+    uint8_t keep = 0;
+    if (p[0] == '-' && (p[1] | 0x20) == 'k' && (p[2] == ' ' || !p[2])) { p += 2; skipsp(&p); keep = 1; }
     if (!*p) { error("swap: swap command"); return; }
     if (swapping) { error("swap: no nesting"); return; }
-    dma_copy(0x00000000UL, SWAPRAM, 0x10000UL);
-    dma_copy(SCREEN, SWAPSCR, 80UL * 60 * 4);
+    /* The save must fire from HERE, not from inside dma_copy: the image
+     * includes the zero page, and the zero page holds cc65's stack pointer.
+     * Taken inside a call it records a pointer 12 bytes lower than this
+     * function's own, and the restore below then hands that pointer to
+     * everything above -- every enclosing frame read 12 bytes out, which is
+     * how a script that swapped came back to a cleared console and how
+     * RANGER got its stray cursor (2026-09-07).  The restore is inline for
+     * the same reason; the two must match. */
+    w32(DMA, 0x00000000UL); w32(DMA + 4, SWAPRAM); w32(DMA + 8, 0x10000UL);
+    REG(DMA + 12) = 1;
+    if (!keep) dma_copy(SCREEN, SWAPSCR, 80UL * 60 * 4);
     swapping = 1;                                     /* set after the save, so the restore clears it again */
     shell_line(p);
-    dma_copy(SWAPSCR, SCREEN, 80UL * 60 * 4);
+    if (!keep) dma_copy(SWAPSCR, SCREEN, 80UL * 60 * 4);
+    else { REG(TERM + 9) = cx; REG(TERM + 10) = cy; }   /* the console kept what the command drew: JIM follows the ROM again */
     /* The restore overwrites the stack, so it must not be triggered from
      * inside a call: the returning JSR would find the SAVED return address
      * under it and jump back to the save, round and round. Set the registers

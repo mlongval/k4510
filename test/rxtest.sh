@@ -1,8 +1,8 @@
 #!/bin/sh
-# RX, the REXX interpreter (demo/rexx.c): the language, ADDRESS COMMAND and
-# the port.  The script under test writes its answers to the screen; the
-# harness types RX and looks for them.  The Tube leg needs a host shell and
-# is only run when the machine has one.
+# RX, the REXX interpreter (demo/rexx.c): the language, the two kinds of
+# shell command, and the port.  Two scripts rather than one, because a
+# script's output now survives to the end of the run and a long one scrolls
+# off the screen the harness reads.
 set -e
 cd "$(dirname "$0")/.."
 export K4510_NO_STARTUP=1
@@ -37,14 +37,6 @@ z = 99
 call show
 say 'N' z
 say 'O' datatype(12) datatype('x','N') symbol('QQ')
-'DIR /RX'                          /* a built-in: its output stays on the screen */
-say 'P' rc
-'NOSUCHTHING'
-say 'Q' rc
-signal done
-say 'never'
-done:
-say 'R done'
 exit 0
 greet: procedure
   parse arg who
@@ -58,10 +50,24 @@ show: procedure expose z
   z = z + 1
   return
 EOF
+cat > fs/RX/RXTEST2.RX <<'EOF'
+'DIR /RX'                           /* a built-in: runs as if typed */
+say 'P' rc
+'SAY through-a-swap'                /* a program: SWAP carries the script over it, -k keeps what it drew */
+say 'P2' rc
+'NOSUCHTHING'
+say 'Q' rc
+signal done
+say 'never'
+done:
+say 'R done'
+EOF
 out=$(./test/headless rom/kernal.bin 'RX RXTEST
 ~~~~~~~~~~~~' 1400 2>&1) || true
-rm -f fs/RX/RXTEST.RX
-fail() { echo "$out"; echo "rxtest: FAILED: $1"; exit 1; }
+out2=$(./test/headless rom/kernal.bin 'RX RXTEST2
+~~~~~~~~~~~~' 1400 2>&1) || true
+rm -f fs/RX/RXTEST.RX fs/RX/RXTEST2.RX
+fail() { echo "$out"; echo "$out2"; echo "rxtest: FAILED: $1"; exit 1; }
 echo "$out" | grep -q 'A 14 3 1 1024'                     || fail "arithmetic"
 echo "$out" | grep -q 'B abcdef 5 bcd three 3'            || fail "string functions"
 echo "$out" | grep -q 'C MIX cba 3 xyxyxy s'              || fail "more string functions"
@@ -77,11 +83,13 @@ echo "$out" | grep -q 'L hi Doc'                          || fail "CALL and RESU
 echo "$out" | grep -q 'M 49 120'                          || fail "functions and recursion"
 echo "$out" | grep -q 'N 100'                             || fail "PROCEDURE EXPOSE"
 echo "$out" | grep -q 'O NUM 0 LIT'                       || fail "DATATYPE / SYMBOL"
-echo "$out" | grep -q 'file(s)'                           || fail "ADDRESS COMMAND did not reach the shell"
-echo "$out" | grep -q 'P 0'                               || fail "RC after a command that worked"
-echo "$out" | grep -q 'Q 1'                               || fail "RC after a command that failed"
-echo "$out" | grep -q 'R done'                            || fail "SIGNAL"
-# the port: CHESS answers @file, keeps its position, and plays
+echo "$out2" | grep -q 'file(s)'                          || fail "a built-in command did not reach the shell"
+echo "$out2" | grep -q 'P 0'                              || fail "RC after a command that worked"
+echo "$out2" | grep -q 'through-a-swap'                   || fail "a program's output did not survive SWAP -k"
+echo "$out2" | grep -q 'P2 0'                             || fail "RC after a program run through SWAP"
+echo "$out2" | grep -q 'Q 1'                              || fail "RC after a command that failed"
+echo "$out2" | grep -q 'R done'                           || fail "SIGNAL"
+# the port: CHESS answers @file, keeps its position between calls, and plays
 rm -f fs/CHESS/PORT.GAM fs/RX/PORT.RPL
 printf 'NEW\nMOVE e2e4\nFEN\n' > fs/RX/PORT.CMD
 ./test/headless rom/kernal.bin 'RUN CHESS @/RX/PORT.CMD
@@ -92,4 +100,4 @@ printf 'STATUS\n' > fs/RX/PORT.CMD
 ~~~~~~' 700 >/dev/null 2>&1 || true
 grep -q 'black to move' fs/RX/PORT.RPL 2>/dev/null || { echo "rxtest: FAILED: the chess port forgot the position between calls"; exit 1; }
 rm -f fs/RX/PORT.CMD fs/RX/PORT.RPL fs/CHESS/PORT.GAM
-echo "rxtest: OK (the language, ADDRESS COMMAND with RC, and the chess port over @file)"
+echo "rxtest: OK (the language, both kinds of shell command with RC, and the chess port over @file)"

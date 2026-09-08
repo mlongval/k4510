@@ -644,12 +644,7 @@ static void mailbox(const char *cmd, char *result)
     strcpy(nm, mail); fs_name(nm); w32(FS_ADDR, (uint32_t)(uint16_t)cmd); w32(FS_LEN, strlen(cmd)); fs_do(C_SAVE);
     strcpy(nm, reply); fs_name(nm); fs_do(C_RM);
     strcpy(CMDLINE, "SWAP "); strcat(CMDLINE, env); strcat(CMDLINE, " @"); strcat(CMDLINE, mail);
-    /* SWAP puts the caller's memory back but not what was on the screen before
-     * it, so the script's own output vanished at every port call: keep the
-     * console here and put it back afterwards (2026-09-07). */
-    dma_copy(SCREEN, SCR_PHYS, SCRBYTES);
-    st = rom_shell(CMDLINE);
-    dma_copy(SCR_PHYS, SCREEN, SCRBYTES);
+    st = rom_shell(CMDLINE);                       /* plain SWAP: the port answers in a file, not on the screen */
     strcpy(nm, reply); fs_name(nm); w32(FS_ADDR, SCRATCH); w32(FS_LEN, 0xFFFFUL);
     if (fs_do(C_LOAD)) { var_setn("RC", st ? -3 : 0); result[0] = 0; return; }   /* no reply: -3 = command not found, like REXX */
     n = (uint16_t)r32(FS_LEN);
@@ -686,8 +681,8 @@ static void command(const char *s)
     if (trace) { outs(">>> "); outs(s); nl(); }
     if (!strcmp(env, "COMMAND") || !strcmp(env, "K/OS") || !strcmp(env, "SHELL")) {
         uint8_t prog = is_program(s);
-        uint16_t n = strlen(s); if (n > 244) n = 244;
-        if (prog == 1) { strcpy(CMDLINE, "SWAP "); memcpy(CMDLINE + 5, s, n); CMDLINE[5 + n] = 0; }
+        uint16_t n = strlen(s); if (n > 240) n = 240;
+        if (prog == 1) { strcpy(CMDLINE, "SWAP -k "); memcpy(CMDLINE + 8, s, n); CMDLINE[8 + n] = 0; }   /* -k: what it drew stays, as at the prompt */
         else      { memcpy(CMDLINE, s, n); CMDLINE[n] = 0; }     /* the low page either way: SWAP loads over our image */
         var_setn("RC", (long)rom_shell(CMDLINE));
     } else if (!strcmp(env, "TUBE")) {

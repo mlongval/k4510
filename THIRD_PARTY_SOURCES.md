@@ -194,14 +194,18 @@ back.
 | Licence | zlib-style (applies to the linked runtime) |
 | Altered | No. **Do not build from `master`** -- it deprecates the `sp` symbol the ROM's crt0 uses, and the resulting ROM hangs at boot with no diagnostic. |
 
-## Circle and circle-libsdl2 (Raspberry Pi only)
+## Circle and circle-libsdl2 (the retired bare-metal Pi port)
+
+The port was removed on 2026-09-07; nothing in the tree links against
+these any more. Kept for the record of tag `alpha-0.5`, the last release
+that carried a `kernel8.img`.
 
 | | |
 |---|---|
-| Role | The bare-metal runtime the Pi 3B+ port links against. |
+| Role | The bare-metal runtime the Pi 3B+ port linked against. |
 | Local path | Not vendored. Expected at `$(SHIM)` — default `~/Projects/k4510-pi/circle-libsdl2` (`pi/Makefile`). |
 | Upstream | https://github.com/Xalior/circle-libsdl2 — **the shim, not `rsta2/circle` directly.** Circle, newlib, mbedtls and the rest arrive through it as submodules. |
-| Version | `30cbcbd` (`vPoC3-155-g30cbcbd`), checked on the build host 2026-08-26. Circle itself is `6177984e` (tag `Step51`), circle-stdlib `a4fbed9` (`v8.0-620`). The full submodule list is in `pi/VENDORED-FROM.txt`. |
+| Version | `30cbcbd` (`vPoC3-155-g30cbcbd`), checked on the build host 2026-08-26. Circle itself is `6177984e` (tag `Step51`), circle-stdlib `a4fbed9` (`v8.0-620`). The full submodule list is in `pi/VENDORED-FROM.txt` at tag `alpha-0.5`. |
 | Licence | GPL-2.0-or-later (Circle); the submodules carry their own. |
 | Altered | No. |
 

@@ -921,8 +921,8 @@ static void info_version(void)
     newline(); pad(8);
     puts_("build ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) k_chrout(REG(SYS + 0x10 + i));
-    /* "emulator" is wrong on the Pi, where this is bare metal on real hardware */
-    puts_(REG(SYS + 0x22) ? ", BMC-K4510: bare metal on a Raspberry Pi 3B+" : ", K4510 on a desktop");
+    /* $D522: what is beneath the machine, so an issue says which one it came from */
+    puts_(REG(SYS + 0x22) ? ", K4510x" : ", K4510 on a desktop");
     newline();
 }
 

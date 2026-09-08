@@ -42,32 +42,19 @@ static const set_desc desc[SET_COUNT] = {
     /* audio.chip and audio.sids lived here until 2026-09-05, when the SIDs
      * were removed.  An old k4510.cfg still carrying them is fine: unknown
      * keys are kept and ignored. */
-    /* The Pi's core 3 holds the Tube and is asleep until the ROM runs BBC or
-     * CPM, which on most sessions is never; the sound can have it until then.
-     * Off by default: it moves the audio path onto another core, and that is
-     * not a thing to turn on for someone without their asking.  The desktop
-     * has no core to give it to and ignores the row. */
-    { "audio.core3",         "Sound on core 3",ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
     { "input.mouse_grab",    "Mouse capture",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* a click captures the pointer; the menu releases it */
     { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */
     { "shell.startup",       "Run STARTUP.BAT", ST_BOOL, 1, 0, 1, 1, 0, 0, SF_RESTART },  /* read at power-on: the way out of a bad one */
-    /* The machine is a fantasy and its timings are suggestions.  A Pi 3B+
-     * emulates about half of 40.5 MHz in real time; asked for all of it, it
-     * runs the whole machine at 20 fps and the sound starves.  So the Pi
-     * defaults to 15 MHz and runs in real time, and the desktop starts at
-     * 40.5.  Neither is a ceiling: the menu offers everything the enum has,
-     * because what a host can hold is a question about that host, not about
-     * this machine.  A desktop measured over 120 MHz should be allowed to
-     * run there; a Pi asked for 202.5 will crawl, and the setting is live,
-     * so stepping back down is how you find out.  INFO reports whichever is
-     * set. */
-#ifdef K4510_PI
-    { "cpu.clock",           "CPU clock",      ST_ENUM,  CPUCLK_15,   0, 0, 0, cpu_names, CPUCLK_COUNT, SF_LIVE },
-#else
+    /* The machine is a fantasy and its timings are suggestions.  40.5 is
+     * only where a host starts before it has been measured, not a ceiling:
+     * the menu offers everything the enum has, because what a host can hold
+     * is a question about that host, not about this machine.  A desktop
+     * measured over 120 MHz should be allowed to run there; a slow one asked
+     * for 202.5 will crawl, and the setting is live, so stepping back down is
+     * how you find out.  INFO reports whichever is set. */
     { "cpu.clock",           "CPU clock",      ST_ENUM,  CPUCLK_40_5, 0, 0, 0, cpu_names, CPUCLK_COUNT, SF_LIVE },
-#endif
     /* ...and those defaults are only where a host starts before it has been
      * measured.  With cpu.auto on, the frontend runs core/calib.c at power-on
      * and sets cpu.clock to the highest step the host holds with margin; the

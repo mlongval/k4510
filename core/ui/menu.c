@@ -22,10 +22,8 @@ static const item_t video_items[] = {
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
     { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
 };
-/* One chip, the OPL2, so there is nothing to choose but the volume and,
- * on the Pi, which core renders it. */
-static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME },
-                                      { "Sound on core 3", MI_SETTING, SET_AUDIO_CORE3 } };
+/* One chip, the OPL2, so there is nothing to choose but the volume. */
+static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME } };
 /* The Terminal menu (2026-09-02).  The status bands are the console's own
  * furniture rather than a property of the picture, so they moved out of Video
  * and brought the things that belong with them: how tall each band is, and
@@ -59,11 +57,7 @@ static const item_t machine_items[] = {
     { "Power cycle",       MI_ACTION, ACT_POWER_CYCLE },
     { "Stop the Tube",     MI_ACTION, ACT_TUBE_STOP },
     { "",                  MI_SEP },
-#ifdef K4510_PI
-    { "Power off",         MI_ACTION, ACT_QUIT },   /* the Pi halts: nothing to quit to */
-#else
     { "Quit the emulator", MI_ACTION, ACT_QUIT },
-#endif
     { "",                  MI_SEP },
     { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* the ladder, 202.5 down to 10; after Reset so uitest's walk to it is unchanged */
     { "Auto clock",        MI_SETTING, SET_CPU_AUTO },    /* measured at boot (core/calib.c); choosing a clock above turns this off */

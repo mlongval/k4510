@@ -11,14 +11,21 @@ machine: its CPU, video chip, sound and operating system are its own, and
 the parts it borrows — a 6502-family instruction set, the AdLib's FM
 chip — it borrows openly and then outgrows.
 
-**Two names, one machine.** The computer is the **K4510** — the 45GS10,
-VICKY, SHEILA, an OPL2, and K/OS. On a Linux desktop under SDL2, that
-is simply what you are running. Put it on an SD card and stand it on a
-**Raspberry Pi 3B+ with no operating system underneath**, and the
-appliance that boots is the **BMC-K4510** — *BMC* for Randy Rossi's
-BMC64, the bare-metal platform this was built on. Same machine, same ROM
-bytes, same software; one of them you can unplug. `docs/NAMING.md` has
-the rule, and this release is named for settling it.
+**One machine, two ways to run it.** The computer is the **K4510** — the
+45GS10, VICKY, SHEILA, an OPL2, and K/OS. Boot it from a USB stick on a
+spare laptop and it is a whole computer, **K4510x**: a minimal Debian
+that exists only to hold the machine up, with the cross-compilers, git
+and an editor beside it (`docs/K4510X.md`, built by
+`k4510x/build-live.sh`). Or run the same program in a window — or in a
+sandboxed container (`k4510x/podman.sh`) — on a Linux desktop, which is
+how it is developed and tested. Same ROM bytes, same software.
+
+A third way, bare metal on a Raspberry Pi 3B+ with no operating system
+underneath (the **BMC-K4510**, after Randy Rossi's BMC64), was built and
+retired on 2026-09-07: every feature was costing twice for a boot three
+seconds faster. `docs/decision-2026-09-07-one-shape.md` has the
+reasoning; the last tree with the port is tag `alpha-0.5`. A Pi still
+runs the machine — under Linux, the same way the laptop does.
 
 **Read the handbook first**: `doc/guide/k4510-guide.pdf`, the User's and
 Programmer's Guide, 70 pages, every screenshot captured from the running
@@ -39,20 +46,11 @@ builds everything and runs the test battery. `./k4510` starts the
 machine from the repo root; `./k4510 --no-startup.bat` skips
 `/STARTUP.BAT` for that one run.
 
-**Raspberry Pi 3B+:** download the SD-card zip from the releases page.
-Use an **SDHC card (4-32 GB), specifically**: SDHC ships FAT32 from the
-factory and just works. Old plain SD cards (2 GB and under) do **not**
-boot (field-tested), and SDXC (64 GB+) ships exFAT and will not boot
-until reformatted FAT32. Then either unzip onto the card's root
-yourself, or:
-
-    ./install-sd.sh bmc-k4510-pi3.zip /media/$USER/CARD     # mounted card
-    ./install-sd.sh bmc-k4510-pi3.zip /dev/sdX --format     # wipe + FAT32 + install
-
-The machine needs ~5 MB. **Use the official 5.1 V / 2.5 A supply**: a
-phone charger sags under three busy cores, the firmware caps the clock,
-and the machine crawls while looking like a software fault. Insert, power
-on, and the BMC-K4510 boots in about three seconds.
+**K4510x, from a USB stick:** `sudo ./k4510x/build-live.sh` makes the
+image (Debian, debootstrap and a few compilers; about half an hour the
+first time), write it to a stick with `dd`, boot the laptop from it.
+It loads to RAM, keeps its settings and saved programs on the stick, and
+never touches the internal drive. `docs/K4510X.md` has the details.
 
 ## The machine
 
@@ -156,16 +154,6 @@ on, and the BMC-K4510 boots in about three seconds.
     make test       # the test battery; also checks that no tracked binary is stale
     ./k4510         # the machine, from the repo root
 
-## The BMC-K4510 — bare metal on a Raspberry Pi 3B+
-
-`pi/` holds the Circle kernel, the host glue and the C64 keyboard driver.
-It builds against a circle-libsdl2 checkout with its `rpi3` world built
-(`make BOARD=rpi3 SHIM=/path/to/circle-libsdl2`), and `pi/make-sd.sh`
-lays out a card. Drive the TV at 640×480 (`pi/config.txt`).
-
-This directory is the whole of what makes the appliance: everything above
-it in the tree is the K4510 itself, and boots identically either way.
-
 ## Documentation
 
 - **The handbook** — `doc/guide/k4510-guide.pdf`, built and tracked in
@@ -187,8 +175,8 @@ it in the tree is the K4510 itself, and boots identically either way.
     core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
     core/        memory, I/O devices, VICKY, the OPL2 and the audio seam, MATH unit, JIM, the network, host seam
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
-    sdl/         the frontend (desktop and Pi alike) + POSIX host glue
-    pi/          Circle kernel, Circle host glue, C64 keyboard, SD layout
+    sdl/         the frontend + POSIX host glue
+    k4510x/      the appliance: the live-image build and the container flavour
     rom/         system ROM (cc65) and Wozmon
     demo/        programs in C -> fs/PRG/*.prg  (the editors, TELNET, BUG, the demos)
     retired/     programs that were part of the machine and are not any more (see its README)

@@ -89,12 +89,16 @@ Thank you:
   GPL-3.0, which CHESS talks to over the Tube or the network when one is
   fitted.  Not shipped here; K4510x installs Debian's package.
 
-## The Raspberry Pi port
+## The Raspberry Pi port (2026-08-25 to 2026-09-07)
+
+The bare-metal Pi build was retired on 2026-09-07 (the machine now runs
+under Linux everywhere, `docs/decision-2026-09-07-one-shape.md`); the
+thanks stand, because the project began there.
 
 - **Randy Rossi** — [BMC64](https://github.com/randyrossi/bmc64), VICE
   on a bare-metal Raspberry Pi with 50 Hz smooth scrolling and
-  single-frame input latency. The reason this machine has a Pi port at
-  all: the route there was always meant to be BMC64's `emux_api` seam.
+  single-frame input latency. The reason this machine had a Pi port at
+  all, and the *BMC* in the project's first name.
   Also the **VIC-II Kawari** — a modern drop-in VIC-II with modes the
   original never had, and the proof that extending an 8-bit machine's
   video chip is working inside the tradition, not outside it. VICKY is

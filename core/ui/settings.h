@@ -27,7 +27,6 @@ typedef enum {
                               * OFF is the machine's own 60 Hz (see sdl/main.c); ON hands the pacing to the
                               * display, which costs frames on a host whose refresh is not 60. */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
-    SET_AUDIO_CORE3,         /* BOOL Pi only: render the sound on core 3 while the Tube is idle */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
     SET_INPUT_MOUSE_GRAB,    /* BOOL a click on the picture confines the pointer to the window; F7 frees it */

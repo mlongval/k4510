@@ -6112,3 +6112,34 @@ keeps the rootfs from the last full build, drops today's HEAD into it, rebuilds
 the machine inside it and squashes it again — about two minutes against about
 thirty. `REUSE=1` (image only) and the full build are unchanged. Anything that
 adds a *package* still needs the full build.
+
+## 2026-09-07 (night) — one shape; the OS language; the Pi port is gone
+
+Doc's `suggestions.txt` asked two things and got an assessment and then
+a ruling: **drop the bare-metal Pi, deliver the machine only as Linux +
+emulator; BAT boots, REXX automates, BASIC builds programs.** The whole
+of it, with the reasoning, is `docs/decision-2026-09-07-one-shape.md`.
+
+Then the excision. `pi/` (583 lines: the Circle kernel, host glue, the
+C64 keyboard on GPIO, the SD layout) and `install-sd.sh` are deleted;
+the 35 `#ifdef K4510_PI` lines across six files were stripped with a
+small unifdef that knew only that symbol (kept in the scratchpad, not
+the tree); `cpm/patch_cpm.py` no longer patches a `pi/Makefile`. What
+went with them: the Pi's 15 MHz default clock, the "Power off" wording
+of the Quit row, the longer audio runway, the ARM cycle counter behind
+PERF.TXT, the core-3 sleep/wake in the Tube, and the **"Sound on core
+3" setting** (enum, table, menu row and uitest pair — it was a Pi core
+with nothing to stand for on a desktop).
+
+`$D522` used to say "desktop or Pi"; it now says what is beneath the
+machine — 0 a desktop, 1 K4510x, set by the frontend from the
+`/etc/k4510x` marker — so `INFO` and `BUG` can tell the appliance from a
+window. The F7 Info row's "Host" line says the same.
+
+`core/host.h` stays: it is where a macOS or Windows port would begin,
+and it costs nothing. The in-process Tube (`core/tube_cp.c`, the
+interpreter on a thread) stays too, as the test build's transport.
+
+The suite, run leg by leg (check-artifacts refuses a changed ROM until
+it is committed, as designed): all green. The last tree with the port is
+`alpha-0.5`; the tag is the archive.

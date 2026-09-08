@@ -29,8 +29,9 @@ where each one came from and how to verify it):
 | `rom/wozmon.*` | Wozmon, reimplemented for the 45GS10 from Steve Wozniak's published 1976 listing | project licence (GPL-2.0-or-later) |
 | `basic/msbasic/` | Microsoft BASIC for 6502, Microsoft's 2025 source release by way of Michael Steil's ca65 reconstruction `mist64/msbasic` (vendored unmodified, pure-MS files only; see `basic/msbasic/VENDORED-FROM.txt`). Built as a separate program (`fs/MSBASIC/msbasic.prg`); the K4510 port beside it, `basic/k4510msbasic.asm`, is the project's own and carries the project licence. | MIT |
 
-Not in this repository but needed for the Raspberry Pi build
-(`pi/Makefile` expects them beside the checkout): [Circle](https://github.com/rsta2/circle)
+Not in this repository, and no longer needed since the bare-metal Pi
+build was retired (2026-09-07; the last tree with it is tag `alpha-0.5`,
+whose `pi/Makefile` expected them beside the checkout): [Circle](https://github.com/rsta2/circle)
 (GPL-3.0) and [circle-libsdl2](https://github.com/Xalior/circle-libsdl2)
 (zlib; its `sdl-app.ld` is GPL-3.0). A `kernel8.img` built from them is
 therefore GPL-3.0 as a whole, which GPL-2.0-or-later code permits. The

@@ -46,11 +46,7 @@
  * are let go, so the lead cannot drift late however the two rates disagree. */
 static int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;
 #define RING_MASK ((1 << 15) - 1)
-#ifdef K4510_PI
-#define RING_TARGET (1536 + 800)          /* the Pi's device runway is longer */
-#else
 #define RING_TARGET (1024 + 800)          /* one callback, plus a frame */
-#endif
 #define RING_CAP    (RING_TARGET + 800)   /* a frame of slack above the lead */
 #define RING_DEPTH  ((ring_w - ring_h) & RING_MASK)
 static void audio_cb(void *ud, Uint8 *stream, int len)
@@ -82,21 +78,6 @@ static int clock_step_below(int cur)
     return best;
 }
 #define CYCLES_PER_LINE  cycles_per_line
-/* Another core, while it owns the sound (core/sndq.h): the same top-up the
- * frame loop does, with the queued register writes performed as it passes
- * their moment.  It is the only writer of the ring while it owns it, which is
- * what makes the ring's single-producer rule hold across the handover. */
-void k4510_audio_pump(void)
-{
-    int vol = settings_get(SET_AUDIO_VOLUME), guard = 4096;
-    while (RING_DEPTH < RING_TARGET && guard--) {
-        int16_t tmp[256];
-        audio_drain_to(sndq_now());
-        int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-        for (int i = 0; i < n; i++)
-            if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
-    }
-}
 
 
 static int load_file(const char *path, uint8_t *buf, size_t max)
@@ -239,7 +220,6 @@ static uint8_t cp437_of(unsigned long cp)
     }
 }
 
-#ifndef K4510_PI
 /* The mouse.  SDL hands us logical coordinates (the renderer's logical size
  * is the machine's picture, x2 with scanlines), so machine pixels are one
  * division and the border's shrink away.  geo_k/geo_b are copied from the
@@ -291,7 +271,6 @@ static uint8_t pad_held(void)
 #undef PA
     return h;
 }
-#endif
 
 int k4510_frontend_main(int argc, char **argv)
 {
@@ -309,8 +288,8 @@ int k4510_frontend_main(int argc, char **argv)
           } }
     if (getenv("K4510_NO_STARTUP")) no_startup = 1;          /* the same thing, for a script that sets it once */
     /* --host-shell: let `!` at the prompt run the host's shell on the Tube.
-     * K4510x turns it on (the Linux there is the user's); a plain desktop or
-     * the Pi never does, and `!` there says "no host shell on this machine". */
+     * K4510x turns it on (the Linux there is the user's); a plain desktop
+     * never does, and `!` there says "no host shell on this machine". */
     { int i, j;
       for (i = 1; i < argc; i++)
           if (!strcmp(argv[i], "--host-shell")) {
@@ -334,11 +313,7 @@ int k4510_frontend_main(int argc, char **argv)
     int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKY at $010000 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
-#ifdef K4510_PI
-    menu_info(INFO_HOST, "Raspberry Pi 3B+, Circle");
-#else
-    menu_info(INFO_HOST, "desktop, SDL2");
-#endif
+    menu_info(INFO_HOST, access("/etc/k4510x", F_OK) == 0 ? "K4510x" : "desktop, SDL2");
 
 
     if (mem_load_rom(rom) <= 0) {
@@ -353,20 +328,14 @@ int k4510_frontend_main(int argc, char **argv)
 #ifdef __EMSCRIPTEN__
     SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");   /* the keys are the canvas's once it is clicked, F-keys included */
 #endif
-#ifndef K4510_PI
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
-#else
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
-#endif
     /* A USB gamepad or joystick, if one is plugged in (now or later): SDL's
      * controller layer knows the common ones (Xbox, PlayStation, 8BitDo,
      * Logitech) by their ids and gives every one the same buttons, so the
      * machine sees one thing -- the $D104 held-keys register, OR'd with the
      * keyboard.  Hot-plug: the first pad to appear is the one; unplug it and
      * the next one to appear takes over.  Nothing to configure. */
-#ifndef K4510_PI
     { int n = SDL_NumJoysticks(); for (int i = 0; i < n && !pad; i++) if (SDL_IsGameController(i)) pad_open(i); }
-#endif
     /* The machine has no mouse -- no pointer, nothing to click, not one byte
      * of mouse in the I/O map -- so a cursor sitting on the glass is never
      * anything but wrong.  It showed up as a white arrow parked in the top
@@ -379,14 +348,10 @@ int k4510_frontend_main(int argc, char **argv)
      * gets a row the others must not have.  The marker file is written by
      * k4510x/build-live.sh; on any other host this call never happens and the
      * row stays off the end of the Machine menu. */
-#ifndef K4510_PI
-    if (access("/etc/k4510x", F_OK) == 0) menu_set_shutdown(1);
-#endif
+    if (access("/etc/k4510x", F_OK) == 0) { menu_set_shutdown(1); io_host_kind = 1; }
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
-#ifndef K4510_PI
     grab_win = win;
-#endif
 /* No vsync by default, anywhere.  It was off on the Pi already, because the
  * shim blocked the present until the flip and a frame that overran by a
  * millisecond waited for the next one, stepping the machine down to 30 or 20
@@ -433,20 +398,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
     SDL_AudioSpec want = { 0 }, have;
     want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
-#ifdef K4510_PI
-    /* On the Pi the callback runs from this core's own event pump, once a
-     * frame, and asks for a block at a time; a frame makes 800 samples. With
-     * the ring starting empty, the level sat between zero and one frame, so
-     * a 1024-sample block found 800 and 224 of silence -- BENCH counted 40
-     * gaps in two seconds at a steady 60 fps. Smaller blocks, and a lead of
-     * three of them before the sound starts (32 ms, which the ear does not
-     * notice on a music player), so the level never touches the floor. */
-    want.samples = 512;
-#endif
     SDL_AudioDeviceID adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-#ifdef K4510_PI
-    for (int i = 0; i < 1536; i++) ring[ring_w++ & RING_MASK] = 0;
-#endif
     if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
     SDL_StartTextInput();
     /* ---- the clock: measured, not guessed (docs/CPU-CLOCK-POLICY.md) ------
@@ -495,13 +447,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static Uint64 p_mach, p_tex, p_pres, p_tot, p_last; static unsigned p_n;
     static unsigned p_runs;                       /* windows written this run: the first truncates, the rest append */
     static Uint64 p_cpu, p_vic, p_snd;            /* the machine, split three ways */
-#ifdef K4510_PI
-#define PCLK() ({ Uint64 v_; asm volatile("mrs %0, cntvct_el0" : "=r"(v_)); v_; })
-#define PCLK_HZ() ({ Uint64 f_; asm volatile("mrs %0, cntfrq_el0" : "=r"(f_)); f_; })
-#else
 #define PCLK() SDL_GetPerformanceCounter()
 #define PCLK_HZ() SDL_GetPerformanceFrequency()
-#endif
 #define PERF_FRAMES 300
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
@@ -558,7 +505,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
             case SDL_QUIT: running = 0; break;
-#ifndef K4510_PI
             case SDL_WINDOWEVENT:
                 if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) grab(0);   /* alt-tab always frees the pointer */
                 break;
@@ -583,7 +529,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (e.cbutton.button == SDL_CONTROLLER_BUTTON_START) kbd_push(0x0D);   /* Start = Enter (INVADER2's "press a key", a game's pause) */
                 if (e.cbutton.button == SDL_CONTROLLER_BUTTON_BACK)  kbd_push(0x1B);   /* Back/Select = Esc, how every game leaves */
                 break;
-#endif
             case SDL_TEXTINPUT: {
                 pend = 0;                                    /* SDL does send text here: the key code is not needed */
                 /* The host layout has already composed the character -- a dead key
@@ -663,8 +608,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (!said) { said = 1; fprintf(stderr, "keyboard: SDL sends no text on the %s driver; typing from the key codes\n", SDL_GetCurrentVideoDriver()); }
             kbd_push(pend);
         }
-        host_poll_input();                                   /* the Pi: C64 keyboard on GPIO */
-#ifndef K4510_PI
+        host_poll_input();
         { static int menu_was; int m = menu_is_open();               /* the menu is the machine's outside: it frees the pointer */
           if (m && !menu_was) grab(0);
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
@@ -683,7 +627,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             mouse_set(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, (uint8_t) mouse_btn, wheel_acc, dx_acc, dy_acc);   /* $D108-$D10F */
             wheel_acc = dx_acc = dy_acc = 0;
         }
-#endif
         { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
           if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
           if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else kbd_push(k == '\n' ? 0x0D : k); } }
@@ -776,22 +719,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
                 Uint64 t3 = PCLK();
                 p_cpu += t1 - t0; p_vic += t2 - t1; p_snd += t3 - t2;
-#ifdef K4510_PI
-                /* The shim serves the audio callback only when this core pumps
-                 * events, and its device runway is 30 ms: a frame longer than
-                 * that (28 fps at 40.5 MHz is 36 ms) ran the device dry however
-                 * full our ring was.  So the pump is called a quarter-frame at
-                 * a time, with the ring topped up first, and the sound holds
-                 * whatever the frame rate. */
-                if ((y & 127) == 127) {
-                    int vol_ = settings_get(SET_AUDIO_VOLUME); int guard_ = 1024;
-                    while (RING_DEPTH < RING_TARGET && guard_--) {
-                        int16_t t_[256]; int n_ = audio_render(CYCLES_PER_LINE, t_, 256);
-                        for (int i = 0; i < n_; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(t_[i] * vol_ / 100);
-                    }
-                    SDL_PumpEvents();
-                }
-#endif
             }
             vicky_end_frame();
             cpu65.irqLevel = vicky_irq() ? 1 : 0;
@@ -860,10 +787,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
              * The desktop has no second core to give the sound to and is not
              * asked: the request would spin out its whole bound for nothing,
              * which the person who opened the menu would feel. */
-#ifdef K4510_PI
-            { int want3 = settings_get(SET_AUDIO_CORE3) ? SNDQ_OWNER_OTHER : SNDQ_OWNER_CPU;
-              if (sndq_owner() != want3) sndq_request(want3); }
-#endif
             if (clock_at_open >= 0 && settings_get(SET_CPU_CLOCK) != clock_at_open && settings_get(SET_CPU_AUTO))
                 settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
             clock_at_open = -1;
@@ -952,13 +875,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * machine keeps its own pacing -- which is the default anyway.  Not
          * on the Pi: the shim's present is the blocking one all of this was
          * escaped from. */
-#ifndef K4510_PI
         if (settings_get(SET_VIDEO_VSYNC) != vsync_applied) {
             vsync_applied = settings_get(SET_VIDEO_VSYNC);
             if (SDL_RenderSetVSync(ren, vsync_applied) != 0)
                 fprintf(stderr, "vsync: this SDL or driver will not take it (%s)\n", SDL_GetError());
         }
-#endif
         if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
             smooth_applied = settings_get(SET_VIDEO_SMOOTH);
             /* Only "soft" is meant to be soft.  sharp-fit was picking linear
@@ -1040,9 +961,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
           int k = tall ? 2 : 1;                                  /* logical units per pixel of the machine */
-#ifndef K4510_PI
           geo_k = k; geo_b = b;                                  /* for the mouse */
-#endif
           SDL_Rect half = { 0, 0, VICKY_WIDTH, VICKY_HEIGHT };
           SDL_Rect dr = { b * k, b * k, (VICKY_WIDTH - 2 * b) * k, (VICKY_HEIGHT - 2 * b) * k };
           if (tall != logical_tall) {                            /* 4:3 either way: 640x480, or 1280x960 */
@@ -1159,12 +1078,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * we ask for the power off.  The helper syncs and unmounts the persistence
      * partition before halting, which is what makes it safe to pull the stick
      * out afterwards -- see k4510x/build-live.sh. */
-#ifndef K4510_PI
     if (shutdown_req) execl("/usr/local/sbin/k4510x-poweroff", "k4510x-poweroff", (char *) NULL);
-#endif
     return 0;
 }
 
-#ifndef K4510_PI
 int main(int argc, char **argv) { return k4510_frontend_main(argc, argv); }
-#endif

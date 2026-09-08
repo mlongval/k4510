@@ -126,7 +126,7 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 
 
 # Are the tracked binaries what their sources actually produce?  They are
-# tracked because p15 has no cc65 and the Pi card needs them, which means a
+# tracked because a host without cc65 needs them, which means a
 # source change with no rebuild ships a binary that disagrees with its own
 # source -- and every machine that rebuilds it then reports a dirty tree.
 # That happened: romcalls.s grew three bytes and only bug.prg was rebuilt.
@@ -279,8 +279,8 @@ fs/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/defin
 
 # RunCPM (MIT, vendored unmodified in cpm/src/) -- the Z80 second processor:
 # CP/M 2.2 on the Tube, internal CCP (no DRI binaries), drives in fs/CPM/
-# The in-process Tube (what the Pi runs on core 3), built on the desktop
-# with the interpreter on a thread so it can be tested here first:
+# The in-process Tube (the interpreter on a thread of the emulator's own;
+# it was the bare-metal Pi's transport, and stays as the test build's):
 #   make tubetest   -> test/tubetest, then the BBC BASIC round trip
 TUBE_IP_CFLAGS = -DK4510_TUBE -DK4510_TUBE_INPROC -Icore -Itube/include -Wno-array-bounds -Wno-unused-result \
                  -ffast-math -fno-finite-math-only

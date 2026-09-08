@@ -1,5 +1,5 @@
 #!/bin/sh
-# The in-process Tube round trip (the Pi's transport, on a desktop thread):
+# The in-process Tube round trip (the interpreter on a thread of the emulator):
 # BBCBASIC starts the co-processor, arithmetic comes back through the ULA
 # and the console ROM, MODE 2 exercises the graphics escape, *QUIT ends it
 # and the ROM sees the alive bit drop; then the whole thing again, because

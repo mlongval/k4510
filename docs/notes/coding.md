@@ -1658,3 +1658,18 @@ unless the host's own text event arrives first and cancels it. On a desktop
 nothing changes at all. Worth a line in the appendix only if the appliance is
 described there: the fallback is the American arrangement, because that is what
 the key codes are named in, so an accented layout still wants a desktop.
+
+**2026-09-07, night — the bare-metal Pi is GONE, by Doc's ruling.** Read
+`docs/decision-2026-09-07-one-shape.md` first. For the handbook: the Pi
+chapter, every "on the Pi" aside, the SD-card and `install-sd.sh`
+instructions, the `BMC-K4510` line of the issue form (Appendix B and the
+template it generates), and the "BMC-K4510 holds 15 MHz" phrasing all
+describe a build that no longer exists. Two names now, not three: K4510
+the machine, K4510x the appliance you boot. `INFO` prints ", K4510x" or
+", K4510 on a desktop" from `$D522`. Also yours, when you get to them:
+`docs/NAMING.md` (superseded by the decision note), `CAPABILITIES.md`
+§12, `TODO.md`'s Pi items, `PORTABILITY.md`. I edited `README.md`,
+`CREDITS.md`, `LICENSES.md` and `THIRD_PARTY_SOURCES.md` — saying so
+here as AGENTS.md asks. The second half of the ruling — BAT boots, REXX
+automates, BASIC is for programs — wants a sentence wherever the book
+introduces `STARTUP.BAT` and a chapter for `RX` when it has settled.

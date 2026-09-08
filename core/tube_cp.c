@@ -2,9 +2,8 @@
  * little OS. See tube_cp.h for the picture. */
 #include "tube_cp.h"
 #include "sndq.h"
-void k4510_audio_pump(void);   /* sdl/main.c: the frontend owns the ring */
-/* GCC's builtins rather than <stdatomic.h>: the Pi kernel compiles with
- * -nostdinc and its libc's headers, which do not carry it. */
+/* GCC's builtins rather than <stdatomic.h>: a habit from the bare-metal Pi
+ * build (retired 2026-09-07), kept because it costs nothing. */
 #define atomic_load(p)     __atomic_load_n((p), __ATOMIC_SEQ_CST)
 #define atomic_store(p, v) __atomic_store_n((p), (v), __ATOMIC_SEQ_CST)
 #include <stdarg.h>
@@ -29,24 +28,15 @@ static volatile int cp_alive;
 static volatile int cp_kill;
 
 /* ---- the machine's side ------------------------------------------------ */
-#ifndef K4510_PI
 #include <pthread.h>
 #include <time.h>
 static pthread_t cp_thread; static int cp_thread_up;
 static void *cp_thread_main(void *arg) { (void) arg; tube_cp_run(); return NULL; }
 unsigned tube_cp_ticks(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (unsigned)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000); }
 void tube_cp_usleep(unsigned us) { usleep(us); }
-#endif
 
-/* How often the co-processor's core looks for work. It is idle from power-on
- * until the ROM runs BBC or CPM, which on most sessions is never, so on the Pi
- * -- where this core is a real core and the wait is a spin -- it should look
- * rarely. 20 ms is imperceptible against starting an interpreter. */
-#ifdef K4510_PI
-#define TUBE_IDLE_US 20000
-#else
+/* How often the co-processor's thread looks for work. */
 #define TUBE_IDLE_US 1000
-#endif
 
 int tube_cp_start(int prog)
 {
@@ -55,18 +45,13 @@ int tube_cp_start(int prog)
      * letting it run an interpreter -- it cannot do both, and this is the
      * quiescent moment the handover wants: the ROM is between commands. */
     if (sndq_owner() != SNDQ_OWNER_CPU) sndq_request(SNDQ_OWNER_CPU);
-#ifndef K4510_PI
     if (!cp_thread_up) { if (pthread_create(&cp_thread, NULL, cp_thread_main, NULL)) return -1; cp_thread_up = 1; }
-#endif
     if (!atomic_load(&cp_alive)) {        /* nobody writing: a clean slate */
         atomic_store(&out_w, 0); atomic_store(&out_r, 0);
         atomic_store(&in_w, 0);  atomic_store(&in_r, 0);
     }
     atomic_store(&cp_kill, 0);
     atomic_store(&cp_req, prog);
-#if defined(K4510_PI) && defined(__aarch64__)
-    __asm__ volatile("sev" ::: "memory");     /* wake the co-processor's core */
-#endif          /* the co-processor picks this up (after quitting, if it is still running) */
     return 0;
 }
 void tube_cp_stop(void)
@@ -139,34 +124,13 @@ void tube_cp_run(void)
 {
     for (;;) {
         int prog;
-#if defined(K4510_PI) && defined(__aarch64__)
-        /* The co-processor's core sleeps until an event: tube_cp_start sends
-         * one.  A spinning core heats the SoC, and Circle pulls the clock to
-         * idle above 60 C -- so the spin was making the whole machine slow.
-         *
-         * Unless it has been given the sound.  From power-on until the ROM
-         * runs BBC or CPM -- which on most sessions is never -- this core is
-         * doing nothing at all, and the OPL2's synthesis is a slice of the
-         * emulator's 16.7 ms frame.  So while it owns them it renders instead
-         * of sleeping, and it hands them back the moment anything asks: the
-         * emulator's core asks before it starts a program here, and waits. */
-        for (;;) {
-            if (sndq_pending()) sndq_accept();
-            if ((prog = atomic_load(&cp_req))) break;
-            if (sndq_owner() == SNDQ_OWNER_OTHER) k4510_audio_pump();
-            else __asm__ volatile("wfe" ::: "memory");
-        }
-#else
         while (!(prog = atomic_load(&cp_req))) tube_cp_usleep(TUBE_IDLE_US);
-#endif
         atomic_store(&cp_req, 0);
         atomic_store(&cp_alive, 1);
         int rc;
         if (prog == 3) { static char a0[] = "runcpm"; char *av[] = { a0, NULL }; tube_cp_chdir("/CPM"); rc = tube_cpm_main(1, av); }
         else { tube_cp_chdir("/"); rc = tube_bbc_main(); }
-#ifndef K4510_PI
         fprintf(stderr, "[tube: program %d exited %d]\n", prog, rc);
-#endif
         atomic_store(&cp_alive, 0);
         atomic_store(&cp_kill, 0);
     }
@@ -217,11 +181,7 @@ int   tube_cp_mkdir(const char *path, unsigned mode) { char p[512]; cp_path(p, s
 int   tube_cp_rmdir(const char *path)
 {
     char p[512]; cp_path(p, sizeof p, path);
-#ifdef K4510_PI
-    (void) p; return -1;                               /* circle-syscallwrap has no rmdir yet (io.c says the same) */
-#else
     return rmdir(p);
-#endif
 }
 int tube_cp_chdir(const char *path)
 {
@@ -239,19 +199,10 @@ int tube_cp_stat(const char *path, struct stat *sb) { char p[512]; cp_path(p, si
 int tube_cp_truncate(const char *path, long length)
 {
     char p[512]; cp_path(p, sizeof p, path);
-#ifdef K4510_PI
-    FILE *f = fopen(p, "r+b"); if (!f) return -1;      /* newlib has no truncate(); ftruncate is wrapped */
-    int r = ftruncate(fileno(f), length); fclose(f); return r;
-#else
     return truncate(p, length);
-#endif
 }
 int tube_cp_chmod(const char *path, unsigned mode)
 {
-#ifdef K4510_PI
-    (void) path; (void) mode; return 0;
-#else
     char p[512]; cp_path(p, sizeof p, path); return chmod(p, (mode_t)mode);
-#endif
 }
 char *tube_cp_getcwd(char *buf, size_t n) { snprintf(buf, n, "/%s", cp_cwd); return buf; }

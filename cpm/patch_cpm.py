@@ -223,17 +223,7 @@ patch("Makefile", [
 cpm/ip_runcpm.o: cpm/src/main.c $(wildcard cpm/src/*.h) core/tube_cp.h
 	$(CC) -O2 -Wall -Wno-unused-variable -Wno-unused-function -Icore -DK4510_TUBE -Dmain=tube_cpm_main -DCCP_INTERNAL -DCPU=\\"cpu1.h\\" -c -o $@ $<"""),
 ])
-patch("pi/Makefile", [
-("""       bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o \\""",
-"""       bb_main.o bb_exec.o bb_eval.o bb_asmb.o bb_data.o bb_ccos.o bb_ccon.o runcpm.o \\"""),
-("""bb_data.o: $(TUBE)/bbdata_arm_64.s""",
-"""# RunCPM (cpm/src, one translation unit) as Tube program 3
-runcpm.o: ../cpm/src/main.c $(wildcard ../cpm/src/*.h) $(CORE)/tube_cp.h
-	@echo "  CC    $@"
-	@$(CC) $(CFLAGS) $(C_STANDARD) -O2 -Wno-unused-variable -DK4510_TUBE -Dmain=tube_cpm_main -DCCP_INTERNAL -DCPU=\\"cpu1.h\\" -c -o $@ $<
-
-bb_data.o: $(TUBE)/bbdata_arm_64.s"""),
-])
+# (the pi/Makefile patch that stood here went with the bare-metal Pi port, 2026-09-07)
 
 # ---------------------------------------------------------------- the test leg
 patch("test/tubetest.sh", [

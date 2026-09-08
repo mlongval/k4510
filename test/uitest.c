@@ -119,7 +119,7 @@ int main(void)
         { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_MARGIN, "video.margin" },
         { SET_VIDEO_STATUSBAR, "term.bands" }, { SET_VIDEO_BORDER, "video.border" },
         { SET_VIDEO_FULLSCREEN, "video.fullscreen" }, { SET_VIDEO_VSYNC, "video.vsync" },
-        { SET_AUDIO_VOLUME, "audio.volume" }, { SET_AUDIO_CORE3, "audio.core3" },
+        { SET_AUDIO_VOLUME, "audio.volume" },
         { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },
         { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" },
         { SET_TERM_BAND_TOP, "term.band.top" }, { SET_TERM_BAND_BOT, "term.band.bottom" },

@@ -23,8 +23,7 @@ static uint8_t kbd_fifo[64];
 static int     kbd_head, kbd_tail;
 static uint8_t kbd_last, kbd_mods;
 
-/* Every key passes here, from the desktop's SDL loop or the Pi's C64
- * keyboard scan. The F7 menu (core/ui) takes them first: its own key
+/* Every key passes here, from the frontend's SDL loop. The F7 menu (core/ui) takes them first: its own key
  * opens it (unshifted only -- Shift+F7 still reaches BBC BASIC) and,
  * while it is open, every key is the menu's. */
 static void kbd_enqueue(uint8_t ascii)
@@ -316,11 +315,7 @@ static void fs_run(uint8_t cmd)
     case FS_MKDIR: if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (mkdir(path, 0777)) st = 2; break;
     case FS_RM:    { struct stat sb; if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; } if (S_ISDIR(sb.st_mode) || unlink(path)) st = 2; break; }
     case FS_RMDIR: { struct stat sb; if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
-#ifdef K4510_PI
-        st = 2;                       /* circle-syscallwrap has no rmdir yet */
-#else
         if (!S_ISDIR(sb.st_mode) || rmdir(path)) st = 2;
-#endif
         break; }
     case FS_GETCWD: if (fs_remote[0]) { size_t i = 0; for (; fs_remote[i] && i < 250; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)fs_remote[i]; k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i); break; }
                     { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }
@@ -495,14 +490,11 @@ static uint8_t  sys_reg[0x10];
 #define K4510_BUILD "k4510 0.3"
 #endif
 static const char sys_version[16] = K4510_BUILD;
-/* The guest cannot otherwise tell a desktop from a Pi: the version string is
- * the same on both, and everything else that differs is host-side.  BUG has to
- * say which machine an issue came from, so the host says so here. */
-#ifdef K4510_PI
-#define K4510_HOST_KIND 1
-#else
-#define K4510_HOST_KIND 0
-#endif
+/* $D522: what is beneath the machine.  The guest cannot otherwise tell a
+ * desktop window from the K4510x appliance -- the ROM bytes are the same --
+ * and BUG and INFO have to say which one an issue came from.  The frontend
+ * sets it: 0 = a desktop (or a container on one), 1 = K4510x. */
+int io_host_kind;
 /* ---- the sound sequencer ($D5E0-$D5E3) ---------------------------------
  * The BBC Micro's four queued sound channels, in K4510 silicon. Write CH
  * ($D5E0: low nibble = channel, bit 4 = flush that channel's queue first,
@@ -676,7 +668,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x2D) return sys_band_top;      /* rows in the top band */
     if (r == 0x2E) return sys_band_bot;      /* rows in the bottom band */
     if (r == 0x2F) return sys_clockfmt;      /* bit0 24-hour; bits1-2 the date order */
-    if (r == 0x22) return K4510_HOST_KIND;       /* which machine this is, for BUG and INFO */
+    if (r == 0x22) return (uint8_t)io_host_kind;  /* what is beneath the machine, for BUG and INFO */
     /* The clock's index in the frontend's ladder.  Deliberately NOT documented
      * as a fixed table: the ladder is reordered when steps are added, and a
      * guest that knows a clock by its position gets it wrong the day that
@@ -710,7 +702,7 @@ static uint8_t sys_read(uint8_t r)
 #if defined(K4510_TUBE_INPROC)
 #include "tube_cp.h"
 static int tube_was_alive;
-#elif !defined(K4510_PI) && !defined(K4510_NOPROC)
+#elif !defined(K4510_NOPROC)
 #include <pty.h>
 #include <termios.h>
 #ifdef __linux__
@@ -723,15 +715,15 @@ static pid_t tube_pid; static int tube_fd = -1;
 #endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
 /* The host shell (program 4, `!` at the prompt): only where the Linux beside
- * the machine is meant to be reachable -- K4510x sets io_host_shell; the plain
- * desktop and the Pi never do, so `!` there says so and does nothing. */
+ * the machine is meant to be reachable -- K4510x sets io_host_shell; a plain
+ * desktop never does, so `!` there says so and does nothing. */
 int io_host_shell;
 static uint8_t tube_cmd[4], tube_rows, tube_cols;     /* $D804-7 the command string's address, $D808/9 the window */
 /* Program 5: a UCI chess engine (Stockfish) on the pty, for CHESS.PRG.  Fitted
  * where a binary is found -- K4510_UCI names one, else the usual places -- and
  * said so in $D800 bit 3.  Not gated like the shell: it is one program, not a
- * door.  The Pi has neither (its Tube is core 3), so CHESS plays its own engine
- * there, or one over the network. */
+ * door.  Where there is none, CHESS plays its own engine, or one over the
+ * network. */
 static const char *uci_path(void)
 {
     static const char *found; static int looked;
@@ -1021,7 +1013,7 @@ static void tube_stop(void)
 static uint8_t tube_status(void) { tube_pump(); return (tube_cp_alive() ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
 static void tube_write(uint8_t v) { tube_cp_write(v); }
-#elif !defined(K4510_PI) && !defined(K4510_NOPROC)
+#elif !defined(K4510_NOPROC)
 static void tube_pump(void)
 {
     uint8_t buf[256]; ssize_t n; int full = 0;
@@ -1219,11 +1211,7 @@ uint64_t io_prof_cycles;
 int io_prof_on;                                  /* set by the frontend only while its PERF window is open:
                                                   * the counters (and on the Pi two timer reads) cost every
                                                   * single I/O access, so they run only when someone is looking */
-#if defined(K4510_PI)
-static inline uint64_t io_prof_clk(void) { uint64_t v; __asm__ volatile("mrs %0, cntvct_el0" : "=r"(v)); return v; }
-#else
 static inline uint64_t io_prof_clk(void) { return 0; }
-#endif
 void io_prof_reset(void) { io_prof_reads = io_prof_writes = 0; io_prof_cycles = 0; memset(io_prof_hist, 0, sizeof io_prof_hist); }
 static uint8_t io_read_inner(uint16_t addr);
 uint8_t io_read(uint16_t addr)

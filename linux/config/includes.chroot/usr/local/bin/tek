@@ -1,0 +1,9 @@
+#!/bin/sh
+# tek HOST [PORT]  --  a Tektronix 4010 on this screen, dialled to HOST (Tek40xx).
+# On a bare console (tty2 of the K4510 stick) there is no desktop: KMSDRM and
+# the whole panel.  Under a desktop it is a window.
+[ $# -ge 1 ] || { echo "usage: tek HOST [PORT]   (a Tektronix 4010 terminal, telnet to HOST; HOME clears, END quits)" >&2; exit 2; }
+if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ]; then
+    export SDL_VIDEODRIVER=kmsdrm TEK40XX_FULLSCREEN=1
+fi
+exec /usr/local/bin/tek40xx "$@"

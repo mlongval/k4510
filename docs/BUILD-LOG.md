@@ -6320,3 +6320,18 @@ ROM, so in insert mode an accented letter (`$80`+, character kind) is
 inserted and a Left (`$82`, key kind) still moves; `r` replaces with one
 too. Until now VI simply dropped anything above `$7E`. Both are legs of
 `test/keytest.sh`.
+
+## 2026-09-09 — a Tektronix 4010 beside the machine
+
+Doc: "add Tek40xx to the mini-linux build". Tek40xx (Ian Schofield,
+GPL-3) is a Tektronix 4010/4014 storage-tube terminal on SDL2 that is
+itself a telnet client, which is exactly the second terminal a PiDP-11
+wants: its DZ11 lines are telnet ports, so the machine's TELNET is one
+terminal session and the Tek is another. It is built from upstream into
+the stick and the container (`linux/tek40xx/build.sh`, one patch:
+`TEK40XX_FULLSCREEN` takes the whole display and a logical size scales
+its fixed 1536x1170 page to any panel, mouse mapped) and installed as
+`/usr/local/bin/tek40xx`. The `tek HOST [PORT]` wrapper picks KMSDRM and
+full-screen on a bare console, a window under a desktop. On the stick
+it is tty2: Ctrl+Alt+F1 is the K4510, Ctrl+Alt+F2 the Tektronix. No
+emulator code changed. `patch` joined the package list.

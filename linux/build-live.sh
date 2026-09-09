@@ -22,6 +22,7 @@
 #   - real network access outbound, so the machine's TELNET can reach BBSes
 #   - Mad Pascal toolchain and neovim on the Linux side; PAS name and CC name
 #     at the prompt compile a .PAS / .C in the machine's directory (tools/)
+#   - Tek40xx, a Tektronix 4010 terminal on SDL2: `tek HOST [PORT]` on tty2
 #
 #   sudo ./build-live.sh              # -> k4510-live-<date>-amd64.img
 #   sudo REBUILD=1 ./build-live.sh    # the same, but keep the rootfs from last
@@ -333,6 +334,11 @@ $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
 # Prove the whole chain works here rather than discovering it on the laptop.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make pascal' \
     || { echo "build-live.sh: MAD PASCAL BUILT BUT DID NOT COMPILE THE DEMOS"; exit 1; }
+echo "== Tek40xx =="
+# A Tektronix 4010 on SDL2, a telnet client (linux/tek40xx/README.md): the
+# second terminal for a PiDP-11, on tty2.  Built from upstream with one patch.
+$CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh \
+    || echo "build-live.sh: Tek40xx did not build; everything else works"
 # The C side of the same thing: k4510-cc links every program with these two.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make demo/prg0.o demo/romcalls.o' \
     || { echo "build-live.sh: THE C STARTUP OBJECTS DID NOT BUILD"; exit 1; }

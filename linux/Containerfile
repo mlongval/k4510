@@ -41,6 +41,10 @@ RUN mkdir -p ~/Projects/neo6502_dev && cd ~/Projects/neo6502_dev \
     && mkdir /tmp/prove && cd /tmp/prove && cp ~/k4510/fs/LANG/PASCAL/HELLO.PAS ~/k4510/fs/LANG/C/SIEVE.C . \
     && PATH=~/k4510/tools:$PATH k4510-pas hello && PATH=~/k4510/tools:$PATH k4510-cc sieve \
     && cd / && rm -rf /tmp/prove
+# Tek40xx, the Tektronix 4010 terminal (linux/tek40xx/README.md), and its
+# `tek` wrapper -- the stick gets the wrapper from config/includes.chroot.
+RUN sudo sh ~/k4510/linux/tek40xx/build.sh \
+    && sudo install -m 755 ~/k4510/linux/config/includes.chroot/usr/local/bin/tek /usr/local/bin/tek
 ENV PATH=/home/k4510/k4510/tools:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
 # the settings a K4510 starts with (podman.sh copies your own over these if you have some)
 RUN printf 'version = 2\ncpu.auto = on\nterm.bands = on\n' > ~/k4510/k4510.cfg

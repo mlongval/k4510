@@ -32,6 +32,7 @@ python3
 git
 make
 unzip
+patch
 
 # --- somewhere to work ---
 # neovim by name (Doc, 2026-09-03).  vim stays: the machine's own VI is a

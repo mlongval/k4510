@@ -176,7 +176,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
     core/        memory, I/O devices, VICKY, the OPL2 and the audio seam, MATH unit, JIM, the network, host seam
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend + POSIX host glue
-    linux/       the Linux the machine boots on: the live-stick build and the container flavour
+    linux/       the Linux the machine boots on: the live-stick build, the container flavour, Tek40xx
     rom/         system ROM (cc65) and Wozmon
     demo/        programs in C -> fs/SYSTEM/BIN and fs/APPS/NAME/*.prg  (the editors, TELNET, BUG, the games)
     retired/     programs that were part of the machine and are not any more (see its README)

@@ -6,7 +6,8 @@ to be able to alt-tab between VT100 and Tektronix)". And then: "perhaps
 it would be easier to host the tek4010 on Linux since it exists there
 already, perhaps the only change would be the target graphics library
 would now be SDL2 since that's all we have". He was right, and there
-is less to do than that. A note, not a plan.
+is less to do than that. **Built 2026-09-09: `linux/tek40xx/`, `tek HOST
+[PORT]` on tty2** (BUILD-LOG).
 
 ## What a 4010 is, in bytes
 

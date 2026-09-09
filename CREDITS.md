@@ -89,6 +89,11 @@ Thank you:
   GPL-3.0, which CHESS talks to over the Tube or the network when one is
   fitted.  Not shipped here; the K4510 Linux installs Debian's package.
 
+- **Tek40xx** — Ian Schofield's Tektronix 4010/4014 terminal emulator on
+  SDL2, a telnet client (github.com/Isysxp/Tek40xx, GPL-3.0). Built from
+  upstream into the K4510 Linux with one small patch (`linux/tek40xx/`);
+  not part of the machine, a program beside it.
+
 ## The Raspberry Pi port (2026-08-25 to 2026-09-07)
 
 The bare-metal Pi build was retired on 2026-09-07 (the machine now runs

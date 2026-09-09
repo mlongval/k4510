@@ -1729,3 +1729,9 @@ Chapter 07: "not an on-machine compiler" wants the PAS/CC paragraph.
 **2026-09-08 — history at the prompt.** Up/Down recall the last eight
 lines (bank 3's RAM). Worth a sentence where the book introduces the
 prompt's editing keys. VI takes accented letters in insert mode now.
+
+**2026-09-09 — Tek40xx is in the Linux.** `tek HOST [PORT]` on tty2 of
+the stick (or a window on a desktop) is a Tektronix 4010 telnet
+terminal, for a PiDP-11's DZ11 lines. A paragraph where the stick's
+ttys are explained, and Tek40xx (Ian Schofield, GPL-3) in the credits
+you keep; I added it to CREDITS.md.

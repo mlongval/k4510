@@ -42,7 +42,7 @@ unsigned char rom_getin(void);
 static unsigned char rom_save(void) { return ((unsigned char (*)(void))0xFF8C)(); }
 static void zp16(uint8_t a, uint16_t v) { REG(a) = v; REG(a + 1) = v >> 8; }
 static void zp32(uint8_t a, uint32_t v) { REG(a)=v; REG(a+1)=v>>8; REG(a+2)=v>>16; REG(a+3)=v>>24; }
-static char REPORT[] = "/SYSTEM/SETUP.TXT";   /* in RAM, as bench.c keeps its name */
+static char REPORT[] = "/SYSTEM/LOG/SETUP.TXT";   /* in RAM, as bench.c keeps its name */
 static uint8_t rpt_ok, rpt_st;
 /* JIM keeps its own idea of the default colours: DEFBG at $DA15 is where SGR 0
  * and SGR 49 land, and $DA0C is what it paints with now.  A program that sets a
@@ -385,7 +385,7 @@ static void write_report(void)
     add("boot, so the boot itself never stops to measure.\n");
     add("(Written by SETUP on the machine itself.)\n");
     BUF[blen] = 0;
-    rom_shell("MKDIR /SYSTEM");
+    rom_shell("MKDIR /SYSTEM/LOG");
     /* One fixed name, unlike BENCH's numbered files: BENCH exists to be
      * compared run against run, SETUP to say what this machine is now. */
     zp16(0xF0, (uint16_t)REPORT); zp32(0xF2, (uint32_t)(uint16_t)BUF); zp32(0xF6, (uint32_t)blen);

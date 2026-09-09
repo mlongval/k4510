@@ -126,9 +126,9 @@ static void slot_refresh(int n)                      /* the slot's row: its file
     menu_slot(n, b);
 }
 /* The C64 chargen lives in the machine's own filesystem, not the host's data/:
- * drop chargen.bin into /SYSTEM and the menu can wear it. 4096 bytes, PETSCII
+ * drop chargen.bin into /SYSTEM/ETC and the menu can wear it. 4096 bytes, PETSCII
  * order, so the same converter the open-roms chargens use rearranges it. */
-static void chargen_path(char *out, int max) { snprintf(out, (size_t) max, "%s/SYSTEM/chargen.bin", fs_get_root()); }
+static void chargen_path(char *out, int max) { snprintf(out, (size_t) max, "%s/SYSTEM/ETC/chargen.bin", fs_get_root()); }
 static int chargen_present(void)
 {
     char p[512]; chargen_path(p, sizeof p);
@@ -458,7 +458,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           if (p_n == 1) { io_prof_reset(); io_prof_on = 1; p_mach = p_tex = p_pres = p_cpu = p_vic = p_snd = 0; }   /* the window opens: every sum starts here */
           p_last = c;
           if (p_n == PERF_FRAMES) {
-              char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/PERF.TXT", fs_get_root());
+              char pp[600]; snprintf(pp, sizeof pp, "%s/SYSTEM/LOG/PERF.TXT", fs_get_root());
               FILE *pf = fopen(pp, p_runs++ ? "a" : "w");
               if (pf) {
                   Uint64 hz = SDL_GetPerformanceFrequency();

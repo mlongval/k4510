@@ -11,7 +11,7 @@ cd "$(dirname "$0")/.."
 
 fail() { echo "$out"; echo "jimtest: FAILED: $1"; exit 1; }
 
-cat > fs/SYSTEM/JIMTEST.TXT <<'EOT'
+cat > fs/SYSTEM/LOG/JIMTEST.TXT <<'EOT'
 LINE-ONE
 
 LINE-THREE
@@ -21,17 +21,17 @@ EOT
 # is correct VT100 -- but the ROM ends its lines with a bare \n and expects
 # column 0 back.  video_init sets LNM to make that so.  Without it the console
 # staircases: every line starts further right than the last.
-out=$(./test/headless rom/kernal.bin 'TYPE /SYSTEM/JIMTEST.TXT
+out=$(./test/headless rom/kernal.bin 'TYPE /SYSTEM/LOG/JIMTEST.TXT
 ' 900 2>&1) || fail "TYPE did not run"
 echo "$out" | grep -q "^LINE-ONE"   || fail "first line not at column 0"
 echo "$out" | grep -q "^LINE-THREE" || fail "line after a newline not at column 0 (LNM)"
-rm -f fs/SYSTEM/JIMTEST.TXT
+rm -f fs/SYSTEM/LOG/JIMTEST.TXT
 
 # CHROUT has always promised that CR makes a whole newline, and guest programs
 # rely on it -- EhBASIC's glue, BBC BASIC and CP/M all send a bare CR and mean
 # "next line".  JIM's own CR is a carriage return only, so k_chrout folds it
 # onto \n.  When this broke, EhBASIC's output overprinted itself on one row.
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 PRINT "JIMCR-A"
 PRINT "JIMCR-B"

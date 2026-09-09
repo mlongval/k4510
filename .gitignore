@@ -53,21 +53,20 @@ test/tubetest
 test/tubetest.out
 test/termtest
 test/uitest
-demo/pas/*.a65
 test/statetest
 k4510-slot*.k4s
-# Commodore's character ROM, if you drop one in /SYSTEM: not ours to publish
-fs/SYSTEM/chargen.bin
+# Commodore's character ROM, if you drop one in /SYSTEM/ETC: not ours to publish
+fs/SYSTEM/ETC/chargen.bin
 
 # Your own OPL tune library.  tools/vgm2opl.py converts VGM/VGZ OPL2 logs into
 # the .OPL files OPLPLAY reads; the music is nobody's here to redistribute, so
 # it is not in the repository.  Absent, OPLPLAY plays its three built-in tunes.
-fs/OPL/
+fs/APPS/OPLPLAY/TUNES/
 
-# your own startup script: yours, not the repo's (see /SYSTEM/STARTUP.SAMPLE)
+# your own startup script: yours, not the repo's (see /SYSTEM/ETC/STARTUP.SAMPLE)
 fs/STARTUP.BAT
-# and your own VI startup file (see /SYSTEM/VI.SAMPLE)
-fs/SYSTEM/VI.RC
+# and your own VI startup file (see /SYSTEM/ETC/VI.SAMPLE)
+fs/SYSTEM/ETC/VI.RC
 # the F7 menu's settings, written wherever the emulator was run from
 /k4510.cfg
 
@@ -97,8 +96,14 @@ demo/tiny.h
 demo/bomber.h
 # Written into the machine's own filesystem by the programs that measure it:
 # PERF.TXT by the io profiler, BENCH-NN.TXT by SETUP/BENCH.  Results, not source.
-fs/SYSTEM/PERF.TXT
-fs/SYSTEM/BENCH-*.TXT
+fs/SYSTEM/LOG/*
+!fs/SYSTEM/LOG/README.TXT
+# /MNT is other disks: whatever is mounted there is not the repository's
+fs/MNT/*
+!fs/MNT/README.TXT
+# /HOME is yours
+fs/HOME/*
+!fs/HOME/README.TXT
 k4510x/*.img
 # build-live.sh works in here: a debootstrapped rootfs and a squashfs,
 # about 2.5 GB. REUSE=1 rebuilds an image from it in seconds.

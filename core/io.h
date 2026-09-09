@@ -246,7 +246,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 /* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."
  * work, ".." never leaves the root. Lookups are case-insensitive when the
  * exact name is absent. Reads (OPEN_READ, STAT, LOAD) of a bare name not
- * found in the current directory also try /PRG and /BASIC. DIR_NEXT lists
+ * found in the current directory also try the disk's folders (io.c fs_path). DIR_NEXT lists
  * sorted, directories with SIZE = $FFFFFFFF. */
 
 void    fs_set_root(const char *dir);

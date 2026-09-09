@@ -89,7 +89,7 @@ static void new_wave(void)
     for (i = 0; i < NBOMB; i++) bomb[i].on = 0;
 }
 /* Difficulty: three levels on the title, Normal in the middle, and
- * /PRG/SKYFIRE.CFG can move the numbers behind them.  Doc, 2026-09-07:
+ * /APPS/SKYFIRE/SKYFIRE.CFG can move the numbers behind them.  Doc, 2026-09-07:
  * the first cut was "too hard" -- it was what is now Hard. */
 typedef struct { uint8_t gap, gapmin, gapstep, divers0, diversdiv, bomb, bombstep, dive, divestep, sway; } diff_t;
 static diff_t diff[3] = {
@@ -101,14 +101,14 @@ static uint8_t dive_gap(void) { int16_t g = (int16_t)diff[difficulty].gap - (int
 static uint8_t max_divers(void) { uint8_t m = (uint8_t)(diff[difficulty].divers0 + wave / diff[difficulty].diversdiv); return m > 3 ? 3 : m; }
 static int16_t bomb_speed(void) { return (int16_t)(diff[difficulty].bomb + wave * diff[difficulty].bombstep); }
 static int16_t dive_speed(void) { return (int16_t)(diff[difficulty].dive + wave * diff[difficulty].divestep); }
-/* /PRG/SKYFIRE.CFG: lines of NAME VALUE for the Normal numbers -- DIVEGAP,
+/* /APPS/SKYFIRE/SKYFIRE.CFG: lines of NAME VALUE for the Normal numbers -- DIVEGAP,
  * DIVEMIN, DIVERS (1..3), BOMB, DIVE, SWAY (frames per pixel of sway); Easy and
  * Hard stay in step with what is set.  The same shape as INVADER2.CFG. */
 static char cfgbuf[512];
 static uint8_t word_is(const char *w, uint8_t n, const char *k) { uint8_t i; for (i = 0; i < n; i++) if (k[i] != w[i]) return 0; return k[n] == 0; }
 static void load_cfg(void)
 {
-    static char name[] = "/PRG/SKYFIRE.CFG"; uint16_t n, i = 0;
+    static char name[] = "/APPS/SKYFIRE/SKYFIRE.CFG"; uint16_t n, i = 0;
     w32(0xD304u, (uint16_t)name); w32(0xD308u, (uint16_t)cfgbuf); w32(0xD30Cu, sizeof cfgbuf - 1);
     REG(0xD300u) = 9;
     if (REG(0xD301u)) return;

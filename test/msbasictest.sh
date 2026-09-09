@@ -14,7 +14,7 @@ cd "$(dirname "$0")/.."
 fail() { echo "$out"; echo "msbasictest: FAILED: $1"; exit 1; }
 
 # cold start, a loop, 9-digit FP, strings, and lower case typed at it
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 10 FOR I=1 TO 3
 20 PRINT I;I*I;SQR(I)
@@ -45,7 +45,7 @@ done
 # The cold start, in a session short enough that the top of it is still on
 # the 60-row screen.  Both canned answers are echoed, which is what makes
 # them visible here at all.
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 PRINT 1
 ' 1200 2>&1) || fail "MS BASIC did not run (cold-start test)"
@@ -55,7 +55,7 @@ echo "$out" | grep -q "BYTES FREE"         || fail "no cold-start banner"
 echo "$out" | grep -q "COPYRIGHT 1977"     || fail "no Microsoft banner"
 
 # Ctrl-C into a running program: the break flag at $D103, not a queue poll
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 10 GOTO 10
 RUN
@@ -75,7 +75,7 @@ echo "$out" | grep -q "BREAK IN  10"   || fail "Ctrl-C did not break into line 1
 #     It gets there by putting back the stack frame saved before COLD_START.
 #  3. a "*" typed at an INPUT prompt inside a running program is DATA.  The
 #     guard is CURLIN+1 = $FF, MS BASIC's own direct-mode marker.
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 *ECHO STARWORKS
 PRINT 1
@@ -83,15 +83,15 @@ PRINT 1
 echo "$out" | grep -q "^STARWORKS" || fail "*ECHO did not reach the K:OS shell"
 echo "$out" | grep -q "^ 1"        || fail "BASIC did not get its prompt back after a star command"
 
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 *BYE
 ECHO BACKINSHELL
 ' 12000 2>&1) || fail "MS BASIC did not run (BYE test)"
 echo "$out" | grep -q "BACKINSHELL"  || fail "*BYE did not return to a working shell"
-echo "$out" | grep -q "/MSBASIC]"    || fail "*BYE lost the shell's working directory"
+echo "$out" | grep -q "/LANG/MSBASIC]"    || fail "*BYE lost the shell's working directory"
 
-out=$(./test/headless rom/kernal.bin 'CD /MSBASIC
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
 RUN msbasic
 10 INPUT A$
 20 PRINT "GOT ";A$

@@ -4,7 +4,7 @@
  * machine cannot know: what you typed, what you expected, and why.  The two
  * are meant to travel together -- the report names the dump.
  *
- * The result goes to /SYSTEM/BUGREPORTS/ as plain text, ready to paste into
+ * The result goes to /SYSTEM/LOG/BUGREPORTS/ as plain text, ready to paste into
  * a GitHub issue.  Nothing here is a form: an issue on this project is handed
  * to a coding session as written, so the questions ask for the things that
  * save it a day, in the order a person remembers them.
@@ -116,10 +116,10 @@ void main(void)
     add("(Written by the BUG command on the machine itself.)\n");
 
     /* the folder may not exist yet; the shell is the only thing that can make it */
-    rom_shell("MKDIR /SYSTEM/BUGREPORTS");
+    rom_shell("MKDIR /SYSTEM/LOG"); rom_shell("MKDIR /SYSTEM/LOG/BUGREPORTS");
 
     name[0] = 0;
-    { const char *pfx = "/SYSTEM/BUGREPORTS/BUG-"; uint8_t n = 0;
+    { const char *pfx = "/SYSTEM/LOG/BUGREPORTS/BUG-"; uint8_t n = 0;
       while (*pfx) name[n++] = *pfx++;
       /* YYYYMMDD-HHMMSS: sorts by itself, and says when without opening it */
       { unsigned long y = REG(SYS + 0x0A) | ((unsigned long)REG(SYS + 0x0B) << 8);

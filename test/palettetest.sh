@@ -22,7 +22,7 @@ echo "$out" | grep -q "E 0088FF" || fail "entry E is not the VIC-II light blue"
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD AMBER
 PALETTE
 ' 1500 2>&1) || fail "PALETTE LOAD did not run"
-echo "$out" | grep -q "entries from /SYSTEM/PALETTES/AMBER.PAL" || fail "AMBER.PAL was not found"
+echo "$out" | grep -q "entries from /SYSTEM/ETC/PALETTES/AMBER.PAL" || fail "AMBER.PAL was not found"
 echo "$out" | grep -q "F FFB000" || fail "the amber ramp did not reach entry F"
 
 # ...and survives a mode change, which is the whole point

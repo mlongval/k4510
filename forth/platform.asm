@@ -17,7 +17,7 @@
 ;   $0900-$87FF  dictionary RAM: ~31.7 KB for user words (stage 3 moved
 ;                the image high: programs own $0800-$CFFF now)
 ;   $8800-$8BFF  input history buffers (ctrl-p / ctrl-n)
-;   $8C00-.....  this image (~17 KB), loaded by K/OS from /FORTH/FORTH.PRG
+;   $8C00-.....  this image (~17 KB), loaded by K/OS from /LANG/FORTH/FORTH.PRG
 ;
 ; Console I/O is the ROM jump table: CHROUT $FF80 and CHRIN $FF83 (both
 ; wrapped to preserve X/Y, which the stubs do not promise); KEY? peeks the

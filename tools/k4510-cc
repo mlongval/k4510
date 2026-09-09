@@ -4,7 +4,7 @@
 # The on-machine half of "self-hosted C": at the K4510x prompt
 #   CC SIEVE           (a K/OS word: it runs `!k4510-cc SIEVE`)
 # compiles SIEVE.C in the current directory with cc65 and leaves SIEVE.prg
-# beside it.  The same recipe as the Makefile's fs/PRG/%.prg rule: cc65 -O
+# beside it.  The same recipe as the Makefile's fs/SYSTEM/BIN/%.prg rule: cc65 -O
 # for the 65C02, ca65, ld65 with demo/prg.cfg (a .prg loaded at $6000, its
 # own zero page and C stack) and the two startup objects demo/prg0.o and
 # demo/romcalls.o.  #include "k4510.h" and "far.h" resolve to demo/.
@@ -27,7 +27,7 @@ if [ ! -f "$src" ]; then
     src=${f#./}
 fi
 base=${src%.*}
-out=$base.prg
+out=$(printf %s "$base" | tr A-Z a-z).prg
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/k4510-cc.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"' EXIT

@@ -1770,9 +1770,9 @@ int tube_bbc_main (void)
 	szLibrary = szUserDir - 0x100 ;
 	szLoadDir = szLibrary - 0x100 ;
 	*szCmdLine = 0 ;
-	strcpy (szTempDir, "/BBCBASIC/") ;
-	strcpy (szUserDir, "/BBCBASIC/") ;
-	strcpy (szLibrary, "/BBCBASIC/LIB/") ;
+	strcpy (szTempDir, "/LANG/BBCBASIC/") ;
+	strcpy (szUserDir, "/LANG/BBCBASIC/") ;
+	strcpy (szLibrary, "/LANG/BBCBASIC/LIB/") ;
 	tube_cp_chdir ("/") ;
 	tube_cp_getcwd (szLoadDir, 255) ;
 	if (szLoadDir[strlen (szLoadDir) - 1] != '/')

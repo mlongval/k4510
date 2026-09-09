@@ -58,9 +58,9 @@ Mad Pascal checkout.
   WordStar, Turbo Pascal 3 and MBASIC, which the `K-*.SUB` launchers
   start but which you must supply yourself.
 - **A Commodore character ROM.** Drop your own `chargen.bin` into
-  `/SYSTEM` and the machine will use it; `.gitignore` keeps it out.
+  `/SYSTEM/ETC` and the machine will use it; `.gitignore` keeps it out.
 - **Your `STARTUP.BAT`** — yours, not the repository's (copy
-  `/SYSTEM/STARTUP.SAMPLE`).
+  `/SYSTEM/ETC/STARTUP.SAMPLE`).
 
 ## If you redistribute
 

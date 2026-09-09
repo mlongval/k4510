@@ -26,7 +26,8 @@ for C with `tools/k4510-cc`); errors come back on the screen.
 `install.py [MP_DIR]` copies these into the checkout, patches
 `src/Targets.pas` and `src/mp.pas` (the target's id, memory layout and
 header; idempotent), and rebuilds `mp` with FPC. The top-level Makefile
-then builds `demo/pas/*.pas` into `fs/PRG/*.prg`:
+then builds `fs/LANG/PASCAL/*.PAS` into `.prg` files beside them, through
+`tools/k4510-pas`:
 
     make pascal            # MP_DIR and MADS overridable
 

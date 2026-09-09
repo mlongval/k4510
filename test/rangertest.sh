@@ -8,13 +8,15 @@
 # it as one, and deleting two files that shared a name destroyed the first.
 # Anything here that says "not overwritten" is guarding that.
 #
-# The fixture sorts last in the root directory on purpose: the test walks to it
+# The fixture sorts last in its directory on purpose: the test walks to it
 # with G (bottom) rather than counting j presses, so a stray file in fs/ shifts
 # no indices and the test still knows where it landed -- it checks the path in
 # RANGER's own header before doing anything destructive.
 set -e
 cd "$(dirname "$0")/.."
-D=fs/ZRTEST
+# The fixture lives under /LANG/BBCBASIC: RANGER opens where the shell is, so
+# every run starts with CD there (the prompt itself boots in /HOME).
+D=fs/LANG/BBCBASIC/ZRTEST
 cleanup() { rm -rf "$D" fs/.TRASH; rm -f fs/CPM/A/0/ZZTEST.COM fs/CPM/A/0/K-RUN.SUB 'fs/CPM/A/0/$$$.SUB'; }
 trap cleanup EXIT
 cleanup
@@ -22,7 +24,8 @@ mkdir -p "$D"
 printf 'the first one\n' > "$D/DUP.TXT"
 printf 'alpha\n'         > "$D/A.TXT"
 
-R() { ./test/headless rom/kernal.bin "$1" "${2:-1200}" 2>/dev/null; }
+R() { ./test/headless rom/kernal.bin "CD /LANG/BBCBASIC
+$1" "${2:-1200}" 2>/dev/null; }
 fail() { echo "$out"; echo "rangertest: FAILED: $1"; exit 1; }
 has()   { echo "$out" | grep -q -- "$1" || fail "$2"; }
 # Negative assertions need the `if` form: under set -e a bare `grep && fail`
@@ -33,10 +36,10 @@ hasnt() { if echo "$out" | grep -q -- "$1"; then fail "$2"; fi; }
 out=$(R '~RANGER
 ~')
 has " /"            "no path header"
-has "BBCBASIC"      "no directory listing"
+has "README.BBC"    "no directory listing"
 has "hjkl"          "no hint line"
 
-# 2. the column option.  Keyed on the preview (BOUNCE.BBC is inside BBCBASIC,
+# 2. the column option.  Keyed on the preview (BOUNCE.BBC is inside EX,
 # which the bar starts on) and on the listing's indent -- NOT on "^ BBCBASIC",
 # which also matches the status line naming the selected entry.
 out=$(R '~RANGER 1
@@ -45,16 +48,16 @@ hasnt "BOUNCE.BBC"        "RANGER 1 should show no preview column"
 out=$(R '~RANGER 2
 ~')
 has   "BOUNCE.BBC"        "RANGER 2 should show a preview column"
-hasnt "^ \{6,\}BBCBASIC"  "RANGER 2 should show no parent column"
+hasnt "/ README.BBC"  "RANGER 2 should show no parent column"
 out=$(R '~RANGER 3
 ~')
 has   "BOUNCE.BBC"        "RANGER 3 should show a preview column"
-has   "^ \{6,\}BBCBASIC"  "RANGER 3 should indent the listing past the parent column"
+has   "/ README.BBC"  "RANGER 3 should show the listing beside the parent column"
 
 # 3. walking in, and the header following
 out=$(R '~RANGER
 ~G~l~')
-has "/ZRTEST"       "G then l did not enter the fixture (does something sort after ZRTEST in fs/?)"
+has "/ZRTEST"       "G then l did not enter the fixture (does something sort after ZRTEST in fs/LANG/BBCBASIC?)"
 has "DUP.TXT"       "the fixture's files are not listed"
 has "alpha"         "no file preview (the bar starts on A.TXT, which holds it)"
 
@@ -67,7 +70,7 @@ has "/ZRTEST\]"     "the shell did not land in the browsed directory"
 # 5. Enter on a .prg: RANGER leaves and the shell runs it.  The program's own
 # output has to survive -- that is the whole reason the filer gets out of the
 # way instead of running it under SWAP, which would restore the screen over it.
-cp fs/PRG/hello.prg "$D/ZRUN.PRG"
+cp fs/LANG/PASCAL/hello.prg "$D/ZRUN.PRG"
 out=$(R '~RANGER
 ~G~l~G~
 ~~' 1800)

@@ -6233,3 +6233,45 @@ programs on it.
 filesystem (SYSTEM / LANG / APPS / HOME / CPM / MNT, one search path)
 answering Doc's "the filesystem is getting crowded". For his ruling;
 nothing moved.
+
+## 2026-09-08 — the disk takes its shape: SYSTEM, LANG, APPS, HOME, CPM, MNT
+
+Doc ruled on the layout proposal as written, and the move is one
+commit. The root has six entries and STARTUP.BAT, fixed; everything
+new goes one level down:
+
+    /SYSTEM/BIN   the tools (RANGER VI DELETE SETUP SUPERMON BENCH BUG ...)
+    /SYSTEM/ETC   what the machine reads: PALETTES/, HELP, VI.SAMPLE,
+                  STARTUP.SAMPLE, chargen.bin
+    /SYSTEM/LOG   what it writes: PERF.TXT, BENCH-*, SETUP.TXT, BUGREPORTS/
+    /LANG/NAME    a language: its runtime, README and EX/ examples;
+                  PASCAL and C hold the sources BESIDE their .prg
+    /APPS/NAME    one folder per program, data beside it (CHESS's
+                  ENGINE.CFG, SKYFIRE.CFG, OPLPLAY's TUNES/)
+    /HOME         yours; the prompt starts here; CHESS exports land here
+    /CPM          unchanged
+    /MNT          SHARE (the container's folder), USB later
+
+**The search path** (`core/io.c` `fs_path`) is what makes bare names
+keep working: a name not found where you are is tried in /SYSTEM/BIN,
+/APPS/STEM/, /LANG/STEM/ and /HOME/PROJECTS/STEM/ (STEM = the name
+without its extension, uppercased — the name IS the folder, one stat a
+step), then by extension: .BAS in /LANG/EHBASIC/EX, .BBC in
+/LANG/BBCBASIC/EX, .RX in /LANG/RX, .PAS/.C/.prg in the two compiled
+languages' folders. So SKYFIRE, EHBASIC, RANGER and HELLO run from
+anywhere, and `RUN "INVADERS.BAS"` inside EhBASIC still finds it.
+
+**What moved in the sources**: the Pascal demos left `demo/pas/` for
+`fs/LANG/PASCAL/*.PAS` and SIEVE.C left `demo/` for `fs/LANG/C/` — the
+Makefile now builds those with the same `tools/k4510-pas` and
+`k4510-cc` that PAS and CC run, so the tracked .prg is what the machine
+would make itself. A HELLO.C joined SIEVE.C. Twenty-odd hard-coded paths
+changed (CHESS, REXX's mail files, OPLPLAY, SKYFIRE, VI's rc, BENCH,
+BUG, SETUP, the Tube's BBC BASIC home, the palette prefix, HELP). The
+prompt boots in /HOME (host side, at reset, only where the folder
+exists), which is why nine tests learned to say `CD /` or where their
+fixture now lives. BBC BASIC's files are relative to the machine's
+current directory, so its README says CD /LANG/BBCBASIC first.
+
+Doc's own STARTUP.BAT, TUNES and chargen.bin were moved by hand here;
+on his other machines they are wherever they were.

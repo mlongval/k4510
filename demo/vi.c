@@ -640,11 +640,11 @@ static void do_cmd(void)
 }
 
 /* ---- the startup file ----------------------------------------------------- */
-/* /SYSTEM/VI.RC, one ex command to a line, run once the file is in: the place
+/* /SYSTEM/ETC/VI.RC, one ex command to a line, run once the file is in: the place
  * for `imap jk <Esc>` and the other mappings, which otherwise have to be typed
  * again every session. A line beginning with " is a comment, as in vi. Having
  * no VI.RC is the ordinary case and costs one failed open. */
-static const char rcname[] = "/SYSTEM/VI.RC";
+static const char rcname[] = "/SYSTEM/ETC/VI.RC";
 static void run_rc(void)
 {
     uint32_t l, off = 0; unsigned chunk, i; const char *keep = note;

@@ -46,7 +46,7 @@ was in flight in another session when this landed):
 
 ## Building
 
-    mon/build.sh     # needs 64tass; writes fs/PRG/supermon.prg
+    mon/build.sh     # needs 64tass; writes fs/SYSTEM/BIN/supermon.prg
 
 The built .prg is committed (like every .prg), so other machines need
 nothing but a pull. Not in the main Makefile: that would add a 64tass

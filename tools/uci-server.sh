@@ -1,7 +1,7 @@
 #!/bin/sh
 # Serve a UCI chess engine over TCP for CHESS.PRG's "Network engine": one
 # engine process per connection, stdin/stdout on the socket.  Any Linux box
-# on the LAN or the tailnet; the machine's /CHESS/ENGINE.CFG names it as
+# on the LAN or the tailnet; the machine's /APPS/CHESS/ENGINE.CFG names it as
 # tcp://host:port.  socat if present, else nc.
 #   tools/uci-server.sh [engine] [port]
 ENGINE=${1:-${K4510_UCI:-$(command -v stockfish || echo "$HOME/opt/stockfish-bin")}}

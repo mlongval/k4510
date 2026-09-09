@@ -19,7 +19,7 @@ hasnt() { if echo "$out" | grep -q -- "$1"; then fail "$2"; fi; }
 # 1. it moves rather than destroys
 printf 'one\n' > "$D/A.TXT"
 printf 'two\n' > "$D/B.TXT"
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~DELETE A.TXT B.TXT
 ~DIR
 ')
@@ -30,7 +30,7 @@ grep -q one fs/.TRASH/A.TXT || fail "the trashed file lost its contents"
 
 # 2. a name already in the trash must not be eaten
 printf 'again\n' > "$D/A.TXT"
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~DELETE A.TXT
 ~DELETE -l
 ')
@@ -40,7 +40,7 @@ grep -q again 'fs/.TRASH/A.TXT~1' || fail "the second A.TXT has the wrong conten
 has "3 items in /.TRASH"        "-l miscounted (DIR1 opens the directory, it is not an entry)"
 
 # 3. restore brings it back, and will not clobber a name in the way
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~DELETE -r A.TXT
 ~TYPE A.TXT
 ')
@@ -48,14 +48,14 @@ has "restored A.TXT" "-r did not restore"
 has "one"            "-r restored the wrong file"
 # B.TXT is still in the trash from step 1; put one of that name in the way.
 printf 'in the way\n' > "$D/B.TXT"
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~DELETE -r B.TXT
 ')
 has "taken here"     "-r overwrote, or did not refuse, an existing name"
 grep -q "in the way" "$D/B.TXT" || fail "-r OVERWROTE the file that was in the way"
 
 # 4. empty really does delete
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~DELETE -e
 ~DELETE -l
 ')
@@ -69,11 +69,12 @@ has "the trash is empty" "-l after -e should say the trash is empty"
 # what the first version of this case actually did.
 rm -f "$D"/*
 printf 'from delete\n' > "$D/SAME.TXT"
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~DELETE SAME.TXT
 ')
 printf 'from ranger\n' > "$D/SAME.TXT"
-out=$(R '~RANGER
+out=$(R '~CD /
+~RANGER
 ~G~l~DD~y~q
 ' 1600)
 # G walks to the LAST entry of the root, so a stray directory sorting after
@@ -90,7 +91,7 @@ grep -q "from ranger" 'fs/.TRASH/SAME.TXT~1'  || fail "RANGER's file went to the
 rm -rf "$D" fs/.TRASH; mkdir -p "$D/SUB"
 printf 'kept\n'  > "$D/R.TXT"
 printf 'burned\n'> "$D/F.TXT"
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~RM R.TXT
 ~RM -f F.TXT
 ~RM SUB
@@ -106,7 +107,7 @@ has "rm: not found"   "RM on a missing name should still say so"
 
 # 7. RM obeys the same ~1 rule as DELETE and RANGER
 printf 'later\n' > "$D/R.TXT"
-out=$(R '~CD ZDTEST
+out=$(R '~CD /ZDTEST
 ~RM R.TXT
 ' 1600)
 [ -f 'fs/.TRASH/R.TXT~1' ]     || fail "RM did not apply the ~1 rule"

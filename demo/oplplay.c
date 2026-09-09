@@ -17,11 +17,11 @@
  * register here is the one in an OPL2 programming guide, and the patches are
  * ordinary two-operator AdLib patches.
  *
- * IF /OPL EXISTS, IT PLAYS THAT INSTEAD.  tools/vgm2opl.py turns VGM/VGZ OPL2
+ * IF /APPS/OPLPLAY/TUNES EXISTS, IT PLAYS THAT INSTEAD.  tools/vgm2opl.py turns VGM/VGZ OPL2
  * logs into .OPL files -- the machine's YM3812 runs at 3579545 Hz, the AdLib
  * crystal every VGM assumes, so they play at the right pitch untouched.  That
  * library is nobody's to redistribute, so it is not in this repository and
- * /OPL is in .gitignore; the three built-in tunes are what ships, and what
+ * TUNES is in .gitignore; the three built-in tunes are what ships, and what
  * plays when the directory is absent.
  *
  *   SPACE  next tune      1-9  mute a voice      Q or Escape  back to the shell
@@ -38,7 +38,7 @@
 #define SPRTAB_A 0x121000UL
 #define SPRTAB_B 0x122000UL
 #define TEXTMAP  0x123000UL
-#define LISTBUF  0x130000UL       /* the /OPL directory: MAXTUNES names of 32 */
+#define LISTBUF  0x130000UL       /* the TUNES directory: MAXTUNES names of 32 */
 #define TUNEBUF  0x200000UL       /* the loaded .OPL, whole; they run 10-60 KB */
 #define MAXTUNES 2048             /* the archive this was written against holds 826 */
 
@@ -198,7 +198,7 @@ static void fs_setname(const char *n) { far_w32(0xD304, (uint16_t)n); }
 static void list_tunes(void)
 {
     ntunes = 0;
-    fs_setname("/OPL"); if (fs_cmd(11)) return;          /* no /OPL: built-ins it is */
+    fs_setname("/APPS/OPLPLAY/TUNES"); if (fs_cmd(11)) return;   /* no TUNES: built-ins it is */
     if (fs_cmd(6)) return;
     for (;;) {
         uint8_t i, len; char *e;
@@ -395,7 +395,7 @@ void main(void)
     uint16_t frame = 0;
 
     REG(V_CTRL) = 0;
-    list_tunes();                                  /* /OPL if it is there, the built-ins if not */
+    list_tunes();                                  /* TUNES if it is there, the built-ins if not */
     if (ntunes) { while (ntunes && load_tune(song)) {   /* a bad file: drop it and try the next */
                       uint16_t j; ntunes--;
                       for (j = song; j < ntunes; j++) { uint8_t b2;

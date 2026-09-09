@@ -234,7 +234,7 @@ release alone, while a byte-exact OEM ROM rebuild would not.
 The K4510 configuration and port -- `basic/k4510msbasic.asm`, which is
 the machine's whole side of it (config, console glue, `.prg` header) --
 sits *outside* the vendored directory so everything inside stays
-byte-identical to upstream. Built to `fs/MSBASIC/msbasic.prg`.
+byte-identical to upstream. Built to `fs/LANG/MSBASIC/msbasic.prg`.
 
 ---
 

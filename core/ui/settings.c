@@ -8,7 +8,7 @@
 #define SETTINGS_VERSION     2
 #define SETTINGS_VERSION_STR "2"
 
-static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen",   /* "C64 chargen" is renamed by the host if /SYSTEM/chargen.bin is absent */
+static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen",   /* "C64 chargen" is renamed by the host if /SYSTEM/ETC/chargen.bin is absent */
     "Bauhaus", "Broadway", "Computer", "Cyberwire", "NLQ", "Benguiat",   /* ZX Origins, in the FONT_ZX_* order */
     "Chicago", "Courier", "Eurostile", "OCR-A", "Pristine", "Anvil" };
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };

@@ -147,8 +147,15 @@ static int fs_url_for(const char *name, char *out, size_t max)
     if (fs_remote[0] && strcmp(name, "-") != 0) { net_url_join(out, max, fs_remote, name); return 1; }
     return 0;
 }
-/* host path for NAMEPTR; for reads, fall back to /PRG, /EHBASIC, /BBCBASIC and /FORTH when the
- * name has no directory part and is not found where we are */
+/* host path for NAMEPTR; for reads, a bare name (no directory part) that is
+ * not where we are is looked for along the disk's shape (fs/HOME/README.TXT):
+ *   /SYSTEM/BIN/name              the tools
+ *   /APPS/STEM/name               a program's own folder  (SKYFIRE -> /APPS/SKYFIRE/skyfire.prg)
+ *   /LANG/STEM/name               a language's            (EHBASIC -> /LANG/EHBASIC/ehbasic.prg)
+ *   /HOME/PROJECTS/STEM/name      yours
+ *   and by extension: .BAS -> /LANG/EHBASIC/EX, .BBC -> /LANG/BBCBASIC/EX, .RX -> /LANG/RX, .PAS -> /LANG/PASCAL
+ * where STEM is the name without its extension, uppercased -- the name IS the
+ * folder, so this is one stat per step and never a walk. */
 static int fs_path(char *out, size_t max, int search)
 {
     char name[128], rel[256]; struct stat sb; int st;
@@ -156,9 +163,22 @@ static int fs_path(char *out, size_t max, int search)
     if ((st = fs_resolve(name, rel, sizeof rel, out, max))) return st;
     fs_casefix(out, max);
     if (search && stat(out, &sb) && !strchr(name, '/') && !strchr(name, '\\')) {
-        static const char *dirs[] = { "PRG", "EHBASIC", "BBCBASIC", "FORTH" };
-        for (int i = 0; i < 4; i++) {
-            char alt[140]; snprintf(alt, sizeof alt, "/%s/%.127s", dirs[i], name);
+        char stem[64]; const char *dot = strrchr(name, '.'); size_t sl = dot ? (size_t)(dot - name) : strlen(name);
+        char dirs[8][40]; int nd = 0;
+        if (sl >= sizeof stem) sl = sizeof stem - 1;
+        for (size_t i = 0; i < sl; i++) stem[i] = (char)toupper((unsigned char)name[i]);
+        stem[sl] = 0;
+        snprintf(dirs[nd++], 40, "/SYSTEM/BIN");
+        if (sl) { snprintf(dirs[nd++], 40, "/APPS/%.30s", stem); snprintf(dirs[nd++], 40, "/LANG/%.30s", stem); snprintf(dirs[nd++], 40, "/HOME/PROJECTS/%.24s", stem); }
+        if (dot) {
+            static const struct { const char *ext, *dir; } by_ext[] = {
+                { ".BAS", "/LANG/EHBASIC/EX" }, { ".BBC", "/LANG/BBCBASIC/EX" }, { ".RX", "/LANG/RX" }, { ".PAS", "/LANG/PASCAL" }, { ".C", "/LANG/C" },
+                { ".PRG", "/LANG/PASCAL" }, { ".PRG", "/LANG/C" } };   /* the compiled examples, by their bare names */
+            for (size_t i = 0; i < sizeof by_ext / sizeof *by_ext; i++)
+                if (!strcasecmp(dot, by_ext[i].ext)) snprintf(dirs[nd++], 40, "%s", by_ext[i].dir);
+        }
+        for (int i = 0; i < nd; i++) {
+            char alt[180]; snprintf(alt, sizeof alt, "%s/%.127s", dirs[i], name);
             if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
             fs_casefix(out, max);
             if (!stat(out, &sb)) return 0;
@@ -723,6 +743,8 @@ static int tube_was_alive;
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
+#include <ctype.h>
+#include <strings.h>
 static pid_t tube_pid; static int tube_fd = -1;
 #endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
@@ -1201,6 +1223,10 @@ void io_reset(void)
 {
     sys_frames = 0;
     net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
+    /* The prompt starts in /HOME where the disk has one (fs/HOME/README.TXT);
+     * the ROM reads /STARTUP.BAT by its absolute name, so boot is unaffected. */
+    { char home[600]; struct stat sb; snprintf(home, sizeof home, "%s/HOME", fs_root);
+      if (!stat(home, &sb) && S_ISDIR(sb.st_mode)) snprintf(fs_cwd, sizeof fs_cwd, "HOME"); }
     /* Off by default on BOTH now (Doc, 2026-08-27): auto-dump every 15 s was
        intrusive, and dbg_rec -- the PC recorder -- costs a store per emulated
        instruction whether or not a dump is ever written.  DUMP ON re-arms both

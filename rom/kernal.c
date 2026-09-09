@@ -1384,7 +1384,7 @@ static void cmd_clg(const char *p)
  *
  *   PALETTE                list entries 0-15
  *   PALETTE n rr gg bb     set one entry (hex, n may be 0-FF)
- *   PALETTE LOAD name      apply a .PAL from /SYSTEM/PALETTES
+ *   PALETTE LOAD name      apply a .PAL from /SYSTEM/ETC/PALETTES
  *   PALETTE SAVE name      write entries 0-15 out as a .PAL
  *   PALETTE RESET          back to the VIC-II sixteen
  *
@@ -1444,12 +1444,12 @@ static uint8_t pal_word(const char **p, const char *w)   /* case-folded word mat
     while (*q == ' ') q++;
     *p = q; return 1;
 }
-/* /SYSTEM/PALETTES/NAME.PAL unless the name already has a path or a dot */
+/* /SYSTEM/ETC/PALETTES/NAME.PAL unless the name already has a path or a dot */
 static void pal_path(const char *name, char *out)
 {
     const char *q = name; uint8_t dot = 0, slash = 0, i = 0;
     while (*q) { if (*q == '.') dot = 1; if (*q == '/') slash = 1; q++; }
-    if (!slash) { const char *d = "/SYSTEM/PALETTES/"; while (*d) out[i++] = *d++; }
+    if (!slash) { const char *d = "/SYSTEM/ETC/PALETTES/"; while (*d) out[i++] = *d++; }
     q = name; while (*q) out[i++] = *q++;
     if (!dot) { const char *e = ".PAL"; while (*e) out[i++] = *e++; }
     out[i] = 0;
@@ -1719,7 +1719,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
     if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
-    if (is_cmd(&p, "HELP"))  { sw_call(1, cmd_type, "/.HELP"); return; }   /* the help text lives on disk, dot-hidden */
+    if (is_cmd(&p, "HELP"))  { sw_call(1, cmd_type, "/SYSTEM/ETC/HELP"); return; }   /* the help text lives on disk */
     if (is_cmd(&p, "DUMP"))  { sw_call(1, cmd_dump, p); return; }
     if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }

@@ -124,12 +124,12 @@ never touches the internal drive. `docs/K4510X.md` has the details.
 - **Two Pascals**, kept apart: Turbo Pascal 3 on CP/M (yours to supply,
   it is Borland's; drive `P:` is where it goes), and **Mad Pascal**, a
   cross-compiler — `pascal/` holds the K4510 target, `make pascal` turns
-  `demo/pas/*.pas` into `fs/PRG/*.prg`; Write/CRT go through JIM, `uses
+  `fs/LANG/PASCAL/*.PAS` into `.prg` files beside them; Write/CRT go through JIM, `uses
   k4510` gives every chip as a typed variable, `single` runs on the MATH
   unit, `uses graph` draws with the blitter.
 - **Two editors:** `EDIT`, the nano of this machine, and `VI`, modal,
   with counts, operators, unlimited undo, `:s`, `:map`/`:imap`, a
-  `/SYSTEM/VI.RC` startup file, and the whole file in far memory — 32000
+  `/SYSTEM/ETC/VI.RC` startup file, and the whole file in far memory — 32000
   lines. `*SWAP EDIT name` edits from inside a BASIC.
 - **Two file managers,** because they are two different ideas about what
   one is for: `KOMMANDER`, two panels and function keys, and `RANGER`,
@@ -144,7 +144,7 @@ never touches the internal drive. `docs/K4510X.md` has the details.
   Super+PageUp resets. Esc is RUN/STOP, Shift+Esc quits the emulator.
 - **When something goes wrong:** `DUMP ON`, make it go wrong again, then
   `BUG` — it interviews you and writes a finished report to
-  `/SYSTEM/BUGREPORTS/`, with the build, the machine and the last dump
+  `/SYSTEM/LOG/BUGREPORTS/`, with the build, the machine and the last dump
   filled in. Attach that and the dump to an issue. Appendix B of the
   handbook is the whole of it.
 
@@ -178,14 +178,14 @@ never touches the internal drive. `docs/K4510X.md` has the details.
     sdl/         the frontend + POSIX host glue
     k4510x/      the appliance: the live-image build and the container flavour
     rom/         system ROM (cc65) and Wozmon
-    demo/        programs in C -> fs/PRG/*.prg  (the editors, TELNET, BUG, the demos)
+    demo/        programs in C -> fs/SYSTEM/BIN and fs/APPS/NAME/*.prg  (the editors, TELNET, BUG, the games)
     retired/     programs that were part of the machine and are not any more (see its README)
     basic/       EhBASIC 2.22 + K4510 glue
     forth/       Tali Forth 2 (vendored) + the platform file
     tube/        Richard Russell's BBC BASIC, console edition (vendored, altered as marked)
     cpm/         RunCPM (vendored, unmodified)
     pascal/      the Mad Pascal target
-    fs/          the machine's filesystem: /PRG /EHBASIC /BBCBASIC /FORTH /CPM /SYSTEM
+    fs/          the machine's filesystem: /SYSTEM /LANG /APPS /HOME /CPM /MNT (fs/HOME/README.TXT)
     test/        tests, headless capture and benchmark tools
     tools/       romfree.py, which measures what is left in each ROM bank
     data/        fonts (the kernel 8x8, open-roms, unscii, BESCII)

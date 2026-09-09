@@ -6,8 +6,8 @@
 set -e
 cd "$(dirname "$0")/.."
 export K4510_NO_STARTUP=1
-mkdir -p fs/RX
-cat > fs/RX/RXTEST.RX <<'EOF'
+mkdir -p fs/LANG/RX
+cat > fs/LANG/RX/RXTEST.RX <<'EOF'
 say 'A' 2+3*4 (7-1)/2 7//3 2**10
 say 'B' 'abc'||'def' length('hello') substr('abcdef',2,3) word('one two three',3) words('a b c')
 say 'C' upper('mix') reverse('abc') pos('cd','abcde') copies('xy',3) strip('  s  ')
@@ -50,8 +50,8 @@ show: procedure expose z
   z = z + 1
   return
 EOF
-cat > fs/RX/RXTEST2.RX <<'EOF'
-'DIR /RX'                           /* a built-in: runs as if typed */
+cat > fs/LANG/RX/RXTEST2.RX <<'EOF'
+'DIR /LANG/RX'                           /* a built-in: runs as if typed */
 say 'P' rc
 'SAY through-a-swap'                /* a program: SWAP carries the script over it, -k keeps what it drew */
 say 'P2' rc
@@ -66,7 +66,7 @@ out=$(./test/headless rom/kernal.bin 'RX RXTEST
 ~~~~~~~~~~~~' 1400 2>&1) || true
 out2=$(./test/headless rom/kernal.bin 'RX RXTEST2
 ~~~~~~~~~~~~' 1400 2>&1) || true
-rm -f fs/RX/RXTEST.RX fs/RX/RXTEST2.RX
+rm -f fs/LANG/RX/RXTEST.RX fs/LANG/RX/RXTEST2.RX
 fail() { echo "$out"; echo "$out2"; echo "rxtest: FAILED: $1"; exit 1; }
 echo "$out" | grep -q 'A 14 3 1 1024'                     || fail "arithmetic"
 echo "$out" | grep -q 'B abcdef 5 bcd three 3'            || fail "string functions"
@@ -90,14 +90,14 @@ echo "$out2" | grep -q 'P2 0'                             || fail "RC after a pr
 echo "$out2" | grep -q 'Q 1'                              || fail "RC after a command that failed"
 echo "$out2" | grep -q 'R done'                           || fail "SIGNAL"
 # the port: CHESS answers @file, keeps its position between calls, and plays
-rm -f fs/CHESS/PORT.GAM fs/RX/PORT.RPL
-printf 'NEW\nMOVE e2e4\nFEN\n' > fs/RX/PORT.CMD
-./test/headless rom/kernal.bin 'RUN CHESS @/RX/PORT.CMD
+rm -f fs/APPS/CHESS/PORT.GAM fs/LANG/RX/PORT.RPL
+printf 'NEW\nMOVE e2e4\nFEN\n' > fs/LANG/RX/PORT.CMD
+./test/headless rom/kernal.bin 'RUN CHESS @/LANG/RX/PORT.CMD
 ~~~~~~' 800 >/dev/null 2>&1 || true
-grep -q '4P3' fs/RX/PORT.RPL 2>/dev/null || { echo "rxtest: FAILED: the chess port did not answer with the position"; exit 1; }
-printf 'STATUS\n' > fs/RX/PORT.CMD
-./test/headless rom/kernal.bin 'RUN CHESS @/RX/PORT.CMD
+grep -q '4P3' fs/LANG/RX/PORT.RPL 2>/dev/null || { echo "rxtest: FAILED: the chess port did not answer with the position"; exit 1; }
+printf 'STATUS\n' > fs/LANG/RX/PORT.CMD
+./test/headless rom/kernal.bin 'RUN CHESS @/LANG/RX/PORT.CMD
 ~~~~~~' 700 >/dev/null 2>&1 || true
-grep -q 'black to move' fs/RX/PORT.RPL 2>/dev/null || { echo "rxtest: FAILED: the chess port forgot the position between calls"; exit 1; }
-rm -f fs/RX/PORT.CMD fs/RX/PORT.RPL fs/CHESS/PORT.GAM
+grep -q 'black to move' fs/LANG/RX/PORT.RPL 2>/dev/null || { echo "rxtest: FAILED: the chess port forgot the position between calls"; exit 1; }
+rm -f fs/LANG/RX/PORT.CMD fs/LANG/RX/PORT.RPL fs/APPS/CHESS/PORT.GAM
 echo "rxtest: OK (the language, both kinds of shell command with RC, and the chess port over @file)"

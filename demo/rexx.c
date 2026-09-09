@@ -5,11 +5,11 @@
  * PARSE takes strings apart, and the shell's REXX rule (an unknown word is a
  * program on disk) already made every .prg a command.  What ARexx added was
  * the ports; this machine is single-tasking, so a port here is a file: the
- * script writes /RX/MAIL.CMD, SWAPs to the program with @/RX/MAIL.CMD as
- * its argument, and reads /RX/MAIL.RPL when it comes back (RC on the first
+ * script writes /LANG/RX/MAIL.CMD, SWAPs to the program with @/LANG/RX/MAIL.CMD as
+ * its argument, and reads /LANG/RX/MAIL.RPL when it comes back (RC on the first
  * line, RESULT after it).
  *
- *   RX name [args]      runs name, name.RX or /RX/name.RX
+ *   RX name [args]      runs name, name.RX or /LANG/RX/name.RX
  *   name args           the same, when the shell finds name.RX (rom/kernal.c try_rx)
  *
  * The subset, honestly: whole numbers only (32-bit; / truncates, % and // as
@@ -652,7 +652,7 @@ static void lineout(const char *name, const char *s)
 unsigned char __fastcall__ rom_shell(const char *line);
 static void mailbox(const char *cmd, char *result)
 {
-    static const char mail[] = "/RX/MAIL.CMD", reply[] = "/RX/MAIL.RPL";
+    static const char mail[] = "/LANG/RX/MAIL.CMD", reply[] = "/LANG/RX/MAIL.RPL";
     char nm[40]; uint16_t n; uint8_t st;
     strcpy(nm, mail); fs_name(nm); w32(FS_ADDR, (uint32_t)(uint16_t)cmd); w32(FS_LEN, strlen(cmd)); fs_do(C_SAVE);
     strcpy(nm, reply); fs_name(nm); fs_do(C_RM);
@@ -1352,7 +1352,7 @@ static uint8_t load_script(const char *name)
     for (i = 0; i < 3; i++) {
         if (i == 0) strcpy(nm, name);
         else if (i == 1) { strcpy(nm, name); strcat(nm, ".RX"); }
-        else { if (name[0] == '/') return 0; strcpy(nm, "/RX/"); strcat(nm, name); strcat(nm, ".RX"); }
+        else { if (name[0] == '/') return 0; strcpy(nm, "/LANG/RX/"); strcat(nm, name); strcat(nm, ".RX"); }
         fs_name(nm); w32(FS_ADDR, SRC_PHYS); w32(FS_LEN, 0xFFFEUL);
         if (!fs_do(C_LOAD)) { srclen = (uint16_t)r32(FS_LEN); return 1; }
     }
@@ -1367,7 +1367,7 @@ void main(void)
     while (*a && *a != ' ' && k < VMAX - 1) name[k++] = *a++;
     name[k] = 0;
     while (*a == ' ') a++;
-    if (!k) { outs("RX name [arguments]   -- runs name, name.RX or /RX/name.RX"); nl(); return; }
+    if (!k) { outs("RX name [arguments]   -- runs name, name.RX or /LANG/RX/name.RX"); nl(); return; }
     if (!load_script(name)) { outs("RX: not found: "); outs(name); nl(); return; }
     far_poke(SRC_PHYS + srclen, 0);
     rnd_seed = r32(SYS + 0x36) | 1;

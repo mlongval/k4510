@@ -17,7 +17,7 @@
  * or K4510x), that is program 5 and it plays at the KoboChess Elo for the
  * level.  Anywhere with a network (the Pi included), a UCI engine served
  * over TCP -- tools/uci-server.sh on any Linux box -- does the same
- * through the N: device; /CHESS/ENGINE.CFG names it.
+ * through the N: device; /APPS/CHESS/ENGINE.CFG names it.
  *
  *   arrows / pad / mouse   pick a square, then where it goes
  *   Enter or space         select          Esc      undo the pick, or leave
@@ -501,9 +501,9 @@ static uint8_t eng_move(move_t *out)                 /* 1 a move, 0 the engine f
     }
     return 0;
 }
-static void load_engine_cfg(void)                    /* /CHESS/ENGINE.CFG: tcp://host:port on its first line */
+static void load_engine_cfg(void)                    /* /APPS/CHESS/ENGINE.CFG: tcp://host:port on its first line */
 {
-    static char name[] = "/CHESS/ENGINE.CFG"; uint8_t i, n;
+    static char name[] = "/APPS/CHESS/ENGINE.CFG"; uint8_t i, n;
     w32(0xD304u, (uint16_t)name); w32(0xD308u, (uint16_t)line); w32(0xD30Cu, sizeof line - 1);
     REG(0xD300u) = 9;
     if (REG(0xD301u)) { eng_url[0] = 0; return; }
@@ -926,14 +926,14 @@ static void export_pgn(void)
         p = san[i]; while (*p) *o++ = *p++; *o++ = (i % 12 == 11) ? '\n' : ' ';
     }
     p = res[rr]; while (*p) *o++ = *p++; *o++ = '\n';
-    k = 0; p = "/CHESS/GAME-"; while (*p) name[k++] = *p++;
+    k = 0; p = "/HOME/GAME-"; while (*p) name[k++] = *p++;
     { unsigned long y = REG(SYS + 0x0A) | ((unsigned long)REG(SYS + 0x0B) << 8);
       name[k++] = (char)('0' + (y / 1000) % 10); name[k++] = (char)('0' + (y / 100) % 10); name[k++] = (char)('0' + (y / 10) % 10); name[k++] = (char)('0' + y % 10);
       name[k++] = (char)('0' + REG(SYS + 9) / 10); name[k++] = (char)('0' + REG(SYS + 9) % 10); name[k++] = (char)('0' + REG(SYS + 8) / 10); name[k++] = (char)('0' + REG(SYS + 8) % 10); name[k++] = '-';
       name[k++] = (char)('0' + REG(SYS + 7) / 10); name[k++] = (char)('0' + REG(SYS + 7) % 10); name[k++] = (char)('0' + REG(SYS + 6) / 10); name[k++] = (char)('0' + REG(SYS + 6) % 10); }
     p = ".PGN"; while (*p) name[k++] = *p++; name[k] = 0;
     zp16(0xF0, (uint16_t)name); zp32(0xF2, (uint32_t)(uint16_t)PGNBUF); zp32(0xF6, (uint32_t)(uint16_t)(o - PGNBUF));
-    if (rom_save()) message("could not write /CHESS/GAME-*.PGN (MKDIR /CHESS first?)"); else { char b[60]; uint8_t j = 0; p = "saved "; while (*p) b[j++] = *p++; p = name; while (*p) b[j++] = *p++; b[j] = 0; message(b); }
+    if (rom_save()) message("could not write /HOME/GAME-*.PGN (MKDIR /HOME first?)"); else { char b[60]; uint8_t j = 0; p = "saved "; while (*p) b[j++] = *p++; p = name; while (*p) b[j++] = *p++; b[j] = 0; message(b); }
     { uint8_t f = 120; while (f--) wait_vblank(); }
 }
 static void game_menu(void)
@@ -964,7 +964,7 @@ static void options_menu(void)
             if (s != 255 && s != eng_kind) {
                 eng_stop(); eng_kind = s;
                 if (s == 1 && !(REG(TUBE) & 8)) { message("no UCI engine on this Tube"); eng_kind = 0; { uint8_t f = 90; while (f--) wait_vblank(); } }
-                if (s == 2 && !eng_url[0]) { message("/CHESS/ENGINE.CFG: tcp://host:port"); eng_kind = 0; { uint8_t f = 120; while (f--) wait_vblank(); } }
+                if (s == 2 && !eng_url[0]) { message("/APPS/CHESS/ENGINE.CFG: tcp://host:port"); eng_kind = 0; { uint8_t f = 120; while (f--) wait_vblank(); } }
                 if (eng_kind) { message("starting the engine..."); if (eng_start()) eng_level(); else { message("the engine did not answer"); eng_kind = 0; { uint8_t f = 90; while (f--) wait_vblank(); } } }
             }
         }
@@ -1016,7 +1016,7 @@ static void first_engine(void)                        /* after the board is up: 
  * `CHESS @file` reads command lines from that file, does them, and writes the
  * answer beside it (.CMD -> .RPL): the result code on the first line, the text
  * after it.  No screen, no keyboard -- this is the mode RX's ADDRESS CHESS
- * uses through SWAP, and the position is kept in /CHESS/PORT.GAM so the next
+ * uses through SWAP, and the position is kept in /APPS/CHESS/PORT.GAM so the next
  * call carries on where this one stopped (a swapped-in program starts fresh:
  * the file IS the memory).  Commands, one per line, case does not matter:
  *   NEW [WHITE|BLACK]   MOVE e2e4   GO   LEVEL 0-5   BOARD   FEN   STATUS
@@ -1030,9 +1030,9 @@ static char *po;                                 /* where the reply is being bui
 static void po_str(const char *p) { while (*p && (uint16_t)(po - PORTRPL) < PORTMAX - 2) *po++ = *p++; }
 static void po_nl(void) { *po++ = '\n'; }
 static void po_sq(uint8_t sq) { *po++ = (char)('a' + FILE_OF(sq)); *po++ = (char)('1' + RANK_OF(sq)); }
-static uint8_t port_state(uint8_t save)          /* the position, to and from /CHESS/PORT.GAM */
+static uint8_t port_state(uint8_t save)          /* the position, to and from /APPS/CHESS/PORT.GAM */
 {
-    static char nm[] = "/CHESS/PORT.GAM";
+    static char nm[] = "/APPS/CHESS/PORT.GAM";
     uint8_t *b = (uint8_t *)PORTRPL + PORTMAX;   /* above the reply: 140 bytes of state */
     uint8_t i;
     if (save) {

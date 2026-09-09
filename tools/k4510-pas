@@ -28,7 +28,7 @@ if [ ! -f "$src" ]; then
     src=${f#./}
 fi
 base=${src%.*}
-out=$base.prg
+out=$(printf %s "$base" | tr A-Z a-z).prg
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/k4510-pas.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"' EXIT

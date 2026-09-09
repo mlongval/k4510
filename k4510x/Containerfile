@@ -27,7 +27,7 @@ COPY --chown=k4510:k4510 . /home/k4510/k4510
 RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
     && make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm \
     && (make -C tube || echo "the Tube did not build; everything else did") \
-    && mkdir -p ~/k4510/fs/SHARE
+    && mkdir -p ~/k4510/fs/MNT/SHARE
 # The compilers beside the machine, as on the stick (build-live.sh): Mad Pascal
 # and MADS at the paths the Makefile defaults to, the K4510 target grafted in,
 # the C startup objects built.  PAS name / CC name at the prompt run
@@ -38,7 +38,7 @@ RUN mkdir -p ~/Projects/neo6502_dev && cd ~/Projects/neo6502_dev \
     && (cd Mad-Assembler && fpc -Mdelphi -O2 mads.pas >/dev/null) \
     && cd ~/k4510 && python3 pascal/install.py ~/Projects/neo6502_dev/Mad-Pascal >/dev/null \
     && make demo/prg0.o demo/romcalls.o \
-    && mkdir /tmp/prove && cd /tmp/prove && cp ~/k4510/demo/pas/hello.pas ~/k4510/demo/sieve.c . \
+    && mkdir /tmp/prove && cd /tmp/prove && cp ~/k4510/fs/LANG/PASCAL/HELLO.PAS ~/k4510/fs/LANG/C/SIEVE.C . \
     && PATH=~/k4510/tools:$PATH k4510-pas hello && PATH=~/k4510/tools:$PATH k4510-cc sieve \
     && cd / && rm -rf /tmp/prove
 ENV PATH=/home/k4510/k4510/tools:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games

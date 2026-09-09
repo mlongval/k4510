@@ -5,7 +5,7 @@
  * same code on the desktop is not slower at all, so the difference is the
  * Pi's alone. A screen you have to read back is no use when the screen may
  * be the slow thing, so this runs from STARTUP.BAT, writes
- * /SYSTEM/BENCH-<when>.TXT onto the card, and the card carries the numbers
+ * /SYSTEM/LOG/BENCH-<when>.TXT onto the card, and the card carries the numbers
  * to a machine that can read them.
  *
  * The headline is frames per second. The emulator steps a fixed number of
@@ -215,14 +215,14 @@ void main(void)
     add("one of the others is low, the fault is in that path instead.\n");
     add("(Written by BENCH on the machine itself.)\n");
 
-    rom_shell("MKDIR /SYSTEM");
+    rom_shell("MKDIR /SYSTEM/LOG");
     /* The Pi has no clock of its own: every boot reports the same date, so a
      * name built from it overwrote the previous run -- and comparing runs is
      * the whole point. Take the first free number instead, found by trying to
      * open each one. The date and time are inside the file either way. */
     { uint8_t k;
       for (k = 1; k < 100; k++) {
-          const char *p = "/SYSTEM/BENCH-"; uint8_t n = 0;
+          const char *p = "/SYSTEM/LOG/BENCH-"; uint8_t n = 0;
           while (*p) name[n++] = *p++;
           name[n++] = (char)('0' + k / 10); name[n++] = (char)('0' + k % 10);
           { const char *e = ".TXT"; while (*e) name[n++] = *e++; }

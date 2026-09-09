@@ -1,5 +1,5 @@
 #!/bin/sh
-# Mad Pascal programs (pascal/README.md), as committed in fs/PRG: they run
+# Mad Pascal programs (pascal/README.md), as committed in fs/LANG/PASCAL: they run
 # from the ROM's RUN, print through JIM, and hand the shell back.
 cd "$(dirname "$0")/.."
 out=$(./test/headless rom/kernal.bin "RUN HELLO one two

@@ -6,7 +6,7 @@ set -e
 cd "$(dirname "$0")/.."
 command -v python3 >/dev/null || { echo "nettest: no python3, skipped"; exit 0; }
 command -v curl >/dev/null || { echo "nettest: no curl, skipped"; exit 0; }
-W=$(mktemp -d); trap 'kill $HP $EP 2>/dev/null; rm -rf "$W" fs/NETCOPY.TXT' EXIT
+W=$(mktemp -d); trap 'kill $HP $EP 2>/dev/null; rm -rf "$W" fs/NETCOPY.TXT fs/HOME/NETCOPY.TXT' EXIT
 printf 'HELLO FROM HTTP\n' > "$W/HELLO.TXT"
 HPORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
 EPORT=$(python3 -c 'import socket;s=socket.socket();s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
@@ -35,9 +35,9 @@ out=$(./test/headless rom/kernal.bin "telnet 127.0.0.1 $EPORT
 echo "$out" | grep -q "ECHO READY" || { echo "$out"; echo "nettest: FAILED: telnet banner"; exit 1; }
 # TNFS: a server on loopback, the machine's current directory on it
 TPORT=$(python3 -c 'import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-mkdir -p "$W/tnfs/SUB"; printf 'HELLO FROM TNFS\n' > "$W/tnfs/HELLO.TXT"; printf 'DEEPER\n' > "$W/tnfs/SUB/DEEP.TXT"; cp fs/PRG/say.prg "$W/tnfs/say.prg"
+mkdir -p "$W/tnfs/SUB"; printf 'HELLO FROM TNFS\n' > "$W/tnfs/HELLO.TXT"; printf 'DEEPER\n' > "$W/tnfs/SUB/DEEP.TXT"; cp fs/SYSTEM/BIN/say.prg "$W/tnfs/say.prg"
 python3 test/tnfsd.py $TPORT "$W/tnfs" & TP=$!
-trap 'kill $HP $EP $TP 2>/dev/null; rm -rf "$W" fs/NETCOPY.TXT' EXIT
+trap 'kill $HP $EP $TP 2>/dev/null; rm -rf "$W" fs/NETCOPY.TXT fs/HOME/NETCOPY.TXT' EXIT
 sleep 1
 out=$(./test/headless rom/kernal.bin "CD tnfs://127.0.0.1:$TPORT/
 DIR
@@ -49,7 +49,7 @@ CD ..
 CD -
 DIR
 " 900 "file(s)" 2>&1) || true
-for m in "HELLO.TXT" "HELLO FROM TNFS" "FROM A TNFS SERVER" "DEEPER" "tnfs://127.0.0.1:$TPORT/SUB]" "PRG"; do
+for m in "HELLO.TXT" "HELLO FROM TNFS" "FROM A TNFS SERVER" "DEEPER" "tnfs://127.0.0.1:$TPORT/SUB]" "README.TXT"; do
   echo "$out" | grep -q -- "$m" || { echo "$out"; echo "nettest: FAILED: TNFS, expected '$m'"; exit 1; }
 done
 echo "nettest: OK (TYPE/CP of a URL, telnet echo on the N: device, TNFS: CD/DIR/TYPE/RUN/CD -)"

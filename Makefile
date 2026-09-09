@@ -27,7 +27,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/delete.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg fs/PRG/skyfire.prg fs/PRG/fluffy.prg fs/PRG/chess.prg fs/PRG/rx.prg pascal-prgs fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -133,15 +133,15 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 .PHONY: check-artifacts
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
-check-artifacts: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg rom/kernal.bin
-	@git diff --quiet -- fs/PRG fs/EHBASIC fs/MSBASIC rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
+check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg rom/kernal.bin
+	@git diff --quiet -- fs/SYSTEM/BIN fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
-	  git diff --name-only -- fs/PRG fs/EHBASIC fs/MSBASIC rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
+	  git diff --name-only -- fs/SYSTEM/BIN fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
 	  echo "Rebuild them and commit, or the next machine to build will look dirty."; \
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/PRG/ranger.prg fs/PRG/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/woztest
 	./test/maptest
@@ -181,25 +181,43 @@ clean-demos:
 
 .PHONY: all test clean rom
 
-# Mad Pascal programs (pascal/README.md): mp from a checkout the K4510 target was installed into
+# Mad Pascal programs (pascal/README.md): the sources live on the machine's
+# disk beside their .prg (fs/LANG/PASCAL/NAME.PAS -> name.prg), compiled by
+# the same tools/k4510-pas that PAS NAME runs at the prompt.  mp from a
+# checkout the K4510 target was installed into, MADS beside it.
 MP_DIR ?= $(HOME)/Projects/neo6502_dev/Mad-Pascal
 MADS   ?= $(HOME)/Projects/neo6502_dev/Mad-Assembler/mads
-PAS_PRGS = $(patsubst demo/pas/%.pas,fs/PRG/%.prg,$(wildcard demo/pas/*.pas))
+uc = $(shell echo $1 | tr a-z A-Z)
+PAS_NAMES = hello pfloat pgraph pmandel psieve
+PAS_PRGS = $(foreach n,$(PAS_NAMES),fs/LANG/PASCAL/$n.prg)
 pascal-prgs: $(PAS_PRGS)
 pascal: pascal-prgs
 pascal-install:
 	python3 pascal/install.py $(MP_DIR)
-fs/PRG/%.prg: demo/pas/%.pas $(wildcard pascal/mp/base/k4510/*) $(wildcard pascal/mp/lib/*)
-	cd demo/pas && $(MP_DIR)/bin/mp $*.pas -target:k4510 -o:$*.a65 >/dev/null
-	$(MADS) demo/pas/$*.a65 -x -i:$(MP_DIR)/base -o:$@ >/dev/null
+define PAS_RULE
+fs/LANG/PASCAL/$1.prg: fs/LANG/PASCAL/$(call uc,$1).PAS tools/k4510-pas $$(wildcard pascal/mp/base/k4510/*) $$(wildcard pascal/mp/lib/*)
+	cd fs/LANG/PASCAL && MP_DIR=$$(MP_DIR) MADS=$$(MADS) ../../../tools/k4510-pas $(call uc,$1) >/dev/null
+endef
+$(foreach n,$(PAS_NAMES),$(eval $(call PAS_RULE,$n)))
 
-# Demo programs: C with cc65, .prg files (4-byte header) loaded by the ROM
-DEMOS = fs/PRG/balls.prg fs/PRG/cube.prg fs/PRG/mandel.prg fs/PRG/keytest.prg fs/PRG/sieve.prg fs/PRG/chrout.prg fs/PRG/segdemo.prg fs/PRG/opl2.prg fs/PRG/say.prg fs/PRG/telnet.prg fs/PRG/edit.prg fs/PRG/vi.prg fs/PRG/logo.prg fs/PRG/bug.prg fs/PRG/bench.prg fs/PRG/setup.prg fs/PRG/kommander.prg fs/PRG/ranger.prg fs/PRG/tiny.prg fs/PRG/lode.prg fs/PRG/bomber.prg fs/PRG/ansidemo.prg fs/PRG/petscii.prg fs/PRG/bands.prg fs/PRG/oplplay.prg fs/PRG/padtest.prg fs/PRG/mousetest.prg fs/PRG/skyfire.prg fs/PRG/fluffy.prg fs/PRG/chess.prg fs/PRG/rx.prg
+# Programs in C with cc65, .prg files (4-byte header) loaded by the ROM.
+# Where each lands is where it belongs on the machine's disk (fs/HOME/README.TXT):
+#   the system's tools        fs/SYSTEM/BIN/name.prg
+#   programs, one folder each fs/APPS/NAME/name.prg (data beside it)
+#   the C examples            fs/LANG/C/name.prg, from fs/LANG/C/NAME.C on the disk itself
+BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet logo petscii bands keytest padtest mousetest chrout
+APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode
+APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
+C_EX_NAMES = hello sieve
+BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
+APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
+C_EX_PRGS = $(foreach n,$(C_EX_NAMES),fs/LANG/C/$n.prg)
+DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg
 # bomber: the Bomb Party sheet (CC-BY 3.0, data/bombparty/) as arena tiles and
 # sprites; tools/mkbomber.py crops, composites and palettizes into bomber.h
 demo/bomber.h: tools/mkbomber.py data/bombparty/bomb_party_v4.png
 	python3 tools/mkbomber.py >/dev/null
-fs/PRG/bomber.prg: demo/bomber.c demo/bomber.h demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/prg.cfg
+fs/APPS/BOMBER/bomber.prg: demo/bomber.c demo/bomber.h demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/bomber.s demo/bomber.c
 	ca65 --cpu 65c02 -o demo/bomber.o demo/bomber.s
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/bomber.o none.lib -m demo/bomber.map
@@ -207,10 +225,23 @@ demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s
 	ca65 --cpu 65c02 -o $@ $<
-fs/PRG/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
+fs/SYSTEM/BIN/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
+define APP_C_RULE
+fs/APPS/$(call uc,$1)/$1.prg: demo/$1.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/$1.s demo/$1.c
+	ca65 --cpu 65c02 -o demo/$1.o demo/$1.s
+	ld65 -C demo/prg.cfg -o $$@ demo/prg0.o demo/romcalls.o demo/$1.o none.lib -m demo/$1.map
+endef
+$(foreach n,$(APP_C_NAMES),$(eval $(call APP_C_RULE,$n)))
+# the C examples: source on the disk, built by the same tools/k4510-cc that CC NAME runs
+define C_EX_RULE
+fs/LANG/C/$1.prg: fs/LANG/C/$(call uc,$1).C tools/k4510-cc demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
+	cd fs/LANG/C && PATH=$$$$PATH K4510=../../.. ../../../tools/k4510-cc $(call uc,$1) >/dev/null
+endef
+$(foreach n,$(C_EX_NAMES),$(eval $(call C_EX_RULE,$n)))
 # EhBASIC 2.22 as a .prg at $7000 (basic/: Lee Davison's basic.asm + K4510 glue)
 # segmented program (K-03): own header + linker config, overlays at 000
 # tiny: Kenney's Tiny Dungeon (CC0, data/tinydungeon/) as a scrolling tile map
@@ -218,7 +249,7 @@ fs/PRG/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/
 # sheet and the Tiled sample map, and the K4SG header carries them
 demo/tiny.bin demo/tiny.h: tools/mktiny.py data/tinydungeon/tilemap_packed.png data/tinydungeon/sampleMap.tmx
 	python3 tools/mktiny.py >/dev/null
-fs/PRG/tiny.prg: demo/tiny.c demo/tiny.h demo/tiny.bin demo/tiny-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/tiny.cfg
+fs/APPS/TINY/tiny.prg: demo/tiny.c demo/tiny.h demo/tiny.bin demo/tiny-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/tiny.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/tiny.s.tmp demo/tiny.c && mv demo/tiny.s.tmp demo/tiny_c.s
 	ca65 --cpu 65c02 -o demo/tiny_c.o demo/tiny_c.s
 	ca65 --cpu 65c02 -o demo/tiny_h.o demo/tiny-header.s
@@ -227,7 +258,7 @@ fs/PRG/tiny.prg: demo/tiny.c demo/tiny.h demo/tiny.bin demo/tiny-header.s demo/f
 # tools/mkskyfire.py cuts the sheets and lays the ground, the K4SG header carries them
 demo/skyfire.bin demo/skyfire.h: tools/mkskyfire.py data/pixelshmup/ships_packed.png data/pixelshmup/tiles_packed.png
 	python3 tools/mkskyfire.py >/dev/null
-fs/PRG/skyfire.prg: demo/skyfire.c demo/skyfire.h demo/skyfire.bin demo/skyfire-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/skyfire.cfg
+fs/APPS/SKYFIRE/skyfire.prg: demo/skyfire.c demo/skyfire.h demo/skyfire.bin demo/skyfire-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/skyfire.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/skyfire.s.tmp demo/skyfire.c && mv demo/skyfire.s.tmp demo/skyfire_c.s
 	ca65 --cpu 65c02 -o demo/skyfire_c.o demo/skyfire_c.s
 	ca65 --cpu 65c02 -o demo/skyfire_h.o demo/skyfire-header.s
@@ -236,13 +267,13 @@ fs/PRG/skyfire.prg: demo/skyfire.c demo/skyfire.h demo/skyfire.bin demo/skyfire-
 # tools/mkchess.py sorts ink from paper so a palette bank per side colours them
 demo/chess.bin demo/chess.h: tools/mkchess.py $(wildcard data/chess/*.png)
 	python3 tools/mkchess.py >/dev/null
-fs/PRG/chess.prg: demo/chess.c demo/chess.h demo/chess.bin demo/chess-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/chess.cfg
+fs/APPS/CHESS/chess.prg: demo/chess.c demo/chess.h demo/chess.bin demo/chess-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/chess.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/chess.s.tmp demo/chess.c && mv demo/chess.s.tmp demo/chess_c.s
 	ca65 --cpu 65c02 -o demo/chess_c.o demo/chess_c.s
 	ca65 --cpu 65c02 -o demo/chess_h.o demo/chess-header.s
 	ld65 -C demo/chess.cfg -o $@ demo/prg0.o demo/romcalls.o demo/chess_c.o demo/chess_h.o none.lib -m demo/chess.map
 # rx: the REXX interpreter (demo/rexx.c), a plain .prg at $2000 with its own cfg
-fs/PRG/rx.prg: demo/rexx.c demo/rxasm.s demo/k4510.h demo/prg0.o demo/romcalls.o demo/rexx.cfg
+fs/LANG/RX/rx.prg: demo/rexx.c demo/rxasm.s demo/k4510.h demo/prg0.o demo/romcalls.o demo/rexx.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/rexx.s.tmp demo/rexx.c && mv demo/rexx.s.tmp demo/rexx_c.s
 	ca65 --cpu 65c02 -o demo/rexx_c.o demo/rexx_c.s
 	ca65 --cpu 65c02 -o demo/rxasm.o demo/rxasm.s
@@ -251,12 +282,12 @@ fs/PRG/rx.prg: demo/rexx.c demo/rxasm.s demo/k4510.h demo/prg0.o demo/romcalls.o
 # tools/mkfluffy.py cuts the tiles and the hero, draws the enemy and lays the level
 demo/fluffy.bin demo/fluffy.h: tools/mkfluffy.py data/gbplatformer/gameboy_tileset.png data/gbplatformer/IdleAndWalk_strip5.png
 	python3 tools/mkfluffy.py >/dev/null
-fs/PRG/fluffy.prg: demo/fluffy.c demo/fluffy.h demo/fluffy.bin demo/fluffy-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/fluffy.cfg
+fs/APPS/FLUFFY/fluffy.prg: demo/fluffy.c demo/fluffy.h demo/fluffy.bin demo/fluffy-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/fluffy.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/fluffy.s.tmp demo/fluffy.c && mv demo/fluffy.s.tmp demo/fluffy_c.s
 	ca65 --cpu 65c02 -o demo/fluffy_c.o demo/fluffy_c.s
 	ca65 --cpu 65c02 -o demo/fluffy_h.o demo/fluffy-header.s
 	ld65 -C demo/fluffy.cfg -o $@ demo/prg0.o demo/romcalls.o demo/fluffy_c.o demo/fluffy_h.o none.lib -m demo/fluffy.map
-fs/PRG/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/seg.cfg
+fs/APPS/SEGDEMO/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/seg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/segdemo.s.tmp demo/segdemo.c && mv demo/segdemo.s.tmp demo/segdemo_c.s
 	ca65 --cpu 65c02 -o demo/segdemo_c.o demo/segdemo_c.s
 	ca65 --cpu 65c02 -o demo/segdemo_h.o demo/segdemo-header.s
@@ -266,16 +297,16 @@ fs/PRG/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h
 # reconstruction of Microsoft's MIT source release, vendored unmodified --
 # only the files a pure-MS configuration assembles; basic/k4510msbasic.asm
 # is the whole K4510 port: config, console glue, .prg header)
-fs/MSBASIC/msbasic.prg: basic/k4510msbasic.asm basic/msbasic.cfg $(wildcard basic/msbasic/*.s)
+fs/LANG/MSBASIC/msbasic.prg: basic/k4510msbasic.asm basic/msbasic.cfg $(wildcard basic/msbasic/*.s)
 	ca65 -I basic/msbasic -o basic/k4510msbasic.o basic/k4510msbasic.asm
 	ld65 -C basic/msbasic.cfg -o $@ basic/k4510msbasic.o
 
-fs/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/k4510expr.asm basic/basic.asm basic/basic.cfg
+fs/LANG/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/k4510expr.asm basic/basic.asm basic/basic.cfg
 	ca65 -g --cpu 65c02 --feature labels_without_colons -o basic/k4510basic.o basic/k4510basic.asm
 	ld65 -C basic/basic.cfg -o $@ basic/k4510basic.o
 # Tali Forth 2 (public domain, vendored unmodified in forth/tali/) as a .prg
 # loaded at $4000; forth/platform.asm is the whole port (I/O + memory map)
-fs/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/definitions.asm forth/tali/stringtable.asm forth/tali/forth_words.asc $(wildcard forth/tali/words/*.asm)
+fs/LANG/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/definitions.asm forth/tali/stringtable.asm forth/tali/forth_words.asc $(wildcard forth/tali/words/*.asm)
 	64tass --nostart -q forth/platform.asm -o $@
 
 # RunCPM (MIT, vendored unmodified in cpm/src/) -- the Z80 second processor:
@@ -315,5 +346,5 @@ tubetest: test/tubetest rom/kernal.bin
 cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
 	cc -Wall -O2 -Wno-unused-variable -DCCP_INTERNAL -DCPU=\"cpu1.h\" cpm/src/main.c -o $@
 
-demos: $(DEMOS) fs/EHBASIC/ehbasic.prg fs/MSBASIC/msbasic.prg fs/FORTH/forth.prg
+demos: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg
 .PHONY: demos

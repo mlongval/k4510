@@ -1701,3 +1701,15 @@ two lines. Errors appear as the compiler prints them.
 directory shape (`/SYSTEM /LANG /APPS /HOME /CPM /MNT`). If he takes it,
 every DIR screenshot and `/PRG` in the book changes; recapture after the
 move, not before.
+
+**2026-09-08 — THE DISK MOVED (Doc's ruling on fs-layout-2026-09-08.md).**
+Every path in the book changes: `/PRG` is gone, tools are in
+`/SYSTEM/BIN`, games and demos in `/APPS/NAME/`, the languages in
+`/LANG/NAME/` with examples in `EX/`, palettes in `/SYSTEM/ETC/PALETTES`,
+VI.RC in `/SYSTEM/ETC`, BENCH/BUG output in `/SYSTEM/LOG`, CHESS's
+ENGINE.CFG in `/APPS/CHESS`, exported games in `/HOME`, and the prompt
+boots in `/HOME`. Bare names still run from anywhere (the search path is
+in BUILD-LOG). The Pascal sources are `fs/LANG/PASCAL/*.PAS` now, not
+`demo/pas/` (chapter 07 quotes `demo/pas/pmandel.pas` and `make pascal
+# demo/pas/*.pas -> fs/PRG/*.prg`). Recapture every DIR screenshot after
+pulling; the old ones show a root that no longer exists.

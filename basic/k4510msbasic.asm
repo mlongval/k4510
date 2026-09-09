@@ -26,7 +26,7 @@
 ;   $0200-$07FF  NOT OURS: the ROM's data, bss and C stack
 ;   $0800-$6FFF  BASIC's program and variable RAM -- 26 KB
 ;   $6FFC-$6FFF  the .prg header (load address, run address)
-;   $7000-.....  this image, loaded by K:OS from /MSBASIC/MSBASIC.PRG
+;   $7000-.....  this image, loaded by K:OS from /LANG/MSBASIC/MSBASIC.PRG
 ;
 ; $7000 is where EhBASIC's .prg is documented to land, and it is kept
 ; here so the two arrangements read the same.  It leaves the RAM above

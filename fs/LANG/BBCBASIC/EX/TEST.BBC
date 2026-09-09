@@ -1,0 +1,59 @@
+   10 REM K4510 BBC BASIC SELF-TEST (VERBOSE). FROM /LANG/BBCBASIC: LOAD "EX/TEST.BBC" THEN RUN.
+   20 MODE 7:PRINT "BBC BASIC SELF-TEST -- R.T.Russell BBC BASIC on the K4510 Tube":PRINT
+   30 PRINT "Each test shows its goal, what it expects, a sample result,"
+   40 PRINT "and PASS or FAIL. Press a key within 5 seconds to step"
+   50 PRINT "through them one at a time; otherwise they run straight through.":PRINT
+   60 k%=INKEY(500):IV%=(k%<>-1):N%=0:F%=0
+   70 PROCbegin("Arithmetic","integer and floating-point operators, DIV and MOD","6*7=42  7/2=3.5  2^10=1024  7 DIV 2=3  7 MOD 2=1")
+   80 PROCc(6*7=42):PROCc(7/2=3.5):PROCc(2^10=1024):PROCc(INT(-3.7)=-4):PROCc(7 DIV 2=3 AND 7 MOD 2=1 AND -7 DIV 2=-3)
+   90 R$="6*7="+STR$(6*7)+"  2^10="+STR$(2^10)+"  7 DIV 2="+STR$(7 DIV 2):PROCdone
+  100 PROCbegin("Floating-point functions (MATH unit $D700)","SQR SIN EXP LN ATN to 8 places","SQR(2)=1.41421356  ATN(1)*4=PI  LN(10)=2.30258509")
+  110 PROCc(ABS(SQR(2)-1.414213562)<1E-8):PROCc(ABS(SIN(1)-0.841470985)<1E-8):PROCc(ABS(EXP(1)-2.718281828)<1E-8)
+  120 PROCc(ABS(LN(10)-2.302585093)<1E-8):PROCc(ABS(ATN(1)*4-PI)<1E-8)
+  130 R$="SQR(2)="+STR$(SQR(2))+"  ATN(1)*4="+STR$(ATN(1)*4):PROCdone
+  140 PROCbegin("Integers and bases","32-bit integer variables, hex and binary literals","&7FFFFFFF+1=2147483648  &FF=255  %1010=10")
+  150 A%=&7FFFFFFF:PROCc(A%+1=2147483648):PROCc(&FF=255 AND %1010=10):PROCc((3 AND 5)=1 AND (3 OR 5)=7 AND (3 EOR 5)=6)
+  160 R$="&FF="+STR$(&FF)+"  %1010="+STR$(%1010):PROCdone
+  170 PROCbegin("Strings","concatenation, LEFT$/MID$/RIGHT$, LEN/ASC/CHR$, VAL, INSTR, EVAL","A$+ WORLD=HELLO WORLD  INSTR=3  EVAL(2+3)=5")
+  180 A$="HELLO":PROCc(A$+" WORLD"="HELLO WORLD"):PROCc(LEFT$(A$,2)="HE" AND MID$(A$,2,3)="ELL" AND RIGHT$(A$,3)="LLO")
+  190 PROCc(LEN(A$)=5 AND ASC("A")=65 AND CHR$(66)="B" AND VAL("3.5")=3.5 AND INSTR(A$,"LL")=3):PROCc(STRING$(3,"AB")="ABABAB" AND EVAL("2+3")=5)
+  200 R$="["+A$+" WORLD]  INSTR(HELLO,LL)="+STR$(INSTR(A$,"LL")):PROCdone
+  210 PROCbegin("Control flow, procedures, arrays","FOR/REPEAT/WHILE, PROC/FN, CASE, DIM 1D and 2D","sum 1..100=5050  FNsq(7)=49  M(2,3)=77  M(3,2)=0")
+  220 S%=0:FOR I%=1 TO 100:S%+=I%:NEXT:PROCc(S%=5050)
+  230 S%=0:REPEAT S%+=1:UNTIL S%=10:PROCc(S%=10):S%=0:WHILE S%<5:S%+=1:ENDWHILE:PROCc(S%=5)
+  240 PROCc(FNsq(7)=49):DIM V(10),M(3,3):FOR I%=0 TO 10:V(I%)=I%*I%:NEXT:M(2,3)=77:PROCc(V(10)=100 AND M(2,3)=77 AND M(3,2)=0)
+  250 X%=2:CASE X% OF
+  260 WHEN 1:PROCc(FALSE)
+  270 WHEN 2:PROCc(TRUE)
+  280 OTHERWISE PROCc(FALSE)
+  290 ENDCASE
+  300 R$="sum="+STR$(S%)+"  FNsq(7)="+STR$(FNsq(7))+"  M(2,3)="+STR$(M(2,3)):PROCdone
+  310 PROCbegin("The machine (TIME, keyboard, files through the Tube)","the co-processor clock advances; INKEY(0); OPENOUT/PRINT#/OPENIN/INPUT#","TIME advances  file round-trips HELLO TUBE,1234")
+  320 T%=TIME:REPEAT UNTIL TIME>T%+5:PROCc(TIME>T%):PROCc(INKEY(0)=-1)
+  330 X%=OPENOUT("TESTOUT.TXT"):PRINT#X%,"HELLO TUBE",1234:CLOSE#X%
+  340 Y%=OPENIN("TESTOUT.TXT"):INPUT#Y%,B$,B%:CLOSE#Y%:PROCc(B$="HELLO TUBE" AND B%=1234)
+  350 R$="read back ["+B$+"], "+STR$(B%):PROCdone
+  360 PROCbegin("Graphics and sound (the ULA at $D5E0/blitter)","MODE 2, GCOL, PLOT, DRAW, CIRCLE FILL, VDU 19, sprites, SOUND, MODE 7","the escape stream draws and does not derail; MODE 7 returns")
+  370 MODE 2:GCOL 0,1:PLOT 85,100,100:DRAW 500,500:CIRCLE FILL 640,512,100:VDU 19,1,3,0,0,0
+  380 VDU 23,27,0,1|:VDU 23,27,1,32,32|:PLOT &ED,300,300:VDU 23,27,2,1|
+  390 SOUND 1,-10,100,2:SOUND 1,0,0,0:MODE 7:PROCc(TRUE)
+  400 R$="drew in MODE 2, sounded, returned to MODE 7":PROCdone
+  410 PROCbegin("Star commands","* hands a line to K/OS from inside BBC BASIC","*ECHO prints STAR OK")
+  420 *ECHO STAR OK
+  430 PROCc(TRUE):R$="* reached the shell":PROCdone
+  440 PRINT:PRINT "BBCTEST: ";N%-F%;" OF ";N%;" CHECKS PASSED"
+  450 IF F%=0 PRINT "BBCTEST PASSED" ELSE PRINT "BBCTEST FAILED"
+  460 END
+  470 DEF PROCbegin(t$,g$,e$)
+  480 AC%=0:AF%=0:PRINT'"--- ";t$
+  490 PRINT "    goal:   ";g$:PRINT "    expect: ";e$
+  500 ENDPROC
+  510 DEF PROCc(c)
+  520 AC%+=1:N%+=1:IF NOT c THEN AF%+=1:F%+=1:PRINT "    ** check ";AC%;" FAILED"
+  530 ENDPROC
+  540 DEF PROCdone
+  550 PRINT "    result: ";R$
+  560 IF AF%=0 PRINT "    [PASS] ";AC%;" checks" ELSE PRINT "    [FAIL] ";AF%;" of ";AC%
+  570 IF IV% THEN PRINT "    (press a key for the next test)";:g%=GET:PRINT
+  580 ENDPROC
+  590 DEF FNsq(x)=x*x

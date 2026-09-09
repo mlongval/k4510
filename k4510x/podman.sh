@@ -16,8 +16,8 @@
 # What crosses the wall, and nothing else:
 #   the display socket (Wayland or X11), the sound socket (PipeWire/Pulse),
 #   /dev/dri (a fast renderer), /dev/input (gamepads), and ONE folder:
-#   $SHARE on the host (~/k4510x-share) is fs/SHARE inside, which is /SHARE at
-#   the machine's prompt -- COPY /SHARE/FOO.BAS /PRG/ brings a file in, and the
+#   $SHARE on the host (~/k4510x-share) is fs/MNT/SHARE inside, which is /MNT/SHARE at
+#   the machine's prompt -- COPY /MNT/SHARE/FOO.BAS /HOME/ brings a file in, and the
 #   other way sends one out.  No home, no /tmp, no /run/host.
 #
 #   k4510x/podman.sh              build the image and create the container
@@ -65,7 +65,7 @@ make_container() {
     set -- --name "$NAME" --userns=keep-id:uid="$UIDN",gid="$(id -g)" --user "$UIDN:$(id -g)" --group-add keep-groups \
            --security-opt label=disable --hostname k4510x --entrypoint /bin/sleep \
            -e HOME=/home/k4510 -e SHELL=/bin/bash \
-           -v "$SHARE:/home/k4510/k4510/fs/SHARE"
+           -v "$SHARE:/home/k4510/k4510/fs/MNT/SHARE"
     [ -n "$WL" ] && set -- "$@" -v "$WL:/run/user/$UIDN/$WLNAME"
     [ -n "$X11" ] && set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix --ipc=host
     [ -n "$XAUTH" ] && set -- "$@" -v "$XAUTH:/home/k4510/.Xauthority:ro"
@@ -135,5 +135,5 @@ Categories=Game;Emulator;
 DESK
 echo
 echo "podman.sh: ready.  Start it with:  $HERE/podman.sh run"
-echo "The share folder is $SHARE -- it is /SHARE at the machine's prompt."
+echo "The share folder is $SHARE -- it is /MNT/SHARE at the machine's prompt."
 echo "Inside the machine, \`!\` is the container's shell; \`!sudo apt install ...\` sticks."

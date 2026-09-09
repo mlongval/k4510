@@ -24,7 +24,7 @@ done
 if [ -n "$MISSING" ]; then
     echo "setup: still missing:$MISSING"
     echo "  cc65   -- required (builds the system ROM);  https://cc65.github.io"
-    echo "  64tass -- only to rebuild Forth (fs/FORTH/forth.prg ships prebuilt);  https://tass64.sourceforge.net"
+    echo "  64tass -- only to rebuild Forth (fs/LANG/FORTH/forth.prg ships prebuilt);  https://tass64.sourceforge.net"
     echo "  nasm   -- only for the BBC BASIC Tube co-processor"
     echo "  sdl2   -- required (the emulator's window and sound)"
 fi

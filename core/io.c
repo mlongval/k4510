@@ -1086,6 +1086,15 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         if (getppid () != parent) _exit (0); /* the parent died between fork and here */
 #endif
         setenv ("TERM", "dumb", 1);
+        /* The machine's own tools -- k4510-pas and k4510-cc, which PAS and CC
+         * run through this shell -- on PATH wherever the emulator is started
+         * from its checkout (tools/ beside fs/).  Doc, hdieu, 2026-09-08:
+         * "k4510-pas: command not found" at the prompt of a plain desktop. */
+        { char tp[1024]; const char *op = getenv ("PATH");
+          if (realpath ("tools", tp) && access (tp, X_OK) == 0) {
+              char np[2048]; snprintf (np, sizeof np, "%s:%s", tp, op ? op : "/usr/local/bin:/usr/bin:/bin");
+              setenv ("PATH", np, 1);
+          } }
         /* The machine's backspace key is BS ($08).  The pty's erase character is
          * DEL by default, so under dash, vi and anything without readline the key
          * echoed as ^H and erased nothing (bash's readline hid it).  Make BS the

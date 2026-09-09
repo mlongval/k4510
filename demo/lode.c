@@ -592,9 +592,9 @@ void main(void)
         /* G: the guards off, for learning a level (or testing it).  They stand
          * where they are and cannot catch; the status line says so. */
         case 'g': case 'G': noguards = !noguards; status_line(); break;
-        /* - and +: slower and faster.  Two moves in three frames was still
-         * "running too fast" (Doc); the default is now one in two and it
-         * can go to one in three, or all the way up. */
+        /* - and +: slower and faster.  Every frame was "running too fast"
+         * (Doc); the default is two moves in three frames, - drops to one
+         * in three, + goes back to every frame. */
         case '-': case '_': if (pace > 1) pace--; status_line(); break;
         case '+': case '=': if (pace < 3) pace++; status_line(); break;
         }

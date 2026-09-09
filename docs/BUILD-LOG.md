@@ -6401,5 +6401,5 @@ go up when he was already ON a ladder — a ladder could not be entered
 from its foot. Now up is allowed onto a ladder above as well (which is
 how the 1983 game plays too). And the pace: **-** and **+** set the
 player's moves per three frames (1, 2 or 3; the top-right digit shows
-it), the default is now one move in two frames, and the guards keep to
+it), the default is now two moves in three frames, and the guards keep to
 half of whatever he does.

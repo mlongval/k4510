@@ -1,3 +1,5 @@
+#include <ctype.h>     /* toupper: the search path uppercases a name's stem (fs_path) */
+#include <strings.h>   /* strcasecmp: the extension table there */
 #include "io.h"
 #include "ui/settings.h"      /* the CPU clock request at $D523 */
 #include "mem.h"
@@ -743,8 +745,6 @@ static int tube_was_alive;
 #include <sys/wait.h>
 #include <signal.h>
 #include <fcntl.h>
-#include <ctype.h>
-#include <strings.h>
 static pid_t tube_pid; static int tube_fd = -1;
 #endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;

@@ -179,7 +179,7 @@ mkdir -p "$ROOT/etc/modprobe.d"
 } > "$ROOT/etc/modprobe.d/k4510-no-internal-disks.conf"
 
 echo "== packages =="
-PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510-live.list.chroot" | tr '\n' ' ')
+PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/packages.list" | tr '\n' ' ')
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q

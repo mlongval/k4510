@@ -117,7 +117,7 @@ create) ;;
 esac
 
 # the stick's package list minus what only a bootable machine needs
-PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510-live.list.chroot" \
+PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/packages.list" \
        | grep -v -e '^firmware-' -e '^network-manager' -e '^wpasupplicant' -e 'telnetd' -e '^iproute2' -e '^iputils' | tr '\n' ' ')
 echo "== building $IMAGE from this checkout (a few minutes the first time) =="
 podman build -q -t "$IMAGE" --build-arg UID="$UIDN" --build-arg PKGS="$PKGS" -f "$HERE/Containerfile" "$REPO"

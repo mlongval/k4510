@@ -20,6 +20,10 @@
 #include "k4510.h"
 
 #define TERM 0xDA00u
+static unsigned char rom_save(void) { return ((unsigned char (*)(void))0xFF8C)(); }   /* $F0 name, $F2 addr, $F6 length */
+static void zp16(uint8_t a, uint16_t v) { REG(a) = (uint8_t)v; REG(a + 1) = (uint8_t)(v >> 8); }
+static void zp32(uint8_t a, uint32_t v) { REG(a) = (uint8_t)v; REG(a + 1) = (uint8_t)(v >> 8); REG(a + 2) = (uint8_t)(v >> 16); REG(a + 3) = (uint8_t)(v >> 24); }
+static void far_w32(uint16_t a, uint32_t v) { w32(a, v); }
 
 /* far memory: everything the chips read */
 #define TILES    0x00110000UL            /* 16 tiles x 256 bytes */
@@ -57,55 +61,45 @@ enum { T_EMPTY, T_BRICK, T_STONE, T_LADDER, T_ROPE, T_GOLD, T_EXIT,
 /* sprite frames (per side: hero at SPR, guard at SPR + 7*256) */
 enum { F_RUN1, F_RUN2, F_CLIMB1, F_CLIMB2, F_HANG1, F_HANG2, F_FALL };
 
-/* ---- the levels: 20 x 15.  # brick  @ stone  H ladder  - rope  $ gold
- *      E hidden exit ladder  P player  G guard  (short rows pad right) */
-static const char *levels[3][GH] = {
- {  "E",
-    "E    $        H",
-    "E#####H########H",
-    "      H        H   $",
-    "  $   H  ######H####",
-    "###H###  H",
-    "   H     H--------H",
-    "   H     H        H",
-    "   H  $  H    $   H",
-    "  #H#####H######  H",
-    "   H            $ H",
-    "   H  G   ####H####",
-    "  ##########  H",
-    "P             H    G",
-    "@@@@@@@@@@@@@@@@@@@@" },
- {  "                   E",
-    "  $                E",
-    "H######--------####E",
-    "H     $        $",
-    "H###H#####H#####H###",
-    "    H     H     H",
-    " $  H  G  H  $  H",
-    "####H#####H#####H",
-    "    H     H     H  $",
-    "    H  $  H     H###",
-    "  ##H###@@H@@   H",
-    "    H         G H",
-    " P  H           H",
-    "########H###########",
-    "@@@@@@@@@@@@@@@@@@@@" },
- {  "         E",
-    "  $      E        $",
-    "###H#####E#####H####",
-    "   H     E     H",
-    "   H  ---E---  H",
-    " G H     E   $ H  G",
-    "###H###  E  ###H####",
-    "   H  $  E     H",
-    "   H  ###H###  H",
-    "   H     H     H",
-    "  #H## $ H  ###H##",
-    "   H  ###H###  H  $",
-    "   H     H   G H ###",
-    "P  H     H     H",
-    "@@@@@@@@@@@@@@@@@@@@" },
-};
+/* ---- the levels: files.  /APPS/LODE/LEVELnn.TXT, nn = 01 up, 15 lines of
+ * up to 20 characters:  # brick  @ stone  H ladder  - rope  $ gold
+ * E hidden exit ladder  P player  G guard  (anything else, and a short row,
+ * is empty).  As many as are there, up to LEVEL_MAX; the editor (E on the
+ * title card) writes them.  Until 2026-09-09 three were built in. */
+#define LEVEL_MAX 20
+static char    ed[GH][GW];                        /* the level as text: what the file holds, what the editor paints */
+static uint8_t nlevels;
+static char    lvname[] = "/APPS/LODE/LEVEL00.TXT";
+static void lv_name(uint8_t n) { lvname[16] = (char)('0' + (n + 1) / 10); lvname[17] = (char)('0' + (n + 1) % 10); }
+static uint8_t lv_exists(uint8_t n) { lv_name(n); far_w32(0xD304, (uint16_t)lvname); REG(0xD300) = 8; return REG(0xD301) == 0; }   /* 8 = STAT (11 is CHDIR, which bit once) */
+static uint8_t lv_read(uint8_t n)                 /* the file into ed[][]; 1 if it was there */
+{
+    static char buf[GH * (GW + 2) + 2]; uint16_t len, i = 0; uint8_t x, y;
+    lv_name(n);
+    far_w32(0xD304, (uint16_t)lvname); far_w32(0xD308, (uint16_t)buf); far_w32(0xD30C, sizeof buf - 1);
+    REG(0xD300) = 9;
+    if (REG(0xD301)) return 0;
+    len = (uint16_t)REG(0xD30C) | ((uint16_t)REG(0xD30D) << 8);
+    for (y = 0; y < GH; y++) {
+        for (x = 0; x < GW; x++) ed[y][x] = ' ';
+        for (x = 0; i < len && buf[i] != '\n'; i++) { if (buf[i] != '\r' && x < GW) ed[y][x++] = buf[i]; }
+        if (i < len) i++;                                                     /* the newline */
+    }
+    return 1;
+}
+static uint8_t lv_write(uint8_t n)                /* ed[][] to the file, rows trimmed; 1 if written */
+{
+    static char buf[GH * (GW + 1) + 1]; uint16_t i = 0; uint8_t x, y, w;
+    for (y = 0; y < GH; y++) {
+        for (w = GW; w && ed[y][w - 1] == ' '; w--) ;
+        for (x = 0; x < w; x++) buf[i++] = ed[y][x];
+        buf[i++] = '\n';
+    }
+    lv_name(n);
+    zp16(0xF0, (uint16_t)lvname); zp32(0xF2, (uint32_t)(uint16_t)buf); zp32(0xF6, i);
+    return rom_save() == 0;
+}
+static void lv_count(void) { nlevels = 0; while (nlevels < LEVEL_MAX && lv_exists(nlevels)) nlevels++; }
 
 /* ---- the sprite frames, 16x16 ASCII: . none  O outline  B suit
  *      S skin  W boots/hands  (recoloured per side at build time) */
@@ -277,25 +271,25 @@ static void set_tile(uint8_t x, uint8_t y, uint8_t t)    /* what VICKY shows */
 }
 static void put(uint8_t x, uint8_t y, uint8_t t) { grid[y][x] = t; set_tile(x, y, t); }
 
-static void load_level(void)
+static void load_level(void)                      /* ed[][] (already read) into the grid and the men */
 {
-    uint8_t x, y; const char *r;
+    uint8_t x, y;
     goldleft = 0; guards = 0; unlocked = 0; grace = 110;
     for (y = 0; y < NHOLE; y++) holes[y].t = 0;
+    men[0].sx = 0; men[0].sy = GH - 2;
     for (y = 0; y < GH; y++) {
-        r = levels[level][y];
         for (x = 0; x < GW; x++) {
-            char c = *r ? *r : ' '; if (*r) r++;
+            char c = ed[y][x];
             switch (c) {
             case '#': put(x, y, T_BRICK); break;
             case '@': put(x, y, T_STONE); break;
-            case 'H': put(x, y, T_LADDER); break;
+            case 'H': case 'h': put(x, y, T_LADDER); break;
             case '-': put(x, y, T_ROPE); break;
             case '$': put(x, y, T_GOLD); goldleft++; break;
-            case 'E': put(x, y, T_EXIT); break;
-            case 'P': put(x, y, T_EMPTY);
+            case 'E': case 'e': put(x, y, T_EXIT); break;
+            case 'P': case 'p': put(x, y, T_EMPTY);
                 men[0].sx = x; men[0].sy = y; break;
-            case 'G': put(x, y, T_EMPTY);
+            case 'G': case 'g': put(x, y, T_EMPTY);
                 if (guards < NGUARD) { men[1 + guards].sx = x; men[1 + guards].sy = y; guards++; }
                 break;
             default:  put(x, y, T_EMPTY); break;
@@ -524,38 +518,146 @@ static void redraw_map(void)                             /* after unlock: exits 
     for (y = 0; y < GH; y++) for (x = 0; x < GW; x++) set_tile(x, y, grid[y][x]);
 }
 static void write_table(uint32_t t);
-static uint8_t pause_msg(const char *s1, const char *s2)   /* 1 = Esc */
+static uint8_t pause_msg(const char *s1, const char *s2)   /* the key pressed (0x1B = Esc) */
 {
     uint8_t k;
     write_table(SPRTAB_A); write_table(SPRTAB_B);        /* the truth, both buffers */
     centre(13, s1); if (s2) centre(15, s2);
     for (;;) {
         k = key_get();
-        if (k == 0x1B) return 1;
+        if (k == 0x1B) return k;
         if (k) break;
         wait_vblank();
     }
     dma_fill(' ', TEXTMAP + 40 * 13, 40); dma_fill(' ', TEXTMAP + 40 * 15, 40);
+    return k;
+}
+
+/* ---- the editor ---------------------------------------------------------- */
+/* E on the title card.  The level is painted as its file's own letters: the
+ * cursor (a text-layer bracket, two cells by two) moves with the arrows and
+ * the key under it paints -- # @ H - $ E P G, space clears.  PgUp/PgDn walk
+ * the levels, N adds one after the last, S saves, T plays it from here,
+ * Esc leaves.  What the game needs is checked on S: one P, an E, some gold. */
+static uint8_t play(void);
+static void ed_status(const char *msg)
+{
+    dma_fill(' ', TEXTMAP + 40 * 29, 40);
+    text8_print(TEXTMAP, 40, 0, 29, "EDIT LEVEL");
+    far_poke(TEXTMAP + 40 * 29 + 11, (uint8_t)('0' + (level + 1) / 10)); far_poke(TEXTMAP + 40 * 29 + 12, (uint8_t)('0' + (level + 1) % 10));
+    text8_print(TEXTMAP, 40, 14, 29, msg);
+}
+static void ed_cursor(uint8_t cx, uint8_t cy, uint8_t on)
+{
+    uint32_t t = TEXTMAP + (uint32_t)cy * 2 * 40 + (uint32_t)cx * 2;
+    far_poke(t, on ? 0xDA : ' '); far_poke(t + 1, on ? 0xBF : ' ');
+    far_poke(t + 40, on ? 0xC0 : ' '); far_poke(t + 41, on ? 0xD9 : ' ');
+}
+static void ed_show(void)                         /* the level as painted, on the screen */
+{
+    load_level(); redraw_map();
+    write_table(SPRTAB_A); write_table(SPRTAB_B); w32(V_SPRTAB, SPRTAB_A);
+}
+static uint8_t ed_check(void)                     /* 0 ok, else what is missing */
+{
+    uint8_t x, y, np = 0, ne = 0, ng = 0;
+    for (y = 0; y < GH; y++) for (x = 0; x < GW; x++) {
+        char c = ed[y][x];
+        if (c == 'P' || c == 'p') np++; else if (c == 'E' || c == 'e') ne++; else if (c == '$') ng++;
+    }
+    if (np != 1) return 1;
+    if (!ne) return 2;
+    if (!ng) return 3;
     return 0;
+}
+static void editor(void)
+{
+    uint8_t cx = 0, cy = GH - 2, k, dirty = 0, x, y, keep_lives = lives;
+    uint32_t keep_score = score;
+    dma_fill(' ', TEXTMAP, 40 * 30);
+    ed_show(); ed_status("ARROWS # @ H - $ E P G  S SAVE  T TRY");
+    ed_cursor(cx, cy, 1);
+    for (;;) {
+        wait_vblank();
+        k = key_get();
+        if (!k) continue;
+        if (k >= 0x80 && (REG(KBDST) & 0x40)) {           /* a key code */
+            ed_cursor(cx, cy, 0);
+            switch (k) {
+            case 0x80: if (cy) cy--; break;
+            case 0x81: if (cy < GH - 1) cy++; break;
+            case 0x82: if (cx) cx--; break;
+            case 0x83: if (cx < GW - 1) cx++; break;
+            case 0x86: case 0x87:                          /* PgUp / PgDn: another level */
+                if (dirty) { ed_status("S TO SAVE FIRST (OR ESC)"); break; }
+                if (k == 0x86 && level) level--; else if (k == 0x87 && level + 1 < nlevels) level++;
+                lv_read(level); ed_show(); ed_status("ARROWS # @ H - $ E P G  S SAVE  T TRY");
+                break;
+            case 0x89: ed[cy][cx] = ' '; dirty = 1; ed_show(); break;   /* Delete */
+            default: break;
+            }
+            ed_cursor(cx, cy, 1);
+            continue;
+        }
+        if (k == 0x1B) {
+            if (dirty) { if (pause_msg("UNSAVED -- LEAVE ANYWAY?", "ESC LEAVES, ANY KEY STAYS") != 0x1B) { ed_cursor(cx, cy, 1); continue; } }
+            break;
+        }
+        switch (k) {
+        case '#': case '@': case '-': case '$': case ' ':
+            ed[cy][cx] = (char)k; dirty = 1; ed_show(); break;
+        case 'h': case 'H': ed[cy][cx] = 'H'; dirty = 1; ed_show(); break;
+        case 'e': case 'E': ed[cy][cx] = 'E'; dirty = 1; ed_show(); break;
+        case 'x': case 'X': ed[cy][cx] = ' '; dirty = 1; ed_show(); break;
+        case 'p': case 'P':                                /* one runner: the old P goes */
+            for (y = 0; y < GH; y++) for (x = 0; x < GW; x++) if (ed[y][x] == 'P' || ed[y][x] == 'p') ed[y][x] = ' ';
+            ed[cy][cx] = 'P'; dirty = 1; ed_show(); break;
+        case 'g': case 'G': {                              /* up to NGUARD */
+            uint8_t n = 0;
+            for (y = 0; y < GH; y++) for (x = 0; x < GW; x++) if (ed[y][x] == 'G' || ed[y][x] == 'g') n++;
+            if (ed[cy][cx] == 'G' || n < NGUARD) { ed[cy][cx] = 'G'; dirty = 1; ed_show(); }
+            else ed_status("THREE GUARDS IS THE MOST");
+            break; }
+        case 'n': case 'N':                                /* a new level after the last */
+            if (dirty) { ed_status("S TO SAVE FIRST"); break; }
+            if (nlevels >= LEVEL_MAX) { ed_status("TWENTY LEVELS IS THE MOST"); break; }
+            for (y = 0; y < GH; y++) for (x = 0; x < GW; x++) ed[y][x] = y == GH - 1 ? '@' : ' ';
+            ed[GH - 2][0] = 'P';
+            level = nlevels++; if (lv_write(level)) { ed_show(); ed_status("NEW LEVEL -- PAINT IT, S SAVES"); }
+            else { nlevels--; ed_status("COULD NOT WRITE /APPS/LODE"); }
+            cx = 0; cy = GH - 2;
+            break;
+        case 's': case 'S': {
+            uint8_t why = ed_check();
+            if (why == 1) ed_status("NEEDS EXACTLY ONE P");
+            else if (why == 2) ed_status("NEEDS AN E (EXIT LADDER)");
+            else if (why == 3) ed_status("NEEDS SOME GOLD ($)");
+            else if (lv_write(level)) { dirty = 0; ed_status("SAVED"); }
+            else ed_status("COULD NOT WRITE THE FILE");
+            break; }
+        case 't': case 'T':                                /* play it from here, then back */
+            if (ed_check()) { ed_status("FIX IT FIRST (S SAYS WHAT)"); break; }
+            lives = 5; ed_cursor(cx, cy, 0);
+            dma_fill(' ', TEXTMAP, 40 * 30); load_level(); redraw_map(); status_line();
+            { uint8_t r = play();
+              if (r == 1) pause_msg("CLEARED", "ANY KEY: BACK TO THE EDITOR");
+              else if (r == 2) pause_msg("GAME OVER", "ANY KEY: BACK TO THE EDITOR"); }
+            dma_fill(' ', TEXTMAP, 40 * 30); ed_show(); ed_status("BACK IN THE EDITOR");
+            break;
+        default: break;
+        }
+        ed_cursor(cx, cy, 1);
+    }
+    lives = keep_lives; score = keep_score;
+    dma_fill(' ', TEXTMAP, 40 * 30);
+    load_level(); redraw_map();
 }
 
 /* ---- main --------------------------------------------------------------- */
-void main(void)
+/* one level: 0 Esc, 1 the top reached, 2 no lives left */
+static uint8_t play(void)
 {
     uint8_t i, k, running = 1;
-    REG(V_CTRL) = 0;
-    make_palette();
-    draw_tiles(); draw_sprites();
-    lives = 5; score = 0; level = 0;
-    load_level();
-    dma_fill(' ', TEXTMAP, 40 * 30);
-    status_line();
-    text8_layer(1, TEXTMAP, 40, 127);
-    tile_layer();
-    init_tables(); write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
-    REG(V_CTRL) = 1 | 2 | 4;                             /* 320 x 240 */
-    if (pause_msg("LODE -- ARROWS RUN, Z/X DIG", "G GUARDS OFF, - + SLOWER FASTER")) running = 0;
-
     while (running) {
         uint32_t back = cur ? SPRTAB_A : SPRTAB_B;
         actor_t *p = &men[0];
@@ -610,17 +712,7 @@ void main(void)
             if (--goldleft == 0) { unlocked = 1; redraw_map(); }
             status_line();
         }
-        if (unlocked && (p->y >> 4) == 0 && !(p->y & 15)) {   /* the top wins */
-            level++;
-            if (level == 3) {
-                centre(13, "YOU CLEARED ALL THREE LEVELS");
-                pause_msg("A TRUE LODE RUNNER", "ANY KEY LEAVES");
-                running = 0; continue;
-            }
-            score += 500; load_level(); redraw_map(); status_line();
-            if (pause_msg("NEXT LEVEL", "ANY KEY STARTS")) running = 0;
-            continue;
-        }
+        if (unlocked && (p->y >> 4) == 0 && !(p->y & 15)) return 1;   /* the top wins */
         if (grace) grace--;                          /* a fresh level: a breath before the chase */
         else if (!noguards) for (i = 1; i <= guards; i++) {
             actor_t *g = &men[i];
@@ -637,18 +729,61 @@ void main(void)
         tick_holes();
         if (p->alive == 2) {                             /* caught, or bricked over */
             status_line();
-            if (!lives) {
-                centre(13, "GAME OVER");
-                pause_msg("THE GOLD KEEPS ITS SECRET", "ANY KEY LEAVES");
-                running = 0; continue;
-            }
+            if (!lives) return 2;
             load_level(); redraw_map(); status_line();
-            if (pause_msg("OUCH -- AGAIN!", "ANY KEY")) running = 0;
+            if (pause_msg("OUCH -- AGAIN!", "ANY KEY") == 0x1B) return 0;
             continue;
         }
         write_table(back);
         wait_vblank();
         w32(V_SPRTAB, back); cur ^= 1; frame++;
+    }
+    return 0;
+}
+
+void main(void)
+{
+    uint8_t k;
+    REG(V_CTRL) = 0;
+    make_palette();
+    draw_tiles(); draw_sprites();
+    lives = 5; score = 0; level = 0;
+    lv_count();
+    dma_fill(' ', TEXTMAP, 40 * 30);
+    text8_layer(1, TEXTMAP, 40, 127);
+    tile_layer();
+    init_tables(); write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
+    REG(V_CTRL) = 1 | 2 | 4;                             /* 320 x 240 */
+    if (!nlevels) {
+        /* nothing to play: the editor can still make LEVEL01 */
+        for (k = 0; k < GH; k++) { uint8_t x; for (x = 0; x < GW; x++) ed[k][x] = k == GH - 1 ? '@' : ' '; }
+        ed[GH - 2][0] = 'P';
+        load_level(); redraw_map();
+        if (pause_msg("NO LEVELS IN /APPS/LODE", "E MAKES ONE, ESC LEAVES") == 0x1B) { REG(TERM + 4) = 2; return; }
+        if (lv_write(0)) nlevels = 1; else { REG(TERM + 4) = 2; return; }
+        editor();
+        if (!nlevels) { REG(TERM + 4) = 2; return; }
+    }
+    lv_read(level); load_level(); status_line();
+    for (;;) {
+        k = pause_msg("LODE -- ARROWS RUN, Z/X DIG", "G GUARDS OFF, - + PACE, E EDITOR");
+        if (k == 0x1B) break;
+        if (k == 'e' || k == 'E') { editor(); status_line(); continue; }
+        lives = 5; score = 0; level = 0; lv_read(level); load_level(); redraw_map(); status_line();
+        for (;;) {
+            uint8_t r = play();
+            if (r == 0) break;
+            if (r == 2) { centre(13, "GAME OVER"); pause_msg("THE GOLD KEEPS ITS SECRET", "ANY KEY"); break; }
+            level++;
+            if (level == nlevels) {
+                centre(13, "YOU CLEARED EVERY LEVEL");
+                pause_msg("A TRUE LODE RUNNER", "ANY KEY");
+                level = 0; break;
+            }
+            score += 500; lv_read(level); load_level(); redraw_map(); status_line();
+            if (pause_msg("NEXT LEVEL", "ANY KEY STARTS") == 0x1B) break;
+        }
+        level = 0; lv_read(level); load_level(); redraw_map(); status_line();
     }
     REG(TERM + 4) = 2;                                   /* leave a clean text screen */
 }

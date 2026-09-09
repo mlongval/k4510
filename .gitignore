@@ -104,6 +104,11 @@ fs/MNT/*
 # /HOME is yours
 fs/HOME/*
 !fs/HOME/README.TXT
+# LODE's levels: the three shipped ones are the repository's, the rest are yours
+fs/APPS/LODE/LEVEL*.TXT
+!fs/APPS/LODE/LEVEL01.TXT
+!fs/APPS/LODE/LEVEL02.TXT
+!fs/APPS/LODE/LEVEL03.TXT
 linux/*.img
 # build-live.sh works in here: a debootstrapped rootfs and a squashfs,
 # about 2.5 GB. REUSE=1 rebuilds an image from it in seconds.

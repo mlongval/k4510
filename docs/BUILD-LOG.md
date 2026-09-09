@@ -6403,3 +6403,29 @@ how the 1983 game plays too). And the pace: **-** and **+** set the
 player's moves per three frames (1, 2 or 3; the top-right digit shows
 it), the default is now two moves in three frames, and the guards keep to
 half of whatever he does.
+
+## 2026-09-09 — LODE's levels are files, and it has an editor
+
+Doc: "break out the levels into individual files (.txt) in the game
+folder, and build me a graphical level editor in the same style as the
+game". The three levels left the source for `/APPS/LODE/LEVEL01.TXT`
+to `03`, in the format they always had: fifteen lines of up to twenty
+characters, `#` `@` `H` `-` `$` `E` `P` `G`. The game plays as many as
+it finds, up to twenty; LEVEL04 and up are the player's and gitignored.
+So the simplest editor is VI.
+
+The graphical one lives inside LODE (E on the title card) rather than
+in a second program, since the tiles, sprites, map and files are all
+there already. A bracket in the text layer is the cursor; the file's
+own letters paint under it; PgUp/PgDn walk the levels, N adds one, S
+saves (one P, an E and some gold, or it says what is missing), T plays
+the level from the editor and comes back, Esc leaves and asks if the
+level is unsaved. The game loop became `play()`, returning won, lost or
+left, which is what T needed.
+
+One bite on the way: I used filesystem command 11 as "does the file
+exist" and 11 is CHDIR; STAT is 8. The game then saw no levels and its
+"make LEVEL01" path overwrote the real LEVEL01 before it was ever
+committed. The command table is in `core/io.h`; read it first.
+
+Sound and music for LODE: Doc says "maybe later".

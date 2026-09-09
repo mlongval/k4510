@@ -6484,3 +6484,18 @@ Tested under Xvfb through the real frontend (F8, Space x3, T, L, F, T,
 D): the trace held 89,737 instructions for one scanline plus one frame
 at 15 MHz, the dump was written, and the strip at 1080p reads at 24-px
 glyphs with 45 rows.
+
+**Too big, and the picture shrank (Doc's screenshot, 2560x1600).** Two
+faults in the morning's change. The picture: with scanlines on the
+texture is already 2x, and flooring the placement scale alone took a
+3.33x picture to 2x when 3x fitted — so "integer when the panel is on"
+went, and sharp-fit floors the MACHINE's scale now (k times sc). The
+panel takes what is left beside a full-height picture, 427 pixels on
+that screen, and never shrinks it: "the emulator screen does not need
+to be reduced in size". The font: the intermediate size is a taller
+face, not a bigger scale — unscii-16 (8x16, public domain, from the
+upstream repo's compiled fontfiles/ since viznut.fi was unreachable)
+at 2x is 16x32, the width of the first attempt and the height of the
+second, and it reads as a proper terminal face. `hex2chargen.py` takes
+a third argument, 16, for it; the panel falls back to the 8x8 doubled
+if the file is missing. Fifty rows at 1600, all the sections fit.

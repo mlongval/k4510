@@ -117,6 +117,7 @@ static void petscii_to_ascii(const uint8_t *cg, uint8_t *out)
     for (unsigned i = 0; i < sizeof box / sizeof box[0]; i++) memcpy(out + box[i].ascii * 8, lo + box[i].glyph * 8, 8);
 }
 static uint8_t font_kernel8[2048], font_menu[2048];
+static uint8_t font_panel[4096]; static int font_panel_rows = 8;   /* unscii-16 for the side panel; the 8x8 doubled if it is missing */
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -372,6 +373,8 @@ int k4510_frontend_main(int argc, char **argv)
     }
     if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu) memcpy(font_menu, font_kernel8, sizeof font_menu);
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
+    if (load_file("data/fonts/unscii/font16-unscii.bin", font_panel, sizeof font_panel) == sizeof font_panel) font_panel_rows = 16;
+    else for (int i = 0; i < 2048; i++) { font_panel[i * 2] = font_panel[i * 2 + 1] = font_menu[i]; font_panel_rows = 16; }
     settings_load(cfg);
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
     settings_label(SET_VIDEO_FONT, FONT_CHARGEN, chargen_present() ? "C64 chargen" : "C64 chargen (none)");
@@ -1052,11 +1055,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           double sc = 1.0; int pic_x = 0, pic_y = 0, pic_w = lw, pic_h = canvas_h;
           if (custom) {
               sc = (double)cow / lw; if ((double)coh / canvas_h < sc) sc = (double)coh / canvas_h;
-              /* an integer scale for sharp-fit, and whenever the panel is on:
-               * at 1080p a 2.25x picture leaves the panel 480 pixels and 16-px
-               * glyphs, a 2x picture leaves it 640 and 24-px ones, and the
-               * panel is there to be read (Doc: "please use larger font") */
-              if (smooth_applied == SMOOTH_SHARPFIT || panel_kind != PANEL_OFF) sc = (double)(int)sc;
+              /* Sharp-fit floors the MACHINE's scale, k * sc: with scanlines
+               * the texture is already 2x, and flooring sc alone took a 3.33x
+               * picture down to 2x when 3x fitted.  The panel never shrinks
+               * the picture (Doc, 2026-09-09: "the emulator screen does not
+               * need to be reduced in size"); it takes what is left. */
+              if (smooth_applied == SMOOTH_SHARPFIT) sc = (double)(int)(sc * k) / k;
               if (sc < 1.0) sc = 1.0;
               pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
               pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
@@ -1157,7 +1161,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     if (SDL_LockTexture(ptex, NULL, &pp, &ppitch) == 0) {
                         panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz(),
                                           paused, m_line, trace_n, trace_f != NULL, dump_n };
-                        panel_render((uint32_t *)pp, ppitch / 4, pw, coh, panel_scale(pw, coh), font_menu, &pi);
+                        panel_render((uint32_t *)pp, ppitch / 4, pw, coh, panel_scale(pw, coh, font_panel_rows), font_panel, font_panel_rows, &pi);
                         SDL_UnlockTexture(ptex);
                     }
                     SDL_Rect pd = { place == PLACE_RIGHT ? 0 : pic_w, 0, pw, coh };

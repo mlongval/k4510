@@ -20,10 +20,11 @@ typedef struct {
     int dump_n;            /* the last dump written from the panel, 0 = none */
 } panel_info;
 #define PANEL_COLS 26
-/* Draw into an ARGB buffer w x h (device pixels), glyphs scaled g times from an 8x8 1-bpp font. */
-void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t *font, const panel_info *info);
+/* Draw into an ARGB buffer w x h (device pixels), glyphs scaled g times from
+ * an 8-wide 1-bpp font of `rows` rows a glyph (8, or 16 for unscii-16). */
+void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t *font, int rows, const panel_info *info);
 /* the glyph scale that gives PANEL_COLS columns in w pixels and at least 30 rows in h */
-int  panel_scale(int w, int h);
+int  panel_scale(int w, int h, int rows);
 /* one instruction as text, "1234 A900   LDA #$00"; returns its length in bytes */
 int  panel_disasm(uint16_t pc, char *out, int outmax);
 #endif

@@ -8,7 +8,7 @@
 #include "../core/ui/settings.h"
 #include "panel_ops.h"
 
-static uint32_t *buf; static int bw, bh, bpitch, gscale; static const uint8_t *gfont;
+static uint32_t *buf; static int bw, bh, bpitch, gscale, grows; static const uint8_t *gfont;
 #define C_BG    0xFF101820u
 #define C_TEXT  0xFFD8D8C0u
 #define C_DIM   0xFF7A8090u
@@ -17,12 +17,12 @@ static uint32_t *buf; static int bw, bh, bpitch, gscale; static const uint8_t *g
 
 static void put(int row, int col, const char *s, uint32_t colour)
 {
-    int cell = 8 * gscale;
+    int cell = 8 * gscale, cellh = grows * gscale;
     for (; *s; s++, col++) {
-        const uint8_t *gl = gfont + (uint8_t)*s * 8;
-        int x0 = col * cell, y0 = row * cell;
-        if (x0 + cell > bw || y0 + cell > bh) return;
-        for (int y = 0; y < 8; y++) {
+        const uint8_t *gl = gfont + (uint8_t)*s * grows;
+        int x0 = col * cell, y0 = row * cellh;
+        if (x0 + cell > bw || y0 + cellh > bh) return;
+        for (int y = 0; y < grows; y++) {
             for (int x = 0; x < 8; x++) {
                 if (!(gl[y] & (0x80 >> x))) continue;
                 for (int dy = 0; dy < gscale; dy++)
@@ -91,17 +91,17 @@ static int disasm(uint16_t pc, char *out, int outmax)
 }
 int panel_disasm(uint16_t pc, char *out, int outmax) { return disasm(pc, out, outmax); }
 
-int panel_scale(int w, int h)
+int panel_scale(int w, int h, int rows)
 {
-    int g = w / (8 * PANEL_COLS), gh = h / (8 * 30);
+    int g = w / (8 * PANEL_COLS), gh = h / (rows * 30);
     if (gh < g) g = gh;
     return g < 1 ? 1 : g > 4 ? 4 : g;
 }
 
-void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t *font, const panel_info *info)
+void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t *font, int frows, const panel_info *info)
 {
-    buf = px; bw = w; bh = h; bpitch = pitch_px; gscale = g > 0 ? g : 1; gfont = font;
-    int cols = w / (8 * gscale), rows = h / (8 * gscale), r = 0; char t[96];
+    buf = px; bw = w; bh = h; bpitch = pitch_px; gscale = g > 0 ? g : 1; gfont = font; grows = frows;
+    int cols = w / (8 * gscale), rows = h / (grows * gscale), r = 0; char t[96];
     for (int y = 0; y < h; y++) { for (int x = 0; x < w; x++) px[y * pitch_px + x] = C_BG; }
     if (cols < 20 || rows < 10) return;
     if (cols > PANEL_COLS) cols = PANEL_COLS;

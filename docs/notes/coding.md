@@ -1753,3 +1753,6 @@ Space steps one instruction, L one scanline, F one frame, D writes
 instruction trace to `/SYSTEM/LOG/TRACE.TXT` (200,000 lines at most).
 The legend is on the panel, but the keys work without it. Recapture the
 panel screenshot: the layout changed entirely.
+Later that day: the panel's face is unscii-16 at 2x now, and the
+picture keeps its full height; the panel takes the strip that is left.
+Screenshot recipe unchanged, but recapture once more.

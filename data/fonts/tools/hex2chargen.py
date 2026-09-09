@@ -3,7 +3,12 @@
 # leftmost pixel, CP437 layout ($20-$7E ASCII, rest box drawing/accents),
 # glyph 0 blank — the same contract as data/mkfont.py in the k4510 repo.
 #   python3 hex2chargen.py unscii-8.hex font8-unscii.bin
+# With a third argument of 16 it reads the 8x16 glyphs instead (32 hex
+# digits a row) and writes 4096 bytes -- the side panel's font.
+#   python3 hex2chargen.py unscii-16.hex font16-unscii.bin 16
 import sys
+
+rows = int(sys.argv[3]) if len(sys.argv) > 3 else 8
 
 glyphs = {}
 for line in open(sys.argv[1]):
@@ -11,13 +16,13 @@ for line in open(sys.argv[1]):
     if not line or ':' not in line:
         continue
     cp, bits = line.split(':', 1)
-    if len(bits) == 16:                      # 8x8 glyphs only (8 rows x 1 byte)
+    if len(bits) == rows * 2:                # 8-wide glyphs of the wanted height (1 byte a row)
         glyphs[int(cp, 16)] = bytes.fromhex(bits)
 
 def hflip(g):                                # mirror each row left<->right
     return bytes(int(f"{b:08b}"[::-1], 2) for b in g)
 
-font = bytearray(2048)
+font = bytearray(256 * rows)
 missing = []
 for i in range(256):
     if i == 0:
@@ -31,9 +36,9 @@ for i in range(256):
     if g is None:
         missing.append((i, u))
         continue                             # missing glyph stays blank
-    font[i*8:i*8+8] = g
+    font[i*rows:i*rows+rows] = g
 
 open(sys.argv[2], 'wb').write(font)
-print(f"{sys.argv[2]}: 2048 bytes, {256 - 1 - len(missing)} glyphs filled")
+print(f"{sys.argv[2]}: {256 * rows} bytes, {256 - 1 - len(missing)} glyphs filled")
 for i, u in missing:
     print(f"  missing: CP437 {i:#04x} -> U+{u:04X}")

@@ -16,3 +16,14 @@ To settle it:
 
 sha256  03094f7fbab7085cf6a6b624cee61e47e71ce5d0c2f308c2f4436afdc17f776c  unscii-8.hex
 sha256  5130fc27c18e32309d3a35f2b9e5f2d96650dc33e4f77a8b731ab74e5e41201e  font8-unscii.bin
+
+unscii-16.hex     added 2026-09-09 from the upstream repo's compiled
+                  fontfiles/ (github.com/viznut/unscii, master), unchanged;
+                  viznut.fi was unreachable that day.  Public domain, as
+                  the 8.  README there: "You can consider it Public Domain
+                  (or CC-0) except for the files derived from Unifont".
+font16-unscii.bin generated from it by hex2chargen.py with the third
+                  argument 16 (4096 bytes, CP437 order, 16 rows a glyph);
+                  the side panel's font.
+sha256  2642c8b748fa81f24d76772d70c55faa720d98fadfec8133daf89136c5c8bfb1  unscii-16.hex
+sha256  a43c9d7f63b8a565ab4a77b80ad1269478d80499f82cf4155c22a7496c954d39  font16-unscii.bin

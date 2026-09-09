@@ -2,8 +2,21 @@
 # tekplay FILE [FILE...]  --  show Tektronix plot files on the Tek40xx terminal
 # without a PiDP-11: a tiny server on 127.0.0.1 sends each file (HOME on the
 # terminal clears the page between them, END quits), and `tek` dials it.
-[ $# -ge 1 ] || { echo "usage: tekplay FILE.plt [MORE.plt...]   (HOME clears, END quits)" >&2; exit 2; }
-for f in "$@"; do [ -r "$f" ] || { echo "tekplay: $f: cannot read" >&2; exit 1; }; done
+# A bare name (k4510, gnu1...) is one of the plots shipped in linux/tek40xx/plt/;
+# a path is a file of your own.  From the K4510 prompt:  !tekplay k4510
+PLT=$(cd "$(dirname "$(readlink -f "$0")")/../linux/tek40xx/plt" 2>/dev/null && pwd)
+if [ $# -lt 1 ]; then
+    echo "usage: tekplay NAME|FILE.plt [MORE...]   (HOME clears, END quits)" >&2
+    [ -n "$PLT" ] && echo "shipped: $(ls "$PLT" | sed 's/\.plt$//' | tr '\n' ' ')" >&2
+    exit 2
+fi
+set -- $(for f in "$@"; do
+    if [ -r "$f" ]; then echo "$f"
+    elif [ -n "$PLT" ] && [ -r "$PLT/$f.plt" ]; then echo "$PLT/$f.plt"
+    elif [ -n "$PLT" ] && [ -r "$PLT/$f" ]; then echo "$PLT/$f"
+    else echo "tekplay: $f: no such file or shipped plot" >&2; exit 1; fi
+done) || exit 1
+[ $# -ge 1 ] || exit 1
 PORT=${TEKPLAY_PORT:-4010}
 python3 - "$PORT" "$@" <<'PY' &
 import socket, sys, time

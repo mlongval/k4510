@@ -6361,7 +6361,7 @@ the renderer has it, panel and bars included, where `K4510_SHOT` shoots
 only the machine's picture. Verified on 1366x768, 1920x1080 (2x, left)
 and 2560x1440 (3x, right) windows, and on hdieu's real GPU.
 
-**Also:** `linux/tek40xx/tekplay FILE...` plays Tektronix plot files on
+**Also:** `tools/tekplay NAME|FILE...` plays Tektronix plot files on
 the terminal with no PiDP-11 (a local server feeds them at a 9600-baud
 pace; HOME clears, END quits); `plt/` holds Tek40xx's four gnuplot
 examples and a page of our own from `mkplt.py`. The vintage cassette

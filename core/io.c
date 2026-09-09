@@ -180,7 +180,7 @@ static int fs_path(char *out, size_t max, int search)
                 if (!strcasecmp(dot, by_ext[i].ext)) snprintf(dirs[nd++], 40, "%s", by_ext[i].dir);
         }
         for (int i = 0; i < nd; i++) {
-            char alt[180]; snprintf(alt, sizeof alt, "%s/%.127s", dirs[i], name);
+            char alt[256]; snprintf(alt, sizeof alt, "%s/%.127s", dirs[i], name);
             if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
             fs_casefix(out, max);
             if (!stat(out, &sb)) return 0;
@@ -1090,11 +1090,12 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
          * run through this shell -- on PATH wherever the emulator is started
          * from its checkout (tools/ beside fs/).  Doc, hdieu, 2026-09-08:
          * "k4510-pas: command not found" at the prompt of a plain desktop. */
-        { char tp[1024]; const char *op = getenv ("PATH");
-          if (realpath ("tools", tp) && access (tp, X_OK) == 0) {
-              char np[2048]; snprintf (np, sizeof np, "%s:%s", tp, op ? op : "/usr/local/bin:/usr/bin:/bin");
+        { char *tp = realpath ("tools", NULL); const char *op = getenv ("PATH");   /* NULL: realpath mallocs (a fixed buffer trips the fortify check) */
+          if (tp && access (tp, X_OK) == 0) {
+              char np[4096]; snprintf (np, sizeof np, "%s:%s", tp, op ? op : "/usr/local/bin:/usr/bin:/bin");
               setenv ("PATH", np, 1);
-          } }
+          }
+          free (tp); }
         /* The machine's backspace key is BS ($08).  The pty's erase character is
          * DEL by default, so under dash, vi and anything without readline the key
          * echoed as ^H and erased nothing (bash's readline hid it).  Make BS the

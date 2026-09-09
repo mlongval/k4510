@@ -14,6 +14,8 @@ static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont"
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
+static const char *const place_names[] = { "centre", "left", "right" };
+static const char *const panel_names[] = { "off", "registers" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
                                            "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
@@ -38,6 +40,14 @@ static const set_desc desc[SET_COUNT] = {
      * hear the difference).  Off, the trade is tearing.  Neither answer is
      * right for every host, which is why it is a row and not a decision. */
     { "video.vsync",         "Vertical sync",  ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
+    /* A 4:3 picture on a 16:9 screen leaves a third of it empty.  Placement
+     * puts the picture at one edge; the side panel fills what is left with the
+     * machine's registers, the next instructions, the banks (Doc, 2026-09-09:
+     * "the rest of the physical display could be used for educational
+     * purposes").  A panel with the picture centred makes no sense, so the
+     * panel forces left. */
+    { "video.placement",     "Placement",      ST_ENUM,  PLACE_CENTRE, 0, 0, 0, place_names, PLACE_COUNT, SF_LIVE },
+    { "video.panel",         "Side panel",     ST_ENUM,  PANEL_OFF, 0, 0, 0, panel_names, PANEL_COUNT, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     /* audio.chip and audio.sids lived here until 2026-09-05, when the SIDs
      * were removed.  An old k4510.cfg still carrying them is fine: unknown

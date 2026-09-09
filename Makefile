@@ -98,8 +98,8 @@ core/vice_clk.o: core/vice_clk.c core/vice_clk.h core/opl2/alarm.h
 core/opl2/fmopl.o: core/opl2/fmopl.c
 	$(CC) $(CFLAGS) -Icore/opl2 -Wno-unused-parameter -c -o $@ $<
 
-sdl/k4510: sdl/main.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ $^ $(SDL_LIBS) $(LDLIBS)
+sdl/k4510: sdl/main.c sdl/panel.c sdl/panel.h sdl/panel_ops.h $(CORE_OBJS)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ sdl/main.c sdl/panel.c $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
 	ln -sf sdl/k4510 k4510          # so it starts as ./k4510 from the repo root
 
 test/cputest: test/cputest.c $(CORE_OBJS)

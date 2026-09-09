@@ -6335,3 +6335,36 @@ its fixed 1536x1170 page to any panel, mouse mapped) and installed as
 full-screen on a bare console, a window under a desktop. On the stick
 it is tty2: Ctrl+Alt+F1 is the K4510, Ctrl+Alt+F2 the Tektronix. No
 emulator code changed. `patch` joined the package list.
+
+## 2026-09-09 — Placement and the side panel
+
+Doc: "add the placement setting and the side panel". Two rows in the
+Video menu. **Placement** (centre / left / right) puts the 4:3 picture
+at one edge of a wider screen, at the scale it would get anyway (an
+integer for sharp-fit); **Side panel** (off / registers) fills what is
+left with the machine as the emulator sees it: PC, A X Y Z, SP, B, the
+flags, the next eight instructions disassembled (65C02 plus the
+45GS02's long branches, Z and word ops — `sdl/panel_ops.h`, a generated
+table), VICKY's mode and raster, the eight bank registers with the
+engaged ones lit, the audio gaps, the frame counter and the fps. A
+panel with a centred picture makes no sense, so the panel forces left.
+The panel reads the CPU's view for the disassembly but never through
+the I/O page, since a read of `$D100` would pop the keyboard.
+
+The geometry is worked out in device pixels when placed, not through
+SDL's logical size: widening SDL's canvas was tried first and the
+software renderer drew nothing right of the picture above 1x. Centred
+placement is the old path, untouched. `K4510_WINDOW=WxH` sets the
+window's first size (for a wide window with the panel, and for the
+screenshots); `K4510_GLASS=file.ppm:frames` shoots the whole window as
+the renderer has it, panel and bars included, where `K4510_SHOT` shoots
+only the machine's picture. Verified on 1366x768, 1920x1080 (2x, left)
+and 2560x1440 (3x, right) windows, and on hdieu's real GPU.
+
+**Also:** `linux/tek40xx/tekplay FILE...` plays Tektronix plot files on
+the terminal with no PiDP-11 (a local server feeds them at a 9600-baud
+pace; HOME clears, END quits); `plt/` holds Tek40xx's four gnuplot
+examples and a page of our own from `mkplt.py`. The vintage cassette
+plots in rricharz/Tek4010's `pltfiles/` are "personal use only, not
+under the GPL" by their README, so they are not vendored; the README
+says how to fetch them for yourself.

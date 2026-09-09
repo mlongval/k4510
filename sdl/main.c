@@ -22,6 +22,7 @@
 #include "../core/opl2.h"
 #include "../core/sndq.h"
 #include "../core/host.h"
+#include "panel.h"
 #include "../core/ui/settings.h"
 #include "../core/hostid.h"
 #include "../core/ui/menu.h"
@@ -224,7 +225,7 @@ static uint8_t cp437_of(unsigned long cp)
  * is the machine's picture, x2 with scanlines), so machine pixels are one
  * division and the border's shrink away.  geo_k/geo_b are copied from the
  * frame code each frame; the picture cannot move between them. */
-static int geo_k = 1, geo_b = 0;
+static int geo_k = 1, geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1.0;   /* Placement: the picture's device offset and scale (1, 0, 0 when SDL maps) */
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
 static int to_machine(int v, int full) { int m = (v / geo_k - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
@@ -338,8 +339,12 @@ int k4510_frontend_main(int argc, char **argv)
      * linux/build-live.sh; on any other host this call never happens and the
      * row stays off the end of the Machine menu. */
     if (access("/etc/k4510-linux", F_OK) == 0) { menu_set_shutdown(1); io_host_kind = 1; }
+    /* K4510_WINDOW=WxH: the window's first size (1280x960 otherwise).  For a
+     * wide window with the side panel, and for screenshots of one. */
+    int win_w = VICKY_WIDTH * SCALE, win_h = VICKY_HEIGHT * SCALE;
+    { const char *wv = getenv("K4510_WINDOW"); int a, c2; if (wv && sscanf(wv, "%dx%d", &a, &c2) == 2 && a >= 320 && c2 >= 240) { win_w = a; win_h = c2; } }
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
+                                       win_w, win_h, SDL_WINDOW_RESIZABLE);
     grab_win = win;
 /* No vsync by default, anywhere.  It was off on the Pi already, because the
  * shim blocked the present until the flip and a frame that overran by a
@@ -367,6 +372,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                          VICKY_WIDTH, VICKY_HEIGHT * 2);
     int scan_applied = -1, smooth_applied = -1, logical_tall = -1, vsync_applied = -1;
+    int logical_custom = 0; SDL_Texture *ptex = NULL; int ptex_w = 0, ptex_h = 0; double panel_fps = 0;   /* Placement and the side panel */
     /* The border, striped like the screen: one column of pixels, one texture
      * row per logical row, stretched across.  A single RenderCopy rather than
      * a few hundred RenderDrawLines, and it is rebuilt only when the colour or
@@ -498,8 +504,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) grab(0);   /* alt-tab always frees the pointer */
                 break;
             case SDL_MOUSEMOTION:
-                mouse_x = to_machine(e.motion.x, VICKY_WIDTH); mouse_y = to_machine(e.motion.y, VICKY_HEIGHT);
-                dx_acc += e.motion.xrel / geo_k; dy_acc += e.motion.yrel / geo_k;
+                mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), VICKY_WIDTH); mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), VICKY_HEIGHT);
+                dx_acc += (int)(e.motion.xrel / (geo_k * geo_s)); dy_acc += (int)(e.motion.yrel / (geo_k * geo_s));
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
                 int bit = e.button.button == SDL_BUTTON_LEFT ? 1 : e.button.button == SDL_BUTTON_RIGHT ? 2 : e.button.button == SDL_BUTTON_MIDDLE ? 4 : 0;
@@ -954,9 +960,35 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           geo_k = k; geo_b = b;                                  /* for the mouse */
           SDL_Rect half = { 0, 0, VICKY_WIDTH, VICKY_HEIGHT };
           SDL_Rect dr = { b * k, b * k, (VICKY_WIDTH - 2 * b) * k, (VICKY_HEIGHT - 2 * b) * k };
-          if (tall != logical_tall) {                            /* 4:3 either way: 640x480, or 1280x960 */
-              logical_tall = tall;
-              SDL_RenderSetLogicalSize(ren, VICKY_WIDTH * k, VICKY_HEIGHT * k);
+          /* Placement and the side panel (Doc, 2026-09-09).  Centred, the
+           * picture is SDL's logical canvas and SDL scales and centres it, as
+           * always.  Placed left or right, SDL's mapping is switched OFF and
+           * the geometry is worked out here in device pixels: the scale the
+           * picture would get anyway (floored to an integer for sharp-fit),
+           * the picture at one edge, the panel in the rest.  Working it out
+           * here rather than widening SDL's canvas was forced: the software
+           * renderer drew nothing right of the picture on a widened canvas
+           * above 1x, and a mapping that cannot be trusted is not worth
+           * arguing with. */
+          int place = settings_get(SET_VIDEO_PLACE), panel_kind = settings_get(SET_VIDEO_PANEL);
+          if (panel_kind != PANEL_OFF && place == PLACE_CENTRE) place = PLACE_LEFT;
+          int lw = VICKY_WIDTH * k, canvas_h = VICKY_HEIGHT * k, cow = 0, coh = 0;
+          SDL_GetRendererOutputSize(ren, &cow, &coh);
+          int custom = place != PLACE_CENTRE && cow > 0 && coh > 0;
+          double sc = 1.0; int pic_x = 0, pic_y = 0, pic_w = lw, pic_h = canvas_h;
+          if (custom) {
+              sc = (double)cow / lw; if ((double)coh / canvas_h < sc) sc = (double)coh / canvas_h;
+              if (smooth_applied == SMOOTH_SHARPFIT) sc = (double)(int)sc;
+              if (sc < 1.0) sc = 1.0;
+              pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
+              pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
+              dr.x = pic_x + (int)(b * k * sc); dr.y = pic_y + (int)(b * k * sc);
+              dr.w = (int)((VICKY_WIDTH - 2 * b) * k * sc); dr.h = (int)((VICKY_HEIGHT - 2 * b) * k * sc);
+          }
+          geo_s = custom ? sc : 1.0; geo_xd = custom ? pic_x : 0; geo_yd = custom ? pic_y : 0;
+          if (custom != logical_custom || (!custom && tall != logical_tall)) {
+              logical_custom = custom; logical_tall = tall;
+              SDL_RenderSetLogicalSize(ren, custom ? 0 : lw, custom ? 0 : canvas_h);
           }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
           if (!btex || btex_scan != scan_applied || btex_col != bcol || btex_smooth != smooth_applied) {
@@ -1004,7 +1036,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
            * edge.  Then put the mapping back for the picture itself. */
           if (btex) {
               SDL_Rect bsrc = { 0, 0, 1, tall ? VICKY_HEIGHT * 2 : VICKY_HEIGHT };
-              int ow = 0, oh = 0, lw = VICKY_WIDTH * k, lh = VICKY_HEIGHT * k;
+              int ow = 0, oh = 0, lh = VICKY_HEIGHT * k;
               SDL_GetRendererOutputSize(ren, &ow, &oh);
               if (ow > 0 && oh > 0) {
                   /* ASK SDL where the picture lands rather than working it out
@@ -1016,18 +1048,67 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                    * meant to remove.  LogicalToWindow is SDL's own answer and
                    * cannot disagree with SDL. */
                   int wy0 = 0, wy1 = 0, wx = 0;
-                  SDL_RenderLogicalToWindow(ren, 0.0f, 0.0f, &wx, &wy0);
-                  SDL_RenderLogicalToWindow(ren, 0.0f, (float)lh, &wx, &wy1);
+                  if (custom) { wy0 = pic_y; wy1 = pic_y + pic_h; }
+                  else {
+                      SDL_RenderLogicalToWindow(ren, 0.0f, 0.0f, &wx, &wy0);
+                      SDL_RenderLogicalToWindow(ren, 0.0f, (float)lh, &wx, &wy1);
+                  }
                   int py = wy0, ph = wy1 - wy0;
                   if (ph > 0) {
-                      SDL_RenderSetLogicalSize(ren, 0, 0);
+                      if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
                       for (int y = py; y > -ph; y -= ph) { SDL_Rect d = { 0, y, ow, ph }; SDL_RenderCopy(ren, btex, &bsrc, &d); }
                       for (int y = py + ph; y < oh; y += ph) { SDL_Rect d = { 0, y, ow, ph }; SDL_RenderCopy(ren, btex, &bsrc, &d); }
-                      SDL_RenderSetLogicalSize(ren, lw, lh);
+                      if (!custom) SDL_RenderSetLogicalSize(ren, lw, lh);
                   } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
               } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
           }
-          SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr); }
+          SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr);
+          /* the side panel: the device pixels beside the picture, at the picture's rows */
+          { int pw = custom ? cow - pic_w : 0;
+            if (panel_kind != PANEL_OFF && custom && pw >= 64) {
+                if (!ptex || ptex_w != pw || ptex_h != pic_h) {
+                    if (ptex) SDL_DestroyTexture(ptex);
+                    ptex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, pw, pic_h);
+                    ptex_w = pw; ptex_h = pic_h;
+                    if (ptex) SDL_SetTextureScaleMode(ptex, SDL_ScaleModeNearest);
+                }
+                if (ptex) { void *pp; int ppitch;
+                    if (SDL_LockTexture(ptex, NULL, &pp, &ppitch) == 0) {
+                        int g = pw / 320; if (g < 1) g = 1; if (g > 3) g = 3;    /* 16-px glyphs on a 640-px panel */
+                        panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz() };
+                        panel_render((uint32_t *)pp, ppitch / 4, pw, pic_h, g, font_menu, &pi);
+                        SDL_UnlockTexture(ptex);
+                    }
+                    SDL_Rect pd = { place == PLACE_RIGHT ? 0 : pic_w, pic_y, pw, pic_h };
+                    SDL_RenderCopy(ren, ptex, NULL, &pd);
+                }
+            } }
+          /* the fps the panel shows: frames presented per wall-clock second */
+          { static Uint64 t0; static unsigned n; Uint64 now = SDL_GetPerformanceCounter(); n++;
+            if (!t0) t0 = now;
+            else if (now - t0 >= SDL_GetPerformanceFrequency()) { panel_fps = (double)n * SDL_GetPerformanceFrequency() / (double)(now - t0); t0 = now; n = 0; } }
+          /* K4510_GLASS=file.ppm:frames -- the whole window as the renderer has it, panel and bars included */
+          { static const char *glass; static int glass_fr, glass_init;
+            if (!glass_init) { glass_init = 1; glass = getenv("K4510_GLASS"); if (glass) { const char *c = strrchr(glass, ':'); glass_fr = c ? atoi(c + 1) : 120; } }
+            if (glass && --glass_fr == 0) {
+                int gw = 0, gh = 0; SDL_GetRendererOutputSize(ren, &gw, &gh);
+                uint32_t *gp = gw > 0 && gh > 0 ? malloc((size_t)gw * gh * 4) : NULL;
+                char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(glass, ':') ? strrchr(glass, ':') - glass : (long)strlen(glass)), glass);
+                FILE *f = gp ? fopen(path, "wb") : NULL;
+                /* Read in DEVICE units: with a logical size set, ReadPixels takes its
+                 * rect in the mapping, and the software renderer (Xvfb) got that
+                 * wrong above 1x -- the panel vanished from the shot but not from
+                 * the glass.  Step out of the mapping, as the border tiling does. */
+                if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                int grc = f ? SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888, gp, gw * 4) : -1;
+                if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                if (f && grc == 0) {
+                    fprintf(f, "P6 %d %d 255\n", gw, gh);
+                    for (int i = 0; i < gw * gh; i++) { fputc((gp[i] >> 16) & 255, f); fputc((gp[i] >> 8) & 255, f); fputc(gp[i] & 255, f); }
+                }
+                if (f) fclose(f);
+                free(gp);
+                running = 0; } } }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;
         /* The hand pacer runs whether or not vsync is on, and the two cannot

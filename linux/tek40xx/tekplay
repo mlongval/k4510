@@ -1,0 +1,26 @@
+#!/bin/sh
+# tekplay FILE [FILE...]  --  show Tektronix plot files on the Tek40xx terminal
+# without a PiDP-11: a tiny server on 127.0.0.1 sends each file (HOME on the
+# terminal clears the page between them, END quits), and `tek` dials it.
+[ $# -ge 1 ] || { echo "usage: tekplay FILE.plt [MORE.plt...]   (HOME clears, END quits)" >&2; exit 2; }
+for f in "$@"; do [ -r "$f" ] || { echo "tekplay: $f: cannot read" >&2; exit 1; }; done
+PORT=${TEKPLAY_PORT:-4010}
+python3 - "$PORT" "$@" <<'PY' &
+import socket, sys, time
+port = int(sys.argv[1]); files = sys.argv[2:]
+s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("127.0.0.1", port)); s.listen(1)
+c, _ = s.accept()
+try:
+    for i, f in enumerate(files):
+        if i: c.sendall(b"\x1b\x0c"); time.sleep(0.3)          # ESC FF: a fresh page (a real 4010 took a second to erase)
+        data = open(f, "rb").read()
+        for j in range(0, len(data), 64):                      # 9600 baud, roughly: the drawing shows as it draws
+            c.sendall(data[j:j + 64]); time.sleep(64 * 10 / 9600)
+        time.sleep(2)
+    while c.recv(256): pass                                    # then hold the line until END on the terminal
+except (BrokenPipeError, ConnectionResetError): pass
+PY
+SRV=$!
+sleep 0.3
+command -v tek >/dev/null 2>&1 && tek 127.0.0.1 "$PORT" || tek40xx 127.0.0.1 "$PORT"
+kill $SRV 2>/dev/null; wait $SRV 2>/dev/null

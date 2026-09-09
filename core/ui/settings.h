@@ -26,6 +26,8 @@ typedef enum {
     SET_VIDEO_VSYNC,         /* BOOL desktop only: present on the vertical blank instead of pacing by hand.
                               * OFF is the machine's own 60 Hz (see sdl/main.c); ON hands the pacing to the
                               * display, which costs frames on a host whose refresh is not 60. */
+    SET_VIDEO_PLACE,         /* ENUM where the picture sits on a screen wider than 4:3: centre, left, right */
+    SET_VIDEO_PANEL,         /* ENUM the side panel in the space that leaves: off, or the registers (sdl/panel.c) */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
@@ -87,6 +89,8 @@ enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200
 enum { SCAN_OFF, SCAN_LIGHT, SCAN_MEDIUM, SCAN_HEAVY, SCAN_COUNT };
 /* scaling, in the ENUM's order */
 enum { SMOOTH_SHARP, SMOOTH_SOFT, SMOOTH_SHARPFIT, SMOOTH_COUNT };
+enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
+enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
 /* the menu keys, in the ENUM's order */

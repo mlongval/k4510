@@ -1735,3 +1735,11 @@ the stick (or a window on a desktop) is a Tektronix 4010 telnet
 terminal, for a PiDP-11's DZ11 lines. A paragraph where the stick's
 ttys are explained, and Tek40xx (Ian Schofield, GPL-3) in the credits
 you keep; I added it to CREDITS.md.
+
+**2026-09-09 — Placement + Side panel (Video menu), and K4510_WINDOW.**
+Two new rows: Placement centre/left/right; Side panel off/registers (PC,
+registers, the next eight instructions, VICKY, the bank registers, audio,
+fps). A screenshot for the book: `K4510_WINDOW=1920x1080` with
+`video.placement = left` and `video.panel = registers`, then
+`K4510_GLASS=file.ppm:240`. Appendix A does not change; this is the
+emulator's, not the machine's.

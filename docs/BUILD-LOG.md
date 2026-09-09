@@ -6394,3 +6394,12 @@ is when you press them) the request was dropped. It is now kept for ten
 frames and used at the next cell. And **G** toggles the guards: they
 stand where they are and cannot catch, the status line says NO GUARDS,
 for learning a level or testing one.
+
+**LODE, once more.** Level 2 could not be finished: its exit ladder
+stands over empty air at the right edge, and `can_step` only let a man
+go up when he was already ON a ladder — a ladder could not be entered
+from its foot. Now up is allowed onto a ladder above as well (which is
+how the 1983 game plays too). And the pace: **-** and **+** set the
+player's moves per three frames (1, 2 or 3; the top-right digit shows
+it), the default is now one move in two frames, and the guards keep to
+half of whatever he does.

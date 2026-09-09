@@ -13,7 +13,7 @@
  * chase, fall into dug holes, climb out again; a hole that closes over
  * anyone is the end of them.  Stone does not dig.
  *
- *   arrows  run / climb while held; Z/X dig left/right; G guards on/off
+ *   arrows  run / climb while held; Z/X dig left/right; G guards on/off; - + pace
  *   space   stop            Z / X   dig left / right
  *   Esc     back to the shell
  */
@@ -345,7 +345,7 @@ static uint8_t can_step(actor_t *a, int8_t dx, int8_t dy)
     uint8_t here = at(cx, cy), there = at(nx, ny);
     if (nx < 0 || nx >= GW || ny < 0 || ny >= GH) return 0;
     if (!is_open(there)) return 0;
-    if (dy < 0) return climbable(here);                  /* up needs a ladder here */
+    if (dy < 0) return climbable(here) || climbable(there);   /* up: on a ladder, or into one from its foot (level 2's exit stands over air -- Doc, 2026-09-09) */
     if (dy > 0) {                                        /* down: ladder, or step off into air */
         if (guard_in(cx, (int8_t)(cy + 1))) return 0;
         return climbable(there) || climbable(here) || here == T_ROPE || !solid(there);
@@ -421,6 +421,7 @@ static void tick_holes(void)
 
 /* ---- life and death ----------------------------------------------------- */
 static uint8_t noguards; static int8_t dig_req; static uint8_t dig_ttl;
+static uint8_t pace = 2, ptick;   /* the player moves on pace frames in every 3 (1..3; - and + change it); ptick counts his moves for the guards */
 static void status_line(void);
 static void kill(actor_t *a)
 {
@@ -481,6 +482,7 @@ static void status_line(void)
     text8_print(TEXTMAP, 40, 22, 0, "LEVEL");
     far_poke(TEXTMAP + 28, (uint8_t)('1' + level));
     text8_print(TEXTMAP, 40, 31, 0, noguards ? "NO GUARDS" : goldleft ? "         " : "GO UP!   ");
+    far_poke(TEXTMAP + 38, (uint8_t)'0' + pace);      /* the pace, top right: 1 slow, 2, 3 full */
 }
 static void centre(uint8_t row, const char *s)
 {
@@ -552,12 +554,12 @@ void main(void)
     tile_layer();
     init_tables(); write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
     REG(V_CTRL) = 1 | 2 | 4;                             /* 320 x 240 */
-    if (pause_msg("LODE -- COLLECT THE GOLD", "ARROWS RUN, Z/X DIG, G GUARDS OFF")) running = 0;
+    if (pause_msg("LODE -- ARROWS RUN, Z/X DIG", "G GUARDS OFF, - + SLOWER FASTER")) running = 0;
 
     while (running) {
         uint32_t back = cur ? SPRTAB_A : SPRTAB_B;
         actor_t *p = &men[0];
-        int8_t pcx, pcy;
+        int8_t pcx, pcy; uint8_t moving;
         /* Steering is the keys HELD ($D104), not the keys pressed: the man
          * runs while an arrow is down and stops when it is let go, the way
          * the original played.  Until 2026-09-05 this read the key queue,
@@ -590,8 +592,15 @@ void main(void)
         /* G: the guards off, for learning a level (or testing it).  They stand
          * where they are and cannot catch; the status line says so. */
         case 'g': case 'G': noguards = !noguards; status_line(); break;
+        /* - and +: slower and faster.  Two moves in three frames was still
+         * "running too fast" (Doc); the default is now one in two and it
+         * can go to one in three, or all the way up. */
+        case '-': case '_': if (pace > 1) pace--; status_line(); break;
+        case '+': case '=': if (pace < 3) pace++; status_line(); break;
         }
-        tick_actor(p);
+        { static const uint8_t on[4][3] = { {0,0,0}, {1,0,0}, {1,0,1}, {1,1,1} };
+          moving = on[pace][frame % 3]; }
+        if (moving) { tick_actor(p); ptick++; }
         if (dig_req && !(p->x & 15) && !(p->y & 15)) { dig(dig_req); dig_req = 0; }
         else if (dig_req && !--dig_ttl) dig_req = 0;
         pcx = (int8_t)((p->x + 8) >> 4); pcy = (int8_t)((p->y + 8) >> 4);
@@ -617,7 +626,7 @@ void main(void)
             actor_t *g = &men[i];
             if (!g->alive) continue;
             guard_brain(g);
-            if (!g->trapped && (frame & 1)) tick_actor(g);   /* guards at half pace */
+            if (!g->trapped && moving && (ptick & 1)) tick_actor(g);   /* guards at half the player's pace, whatever it is */
             if (g->trapped) g->fr = F_CLIMB1;
             if (!g->trapped && g->alive == 1 && p->alive == 1) {
                 int16_t ax = g->x - p->x, ay = g->y - p->y;

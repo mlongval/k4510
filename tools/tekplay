@@ -1,14 +1,16 @@
 #!/bin/sh
-# tekplay FILE [FILE...]  --  show Tektronix plot files on the Tek40xx terminal
+# tekplay [NAME|FILE...]  --  show Tektronix plot files on the Tek40xx terminal
+# (no argument: every shipped plot in turn)
 # without a PiDP-11: a tiny server on 127.0.0.1 sends each file (HOME on the
 # terminal clears the page between them, END quits), and `tek` dials it.
 # A bare name (k4510, gnu1...) is one of the plots shipped in linux/tek40xx/plt/;
 # a path is a file of your own.  From the K4510 prompt:  !tekplay k4510
 PLT=$(cd "$(dirname "$(readlink -f "$0")")/../linux/tek40xx/plt" 2>/dev/null && pwd)
+# No argument: the whole shipped set, the test page first, a fresh page each.
 if [ $# -lt 1 ]; then
-    echo "usage: tekplay NAME|FILE.plt [MORE...]   (HOME clears, END quits)" >&2
-    [ -n "$PLT" ] && echo "shipped: $(ls "$PLT" | sed 's/\.plt$//' | tr '\n' ' ')" >&2
-    exit 2
+    [ -n "$PLT" ] || { echo "tekplay: no shipped plots found beside this script; give a file" >&2; exit 2; }
+    set -- k4510 $(ls "$PLT" | sed 's/\.plt$//' | grep -v '^k4510$')
+    echo "tekplay: $* -- HOME clears the page, END quits" >&2
 fi
 set -- $(for f in "$@"; do
     if [ -r "$f" ]; then echo "$f"

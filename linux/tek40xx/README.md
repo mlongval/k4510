@@ -21,11 +21,12 @@ story.
 
 ## Trying it without a PiDP-11
 
-    tekplay k4510 gnu1          # the shipped plots by name; a local server feeds them; HOME clears, END quits
+    tekplay                     # every shipped plot in turn; HOME clears, END quits
+    tekplay k4510 gnu1          # or the shipped plots by name
     tekplay ~/snoopy.plt        # or any file
 
 `tools/tekplay`, so it is on PATH wherever the machine's tools are: at
-the K4510 prompt on a desktop, `!tekplay k4510` opens the Tektronix in
+the K4510 prompt on a desktop, `!tekplay` opens the Tektronix in
 a window beside the machine (the prompt waits until END).  On the
 stick the emulator owns the screen, so run it from tty2 instead.  A
 plain desktop checkout needs the terminal built once:

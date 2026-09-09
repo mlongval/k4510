@@ -35,10 +35,13 @@ plain desktop checkout needs the terminal built once, no root needed:
 `sh linux/tek40xx/build.sh` puts it in `~/.local/bin` (needs gcc, git,
 patch and the SDL2 headers).
 
-Two patches go on at build time: `fit-the-panel.patch` (full screen,
-the picture fitted) and `special-point-plot.patch` (the 4014's `ESC FS`
-mode with an intensity byte per dot -- the grey-scale cassette pictures
-printed as text without it).
+One patch goes on at build time, `k4510.patch`: full screen with the
+page fitted (`TEK40XX_FULLSCREEN`), the 4014's `ESC FS` special point
+plot mode with an intensity byte per dot (the grey-scale cassette
+pictures printed as text without it), and placement -- with
+`K4510_PLACEMENT=left|centre|right` in the environment, which the
+emulator exports for its host shell from the F7 Placement setting, the
+page sits where the machine's picture sits.
 
 `plt/` holds Tek40xx's four gnuplot examples (GPL-3, with the program)
 as the scripts they are, `gnu1.plt` to `gnu4.plt`, each with its

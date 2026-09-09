@@ -1049,6 +1049,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
            * arguing with. */
           int place = settings_get(SET_VIDEO_PLACE), panel_kind = settings_get(SET_VIDEO_PANEL);
           if (panel_kind != PANEL_OFF && place == PLACE_CENTRE) place = PLACE_LEFT;
+          /* for the host shell's children: tek40xx places its page the same
+           * way (Doc, 2026-09-09: "the tek programs should respect the
+           * placement option"), and goes full screen when the machine is */
+          { static int place_env = -1, fs_env = -1;
+            if (place != place_env) { place_env = place; setenv("K4510_PLACEMENT", place == PLACE_LEFT ? "left" : place == PLACE_RIGHT ? "right" : "centre", 1); }
+            if (fullscreen_applied != fs_env) { fs_env = fullscreen_applied; if (fullscreen_applied) setenv("TEK40XX_FULLSCREEN", "1", 1); else unsetenv("TEK40XX_FULLSCREEN"); } }
           int lw = VICKY_WIDTH * k, canvas_h = VICKY_HEIGHT * k, cow = 0, coh = 0;
           SDL_GetRendererOutputSize(ren, &cow, &coh);
           int custom = place != PLACE_CENTRE && cow > 0 && coh > 0;

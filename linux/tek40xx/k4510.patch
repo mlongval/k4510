@@ -1,0 +1,226 @@
+diff --git a/Tek40xx/tek_display.c b/Tek40xx/tek_display.c
+index 6d88acc..69d68ba 100644
+--- a/Tek40xx/tek_display.c
++++ b/Tek40xx/tek_display.c
+@@ -60,6 +60,7 @@ void tek_draw();
+ int count = 0;
+ int cx1,cy1,cx2,cy2,rx,ry,clrflag;
+ static int lox,hix,loy,hiy,*hp,sflg,pplt;  // Data pattern for graphics
++static int spp, spp_want;                  // 4014 special point plot (ESC FS): an intensity byte before each point
+ enum TekState tekstate,lststate;
+ char *p=tline;
+ extern enum vid_stat {STOPPED,WINDOW_OK,RUNNING,CLOSING,CLOSED} vid_init;
+@@ -299,6 +300,10 @@ void tek_draw()
+             }
+             break;
+         case GRAPH:
++            if (spp && spp_want && ch >= 32) {   // special point plot: this byte is the next point's intensity
++                sppz = ch; spp_want = 0;
++                break;
++            }
+             // end of sequence is lox (flg==64)
+             flg = ch & 96;      // Upper 2 bits of graph data
+             switch (flg)
+@@ -311,8 +316,11 @@ void tek_draw()
+                 cy2 = (hiy << 5) + loy;
+                 if (sflg && !pplt)
+                     NewLinesAlpha(cx1, REAL_HEIGHT - cy1 - 1, cx2, REAL_HEIGHT - cy2 - 1);
+-                if (pplt)
++                if (pplt && spp)
++                    PlotPointZ(cx2, cy2, sppz);
++                else if (pplt)
+                     PlotPoint(cx1, cy1);
++                if (spp) spp_want = 1;
+                 cx1 = cx2;
+                 cy1 = cy2;
+                 hp = &hiy;
+@@ -347,7 +355,7 @@ void tek_draw()
+                 case 31:                // US or CR leave graphic
+                 case 13:
+                     save_state(ALPHA);
+-                    pplt = 0;
++                    pplt = 0; spp = 0;
+                     save_x = cx1;
+                     save_y = cy1;
+                     break;
+@@ -385,9 +393,13 @@ void tek_draw()
+             case 48:                     // Deal with <esc>0n
+                 while (tek_get() != -1);
+                 break;
+-            case 28:                    // Special point plot mode
+-                save_state(lststate);
+-                while ((sppz = tek_get()) == -1);
++            case 28:                    // Special point plot mode (4014): ESC FS, then for each
++                                        // point an intensity character and its coordinates.
++                                        // Was: read one byte and fall back to the old state, so
++                                        // the grey-scale plots came out as text (k4510, 2026-09-09).
++                save_state(GRAPH);
++                pplt = 1; spp = 1; spp_want = 1; sflg = 0;
++                hp = &hiy;
+                 break;
+             case 12:
+                 tek_erase();
+diff --git a/Tek40xx/tek_drawline.c b/Tek40xx/tek_drawline.c
+index ed19278..a6baf3c 100644
+--- a/Tek40xx/tek_drawline.c
++++ b/Tek40xx/tek_drawline.c
+@@ -182,6 +182,33 @@ void PlotPoint(int x, int y)
+             }
+ }
+ 
++/* A point at an intensity: the 4014's special point plot character, 32..127,
++ * taken as 0..95 of full brightness (its real table is not linear, but the
++ * dithered pictures use only a few levels and read well like this). */
++void PlotPointZ(int x, int y, int z)
++{
++    int k,l,tm;
++    unsigned char *p;
++    int lev = z - 32; if (lev < 0) lev = 0; if (lev > 95) lev = 95;
++    lev = 24 + lev * 72 / 95;                 /* never invisible: 24..96 of 96 */
++
++    if (y >= REAL_HEIGHT || y < 0)
++        return;
++    x=x*1.5;
++    y=WINDOW_HEIGHT-y*1.5;
++    for (k=0; k<3; k++)
++        for (l=0; l<3; l++)
++            if (y+l < WINDOW_HEIGHT) {
++                p = pixels + (int)((y + l) * WINDOW_WIDTH + x + k) * 4;
++                p[0]=0xff;
++                tm = pxptn[k*3+l] * lev / 96 + (int)(p[1]>>2);
++                if (tm > 0xfc)
++                    tm=0xfc;
++                p[1]=tm;
++                p[2]=0xff;
++            }
++}
++
+ void DrawGIN(int x1,int y1)
+ {
+     int dx, dy;
+diff --git a/Tek40xx/tek_main.c b/Tek40xx/tek_main.c
+index ca8d902..22e04b6 100644
+--- a/Tek40xx/tek_main.c
++++ b/Tek40xx/tek_main.c
+@@ -28,6 +28,7 @@ in this Software without prior written authorization from the author.
+ 
+ 
+ #include <stdio.h>
++#include <string.h>
+ #include "tek_video.h"
+ #include <math.h>
+ #if defined (__linux__) || defined (VMS) || defined (__APPLE__)
+@@ -67,6 +68,27 @@ DWORD bcnt, brd, blft;
+ #if defined(HAVE_LIBSDL)
+ 
+ static int iwd, iht, told, tnew, tvl;
++/* K4510: full screen, the page is placed where the emulator's Placement
++   setting puts its own picture (K4510_PLACEMENT=left|centre|right, exported
++   by the emulator for its host shell), scaled to fit, aspect kept.  Without
++   the variable the logical size below centres it, as before. */
++static SDL_Rect place_rect; static int placed;
++static SDL_Renderer *place_rend; static unsigned place_w, place_h;
++static void place_compute(void)
++{
++    const char *p = getenv("K4510_PLACEMENT"); int W = 0, H = 0; double sc;
++    placed = 0;
++    if (!p || !getenv("TEK40XX_FULLSCREEN") || !place_rend) return;
++    SDL_GetRendererOutputSize(place_rend, &W, &H);
++    if (W <= 0 || H <= 0) return;
++    sc = (double)W / place_w; if ((double)H / place_h < sc) sc = (double)H / place_h;
++    place_rect.w = (int)(place_w * sc); place_rect.h = (int)(place_h * sc);
++    place_rect.y = (H - place_rect.h) / 2;
++    place_rect.x = !strcmp(p, "left") ? 0 : !strcmp(p, "right") ? W - place_rect.w : (W - place_rect.w) / 2;
++    placed = 1;
++}
++static int place_mx(int x) { return placed && place_rect.w ? (int)((x - place_rect.x) * (long)place_w / place_rect.w) : x; }
++static int place_my(int y) { return placed && place_rect.h ? (int)((y - place_rect.y) * (long)place_h / place_rect.h) : y; }
+ static unsigned int init_w = 0;
+ static unsigned int init_h = 0;
+ static int32 lcurr_x = 0;
+@@ -160,7 +182,8 @@ int main(int argc, char* argv[])
+ void UpdateWindowSurface()
+ {
+     SDL_UpdateTexture(tex, NULL, surface->pixels, surface->pitch);
+-    SDL_RenderCopy(rend, tex, NULL, NULL);
++    if (placed) SDL_RenderClear(rend);
++    SDL_RenderCopy(rend, tex, NULL, placed ? &place_rect : NULL);
+     SDL_RenderPresent(rend);
+ }
+ 
+@@ -253,6 +276,11 @@ t_stat vid_create_window(void)
+ 
+     if (mode.h == 768 && mode.w == 1024)
+         flags |= SDL_WINDOW_FULLSCREEN;
++    /* K4510: TEK40XX_FULLSCREEN takes the whole display (a KMSDRM console has
++       nothing else), and the logical size below scales the 1536x1170 page to
++       whatever the panel is, aspect kept, mouse mapped. */
++    if (getenv("TEK40XX_FULLSCREEN"))
++        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+ 
+ 
+     window = SDL_CreateWindow(
+@@ -293,6 +321,9 @@ t_stat vid_create_window(void)
+     rend = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+     if (!rend)
+         printf("%s\r\n", SDL_GetError());
++    place_rend = rend; place_w = init_w; place_h = init_h; place_compute();
++    if (rend && !placed)
++        SDL_RenderSetLogicalSize(rend, init_w, init_h);
+     tex = SDL_CreateTextureFromSurface(rend, surface);
+     if (!tex)
+         printf("%s\r\n", SDL_GetError());
+@@ -609,8 +640,8 @@ static int MLoop()
+     case RUNNING:               // No action. Poll tek 4010 interface.
+         if (dflag) {
+             SDL_UpdateTexture(tex, NULL, surface->pixels, surface->pitch);
+-            //SDL_RenderClear(rend);
+-            SDL_RenderCopy(rend, tex, NULL, NULL);
++            if (placed) SDL_RenderClear(rend);
++            SDL_RenderCopy(rend, tex, NULL, placed ? &place_rect : NULL);
+             SDL_RenderPresent(rend);
+             dflag = 0;
+         }
+@@ -642,15 +673,15 @@ static int MLoop()
+         case SDL_QUIT:
+             return -1;
+         case SDL_MOUSEMOTION:
+-            xmev->x_pos = event.motion.x - iwd;
+-            xmev->y_pos = event.motion.y - iht;
++            xmev->x_pos = place_mx(event.motion.x) - iwd;
++            xmev->y_pos = place_my(event.motion.y) - iht;
+             break;
+         case SDL_MOUSEBUTTONDOWN:
+             xmev->b1_state = (event.button.button == SDL_BUTTON_LEFT);
+             xmev->b2_state = (event.button.button == SDL_BUTTON_RIGHT);
+             xmev->b3_state = (event.button.button == SDL_BUTTON_MIDDLE);
+-            xmev->x_pos = event.button.x - iwd;
+-            xmev->y_pos = event.button.y - iht;
++            xmev->x_pos = place_mx(event.button.x) - iwd;
++            xmev->y_pos = place_my(event.button.y) - iht;
+             curflag++;
+             GINon++;
+             break;
+@@ -658,8 +689,8 @@ static int MLoop()
+             if (event.button.button == SDL_BUTTON_LEFT) xmev->b1_state = 0;
+             if (event.button.button == SDL_BUTTON_RIGHT) xmev->b2_state = 0;
+             if (event.button.button == SDL_BUTTON_MIDDLE) xmev->b3_state = 0;
+-            xmev->x_pos = event.button.x - iwd;
+-            xmev->y_pos = event.button.y - iht;
++            xmev->x_pos = place_mx(event.button.x) - iwd;
++            xmev->y_pos = place_my(event.button.y) - iht;
+             save_state(ALPHA);
+             GINon = 0;
+             break;
+diff --git a/Tek40xx/tek_video.h b/Tek40xx/tek_video.h
+index 6aa4ad1..4ed59b3 100644
+--- a/Tek40xx/tek_video.h
++++ b/Tek40xx/tek_video.h
+@@ -97,6 +97,7 @@ t_stat vid_unlock_cursor(void);
+ void setlinetype (enum LineType ltype);
+ void DrawGIN(int x1,int y1);
+ void PlotPoint(int x, int y);
++void PlotPointZ(int x, int y, int z);
+ void NewLinesAlpha(int x1,int y1,int x2,int y2);
+ void tek_erase();
+ int telnet(char *hostname, int port);

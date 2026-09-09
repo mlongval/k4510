@@ -6539,3 +6539,14 @@ handful of levels and read well). Verified under Xvfb: Mickey and "Open
 the pod bay doors" draw. These files are 200-1000 KB, half an hour at
 9600 baud, so `tekplay` takes `TEKPLAY_BAUD=115200` (or higher) for
 them; the pace default stays 9600, the terminal's own.
+
+**The Tektronix respects Placement (Doc).** The emulator exports
+`K4510_PLACEMENT=left|centre|right` (the effective placement: left when
+the panel is on) and `TEK40XX_FULLSCREEN` while it is full screen, for
+the host shell's children; Tek40xx, in our patch, puts its page where
+the machine's picture sits, scaled to fit, mouse mapped, and only then
+falls back to SDL's centred logical size. The two Tek40xx patches
+became one, `linux/tek40xx/k4510.patch` (full screen, the special point
+plot mode, placement), because the third change touched the first's
+hunk. Verified under Xvfb at 1080p: Snoopy at the left edge, then the
+right.

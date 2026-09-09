@@ -6386,3 +6386,11 @@ it needed a held key mid-cell, which the test harness cannot do.
 Also: `linux/tek40xx/build.sh` installs into `~/.local/bin` when not
 root, so a desktop checkout gets the Tektronix with no sudo, and
 `tekplay` looks there and says how to build it when it is missing.
+
+**LODE, later the same day.** Doc: "z and x DO NOT dig holes" and "give
+me a way to turn off the bad guys". Z and X did dig, but only when
+pressed while he stood exactly on a cell; pressed while running (which
+is when you press them) the request was dropped. It is now kept for ten
+frames and used at the next cell. And **G** toggles the guards: they
+stand where they are and cannot catch, the status line says NO GUARDS,
+for learning a level or testing one.

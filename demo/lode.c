@@ -13,7 +13,7 @@
  * chase, fall into dug holes, climb out again; a hole that closes over
  * anyone is the end of them.  Stone does not dig.
  *
- *   arrows  run / climb (the machine way: he keeps going until told)
+ *   arrows  run / climb while held; Z/X dig left/right; G guards on/off
  *   space   stop            Z / X   dig left / right
  *   Esc     back to the shell
  */
@@ -420,6 +420,7 @@ static void tick_holes(void)
 }
 
 /* ---- life and death ----------------------------------------------------- */
+static uint8_t noguards; static int8_t dig_req; static uint8_t dig_ttl;
 static void status_line(void);
 static void kill(actor_t *a)
 {
@@ -479,7 +480,7 @@ static void status_line(void)
     far_poke(TEXTMAP + 18, (uint8_t)('0' + lives));
     text8_print(TEXTMAP, 40, 22, 0, "LEVEL");
     far_poke(TEXTMAP + 28, (uint8_t)('1' + level));
-    text8_print(TEXTMAP, 40, 31, 0, goldleft ? "         " : "GO UP!   ");
+    text8_print(TEXTMAP, 40, 31, 0, noguards ? "NO GUARDS" : goldleft ? "         " : "GO UP!   ");
 }
 static void centre(uint8_t row, const char *s)
 {
@@ -551,7 +552,7 @@ void main(void)
     tile_layer();
     init_tables(); write_table(SPRTAB_A); w32(V_SPRTAB, SPRTAB_A); REG(V_SPRCTL) = 1;
     REG(V_CTRL) = 1 | 2 | 4;                             /* 320 x 240 */
-    if (pause_msg("LODE -- COLLECT THE GOLD", "ARROWS RUN, Z/X DIG  ANY KEY")) running = 0;
+    if (pause_msg("LODE -- COLLECT THE GOLD", "ARROWS RUN, Z/X DIG, G GUARDS OFF")) running = 0;
 
     while (running) {
         uint32_t back = cur ? SPRTAB_A : SPRTAB_B;
@@ -580,10 +581,19 @@ void main(void)
         k = key_get();
         switch (k) {
         case 0x1B: running = 0; break;
-        case 'z': case 'Z': dig(-1); break;
-        case 'x': case 'X': dig(1); break;
+        /* Z and X are remembered until he stands on a cell: pressed while
+         * running they were simply dropped (dig() refuses mid-cell), which
+         * read as "Z and X do not dig" (Doc, 2026-09-09).  Ten frames is
+         * long enough to reach the next cell and short enough to forget. */
+        case 'z': case 'Z': dig_req = -1; dig_ttl = 10; break;
+        case 'x': case 'X': dig_req = 1;  dig_ttl = 10; break;
+        /* G: the guards off, for learning a level (or testing it).  They stand
+         * where they are and cannot catch; the status line says so. */
+        case 'g': case 'G': noguards = !noguards; status_line(); break;
         }
         tick_actor(p);
+        if (dig_req && !(p->x & 15) && !(p->y & 15)) { dig(dig_req); dig_req = 0; }
+        else if (dig_req && !--dig_ttl) dig_req = 0;
         pcx = (int8_t)((p->x + 8) >> 4); pcy = (int8_t)((p->y + 8) >> 4);
         if (at(pcx, pcy) == T_GOLD) {
             put((uint8_t)pcx, (uint8_t)pcy, T_EMPTY);
@@ -603,7 +613,7 @@ void main(void)
             continue;
         }
         if (grace) grace--;                          /* a fresh level: a breath before the chase */
-        else for (i = 1; i <= guards; i++) {
+        else if (!noguards) for (i = 1; i <= guards; i++) {
             actor_t *g = &men[i];
             if (!g->alive) continue;
             guard_brain(g);

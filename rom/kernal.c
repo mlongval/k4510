@@ -13,6 +13,8 @@
 #define VICKY  0xD000u
 #define KBD    0xD100u
 #define KBDST  0xD101u
+#define KEY_UP 0x80u
+#define KEY_DOWN 0x81u
 #define KEY_LEFT 0x82u                  /* the KEY_* codes readline edits with (core/io.h has the full set) */
 #define KEY_RIGHT 0x83u
 #define KEY_HOME 0x84u
@@ -376,6 +378,12 @@ uint8_t k_chrin(void)
 
 #pragma code-name (push, "SWCODE3")   /* the line editor: only ever run at a prompt, never under a program, so a bank of its own (bank 1 filled up when it learned to edit, 2026-09-08) */
 #pragma rodata-name (push, "SWRODATA3")
+#pragma data-name (push, "SWRODATA3")   /* the history lives IN the bank: the banks are RAM at $0FF00000, the ROM's
+                                         * own RAM is full, and readline is the only code that ever touches it */
+#define HIST_N 8
+#define HIST_L 96
+static char    hist[HIST_N][HIST_L] = { { 0 } };   /* initialised, so it is data and not BSS -- it lands in the bank image */
+static uint8_t hist_n = 0;                          /* lines kept; hist[hist_n - 1] is the newest */
 /* The line editor.  The cursor can be anywhere in the line: Left/Right move
  * it, Home/End jump, Backspace takes the character before it, Delete the one
  * under it, Esc clears the line, Enter takes it.  Typed characters go in at
@@ -396,14 +404,32 @@ static void rl_tail(const char *buf, uint8_t p, uint8_t n, uint8_t pad)   /* rep
     for (i = 0; i < pad; i++) k_chrout(' ');
     for (i = (uint8_t)(n - p + pad); i; i--) rl_left();
 }
+static void rl_show(char *buf, uint8_t *n, uint8_t *p, const char *src)   /* replace the line on screen and in buf */
+{
+    uint8_t i, old = *n;
+    while (*p) { (*p)--; rl_left(); }
+    for (i = 0; src[i]; i++) buf[i] = src[i];
+    *n = i;
+    for (i = 0; i < *n; i++) k_chrout((uint8_t)buf[i]);
+    for (i = *n; i < old; i++) k_chrout(' ');
+    for (i = *n; i < old; i++) rl_left();
+    *p = *n;
+}
 static uint8_t readline(char *buf, uint8_t max)
 {
-    uint8_t n = 0, p = 0, k, i, key;
+    uint8_t n = 0, p = 0, k, i, key, hv = hist_n;      /* hv: the history entry shown; hist_n = none, the line being typed */
     for (;;) {
         draw_cursor(1);
         k = k_chrin();
         key = (uint8_t)(k >= 0x80 && (REG(KBDST) & 0x40));   /* a KEY_* code, not a character that shares its byte */
-        if (k == 13) { draw_cursor(0); for (i = p; i < n; i++) k_chrout((uint8_t)buf[i]); buf[n] = 0; newline(); return n; }
+        if (k == 13) {
+            draw_cursor(0); for (i = p; i < n; i++) k_chrout((uint8_t)buf[i]); buf[n] = 0; newline();
+            if (n && (!hist_n || strcmp(hist[hist_n - 1], buf))) {   /* remember it, unless it repeats the last */
+                if (hist_n == HIST_N) { memmove(hist[0], hist[1], (HIST_N - 1) * HIST_L); hist_n--; }
+                strcpy(hist[hist_n++], buf);
+            }
+            return n;
+        }
         if (k == 8) {                                                   /* backspace: the character before the cursor */
             if (!p) continue;
             p--; n--; rl_left();
@@ -418,7 +444,9 @@ static uint8_t readline(char *buf, uint8_t max)
             case KEY_HOME:  while (p) { p--; rl_left(); } break;
             case KEY_END:   while (p < n) { k_chrout((uint8_t)buf[p]); p++; } break;
             case KEY_DEL:   if (p < n) { n--; for (i = p; i < n; i++) buf[i] = buf[i + 1]; rl_tail(buf, p, n, 1); } break;
-            default: break;                                             /* Up, Down, Insert, the F-keys: nothing, and no glyph */
+            case KEY_UP:    if (hv) { hv--; rl_show(buf, &n, &p, hist[hv]); } break;
+            case KEY_DOWN:  if (hv < hist_n) { hv++; rl_show(buf, &n, &p, hv < hist_n ? hist[hv] : ""); } break;
+            default: break;                                             /* Insert, the F-keys: nothing, and no glyph */
             }
             continue;
         }
@@ -436,6 +464,7 @@ static uint8_t readline(char *buf, uint8_t max)
 static void readline_sw(const char *buf) { readline((char *)buf, 96); }   /* 96 = sizeof line, declared below */
 #pragma code-name (pop)
 #pragma rodata-name (pop)
+#pragma data-name (pop)
 
 /* ---- filesystem -------------------------------------------------------- */
 static uint8_t fs_cmd(uint8_t cmd) { REG(FS) = cmd; return REG(FS + 1); }

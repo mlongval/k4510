@@ -6304,3 +6304,19 @@ host but the display, the sound, the pads and `/MNT/SHARE`, because
 that wall is the container's own and Doc kept it.
 
 The sample STARTUP.BAT no longer explains a Raspberry Pi keymap.
+
+## 2026-09-08 — the prompt remembers, and VI takes an é
+
+Up and Down at the prompt walk the last eight lines; Down past the
+newest is the empty line again; a line that repeats the last is not kept.
+The eight lines live **in bank 3's own RAM**: the banks are RAM at
+`$0FF00000`, the ROM's RAM is full, and readline is the only code that
+ever runs in that bank — so the history is an initialised array in
+`SWRODATA3` (initialised, to be data rather than BSS, and so part of the
+bank's image). It survives a warm RESET with the rest of the bank.
+
+VI's key reader now notes KBDST bit 6 for every key it takes from the
+ROM, so in insert mode an accented letter (`$80`+, character kind) is
+inserted and a Left (`$82`, key kind) still moves; `r` replaces with one
+too. Until now VI simply dropped anything above `$7E`. Both are legs of
+`test/keytest.sh`.

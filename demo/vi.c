@@ -464,17 +464,18 @@ static uint8_t map_look(uint8_t md, uint8_t *which)
     }
     return pre;
 }
+static uint8_t vk;                              /* KBDST bit 6 for the last key read: 1 = a KEY_* code, 0 = a character sharing its byte (an é is $82 too) */
 static uint8_t getkey(void)
 {
     uint8_t k, r, w = 0; uint8_t t0;
     for (;;) {
         if (qi < qn) return qbuf[qi++];
-        if (!pbn) { do { k = rom_getin(); } while (!k); }
+        if (!pbn) { do { k = rom_getin(); } while (!k); vk = (REG(0xD101) & 0x40) ? 1 : 0; }
         else {                                   /* waiting on the rest of a mapping */
             t0 = REG(0xD50D);
             for (;;) {
                 k = rom_getin();
-                if (k) break;
+                if (k) { vk = (REG(0xD101) & 0x40) ? 1 : 0; break; }
                 if ((uint8_t)(REG(0xD50D) - t0) > 30) { q_push(pb, pbn); pbn = 0; break; }
             }
             if (!pbn) continue;
@@ -697,6 +698,7 @@ void main(void)
             if (k == 0x1B) { mode = 0; if (cx) cx--; u_end(); }   /* the whole insertion is one undo */
             else if (k == 0x0D) { u_ins(cy + 1); split(); }
             else if (k == 0x08) { if (cx) { cx--; del_ch(); } else { if (cy) u_del(cy); join_prev(); } }
+            else if (k >= 0x80 && !vk) ins_ch(k);          /* an accented letter, not a key: KBDST bit 6 tells them apart */
             else if (k == 0x89) del_ch();
             else if (k == 0x82) { if (cx) cx--; }
             else if (k == 0x83) { if (cx < ln[0]) cx++; }
@@ -708,7 +710,7 @@ void main(void)
         if (mode == 0 && u_open && k != 0x1B) { }        /* groups close on Esc, or when the next one opens */
         if (pend == 'r') {                                 /* r: replace one character */
             pend = 0;
-            if (k >= 0x20 && k < 0x7F && cx < ln[0]) { u_begin(); u_line(cy); line_in(cy); ln[cx + 1] = k; u_end(); dirty = 1; }
+            if (((k >= 0x20 && k < 0x7F) || (k >= 0x80 && !vk)) && cx < ln[0]) { u_begin(); u_line(cy); line_in(cy); ln[cx + 1] = k; u_end(); dirty = 1; }
             cnt = 0; continue;
         }
         if (pend == 'g') { pend = 0; if (k == 'g') { if (op) { sy = cy; sxc = cx; goline(cnt ? cnt - 1 : 0); apply_op(3); op = 0; } else { goline(cnt ? cnt - 1 : 0); cx = 0; } } cnt = 0; continue; }

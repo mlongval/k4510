@@ -1725,3 +1725,7 @@ prints ", on the K4510 Linux" / ", on a desktop". `!`, PAS and CC work on
 every build now, so any sentence saying the host shell is the
 appliance's alone is wrong; the podman container's wall is unchanged.
 Chapter 07: "not an on-machine compiler" wants the PAS/CC paragraph.
+
+**2026-09-08 — history at the prompt.** Up/Down recall the last eight
+lines (bank 3's RAM). Worth a sentence where the book introduces the
+prompt's editing keys. VI takes accented letters in insert mode now.

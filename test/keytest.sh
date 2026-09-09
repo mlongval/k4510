@@ -64,4 +64,24 @@ A=$(printf 'a%.0s' $(seq 1 76))
 out=$(run "ECHO ${A}bcd${L}${L}${L}Z
 ~~")
 text | grep -q "^${A}Zbcd\$" || fail "editing across the wrap"
-echo "keytest: OK (insert at the cursor, Home/End, Delete, Backspace, Esc, Up/Down silent and glyph-free, é is a character, editing across the wrap)"
+
+# history: Up recalls the previous lines, Down walks back, past the newest is
+# the empty line again.  Kept in bank 3's RAM (rom/kernal.c readline).
+out=$(run "ECHO ALPHA
+~ECHO BETA
+~${U}${U}$(printf '\r')
+~${U}${N}${N}$(printf '\r')
+~ECHO END
+~" 1200)
+[ "$(echo "$out" | grep -c ALPHA)" -ge 4 ] || { echo "$out"; echo "keytest: FAILED: Up Up did not recall ECHO ALPHA"; exit 1; }
+echo "$out" | grep -q '^/HOME\] *$' || { echo "$out"; echo "keytest: FAILED: Down past the newest line did not clear the line"; exit 1; }
+echo "$out" | grep -q '?' && { echo "$out"; echo "keytest: FAILED: a recalled or cleared line ran as an unknown command"; exit 1; }
+# VI: an accented letter inserts, a Left (the same byte, KEY kind) moves
+rm -f fs/HOME/VITEST.TXT
+out=$(run "VI VITEST.TXT
+~~ix${EACUTE}y${L}$(printf '\033'):wq$(printf '\r')~~ECHO BACK
+~" 900)
+echo "$out" | grep -q BACK || { echo "$out"; rm -f fs/HOME/VITEST.TXT; echo "keytest: FAILED: VI did not hand the shell back"; exit 1; }
+[ "$(od -An -c fs/HOME/VITEST.TXT | tr -d ' \n')" = 'x202y\n' ] || { od -c fs/HOME/VITEST.TXT; rm -f fs/HOME/VITEST.TXT; echo "keytest: FAILED: VI did not insert the accented letter (or took the Left as one)"; exit 1; }
+rm -f fs/HOME/VITEST.TXT
+echo "keytest: OK (history Up/Down, VI takes an accented letter, insert at the cursor, Home/End, Delete, Backspace, Esc, Up/Down silent and glyph-free, é is a character, editing across the wrap)"

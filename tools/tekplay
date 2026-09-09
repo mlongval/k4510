@@ -3,20 +3,36 @@
 # (no argument: every shipped plot in turn)
 # without a PiDP-11: a tiny server on 127.0.0.1 sends each file (HOME on the
 # terminal clears the page between them, END quits), and `tek` dials it.
-# A bare name (k4510, gnu1...) is one of the plots shipped in linux/tek40xx/plt/;
-# a path is a file of your own.  From the K4510 prompt:  !tekplay k4510
+# A bare name (k4510, gnu1...) is one of the plots shipped in linux/tek40xx/plt/
+# as NAME.tek -- a Tektronix byte stream; a path is a file of your own.  A
+# .plt file is a GNUPLOT SCRIPT, not a stream (the four gnu*.plt shipped are
+# gnuplot's own tek40xx demos, and Doc watched them come out as text,
+# 2026-09-09): it is rendered through gnuplot if there is one, else refused
+# -- the shipped ones have their rendered .tek beside them.
+# From the K4510 prompt:  !tekplay        or   !tekplay gnu2
 PLT=$(cd "$(dirname "$(readlink -f "$0")")/../linux/tek40xx/plt" 2>/dev/null && pwd)
 # No argument: the whole shipped set, the test page first, a fresh page each.
 if [ $# -lt 1 ]; then
     [ -n "$PLT" ] || { echo "tekplay: no shipped plots found beside this script; give a file" >&2; exit 2; }
-    set -- k4510 $(ls "$PLT" | sed 's/\.plt$//' | grep -v '^k4510$')
+    set -- k4510 $(ls "$PLT" | sed -n 's/\.tek$//p' | grep -v '^k4510$')
     echo "tekplay: $* -- HOME clears the page, END quits" >&2
 fi
+TMP=$(mktemp -d "${TMPDIR:-/tmp}/tekplay.XXXXXX") || exit 1
+trap 'rm -rf "$TMP"' EXIT
 set -- $(for f in "$@"; do
-    if [ -r "$f" ]; then echo "$f"
-    elif [ -n "$PLT" ] && [ -r "$PLT/$f.plt" ]; then echo "$PLT/$f.plt"
-    elif [ -n "$PLT" ] && [ -r "$PLT/$f" ]; then echo "$PLT/$f"
+    if [ -r "$f" ]; then :
+    elif [ -n "$PLT" ] && [ -r "$PLT/$f.tek" ]; then f="$PLT/$f.tek"
+    elif [ -n "$PLT" ] && [ -r "$PLT/$f" ]; then f="$PLT/$f"
     else echo "tekplay: $f: no such file or shipped plot" >&2; exit 1; fi
+    # a stream has GS or ESC bytes in it; a gnuplot script is plain text
+    # (rricharz's cassette plots are streams though they are named .plt)
+    if LC_ALL=C tr -d -c '\033\035' < "$f" | head -c 1 | grep -q .; then echo "$f"
+    elif command -v gnuplot >/dev/null 2>&1; then          # render the script to a stream first
+        o="$TMP/$(basename "$f").tek"
+        (echo "set terminal tek40xx"; cat "$f") | gnuplot > "$o" 2>"$TMP/err" || { echo "tekplay: gnuplot failed on $f:" >&2; head -3 "$TMP/err" >&2; exit 1; }
+        echo "$o"
+    elif [ -r "${f%.*}.tek" ]; then echo "${f%.*}.tek"      # its rendered twin, if shipped
+    else echo "tekplay: $f is a gnuplot script (no Tektronix bytes in it) and there is no gnuplot here to render it" >&2; exit 1; fi
 done) || exit 1
 [ $# -ge 1 ] || exit 1
 PORT=${TEKPLAY_PORT:-4010}

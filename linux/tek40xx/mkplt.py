@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write k4510.plt: a Tektronix 4010 test page made here (axes, a sine, a
+"""Write k4510.tek: a Tektronix 4010 test page made here (axes, a sine, a
 Lissajous, a box, and text in alpha mode), so the terminal can be tried
 with a file of known provenance.  The 4010's byte protocol:
   GS ($1D) enters graph mode; a point is up to four bytes -- high Y, low Y,
@@ -27,5 +27,5 @@ poly([(80, 660), (380, 660), (380, 740), (80, 740), (80, 660)])
 text(100, 690, "K4510 -- TEKTRONIX 4010 TEST PAGE")
 text(100, 20, "made by linux/tek40xx/mkplt.py; HOME clears, END quits")
 out.append(0x1F)
-open(sys.argv[1] if len(sys.argv) > 1 else "k4510.plt", "wb").write(out)
+open(sys.argv[1] if len(sys.argv) > 1 else "k4510.tek", "wb").write(out)
 print(len(out), "bytes")

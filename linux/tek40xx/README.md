@@ -34,8 +34,13 @@ plain desktop checkout needs the terminal built once, no root needed:
 patch and the SDL2 headers).
 
 `plt/` holds Tek40xx's four gnuplot examples (GPL-3, with the program)
-and `k4510.plt`, a test page made by `mkplt.py` (axes, a sine, a
-Lissajous, text). The classic cassette-tape plots (snoopy, the US map,
+as the scripts they are, `gnu1.plt` to `gnu4.plt`, each with its
+rendered Tektronix stream beside it, `gnuN.tek` (made once with
+`gnuplot`; a `.plt` is a gnuplot SCRIPT and drawn on the terminal
+raw it is only text), and `k4510.tek`, a test page made by `mkplt.py`
+(axes, a sine, a Lissajous, text).  `tekplay` tells the two apart by
+their bytes, so a script of your own is rendered live where gnuplot is
+installed and refused where it is not. The classic cassette-tape plots (snoopy, the US map,
 the wizard...) live in rricharz/Tek4010's `pltfiles/`, marked "for your
 personal use only, not part of the GNU public license", so they are not
 here; for your own use:

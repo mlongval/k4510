@@ -6499,3 +6499,18 @@ at 2x is 16x32, the width of the first attempt and the height of the
 second, and it reads as a proper terminal face. `hex2chargen.py` takes
 a third argument, 16, for it; the panel falls back to the 8x8 doubled
 if the file is missing. Fifty rows at 1600, all the sections fit.
+
+**tekplay drew one plot and four pages of text (Doc, on hdieu).** The
+four `gnu*.plt` files I took from Tek40xx are gnuplot SCRIPTS, `set
+terminal tek40xx ... plot butterfly(t)`, not the terminal's byte
+stream; only my own test page was a stream, so only it drew. Rendered
+once through gnuplot (in a throwaway Debian container, no host has
+gnuplot) and shipped beside the scripts as `gnuN.tek`; the test page is
+`k4510.tek`. `tekplay` now tells a stream from a script by its bytes
+(GS or ESC present), not by its name, because rricharz's cassette plots
+are streams called `.plt`: a stream plays, a script is rendered live if
+gnuplot is installed, falls back to its shipped `.tek` twin, else is
+refused with a reason. Verified under Xvfb: the surface and the
+butterfly draw. gnuplot is not on the stick or in the container; add
+`gnuplot-nox` to `linux/packages.list` if plotting from the K4510 Linux
+to the terminal is wanted.

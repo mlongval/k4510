@@ -36,9 +36,10 @@ set -- $(for f in "$@"; do
 done) || exit 1
 [ $# -ge 1 ] || exit 1
 PORT=${TEKPLAY_PORT:-4010}
-python3 - "$PORT" "$@" <<'PY' &
+BAUD=${TEKPLAY_BAUD:-9600}                    # the pace; TEKPLAY_BAUD=115200 for the big grey-scale pictures
+python3 - "$PORT" "$BAUD" "$@" <<'PY' &
 import socket, sys, time
-port = int(sys.argv[1]); files = sys.argv[2:]
+port = int(sys.argv[1]); baud = int(sys.argv[2]); files = sys.argv[3:]
 s = socket.socket(); s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1); s.bind(("127.0.0.1", port)); s.listen(1)
 c, _ = s.accept()
 try:
@@ -46,7 +47,7 @@ try:
         if i: c.sendall(b"\x1b\x0c"); time.sleep(0.3)          # ESC FF: a fresh page (a real 4010 took a second to erase)
         data = open(f, "rb").read()
         for j in range(0, len(data), 64):                      # 9600 baud, roughly: the drawing shows as it draws
-            c.sendall(data[j:j + 64]); time.sleep(64 * 10 / 9600)
+            c.sendall(data[j:j + 64]); time.sleep(64 * 10 / baud)
         time.sleep(2)
     while c.recv(256): pass                                    # then hold the line until END on the terminal
 except (BrokenPipeError, ConnectionResetError): pass

@@ -6523,3 +6523,19 @@ from the folder's INDEX.txt, back to the list after END. Writing it
 showed the byte sniff was too narrow: the point-plot pictures (Spock,
 the Mona Lisa, the rocket) contain only FS and US, never GS or ESC, so
 both tekplay and tekmenu accept all four now.
+
+**"Many of the plots are broken and just show text -- Mickey for
+example."** The grey-scale pictures (Mickey, the pod bay doors, Spock's
+photo, the Mona Lisa, Einstein) are in the 4014's SPECIAL point plot
+mode, `ESC FS`, where every dot is preceded by an intensity character.
+Tek40xx's parser read one byte after `ESC FS` and fell back to the state
+it came from, alpha, so the whole picture printed as letters. Patched
+in our build (`linux/tek40xx/special-point-plot.patch`, applied by
+`build.sh` after the panel patch): `ESC FS` enters point plot with an
+intensity byte expected before each coordinate group, and `PlotPointZ`
+draws the dot at that brightness (32..127 taken as a linear 25..100%;
+the real 4014 table is not linear, but the dithered pictures use a
+handful of levels and read well). Verified under Xvfb: Mickey and "Open
+the pod bay doors" draw. These files are 200-1000 KB, half an hour at
+9600 baud, so `tekplay` takes `TEKPLAY_BAUD=115200` (or higher) for
+them; the pace default stays 9600, the terminal's own.

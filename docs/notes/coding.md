@@ -1756,3 +1756,16 @@ panel screenshot: the layout changed entirely.
 Later that day: the panel's face is unscii-16 at 2x now, and the
 picture keeps its full height; the panel takes the strip that is left.
 Screenshot recipe unchanged, but recapture once more.
+
+**2026-09-09 — tekplay and tekmenu.** Two tools beside `tek`: `tekplay
+[NAME|FILE...]` shows Tektronix plot files on the terminal without a
+PiDP-11 (no argument: the shipped set), and `tekmenu` is a numbered
+chooser over every plot it can find — the shipped set, `~/tekplots` if
+the user has one, any directory given; pick numbers or names, `a` for
+all, `q` quits; HOME clears the page, END returns to the list. From the
+K4510 prompt they are `!tekplay` and `!tekmenu`; on the stick, tty2.
+Worth a paragraph where `tek` is described. The shipped plots are the
+four gnuplot demos (rendered) and a test page; the classic cassette
+plots (Snoopy, Spock with the Enterprise, the Wizard of Id) are
+"personal use only" and are NOT in the repo — say where to get them
+(github.com/rricharz/Tek4010, pltfiles/) rather than shipping them.

@@ -11,6 +11,7 @@ W=$(mktemp -d)
 git clone -q --depth 1 https://github.com/Isysxp/Tek40xx.git "$W/Tek40xx"
 cd "$W/Tek40xx"
 patch -p1 < "$HERE/fit-the-panel.patch"
+patch -p1 < "$HERE/special-point-plot.patch"
 cd Tek40xx && make -s tek4010
 install -m 755 tek4010 "$DEST/tek40xx"
 rm -rf "$W"

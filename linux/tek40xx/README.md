@@ -24,6 +24,8 @@ story.
     tekplay                     # every shipped plot in turn; HOME clears, END quits
     tekplay k4510 gnu1          # or the shipped plots by name
     tekplay ~/snoopy.plt        # or any file
+    tekmenu                     # a numbered chooser over every plot it finds
+    TEKPLAY_BAUD=115200 tekplay ~/tekplots/mona.plt   # the big grey-scale pictures, faster than 9600
 
 `tools/tekplay`, so it is on PATH wherever the machine's tools are: at
 the K4510 prompt on a desktop, `!tekplay` opens the Tektronix in
@@ -32,6 +34,11 @@ stick the emulator owns the screen, so run it from tty2 instead.  A
 plain desktop checkout needs the terminal built once, no root needed:
 `sh linux/tek40xx/build.sh` puts it in `~/.local/bin` (needs gcc, git,
 patch and the SDL2 headers).
+
+Two patches go on at build time: `fit-the-panel.patch` (full screen,
+the picture fitted) and `special-point-plot.patch` (the 4014's `ESC FS`
+mode with an intensity byte per dot -- the grey-scale cassette pictures
+printed as text without it).
 
 `plt/` holds Tek40xx's four gnuplot examples (GPL-3, with the program)
 as the scripts they are, `gnu1.plt` to `gnu4.plt`, each with its

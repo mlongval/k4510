@@ -30,7 +30,7 @@ void menu_slot(int n, const char *text);      /* what a save-state slot holds ("
 int  menu_draw(uint8_t *overlay);             /* 1 if it drew (the overlay changed) */
 void menu_dirty(void);                        /* redraw next time: the cell grid changed under it */
 int  menu_key_code(void);                     /* the K4510 key code that opens the menu (from the setting) */
-void menu_set_shutdown(int available);        /* K4510x only: reveal "Shut down the computer" (see menu.c) */
+void menu_set_shutdown(int available);        /* the K4510 Linux only: reveal "Shut down the computer" (see menu.c) */
 #ifdef __cplusplus
 }
 #endif

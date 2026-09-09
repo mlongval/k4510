@@ -1,7 +1,7 @@
 #!/bin/sh
 # k4510-cc NAME[.c]   compile a C program, here, into NAME.prg
 #
-# The on-machine half of "self-hosted C": at the K4510x prompt
+# The on-machine half of "self-hosted C": at the machine's prompt
 #   CC SIEVE           (a K/OS word: it runs `!k4510-cc SIEVE`)
 # compiles SIEVE.C in the current directory with cc65 and leaves SIEVE.prg
 # beside it.  The same recipe as the Makefile's fs/SYSTEM/BIN/%.prg rule: cc65 -O

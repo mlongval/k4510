@@ -48,28 +48,8 @@ ALIAS LL DIR A
 
 # ---------------------------------------------------------------------
 # THE KEYBOARD LAYOUT IS NOT SET HERE, and cannot be.  This file is the
-# guest's shell script; the USB keyboard is translated by the host below
-# it -- on the Pi by Circle, before the ROM has run at all -- so nothing
-# written in here can reach it.
-#
-# On the Pi it is cmdline.txt in the root of the SD card, which must
-# contain exactly this and NO trailing newline (Circle splits its command
-# line on spaces only, so a newline stays inside the value and the whole
-# option is silently ignored):
-#
-#     keymap=us
-#
-# The layouts Circle carries, and the only names it accepts:
-#
-#     us    United States (the default this machine ships)
-#     uk    United Kingdom
-#     de    Germany          <- what it falls back to when the option
-#                               is missing or malformed
-#     fr    France
-#     es    Spain
-#     it    Italy
-#     dv    Dvorak
-#
-# On the desktop the layout is the host operating system's own; the
-# emulator does not translate keys itself.
+# guest's shell script; the keyboard is translated by the Linux beneath
+# the machine before the ROM sees a key.  On the stick that is the
+# console keymap (sudo dpkg-reconfigure keyboard-configuration on tty2);
+# on a desktop it is the desktop's own setting.
 # ---------------------------------------------------------------------

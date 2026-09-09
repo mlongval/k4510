@@ -61,12 +61,12 @@ static const item_t machine_items[] = {
     { "",                  MI_SEP },
     { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* the ladder, 202.5 down to 10; after Reset so uitest's walk to it is unchanged */
     { "Auto clock",        MI_SETTING, SET_CPU_AUTO },    /* measured at boot (core/calib.c); choosing a clock above turns this off */
-    /* The last two rows are K4510x's and nobody else's, which is why they are
+    /* The last two rows are the K4510 Linux's and nobody else's, which is why they are
      * LAST: the menu simply stops short of them everywhere else (menu_set_
      * shutdown below), so no host that cannot honour them ever draws them and
      * uitest's walk is unchanged.  On a desktop the emulator is a program and
      * quitting it is enough; on the Pi "Power off" already halts the board.
-     * K4510x is the case in between -- a whole computer whose only job is to
+     * The K4510 Linux is the case in between -- a whole computer whose only job is to
      * be this machine -- and there, ending the session should be able to end
      * the machine, not drop you on a login prompt you did not ask for. */
     { "",                  MI_SEP },
@@ -131,7 +131,7 @@ int  menu_is_open(void) { return open_; }
 void menu_dirty(void) { dirty = 1; }
 int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
 /* The host tells us whether shutting the computer down is a thing it can do.
- * Only K4510x says yes (sdl/main.c looks for /etc/k4510x): on a desktop this
+ * Only the K4510 Linux says yes (sdl/main.c looks for /etc/k4510-linux): on a desktop this
  * would offer to power off Doc's workstation from inside a toy computer. */
 void menu_set_shutdown(int available) { machine_menu.n = available ? MACHINE_N : MACHINE_N - 2; dirty = 1; }
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }

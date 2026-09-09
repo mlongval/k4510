@@ -139,7 +139,7 @@ int main(void)
       CHECK(settings_get(SET_VIDEO_STATUSBAR) == 1, "the old video.statusbar key no longer loads");
       printf("7. a config written before the rename still turns the bands on\n"); }
 
-    /* 8. The shutdown row is K4510x's alone.  A desktop that could power the
+    /* 8. The shutdown row is the K4510 Linux's alone.  A desktop that could power the
      * host off from inside the Machine menu would be a nasty surprise, and the
      * row is kept off the end of the table rather than hidden mid-list, so
      * this also pins that legs 2's walk does not shift under it. */
@@ -156,7 +156,7 @@ int main(void)
       menu_open();
       menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_DOWN); menu_key(KEY_ENTER);   /* Machine */
       menu_key(KEY_END); menu_key(KEY_ENTER);
-      CHECK(menu_take_action() == ACT_SHUTDOWN, "K4510x asked for the shutdown row and did not get it");
+      CHECK(menu_take_action() == ACT_SHUTDOWN, "the K4510 Linux asked for the shutdown row and did not get it");
       menu_close(); menu_take_action();
       menu_set_shutdown(0);
       printf("8. \"Shut down\" stays off the menu until the host says it can\n"); }

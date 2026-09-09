@@ -79,8 +79,8 @@ core/build.h
 # dependency files the compiler writes beside objects; a stale one
 # naming a renamed header broke the Pi build once
 *.d
-# ...but not DIRECTORIES so named: K4510x's profile.d/ and *.service.d/ under
-# k4510x/config were silently left out of every commit until 2026-09-06
+# ...but not DIRECTORIES so named: the Linux build's profile.d/ and *.service.d/ under
+# linux/config were silently left out of every commit until 2026-09-06
 !*.d/
 
 # a convenience symlink into Doc's own Pictures folder, for handing
@@ -104,10 +104,10 @@ fs/MNT/*
 # /HOME is yours
 fs/HOME/*
 !fs/HOME/README.TXT
-k4510x/*.img
+linux/*.img
 # build-live.sh works in here: a debootstrapped rootfs and a squashfs,
 # about 2.5 GB. REUSE=1 rebuilds an image from it in seconds.
-k4510x/.live-work/
+linux/.live-work/
 
 # the browser build (wasm/build.sh); served from ~/containers/k4510web/site on ubuntu-s1
 wasm/dist/

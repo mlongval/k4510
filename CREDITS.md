@@ -87,7 +87,7 @@ Thank you:
   repository's `tools/gen_pieces.py`) are all his, brought over.
 - **The Stockfish developers** — [Stockfish](https://stockfishchess.org/),
   GPL-3.0, which CHESS talks to over the Tube or the network when one is
-  fitted.  Not shipped here; K4510x installs Debian's package.
+  fitted.  Not shipped here; the K4510 Linux installs Debian's package.
 
 ## The Raspberry Pi port (2026-08-25 to 2026-09-07)
 

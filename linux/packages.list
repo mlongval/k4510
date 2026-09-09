@@ -1,4 +1,4 @@
-# K4510x LIVE, the package list.  Diverges from k4510x.list.chroot in four
+# the K4510 Linux, LIVE, the package list.  Diverges from k4510.list.chroot in four
 # ways, each of them a consequence of Doc's 2026-09-03 requirements:
 #
 #   + networking      there was NONE in the original list -- no DHCP client,
@@ -17,7 +17,7 @@ libsdl2-2.0-0
 alsa-utils
 
 # --- the toolchain, installed by default (Doc, 2026-09-02) ---
-# K4510x is the hosted build with the desktop taken away and the compilers
+# K4510 is the hosted build with the desktop taken away and the compilers
 # kept.  cc65 builds the ROM; 64tass rebuilds Forth; nasm the Tube; FPC is
 # what rebuilds Mad Pascal's mp AND the MADS assembler beside it.
 build-essential

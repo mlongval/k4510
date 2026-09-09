@@ -24,7 +24,7 @@
  *
  * Environments: COMMAND (the K/OS shell, through $FF8F; RC is the shell's
  * result byte), any program name (the mailbox above), and TUBE (reserved:
- * the co-processor -- Linux on K4510x, BBC BASIC, CP/M).
+ * the co-processor -- the Linux beneath, BBC BASIC, CP/M).
  *
  * Memory: the script lives in far memory (SRC_PHYS) and is read a clause at
  * a time; variables live in a pool that is compacted through far memory

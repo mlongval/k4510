@@ -21,7 +21,7 @@
  *   $D481  W DATA    write it;  R  the last value written to that register
  *   $D482  R ID      $02 = an OPL2 is fitted */
 #define IO_SYS         0xD500u   /* $D500-$D5FF  system: clock, RTC, version  */
-#define IO_SYS_HOST    0xD522u   /* R: what is beneath the machine: 0 = a desktop, 1 = K4510x */
+#define IO_SYS_HOST    0xD522u   /* R: what is beneath the machine: 0 = a desktop, 1 = the K4510 Linux */
 #define IO_SYS_OPTS    0xD521u   /* R: what the host's menu has switched on, for the ROM */
 #define SYSOPT_CPMCOM  0x01     /*    an unknown word may run a CP/M .COM */
 #define SYSOPT_NOBOOT  0x04     /*    do NOT run /STARTUP.BAT: the way out of one that wedges the machine */
@@ -57,7 +57,6 @@ extern uint16_t io_audio_fill;           /* samples the sound made WITHOUT the m
  * engine is fitted (K4510_UCI, or stockfish where it usually lives), bit 7 a byte waits.
  * $D803 program: 1 BBC BASIC, 3 CP/M, 4 the host shell (`!`), 5 the chess engine, 2 stop.  $D804-7 the command
  * string's address for program 4 (empty = an interactive shell), $D808/9 its rows/columns. */
-extern int io_host_shell;   /* the frontend sets it (--host-shell / K4510_HOST_SHELL); only K4510x does */
 extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */

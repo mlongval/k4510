@@ -1713,3 +1713,15 @@ in BUILD-LOG). The Pascal sources are `fs/LANG/PASCAL/*.PAS` now, not
 `demo/pas/` (chapter 07 quotes `demo/pas/pmandel.pas` and `make pascal
 # demo/pas/*.pas -> fs/PRG/*.prg`). Recapture every DIR screenshot after
 pulling; the old ones show a root that no longer exists.
+
+**2026-09-08 — ONE NAME, and the host shell is everywhere (Doc's ruling).**
+There is no "K4510x": the machine is the K4510 and the Linux under it
+is implied; say "on a desktop" for the window build when it matters.
+`k4510x/` is `linux/`. Please rename `docs/K4510X.md` to `docs/LINUX.md`
+(README.md already points there — mine to edit, and I did) and strike
+the name wherever the book has it, including the cover, `CAPABILITIES.md`
+§12 and the issue template's wording if it names the build. `INFO` now
+prints ", on the K4510 Linux" / ", on a desktop". `!`, PAS and CC work on
+every build now, so any sentence saying the host shell is the
+appliance's alone is wrong; the podman container's wall is unchanged.
+Chapter 07: "not an on-machine compiler" wants the PAS/CC paragraph.

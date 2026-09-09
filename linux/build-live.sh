@@ -1,5 +1,5 @@
 #!/bin/sh
-# K4510x LIVE: build the disk image that loads ENTIRELY INTO RAM.
+# the K4510 Linux, LIVE: build the disk image that loads ENTIRELY INTO RAM.
 #
 # This is the sibling of build-image.sh, not a replacement for it.
 #
@@ -16,14 +16,14 @@
 #     escape hatch in the menu
 #   - the k4510 user has passwordless sudo (2026-09-07)
 #   - `!cmd` at the machine's prompt runs cmd in this Linux (the emulator is
-#     started --host-shell by profile.d/k4510x.sh; a bare `!` is a shell)
+#     started by profile.d/k4510.sh; a bare `!` is a shell)
 #   - telnetd bound to loopback ONLY; from inside the machine that is
 #     TELNET 127.0.0.1 23
 #   - real network access outbound, so the machine's TELNET can reach BBSes
 #   - Mad Pascal toolchain and neovim on the Linux side; PAS name and CC name
 #     at the prompt compile a .PAS / .C in the machine's directory (tools/)
 #
-#   sudo ./build-live.sh              # -> k4510x-live-<date>-amd64.img
+#   sudo ./build-live.sh              # -> k4510-live-<date>-amd64.img
 #   sudo REBUILD=1 ./build-live.sh    # the same, but keep the rootfs from last
 #                                     # time and only rebuild the machine in it
 #                                     # (two minutes; use it after a code fix)
@@ -46,7 +46,7 @@ USER_PASS=${USER_PASS:-k4510}
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
-OUT=${OUT:-$HERE/k4510x-live-$(date +%Y%m%d)-amd64.img}
+OUT=${OUT:-$HERE/k4510-live-$(date +%Y%m%d)-amd64.img}
 WORK=${WORK:-$HERE/.live-work}
 REUSE=${REUSE:-0}
 ROOT="$WORK/rootfs"
@@ -149,16 +149,16 @@ deb $MIRROR $SUITE main contrib non-free-firmware
 deb $MIRROR $SUITE-updates main contrib non-free-firmware
 deb http://security.debian.org/debian-security $SUITE-security main contrib non-free-firmware
 EOF
-echo k4510x > "$ROOT/etc/hostname"
+echo k4510 > "$ROOT/etc/hostname"
 ln -sf "/usr/share/zoneinfo/$TZ_AREA" "$ROOT/etc/localtime"
 echo "$TZ_AREA" > "$ROOT/etc/timezone"
-printf '127.0.0.1\tlocalhost\n127.0.1.1\tk4510x\n' > "$ROOT/etc/hosts"
+printf '127.0.0.1\tlocalhost\n127.0.1.1\tk4510\n' > "$ROOT/etc/hosts"
 
 # The live root is an overlay on tmpfs; there is nothing to mount by label.
 # The old fstab's LABEL= lines would hang the boot looking for partitions that
 # this image does not have.
 cat > "$ROOT/etc/fstab" <<'EOF'
-# K4510x live: the root is a tmpfs overlay over a squashfs held in RAM.
+# K4510 live: the root is a tmpfs overlay over a squashfs held in RAM.
 # Nothing to mount, and nothing on the internal drives may be mounted.
 EOF
 
@@ -170,16 +170,16 @@ cp -a "$HERE/config/includes.chroot/etc/." "$ROOT/etc/"
 # stronger than `blacklist` -- it defeats an explicit `modprobe nvme` too.
 mkdir -p "$ROOT/etc/modprobe.d"
 {
-    echo "# K4510x: the internal drives do not exist here (Doc, 2026-09-03)."
+    echo "# K4510: the internal drives do not exist here (Doc, 2026-09-03)."
     echo "# Absolute by choice: there is no boot-menu entry that reveals them."
     for m in $(echo "$NODISK" | tr ',' ' '); do
         echo "blacklist $m"
         echo "install $m /bin/false"
     done
-} > "$ROOT/etc/modprobe.d/k4510x-no-internal-disks.conf"
+} > "$ROOT/etc/modprobe.d/k4510-no-internal-disks.conf"
 
 echo "== packages =="
-PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510x-live.list.chroot" | tr '\n' ' ')
+PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510-live.list.chroot" | tr '\n' ' ')
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
@@ -237,21 +237,21 @@ echo "== shutting the computer down from the F7 menu =="
 # The marker the emulator looks for (sdl/main.c): its presence is what reveals
 # the "Shut down the computer" row, so a desktop build never offers to power
 # off Doc's workstation.
-: > "$ROOT/etc/k4510x"
+: > "$ROOT/etc/k4510-linux"
 # Two scripts, because only the second may run as root.  The emulator execs
 # the first after SDL has given the console back and the settings are written.
-cat > "$ROOT/usr/local/sbin/k4510x-poweroff" <<'EOF'
+cat > "$ROOT/usr/local/sbin/k4510-poweroff" <<'EOF'
 #!/bin/sh
 # Run by the emulator (F7 -> Shut down) as the k4510 user.  All it may do is
 # ask for the real one, which sudoers permits by name and by name only.
-exec sudo -n /usr/local/sbin/k4510x-halt
+exec sudo -n /usr/local/sbin/k4510-halt
 EOF
-cat > "$ROOT/usr/local/sbin/k4510x-halt" <<'EOF'
+cat > "$ROOT/usr/local/sbin/k4510-halt" <<'EOF'
 #!/bin/sh
 # The clean stop.  The persistence partition is the only thing on the stick
 # that is ever written, so flush it and take it read-only BEFORE halting: after
 # this returns, pulling the stick out cannot lose anything.  It is mounted
-# `sync` anyway (k4510x-persistence-sync.service), so this is belt and braces.
+# `sync` anyway (k4510-persistence-sync.service), so this is belt and braces.
 sync
 for m in /run/live/persistence/*; do
     [ -d "$m" ] || continue
@@ -260,17 +260,17 @@ done
 sync
 exec systemctl poweroff
 EOF
-chmod 755 "$ROOT/usr/local/sbin/k4510x-poweroff" "$ROOT/usr/local/sbin/k4510x-halt"
+chmod 755 "$ROOT/usr/local/sbin/k4510-poweroff" "$ROOT/usr/local/sbin/k4510-halt"
 mkdir -p "$ROOT/etc/sudoers.d"
-echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510x-halt" > "$ROOT/etc/sudoers.d/k4510x-halt"
-chmod 440 "$ROOT/etc/sudoers.d/k4510x-halt"
+echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510-halt" > "$ROOT/etc/sudoers.d/k4510-halt"
+chmod 440 "$ROOT/etc/sudoers.d/k4510-halt"
 # Passwordless sudo for the user, Doc's call 2026-09-07: the stick is a RAM-only
 # system with the internal drives locked out, and `!` already gives the shell.
 # Note what it does NOT buy: persistence keeps /home only, so `!sudo apt install`
 # here lasts until the next boot.  The distrobox flavour (distrobox.sh) is the
 # one where installs stick.
-echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" > "$ROOT/etc/sudoers.d/k4510x-user"
-chmod 440 "$ROOT/etc/sudoers.d/k4510x-user"
+echo "$USER_NAME ALL=(ALL) NOPASSWD: ALL" > "$ROOT/etc/sudoers.d/k4510-user"
+chmod 440 "$ROOT/etc/sudoers.d/k4510-user"
 
 # Doc asked whether the save partition could be "mounted and automatically
 # unmounted after write".  It cannot: an overlay's upper directory has to stay
@@ -279,9 +279,9 @@ chmod 440 "$ROOT/etc/sudoers.d/k4510x-user"
 # the flash as it happens, instead of sitting in the page cache waiting for a
 # clean unmount that an unplugged stick never gets.  On 100 MB of small files
 # the cost of this is not measurable.
-cat > "$ROOT/etc/systemd/system/k4510x-persistence-sync.service" <<'EOF'
+cat > "$ROOT/etc/systemd/system/k4510-persistence-sync.service" <<'EOF'
 [Unit]
-Description=Make the K4510x save partition write straight through
+Description=Make the K4510 save partition write straight through
 DefaultDependencies=no
 After=local-fs.target
 Before=getty@tty1.service
@@ -300,7 +300,7 @@ mkdir -p "$ROOT/home/$USER_NAME/k4510"
 git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k4510"
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 systemctl enable k4510-telnet.socket
-systemctl enable k4510x-persistence-sync.service
+systemctl enable k4510-persistence-sync.service
 adduser --disabled-password --gecos "K4510" $USER_NAME
 echo '$USER_NAME:$USER_PASS' | chpasswd
 for g in video input audio render sudo netdev plugdev; do adduser $USER_NAME \$g 2>/dev/null || true; done
@@ -379,8 +379,8 @@ parted -s "$OUT" mklabel gpt \
     mkpart live  ext4  514MiB "${LIVE_END}MiB" \
     mkpart save  ext4  "${LIVE_END}MiB" 100%
 LOOP=$(losetup --show -f -P "$OUT")
-mkfs.vfat -F32 -n K4510X-EFI "${LOOP}p2" >/dev/null
-mkfs.ext4 -q -L k4510x-live "${LOOP}p3"
+mkfs.vfat -F32 -n K4510-EFI "${LOOP}p2" >/dev/null
+mkfs.ext4 -q -L k4510-live "${LOOP}p3"
 mkfs.ext4 -q -L persistence  "${LOOP}p4"
 
 # What survives a reboot.  Custom mounts, not `/ union`: a whole-root overlay
@@ -429,8 +429,8 @@ cat > "$MNT/boot/grub/grub.cfg" <<EOF
 set default=0
 set timeout=1
 
-menuentry "K4510x -- load to RAM, internal drives locked out" {
-    search --no-floppy --set=root --label k4510x-live
+menuentry "K4510 -- load to RAM, internal drives locked out" {
+    search --no-floppy --set=root --label k4510-live
     linux  /live/vmlinuz $CMDLINE
     initrd /live/initrd.img
 }

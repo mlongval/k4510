@@ -523,9 +523,9 @@ static uint8_t  sys_reg[0x10];
 #endif
 static const char sys_version[16] = K4510_BUILD;
 /* $D522: what is beneath the machine.  The guest cannot otherwise tell a
- * desktop window from the K4510x appliance -- the ROM bytes are the same --
+ * desktop window from the K4510 Linux -- the ROM bytes are the same --
  * and BUG and INFO have to say which one an issue came from.  The frontend
- * sets it: 0 = a desktop (or a container on one), 1 = K4510x. */
+ * sets it: 0 = a desktop (or a container on one), 1 = the K4510 Linux. */
 int io_host_kind;
 /* ---- the sound sequencer ($D5E0-$D5E3) ---------------------------------
  * The BBC Micro's four queued sound channels, in K4510 silicon. Write CH
@@ -748,10 +748,9 @@ static int tube_was_alive;
 static pid_t tube_pid; static int tube_fd = -1;
 #endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
-/* The host shell (program 4, `!` at the prompt): only where the Linux beside
- * the machine is meant to be reachable -- K4510x sets io_host_shell; a plain
- * desktop never does, so `!` there says so and does nothing. */
-int io_host_shell;
+/* The host shell (program 4, `!` at the prompt) is fitted everywhere: the
+ * Linux beside the machine is the user's, on a desktop as on the appliance
+ * (Doc, 2026-09-08: "drop restrictions on host access"). */
 static uint8_t tube_cmd[4], tube_rows, tube_cols;     /* $D804-7 the command string's address, $D808/9 the window */
 /* Program 5: a UCI chess engine (Stockfish) on the pty, for CHESS.PRG.  Fitted
  * where a binary is found -- K4510_UCI names one, else the usual places -- and
@@ -1071,7 +1070,6 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     if (tube_pid) return;
     if (prog == 5 && !uci_path()) return;
     if (prog == 4) {
-        if (!io_host_shell) return;
         fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd);
         if (tube_rows) ws.ws_row = tube_rows;          /* the console window as the ROM has it, bands and margin taken out */
         if (tube_cols) ws.ws_col = tube_cols;
@@ -1139,7 +1137,7 @@ static void tube_stop(void)
     tube_w = tube_r = 0;
     tula_close();
 }
-static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | (io_host_shell ? 4 : 0) | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0); }
+static uint8_t tube_status(void) { tube_pump(); return (tube_pid ? 1 : 0) | 4 | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
 static void tube_write(uint8_t v) { if (tube_fd >= 0) { ssize_t n = write (tube_fd, &v, 1); (void) n; } }
 #else

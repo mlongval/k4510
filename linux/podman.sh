@@ -1,5 +1,5 @@
 #!/bin/sh
-# K4510x as a podman container: the third flavour, and the SANDBOXED one.
+# K4510 as a podman container: the third flavour, and the SANDBOXED one.
 #
 #   build-image.sh   a stick with a writable root
 #   build-live.sh    a stick that loads to RAM (the appliance on the T480)
@@ -16,24 +16,24 @@
 # What crosses the wall, and nothing else:
 #   the display socket (Wayland or X11), the sound socket (PipeWire/Pulse),
 #   /dev/dri (a fast renderer), /dev/input (gamepads), and ONE folder:
-#   $SHARE on the host (~/k4510x-share) is fs/MNT/SHARE inside, which is /MNT/SHARE at
+#   $SHARE on the host (~/k4510-share) is fs/MNT/SHARE inside, which is /MNT/SHARE at
 #   the machine's prompt -- COPY /MNT/SHARE/FOO.BAS /HOME/ brings a file in, and the
 #   other way sends one out.  No home, no /tmp, no /run/host.
 #
-#   k4510x/podman.sh              build the image and create the container
-#   k4510x/podman.sh run          start the machine
-#   k4510x/podman.sh shell        a shell in the container
-#   k4510x/podman.sh update       put this checkout's HEAD into the container and rebuild there
+#   linux/podman.sh              build the image and create the container
+#   linux/podman.sh run          start the machine
+#   linux/podman.sh shell        a shell in the container
+#   linux/podman.sh update       put this checkout's HEAD into the container and rebuild there
 #                                 (the kept container only: apt installs survive; the IMAGE
 #                                 is untouched -- run  podman.sh  again to rebuild it too)
-#   k4510x/podman.sh rm           delete the container (the image and the share folder stay)
-#   k4510x/podman.sh rm --all     the image too
+#   linux/podman.sh rm           delete the container (the image and the share folder stay)
+#   linux/podman.sh rm --all     the image too
 #
 # Needs podman (rootless).  Fedora: dnf install podman.  Debian/Ubuntu: apt install podman.
 set -e
-NAME=${NAME:-k4510x}
-IMAGE=${IMAGE:-localhost/k4510x:latest}
-SHARE=${SHARE:-$HOME/k4510x-share}
+NAME=${NAME:-k4510}
+IMAGE=${IMAGE:-localhost/k4510:latest}
+SHARE=${SHARE:-$HOME/k4510-share}
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/.." && pwd)
 UIDN=$(id -u)
 command -v podman >/dev/null 2>&1 || { echo "podman.sh: no podman on this host (dnf/apt install podman)"; exit 1; }
@@ -63,7 +63,7 @@ make_container() {
     mkdir -p "$SHARE"
     podman rm -f "$NAME" >/dev/null 2>&1 || true
     set -- --name "$NAME" --userns=keep-id:uid="$UIDN",gid="$(id -g)" --user "$UIDN:$(id -g)" --group-add keep-groups \
-           --security-opt label=disable --hostname k4510x --entrypoint /bin/sleep \
+           --security-opt label=disable --hostname k4510 --entrypoint /bin/sleep \
            -e HOME=/home/k4510 -e SHELL=/bin/bash \
            -v "$SHARE:/home/k4510/k4510/fs/MNT/SHARE"
     [ -n "$WL" ] && set -- "$@" -v "$WL:/run/user/$UIDN/$WLNAME"
@@ -94,7 +94,7 @@ run)
     fi
     have_display || echo "podman.sh: no display socket on this host -- the machine will have no window"
     up
-    podman exec -it $(machine_env) "$NAME" sh -c 'cd ~/k4510 && exec ./sdl/k4510 --host-shell'
+    podman exec -it $(machine_env) "$NAME" sh -c 'cd ~/k4510 && exec ./sdl/k4510'
     podman stop -t 1 "$NAME" >/dev/null 2>&1; exit 0 ;;
 shell)
     podman container exists "$NAME" 2>/dev/null || { echo "podman.sh: no container yet; run  $0  first"; exit 1; }
@@ -110,24 +110,24 @@ update)
 rm)
     podman rm -f "$NAME" 2>/dev/null || true
     [ "$2" = "--all" ] && podman rmi -f "$IMAGE" 2>/dev/null || true
-    rm -f "$HOME/.local/share/applications/k4510x-box.desktop"
+    rm -f "$HOME/.local/share/applications/k4510-box.desktop"
     echo "podman.sh: removed $NAME${2:+ and the image}; $SHARE is untouched"; exit 0 ;;
 create) ;;
 *) echo "podman.sh [create|run|shell|update|rm [--all]]"; exit 1 ;;
 esac
 
 # the stick's package list minus what only a bootable machine needs
-PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510x-live.list.chroot" \
+PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/config/package-lists/k4510-live.list.chroot" \
        | grep -v -e '^firmware-' -e '^network-manager' -e '^wpasupplicant' -e 'telnetd' -e '^iproute2' -e '^iputils' | tr '\n' ' ')
 echo "== building $IMAGE from this checkout (a few minutes the first time) =="
 podman build -q -t "$IMAGE" --build-arg UID="$UIDN" --build-arg PKGS="$PKGS" -f "$HERE/Containerfile" "$REPO"
 
 make_container
 mkdir -p "$HOME/.local/share/applications"
-cat > "$HOME/.local/share/applications/k4510x-box.desktop" <<DESK
+cat > "$HOME/.local/share/applications/k4510-box.desktop" <<DESK
 [Desktop Entry]
 Type=Application
-Name=K4510x (container)
+Name=K4510 (container)
 Comment=The K4510 with a sandboxed Debian beside it
 Exec=$HERE/podman.sh run
 Terminal=false

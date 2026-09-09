@@ -1,21 +1,5 @@
-/* HOSTINFO.RX -- ask the Linux on the other side of the Tube about itself.
- * Only K4510x has that door open; elsewhere the machine says so and stops. */
-if peek(55296) % 4 // 2 = 0 then do
-  say 'no host shell on this machine -- this one is for K4510x'
-  exit 1
-end
-address tube
-say 'the host of this machine:'
-'uname -sr'
-say '  system  ' result
-'uname -m'
-say '  hardware' result
-'nproc'
-say '  cores   ' result
-'date +%H:%M'
-say '  its time' result
-'df -h / | tail -1'
-say '  its disk' result
-address command
-say
-say 'and this side is the K4510, whose own clock says' time()
+/* HOSTINFO.RX -- ask the Linux beneath the machine about itself, through
+ * the ! host shell (ADDRESS COMMAND with a leading !). */
+say 'The Linux beneath the machine says:'
+'!uname -sr; uptime -p; df -h . | tail -1'
+if rc \= 0 then say 'that came back with RC' rc

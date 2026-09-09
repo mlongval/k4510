@@ -13,11 +13,11 @@ chip — it borrows openly and then outgrows.
 
 **One machine, two ways to run it.** The computer is the **K4510** — the
 45GS10, VICKY, SHEILA, an OPL2, and K/OS. Boot it from a USB stick on a
-spare laptop and it is a whole computer, **K4510x**: a minimal Debian
+spare laptop and it is a whole computer: a minimal Debian
 that exists only to hold the machine up, with the cross-compilers, git
-and an editor beside it (`docs/K4510X.md`, built by
-`k4510x/build-live.sh`). Or run the same program in a window — or in a
-sandboxed container (`k4510x/podman.sh`) — on a Linux desktop, which is
+and an editor beside it (`docs/LINUX.md`, built by
+`linux/build-live.sh`). Or run the same program in a window — or in a
+sandboxed container (`linux/podman.sh`) — on a Linux desktop, which is
 how it is developed and tested. Same ROM bytes, same software.
 
 A third way, bare metal on a Raspberry Pi 3B+ with no operating system
@@ -46,11 +46,11 @@ builds everything and runs the test battery. `./k4510` starts the
 machine from the repo root; `./k4510 --no-startup.bat` skips
 `/STARTUP.BAT` for that one run.
 
-**K4510x, from a USB stick:** `sudo ./k4510x/build-live.sh` makes the
+**From a USB stick:** `sudo ./linux/build-live.sh` makes the
 image (Debian, debootstrap and a few compilers; about half an hour the
 first time), write it to a stick with `dd`, boot the laptop from it.
 It loads to RAM, keeps its settings and saved programs on the stick, and
-never touches the internal drive. `docs/K4510X.md` has the details.
+never touches the internal drive. `docs/LINUX.md` has the details.
 
 ## The machine
 
@@ -176,7 +176,7 @@ never touches the internal drive. `docs/K4510X.md` has the details.
     core/        memory, I/O devices, VICKY, the OPL2 and the audio seam, MATH unit, JIM, the network, host seam
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend + POSIX host glue
-    k4510x/      the appliance: the live-image build and the container flavour
+    linux/       the Linux the machine boots on: the live-stick build and the container flavour
     rom/         system ROM (cc65) and Wozmon
     demo/        programs in C -> fs/SYSTEM/BIN and fs/APPS/NAME/*.prg  (the editors, TELNET, BUG, the games)
     retired/     programs that were part of the machine and are not any more (see its README)

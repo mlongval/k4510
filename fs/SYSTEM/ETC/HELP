@@ -74,7 +74,7 @@ system:  INFO
          names the build it happened on)
 tongues: BBC (BBC BASIC on the Tube)
          CPM [command] (CP/M 2.2 on the Z80)
-         !command / ! (the host's shell, K4510x only)
+         !command / ! (the Linux beneath the machine)
          (K: is the machine's own filesystem, so
          CP/M and K/OS can pass files both ways;
          P: is Turbo Pascal, D: is WordStar)
@@ -85,7 +85,7 @@ tongues: BBC (BBC BASIC on the Tube)
          EHBASIC
          Mad Pascal: /LANG/PASCAL, C: /LANG/C, the
          sources beside their .prg
-         PAS name / CC name (K4510x: compile
+         PAS name / CC name (compile
          name.PAS or name.C here into name.prg,
          then name runs it; tools/k4510-pas and
          k4510-cc on the Linux side)

@@ -6275,3 +6275,32 @@ current directory, so its README says CD /LANG/BBCBASIC first.
 
 Doc's own STARTUP.BAT, TUNES and chargen.bin were moved by hand here;
 on his other machines they are wherever they were.
+
+## 2026-09-08 — one name, and the host shell everywhere
+
+Doc: "drop all naming differences to go by ONLY K4510 ... the K4510 +
+Mini linux is implicit unless stated otherwise." So there is no K4510x
+any more, anywhere the code or its scripts speak: the machine is the
+K4510, it comes with its Linux, and the desktop-window emulator is the
+case that gets named when it matters ("on a desktop"). `k4510x/` is
+`linux/` — the Linux the machine boots on — with `build-live.sh`,
+`podman.sh`, the `Containerfile`, `packages.list` and the two
+`config/` files; the never-used raw-image build (`build-image.sh`, its
+hook and its package list) went with the name. Inside the Linux the
+hostname, the units, the sudoers files, the poweroff helpers, the disk
+labels, the image file name, the container and its share folder are all
+`k4510-…`; the marker the emulator looks for is `/etc/k4510-linux`. INFO
+says ", on the K4510 Linux" or ", on a desktop"; the F7 info row the
+same. `docs/K4510X.md` is the handbook's to rename (README already says
+`docs/LINUX.md`).
+
+And "drop restrictions on host access in plain emulator": the `!` host
+shell, and PAS and CC with it, are fitted on every build. The
+`--host-shell` flag, the `K4510_HOST_SHELL` variable, `io_host_shell`
+and the ROM's "no host shell on this machine" are gone; the Tube's
+status bit 2 is simply set. bangtest lost its refusal leg. The one wall
+that stays is the container's: podman.sh still shows it nothing of the
+host but the display, the sound, the pads and `/MNT/SHARE`, because
+that wall is the container's own and Doc kept it.
+
+The sample STARTUP.BAT no longer explains a Raspberry Pi keymap.

@@ -14,7 +14,7 @@
  * material and piece-square tables, the six KoboChess levels (with the
  * same names and the same "noise" that keeps the weak ones human).  Where
  * the Tube has a UCI engine fitted ($D800 bit 3: Stockfish on a desktop
- * or K4510x), that is program 5 and it plays at the KoboChess Elo for the
+ * or the K4510 Linux), that is program 5 and it plays at the KoboChess Elo for the
  * level.  Anywhere with a network (the Pi included), a UCI engine served
  * over TCP -- tools/uci-server.sh on any Linux box -- does the same
  * through the N: device; /APPS/CHESS/ENGINE.CFG names it.

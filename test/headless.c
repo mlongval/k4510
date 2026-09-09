@@ -29,7 +29,6 @@ int main(int argc, char **argv)
     uint8_t font[2048]; FILE *ff = fopen("data/font8.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) { fprintf(stderr, "font\n"); return 1; } fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) { fprintf(stderr, "rom\n"); return 1; }
     { extern void io_set_ms_source(uint32_t (*)(void)); io_set_ms_source(hl_ms); }
-    if (getenv("K4510_HOST_SHELL")) io_host_shell = 1;      /* bangtest.sh: the `!` path, gated as the frontend gates it */
     io_reset(); cpu65_reset();
     for (fr = 0; fr < maxf; fr++) {
         /* as the frontend's K4510_KEYS: $80+ is a KEY_* code, $1F makes the next byte a character */

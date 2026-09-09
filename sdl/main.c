@@ -11,7 +11,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <unistd.h>   /* access(): is this K4510x? */
+#include <unistd.h>   /* access(): is this the K4510 Linux? */
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
@@ -166,7 +166,7 @@ static void apply_font(int which)
 /* The keyboard when SDL sends no text.
  *
  * A printable character normally arrives as SDL_TEXTINPUT, already composed by
- * the host's layout.  On K4510x that never happens: the appliance draws
+ * the host's layout.  On the K4510 Linux that never happens: the appliance draws
  * straight on the screen (SDL_VIDEODRIVER=kmsdrm) and SDL's own evdev keyboard
  * gives us key codes and no text at all, so the F7 menu -- which is arrow keys
  * and Enter -- worked while nothing could be TYPED (Doc, on the T480,
@@ -287,17 +287,6 @@ int k4510_frontend_main(int argc, char **argv)
               argc--; i--;
           } }
     if (getenv("K4510_NO_STARTUP")) no_startup = 1;          /* the same thing, for a script that sets it once */
-    /* --host-shell: let `!` at the prompt run the host's shell on the Tube.
-     * K4510x turns it on (the Linux there is the user's); a plain desktop
-     * never does, and `!` there says "no host shell on this machine". */
-    { int i, j;
-      for (i = 1; i < argc; i++)
-          if (!strcmp(argv[i], "--host-shell")) {
-              io_host_shell = 1;
-              for (j = i; j < argc - 1; j++) argv[j] = argv[j + 1];
-              argc--; i--;
-          } }
-    if (getenv("K4510_HOST_SHELL")) io_host_shell = 1;
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
@@ -313,7 +302,7 @@ int k4510_frontend_main(int argc, char **argv)
     int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKY at $010000 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
-    menu_info(INFO_HOST, access("/etc/k4510x", F_OK) == 0 ? "K4510x" : "desktop, SDL2");
+    menu_info(INFO_HOST, access("/etc/k4510-linux", F_OK) == 0 ? "the K4510 Linux" : "desktop, SDL2");
 
 
     if (mem_load_rom(rom) <= 0) {
@@ -339,16 +328,16 @@ int k4510_frontend_main(int argc, char **argv)
     /* The machine has no mouse -- no pointer, nothing to click, not one byte
      * of mouse in the I/O map -- so a cursor sitting on the glass is never
      * anything but wrong.  It showed up as a white arrow parked in the top
-     * left corner on K4510x, where KMSDRM draws one because there is no
+     * left corner on the K4510 Linux, where KMSDRM draws one because there is no
      * desktop to own it.  Hidden everywhere: in a window the pointer is still
      * there for the frame and the title bar, it just stops being drawn over
      * the picture. */
     SDL_ShowCursor(SDL_DISABLE);
-    /* K4510x is a whole computer that exists to be this machine, so its menu
+    /* The K4510 Linux is a whole computer that exists to be this machine, so its menu
      * gets a row the others must not have.  The marker file is written by
-     * k4510x/build-live.sh; on any other host this call never happens and the
+     * linux/build-live.sh; on any other host this call never happens and the
      * row stays off the end of the Machine menu. */
-    if (access("/etc/k4510x", F_OK) == 0) { menu_set_shutdown(1); io_host_kind = 1; }
+    if (access("/etc/k4510-linux", F_OK) == 0) { menu_set_shutdown(1); io_host_kind = 1; }
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        VICKY_WIDTH * SCALE, VICKY_HEIGHT * SCALE, SDL_WINDOW_RESIZABLE);
     grab_win = win;
@@ -563,7 +552,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 /* The volume, without opening the menu.  A laptop's own volume
                  * keys (a ThinkPad's Fn+F1/F2/F3) arrive as these three, and
                  * Ctrl+Alt with the plus, minus and zero keys does the same
-                 * where those are taken -- on K4510x there is no desktop mixer
+                 * where those are taken -- on the K4510 Linux there is no desktop mixer
                  * behind this program, so this is the only volume there is. */
                 { int dv = 0, mute = 0;
                   if (k == SDLK_VOLUMEUP) dv = 10; else if (k == SDLK_VOLUMEDOWN) dv = -10;
@@ -1078,8 +1067,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * already written above, SDL has given the console back, and only then do
      * we ask for the power off.  The helper syncs and unmounts the persistence
      * partition before halting, which is what makes it safe to pull the stick
-     * out afterwards -- see k4510x/build-live.sh. */
-    if (shutdown_req) execl("/usr/local/sbin/k4510x-poweroff", "k4510x-poweroff", (char *) NULL);
+     * out afterwards -- see linux/build-live.sh. */
+    if (shutdown_req) execl("/usr/local/sbin/k4510-poweroff", "k4510-poweroff", (char *) NULL);
     return 0;
 }
 

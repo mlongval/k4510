@@ -969,7 +969,7 @@ static void info_version(void)
     puts_("build ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) k_chrout(REG(SYS + 0x10 + i));
     /* $D522: what is beneath the machine, so an issue says which one it came from */
-    puts_(REG(SYS + 0x22) ? ", K4510x" : ", K4510 on a desktop");
+    puts_(REG(SYS + 0x22) ? ", on the K4510 Linux" : ", on a desktop");
     newline();
 }
 
@@ -1688,7 +1688,7 @@ static void shell_line(const char *p)
     p0 = p;
     { const char *q = p; while (*q) REG(SYS + 0xF1) = *q++; REG(SYS + 0xF1) = '\n'; }   /* the shell log, for DUMP */
     if (*p == '!') { p++; skipsp(&p); cmd_bang(p); return; }   /* !ls -l  the host's shell, where there is one */
-    if (is_cmd(&p, "PAS")) { cmd_compile("k4510-pas", p); return; }   /* PAS HELLO: HELLO.PAS -> HELLO.prg, here (K4510x) */
+    if (is_cmd(&p, "PAS")) { cmd_compile("k4510-pas", p); return; }   /* PAS HELLO: HELLO.PAS -> hello.prg, here */
     if (is_cmd(&p, "CC"))  { cmd_compile("k4510-cc", p); return; }
     if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
     if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
@@ -1948,18 +1948,17 @@ static void cmd_bbcbasic(uint8_t prog)
 }
 /* `!cmd` / `!`: the host's shell on the Tube (program 4), in the machine's own
  * colours -- the same loop as BBC BASIC, a different child.  Only where the
- * device says the shell is fitted (K4510x); elsewhere it says so. */
+ * device says the shell is fitted; elsewhere it says so. */
 static void cmd_bang(const char *p)
 {
-    if (!(REG(TUBE) & 4)) { error("no host shell on this machine"); return; }
     w32(TUBE + 4, (uint16_t)p);
     REG(TUBE + 8) = ROWS; REG(TUBE + 9) = COLS;           /* the console window: bands and margin already out */
     cmd_bbcbasic(4);
 }
-/* PAS name / CC name: the compilers on the Linux beside the machine (K4510x),
+/* PAS name / CC name: the compilers on the Linux beside the machine,
  * tools/k4510-pas and tools/k4510-cc, which compile name.PAS / name.C in the
  * current directory into name.prg.  A shell word rather than an alias so it
- * is there on every appliance, STARTUP.BAT or not. */
+ * is there on every machine, STARTUP.BAT or not. */
 static void cmd_compile(const char *tool, const char *p)
 {
     char buf[NAMEMAX + 12]; uint8_t n = 0;

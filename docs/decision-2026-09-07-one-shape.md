@@ -90,3 +90,12 @@ choice: it can keep growing without the ROM budget.
   `docs/CAPABILITIES.md` §12, `docs/TODO.md`'s Pi items,
   `docs/PORTABILITY.md`, the handbook's Pi chapter, and the issue
   template it generates.
+
+## Addendum, 2026-09-08 — one name
+
+Doc: "drop all naming differences to go by ONLY K4510". The "K4510x"
+name is withdrawn. The machine is the K4510; that it boots on its own
+minimal Linux is implicit. The desktop-window emulator is the case that
+gets named when it matters ("on a desktop"). And "drop restrictions on
+host access in plain emulator": the `!` host shell is fitted on every
+build. The podman container keeps its own wall.

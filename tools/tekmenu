@@ -1,0 +1,48 @@
+#!/bin/bash
+# tekmenu [DIR...]  --  a chooser for the Tektronix plots: lists every plot it
+# can find, numbered; pick one or more, or all, and tekplay shows them.
+# Looks in linux/tek40xx/plt (the shipped set), ~/tekplots (rricharz's
+# collection, personal use, kept out of the repo) and any DIR given.
+# From the K4510 prompt:  !tekmenu        (Doc, 2026-09-09: "a simple chooser")
+HERE=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+DIRS=("$HERE/../linux/tek40xx/plt" "$HOME/tekplots" "$@")
+names=(); paths=(); notes=()
+for d in "${DIRS[@]}"; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*; do
+        [ -f "$f" ] || continue
+        case "$f" in *.txt|*.md|*.png|*.py|*.err) continue ;; esac
+        # a gnuplot script (no GS/ESC bytes) plays only through its rendered twin
+        if ! LC_ALL=C tr -d -c '\033\034\035\037' < "$f" | head -c 1 | grep -q .; then continue; fi
+        n=$(basename "$f"); n=${n%.tek}; n=${n%.plt}
+        names+=("$n"); paths+=("$f")
+        note=""
+        [ -r "$d/INDEX.txt" ] && note=$(grep -m1 "^  $(basename "$f") " "$d/INDEX.txt" | sed 's/^  [^ ]* *//')
+        notes+=("$note")
+    done
+done
+[ ${#names[@]} -gt 0 ] || { echo "tekmenu: no plots found (looked in ${DIRS[*]})" >&2; exit 1; }
+while :; do
+    echo
+    echo "Tektronix plots (${#names[@]}) -- on the terminal HOME clears the page, END comes back here"
+    echo
+    cols=$(( $(tput cols 2>/dev/null || echo 80) / 26 )); [ "$cols" -ge 1 ] || cols=1
+    for i in "${!names[@]}"; do
+        printf "%3d %-21s" "$((i + 1))" "${names[$i]:0:21}"
+        if [ $(( (i + 1) % cols )) -eq 0 ]; then echo; fi
+    done
+    echo; echo
+    echo "number(s) to show, a name, 'a' for all, '? N' for its note, q quits"
+    read -r -p "> " ans || exit 0
+    case "$ans" in
+    q|Q|"") exit 0 ;;
+    a|A) "$HERE/tekplay" "${paths[@]}" ;;
+    \?*) set -- ${ans#?}; for k; do j=$((k - 1)); [ "$j" -ge 0 ] 2>/dev/null && [ "$j" -lt ${#names[@]} ] && echo "${names[$j]}: ${notes[$j]:-(no note)}  -- ${paths[$j]}"; done ;;
+    *)  pick=()
+        for k in $ans; do
+            if [ "$k" -ge 1 ] 2>/dev/null && [ "$k" -le ${#names[@]} ]; then pick+=("${paths[$((k - 1))]}")
+            else for i in "${!names[@]}"; do [ "${names[$i]}" = "$k" ] && pick+=("${paths[$i]}"); done; fi
+        done
+        [ ${#pick[@]} -gt 0 ] && "$HERE/tekplay" "${pick[@]}" || echo "tekmenu: nothing matched '$ans'" ;;
+    esac
+done

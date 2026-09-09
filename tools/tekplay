@@ -24,9 +24,9 @@ set -- $(for f in "$@"; do
     elif [ -n "$PLT" ] && [ -r "$PLT/$f.tek" ]; then f="$PLT/$f.tek"
     elif [ -n "$PLT" ] && [ -r "$PLT/$f" ]; then f="$PLT/$f"
     else echo "tekplay: $f: no such file or shipped plot" >&2; exit 1; fi
-    # a stream has GS or ESC bytes in it; a gnuplot script is plain text
+    # a stream has GS, FS, ESC or US bytes in it (point plots use only FS and US); a gnuplot script is plain text
     # (rricharz's cassette plots are streams though they are named .plt)
-    if LC_ALL=C tr -d -c '\033\035' < "$f" | head -c 1 | grep -q .; then echo "$f"
+    if LC_ALL=C tr -d -c '\033\034\035\037' < "$f" | head -c 1 | grep -q .; then echo "$f"
     elif command -v gnuplot >/dev/null 2>&1; then          # render the script to a stream first
         o="$TMP/$(basename "$f").tek"
         (echo "set terminal tek40xx"; cat "$f") | gnuplot > "$o" 2>"$TMP/err" || { echo "tekplay: gnuplot failed on $f:" >&2; head -3 "$TMP/err" >&2; exit 1; }

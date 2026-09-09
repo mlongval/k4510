@@ -6514,3 +6514,12 @@ refused with a reason. Verified under Xvfb: the surface and the
 butterfly draw. gnuplot is not on the stick or in the container; add
 `gnuplot-nox` to `linux/packages.list` if plotting from the K4510 Linux
 to the terminal is wanted.
+
+**tekmenu.** Doc: "a simple chooser for it, written in bash on the Linux
+side, showing all the available files". `tools/tekmenu`: a numbered list
+of every plot it finds (the shipped set, `~/tekplots` if present, any
+directory given), pick numbers or names, `a` for all, `? N` for a note
+from the folder's INDEX.txt, back to the list after END. Writing it
+showed the byte sniff was too narrow: the point-plot pictures (Spock,
+the Mona Lisa, the rocket) contain only FS and US, never GS or ESC, so
+both tekplay and tekmenu accept all four now.

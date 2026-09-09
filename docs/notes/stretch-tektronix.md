@@ -33,7 +33,7 @@ drawn onto the bitmap. Everything it needs exists; it is the decoder,
 the line routine (PGRAPH's, or EhBASIC's) and a key. A week of evenings.
 
 **B. On the Linux, `tek4010` ported to SDL2.** rricharz's tek4010 is
-GTK3 + cairo, talks to a child process or a serial line, and draws with
+GTK3 + cairo, talks to a child process (a telnet, here), and draws with
 the phosphor glow. Swapping cairo for SDL2's renderer (lines, a texture
 for the persistent page, a text atlas for alpha mode) is a contained
 port; the decoder, the timing and the glow stay. On a desktop it is a
@@ -43,23 +43,23 @@ display, so it lives on its own tty — the machine on tty1, tek4010 on
 tty2 — and **Ctrl+Alt+F2 is the alt-tab.** No emulator code changes at
 all.
 
-## The catch either way: one serial line
+## There is no serial line (Doc, corrected 2026-09-08)
 
-A PDP-11 talks to one terminal on one line. Real Tek users had one
-terminal that switched modes (xterm's `ESC [ ? 38 h`). Two programs —
-the machine's TELNET as the VT100, tek4010 as the plotter — cannot both
-own the PiDP-11's connection. So B needs a splitter beside it: a small
-Linux proxy that holds the one telnet/serial connection, copies every
-byte to both, and forwards keystrokes from whichever is active (or: the
-PDP's output goes to both, keyboard only from the machine, and the
-Tek is a display). That is a hundred lines of C or Python, and it is
-also what makes A's "same stream" trivial in the other direction.
+The PiDP-11 is simh on a Pi: the console and the DZ11 terminal lines are
+telnet ports, and every connection to the DZ is its own terminal line
+(TT1:, TT2:, ...), the way a real DZ11 had eight of them. So the machine's
+TELNET dials one port and is the VT100 session, tek4010 dials the same
+DZ and is a second terminal — log in there and run the plotting program
+on that line, edit on the other. Two terminals on one PDP-11 was the
+normal state of a DZ11; nothing has to be split or proxied. This is what
+makes B the plain answer.
 
 ## Which
 
 B first, if this is ever built: the decoder already exists and is
 already the PiDP-11's; the SDL2 port is the only new code; the tty
 switch gives the alt-tab for free on the stick and the desktop gives it
-on hdieu. A is the prettier machine feature — a Tek in the K4510's own
-video chip — and it can come later, reusing the same proxy. Neither is
-on the list; this note is so the thought is not lost.
+on hdieu; the DZ11 gives the second line. A is the prettier machine
+feature — a Tek in the K4510's own video chip on its own DZ line — and
+it can come later. Neither is on the list; this note is so the thought
+is not lost.

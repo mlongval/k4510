@@ -51,9 +51,9 @@ static int peek(uint16_t a, uint8_t *v)
 static int disasm(uint16_t pc, char *out, int outmax)
 {
     uint8_t op, b1 = 0, b2 = 0; char arg[24] = "";
-    if (!peek(pc, &op)) { snprintf(out, outmax, "%04X  (I/O page)", pc); return 1; }
+    if (!peek(pc, &op)) { snprintf(out, outmax, "%04X (I/O page)", pc); return 1; }
     int mn = op_tab[op].mn, md = op_tab[op].mode, len = 1;
-    if (mn == 255) { snprintf(out, outmax, "%04X  %02X        ???", pc, op); return 1; }
+    if (mn == 255) { snprintf(out, outmax, "%04X %02X     ???", pc, op); return 1; }
     switch (md) {
     case M_IMP: break;
     case M_ACC: snprintf(arg, sizeof arg, "A"); break;
@@ -82,12 +82,20 @@ static int disasm(uint16_t pc, char *out, int outmax)
     case M_REL16: snprintf(arg, sizeof arg, "$%04X", (uint16_t)(pc + 2 + (int16_t)w)); break;
     default: break;
     }
-    char bytes[12];
-    if (len == 1) snprintf(bytes, sizeof bytes, "%02X      ", op);
-    else if (len == 2) snprintf(bytes, sizeof bytes, "%02X %02X   ", op, b1);
-    else snprintf(bytes, sizeof bytes, "%02X %02X %02X", op, b1, b2);
-    snprintf(out, outmax, "%04X  %s  %s %s", pc, bytes, op_mnem[mn], arg);
+    char bytes[8];
+    if (len == 1) snprintf(bytes, sizeof bytes, "%02X", op);
+    else if (len == 2) snprintf(bytes, sizeof bytes, "%02X%02X", op, b1);
+    else snprintf(bytes, sizeof bytes, "%02X%02X%02X", op, b1, b2);
+    snprintf(out, outmax, "%04X %-6s %s %s", pc, bytes, op_mnem[mn], arg);
     return len;
+}
+int panel_disasm(uint16_t pc, char *out, int outmax) { return disasm(pc, out, outmax); }
+
+int panel_scale(int w, int h)
+{
+    int g = w / (8 * PANEL_COLS), gh = h / (8 * 30);
+    if (gh < g) g = gh;
+    return g < 1 ? 1 : g > 4 ? 4 : g;
 }
 
 void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t *font, const panel_info *info)
@@ -96,40 +104,77 @@ void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t
     int cols = w / (8 * gscale), rows = h / (8 * gscale), r = 0; char t[96];
     for (int y = 0; y < h; y++) { for (int x = 0; x < w; x++) px[y * pitch_px + x] = C_BG; }
     if (cols < 20 || rows < 10) return;
-    if (cols > 94) cols = 94;
+    if (cols > PANEL_COLS) cols = PANEL_COLS;
+    /* What fits: everything but the disassembly is a fixed number of rows,
+     * and the disassembly takes what is left (3 to 16 instructions).  On a
+     * short window the audio line goes first, then the idle banks. */
+    int active_banks = 0;
+    for (int i = 0; i < 8; i++) if (io_read(0xD603 + i * 4)) active_banks++;
+    int need = 4 + 1 + 4 + 1 + 1 + 1 + 3 + 1 + 9 + 1 + 2;          /* head, CPU, NEXT's rule, VICKY, BANKS, AUDIO, with blanks */
+    if (info->paused) need += 10;                                    /* the rule, six keys, two status lines, a blank */
+    int show_audio = 1, all_banks = 1;
+    if (rows - need < 3) { show_audio = 0; need -= 3; }
+    if (rows - need < 3) { all_banks = 0; need -= 8 - active_banks; }
+    int nnext = rows - need; if (nnext < 3) nnext = 3; if (nnext > 16) nnext = 16;
 
-    snprintf(t, sizeof t, "K4510  %s", info->host); put(r, 1, t, C_HEAD);
-    snprintf(t, sizeof t, "%5.1f fps", info->fps); put(r++, cols - 10, t, C_DIM);
-    snprintf(t, sizeof t, "CPU %.1f MHz   frame %u", info->cpu_hz / 1e6, io_read(0xD50D) | (io_read(0xD50E) << 8)); put(r++, 1, t, C_DIM);
+    snprintf(t, sizeof t, "K4510 %s", info->host); put(r++, 1, t, C_HEAD);
+    snprintf(t, sizeof t, "%5.1f fps  %.1f MHz", info->fps, info->cpu_hz / 1e6); put(r++, 1, t, C_DIM);
+    snprintf(t, sizeof t, "frame %u", io_read(0xD50D) | (io_read(0xD50E) << 8) | (io_read(0xD50F) << 16)); put(r++, 1, t, C_DIM);
+    if (info->paused) { snprintf(t, sizeof t, "PAUSED  at line %d", info->line); put(r, 1, t, C_HEAD); }
     r++;
+    r++;
+
+    if (info->paused) {
+        rule(r++, 0, "DEBUG", cols);
+        put(r++, 1, "F8     run", C_TEXT);
+        put(r++, 1, "Space  one instruction", C_TEXT);
+        put(r++, 1, "L      one scanline", C_TEXT);
+        put(r++, 1, "F      one frame", C_TEXT);
+        put(r++, 1, "D      dump to dumps/", C_TEXT);
+        put(r++, 1, "T      trace on/off", C_TEXT);
+        if (info->trace_on) snprintf(t, sizeof t, "trace  ON, %u lines", info->trace_lines);
+        else if (info->trace_lines) snprintf(t, sizeof t, "trace  off, %u lines", info->trace_lines);
+        else snprintf(t, sizeof t, "trace  off");
+        put(r++, 1, t, info->trace_on ? C_PC : C_DIM);
+        if (info->dump_n > 0) snprintf(t, sizeof t, "dump   %03d written", info->dump_n); else snprintf(t, sizeof t, "dump   none yet");
+        put(r++, 1, t, C_DIM);
+        r++;
+    }
 
     rule(r++, 0, "CPU", cols);
     { uint8_t pf = cpu65_get_pf(); char fl[9]; const char *names = "NVEBDIZC";
       for (int b = 0; b < 8; b++) { fl[b] = (pf & (0x80 >> b)) ? names[b] : '.'; }
       fl[8] = 0;
-      snprintf(t, sizeof t, "PC $%04X  A $%02X  X $%02X  Y $%02X  Z $%02X", cpu65.pc, cpu65.a, cpu65.x, cpu65.y, cpu65.z); put(r++, 1, t, C_TEXT);
-      snprintf(t, sizeof t, "SP $%04X  B $%02X  P %s", cpu65.s | cpu65.sphi, cpu65.bphi, fl); put(r++, 1, t, C_TEXT); }
+      snprintf(t, sizeof t, "PC $%04X   P %s", cpu65.pc, fl); put(r++, 1, t, C_TEXT);
+      snprintf(t, sizeof t, "A $%02X X $%02X Y $%02X Z $%02X", cpu65.a, cpu65.x, cpu65.y, cpu65.z); put(r++, 1, t, C_TEXT);
+      snprintf(t, sizeof t, "SP $%04X   B $%02X", cpu65.s | cpu65.sphi, cpu65.bphi); put(r++, 1, t, C_TEXT); }
+    r++;
+
+    rule(r++, 0, "NEXT", cols);
     { uint16_t a = cpu65.pc;
-      for (int i = 0; i < 8 && r < rows - 1; i++) { int n = disasm(a, t, sizeof t); put(r++, 1, t, i ? C_TEXT : C_PC); a += n; } }
+      for (int i = 0; i < nnext && r < rows; i++) { int n = disasm(a, t, sizeof t); put(r++, 0, t, i ? C_TEXT : C_PC); a += n; } }
     r++;
 
     rule(r++, 0, "VICKY", cols);
     { uint8_t c = vicky_read(VR_CTRL); const char *name = "?";
       switch (c & 0x1F) { case 1: name = "640x480"; break; case 5: name = "640x240"; break; case 3: name = "320x240"; break;
                           case 11: name = "320x200"; break; case 27: name = "160x200"; break; case 13: name = "640x200"; break; case 0: name = "off"; break; }
-      snprintf(t, sizeof t, "ctrl $%02X  %s  raster %3u", c, name, vicky_read(0x0A)); put(r++, 1, t, C_TEXT); }
+      snprintf(t, sizeof t, "%-8s  ctrl $%02X", name, c); put(r++, 1, t, C_TEXT);
+      snprintf(t, sizeof t, "raster %3u", vicky_read(0x0A)); put(r++, 1, t, C_TEXT); }
     r++;
 
-    rule(r++, 0, "BANKS  $D600", cols);
-    for (int i = 0; i < 8 && r < rows - 1; i++) {
+    rule(r++, 0, all_banks ? "BANKS $D600" : "BANKS $D600 (active)", cols);
+    for (int i = 0; i < 8 && r < rows; i++) {
         uint32_t v = io_read(0xD600 + i * 4) | (io_read(0xD601 + i * 4) << 8) | ((uint32_t)io_read(0xD602 + i * 4) << 16);
         uint8_t on = io_read(0xD603 + i * 4);
-        snprintf(t, sizeof t, "%d $%04X  %s $%06X", i, i * 0x2000, on ? "->" : "  ", v); put(r++, 1, t, on ? C_TEXT : C_DIM);
+        if (!on && !all_banks) continue;
+        snprintf(t, sizeof t, "%d $%04X %s $%06X", i, i * 0x2000, on ? "->" : "  ", v); put(r++, 1, t, on ? C_TEXT : C_DIM);
     }
+    if (!all_banks && !active_banks && r < rows) put(r++, 1, "none", C_DIM);
     r++;
 
-    if (r < rows - 2) {
+    if (show_audio && r < rows - 1) {
         rule(r++, 0, "AUDIO", cols);
-        snprintf(t, sizeof t, "gaps %u   volume %d", io_audio_gaps, settings_get(SET_AUDIO_VOLUME)); put(r++, 1, t, C_TEXT);
+        snprintf(t, sizeof t, "gaps %u  volume %d", io_audio_gaps, settings_get(SET_AUDIO_VOLUME)); put(r++, 1, t, C_TEXT);
     }
 }

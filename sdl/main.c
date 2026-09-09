@@ -245,6 +245,81 @@ static void grab(int on)
     (void) on;
 #endif
 }
+/* ---- the machine, one scanline at a time ------------------------------
+ * The frame used to be one loop; it is now a state machine that can stop
+ * between scanlines and between instructions, so that the paused machine
+ * can be stepped from the side panel (Doc, 2026-09-09: "F8 upon pausing
+ * allows for single stepping ... ability to trigger logging or dumping").
+ * Running, machine_frame() does exactly what the loop did. */
+static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT];
+static Uint64 p_cpu, p_vic, p_snd;            /* the machine's half of the frame, split three ways (PERF.TXT) */
+#define PCLK() SDL_GetPerformanceCounter()
+static int m_line, m_cyc, m_in_frame;         /* the next scanline; cycles already run on it by single steps; between begin and end */
+static FILE *trace_f; static unsigned trace_n;   /* T while paused: every instruction to SYSTEM/LOG/TRACE.TXT */
+#define TRACE_MAX 200000                      /* about 12 MB, then it stops itself */
+static void trace_toggle(void)
+{
+    if (trace_f) { fprintf(trace_f, "(trace off at %u lines)\n", trace_n); fclose(trace_f); trace_f = NULL; return; }
+    char path[600]; snprintf(path, sizeof path, "%s/SYSTEM/LOG/TRACE.TXT", fs_get_root());
+    trace_f = fopen(path, "w"); trace_n = 0;
+    if (trace_f) fprintf(trace_f, "K4510 instruction trace  (PC  bytes  instruction  A X Y Z SP P)\n");
+    else fprintf(stderr, "K4510: cannot write %s\n", path);
+}
+static int cpu_run(int cycles)                /* run the CPU for so many cycles; one instruction at a time when tracing */
+{
+    if (!trace_f) return cpu65_step(cycles);
+    int done = 0;
+    while (done < cycles && trace_f) {
+        char t[48]; panel_disasm(cpu65.pc, t, sizeof t);
+        fprintf(trace_f, "%-26s A=%02X X=%02X Y=%02X Z=%02X SP=%04X P=%02X\n", t, cpu65.a, cpu65.x, cpu65.y, cpu65.z, cpu65.s | cpu65.sphi, cpu65_get_pf());
+        done += cpu65_step(1);
+        if (++trace_n >= TRACE_MAX) { fprintf(trace_f, "(trace stopped itself at %u lines)\n", trace_n); fclose(trace_f); trace_f = NULL; }
+    }
+    if (done < cycles) done += cpu65_step(cycles - done);
+    return done;
+}
+static void line_begin(void)
+{
+    if (m_line == 0 && !m_in_frame) { vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1; }
+    cpu65.irqLevel = vicky_irq() ? 1 : 0;
+}
+static void line_end(int vol)                 /* the scanline's picture and sound, then on to the next */
+{
+    Uint64 t1 = PCLK();
+    vicky_line(m_line);
+    Uint64 t2 = PCLK();
+    /* The audio clock the OPL2 writes are stamped with: one scanline of it,
+     * whoever is rendering.  See core/sndq.h. */
+    sndq_tick(1000000u / (60u * VICKY_HEIGHT));
+    if (sndq_owner() == SNDQ_OWNER_CPU)
+    { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
+      for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
+    Uint64 t3 = PCLK();
+    p_vic += t2 - t1; p_snd += t3 - t2;
+    m_cyc = 0;
+    if (++m_line == VICKY_HEIGHT) {
+        m_line = 0; m_in_frame = 0;
+        vicky_end_frame();
+        cpu65.irqLevel = vicky_irq() ? 1 : 0;
+    }
+}
+static void machine_insn(int vol)             /* Space: one instruction */
+{
+    line_begin();
+    Uint64 t0 = PCLK(); m_cyc += cpu_run(1); p_cpu += PCLK() - t0;
+    if (m_cyc >= (int)CYCLES_PER_LINE) line_end(vol);
+}
+static void machine_line(int vol)             /* L: the rest of this scanline */
+{
+    line_begin();
+    Uint64 t0 = PCLK(); cpu_run((int)CYCLES_PER_LINE - m_cyc); p_cpu += PCLK() - t0;
+    line_end(vol);
+}
+static void machine_frame(int vol)            /* F, and every frame while running: through to the next vblank */
+{
+    do machine_line(vol); while (m_line != 0);
+}
+
 static SDL_GameController *pad;
 static void pad_open(int idx)
 {
@@ -382,7 +457,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     const int shooting = getenv("K4510_SHOT") != NULL && getenv("K4510_SHOT_FX") == NULL;
                                      /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
 
-    static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT], ov[UI_W * UI_H];
+    static uint8_t ov[UI_W * UI_H];
     static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
     static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
@@ -426,6 +501,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     }
     int running = 1, shutdown_req = 0;
     int paused = 0;                                 /* F8: freeze the machine with the screen still showing (unless F8 is the menu key) */
+    int dbg_req = 0, dump_n = 0;                    /* while paused: 1 = step an instruction, 2 = a scanline, 3 = a frame; the last dump written */
     int clock_at_open = -1;                        /* the clock when the menu opened: changed on close = the user's choice */
     const int ring_log = getenv("K4510_RINGLOG") != NULL;
     /* the governor's window: how long the machine's own half of the frame has
@@ -441,8 +517,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
      * read per bucket per frame is nothing against a frame. */
     static Uint64 p_mach, p_tex, p_pres, p_tot, p_last; static unsigned p_n;
     static unsigned p_runs;                       /* windows written this run: the first truncates, the rest append */
-    static Uint64 p_cpu, p_vic, p_snd;            /* the machine, split three ways */
-#define PCLK() SDL_GetPerformanceCounter()
 #define PCLK_HZ() SDL_GetPerformanceFrequency()
 #define PERF_FRAMES 300
     while (running) {
@@ -555,6 +629,21 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
                 if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; }
+                /* Paused, the keyboard is the debugger's (the legend is on the
+                 * side panel; it works without the panel too).  Space steps one
+                 * instruction, L one scanline, F one frame, D writes a dump
+                 * (dumps/dump-NNN.txt, the DUMP register's file, and arms the
+                 * PC recorder so the next one has history), T starts or stops
+                 * an instruction trace.  Anything else is swallowed: the
+                 * machine is stopped and would only queue it. */
+                if (paused && !menu_is_open() && !(m & (KMOD_CTRL | KMOD_ALT | KMOD_GUI))) {
+                    if (k == SDLK_SPACE) dbg_req = 1;
+                    else if (k == SDLK_l) dbg_req = 2;
+                    else if (k == SDLK_f) dbg_req = 3;
+                    else if (k == SDLK_d) { extern int dbg_rec; dbg_rec = 1; int n = dbg_dump("panel"); if (n > 0) dump_n = n; }
+                    else if (k == SDLK_t) trace_toggle();
+                    break;
+                }
                 /* The volume, without opening the menu.  A laptop's own volume
                  * keys (a ThinkPad's Fn+F1/F2/F3) arrive as these three, and
                  * Ctrl+Alt with the plus, minus and zero keys does the same
@@ -698,26 +787,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         Uint64 p_a = SDL_GetPerformanceCounter();
         int open = menu_is_open();
         if ((!open && !paused) || mode_pending) {            /* frozen while the menu is open OR paused; paused keeps the picture */
+            machine_frame(settings_get(SET_AUDIO_VOLUME));
+        } else if (paused && dbg_req) {                       /* the panel's keys: a step of the chosen size */
             int vol = settings_get(SET_AUDIO_VOLUME);
-            vicky_begin_frame(fb, VICKY_WIDTH);
-            for (int y = 0; y < VICKY_HEIGHT; y++) {
-                Uint64 t0 = PCLK();
-                cpu65.irqLevel = vicky_irq() ? 1 : 0;
-                cpu65_step(CYCLES_PER_LINE);
-                Uint64 t1 = PCLK();
-                vicky_line(y);
-                Uint64 t2 = PCLK();
-                /* The audio clock the OPL2 writes are stamped with: one
-                 * scanline of it, whoever is rendering.  See core/sndq.h. */
-                sndq_tick(1000000u / (60u * VICKY_HEIGHT));
-                if (sndq_owner() == SNDQ_OWNER_CPU)
-                { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-                  for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
-                Uint64 t3 = PCLK();
-                p_cpu += t1 - t0; p_vic += t2 - t1; p_snd += t3 - t2;
-            }
-            vicky_end_frame();
-            cpu65.irqLevel = vicky_irq() ? 1 : 0;
+            if (dbg_req == 1) machine_insn(vol); else if (dbg_req == 2) machine_line(vol); else machine_frame(vol);
+            dbg_req = 0;
         }
         /* The sound keeps going when the CPU is late.  Audio was made only by
          * the machine's frames -- 800 samples each -- so a machine at 58 fps
@@ -815,7 +889,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * on purpose at the top of it.  Stepping down under the program that is
          * measuring us corrupts its answer -- it did, 2026-08-27 -- so stand
          * down entirely until it says it has finished. */
-        if (!settings_get(SET_CPU_AUTO) || open || io_measuring()) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
+        if (!settings_get(SET_CPU_AUTO) || open || paused || io_measuring()) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
         else {
             Uint64 nowc = SDL_GetPerformanceCounter(), hzc = SDL_GetPerformanceFrequency();
             if (!gov_t0) { gov_t0 = nowc; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
@@ -978,7 +1052,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           double sc = 1.0; int pic_x = 0, pic_y = 0, pic_w = lw, pic_h = canvas_h;
           if (custom) {
               sc = (double)cow / lw; if ((double)coh / canvas_h < sc) sc = (double)coh / canvas_h;
-              if (smooth_applied == SMOOTH_SHARPFIT) sc = (double)(int)sc;
+              /* an integer scale for sharp-fit, and whenever the panel is on:
+               * at 1080p a 2.25x picture leaves the panel 480 pixels and 16-px
+               * glyphs, a 2x picture leaves it 640 and 24-px ones, and the
+               * panel is there to be read (Doc: "please use larger font") */
+              if (smooth_applied == SMOOTH_SHARPFIT || panel_kind != PANEL_OFF) sc = (double)(int)sc;
               if (sc < 1.0) sc = 1.0;
               pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
               pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
@@ -1066,20 +1144,23 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           /* the side panel: the device pixels beside the picture, at the picture's rows */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {
-                if (!ptex || ptex_w != pw || ptex_h != pic_h) {
+                /* the whole window's height, not the picture's: a 16:9 screen
+                 * has rows to spare above and below a 4:3 picture and the
+                 * panel is the one thing here that wants them */
+                if (!ptex || ptex_w != pw || ptex_h != coh) {
                     if (ptex) SDL_DestroyTexture(ptex);
-                    ptex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, pw, pic_h);
-                    ptex_w = pw; ptex_h = pic_h;
+                    ptex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, pw, coh);
+                    ptex_w = pw; ptex_h = coh;
                     if (ptex) SDL_SetTextureScaleMode(ptex, SDL_ScaleModeNearest);
                 }
                 if (ptex) { void *pp; int ppitch;
                     if (SDL_LockTexture(ptex, NULL, &pp, &ppitch) == 0) {
-                        int g = pw / 320; if (g < 1) g = 1; if (g > 3) g = 3;    /* 16-px glyphs on a 640-px panel */
-                        panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz() };
-                        panel_render((uint32_t *)pp, ppitch / 4, pw, pic_h, g, font_menu, &pi);
+                        panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz(),
+                                          paused, m_line, trace_n, trace_f != NULL, dump_n };
+                        panel_render((uint32_t *)pp, ppitch / 4, pw, coh, panel_scale(pw, coh), font_menu, &pi);
                         SDL_UnlockTexture(ptex);
                     }
-                    SDL_Rect pd = { place == PLACE_RIGHT ? 0 : pic_w, pic_y, pw, pic_h };
+                    SDL_Rect pd = { place == PLACE_RIGHT ? 0 : pic_w, 0, pw, coh };
                     SDL_RenderCopy(ren, ptex, NULL, &pd);
                 }
             } }

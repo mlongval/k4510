@@ -6439,3 +6439,48 @@ now, vim's own `timeoutlen`. Tested through the real SDL frontend with
 the rc loaded and the two keys half a second apart: `abcjk:wq` saves
 `abc`. The harness gained a five-frame wait (a backtick) for tests like
 that.
+
+## 2026-09-09 — The side panel stands up, and F8 is a debugger
+
+Doc, on the panel: "horizontal space is at a premium, vertical is
+abundant, reformat to take advantage of this; please use larger font;
+perhaps F8 upon pausing allows for single stepping or other debug
+features ... ability to trigger logging or dumping; use your best
+judgement."
+
+**The strip.** Twenty-six columns, one fact a line, and the glyph scale
+comes from the width (`panel_scale`: 26 columns across, at least 30
+rows down, 1x to 4x). The panel takes the WINDOW's height now, not the
+picture's: on a 16:9 screen the rows above and below a 4:3 picture were
+empty and the panel is the one thing that wants them. And the picture
+scale is floored to an integer whenever the panel is on, not only for
+sharp-fit: at 1080p a 2.25x picture left the panel 480 pixels and 16-px
+glyphs, a 2x picture leaves it 640 and 24-px ones, which is the "larger
+font". The disassembly lost its spaced bytes (`EC41 2051C4 JSR $C451`,
+26 characters exactly) and takes whatever rows the fixed sections leave
+(3 to 16 instructions); on a short window the audio line goes first,
+then the idle banks.
+
+**F8, then the keyboard is the debugger's.** Paused, Space runs one
+instruction, L the rest of the scanline, F a whole frame, D writes a
+dump — `dumps/dump-NNN.txt`, the same file the DUMP register writes,
+and arms the PC recorder so the next one has history — and T starts or
+stops an instruction trace to `/SYSTEM/LOG/TRACE.TXT` (one line per
+instruction with the registers after it; it stops itself at 200,000
+lines, about 12 MB). The panel shows the legend and the state when
+paused: which scanline is next, whether the trace is on and how long,
+the last dump's number. Every other key is swallowed while paused; the
+machine is stopped and would only queue it.
+
+To step between instructions the frame loop became a state machine
+(`machine_insn`/`machine_line`/`machine_frame` in `sdl/main.c`): the
+next scanline, the cycles already spent on it, whether a frame is open.
+Running, `machine_frame` does exactly what the loop did. One thing the
+change exposed: the clock governor counted a paused machine's silence as
+audio starvation and stepped the clock down twice in ten seconds. It
+stands down while paused now, as it does under the menu.
+
+Tested under Xvfb through the real frontend (F8, Space x3, T, L, F, T,
+D): the trace held 89,737 instructions for one scanline plus one frame
+at 15 MHz, the dump was written, and the strip at 1080p reads at 24-px
+glyphs with 45 rows.

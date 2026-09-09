@@ -1743,3 +1743,13 @@ fps). A screenshot for the book: `K4510_WINDOW=1920x1080` with
 `video.placement = left` and `video.panel = registers`, then
 `K4510_GLASS=file.ppm:240`. Appendix A does not change; this is the
 emulator's, not the machine's.
+
+**2026-09-09 evening — the side panel is tall, and F8 pauses INTO a
+debugger.** The panel is 26 columns at a large glyph scale and takes
+the window's full height; the picture is integer-scaled whenever the
+panel is on. New for the book, wherever F8 (pause) is described: paused,
+Space steps one instruction, L one scanline, F one frame, D writes
+`dumps/dump-NNN.txt` (the DUMP register's file), T toggles an
+instruction trace to `/SYSTEM/LOG/TRACE.TXT` (200,000 lines at most).
+The legend is on the panel, but the keys work without it. Recapture the
+panel screenshot: the layout changed entirely.

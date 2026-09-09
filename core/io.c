@@ -180,7 +180,7 @@ static int fs_path(char *out, size_t max, int search)
                 if (!strcasecmp(dot, by_ext[i].ext)) snprintf(dirs[nd++], 40, "%s", by_ext[i].dir);
         }
         for (int i = 0; i < nd; i++) {
-            char alt[256]; snprintf(alt, sizeof alt, "%s/%.127s", dirs[i], name);
+            char alt[512]; snprintf(alt, sizeof alt, "%s/%.127s", dirs[i], name);
             if (fs_resolve(alt, rel, sizeof rel, out, max)) continue;
             fs_casefix(out, max);
             if (!stat(out, &sb)) return 0;

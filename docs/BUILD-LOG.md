@@ -6429,3 +6429,13 @@ exist" and 11 is CHDIR; STAT is 8. The game then saw no levels and its
 committed. The command table is in `core/io.h`; read it first.
 
 Sound and music for LODE: Doc says "maybe later".
+
+**VI's `jk`.** Doc: "the jk -> ESC mapping in VI does not seem to work
+... even when it was defined". Two things. There was no `VI.RC` on his
+machines, only `VI.SAMPLE`, so nothing defined it at startup (copied
+now, his file). And the engine gave a partial match half a second to
+complete, which is short for a deliberate "j, k"; it is a full second
+now, vim's own `timeoutlen`. Tested through the real SDL frontend with
+the rc loaded and the two keys half a second apart: `abcjk:wq` saves
+`abc`. The harness gained a five-frame wait (a backtick) for tests like
+that.

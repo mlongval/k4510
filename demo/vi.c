@@ -434,7 +434,7 @@ static void apply_op(uint8_t kind)
  * :map lhs rhs  in normal mode,  :imap lhs rhs  in insert.  The classic use
  * is  :imap jk <Esc>.  Keys arrive through getkey(), which holds a partial
  * match back until it either completes, cannot complete, or the typist stops
- * -- the frame counter at $D50D is the half-second that decides the last one,
+ * -- the frame counter at $D50D is the second that decides the last one,
  * so a lone j still reaches the editor.
  * <Esc> and <CR> are spelled out; everything else is literal. */
 #define MAPMAX  16
@@ -476,7 +476,7 @@ static uint8_t getkey(void)
             for (;;) {
                 k = rom_getin();
                 if (k) { vk = (REG(0xD101) & 0x40) ? 1 : 0; break; }
-                if ((uint8_t)(REG(0xD50D) - t0) > 30) { q_push(pb, pbn); pbn = 0; break; }
+                if ((uint8_t)(REG(0xD50D) - t0) > 60) { q_push(pb, pbn); pbn = 0; break; }   /* a second, as vim's timeoutlen: half was too short for a deliberate j, k (Doc, 2026-09-09) */
             }
             if (!pbn) continue;
         }

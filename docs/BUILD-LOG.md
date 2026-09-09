@@ -6368,3 +6368,21 @@ examples and a page of our own from `mkplt.py`. The vintage cassette
 plots in rricharz/Tek4010's `pltfiles/` are "personal use only, not
 under the GPL" by their README, so they are not vendored; the README
 says how to fetch them for yourself.
+
+## 2026-09-09 — LODE: steering is taken on a cell
+
+Doc, on the laptop: "the player is hanging in the middle of nothing ...
+I can just hit up down left right anywhere and the player moves in that
+direction, doesn't matter if I have a brick in front of me, or no
+ladder". The screenshot showed him stopped between two cells under the
+rope. The cause was one block: the held keys overwrote his direction
+every frame, while `can_step` (ladders, brick, the rope) and the fall
+check only run when he is on a cell. So halfway through a cell any
+arrow steered him anywhere, and letting go froze him in the air. Now a
+new order is taken on a cell only; mid-cell the one thing allowed is
+turning back. This is the "LODE unreproduced" item from 2026-09-07:
+it needed a held key mid-cell, which the test harness cannot do.
+
+Also: `linux/tek40xx/build.sh` installs into `~/.local/bin` when not
+root, so a desktop checkout gets the Tektronix with no sudo, and
+`tekplay` looks there and says how to build it when it is missing.

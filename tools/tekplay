@@ -37,5 +37,14 @@ except (BrokenPipeError, ConnectionResetError): pass
 PY
 SRV=$!
 sleep 0.3
-command -v tek >/dev/null 2>&1 && tek 127.0.0.1 "$PORT" || tek40xx 127.0.0.1 "$PORT"
+# the terminal: `tek` where the Linux build installed its wrapper, else the
+# binary on PATH, else the one build.sh puts in ~/.local/bin on a desktop
+if command -v tek >/dev/null 2>&1; then tek 127.0.0.1 "$PORT"
+elif command -v tek40xx >/dev/null 2>&1; then tek40xx 127.0.0.1 "$PORT"
+elif [ -x "$HOME/.local/bin/tek40xx" ]; then "$HOME/.local/bin/tek40xx" 127.0.0.1 "$PORT"
+else
+    echo "tekplay: no Tektronix terminal here yet.  Build it once (no root needed on a desktop):" >&2
+    echo "    sh $(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/linux/tek40xx/build.sh" >&2
+    kill $SRV 2>/dev/null; exit 1
+fi
 kill $SRV 2>/dev/null; wait $SRV 2>/dev/null

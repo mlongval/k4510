@@ -29,8 +29,9 @@ story.
 the K4510 prompt on a desktop, `!tekplay` opens the Tektronix in
 a window beside the machine (the prompt waits until END).  On the
 stick the emulator owns the screen, so run it from tty2 instead.  A
-plain desktop checkout needs the terminal built once:
-`sudo sh linux/tek40xx/build.sh` (libsdl2-dev, git, patch).
+plain desktop checkout needs the terminal built once, no root needed:
+`sh linux/tek40xx/build.sh` puts it in `~/.local/bin` (needs gcc, git,
+patch and the SDL2 headers).
 
 `plt/` holds Tek40xx's four gnuplot examples (GPL-3, with the program)
 and `k4510.plt`, a test page made by `mkplt.py` (axes, a sine, a

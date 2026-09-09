@@ -563,12 +563,20 @@ void main(void)
          * which only knows presses -- so the man ran until you said SPACE,
          * and the keyboard's autorepeat kept re-sending the arrow anyway.
          * Digging and leaving stay events: one press, one hole. */
-        { uint8_t h = keys_held();
-          if      (h & HELD_UP)    { p->dx = 0;  p->dy = -1; }
-          else if (h & HELD_DOWN)  { p->dx = 0;  p->dy = 1;  }
-          else if (h & HELD_LEFT)  { p->dx = -1; p->dy = 0;  }
-          else if (h & HELD_RIGHT) { p->dx = 1;  p->dy = 0;  }
-          else                     { p->dx = 0;  p->dy = 0;  } }
+        /* ...but a new order is taken ON A CELL, where can_step() judges it.
+         * Until 2026-09-09 the held keys overwrote dx/dy every frame, so
+         * halfway through a cell any arrow steered him anywhere -- through
+         * brick, up with no ladder -- and letting go left him standing in
+         * mid-air between two cells, since the fall check only runs on a
+         * cell (Doc, the laptop: "the player is hanging in the middle of
+         * nothing").  Mid-cell the one thing allowed is turning back. */
+        { uint8_t h = keys_held(); int8_t wx = 0, wy = 0;
+          if      (h & HELD_UP)    wy = -1;
+          else if (h & HELD_DOWN)  wy = 1;
+          else if (h & HELD_LEFT)  wx = -1;
+          else if (h & HELD_RIGHT) wx = 1;
+          if (!(p->x & 15) && !(p->y & 15)) { p->dx = wx; p->dy = wy; }
+          else if ((wx && wx == -p->dx) || (wy && wy == -p->dy)) { p->dx = wx; p->dy = wy; } }
         k = key_get();
         switch (k) {
         case 0x1B: running = 0; break;

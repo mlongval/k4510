@@ -1791,3 +1791,8 @@ like the desktop; no emulator change. Worth a line wherever the book
 tells the reader how to type on the stick vs on a desktop (the desktop
 uses the HOST layout; the stick uses this baked one). Needs a stick
 rebuild to take effect.
+
+**2026-09-10 — the stick's boot menu picks the keyboard.** A downloader
+chooses their layout at power-on (US default, plus US-Intl, de, es, fr,
+ca, gb, it); no Linux needed. Worth a line in the appliance/boot section
+of the book. Plain US is the standard; accent layouts compose dead keys.

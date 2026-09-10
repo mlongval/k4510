@@ -190,6 +190,55 @@ apt-get install -y -q --no-install-recommends \
     locales sudo $PKGS
 EOF
 
+echo "== the keyboard picker (k4510.kbd= on the boot line) =="
+# A downloader picks a layout in the boot menu; this reads it from the kernel
+# command line and applies it BEFORE the emulator's tty1 login, so SDL's
+# console keyboard reads the chosen map.  No k4510.kbd= -> the shipped default
+# (plain US) stands.  The map codes are the boot menu's.
+cat > "$ROOT/usr/local/sbin/k4510-keymap" <<'KBD'
+#!/bin/sh
+# Apply the keyboard layout chosen in the boot menu (k4510.kbd=<code>).
+set -e
+code=$(sed -n 's/.*\bk4510\.kbd=\([^ ]*\).*/\1/p' /proc/cmdline)
+[ -n "$code" ] || exit 0
+case "$code" in
+    us)      L=us; V="" ;;
+    us-intl) L=us; V=intl ;;
+    de)      L=de; V="" ;;
+    es)      L=es; V="" ;;
+    fr)      L=fr; V="" ;;
+    ca|cf)   L=ca; V="" ;;
+    gb|uk)   L=gb; V="" ;;
+    it)      L=it; V="" ;;
+    *)       exit 0 ;;                 # unknown code: leave the shipped default
+esac
+cat > /etc/default/keyboard <<EOF2
+XKBMODEL="pc105"
+XKBLAYOUT="$L"
+XKBVARIANT="$V"
+XKBOPTIONS=""
+BACKSPACE="guess"
+EOF2
+setupcon --force 2>/dev/null || true
+KBD
+chmod +x "$ROOT/usr/local/sbin/k4510-keymap"
+cat > "$ROOT/etc/systemd/system/k4510-keymap.service" <<'EOF'
+[Unit]
+Description=K4510 keyboard layout from the boot menu (k4510.kbd=)
+DefaultDependencies=no
+After=systemd-tmpfiles-setup.service
+Before=console-setup.service keyboard-setup.service getty@tty1.service
+ConditionKernelCommandLine=k4510.kbd
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/k4510-keymap
+RemainAfterExit=yes
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
 echo "== telnet, loopback only =="
 # Lifted from the working service on ubuntu-s1 (TELNET-SERVER.md), with the
 # one change that matters: ListenStream is 127.0.0.1, so the socket exists
@@ -302,8 +351,9 @@ git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k451
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 systemctl enable k4510-telnet.socket
 systemctl enable k4510-persistence-sync.service
-systemctl enable keyboard-setup.service console-setup.service 2>/dev/null || true   # the dead-key console keymap (accents), applied before tty1's login
-setupcon --save-only 2>/dev/null || true   # bake the keymap cache (chroot-safe) so live-boot has it from the first frame
+systemctl enable keyboard-setup.service console-setup.service 2>/dev/null || true   # the console keymap machinery (setupcon/ckbcomp)
+systemctl enable k4510-keymap.service 2>/dev/null || true                           # apply the boot menu's k4510.kbd= before tty1
+setupcon --save-only 2>/dev/null || true   # bake the default (US) keymap cache (chroot-safe)
 adduser --disabled-password --gecos "K4510" $USER_NAME
 echo '$USER_NAME:$USER_PASS' | chpasswd
 for g in video input audio render sudo netdev plugdev; do adduser $USER_NAME \$g 2>/dev/null || true; done
@@ -433,16 +483,35 @@ EOF
 # Our own grub.cfg, not update-grub's: there is no installed root here for it
 # to find, and ONE entry is the point.  No recovery line, no second entry with
 # the drives visible -- Doc asked for absolute.
-cat > "$MNT/boot/grub/grub.cfg" <<EOF
-set default=0
-set timeout=1
-
-menuentry "K4510 -- load to RAM, internal drives locked out" {
-    search --no-floppy --set=root --label k4510-live
-    linux  /live/vmlinuz $CMDLINE
-    initrd /live/initrd.img
-}
-EOF
+# The boot menu IS the keyboard picker: the emulator owns the screen once it
+# starts, and SDL reads the console keymap only at startup, so a downloader's
+# one chance to choose a layout with no Linux knowledge is here, at power-on.
+# Each entry passes k4510.kbd=<code>; k4510-keymap.service applies it before
+# tty1's login.  Default (entry 0) is plain US (Doc, 2026-09-10).
+{
+    echo "set default=0"
+    echo "set timeout=10"
+    echo 'set timeout_style=menu'
+    echo
+    # label  ->  k4510.kbd code
+    for pair in \
+        "US (default)|us" \
+        "US-International (dead keys: accents)|us-intl" \
+        "Deutsch (German)|de" \
+        "Espanol (Spanish)|es" \
+        "Francais (French)|fr" \
+        "Canadien-francais (Canadian French)|ca" \
+        "UK (British)|gb" \
+        "Italiano (Italian)|it"
+    do
+        label=${pair%|*}; code=${pair#*|}
+        echo "menuentry \"K4510  --  keyboard: $label\" {"
+        echo "    search --no-floppy --set=root --label k4510-live"
+        echo "    linux  /live/vmlinuz $CMDLINE k4510.kbd=$code"
+        echo "    initrd /live/initrd.img"
+        echo "}"
+    done
+} > "$MNT/boot/grub/grub.cfg"
 
 binds_down
 # -R and then a guard: the chroot view is an rbind of $MNT, and unmounting

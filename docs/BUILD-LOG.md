@@ -6655,3 +6655,24 @@ hardware -- SDL's evdev dead-key composition cannot be exercised in
 Xvfb.  If it does not compose there, the fallback is to add dead-key
 handling to key_ascii in sdl/main.c (not done: the console keymap is the
 right layer).
+
+## 2026-09-10 — the boot menu is the keyboard picker
+
+Doc: "an individual in Germany or Spain who downloads the stick build
+and cannot figure out how to change the keyboard layout -- how do we
+address that? ... Make plain US the standard."
+
+The emulator owns the screen the moment it starts, and SDL reads the
+console keymap only at startup, so the ONE place a downloader can choose
+a layout with no Linux knowledge is the boot menu. It was a single
+hidden entry (timeout 1); it is now a visible list -- US (default),
+US-International, Deutsch, Espanol, Francais, Canadien-francais, UK,
+Italiano -- each passing `k4510.kbd=<code>` on the kernel command line.
+`k4510-keymap.service` (a oneshot, ConditionKernelCommandLine=k4510.kbd,
+Before=getty@tty1) reads the code, rewrites `/etc/default/keyboard` and
+runs `setupcon` before tty1's login, so SDL reads the chosen map. The
+shipped default (no pick, or "US") is PLAIN US -- no dead keys; the
+accent layouts compose them. Verified here: the menu generates, the
+cmdline parser extracts the code, and de/es/fr/ca/gb/it all carry dead
+keys (ckbcomp). Effect is on the next stick rebuild and wants a check on
+real hardware. Adding a layout is one line in build-live.sh's list.

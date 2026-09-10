@@ -6587,3 +6587,17 @@ variable reference. `make test` is fine (its `check-artifacts` names
 `DEMOS` after the definition). So the first run tested the OLD `vi.prg`
 and the shape never moved off the top-left cell. Build the program's own
 target -- `make fs/SYSTEM/BIN/vi.prg` -- after editing `demo/vi.c`.
+
+## 2026-09-10 — backslash was a pound under the chargen fonts
+
+Doc, editing CHESS.RX in VI on hdieu (Eurostile font): "if rc £= 0 then
+do -- I believe that is a code page error." It was. The byte is a real
+backslash ($5C), REXX's `\=`; the glyph was wrong. `petscii_to_ascii`
+(the converter every 4096-byte font goes through -- the C64 chargens and
+all the ZX fonts) mapped ASCII backslash to the Commodore glyph at
+screen-code $1C, which is a pound: a C64/ZX set has no backslash and the
+pound sits in that slot. Backslash now falls through blank, so
+`apply_font`'s existing "fill a blank glyph from the kernel font" step
+supplies the real backslash. The pound is unaffected everywhere it
+belongs (PETSCII mode, CP437 $9C). Only the chargen and ZX fonts were
+hit; kernel8 and unscii have their own backslash and always showed it.

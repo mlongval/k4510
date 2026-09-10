@@ -107,7 +107,12 @@ static void petscii_to_ascii(const uint8_t *cg, uint8_t *out)
         if (c < 0x40) g = c;                                /* punctuation and digits: same codes */
         else if (c == 0x40) g = 0;                          /* @ */
         else if (c <= 0x5A) g = c;                          /* A-Z at 65-90 in the lower-case set */
-        else if (c == 0x5B) g = 0x1B; else if (c == 0x5C) g = 0x1C; else if (c == 0x5D) g = 0x1D;
+        else if (c == 0x5B) g = 0x1B; else if (c == 0x5D) g = 0x1D;
+        else if (c == 0x5C) continue;                       /* backslash: a C64/ZX chargen has none (its slot
+                                                             * holds the pound), and it is REXX's \= and a path
+                                                             * separator -- leave it blank so apply_font fills the
+                                                             * kernel's real backslash (Doc, 2026-09-10: chess.rx
+                                                             * showed "if rc \= 0" as a pound under Eurostile) */
         else if (c == 0x5E) g = 0x1E; else if (c == 0x5F) g = 0x64;   /* ^ as the up arrow, _ as the low bar */
         else if (c == 0x60) g = 0x27;                       /* ` as ' */
         else if (c <= 0x7A) g = c - 0x60;                   /* a-z at 1-26 */

@@ -105,6 +105,9 @@ update)
     echo "== this checkout's HEAD into the container =="
     git -C "$REPO" archive --format=tar HEAD | podman exec -i "$NAME" tar -x -C /home/k4510/k4510
     podman exec "$NAME" sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
+    # the Tektronix terminal too: it is built from upstream with our patch at
+    # image time, and a patch that changed since (2026-09-09) never reached it
+    podman exec "$NAME" sh -c 'cd ~/k4510 && sudo sh linux/tek40xx/build.sh' || echo "podman.sh: tek40xx did not rebuild (no network in the container?); the rest did"
     podman stop -t 1 "$NAME" >/dev/null 2>&1 || true
     echo "podman.sh: updated"; exit 0 ;;
 rm)

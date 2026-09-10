@@ -6550,3 +6550,12 @@ became one, `linux/tek40xx/k4510.patch` (full screen, the special point
 plot mode, placement), because the third change touched the first's
 hunk. Verified under Xvfb at 1080p: Snoopy at the left edge, then the
 right.
+
+## 2026-09-10 — the container's terminal was stale
+
+"Is hdieu up to date?" The checkout, the emulator and the desktop
+terminal were; the container's `tek40xx` was not: `podman.sh update`
+rebuilt the emulator from the new tree but the terminal is built from
+upstream at image time, so the container still had the first patch
+only. `update` rebuilds it now (`sudo sh linux/tek40xx/build.sh` inside,
+needs network in the container).

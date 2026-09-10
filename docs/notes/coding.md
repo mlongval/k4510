@@ -1796,3 +1796,9 @@ rebuild to take effect.
 chooses their layout at power-on (US default, plus US-Intl, de, es, fr,
 ca, gb, it); no Linux needed. Worth a line in the appliance/boot section
 of the book. Plain US is the standard; accent layouts compose dead keys.
+
+**2026-09-10 — MOUNT a server as a local subtree.** `MOUNT tnfs://host
+/MNT/NAME`, then it navigates like a local disk (RANGER works, local
+programs run); `UMOUNT path`. http/https mount too, read-only. The old
+`CD tnfs://` still works. A paragraph in the network chapter beside the
+Meatloaf rule; CD now takes a quoted or spaced name ("4] APPLE_II").

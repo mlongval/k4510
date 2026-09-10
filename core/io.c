@@ -83,6 +83,24 @@ static FILE *fs_file;
 static uint8_t *fs_netbuf; static uint32_t fs_netlen, fs_netpos;   /* a fetched URL, served as the open file */
 static char fs_remote[512];             /* the current directory when it is on a server: a tnfs:// URL; "" = local */
 static void fs_net_drop(void) { free(fs_netbuf); fs_netbuf = NULL; fs_netlen = fs_netpos = 0; }
+/* Mount points: a local-looking path (MNT/ATARI) mapped onto a server, so a
+ * server can be navigated like a local subtree -- the cwd never becomes a URL,
+ * so local programs (RANGER) launch through the usual search path and only the
+ * filesystem ops route to the net (Doc, 2026-09-10: the atari8.us case). */
+static struct { char at[80]; char url[240]; } fs_mnt[8]; static int fs_mnt_n;
+/* REL is a root-relative path; if it is under a mount, fill URL (base + tail)
+ * and return 1.  A trailing part is appended with net_url_join. */
+static int fs_mount_url(const char *rel, char *url, size_t max)
+{
+    for (int i = 0; i < fs_mnt_n; i++) {
+        size_t al = strlen(fs_mnt[i].at);
+        if (strncasecmp(rel, fs_mnt[i].at, al) || (rel[al] && rel[al] != '/')) continue;
+        { const char *tail = rel + al; while (*tail == '/') tail++;
+          if (*tail) net_url_join(url, max, fs_mnt[i].url, tail); else snprintf(url, max, "%s", fs_mnt[i].url); }
+        return 1;
+    }
+    return 0;
+}
 void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); fs_cwd[0] = 0; }
 const char *fs_get_root(void) { return fs_root; }
 const char *fs_get_cwd(void) { return fs_cwd; }   /* the shell's current dir, relative to the root */
@@ -145,8 +163,10 @@ static int fs_guest_name(char *name, size_t max)
  * is on a server, so is a bare name. Returns 1 and the URL in out, else 0. */
 static int fs_url_for(const char *name, char *out, size_t max)
 {
+    char rel[512], loc[768];
     if (net_is_url(name)) { snprintf(out, max, "%s", name); return 1; }
     if (fs_remote[0] && strcmp(name, "-") != 0) { net_url_join(out, max, fs_remote, name); return 1; }
+    if (fs_mnt_n && strcmp(name, "-") != 0 && !fs_resolve(name, rel, sizeof rel, loc, sizeof loc) && fs_mount_url(rel, out, max)) return 1;
     return 0;
 }
 /* host path for NAMEPTR; for reads, a bare name (no directory part) that is
@@ -248,6 +268,16 @@ static uint32_t fs_list_size_of(const char *name)
     return stat(full, &sb) ? 0 : S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size;
 }
 #include <stdlib.h>
+/* Does the pending guest NAME resolve under a mount?  Used to refuse writes
+ * (a mount is read-only) without a network round trip. */
+static int fs_name_mounted(void)
+{
+    char name[128], rel[256], loc[768], url[256];
+    if (!fs_mnt_n || fs_guest_name(name, sizeof name)) return 0;
+    if (net_is_url(name)) return 0;
+    if (fs_resolve(name, rel, sizeof rel, loc, sizeof loc)) return 0;
+    return fs_mount_url(rel, url, sizeof url);
+}
 static void fs_run(uint8_t cmd)
 {
     char path[768]; int st = 0;
@@ -256,11 +286,15 @@ static void fs_run(uint8_t cmd)
     case FS_OPEN_READ: case FS_OPEN_WRITE: case FS_STAT: case FS_LOAD: case FS_SAVE: {
         int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD);
         { char name[128], url[512];           /* the Meatloaf rule: a URL is a file (for reading) */
+          int bare = 0;
           if (!fs_guest_name(name, sizeof name) && fs_url_for(name, url, sizeof url)) {
               uint8_t *b; uint32_t n;
+              bare = rd && !strchr(name, '/') && !strchr(name, '\\') && !net_is_url(name);
               if (!rd) { st = 2; break; }
               if (cmd == FS_STAT && net_isdir(url) == 1) { fs_wr32(0x10, 0xFFFFFFFFu); break; }
-              if ((st = net_fetch(url, &b, &n))) { st = st == 6 ? 1 : st; break; }
+              if ((st = net_fetch(url, &b, &n))) { st = st == 6 ? 1 : st;
+                  if (st == 1 && bare) goto local_fs;     /* not on the server: a local program by this name */
+                  break; }
               if (cmd == FS_STAT) { fs_wr32(0x10, n); free(b); break; }
               if (fs_file) { fclose(fs_file); fs_file = NULL; }
               fs_net_drop(); fs_netbuf = b; fs_netlen = n; fs_netpos = 0;
@@ -268,6 +302,7 @@ static void fs_run(uint8_t cmd)
               if (cmd == FS_LOAD) { uint32_t done = 0; while (done < n && done < K4510_PHYS_SIZE) { k4510_ram[(addr + done) & K4510_PHYS_MASK] = b[done]; done++; } fs_wr32(12, done); fs_net_drop(); }
               break;
           } }
+        local_fs:
         if ((st = fs_path(path, sizeof path, rd))) break;
         if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); break; }
         { struct stat sb;                     /* a directory is not a file: opening "FORTH" must fail as
@@ -289,10 +324,11 @@ static void fs_run(uint8_t cmd)
         fs_wr32(12, done); break; }
     case FS_WRITE: { if (!fs_file) { st = 2; break; } for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); break; }
     case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } fs_net_drop(); break;
-    case FS_DIR_FIRST: case FS_DIR_ALL:
-        if (fs_remote[0]) {                   /* a listing from the server */
+    case FS_DIR_FIRST: case FS_DIR_ALL: {
+        char durl[512]; const char *lurl = fs_remote[0] ? fs_remote : (fs_mount_url(fs_cwd, durl, sizeof durl) ? durl : NULL);
+        if (lurl) {                           /* a listing from the server (CD tnfs:// or a mount) */
             net_dirent *e; int n;
-            if ((st = net_listdir(fs_remote, &e, &n))) { st = st == 6 ? 2 : st; break; }
+            if ((st = net_listdir(lurl, &e, &n))) { st = st == 6 ? 2 : st; break; }
             free(fs_list); free(fs_list_size);
             fs_list = calloc((size_t)(n ? n : 1), 64); fs_list_size = calloc((size_t)(n ? n : 1), sizeof *fs_list_size);
             if (!fs_list || !fs_list_size) { free(fs_list); free(fs_list_size); fs_list = NULL; fs_list_size = NULL; free(e); st = 2; break; }
@@ -300,7 +336,7 @@ static void fs_run(uint8_t cmd)
             fs_list_n = n; fs_list_i = 0; free(e);
             break;
         }
-        st = fs_dir_first(cmd == FS_DIR_ALL); break;
+        st = fs_dir_first(cmd == FS_DIR_ALL); break; }
     case FS_RENAME: case FS_COPYFILE: {
         char n2[128], rel[256], dst[768], url[512]; uint8_t *nb = NULL; uint32_t nn = 0;
         { char name[128];                     /* CP http://... local: the Meatloaf rule again */
@@ -310,6 +346,7 @@ static void fs_run(uint8_t cmd)
         if (!nb && (st = fs_path(path, sizeof path, 1))) break;                /* source, searched + case-fixed */
         if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) break;
         if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) break;    /* destination, as given */
+        { char durl[256]; if (fs_mount_url(rel, durl, sizeof durl)) { if (nb) free(nb); st = 2; break; } }   /* a mount is read-only */
         if (cmd == FS_RENAME)
             st = rename(path, dst) ? 2 : 0;
         else {
@@ -334,22 +371,46 @@ static void fs_run(uint8_t cmd)
         char name[128], rel[256], url[512]; struct stat sb;
         if ((st = fs_guest_name(name, sizeof name))) break;
         if (fs_remote[0] && !strcmp(name, "-")) { fs_remote[0] = 0; break; }          /* CD - : home from the server */
-        if (fs_url_for(name, url, sizeof url)) {                                       /* CD tnfs://host/dir, or a name on the server */
-            int d = net_isdir(url);
-            if (d == 1) { size_t n; snprintf(fs_remote, sizeof fs_remote, "%s", url); n = strlen(fs_remote); while (n > 8 && fs_remote[n - 1] == '/') fs_remote[--n] = 0; }
-            else st = 1;
-            break;
+        if (net_is_url(name) || (fs_remote[0] && strcmp(name, "-"))) {                 /* the URL-cwd model: CD tnfs://host, or a name while already on a server */
+            if (fs_url_for(name, url, sizeof url)) {
+                if (net_isdir(url) == 1) { size_t n; snprintf(fs_remote, sizeof fs_remote, "%s", url); n = strlen(fs_remote); while (n > 8 && fs_remote[n - 1] == '/') fs_remote[--n] = 0; }
+                else st = 1;
+                break;
+            }
         }
         if ((st = fs_resolve(name, rel, sizeof rel, path, sizeof path))) break;
+        if (fs_mount_url(rel, url, sizeof url)) {                                      /* into (or within) a mount: the cwd stays local-looking */
+            if (net_isdir(url) == 1) snprintf(fs_cwd, sizeof fs_cwd, "%s", rel); else st = 1;
+            break;
+        }
         fs_casefix(path, sizeof path);
         if (stat(path, &sb) || !S_ISDIR(sb.st_mode)) { st = 1; break; }
         /* keep the host's spelling of the directory in the cwd */
         snprintf(fs_cwd, sizeof fs_cwd, "%s", strlen(path) > strlen(fs_root) ? path + strlen(fs_root) + 1 : "");
         break; }
-    case FS_MKDIR: if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (mkdir(path, 0777)) st = 2; break;
-    case FS_RM:    { struct stat sb; if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; } if (S_ISDIR(sb.st_mode) || unlink(path)) st = 2; break; }
-    case FS_RMDIR: { struct stat sb; if (fs_remote[0]) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
+    case FS_MKDIR: if (fs_remote[0] || fs_name_mounted()) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (mkdir(path, 0777)) st = 2; break;
+    case FS_RM:    { struct stat sb; if (fs_remote[0] || fs_name_mounted()) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; } if (S_ISDIR(sb.st_mode) || unlink(path)) st = 2; break; }
+    case FS_RMDIR: { struct stat sb; if (fs_remote[0] || fs_name_mounted()) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
         if (!S_ISDIR(sb.st_mode) || rmdir(path)) st = 2;
+        break; }
+    case FS_MOUNT: {                       /* NAMEPTR = URL, reg 8 -> PATH */
+        char url[256], pathn[256], rel[256], loc[768];
+        if ((st = fs_guest_name(url, sizeof url))) break;
+        if ((st = fs_guest_str(fs_rd32(8), pathn, sizeof pathn))) break;
+        if (!net_is_url(url) || !pathn[0]) { st = 3; break; }
+        if ((st = fs_resolve(pathn, rel, sizeof rel, loc, sizeof loc))) break;
+        if (!rel[0]) { st = 2; break; }                                    /* the root cannot be a mount */
+        { int i; for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) break;
+          if (i == fs_mnt_n) { if (fs_mnt_n >= 8) { st = 2; break; } fs_mnt_n++; }
+          snprintf(fs_mnt[i].at, sizeof fs_mnt[i].at, "%s", rel);
+          { size_t n; snprintf(fs_mnt[i].url, sizeof fs_mnt[i].url, "%s", url); n = strlen(fs_mnt[i].url); while (n > 8 && fs_mnt[i].url[n - 1] == '/') fs_mnt[i].url[--n] = 0; } }
+        break; }
+    case FS_UMOUNT: {                      /* NAMEPTR = PATH */
+        char name[256], rel[256], loc[768]; int i, found = 0;
+        if ((st = fs_guest_name(name, sizeof name))) break;
+        if ((st = fs_resolve(name, rel, sizeof rel, loc, sizeof loc))) break;
+        for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) { found = 1; fs_mnt[i] = fs_mnt[--fs_mnt_n]; break; }
+        if (!found) st = 1;
         break; }
     case FS_GETCWD: if (fs_remote[0]) { size_t i = 0; for (; fs_remote[i] && i < 250; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)fs_remote[i]; k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i); break; }
                     { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }
@@ -1230,7 +1291,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
-    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
+    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_mnt_n = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
     /* The prompt starts in /HOME where the disk has one (fs/HOME/README.TXT);
      * the ROM reads /STARTUP.BAT by its absolute name, so boot is unaffected. */
     { char home[600]; struct stat sb; snprintf(home, sizeof home, "%s/HOME", fs_root);
@@ -1462,6 +1523,6 @@ int io_state_load(FILE *f)
      * sequencer's playing notes re-sound as their queues advance. */
     math_int_update();
     if (fs_file) { fclose(fs_file); fs_file = 0; }
-    fs_net_drop(); fs_remote[0] = 0; net_reset();
+    fs_net_drop(); fs_remote[0] = 0; fs_mnt_n = 0; net_reset();
     return 0;
 }

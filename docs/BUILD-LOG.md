@@ -6697,3 +6697,35 @@ This is the real CP/M model working, not a preemption: a program that
 never polls the console still cannot be Ctrl-C'd (authentic).  If a
 force-stop for a truly wedged co-processor is ever wanted, the Tube can
 be stopped and restarted -- not built, no binding.
+
+## 2026-09-10 — MOUNT: a server navigated like a local disk
+
+Doc, on the atari8.us TNFS server: "I can see the directory but I cannot
+go into a deeper directory, nor run ranger to navigate ... mount points?"
+Two faults and the feature he chose.
+
+The faults: (1) the shell's name parser stopped at the first space and
+ignored quotes, so `cd 4] APPLE_II` and even `cd "4] APPLE_II"` never
+passed the whole name -- fixed, CD takes the rest of the line, quotes
+stripped.  (2) A local program could not launch while the cwd was a
+`tnfs://` URL, because a bare name resolved against the server.
+
+MOUNT solves (2) properly: `MOUNT tnfs://host /MNT/NAME` maps a local
+path onto the server, so the cwd stays LOCAL-looking (/MNT/NAME/...), a
+local program launches through the usual search path, and only the
+filesystem ops route to the net.  RANGER, TYPE, CD into a spaced name,
+and a local program (SAY) all work on a mount -- verified headless, and
+RANGER draws its miller columns over the server.  The old `CD tnfs://`
+model is untouched.  `linux/`-side nothing; http:// and https:// mount
+too, read-only.
+
+Emulator (core/io.c): a mount table (fs_mnt), fs_mount_url() routing in
+CHDIR/DIR/STAT/LOAD and the write guards, a local-program fallback when
+a bare name is not on the server, and FS_MOUNT/FS_UMOUNT (19/20).  ROM
+(rom/kernal.c): CD/MOUNT/UMOUNT moved to bank 3 (ROM2 was full) and
+dispatched by one banked nav() -- the base keeps none of their strings;
+getrest() takes a quoted/spaced name.  Two traps paid for: nav()'s
+three 96-byte buffers overflowed the cc65 C stack and broke the shell
+from boot (the mount buffers are in a sub-function now, and the path
+goes by register like RENAME's second name); and a mid-chain sw_call
+that CONTINUES is fine, but the banked handler must not be a stack hog.

@@ -596,13 +596,6 @@ static void cmd_dir(const char *p)
     if (went) { fs_name(back); fs_cmd(11); }             /* and back where we started */
 }
 
-static void cmd_cd(const char *p)
-{
-    char name[NAMEMAX];
-    if (!getname(&p, name)) strcpy(name, "/");
-    fs_name(name);
-    if (fs_cmd(11)) { error("cd: no such directory"); return; }
-}
 #pragma code-name (push, "SWCODE1")   /* cold: bank 1 (ROM2 was full, 2026-09-07) */
 #pragma rodata-name (push, "SWRODATA1")
 static void cmd_mkdir(const char *p)
@@ -1709,6 +1702,53 @@ static void try_rx(const char *p0)
 }
 #pragma code-name (pop)
 #pragma rodata-name (pop)
+#pragma code-name (push, "SWCODE3")   /* bank 3: navigation.  The base image (ROM2) is full; SW3 has room (2026-09-10) */
+#pragma rodata-name (push, "SWRODATA3")
+/* The rest of the line as one name: spaces and brackets kept (a TNFS server's
+ * "4] APPLE_II"), quotes stripped if present (Doc, 2026-09-10). */
+static uint8_t getrest(const char **p, char *name)
+{
+    uint8_t i = 0; char q = 0;
+    skipsp(p);
+    if (**p == '"' || **p == '\'') q = *(*p)++;
+    while (**p && i < NAMEMAX - 1) { if (q && **p == q) { (*p)++; break; } name[i++] = *(*p)++; }
+    if (!q) while (i && name[i - 1] == ' ') i--;
+    name[i] = 0; skipsp(p);
+    return i;
+}
+/* CD/CHDIR/MOUNT/UMOUNT, in one banked handler so the base keeps none of their
+ * strings.  alias_hit is the resident "I took the line" flag (sw_call returns
+ * void); it is re-initialised by the alias code later, so borrowing it here is
+ * safe. */
+/* MOUNT needs three buffers; keep them OUT of nav() so its stack stays small
+ * (nav runs for every command that reaches it, and 3x NAMEMAX overflowed the
+ * cc65 C stack -- it broke the shell from boot, 2026-09-10). */
+static void nav_mount(const char *p)
+{
+    char url[NAMEMAX], path[NAMEMAX];
+    if (!getname(&p, url) || !getrest(&p, path)) { error("mount: MOUNT url path"); return; }
+    fs_name(url);                              /* NAMEPTR = the URL */
+    w32(FS + 8, (uint16_t)path);               /* reg 8 -> the mount path, as RENAME passes its second name */
+    if (fs_cmd(19)) error("mount: need a tnfs://, http:// or https:// URL and a path");
+}
+static void nav(const char *p)
+{
+    char name[NAMEMAX];
+    alias_hit = 1;
+    if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) {
+        if (!getrest(&p, name)) strcpy(name, "/");
+        fs_name(name);
+        if (fs_cmd(11)) error("cd: no such directory");
+    } else if (is_cmd(&p, "MOUNT")) {
+        nav_mount(p);
+    } else if (is_cmd(&p, "UMOUNT") || is_cmd(&p, "UNMOUNT")) {
+        if (!getrest(&p, name)) { error("umount: UMOUNT path"); return; }
+        fs_name(name);
+        if (fs_cmd(20)) error("umount: not mounted");
+    } else alias_hit = 0;
+}
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -1720,7 +1760,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "PAS")) { cmd_compile("k4510-pas", p); return; }   /* PAS HELLO: HELLO.PAS -> hello.prg, here */
     if (is_cmd(&p, "CC"))  { cmd_compile("k4510-cc", p); return; }
     if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
-    if (is_cmd(&p, "CD") || is_cmd(&p, "CHDIR")) { cmd_cd(p); return; }
+    alias_hit = 0; sw_call(3, nav, p); if (alias_hit) return;   /* CD/CHDIR/MOUNT/UMOUNT, bank 3 */
     if (is_cmd(&p, "MKDIR")) { sw_call(1, cmd_mkdir, p); return; }
     if (is_cmd(&p, "RM") || is_cmd(&p, "ERASE") || is_cmd(&p, "DEL")) { cmd_rm(p); return; }
     if (is_cmd(&p, "RMDIR")) { sw_call(1, cmd_rmdir, p); return; }

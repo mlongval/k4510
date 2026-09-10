@@ -5,5 +5,15 @@
              file in, the other way sends one out.
 /MNT/USB     a stick, where the appliance mounts one.
 
-The network is not here: a URL is a file name (TYPE http://host/file)
-and CD tnfs://host/dir makes a remote directory the current one.
+A server can be mounted here and then navigated like a local disk:
+
+    MOUNT tnfs://atari8.us /MNT/ATARI
+    CD /MNT/ATARI
+    DIR
+    CD "4] APPLE_II"        (quotes for a name with spaces)
+    RANGER                  (works: the cwd is local, so a program runs)
+    UMOUNT /MNT/ATARI
+
+http:// and https:// mount too (read-only, like tnfs://).  A URL is still
+a file name on its own (TYPE http://host/file), and CD tnfs://host/dir
+still makes a remote directory the current one without a mount.

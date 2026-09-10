@@ -35,7 +35,7 @@ out=$(./test/headless rom/kernal.bin "telnet 127.0.0.1 $EPORT
 echo "$out" | grep -q "ECHO READY" || { echo "$out"; echo "nettest: FAILED: telnet banner"; exit 1; }
 # TNFS: a server on loopback, the machine's current directory on it
 TPORT=$(python3 -c 'import socket;s=socket.socket(socket.AF_INET,socket.SOCK_DGRAM);s.bind(("127.0.0.1",0));print(s.getsockname()[1])')
-mkdir -p "$W/tnfs/SUB"; printf 'HELLO FROM TNFS\n' > "$W/tnfs/HELLO.TXT"; printf 'DEEPER\n' > "$W/tnfs/SUB/DEEP.TXT"; cp fs/SYSTEM/BIN/say.prg "$W/tnfs/say.prg"
+mkdir -p "$W/tnfs/SUB" "$W/tnfs/4] SPACED"; printf 'HELLO FROM TNFS\n' > "$W/tnfs/HELLO.TXT"; printf 'DEEPER\n' > "$W/tnfs/SUB/DEEP.TXT"; printf 'IN A SPACED DIR\n' > "$W/tnfs/4] SPACED/S.TXT"; cp fs/SYSTEM/BIN/say.prg "$W/tnfs/say.prg"
 python3 test/tnfsd.py $TPORT "$W/tnfs" & TP=$!
 trap 'kill $HP $EP $TP 2>/dev/null; rm -rf "$W" fs/NETCOPY.TXT fs/HOME/NETCOPY.TXT' EXIT
 sleep 1
@@ -52,4 +52,17 @@ DIR
 for m in "HELLO.TXT" "HELLO FROM TNFS" "FROM A TNFS SERVER" "DEEPER" "tnfs://127.0.0.1:$TPORT/SUB]" "README.TXT"; do
   echo "$out" | grep -q -- "$m" || { echo "$out"; echo "nettest: FAILED: TNFS, expected '$m'"; exit 1; }
 done
-echo "nettest: OK (TYPE/CP of a URL, telnet echo on the N: device, TNFS: CD/DIR/TYPE/RUN/CD -)"
+# Mount: a server as a local subtree.  A spaced name is entered, a remote file
+# read, and a LOCAL program (SAY) runs on the mount (RANGER's requirement).
+out=$(./test/headless rom/kernal.bin "MOUNT tnfs://127.0.0.1:$TPORT/ /MNT/NET
+CD /MNT/NET
+DIR
+CD \"4] SPACED\"
+TYPE S.TXT
+SAY MOUNTED OK
+UMOUNT /MNT/NET
+" 1500 "IN A SPACED DIR" 2>&1) || true
+for m in "/MNT/NET/4] SPACED]" "IN A SPACED DIR" "MOUNTED OK"; do
+  echo "$out" | grep -q -- "$m" || { echo "$out"; echo "nettest: FAILED: mount, expected '$m'"; exit 1; }
+done
+echo "nettest: OK (TYPE/CP of a URL, telnet echo on the N: device, TNFS: CD/DIR/TYPE/RUN/CD -, MOUNT a server + spaced name + a local program on it)"

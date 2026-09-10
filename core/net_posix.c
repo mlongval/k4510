@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <errno.h>
 #include <time.h>
+#include <strings.h>
 #include <sys/socket.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
@@ -88,7 +89,13 @@ int plat_http_fetch(const char *url, uint8_t **buf, uint32_t *len)
         int nul = open("/dev/null", O_RDWR);
         dup2(p[1], 1); close(p[0]); close(p[1]);
         if (nul >= 0) { dup2(nul, 0); dup2(nul, 2); if (nul > 2) close(nul); }
-        execlp("curl", "curl", "-sSL", "--max-time", "120", "--fail", "--", url, (char *) NULL);
+        /* sftp:// and scp:// need the host key accepted without a prompt (stdin
+         * is /dev/null here); --insecure skips the check, as ssh's
+         * StrictHostKeyChecking=no does.  HTTPS keeps its verification. */
+        if (!strncasecmp(url, "sftp://", 7) || !strncasecmp(url, "scp://", 6))
+            execlp("curl", "curl", "-sSL", "--max-time", "120", "--fail", "--insecure", "--", url, (char *) NULL);
+        else
+            execlp("curl", "curl", "-sSL", "--max-time", "120", "--fail", "--", url, (char *) NULL);
         _exit(127);
     }
     close(p[1]);
@@ -102,7 +109,12 @@ int plat_http_fetch(const char *url, uint8_t **buf, uint32_t *len)
     }
     close(p[0]);
     waitpid(pid, &st, 0);
-    if (!WIFEXITED(st) || WEXITSTATUS(st) != 0) { free(b); return WIFEXITED(st) && WEXITSTATUS(st) == 22 ? 1 : 2; }   /* 22: HTTP error (404...) */
+    if (!WIFEXITED(st) || WEXITSTATUS(st) != 0) { free(b);
+        /* "not found" is 22 for HTTP (a 404), 19 for FTP (RETR failed) and 78
+         * for FTP/SFTP (no such file): all map to status 1 so the shell falls
+         * through to a local program of the same name; anything else is 2. */
+        if (WIFEXITED(st)) { int c = WEXITSTATUS(st); if (c == 22 || c == 19 || c == 78) return 1; }
+        return 2; }
     *buf = b; *len = n;
     return 0;
 }

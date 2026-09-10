@@ -27,7 +27,8 @@ static const char *net_deprefix(const char *s)
 int net_is_url(const char *name)
 {
     name = net_deprefix(name);
-    return !strncasecmp(name, "http://", 7) || !strncasecmp(name, "https://", 8) || !strncasecmp(name, "tnfs://", 7);
+    return !strncasecmp(name, "http://", 7) || !strncasecmp(name, "https://", 8) || !strncasecmp(name, "tnfs://", 7)
+        || !strncasecmp(name, "ftp://", 6) || !strncasecmp(name, "sftp://", 7);
 }
 
 /* ---- URLs ---------------------------------------------------------------- */
@@ -53,7 +54,8 @@ static int url_parse(const char *s, url_t *u)
       } }
     n = (size_t)(e - p); if (n >= sizeof u->host) return -1;
     memcpy(u->host, p, n); u->host[n] = 0;
-    u->port = !strcmp(u->scheme, "tnfs") ? 16384 : !strcmp(u->scheme, "https") ? 443 : 80;
+    u->port = !strcmp(u->scheme, "tnfs") ? 16384 : !strcmp(u->scheme, "https") ? 443
+           : !strcmp(u->scheme, "ftp") ? 21 : !strcmp(u->scheme, "sftp") ? 22 : 80;
     if ((c = strrchr(u->host, ':')) && c[1] >= '0' && c[1] <= '9') { u->port = atoi(c + 1); *((char *) c) = 0; }
     snprintf(u->path, sizeof u->path, "%s", *e ? e : "/");
     return 0;
@@ -218,6 +220,56 @@ static int tnfs_listdir(const url_t *u, net_dirent **ents, int *count)
 }
 
 /* ---- the shared front ---------------------------------------------------- */
+/* ftp:// and sftp:// go through the same curl the http path uses; a file is
+ * fetched as-is, and a directory (a URL ending in /) comes back as the
+ * server's ls -l listing, parsed here into net_dirent (Doc, 2026-09-10:
+ * "since we are going through the linux host"). */
+static int curl_is_fs(const url_t *u) { return !strcmp(u->scheme, "ftp") || !strcmp(u->scheme, "sftp"); }
+/* Build "scheme://[user[:pass]@]host:port/path[/]" cleanly. */
+static void curl_url(const url_t *u, char *out, size_t max, int as_dir)
+{
+    char cred[130] = ""; size_t n = strlen(u->path);
+    if (u->user[0]) { if (u->pass[0]) snprintf(cred, sizeof cred, "%s:%s@", u->user, u->pass); else snprintf(cred, sizeof cred, "%s@", u->user); }
+    snprintf(out, max, "%s://%s%s:%d%s%s", u->scheme, cred, u->host, u->port, u->path,
+             (as_dir && !(n && u->path[n - 1] == '/')) ? "/" : "");
+}
+static int curl_listdir(const url_t *u, net_dirent **ents, int *n)
+{
+    char url[700]; uint8_t *b; uint32_t bn; int rc;
+    net_dirent *e; int cap = 32, cnt = 0;
+    curl_url(u, url, sizeof url, 1);
+    if ((rc = plat_http_fetch(url, &b, &bn))) return rc;
+    e = malloc((size_t)cap * sizeof *e);
+    if (!e) { free(b); return 2; }
+    { const char *p = (const char *)b, *end = p + bn;
+      while (p < end) {
+          const char *nl = memchr(p, '\n', (size_t)(end - p)); const char *le = nl ? nl : end;
+          /* one line: perms links owner group size Mon DD time name... */
+          const char *t[9]; int nt = 0; const char *q = p;
+          while (q < le && nt < 9) {
+              while (q < le && (*q == ' ' || *q == '\r' || *q == '\t')) q++;
+              if (q >= le) break;
+              t[nt++] = q;
+              if (nt < 9) while (q < le && *q != ' ' && *q != '\r' && *q != '\t') q++;
+          }
+          if (nt >= 9 && (t[0][0] == 'd' || t[0][0] == '-' || t[0][0] == 'l')) {
+              const char *name = t[8]; size_t nl2 = (size_t)(le - name);
+              while (nl2 && (name[nl2 - 1] == '\r' || name[nl2 - 1] == ' ')) nl2--;
+              if (nl2 && !(nl2 == 1 && name[0] == '.') && !(nl2 == 2 && name[0] == '.' && name[1] == '.')) {
+                  if (cnt == cap) { net_dirent *ne = realloc(e, (size_t)cap * 2 * sizeof *e); if (!ne) break; e = ne; cap *= 2; }
+                  { size_t c = nl2 < 63 ? nl2 : 63; memcpy(e[cnt].name, name, c); e[cnt].name[c] = 0; }
+                  e[cnt].isdir = (t[0][0] == 'd');
+                  e[cnt].size = (uint32_t)strtoul(t[4], NULL, 10);
+                  cnt++;
+              }
+          }
+          p = nl ? nl + 1 : end;
+      } }
+    free(b);
+    *ents = e; *n = cnt;
+    return 0;
+}
+
 int net_fetch(const char *url, uint8_t **buf, uint32_t *len)
 {
     url_t u;
@@ -225,20 +277,25 @@ int net_fetch(const char *url, uint8_t **buf, uint32_t *len)
     if (url_parse(url, &u)) return 1;
     if (!strcmp(u.scheme, "tnfs")) return tnfs_fetch(&u, buf, len);
     if (!strcmp(u.scheme, "http") || !strcmp(u.scheme, "https")) return plat_http_fetch(net_deprefix(url), buf, len);
+    if (curl_is_fs(&u)) { char cu[700]; curl_url(&u, cu, sizeof cu, 0); return plat_http_fetch(cu, buf, len); }
     return 1;
 }
 int net_listdir(const char *url, net_dirent **ents, int *n)
 {
     url_t u;
     if (!plat_net_ready()) return 6;
-    if (url_parse(url, &u) || strcmp(u.scheme, "tnfs")) return 1;
+    if (url_parse(url, &u)) return 1;
+    if (curl_is_fs(&u)) return curl_listdir(&u, ents, n);
+    if (strcmp(u.scheme, "tnfs")) return 1;
     return tnfs_listdir(&u, ents, n);
 }
 int net_isdir(const char *url)
 {
     url_t u; tnfs_t *t; char path[512]; uint32_t sz; int d = 0;
     if (!plat_net_ready()) return -1;
-    if (url_parse(url, &u) || strcmp(u.scheme, "tnfs")) return 0;
+    if (url_parse(url, &u)) return 0;
+    if (curl_is_fs(&u)) { char cu[700]; uint8_t *b; uint32_t bn; curl_url(&u, cu, sizeof cu, 1); if (plat_http_fetch(cu, &b, &bn)) return 0; free(b); return 1; }
+    if (strcmp(u.scheme, "tnfs")) return 0;
     if (!(t = tnfs_session(&u))) return -1;
     tnfs_path(&u, path, sizeof path);
     if (!strcmp(path, "/")) return 1;

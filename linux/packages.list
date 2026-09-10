@@ -60,6 +60,10 @@ iproute2
 iputils-ping
 telnet
 inetutils-telnetd
+# ftp://, sftp://, scp:// go through curl and ssh on the host (Doc, 2026-09-10);
+# curl's Debian build has the SSH protocols, openssh-client brings ssh/sftp.
+curl
+openssh-client
 
 # --- the hardware ---
 # KMSDRM is the ONLY video path here, so the GPU firmware is not optional:

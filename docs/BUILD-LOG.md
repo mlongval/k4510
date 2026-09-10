@@ -6764,3 +6764,26 @@ printer.  Candidates for a later pass, if wanted: FTP (a real gap in the
 file-serving set, and Doc uses FTP elsewhere), and named NGET/NPUT/NCOPY
 commands (the jobs are already done by CP/MOUNT/RANGER; the base ROM is
 full, so new command words would cost a bank).
+
+## 2026-09-10 — FTP, SFTP and SSH, through the Linux host
+
+Doc: "since we are going through the linux host, can we add SFTP, SSH,
+FTP to start?"  Yes -- the emulator shells out to the host's curl and
+ssh, the way HTTP already used curl.
+
+FTP and SFTP are file-serving protocols now, exactly like tnfs/http:
+`TYPE`, `CP`, `MOUNT`, `CD`, `DIR`, and RANGER all work on `ftp://` and
+`sftp://`.  net.c fetches through curl (which speaks both) and parses
+the server's `ls -l` directory listing into entries; sftp gets
+`--insecure` so the host key is accepted without a prompt (stdin is
+/dev/null in the forked curl).  Credentials ride in the URL
+(`sftp://user:pass@host/path`), and curl's "file not found" exit codes
+(19, 78, and HTTP's 22) map to not-found so a local program of the same
+name still launches on a mount.  Verified against a local sshd: TYPE,
+MOUNT, deep CD and RANGER over SFTP.
+
+SSH is an interactive session, not a filesystem: `SSH [user@]host` runs
+the host's ssh in the Tube terminal (one line -- cmd_compile("ssh", p),
+the same host-shell path as `!ssh`).  Verified: `SSH ... localhost echo`
+returns over the connection.  The appliance gains curl and
+openssh-client in its package list.

@@ -1808,3 +1808,9 @@ the FujiNet `N:PROTOCOL://` spelling (N:TNFS://, N:HTTP://...) as well as
 the bare scheme. Worth a line in the network chapter noting the two
 spellings are the same, and that MOUNT == FujiNet's FNSHARE, CP a URL ==
 NGET. Not adopting FujiNet's disk-image drive slots or LPT printer.
+
+**2026-09-10 — FTP/SFTP/SSH via the host.** ftp:// and sftp:// are
+file-serving protocols (TYPE/CP/MOUNT/CD/DIR/RANGER), through the host's
+curl. SSH [user@]host is an interactive session on the host's ssh. A
+paragraph in the network chapter: the file protocols are tnfs/http(s)/
+ftp/sftp; SSH and telnet are the interactive ones.

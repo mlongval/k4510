@@ -65,4 +65,24 @@ UMOUNT /MNT/NET
 for m in "/MNT/NET/4] SPACED]" "IN A SPACED DIR" "MOUNTED OK"; do
   echo "$out" | grep -q -- "$m" || { echo "$out"; echo "nettest: FAILED: mount, expected '$m'"; exit 1; }
 done
-echo "nettest: OK (TYPE/CP of a URL, telnet echo on the N: device, TNFS: CD/DIR/TYPE/RUN/CD -, MOUNT a server + spaced name + a local program on it)"
+# SFTP through the host's curl+ssh, when a local sshd with key auth is here
+# (skipped otherwise -- build hosts may have neither).
+if command -v curl >/dev/null && curl --version | grep -qi sftp && printf '' > /tmp/k4510-sftp-probe 2>/dev/null && curl -sS --insecure --max-time 5 "sftp://localhost/tmp/k4510-sftp-probe" >/dev/null 2>&1; then
+  D=/tmp/k4510sf; rm -rf "$D"; mkdir -p "$D/SUB"; printf 'SFTP FILE OK\n' > "$D/HELLO.TXT"; printf 'sftp deep\n' > "$D/SUB/D.TXT"
+  out=$(./test/headless rom/kernal.bin "TYPE sftp://localhost$D/HELLO.TXT
+MOUNT sftp://localhost$D /MNT/SF
+CD /MNT/SF
+DIR
+CD SUB
+TYPE D.TXT
+UMOUNT /MNT/SF
+" 2000 "sftp deep" 2>&1) || true
+  for m in "SFTP FILE OK" "/MNT/SF/SUB]" "sftp deep"; do
+    echo "$out" | grep -q -- "$m" || { echo "$out"; echo "nettest: FAILED: SFTP, expected '$m'"; rm -rf "$D"; exit 1; }
+  done
+  rm -rf "$D" /tmp/k4510-sftp-probe
+  echo "nettest: OK (URL TYPE/CP, telnet on N:, TNFS CD/DIR/RUN, MOUNT + spaced + local prog, SFTP file-serving)"
+else
+  rm -f /tmp/k4510-sftp-probe
+  echo "nettest: OK (URL TYPE/CP, telnet on N:, TNFS CD/DIR/RUN, MOUNT + spaced + local prog; SFTP skipped, no local sshd)"
+fi

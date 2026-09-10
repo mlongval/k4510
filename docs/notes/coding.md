@@ -1776,3 +1776,11 @@ block in normal mode, a bar in insert, an underline on the `:` line.
 One line in the JIM escape list (Appendix A's $DA00 section if it
 enumerates sequences) and one in VI's chapter. VI still has no visual
 mode.
+
+**2026-09-10 — screen fonts are CP437, baked at import.** The runtime
+C64->CP437 converter (petscii_to_ascii) is gone; tools/mkcp437font.py
+does it once. Any font chapter/appendix that says the machine converts
+PETSCII/C64 chargens on the fly, or that a chargen is "PETSCII order",
+is now wrong: every screen font is a 2048-byte CP437 page, and a raw C64
+chargen is refused (convert it with mkcp437font.py). The pound is at
+CP437 $9C and in PETSCII mode, not at the backslash.

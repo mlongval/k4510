@@ -90,37 +90,6 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
     return (int)n;
 }
 
-/* A PETSCII chargen (512 glyphs, both sets) rearranged into the ASCII/CP437
- * order the ROM prints in: letters, digits and punctuation from the
- * lower-case set, the box glyphs the ROM and JIM use from the graphics. */
-static void petscii_to_ascii(const uint8_t *cg, uint8_t *out)
-{
-    const uint8_t *lo = cg + 2048;                      /* set 2: upper/lower case */
-    static const struct { uint8_t ascii, glyph; } box[] = {
-        { 0xC4, 0x40 }, { 0xB3, 0x5D }, { 0xDA, 0x70 }, { 0xBF, 0x6E }, { 0xC0, 0x6D }, { 0xD9, 0x7D },
-        { 0xC3, 0x6B }, { 0xB4, 0x73 }, { 0xC5, 0x5B }, { 0xC1, 0x71 }, { 0xC2, 0x72 }, { 0xDB, 0xE0 },
-        { 0xB0, 0x66 }, { 0xB1, 0x66 }, { 0xB2, 0x66 }, { 0xCD, 0x40 }, { 0xBA, 0x5D }, { 0xC9, 0x70 },
-        { 0xBB, 0x6E }, { 0xC8, 0x6D }, { 0xBC, 0x7D }, { 0xFB, 0xBA }, { 0x10, 0x3E }, { 0x1B, 0x3C } };
-    memset(out, 0, 2048);
-    for (int c = 0x20; c < 0x80; c++) {
-        int g;
-        if (c < 0x40) g = c;                                /* punctuation and digits: same codes */
-        else if (c == 0x40) g = 0;                          /* @ */
-        else if (c <= 0x5A) g = c;                          /* A-Z at 65-90 in the lower-case set */
-        else if (c == 0x5B) g = 0x1B; else if (c == 0x5D) g = 0x1D;
-        else if (c == 0x5C) continue;                       /* backslash: a C64/ZX chargen has none (its slot
-                                                             * holds the pound), and it is REXX's \= and a path
-                                                             * separator -- leave it blank so apply_font fills the
-                                                             * kernel's real backslash (Doc, 2026-09-10: chess.rx
-                                                             * showed "if rc \= 0" as a pound under Eurostile) */
-        else if (c == 0x5E) g = 0x1E; else if (c == 0x5F) g = 0x64;   /* ^ as the up arrow, _ as the low bar */
-        else if (c == 0x60) g = 0x27;                       /* ` as ' */
-        else if (c <= 0x7A) g = c - 0x60;                   /* a-z at 1-26 */
-        else if (c == 0x7B) g = 0x73; else if (c == 0x7C) g = 0x5D; else if (c == 0x7D) g = 0x6B; else g = 0x40;
-        memcpy(out + c * 8, lo + g * 8, 8);
-    }
-    for (unsigned i = 0; i < sizeof box / sizeof box[0]; i++) memcpy(out + box[i].ascii * 8, lo + box[i].glyph * 8, 8);
-}
 static uint8_t font_kernel8[2048], font_menu[2048];
 static uint8_t font_panel[4096]; static int font_panel_rows = 8;   /* unscii-16 for the side panel; the 8x8 doubled if it is missing */
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
@@ -133,8 +102,9 @@ static void slot_refresh(int n)                      /* the slot's row: its file
     menu_slot(n, b);
 }
 /* The C64 chargen lives in the machine's own filesystem, not the host's data/:
- * drop chargen.bin into /SYSTEM/ETC and the menu can wear it. 4096 bytes, PETSCII
- * order, so the same converter the open-roms chargens use rearranges it. */
+ * drop a CP437 chargen.bin (2048 bytes) into /SYSTEM/ETC and the menu can wear
+ * it.  A raw 4096-byte C64 chargen is refused, not converted at run time:
+ * convert it once with tools/mkcp437font.py. */
 static void chargen_path(char *out, int max) { snprintf(out, (size_t) max, "%s/SYSTEM/ETC/chargen.bin", fs_get_root()); }
 static int chargen_present(void)
 {
@@ -146,27 +116,30 @@ static int chargen_present(void)
 static void apply_font(int which)
 {
     static const char *paths[FONT_COUNT] = { "data/font8.bin", "data/fonts/unscii/font8-unscii.bin",
-                                             "data/fonts/openroms/chargen_openroms.rom", "data/fonts/openroms/chargen_pxlfont_2.3.rom", 0 /* FONT_CHARGEN: from the guest fs */,
+                                             "data/fonts/openroms/openroms-cp437.bin", "data/fonts/openroms/pxlfont-cp437.bin", 0 /* FONT_CHARGEN: from the guest fs */,
                                              "data/fonts/zx/bauhaus.bin", "data/fonts/zx/broadway.bin", "data/fonts/zx/computer.bin", "data/fonts/zx/cyberwire.bin",
                                              "data/fonts/zx/nlq.bin", "data/fonts/zx/benguiat.bin", "data/fonts/zx/chicago.bin", "data/fonts/zx/courier.bin",
                                              "data/fonts/zx/eurostile.bin", "data/fonts/zx/ocr-a.bin", "data/fonts/zx/pristine.bin", "data/fonts/zx/anvil.bin" };
+    /* Every screen font is a ready 2048-byte CP437 page now (kernel8 and unscii
+     * always were; the open-roms and ZX fonts are baked by tools/mkcp437font.py
+     * at import).  Nothing converts at run time: a font that is not 2048 bytes
+     * is a raw C64 chargen that was never converted -- it is REFUSED, not drawn,
+     * so it can never silently show a pound where a backslash was written
+     * (Doc, 2026-09-10).  The kernel font stands in until a real one loads. */
     char cg[512]; const char *path = paths[which];
     if (which == FONT_CHARGEN) { chargen_path(cg, sizeof cg); path = cg; }
-    uint8_t buf[4096], font[2048]; int n = which ? load_file(path, buf, sizeof buf) : 0;
-    if (which == FONT_KERNEL8 || n < 2048) memcpy(font, font_kernel8, 2048);
-    else if (n == 4096) petscii_to_ascii(buf, font);
-    else memcpy(font, buf, 2048);
-    /* An alternate font covers what it covers; every glyph it leaves blank is
-     * taken from the kernel font instead of showing as a hole.  A PETSCII
-     * chargen brings ~120 characters, a ZX font 96: without this, most of
-     * CP437 -- box drawing, shading, accents -- vanished with the font swap
-     * (a blank stays blank only where the kernel glyph is blank too: space). */
-    if (which != FONT_KERNEL8)
-        for (int c = 0; c < 256; c++) {
-            uint8_t *g = font + c * 8; int ink = 0;
-            for (int i = 0; i < 8; i++) if (g[i]) { ink = 1; break; }
-            if (!ink) memcpy(g, font_kernel8 + c * 8, 8);
-        }
+    /* read into a buffer bigger than a CP437 font so a raw 4096-byte chargen
+     * shows its true size instead of being silently truncated to 2048 */
+    uint8_t buf[4096], font[2048]; int n = (which == FONT_KERNEL8) ? 2048 : load_file(path, buf, sizeof buf);
+    if (which == FONT_KERNEL8) memcpy(font, font_kernel8, 2048);
+    else if (n == 2048) memcpy(font, buf, 2048);
+    else {
+        memcpy(font, font_kernel8, 2048);
+        if (n > 0)
+            fprintf(stderr, "font: %s is %d bytes, not a 2048-byte CP437 font%s\n", path, n,
+                    which == FONT_CHARGEN ? " -- convert it: tools/mkcp437font.py <chargen.bin> fs/SYSTEM/ETC/chargen.bin"
+                                          : " (run tools/mkcp437font.py to rebuild it)");
+    }
     mem_load(K4510_FONT8_PHYS, font, 2048);
 }
 

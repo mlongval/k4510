@@ -19,3 +19,10 @@ To settle it:
 sha256  5e3451466841b93df7e01e4b635b07b8d8633351bae483b1961d96b3131186e7  chargen_openroms.rom
 sha256  bc5ed24e8e694543f0229800d050acff86d9674aec6dbd95055a26e824d8a395  chargen_pxlfont_2.3.rom
 sha256  99e8f614d7b22b7dddf4540a76dc97dfe7da40802b07c6eaa420c7df4a2e6b5c  8x8font.png
+
+openroms-cp437.bin  the CP437 screen font baked from chargen_openroms.rom by
+pxlfont-cp437.bin   tools/mkcp437font.py (2026-09-10); 2048 bytes, ready to
+                    load, with a real backslash and the CP437 box glyphs.  The
+                    .rom stay for provenance; the .bin are what apply_font reads.
+sha256  9005b045ed067a7020918772e203120d000db77e47f795ca887fe75c44ed2a28  data/fonts/openroms/openroms-cp437.bin
+sha256  780da668cc66555f34941fae49f6265a13529a0c86c0b1fae2a39662fcb77205  data/fonts/openroms/pxlfont-cp437.bin

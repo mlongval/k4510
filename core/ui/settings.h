@@ -72,7 +72,8 @@ typedef struct {
 /* the font choices, in the ENUM's order */
 /* The five built-ins, then the curated ZX Origins C64 chargens in data/fonts/zx/
  * (damieng.com/typography/zx-origins). Order is the menu order and MUST match
- * font_names[] (settings.c) and the paths[] in apply_font (sdl/main.c). */
+ * font_names[] (settings.c) and the paths[] in apply_font (sdl/main.c);
+ * the non-native fonts are CP437 .bin baked by tools/mkcp437font.py. */
 enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN,
        FONT_ZX_BAUHAUS, FONT_ZX_BROADWAY, FONT_ZX_COMPUTER, FONT_ZX_CYBERWIRE,
        FONT_ZX_NLQ, FONT_ZX_BENGUIAT, FONT_ZX_CHICAGO, FONT_ZX_COURIER,

@@ -349,7 +349,7 @@ static int pet_colour(uint8_t c)          /* -> index into pet_col, or -1 */
  *
  * NOT a screen code.  The machine's font is always ASCII/CP437-ordered: a
  * 4096-byte chargen is permuted into ASCII order on the way in
- * (petscii_to_ascii() in sdl/main.c), so there is no screen-code-ordered font
+ * (fonts are baked to CP437 by tools/mkcp437font.py at import), so there is no screen-code-ordered font
  * in RAM to index.  An earlier version of this did the textbook PETSCII ->
  * screen code arithmetic and rendered letters where graphics belonged, which
  * is exactly what that mistake looks like.

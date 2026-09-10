@@ -6601,3 +6601,32 @@ pound sits in that slot. Backslash now falls through blank, so
 supplies the real backslash. The pound is unaffected everywhere it
 belongs (PETSCII mode, CP437 $9C). Only the chargen and ZX fonts were
 hit; kernel8 and unscii have their own backslash and always showed it.
+
+## 2026-09-10 — fonts are baked to CP437 at import; no runtime converter
+
+The backslash fix earlier today patched one glyph; this removes the cause.
+Doc: "a permanent fix ... either a one-shot converter for C64 code-page
+fonts upon import (with a detector for booby-trapped, not-yet-converted
+fonts) or a complete proscription. We will strip the legacy code." He
+chose the converter.
+
+`petscii_to_ascii()` -- which rearranged a C64/ZX chargen into CP437
+EVERY time the font was switched, substituting a pound for the backslash
+and arrows for `^ _` -- is gone from `sdl/main.c`. In its place
+`tools/mkcp437font.py` does the rearrangement ONCE, at import, and bakes
+in the ASCII a Commodore set never had (backslash, `{ } | ~ ^ \``) and the
+CP437 box/shading/accents from a reference font, writing a ready
+2048-byte CP437 `.bin`. The open-roms and PXLfont `.bin` are committed
+beside their `.rom`; the twelve ZX fonts are rebuilt by `mkzxfonts.py`
+(which now calls the converter) from the user's own ZX Origins zips, as
+before. `apply_font` just loads a 2048-byte page now.
+
+The detector: a font file that is not exactly 2048 bytes is a raw C64
+chargen that was never converted. `apply_font` reads into a 4096-byte
+buffer (so a 4096 file is not silently truncated to 2048 and mistaken
+for valid -- it was, on the first cut), refuses anything but 2048, stands
+the kernel font in, and prints what to run. The one font loaded from the
+guest disk, the user's own `/SYSTEM/ETC/chargen.bin`, is refused raw with
+the exact `mkcp437font.py` command; a 2048-byte converted one loads
+silently. Verified: Eurostile, open-roms and a converted chargen draw a
+real backslash; a raw chargen is refused.

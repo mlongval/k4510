@@ -160,6 +160,11 @@ void     vicky_begin_frame(uint8_t *fb, int pitch);
 void     vicky_line(int y);                           /* render line y, run SHEILA, raise IRQs */
 void     vicky_end_frame(void);                       /* vblank */
 void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */
+/* JIM's shaped cursor: the text32 cell whose attribute byte is at attr_addr is
+ * drawn with an underline (style 1, the bottom two rows reversed) or a bar
+ * (style 2, the left two columns reversed) while on.  A block cursor is the
+ * reverse bit in the cell itself, as always, and never comes through here. */
+void     vicky_cursor(uint32_t attr_addr, int style, int on);
 int      vicky_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
 uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
 

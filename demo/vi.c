@@ -264,6 +264,10 @@ static void draw(void)
     }
     lasttop = top; lastcy = cy; lasthoff = hoff;
 
+    /* the cursor's shape says the mode, as vim's does: a block in normal
+     * mode, a bar inserting, an underline on the : line (DECSCUSR to JIM) */
+    { static uint8_t shape; uint8_t want = mode == 1 ? '6' : mode == 2 ? '4' : '2';
+      if (want != shape) { shape = want; put(27); put('['); put((char)want); put(' '); put('q'); } }
     at((uint8_t)(rows - 1), 0);
     if (mode == 2) { put((char)cprompt); say(cmd); eeol(); at((uint8_t)(rows - 1), (uint8_t)(cmdlen + 1)); return; }
     sgr("7");
@@ -766,6 +770,7 @@ void main(void)
         }
         cnt = 0;
     }
+    put(27); put('['); put('2'); put(' '); put('q');           /* the block back for the shell */
     REG(TERM + 0x0E) = 0; REG(TERM + 4) = 2;
     rom_video();
 }

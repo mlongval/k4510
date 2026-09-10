@@ -6559,3 +6559,31 @@ rebuilt the emulator from the new tree but the terminal is built from
 upstream at image time, so the container still had the first patch
 only. `update` rebuilds it now (`sudo sh linux/tek40xx/build.sh` inside,
 needs network in the container).
+
+## 2026-09-10 — VI's cursor changes shape with the mode
+
+Doc: "inside VI I would like the text cursor to change shape according
+to the mode (normal, edit, visual... do we have a visual mode?)". No
+visual mode yet; the three there are now tell themselves apart the way
+vim's do: a block in normal mode, a bar inserting, an underline on the
+`:` line, and the block is put back for the shell on exit.
+
+The plumbing is the terminal's, not the editor's. JIM takes DECSCUSR,
+`ESC [ n SP q` (0-2 block, 3-4 underline, 5-6 bar), the escape vim
+itself sends, so any program can ask. A block is what it always was,
+the cell's reverse bit flipped by the blink; the other two shapes
+cannot be an attribute, so VICKY draws them (`vicky_cursor`: the cell
+whose attribute byte JIM names gets its bottom two rows, or its left
+two columns, reversed while the cursor is on) and the cell in RAM is
+left alone. The style lives in the bits of JIM's `cur_on` byte so the
+state file's JIM record keeps its size: every saved slot still loads.
+The tests were already green; verified through the real frontend, the
+three shapes in the three modes.
+
+A trap on the way: `make all` does not build the `/SYSTEM/BIN` programs.
+`all:` (line 30) lists `$(DEMOS)`, but `DEMOS` is defined 180 lines
+later, so make expands it to nothing when it reads the rule -- a forward
+variable reference. `make test` is fine (its `check-artifacts` names
+`DEMOS` after the definition). So the first run tested the OLD `vi.prg`
+and the shape never moved off the top-left cell. Build the program's own
+target -- `make fs/SYSTEM/BIN/vi.prg` -- after editing `demo/vi.c`.

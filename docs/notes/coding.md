@@ -1769,3 +1769,10 @@ four gnuplot demos (rendered) and a test page; the classic cassette
 plots (Snoopy, Spock with the Enterprise, the Wizard of Id) are
 "personal use only" and are NOT in the repo — say where to get them
 (github.com/rricharz/Tek4010, pltfiles/) rather than shipping them.
+
+**2026-09-10 — the cursor has a shape.** JIM accepts DECSCUSR
+(`ESC [ n SP q`: 0-2 block, 3-4 underline, 5-6 bar), and VI uses it: a
+block in normal mode, a bar in insert, an underline on the `:` line.
+One line in the JIM escape list (Appendix A's $DA00 section if it
+enumerates sequences) and one in VI's chapter. VI still has no visual
+mode.

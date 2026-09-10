@@ -36,7 +36,8 @@
  * tabs, DECAWM/DECOM/DECCKM, DEC line drawing via ESC(0 and SO/SI, DSR, DA,
  * DECALN, RIS), ANSI SGR 0/1/4/5/7/22/24/27/30-37/39/40-47/49/90-97/100-107
  * and 38;5;n / 48;5;n for n < 16, VT220 ICH/DCH/IL/DL/ECH/SU/SD/CHA/VPA,
- * IRM, ESC[?25 cursor, ESC[s/u, DECSTR. Bytes $80-$FF are glyphs (CP437). */
+ * IRM, ESC[?25 cursor, ESC[s/u, DECSTR, DECSCUSR (ESC [ n SP q: 0-2 block, 3-4 underline,
+ * 5-6 bar -- the shape VI changes with its mode). Bytes $80-$FF are glyphs (CP437). */
 #ifndef K4510_TERM_H
 #define K4510_TERM_H
 #include <stdint.h>

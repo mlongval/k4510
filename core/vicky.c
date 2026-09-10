@@ -67,6 +67,9 @@ static inline uint8_t  ram(uint32_t a) { return k4510_ram[a & K4510_PHYS_MASK]; 
 
 /* Render one scanline of one layer into line[], honouring transparency.
  * opaque: this is the lowest enabled layer, so index 0 is drawn too. */
+static uint32_t cur_at; static int cur_style, cur_on;      /* JIM's shaped cursor */
+void vicky_cursor(uint32_t attr_addr, int style, int on) { cur_at = attr_addr; cur_style = style; cur_on = on && style; }
+
 static void layer_line(int n, int y, uint8_t *line, int opaque)
 {
     const uint8_t *L = &reg[VR_LAYER(n)];
@@ -144,8 +147,14 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
         uint8_t fg = ram(e + 2), bg = ram(e + 3);
         if (rev) { uint8_t t = fg; fg = bg; bg = t; }
         uint8_t row = ram(data + (uint32_t)g * H + gy);
-        for (int gx = gx0; gx < 8 && x < VICKY_WIDTH; gx++, x++)
-            line[x] = ((row >> (7 - gx)) & 1) ? fg : bg;
+        /* the shaped cursor (vicky_cursor): an underline reverses this cell's
+         * bottom two rows, a bar its left two columns */
+        int cur = cur_on && e + 1 == cur_at;
+        if (cur && cur_style == 1 && gy < H - 2) cur = 0;
+        for (int gx = gx0; gx < 8 && x < VICKY_WIDTH; gx++, x++) {
+            int sw = cur && (cur_style == 1 || gx < 2);
+            line[x] = (((row >> (7 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
+        }
         layer_hit[x] = 1;
     }
 }

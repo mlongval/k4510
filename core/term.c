@@ -2,6 +2,7 @@
 #include "term.h"
 #include "mem.h"
 #include "io.h"
+#include "vicky.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -73,20 +74,36 @@ static void scroll_down(int top, int bot, int n)
     for (int y = top; y < top + n; y++) blank_span(y, 0, T.cols - 1);
 }
 
-/* ---- the cursor ---------------------------------------------------------- */
-static void cur_undraw(void) { if (T.cur_on) { k4510_ram[T.cur_at] ^= 0x80; T.cur_on = 0; } }
+/* ---- the cursor ---------------------------------------------------------- *
+ * cur_on packs three things so that the state file's JIM record keeps its
+ * size: bit 0 the cursor is drawn now, bits 1-2 its style (0 block, 1
+ * underline, 2 bar -- DECSCUSR, ESC [ n SP q, the escape vim sends), bit 3
+ * it was drawn by flipping the cell's reverse bit.  A block is that reverse
+ * bit, as it always was; the other two shapes are VICKY's (vicky_cursor),
+ * which leaves the cell alone.  Doc, 2026-09-10: "inside VI I would like
+ * the text cursor to change shape according to the mode". */
+#define CUR_SHOWN (T.cur_on & 1)
+#define CUR_ATTR  (T.cur_on & 8)
+#define CUR_STYLE ((T.cur_on >> 1) & 3)
+static void cur_undraw(void)
+{
+    if (!CUR_SHOWN) return;
+    if (CUR_ATTR) k4510_ram[T.cur_at] ^= 0x80; else vicky_cursor(0, 0, 0);
+    T.cur_on &= 6;
+}
 static void cur_draw(void)
 {
     cur_undraw();
     if (!T.shown) return;
     T.cur_at = (uint32_t)(cellp(T.cx, T.cy) - k4510_ram) + 1;
-    k4510_ram[T.cur_at] ^= 0x80; T.cur_on = 1;
+    if (CUR_STYLE == 0) { k4510_ram[T.cur_at] ^= 0x80; T.cur_on |= 9; }
+    else { vicky_cursor(T.cur_at, CUR_STYLE, 1); T.cur_on |= 1; }
 }
 void term_tick(void)
 {
     if (!T.shown) return;
     T.frames++;
-    if (T.frames & 16) { if (T.cur_on) cur_undraw(); } else if (!T.cur_on) cur_draw();
+    if (T.frames & 16) { if (CUR_SHOWN) cur_undraw(); } else if (!CUR_SHOWN) cur_draw();
 }
 
 /* ---- the reply FIFO -------------------------------------------------------- */
@@ -118,6 +135,7 @@ static void clamp_geometry(void)
 }
 void term_reset(void)
 {
+    vicky_cursor(0, 0, 0);
     memset(&T, 0, sizeof T);
     T.cols = 80; T.rows = 30; T.stride = 80; T.base = 0x030000u;
     T.deffg = 7; T.defbg = 6;                        /* the ROM's yellow on blue until it says otherwise */
@@ -260,7 +278,10 @@ static void csi(uint8_t c)
     case 's': T.saved.cx = T.cx; T.saved.cy = T.cy; break;
     case 'u': move(T.saved.cx, T.saved.cy); break;
     case 'p': if (T.inter == '!') { uint8_t sh = T.shown; soft_reset(); T.shown = sh; } break;   /* DECSTR */
-    case 'q': break;                                                /* cursor style: one cursor here */
+    case 'q': if (T.inter == ' ') {                                 /* DECSCUSR: 0-2 block, 3-4 underline, 5-6 bar */
+                  int st = n >= 5 ? 2 : n >= 3 ? 1 : 0;
+                  if (st != CUR_STYLE) { cur_undraw(); T.cur_on = (uint8_t)((T.cur_on & 9) | (st << 1)); if (T.shown) cur_draw(); } }
+              break;
     case 'Z': { int x = T.cx; while (n-- > 0) { do x--; while (x > 0 && !(T.tabs[x >> 3] & (1 << (x & 7)))); } move(x, T.cy); break; }
     default: break;
     }
@@ -525,4 +546,4 @@ void term_write(uint8_t r, uint8_t v)
 /* ---- save states (core/state.h) ------------------------------------------ */
 #include "state.h"
 void term_state_save(FILE *f) { state_put(f, "JIM ", &T, sizeof T); }
-int  term_state_load(FILE *f) { if (state_get(f, "JIM ", &T, sizeof T)) return -2; T.cur_on = 0; return 0; }
+int  term_state_load(FILE *f) { if (state_get(f, "JIM ", &T, sizeof T)) return -2; T.cur_on &= 6; vicky_cursor(0, 0, 0); return 0; }

@@ -6676,3 +6676,24 @@ accent layouts compose them. Verified here: the menu generates, the
 cmdline parser extracts the code, and de/es/fr/ca/gb/it all carry dead
 keys (ckbcomp). Effect is on the next stick rebuild and wants a check on
 real hardware. Adding a layout is one line in build-live.sh's list.
+
+## 2026-09-10 — Ctrl-C breaks a runaway CP/M program
+
+Doc: "I cannot hit CTRL-C to stop a CP/M program" -- a `10 PRINT: 20
+GOTO 10` in MBASIC. Ctrl-C IS passed (traced: pressing it puts byte $03
+on the Tube), and MBASIC does poll for it between statements, so it
+should break. The fault was in the ROM's Tube loop: it drained ALL of
+the co-processor's output before it ever read the keyboard, and an
+MBASIC PRINT loop floods output for ever, so the keyboard was never read
+and the Ctrl-C never forwarded. Now the loop delivers a waiting key on
+every pass, before draining output -- so Ctrl-C goes down mid-flood.
+Verified in RunCPM: the MBASIC loop, then Ctrl-C, gives `^C / Break in
+10 / Ok`, and the byte $03 now appears in the Tube trace during the
+flood where it never did before. BBC BASIC's arrow keys (the WordStar
+diamond under CP/M) still go down, moved to the top of the loop; the
+Tube tests (basictest, rxtest) stay green.
+
+This is the real CP/M model working, not a preemption: a program that
+never polls the console still cannot be Ctrl-C'd (authentic).  If a
+force-stop for a truly wedged co-processor is ever wanted, the Tube can
+be stopped and restarted -- not built, no binding.

@@ -1925,6 +1925,20 @@ static void cmd_bbcbasic(uint8_t prog)
     for (;;) {
         uint8_t st = REG(TUBE);
         if (!(st & 0x81)) break;                         /* the co-processor ended (*QUIT) and its last bytes are shown */
+        /* Deliver a waiting key every pass, BEFORE draining output.  An MBASIC
+         * `10 PRINT: 20 GOTO 10` floods the Tube, and the old loop drained all
+         * of that output before it ever read the keyboard -- so a Ctrl-C to
+         * break the loop (which MBASIC polls for, between statements) was never
+         * even read from the machine, let alone forwarded.  Now a key goes down
+         * as soon as it is pressed, mid-flood, and Ctrl-C breaks the program as
+         * it does on real CP/M (Doc, 2026-09-10). */
+        if (REG(KBDST) & 0x80) {
+            uint8_t k = caps(REG(KBD));
+            if (prog == 3 && k >= 0x80 && k <= 0x83 && (REG(KBDST) & 0x40)) {   /* the arrows -> WordStar diamond */
+                static const uint8_t ws[4] = { 0x05, 0x18, 0x13, 0x04 };
+                REG(TUBE + 2) = ws[k - 0x80];
+            } else { REG(TERM + 3) = k; tube_keys(); }
+        }
         if (st & 0x80) {
             c = REG(TUBE + 1);
             if (esc == 2) {                              /* an OSC string: ESC ] ... BEL (into the shell line buffer) */
@@ -1951,21 +1965,13 @@ static void cmd_bbcbasic(uint8_t prog)
             } else if (c == 0x1B) { esc = 1; continue; }
             REG(TERM) = c;
             tube_keys();                                 /* JIM's answers (cursor position reports) go up */
-            continue;                                    /* drain output before reading keys */
+            continue;
         }
-        if (REG(KBDST) & 0x80) {
-            uint8_t k = caps(REG(KBD));
-            /* CP/M's software is from 1984 and reads the WordStar diamond --
-             * ^E ^X ^S ^D -- not the VT100 sequences JIM would make of the
-             * arrow keys, so in WordStar and Turbo Pascal the arrows did
-             * nothing at all. Under CP/M they go down as the diamond,
-             * straight past JIM. BBC BASIC wants the VT sequences and is
-             * left alone. */
-            if (prog == 3 && k >= 0x80 && k <= 0x83 && (REG(KBDST) & 0x40)) {   /* the arrows, not the letters that share their codes */
-                static const uint8_t ws[4] = { 0x05, 0x18, 0x13, 0x04 };   /* up down left right */
-                REG(TUBE + 2) = ws[k - 0x80];
-            } else { REG(TERM + 3) = k; tube_keys(); }
-        }
+        /* CP/M's software is from 1984 and reads the WordStar diamond -- ^E ^X
+         * ^S ^D -- not the VT100 sequences JIM would make of the arrow keys, so
+         * in WordStar and Turbo Pascal the arrows did nothing.  Under CP/M they
+         * go down as the diamond (handled at the top of the loop); BBC BASIC
+         * wants the VT sequences and is left alone. */
     }
     REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
     REG(TERM + 0x0E) = 0;

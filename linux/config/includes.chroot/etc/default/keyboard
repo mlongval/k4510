@@ -1,0 +1,15 @@
+# K4510: a dead-key console layout so the stick can type accents, the same as
+# the desktop build gets from the host layout (Doc, 2026-09-10).  SDL's own
+# console keyboard (KMSDRM/evdev) composes from the kernel keymap that
+# console-setup builds from this file, then hands the machine the accented
+# character as text -- the very SDL_TEXTINPUT path the desktop uses.
+#
+# US-International with dead keys:  ' e -> é   ` a -> à   ^ e -> ê
+#                                   " u -> ü   ~ n -> ñ   (a space after a
+#                                   dead key gives the plain ' ` ^ " ~).
+# Canadian French instead:  set XKBLAYOUT="ca"  and clear XKBVARIANT.
+XKBMODEL="pc105"
+XKBLAYOUT="us"
+XKBVARIANT="intl"
+XKBOPTIONS=""
+BACKSPACE="guess"

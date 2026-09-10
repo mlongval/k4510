@@ -34,6 +34,14 @@ make
 unzip
 patch
 
+# --- the keyboard ---
+# A dead-key console layout so the stick types accents like the desktop (Doc,
+# 2026-09-10).  console-setup turns /etc/default/keyboard into a kernel keymap
+# with dead keys; SDL's console keyboard composes accents from it.  kbd brings
+# loadkeys/setupcon.  Without this the console is a plain US map: no accents.
+console-setup
+kbd
+
 # --- somewhere to work ---
 # neovim by name (Doc, 2026-09-03).  vim stays: the machine's own VI is a
 # different thing entirely, and muscle memory for `vi` should land somewhere.

@@ -1784,3 +1784,10 @@ PETSCII/C64 chargens on the fly, or that a chargen is "PETSCII order",
 is now wrong: every screen font is a 2048-byte CP437 page, and a raw C64
 chargen is refused (convert it with mkcp437font.py). The pound is at
 CP437 $9C and in PETSCII mode, not at the backslash.
+
+**2026-09-10 — the stick types accents now.** A dead-key console keymap
+(US-International) in the K4510 Linux, so the appliance composes accents
+like the desktop; no emulator change. Worth a line wherever the book
+tells the reader how to type on the stick vs on a desktop (the desktop
+uses the HOST layout; the stick uses this baked one). Needs a stick
+rebuild to take effect.

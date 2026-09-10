@@ -302,6 +302,8 @@ git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k451
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 systemctl enable k4510-telnet.socket
 systemctl enable k4510-persistence-sync.service
+systemctl enable keyboard-setup.service console-setup.service 2>/dev/null || true   # the dead-key console keymap (accents), applied before tty1's login
+setupcon --save-only 2>/dev/null || true   # bake the keymap cache (chroot-safe) so live-boot has it from the first frame
 adduser --disabled-password --gecos "K4510" $USER_NAME
 echo '$USER_NAME:$USER_PASS' | chpasswd
 for g in video input audio render sudo netdev plugdev; do adduser $USER_NAME \$g 2>/dev/null || true; done

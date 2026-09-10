@@ -6630,3 +6630,28 @@ guest disk, the user's own `/SYSTEM/ETC/chargen.bin`, is refused raw with
 the exact `mkcp437font.py` command; a 2048-byte converted one loads
 silently. Verified: Eurostile, open-roms and a converted chargen draw a
 real backslash; a raw chargen is refused.
+
+## 2026-09-10 — the stick can type accents, like the desktop
+
+Doc: "what is the fix to the bare stick to make behaviour uniform?" On a
+desktop the accents come from the host keyboard layout, delivered to the
+machine as composed text (SDL_TEXTINPUT -> cp437_of).  The stick had no
+layout: SDL's own console keyboard (KMSDRM/evdev) read a plain US map
+with no dead keys.
+
+The fix is entirely in the appliance, no emulator code: give the console
+a dead-key layout and SDL composes from it, feeding the machine the same
+SDL_TEXTINPUT it gets on a desktop.  `linux/config/includes.chroot/etc/
+default/keyboard` sets US-International (dead keys: `'`+e = é, `` ` ``+a =
+à, `^`+e = ê, `"`+u = ü, `~`+n = ñ; a space after a dead key gives the
+bare mark).  `console-setup` and `kbd` are added to `packages.list`;
+`build-live.sh` enables `keyboard-setup.service` and bakes the keymap
+cache (`setupcon --save-only`) so live-boot has it from the first frame.
+`ckbcomp us intl` here shows the layout carries the dead keys.  Canadian
+French instead is one line in that file (`XKBLAYOUT="ca"`).
+
+TAKES EFFECT ON THE NEXT STICK REBUILD, and wants a check on real
+hardware -- SDL's evdev dead-key composition cannot be exercised in
+Xvfb.  If it does not compose there, the fallback is to add dead-key
+handling to key_ascii in sdl/main.c (not done: the console keymap is the
+right layer).

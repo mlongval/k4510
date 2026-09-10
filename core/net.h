@@ -37,7 +37,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-int     net_is_url(const char *name);                           /* http://, https:// or tnfs://, any case */
+int     net_is_url(const char *name);   /* http/https/tnfs, any case; an N:/N1:-N8: prefix and user:pass@ are accepted */
 int     net_fetch(const char *url, uint8_t **buf, uint32_t *len);   /* the whole file into memory (caller frees); 0 ok, 1 not found, 2 error, 6 not fitted */
 typedef struct { char name[64]; uint32_t size; int isdir; } net_dirent;
 int     net_listdir(const char *url, net_dirent **ents, int *n);/* a tnfs:// directory, sorted (caller frees); status as above */

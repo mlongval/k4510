@@ -8,22 +8,49 @@
 #include <stdlib.h>
 #include <strings.h>
 
+/* Skip an optional FujiNet device prefix: N:TNFS://host is the same address as
+ * tnfs://host.  FujiNet (and the 8-bit world) writes every network address as
+ * N:PROTOCOL://...; K4510 accepts that spelling as well as the bare scheme,
+ * so its docs and muscle memory carry over (the FujiNet Guide to Operations,
+ * Doc, 2026-09-10). */
+static const char *net_deprefix(const char *s)
+{
+    /* N:  N1:..N8:  (the FujiNet device name and optional unit/channel digit);
+     * the firmware strips it before URL parsing and so do we (channels are one
+     * thing on K4510, so the digit is accepted and ignored). */
+    if ((s[0] == 'N' || s[0] == 'n')) {
+        if (s[1] == ':') return s + 2;
+        if (s[1] >= '1' && s[1] <= '8' && s[2] == ':') return s + 3;
+    }
+    return s;
+}
 int net_is_url(const char *name)
 {
+    name = net_deprefix(name);
     return !strncasecmp(name, "http://", 7) || !strncasecmp(name, "https://", 8) || !strncasecmp(name, "tnfs://", 7);
 }
 
 /* ---- URLs ---------------------------------------------------------------- */
-typedef struct { char scheme[8], host[128], path[512]; int port; } url_t;
+typedef struct { char scheme[8], user[64], pass[64], host[128], path[512]; int port; } url_t;
 static int url_parse(const char *s, url_t *u)
 {
-    const char *p = strstr(s, "://"), *e, *c; size_t n;
+    const char *p, *e, *c; size_t n;
+    s = net_deprefix(s);
+    p = strstr(s, "://");
     if (!p) return -1;
     n = (size_t)(p - s); if (n >= sizeof u->scheme) return -1;
     memcpy(u->scheme, s, n); u->scheme[n] = 0;
     for (size_t i = 0; i < n; i++) u->scheme[i] = (char) ((u->scheme[i] | 0x20));
     p += 3;
+    u->user[0] = u->pass[0] = 0;
     e = strchr(p, '/'); if (!e) e = p + strlen(p);
+    { const char *at = memchr(p, '@', (size_t)(e - p)); const char *co;   /* user:password@ (Chapter 2.3) */
+      if (at) {
+          co = memchr(p, ':', (size_t)(at - p));
+          { size_t un = (size_t)((co ? co : at) - p); if (un >= sizeof u->user) un = sizeof u->user - 1; memcpy(u->user, p, un); u->user[un] = 0; }
+          if (co) { size_t pn = (size_t)(at - co - 1); if (pn >= sizeof u->pass) pn = sizeof u->pass - 1; memcpy(u->pass, co + 1, pn); u->pass[pn] = 0; }
+          p = at + 1;
+      } }
     n = (size_t)(e - p); if (n >= sizeof u->host) return -1;
     memcpy(u->host, p, n); u->host[n] = 0;
     u->port = !strcmp(u->scheme, "tnfs") ? 16384 : !strcmp(u->scheme, "https") ? 443 : 80;
@@ -88,15 +115,22 @@ static int tnfs_xfer(tnfs_t *t, uint8_t cmd, const uint8_t *req, int reqn, uint8
 }
 static tnfs_t *tnfs_session(const url_t *u)
 {
-    tnfs_t *t = NULL; uint8_t req[8], rep[16]; int n;
+    tnfs_t *t = NULL; uint8_t req[160], rep[16]; int n, k;
     for (int i = 0; i < sess_n; i++) if (!strcasecmp(sess[i].host, u->host) && sess[i].port == u->port) t = &sess[i];
     if (t && t->up) return t;
     if (!t) { if (sess_n == 4) { sess_n = 0; }   /* the oldest goes */
               t = &sess[sess_n++]; memset(t, 0, sizeof *t); snprintf(t->host, sizeof t->host, "%s", u->host); t->port = u->port; t->h = -1; }
     if (t->h < 0 && (t->h = plat_udp_open(u->host, u->port)) < 0) return NULL;
-    req[0] = 0x00; req[1] = 0x01; req[2] = '/'; req[3] = 0; req[4] = 0; req[5] = 0;   /* version 1.0, mount "/", no user, no password */
+    /* version 1.0, mount "/", then user and password (Chapter 2.3 -- empty for
+     * a public server, filled from user:password@ in the devicespec) */
+    req[0] = 0x00; req[1] = 0x01; req[2] = '/'; req[3] = 0; k = 4;
+    { const char *c;
+      for (c = u->user; *c && k < 100; c++) req[k++] = (uint8_t)*c;
+      req[k++] = 0;
+      for (c = u->pass; *c && k < 156; c++) req[k++] = (uint8_t)*c;
+      req[k++] = 0; }
     t->sid = 0; t->seq = 0;
-    n = tnfs_xfer(t, 0x00, req, 6, rep, sizeof rep);
+    n = tnfs_xfer(t, 0x00, req, k, rep, sizeof rep);
     if (n < 1 || rep[0] != 0) return NULL;
     t->up = 1;
     return t;
@@ -190,7 +224,7 @@ int net_fetch(const char *url, uint8_t **buf, uint32_t *len)
     if (!plat_net_ready()) return 6;
     if (url_parse(url, &u)) return 1;
     if (!strcmp(u.scheme, "tnfs")) return tnfs_fetch(&u, buf, len);
-    if (!strcmp(u.scheme, "http") || !strcmp(u.scheme, "https")) return plat_http_fetch(url, buf, len);
+    if (!strcmp(u.scheme, "http") || !strcmp(u.scheme, "https")) return plat_http_fetch(net_deprefix(url), buf, len);
     return 1;
 }
 int net_listdir(const char *url, net_dirent **ents, int *n)

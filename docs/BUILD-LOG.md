@@ -6729,3 +6729,38 @@ three 96-byte buffers overflowed the cc65 C stack and broke the shell
 from boot (the mount buffers are in a sub-function now, and the path
 goes by register like RENAME's second name); and a mid-chain sw_call
 that CONTINUES is fine, but the banked handler must not be a stack hog.
+
+## 2026-09-10 — FujiNet's N: address syntax (Guide to Operations)
+
+Doc asked to bring the project inline with the FujiNet RS-232 for MS-DOS
+Guide to Operations where warranted.  What K4510 already matches: MOUNT
+is FNSHARE (a network folder mapped to a local place), CP a URL is NGET,
+RANGER on a mount is NCOPY, and tnfs://, http://, https:// are there.
+
+The one clean alignment with no ROM cost: FujiNet writes every address
+as `N:PROTOCOL://host/path`, and K4510 wrote the bare `tnfs://`.  net.c
+now accepts an optional `N:` (any case) before the scheme everywhere a
+URL is taken -- CD, TYPE, CP, MOUNT -- so `MOUNT N:TNFS://host /MNT/X`
+and `TYPE N:HTTP://host/f` work, and the FujiNet documentation's spelling
+carries over.  Verified headless in CD/TYPE/MOUNT.
+
+**The Network Protocol Handbook (Rev. 2) -- the devicespec grammar.**
+`N[unit]:SCHEME://user:password@host:port/path`.  net.c now takes the
+whole of it: the unit digit `N1:`..`N8:` (channels are one thing here, so
+it is accepted and ignored), and credentials in the URL (Chapter 2.3) --
+passed to curl for HTTP basic auth and into the TNFS mount request for a
+private server.  Verified: `N8:TNFS://` connects; `N:HTTP://molly:secret@
+host` returns the protected page while the no-credentials request is
+refused.  Not adopted from the handbook, and deliberately: the cloud and
+mail schemes (S3, GDRIVE, GMAIL, ONEDRIVE, IMAPS, GCAL, CLIPBOARD), the
+JSON/SGML channel modes, the aux1/aux2 device open semantics, and the
+numeric FujiNet error codes -- a fantasy 8-bit machine is not a FujiNet
+clone.  FTP/SFTP/SMB/NFS remain the real file-serving gaps if wanted.
+
+Judged NOT warranted for this machine: FujiNet's Host Slots / Drive Slots
+and disk-image mounting (K4510 has its own disks and mounts FOLDERS, not
+diskette images), the CONFIG full-screen slot manager, and the LPT->PDF
+printer.  Candidates for a later pass, if wanted: FTP (a real gap in the
+file-serving set, and Doc uses FTP elsewhere), and named NGET/NPUT/NCOPY
+commands (the jobs are already done by CP/MOUNT/RANGER; the base ROM is
+full, so new command words would cost a bank).

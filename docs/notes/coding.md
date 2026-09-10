@@ -1802,3 +1802,9 @@ of the book. Plain US is the standard; accent layouts compose dead keys.
 programs run); `UMOUNT path`. http/https mount too, read-only. The old
 `CD tnfs://` still works. A paragraph in the network chapter beside the
 Meatloaf rule; CD now takes a quoted or spaced name ("4] APPLE_II").
+
+**2026-09-10 — FujiNet N: addresses.** Every network URL now also accepts
+the FujiNet `N:PROTOCOL://` spelling (N:TNFS://, N:HTTP://...) as well as
+the bare scheme. Worth a line in the network chapter noting the two
+spellings are the same, and that MOUNT == FujiNet's FNSHARE, CP a URL ==
+NGET. Not adopting FujiNet's disk-image drive slots or LPT printer.

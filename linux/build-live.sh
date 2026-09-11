@@ -47,6 +47,7 @@ USER_PASS=${USER_PASS:-k4510}
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
+BUILD_ID="0.5-$(git -C "$REPO" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(git -C "$REPO" diff --quiet HEAD 2>/dev/null || echo +)"   # the commit for K4510_BUILD (the chroot has no .git)
 OUT=${OUT:-$HERE/k4510-live-$(date +%Y%m%d)-amd64.img}
 WORK=${WORK:-$HERE/.live-work}
 REUSE=${REUSE:-0}
@@ -129,7 +130,7 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # The .d files name the paths of the last build; a fresh checkout over them
     # is exactly the case where a stale one keeps a changed file from compiling.
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-        'cd ~/k4510 && find core sdl -name "*.d" -delete && make ACME=/usr/bin/acme -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm' \
+        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm" \
         || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
         || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
@@ -363,7 +364,7 @@ EOF
 # NOT 'make all': that includes pascal-prgs, whose .prg files are tracked in
 # the repo anyway.  What must be built is what git does not carry.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-    'cd ~/k4510 && make ACME=/usr/bin/acme -j"$(nproc)" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm' \
+    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm" \
     || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
     || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"

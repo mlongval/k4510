@@ -16,6 +16,7 @@ set -e
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/.." && pwd); cd "$REPO"
 OUT="$HERE/dist"; mkdir -p "$OUT"
 BUILD=$(git describe --always --dirty 2>/dev/null || echo dev)
+make core/build.h >/dev/null 2>&1 || true   # so the Info menu's Build row names this commit
 SRC="sdl/main.c sdl/panel.c core/xemu/cpu65.c core/mem.c core/io.c core/vicky.c core/net.c core/net_wasm.c core/term.c core/state.c core/hostid.c core/ui/settings.c core/ui/menu.c core/ui/ui_draw.c sdl/host_posix.c core/opl2/fmopl.c core/opl2.c core/vice_clk.c core/sndq.c core/audio.c"
 emcc -O2 -Icore -Wno-unused-function -DK4510_NOPROC -DK4510_WASM \
     -sUSE_SDL=2 -sASYNCIFY -sASYNCIFY_STACK_SIZE=65536 \

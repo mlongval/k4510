@@ -566,8 +566,10 @@ static uint8_t wild(const char *pat, const char *s)
 static void cmd_dir(const char *p)
 {
     char name[64], pat[NAMEMAX], back[64]; uint16_t count = 0; uint32_t total = 0, sz;   /* the device writes entries of at most 64 */
-    uint8_t first = 6, haspat, went = 0;                 /* DIR A: dotfiles too */
-    if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) { first = 18; p++; }
+    uint8_t first = 6, haspat, went = 0, longf = 0;      /* -a/A dotfiles too, -l one per line */
+    skipsp(&p);
+    while (*p == '-') { p++; while (*p && *p != ' ') { char c = *p | 0x20; if (c == 'a') first = 18; else if (c == 'l') longf = 1; p++; } skipsp(&p); }
+    if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) { first = 18; p++; skipsp(&p); }
     haspat = getname(&p, pat);                           /* a pattern, or a directory to look in */
     if (haspat) {                                        /* no * or ? in it: it names a directory, so go and look */
         const char *w = pat; went = 1;
@@ -589,7 +591,7 @@ static void cmd_dir(const char *p)
         sz = r32(FS + 16);
         if (sz == 0xFFFFFFFFUL) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; pad(col + 20); puts_("<DIR>"); }
         else { puts_(name); pad(col + 20); putdec(sz); count++; total += sz; }
-        if (COLS >= 78 && col == 0) pad(COLS / 2); else newline();
+        if (!longf && COLS >= 78 && col == 0) pad(COLS / 2); else newline();
     }
     if (cx) newline();
     putdec(count); puts_(" file(s), "); putdec(total); puts_(" bytes"); newline();
@@ -1731,6 +1733,17 @@ static void nav_mount(const char *p)
     w32(FS + 8, (uint16_t)path);               /* reg 8 -> the mount path, as RENAME passes its second name */
     if (fs_cmd(19)) error("mount: need a tnfs://, http:// or https:// URL and a path");
 }
+static void nav_list(void)                /* MOUNT with no args: show the mounts */
+{
+    char b[256]; uint8_t i; const char *q;
+    for (i = 0; ; i++) {
+        w32(FS + 8, (uint16_t)b); w32(FS + 12, (uint32_t)i);
+        if (fs_cmd(21)) break;
+        for (q = b; *q; q++) k_chrout((uint8_t)*q);
+        newline();
+    }
+    if (!i) { puts_("no mounts"); newline(); }
+}
 static void nav(const char *p)
 {
     char name[NAMEMAX];
@@ -1740,7 +1753,7 @@ static void nav(const char *p)
         fs_name(name);
         if (fs_cmd(11)) error("cd: no such directory");
     } else if (is_cmd(&p, "MOUNT")) {
-        nav_mount(p);
+        if (!*p) nav_list(); else nav_mount(p);
     } else if (is_cmd(&p, "UMOUNT") || is_cmd(&p, "UNMOUNT")) {
         if (!getrest(&p, name)) { error("umount: UMOUNT path"); return; }
         fs_name(name);

@@ -244,6 +244,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define FS_DIR_ALL    18   /* DIR_FIRST, dotfiles included (only . and .. stay hidden) */
 #define FS_MOUNT      19   /* NAMEPTR = "URL PATH": map a local path onto a server (tnfs://...) */
 #define FS_UMOUNT     20   /* NAMEPTR = PATH: remove a mount */
+#define FS_MOUNTS     21   /* list mounts: LEN = index, writes "/path  url" to ADDR, SIZE = len; status 4 past the end */
 /* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."
  * work, ".." never leaves the root. Lookups are case-insensitive when the
  * exact name is absent. Reads (OPEN_READ, STAT, LOAD) of a bare name not

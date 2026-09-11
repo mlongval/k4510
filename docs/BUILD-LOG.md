@@ -6793,3 +6793,9 @@ openssh-client in its package list.
 all.  MOUNT now `mkdir`s the mount path -- a real empty directory that
 appears in a listing of its parent and that CD/DIR still route to the
 server; UMOUNT `rmdir`s it when it is the empty placeholder.
+
+**Bare MOUNT lists the mounts, and DIR/LS take -a and -l (Doc).**
+`MOUNT` with no argument prints each mount as "/path  url" (a new FS
+call, 21, read by nav_list in bank 3), or "no mounts".  DIR and LS now
+accept Unix-style flags: `-a` (and the old bare `A`) shows dotfiles,
+`-l` puts one entry per line, `-la` both.

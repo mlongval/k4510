@@ -26,7 +26,7 @@ Chapter~\ref{cha:io} directly:
 \begin{type}
 hex
 D000 C@ .            read a VICKY register
-D5E0 80 swap C!      HUSH, by hand: silence the sequencer
+D5E0 80 swap C!      silence the sound sequencer by hand
 \end{type}
 
 \section{The assembler}
@@ -47,7 +47,8 @@ The dictionary has about 31.7\,KB free for your words. \verb|BYE| returns
 to the shell with the screen and the session exactly as you left them.
 
 \begin{aside}
-No file words yet: Forth source lives in \texttt{/FORTH} but must be typed.
+No file words yet: Forth source lives in \pth{/LANG/FORTH} but must be
+typed.
 An \texttt{INCLUDED} that reads through the machine's storage device is on
 the list.
 \end{aside}

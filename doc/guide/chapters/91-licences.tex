@@ -10,11 +10,11 @@ The K4510 as a whole is distributed under the \textbf{GNU General
 Public License, version~2 or (at your option) any later version}.
 Everything written for this project --- the machine, VICKY, SHEILA,
 the DMA engine, the MATH unit, the system ROM and K/OS, JIM, the Tube
-ULA, the network layer, the editors, the demos, the Pascal target and
-the Raspberry~Pi port --- is Copyright \copyright{} 2026 Michael
+ULA, the network layer, the editors, the demos, RX and the Pascal
+target --- is Copyright \copyright{} 2026 Michael
 Longval and is released under those terms. The choice is not really a
-choice: the CPU core and reSID are GPL-2.0-or-later, and a work
-containing them must be too.
+choice: the CPU core and the OPL2 emulation are GPL-2.0-or-later, and a
+work containing them must be too.
 
 \section{Code inside the machine}
 \begin{itemize}[leftmargin=1.4em]
@@ -22,8 +22,14 @@ containing them must be too.
   \pth{core/xemu/}: \verb|cpu65.c|, \verb|cpu65.h|,
   \pth{cpu65_mega65_timings.h}, \pth{cpu65ce02_disasm_tables.c},
   used unchanged. \emph{GPL-2.0-or-later.}
-\item \textbf{reSID} --- Dag Lem, as shipped in VICE~3.3.
-  \verb|core/resid/|. \emph{GPL-2.0-or-later.}
+\item \textbf{fmopl (YM3812/OPL2)} --- Jarek Burczyński and Tatsuyuki
+  Satoh, from MAME by way of VICE. \verb|core/opl2/|, vendored
+  unaltered. \emph{GPL-2.0-or-later.}
+\item \textbf{reSID} --- Dag Lem, as shipped in VICE~3.3, was
+  \verb|core/resid/| until 2026-09-05 and is no longer in the tree
+  (Appendix~\ref{cha:sound}). \emph{GPL-2.0-or-later}; recorded here
+  because a vendored component that quietly disappears is worse than one
+  recorded as gone.
 \item \textbf{BBC BASIC for SDL 2.0, console edition (BBCTTY)} ---
   Richard T. Russell. \verb|tube/|, vendored and altered (see
   \pth{tube/ALTERED.md}). \emph{zlib licence.} ``BBC BASIC'' is the
@@ -36,8 +42,9 @@ containing them must be too.
   jefftranter/6502. \verb|basic/basic.asm|. \emph{Free for
   non-commercial use only}; derivatives must carry the words
   ``Derived from EhBASIC'' --- see \pth{basic/README-EhBASIC.txt}.
-  It ships as a separate program (\pth{fs/ehbasic.prg}) and is not
-  linked with the GPL code.
+  It ships as a separate program
+  (\pth{fs/LANG/EHBASIC/ehbasic.prg}) and is not linked with the GPL
+  code.
 \item \textbf{RunCPM} --- Marcelo Dantas. \verb|cpm/src/|, vendored
   unmodified (\pth{cpm/VENDORED-FROM.txt}). \emph{MIT.}
 \item \textbf{Tali Forth 2} --- Scot W. Stevenson, Sam Colwell,
@@ -49,9 +56,17 @@ containing them must be too.
   licence.
 \item \textbf{cc65 runtime} --- the ROM and every \verb|.prg| are
   linked against \verb|none.lib|. \emph{cc65's zlib-style licence.}
-\item \textbf{Microsoft 6502 BASIC 1.1} (planned, via mist64/msbasic)
-  --- \emph{MIT}, released by Microsoft in 2025. Not yet in the
-  machine.
+\item \textbf{Microsoft 6502 BASIC} --- \emph{MIT}, released by
+  Microsoft in 2025, via \href{https://github.com/mist64/msbasic}{mist64/msbasic}
+  at a pure-Microsoft configuration. \pth{basic/msbasic/}, vendored
+  unmodified --- and only the files a pure build assembles: none of the
+  per-manufacturer material is here, which is the line that keeps the
+  build resting on the MIT release alone.
+\item \textbf{Supermon+64 1.2} --- Jim Butterfield, restored and
+  commented by J.\,B. Langston
+  (\href{https://github.com/jblang/supermon64}{jblang/supermon64}),
+  ported to the 45GS10. Butterfield published it for anyone to use;
+  Langston asks for attribution.
 \end{itemize}
 
 \section{Fonts}
@@ -79,24 +94,37 @@ containing them must be too.
 derived from a Commodore~64 character ROM. That file and every
 derivative were removed from the repository \emph{and from its
 history} before it was made public. If you own a C64 and want the real
-thing, drop your own \verb|chargen.bin| into \verb|/SYSTEM|: the
+thing, drop your own \verb|chargen.bin| into \pth{/SYSTEM/ETC}: the
 machine will use it, and \verb|.gitignore| will keep it out of the
 repository. That copy is yours, not ours to publish.
 \end{aside}
 
-\section{The Raspberry Pi build}
-Neither of these lives in the repository; \pth{pi/Makefile} expects
-them beside the checkout.
+\section{The Linux the machine boots on}
+The live image is a Debian, assembled by \pth{linux/build-live.sh} from
+Debian's own archive, so every package in it carries its own terms and
+Debian's copyright files travel with it. One
+thing is built from source into it:
 \begin{itemize}[leftmargin=1.4em]
-\item \textbf{Circle} --- Rene Stange. \emph{GPL-3.0.}
-\item \textbf{circle-libsdl2} --- Xalior. \emph{zlib}; its
-  \pth{sdl-app.ld} is \emph{GPL-3.0}.
+\item \textbf{Tek40xx} --- Ian Schofield's Tektronix 4010/4014
+  terminal, built from upstream with one patch of ours.
+  \emph{GPL-3.0.} It is a separate program on the Linux side, not part
+  of the emulator.
 \end{itemize}
-A \verb|kernel8.img| built from these is therefore GPL-3.0 as a whole,
-which GPL-2.0-\emph{or-later} code permits. The Raspberry~Pi boot
-firmware in a distributed card image (\verb|bootcode.bin|,
-\verb|start.elf|, \verb|fixup.dat|) is Broadcom's, redistributable
-with Raspberry~Pi hardware under its own licence.
+\noindent The Tektronix plot files in \pth{linux/tek40xx/plt/} are
+Tek40xx's own gnuplot examples plus a page generated here. The vintage
+cassette plots that circulate with \emph{other} Tektronix emulators are
+marked personal-use-only by their authors and are deliberately \emph{not}
+vendored; the README says how to fetch them for yourself.
+
+\begin{aside}
+\textbf{The Raspberry Pi build} was here until 2026-09-07 and needed two
+components that never lived in this repository: \textbf{Circle} (Rene
+Stange, \emph{GPL-3.0}) and \textbf{circle-libsdl2} (Xalior,
+\emph{zlib}, with a \emph{GPL-3.0} linker script). A \verb|kernel8.img|
+built from those was GPL-3.0 as a whole, which GPL-2.0-\emph{or-later}
+code permits. The tag \texttt{alpha-0.5} is the last release that
+shipped one.
+\end{aside}
 
 \section{Build tools}
 Not distributed with the machine, but required to build it: GCC and
@@ -116,13 +144,14 @@ your own Mad Pascal checkout.
   mixed provenance and this repository is public. The same goes for
   WordStar, Turbo Pascal~3 and MBASIC, which the \verb|K-*.SUB|
   launchers know how to start but which you must supply yourself.
-\item \textbf{SID tunes.} \verb|fs/SID| is a symbolic link to a local
-  copy of the High Voltage SID Collection. The tunes are the
-  composers' copyright, are used here only for listening, and are not
-  part of this repository or of any release.
+\item \textbf{ZX Origins fonts.} Damien Guard's faces are free to use
+  and \emph{not} free to re-host, so the machine names them in the F7
+  font menu and does not ship them: \pth{tools/mkzxfonts.py} turns your
+  own download into screen fonts, and without it those entries fall back
+  to the default face.
 \item \textbf{A Commodore character ROM} --- see the note above.
 \item \textbf{Your \texttt{STARTUP.BAT}} --- yours, not the repository's
-  (copy \pth{/SYSTEM/STARTUP.SAMPLE} to start one).
+  (copy \pth{/SYSTEM/ETC/STARTUP.SAMPLE} to start one).
 \end{itemize}
 
 \section{If you redistribute the machine}

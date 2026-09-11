@@ -1,0 +1,139 @@
+\chapter{The Linux Underneath}\label{cha:linux}
+
+Every emulated machine sits on a real one. On most of them that fact is
+carefully hidden; here it is a feature, because the real machine has
+compilers on it and the fantasy one is being used to write programs.
+
+This chapter is about the seam: the one character that crosses it, the
+two words that use it to compile your programs, and what is on the other
+side.
+
+\section{\texttt{!} --- the Linux prompt, from the machine's prompt}
+A line beginning with \verb|!| is not the machine's:
+
+\begin{type}
+!ls -l
+!git status
+!nvim notes.txt
+\end{type}
+
+\noindent runs that command on the Linux the machine is standing on, with
+its output drawn on the machine's screen. A bare \verb|!| with nothing
+after it gives you an interactive shell there; leave it the way you leave
+any shell.
+
+It is carried on the Tube (Chapter~\ref{cha:tube}), which is the part of
+this machine already built to have another processor's console on the
+glass: the host's shell is started on the same pty the co-processors use,
+JIM renders it, and the ROM's own key loop feeds it. So the colours stay
+the machine's, full-screen programs work --- \verb|nvim| runs in the
+window --- and \verb|ls --color| lands in the machine's palette. The
+terminal type to tell anything that asks is \textbf{ansi}: JIM has
+colour, and \texttt{vt100}'s terminfo does not.
+
+\begin{aside}
+\textbf{What this means for the container.} The sandboxed flavour
+(\pth{linux/podman.sh}) is a wall on purpose: it is handed the display,
+the sound, the game controllers and one folder, which the machine sees
+as \pth{/MNT/SHARE}, and nothing else. \verb|!| inside it is real, and
+reaches the container --- which is a small Debian with the compilers on
+it, and not your computer. That is the whole point of running it that
+way.
+\end{aside}
+
+\section{\texttt{PAS} and \texttt{CC}: compiling on the machine}
+The compilers live on the Linux side, so the machine reaches them the
+same way you would --- but without you having to remember four options:
+
+\begin{type}
+VI HELLO.PAS
+PAS HELLO
+HELLO
+\end{type}
+
+\verb|PAS name| compiles \texttt{name.PAS} \emph{in the directory you are
+standing in} with Mad Pascal, and leaves \texttt{name.prg} beside it.
+\verb|CC name| does the same for \texttt{name.C} with cc65, using exactly
+the rule the machine's own Makefile uses for its programs --- the C output
+is byte-for-byte what the repository ships. Intermediates go to a scratch
+directory and never appear on your disk; the compiler's own errors appear
+on the screen, and its exit status comes back as the result code, so a
+script can test it.
+
+That is the loop the machine owns: \emph{edit the source on the machine,
+compile it from the machine's prompt, run it on the machine.} The
+compiler itself still runs on the Linux beside it, which is why
+``self-hosted'' has an ``almost'' in front of it --- but the part that
+matters when you are writing a program is all on this side of the seam.
+
+Both are words in the ROM rather than aliases, deliberately: an alias
+would live in a \texttt{STARTUP.BAT}, which is per-machine and yours, and
+so would never reach a machine you had just built.
+
+\section{What is on the other side}
+On a desktop, the other side is your own computer and has whatever you
+have put on it. On the stick it is a Debian built for the purpose, and
+the list is short because everything on it is there for a reason:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.58\linewidth}@{}}
+\toprule
+cc65, 64tass, nasm & the machine's own toolchain --- it can rebuild itself \\
+FPC + Mad Pascal & what \verb|PAS| runs \\
+git, neovim & so that work done here is work \\
+\texttt{tek40xx} & a Tektronix 4010 terminal, below \\
+telnetd & bound to loopback and nothing else \\
+NetworkManager & \texttt{nmtui} on another console, for wireless \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The consoles.} Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 is a
+second one, where the Tektronix lives. Quitting the emulator (Shift+Esc,
+or F7 $\rightarrow$ Quit) drops you to a Linux shell on the machine's own
+console rather than to nothing, and F7 has a \emph{shut down the
+computer} row underneath it because on the stick there is no desktop to
+go back to. The power button performs a clean shutdown.
+
+\textbf{The internal drive is not there.} The stick's kernel command line
+blacklists the storage drivers absolutely, so the laptop's own disk is
+not mounted, not visible, and not installable-to. That is not a policy
+setting you could turn off by accident; the machine physically cannot see
+it. Everything is loaded into RAM at boot, so the stick could be pulled
+out --- except that a small persistence partition on it keeps your home
+directory, which is where \texttt{k4510.cfg}, your saved states and your
+files are. Leave the stick in.
+
+\textbf{Telnet, both directions.} \verb|TELNET 127.0.0.1 23| from the
+machine's prompt logs in to the Linux underneath through the front door
+rather than through \verb|!| --- useful when you want a session that
+survives what the machine is doing. The daemon is bound to the loopback
+address only, so there is no network path to it at all. Outbound, the
+network is real: \verb|TELNET| reaches a BBS, and \texttt{http://} and
+\texttt{tnfs://} work as Chapter~\ref{cha:shell} describes.
+
+\section{A Tektronix beside the machine}
+\texttt{tek40xx} (Ian Schofield's, GPL-3) is a Tektronix 4010/4014
+storage-tube terminal that is also a telnet client. It is on the stick and
+in the container because of what a storage tube is \emph{for}: a PiDP-11
+answers on telnet ports, and a machine of that vintage deserves a screen
+of that vintage to draw on.
+
+\begin{type}
+tek HOST [PORT]
+\end{type}
+
+\noindent on the second console --- full screen on a bare console, in a
+window under a desktop. And without any PDP-11 at all:
+
+\begin{type}
+tekplay NAME|FILE...
+\end{type}
+
+\noindent plays Tektronix plot files at a 9600-baud pace, which is the
+right speed to watch one being drawn. With no argument it plays every
+plot that ships; \texttt{HOME} clears the screen and \texttt{END} quits.
+Nothing in the emulator changed for any of this: it is a second program
+on the same computer, which is exactly what a second terminal was in
+1975.

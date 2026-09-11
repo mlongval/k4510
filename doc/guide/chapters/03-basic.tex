@@ -1,9 +1,12 @@
 \chapter{EhBASIC}\label{cha:basic}
 
 The machine speaks EhBASIC~2.22 --- Lee Davison's Enhanced BASIC --- with
-this machine's additions: graphics statements that ride the blitter, sound
-on the SIDs, floating point on the MATH unit, and an escape hatch to the
-shell.
+this machine's additions: graphics statements that ride the blitter,
+floating point on the MATH unit, and an escape hatch to the shell. It has
+no sound \emph{keyword}: a program that wants a note poke\-s the sound
+sequencer at \texttt{\$D5E0} or the OPL2 at \texttt{\$D480} directly,
+which on a machine with a friendly memory map is not much of a hardship
+(Chapter~\ref{cha:io}).
 
 \begin{type}
 RUN EHBASIC
@@ -60,7 +63,7 @@ Each statement re-points the chip at the attribute table and re-enables
 sprites, so a \verb|GRAPHICS 0| or a shell \verb|MODE| in between costs
 you nothing: the next sprite statement puts them back.
 
-\verb|INVADER2.BAS| in \pth{/EHBASIC} is the demonstration --- Space
+\verb|INVADER2.BAS| in \pth{/LANG/EHBASIC/EX} is the demonstration --- Space
 Invaders with the arcade shapes, poked 4~bits-per-pixel into \$040000
 through a bank register, four bases that erode as they are hit, and
 thirty-one sprites moving. \verb|INVADERS.BAS| beside it is the same
@@ -75,8 +78,8 @@ erode because their shape pages are poked, not redrawn.}
 Any shell command works from BASIC with \verb|*| in front --- \verb|*DIR|,
 \verb|*CD EHBASIC|, \verb|*MON|, \verb|*DUMP a note| --- and \verb|*BYE|
 leaves BASIC for the shell. Escape or Ctrl-C stops a running program (and
-silences the SIDs); the program's variables survive for \verb|PRINT|-style
-post-mortems.
+silences the sound); the program's variables survive for
+\verb|PRINT|-style post-mortems.
 
 \section{Editing the program in VI}\label{sec:basicvi}
 \verb|*VI| and \verb|*EDIT|, with nothing after them, edit the program that
@@ -106,3 +109,45 @@ newline, so the editor opens on an empty line~1 with the program below it.
 Harmless --- BASIC ignores it on the way back in --- but it is why the line
 count is one more than you expect.
 \end{aside}
+
+\section{The other BASIC: Microsoft, 1977}\label{sec:msbasic}
+EhBASIC is the one in ROM, and the one this chapter is about. Beside it
+on the disk is the other one, and it is the real thing:
+
+\begin{type}
+MSBASIC
+\end{type}
+
+\noindent Microsoft's 6502 BASIC --- not an imitation of it, but the
+source Microsoft released, assembled in a \emph{pure} configuration:
+the newest base in the tree, nine-digit floating point, every fix
+through revision 2C, and none of the additions any particular
+manufacturer made to it. It is the interpreter that became Commodore's
+and Apple's before either of them touched it, and it is here because a
+fantasy machine of the mid-eighties would have been sold one.
+
+It loads at \texttt{\$7000} and comes up with its own banner. What you
+should know before you type at it:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{The \texttt{*} escape works}, exactly as in EhBASIC:
+  \verb|*DIR|, \verb|*CD|, any shell command --- and \verb|*BYE| (or
+  \verb|*QUIT|) hands the machine back to the shell with its directory
+  and its screen intact. Microsoft's BASIC has no \verb|BYE| of its own;
+  this one is caught a level below the interpreter, so not a byte of the
+  vendored source knows it happened. A \verb|*| typed at an
+  \verb|INPUT| prompt is data, not a command.
+\item \textbf{It answers \texttt{MEMORY SIZE?} for you.} A pure
+  Microsoft cold start asks where memory ends and, given no answer,
+  finds out by walking upwards --- straight through its own image. The
+  machine hands it the answer instead, and the terminal width after it,
+  through BASIC's own documented input path.
+\item \textbf{There is no \texttt{LOAD} or \texttt{SAVE} yet.} Both were
+  things each manufacturer wrote themselves, and this build has none of
+  anybody's; the machine's own are two system calls away and wiring them
+  in is on the list. For now, write programs in EhBASIC, or edit a file
+  with \verb|VI| and paste.
+\item \textbf{It has no sound or graphics words}, and it is not going to
+  grow any: adding tokens means editing the vendored interpreter, which
+  is the one thing this port does not do.
+\end{itemize}

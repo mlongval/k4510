@@ -11,11 +11,11 @@ firmware source. This chapter is the map of what lives where:
 \begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.60\linewidth}@{}}
 \toprule
 \texttt{\$D000} & VICKY   & video: layers, palette, blitter, sprites, SHEILA\\
-\texttt{\$D100} & input   & keyboard FIFO, status, peek, break-pending\\
+\texttt{\$D100} & input   & keyboard FIFO and its status, the held keys, the mouse, break-pending\\
 \texttt{\$D200} & DMA     & copy / fill / swap / line / triangle\\
 \texttt{\$D300} & storage & the host filesystem: open, read, dir, chdir\ldots\\
-\texttt{\$D400} & SID 0-3 & four chips, 32 bytes apart\\
-\texttt{\$D500} & system  & clock, RTC, frame counter, DUMP, SID crystal\\
+\texttt{\$D480} & OPL2    & the YM3812: address, data, status --- the AdLib's arrangement\\
+\texttt{\$D500} & system  & clock, RTC, frame counter, DUMP, the settings the ROM reads, the sound sequencer at \texttt{\$D5E0}\\
 \texttt{\$D600} & banks   & the eight bank registers, masks at \texttt{\$D620}\\
 \texttt{\$D700} & MATH    & IEEE floats, transcendentals, math lists, mul/div\\
 \texttt{\$D800} & Tube    & the co-processor: status, byte in, byte out, start/stop\\

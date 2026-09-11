@@ -28,7 +28,7 @@ reasoning; the last tree with the port is tag `alpha-0.5`. A Pi still
 runs the machine — under Linux, the same way the laptop does.
 
 **Read the handbook first**: `doc/guide/k4510-guide.pdf`, the User's and
-Programmer's Guide, 70 pages, every screenshot captured from the running
+Programmer's Guide, 103 pages, every screenshot captured from the running
 machine at build time. This README is the short version. Both are alpha
 documentation of an alpha machine: things change, and the handbook's
 first page says so.

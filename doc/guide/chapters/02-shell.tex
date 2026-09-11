@@ -3,41 +3,49 @@
 The shell is what the machine boots into. It is a file manager, a program
 launcher and a front door to the monitor, and every command here also works
 from BASIC with a \verb|*| in front. Type \verb|HELP| for the whole command
-set on one screen --- the text it prints is itself a file on disk, a hidden
-one called \verb|/.HELP|.
+set on one screen --- the text it prints is itself a file on disk,
+\pth{/SYSTEM/ETC/HELP}.
 
-\section{Files and directories}
-Files live on the host: the \texttt{fs/} directory beside the emulator on
-the desktop, the \texttt{k4510/fs/} folder of the SD card on the Pi. The
-machine sees that directory as \texttt{/} and nothing above it. Inside,
-one directory per language, and a few that are the machine's own:
+\section{The disk}
+Files live on the host: the \texttt{fs/} directory beside the emulator.
+The machine sees that directory as \texttt{/} and nothing above it. The
+root has six folders and one file in it, and that is fixed --- everything
+else lives one level down:
 
 \begin{center}
 \small
-\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.70\linewidth}@{}}
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.68\linewidth}@{}}
 \toprule
-\texttt{/PRG} & machine-code programs: the demos, \texttt{EDIT} and \texttt{VI}, \texttt{TELNET}, \texttt{BUG} \\
-\texttt{/EHBASIC} & EhBASIC programs \\
-\texttt{/BBCBASIC} & BBC BASIC programs, for the Tube \\
-\texttt{/FORTH} & Forth \\
+\texttt{/SYSTEM} & the machine's own, in three parts: \texttt{BIN} the tools (\texttt{VI}, \texttt{RANGER}, \texttt{DELETE}, \texttt{SUPERMON}, \texttt{BENCH}, \texttt{BUG}\ldots), \texttt{ETC} what it reads (\texttt{HELP}, \texttt{VI.SAMPLE}, \texttt{STARTUP.SAMPLE}, \texttt{PALETTES/}, a \texttt{chargen.bin} if you add one), \texttt{LOG} what it writes (\texttt{BENCH-*}, \texttt{TRACE.TXT}, \texttt{BUGREPORTS/}) \\
+\texttt{/LANG/}\emph{name} & one folder per language: its runtime, a \texttt{README} and an \texttt{EX/} of examples. \texttt{PASCAL} and \texttt{C} keep the sources \emph{beside} the programs they compile to \\
+\texttt{/APPS/}\emph{name} & one folder per program, with its data beside it --- \texttt{LODE}'s levels, \texttt{CHESS}'s openings, \texttt{OPLPLAY}'s tunes \\
+\texttt{/HOME} & yours. The prompt starts here \\
 \texttt{/CPM} & the Z80's drives, \texttt{A} to \texttt{P}, one folder each (Chapter~\ref{cha:cpm}) \\
-\texttt{/SID} & music for \texttt{SIDPLAY} --- a link to your own HVSC copy, not shipped \\
-\texttt{/SYSTEM} & the machine's own: \texttt{STARTUP.SAMPLE}, \texttt{BUGREPORTS/}, a \texttt{chargen.bin} if you add one \\
+\texttt{/MNT} & things from outside: \texttt{SHARE}, the folder the container flavour is given \\
 \texttt{/STARTUP.BAT} & yours; run at power-on (Section~\ref{sec:badstartup}) \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-A bare name not found where you are is looked for in \texttt{/PRG},
-\texttt{/EHBASIC}, \texttt{/BBCBASIC} and \texttt{/FORTH} as well, so
-you rarely need a path; a name is matched regardless of case when the
-exact one is absent; and \texttt{..} never climbs above \texttt{/}.
+\subsection*{The search path, which is why you never type a path}
+A bare name not found where you are is looked for, in this order, in
+\pth{/SYSTEM/BIN}, then in \pth{/APPS/NAME/}, \pth{/LANG/NAME/} and
+\pth{/HOME/PROJECTS/NAME/} --- where \emph{NAME} is the name you typed
+without its extension, uppercased, because on this disk \textbf{the name
+is the folder} --- and then by extension: a \texttt{.BAS} in
+\pth{/LANG/EHBASIC/EX}, a \texttt{.BBC} in \pth{/LANG/BBCBASIC/EX}, a
+\texttt{.RX} in \pth{/LANG/RX}, a \texttt{.PAS}, \texttt{.C} or
+\texttt{.prg} in the two compiled languages' folders. So \verb|SKYFIRE|,
+\verb|EHBASIC|, \verb|RANGER| and \verb|HELLO| run from wherever you are
+standing, and \verb|RUN "INVADERS.BAS"| inside EhBASIC still finds it. A
+name is matched regardless of case when the exact one is absent, and
+\texttt{..} never climbs above \texttt{/}.
 
 \begin{type}
 DIR [A] [dir | pattern]     LS is the same
 CD dir       CD ..          CHDIR is the same
 MKDIR dir    RMDIR dir
-RM name                     DEL and ERASE are the same
+RM name      RM -f name     DEL and ERASE are the same
 RENAME old new              REN and MV are the same
 CP from to                  a file (COPY is memory: see Housekeeping)
 TYPE name                   a screenful at a time; q stops
@@ -48,12 +56,22 @@ EDIT name    VI name        the editors, Chapter 8
 
 Names that begin with a dot are hidden; \verb|DIR A| shows them.
 \verb|DIR| also takes a directory to look in, or a pattern to match:
-\verb|DIR PRG| lists that folder without going there, \verb|DIR *.PAS| and
+\verb|DIR APPS| lists that folder without going there, \verb|DIR *.PAS| and
 \verb|DIR ?.TXT| match here (\verb|*| any run of characters, \verb|?| any
 one), and \verb|DIR A *.BAS| means both at once.
 
-\screen{shots/dir.png}{\texttt{DIR}: directories first in white, then files
-with their sizes, two columns.}
+\screen{shots/dir.png}{\texttt{DIR} at the root: the disk's whole shape
+in six folders and one file. Directories come first, in white; files
+carry their sizes; two columns.}
+
+\subsection*{Nothing is deleted in a hurry}
+\verb|RM| moves a file to \pth{/.TRASH} rather than destroying it.
+\verb|RM -f| is the one that really removes. \verb|DELETE -l| lists the
+trash, \verb|DELETE -r name| puts one back, and \verb|DELETE -e| empties
+it; the file managers' own delete uses the same trash.
+\verb|RENAME| and \verb|CP| refuse to overwrite an existing file, and
+take \verb|-f| when you mean it --- the host's own habit is to overwrite
+without a word, and that habit has cost this project a file.
 
 \section{Running things}
 \verb|RUN balls.prg| runs a program; so does \verb|RUN balls|, and so does
@@ -67,12 +85,65 @@ SAY HELLO FROM THE DISK
 \end{type}
 
 prints \texttt{HELLO FROM THE DISK} --- there is no \texttt{SAY} command,
-only a \texttt{say.prg} in \texttt{/PRG}. Try \verb|SIDPLAY|, the SID
-jukebox; \verb|EDIT| and \verb|VI| are the editors
-(Chapter~\ref{cha:editors}); and four words open whole languages:
-\verb|EHBASIC| (Chapter~\ref{cha:basic}), \verb|BBC|
-(Chapter~\ref{cha:tube}), \verb|FORTH| (Chapter~\ref{cha:forth}) and
-\verb|CPM| (Chapter~\ref{cha:cpm}).
+only a \texttt{say.prg} in \pth{/SYSTEM/BIN}. The same rule takes an
+\texttt{.RX} script (Chapter~\ref{cha:rx}), so a REXX program is a
+command too.
+
+\verb|EDIT| and \verb|VI| are the editors (Chapter~\ref{cha:editors}), and
+six words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
+\verb|MSBASIC| (Section~\ref{sec:msbasic}), \verb|BBC|
+(Chapter~\ref{cha:tube}), \verb|FORTH| (Chapter~\ref{cha:forth}),
+\verb|CPM| (Chapter~\ref{cha:cpm}) and \verb|RX|
+(Chapter~\ref{cha:rx}).
+
+\subsection*{What is on the disk}
+\pth{/APPS} holds the programs the machine ships with, one folder each,
+and any of them runs by name from anywhere:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.60\linewidth}@{}}
+\toprule
+\verb|LODE| & a lode-runner: dig, climb, collect the gold. The levels are text files in its folder and \texttt{E} on the title card is a level editor \\
+\verb|SKYFIRE| & a formation shooter, in the Galaxian rules \\
+\verb|FLUFFY| & a platformer: variable jump height, stomping, spikes \\
+\verb|BOMBER| & a bomb-party arena \\
+\verb|CHESS| & a chess set with an engine; it can also be driven from a script (Chapter~\ref{cha:rx}) \\
+\verb|TINY| & a dungeon crawl \\
+\verb|OPL2| & the sound chip, all nine voices \\
+\verb|OPLPLAY| & plays \texttt{.OPL} streams from its \texttt{TUNES/} \\
+\verb|MANDEL| & the set, drawn by the machine \\
+\verb|CUBE| & a rotating solid \\
+\verb|BALLS| & the sprites, all of them at once \\
+\verb|ANSIDEMO| & what JIM can draw \\
+\verb|SEGDEMO| & two overlays sharing one address \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{The file managers}
+Two of them, because they are two different ideas about what a file
+manager is for, and neither is a compromise.
+
+\verb|KOMMANDER| is the one with two panels and function keys along the
+bottom --- Tab moves between the panels, and the keys copy, move, make a
+directory and delete. \verb|RANGER| is the other tradition: three miller
+columns, what is under the cursor previewed in the right-hand one, and
+vi's fingers (\verb|hjkl|, \verb|gg|, \verb|G|, \verb|/| to search).
+
+Both share the rules that matter:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Enter on a directory} goes into it.
+\item \textbf{Enter on a program} --- a \texttt{.prg}, or a CP/M
+  \texttt{.com} --- leaves the file manager and runs it, because the
+  output of a program belongs on the machine's screen and not inside a
+  browser's frame. A \texttt{.com} starts CP/M to do it.
+\item \textbf{Enter or F4 on a text file} opens it in \verb|VI| or
+  \verb|EDIT|, and you come back to where you were standing.
+\item \textbf{\texttt{DD} deletes} to \pth{/.TRASH}, the same trash the
+  shell's \verb|RM| uses, so \verb|DELETE -r| brings it back.
+\end{itemize}
 
 \section{SWAP: running one thing from inside another}
 A program is loaded where the last one was, so starting one from inside a
@@ -91,6 +162,23 @@ program, and a BASIC's far memory is not disturbed because nothing else
 touches it. BBC BASIC needs none of this: it lives on the co-processor,
 out of reach of anything running here.
 
+\verb|SWAP -k| is the same but \emph{keeps} the screen the program left,
+instead of restoring the caller's. A file manager wants its display
+back; a script that ran a program to read what it printed wants the
+other thing, which is why RX uses this form.
+
+\section{At the prompt}
+The line you are typing is editable: Left and Right move through it,
+Home and End go to its ends, Delete takes the character under the cursor
+and Backspace the one before it, characters insert where the cursor is,
+and Escape clears the line. It works across a line that has wrapped.
+
+\textbf{Up and Down walk the last eight lines you typed}, and Down past
+the newest gives you the empty line again. A line that repeats the one
+before it is not kept. The history lives in the ROM bank the line editor
+has to itself, so it survives a reset --- but not a power cycle, which
+is what \pth{/STARTUP.BAT} is for.
+
 \section{Aliases}
 \verb|ALIAS| gives a name to a line.
 
@@ -107,6 +195,21 @@ and \verb|DIR| still lists the directory. They live in memory --- in a
 sideways bank, not in the 64\,KB --- so they survive a reset but not a
 power cycle, which is what \verb|/STARTUP.BAT| is for.
 
+\section{The status bands}\label{sec:bands}
+Turn on \emph{status bands} (F7, under Terminal) and the console stops
+being the whole screen: a band at the top and a band at the bottom stay
+still while the text scrolls between them. Each band's height is a
+setting, and either may be nothing.
+
+They are shared, and the split is worth knowing. \textbf{The top band is
+yours} --- the machine draws the clock and the date in it, in whichever
+formats the Terminal page is set to. \textbf{The bottom band is the
+running program's}, and a program that wants it writes there through
+JIM; \verb|BANDS| in \pth{/SYSTEM/BIN} is the demonstration.
+Programs that take the whole screen --- the games, the editors --- get
+the whole screen anyway: the bands are part of the console, and the
+console is what a program leaves behind when it asks for the glass.
+
 \section{The network}
 A URL is a file name. Anything the shell reads --- \verb|TYPE|, \verb|LOAD|,
 \verb|CP|, \verb|RUN|, and the bare-word rule above --- accepts
@@ -114,7 +217,7 @@ A URL is a file name. Anything the shell reads --- \verb|TYPE|, \verb|LOAD|,
 fetches it:
 
 \begin{type}
-TYPE https://raw.githubusercontent.com/mlongval/bmc-k4510/master/README.md
+TYPE https://raw.githubusercontent.com/mlongval/k4510/master/README.md
 CP http://example.org/game.prg game.prg
 RUN http://example.org/game.prg
 \end{type}
@@ -146,38 +249,33 @@ For programs that want a live connection there is the \emph{N: device}
 at \texttt{\$D900} (FujiNet's name for it): four channels, each a URL
 opened for reading and writing --- \texttt{tcp://host:port} for a
 connection, \texttt{http://} for a page. \verb|TELNET host port| is the
-demonstration, a \texttt{telnet.prg} in \texttt{/PRG}: what you type goes
-out, what arrives is drawn by JIM, the terminal (Chapter~\ref{cha:tube}),
-so a BBS gets its ANSI colours and CP437 art and the cursor and function
-keys go out as VT sequences; F12 hangs up (Escape belongs to the far end).
-It turns the screen black while it is connected, because that is what
-BBS art is drawn for, and puts your colours back when it hangs up.
-The register map is in
-Chapter~\ref{cha:io} and \texttt{core/net.h}. On the Pi the network is
-the Ethernet port (DHCP); without a cable the device answers ``not
-fitted'' and URLs are simply absent names. The Pi has no TLS, so
-\texttt{https://} works on the desktop only, and its network wakes on
-first use rather than at boot.
+demonstration, a \texttt{telnet.prg} in \pth{/SYSTEM/BIN}: what you type
+goes out, what arrives is drawn by JIM, the terminal
+(Chapter~\ref{cha:tube}), so a BBS gets its ANSI colours and CP437 art
+and the cursor and function keys go out as VT sequences; F12 hangs up
+(Escape belongs to the far end). It turns the screen black while it is
+connected, because that is what BBS art is drawn for, and puts your
+colours back when it hangs up. The register map is in
+Chapter~\ref{cha:io} and \texttt{core/net.h}.
 
 So that there is no guessing, this is the whole list of what the machine
-speaks, and where:
+speaks:
 
 \begin{center}
 \small
-\begin{tabular}{@{}l l l l@{}}
+\begin{tabular}{@{}l l@{}}
 \toprule
-\textbf{Scheme} & \textbf{What} & \textbf{Desktop} & \textbf{Pi} \\
+\textbf{Scheme} & \textbf{What} \\
 \midrule
-\texttt{http://} & fetch a file; a name anywhere a name goes & yes & yes \\
-\texttt{https://} & the same, over TLS & yes & no \\
-\texttt{tnfs://} & a directory on a TNFS server, read-only & yes & yes \\
-\texttt{tcp://} & a raw connection, through the N: device only & yes & yes \\
+\texttt{http://} & fetch a file; a name anywhere a name goes \\
+\texttt{https://} & the same, over TLS \\
+\texttt{tnfs://} & a directory on a TNFS server, read-only \\
+\texttt{tcp://} & a raw connection, through the N: device only \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent There is no FTP, on either machine, and no SSH. The Pi's
-network is untested at the time of this printing.
+\noindent There is no FTP and no SSH.
 
 \section{CAPSLOCK}
 \verb|CAPSLOCK| toggles a caps-lock: while it is on, letters read from the
@@ -197,8 +295,13 @@ whose first character is \verb|#| is a comment, and a blank line is
 ignored. At power-on the machine runs \verb|/STARTUP.BAT| as such a
 script, if it exists --- straight in, with no pause and nothing to
 catch. It is the place to put your aliases;
-\texttt{/SYSTEM/STARTUP.SAMPLE} is one to copy from. If one ever stops
+\pth{/SYSTEM/ETC/STARTUP.SAMPLE} is one to copy from. If one ever stops
 the machine booting, page~\pageref{sec:badstartup} is the way out.
+
+A \texttt{.BAT} boots the machine and an \texttt{.RX} automates it: when
+a script needs to make a decision, read a result or talk to two things
+at once, that is RX's job (Chapter~\ref{cha:rx}) and \verb|EXEC| does
+not try to compete.
 
 \section{The monitor}
 \verb|MON| (old-timers may type \verb|WOZ|) opens the machine monitor at a
@@ -214,27 +317,36 @@ the machine booting, page~\pageref{sec:badstartup} is the way out.
 \screen{shots/mon.png}{The monitor examining the ROM. \texttt{MON E000.E00F}
 runs one line without entering the prompt.}
 
+\verb|SUPERMON| in \pth{/SYSTEM/BIN} is the larger tool, in the tradition
+of Jim Butterfield's: \verb|M| memory, \verb|D| a disassembly that speaks
+the whole 45GS02, \verb|A| an assembler, registers, hunting and filling
+--- and \verb|@| escapes to the shell without leaving it.
+
 \section{Housekeeping}
 \verb|INFO| is the machine's self-description; \verb|TIME| the clock;
 \verb|MODE| and \verb|COLOR| set the text screen --- \verb|CLS| clears it and
 \verb|CLG| clears the bitmap over it, whoever drew it --- both reach a
 BASIC through the \texttt{*} escape, which is how you tidy up after a demo
-that left its picture behind; \verb|FILL| and
-\verb|COPY| work on memory; \verb|HUSH| silences every SID at once;
-\verb|LS| is \verb|DIR| for fingers that have used Unix too long.
-\verb|LOGO| clears the screen and prints the startup banner again ---
-the colour bars and the machine's own description --- which is a tidy way
-to end a session or start a screenshot.
-\verb|RESET| restarts the machine from the shell, the same cold start the
-reset chord performs.
+that left its picture behind; \verb|PALETTE| lists, sets, loads and saves
+the 256 colours (\verb|PALETTE LOAD name| takes one from
+\pth{/SYSTEM/ETC/PALETTES}, \verb|PALETTE RESET| puts the machine's own
+back); \verb|FILL| and \verb|COPY| work on memory; \verb|HUSH| silences
+the sound, whichever part of the machine is making it --- the nine FM
+voices and the sequencer both; \verb|LS| is \verb|DIR| for fingers that
+have used Unix too long. \verb|LOGO| clears the screen and prints the
+startup banner again --- the colour bars and the machine's own
+description --- which is a tidy way to end a session or start a
+screenshot. \verb|RESET| restarts the machine from the shell, the same
+cold start the reset chord performs.
 
 \verb|BENCH| measures the machine: how many frames a second this host
 manages at the clock in force, then each clock of the menu's ladder for
-two seconds with a note sounding on SID~0, reporting frames and gaps in the
-sound for each, and the clock is put back. About 25 seconds; the report
-goes to \pth{/SYSTEM/BENCH-NN.TXT}. A clock is right for this host when
-it holds 60 frames a second with no gaps. A recent desktop holds a
-hundred or more; a Pi~3B+ holds fifteen; and that figure, not the
+two seconds with a note sounding, reporting frames, gaps in the sound and
+how many samples the machine did not make for each --- and the clock is
+put back afterwards. About 25 seconds; the report goes to
+\pth{/SYSTEM/LOG/BENCH-NN.TXT}. A clock is right for this host when it
+holds 60 frames a second with no gaps and nothing filled in. A recent
+desktop holds a hundred megahertz or more, and that figure, not the
 setting, is the one to quote when a program seems slow.
 
 Several commands answer to more than one name, so that habits from
@@ -285,7 +397,7 @@ that stays where you put it: the F7 menu, under Shell:
 the machine can take it away from you. Boot clean, fix the file, switch it
 back on.
 
-On the desktop there is a second way, for one boot only:
+There is a second way, for one boot only:
 
 \begin{type}
 ./k4510 --no-startup.bat

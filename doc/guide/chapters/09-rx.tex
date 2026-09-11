@@ -1,0 +1,114 @@
+\chapter{RX: the Machine's REXX}\label{cha:rx}
+
+\pth{/STARTUP.BAT} is a list of commands, and a list of commands is
+enough right up to the moment something has to be decided. RX is the
+answer to that: a REXX for this machine, in the Amiga's tradition rather
+than the mainframe's.
+
+\begin{type}
+RX HELLO
+\end{type}
+
+\noindent runs \texttt{HELLO.RX}. So does typing \verb|HELLO| on its own,
+because the shell's rule for an unknown word --- try it as a program on
+disk --- takes a script as readily as a \texttt{.prg}. The scripts that
+come with the machine are in \pth{/LANG/RX}.
+
+\section{Why REXX, and what ARexx was}
+ARexx on the Amiga was two things at once. It was the REXX language ---
+readable, typeless, and forgiving in the way a scripting language for
+people who are not programmers has to be. And it was the \emph{port}
+system: every serious Amiga program published a port, so ten lines of
+REXX could drive a paint program and a terminal in the same script. The
+second half is why anybody remembers it.
+
+Both halves are here. The language is \pth{demo/rexx.c}, 37\,KB loaded
+at \texttt{\$0800} because it wants nearly the whole program area, and it
+is a real one: strings and whole numbers, \verb|PARSE| with its
+templates, \verb|DO| in all its forms, \verb|SELECT|, internal functions
+with \verb|PROCEDURE EXPOSE| and recursion, compound (stem) variables,
+\verb|SIGNAL|, and about fifty built-in functions.
+
+The thing that makes it glue is REXX's oldest idea: \textbf{a clause the
+interpreter does not recognise is not an error, it is a command}, sent
+to whatever the current environment is.
+
+\begin{type}
+ADDRESS COMMAND
+'DIR APPS'
+IF RC = 0 THEN SAY 'that worked'
+\end{type}
+
+\section{The three environments}
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{ADDRESS} & \textbf{Sends the line to} \\
+\midrule
+\texttt{COMMAND} & K/OS's own shell --- exactly as if you had typed it. The result comes back in \verb|RC| \\
+\texttt{TUBE} & the co-processor's shell, with its output brought back in \verb|RESULT| \\
+\emph{name} & a program's port (below) \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Ports: the file is the mailbox}
+The Amiga's ports were message ports between tasks that were all running
+at once. This machine runs one program at a time, so that arrangement
+could not be copied --- and the substitute is the obvious one: a file.
+
+A script writes its request to \pth{/LANG/RX/MAIL.CMD}, \verb|SWAP|s to
+the program with that file as its one argument, and reads the reply from
+\pth{/LANG/RX/MAIL.RPL}: a result code on the first line and the text
+after it. A program joins the scheme by honouring one argument, which is
+about twenty lines of work.
+
+\verb|CHESS| is the worked example, and it plays a whole game this way:
+\verb|NEW|, \verb|MOVE|, \verb|GO|, \verb|LEVEL|, \verb|BOARD|,
+\verb|FEN| and \verb|STATUS|. Its position lives in
+\pth{/APPS/CHESS/PORT.GAM}, because a program swapped in starts fresh
+every time and the file is its memory. \texttt{CHESS.RX} in
+\pth{/LANG/RX} plays against the engine and draws the board itself from
+what comes back.
+
+\section{What is in \texttt{/LANG/RX}}
+A language with nothing written in it proves nothing, so:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.58\linewidth}@{}}
+\toprule
+\texttt{HELLO.RX} & the smallest one \\
+\texttt{MACHINE.RX} & the machine reading its own registers \\
+\texttt{HOSTINFO.RX} & the host asked about itself, over the Tube \\
+\texttt{WC.RX} & a word count \\
+\texttt{SUMFILE.RX} & a column adder \\
+\texttt{GUESS.RX} & a guessing game \\
+\texttt{WUMPUS.RX} & Hunt the Wumpus, in 150 lines \\
+\texttt{CHESS.RX} & a game of chess played through the port \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{aside}
+\textbf{Games are good tests.} Wumpus alone found three real faults in
+the interpreter on the day it was written: \verb|EXPOSE| of a stem was
+\emph{assigning} it, which silently threw away every member of the
+caller's map; \verb|LEAVE| stopped at the first \verb|END| it met rather
+than the loop's, so leaving from inside a \verb|SELECT| went nowhere;
+and a plain \verb|DO| group was counting as a loop. None of them would
+have shown up in a script that only ran commands in order.
+\end{aside}
+
+\begin{aside}
+\textbf{One thing to know about running programs from a script.} A
+program started by the shell loads at \texttt{\$6000} --- through the
+middle of the interpreter. So RX asks the filesystem whether the first
+word of a command names a file: a built-in shell command runs directly
+and its output stays on the screen, and a program is swapped in and out
+around the interpreter. That is also why RX uses \verb|SWAP -k|
+(Chapter~\ref{cha:shell}): the ordinary \verb|SWAP| would restore the
+screen and throw away what the program had just printed for the script
+to read.
+\end{aside}

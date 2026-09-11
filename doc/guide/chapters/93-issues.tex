@@ -39,12 +39,13 @@ Then let the machine do the writing:
 each answered in a line or two --- and writes the finished report to
 
 \begin{center}
-\texttt{/SYSTEM/BUGREPORTS/BUG-YYYYMMDD-HHMMSS.TXT}
+\texttt{/SYSTEM/LOG/BUGREPORTS/BUG-YYYYMMDD-HHMMSS.TXT}
 \end{center}
 
 \noindent making the directory if it is not there. Five lines it fills
 in itself, and they are the five most often got wrong by hand: which
-machine (the K4510 on a desktop, or the BMC-K4510 on bare metal), the exact build
+machine (the K4510 on its own Linux, or in a window on somebody's
+desktop), the exact build
 (\verb|INFO -v| says the same --- a trailing \verb|+| means the emulator
 was built from an edited tree, which is exactly the report that will not
 reproduce), the screen you are in, the last dump, and when.
@@ -73,10 +74,10 @@ the wrong order.
 
 \section{Where it goes}
 \begin{center}
-\url{https://github.com/mlongval/bmc-k4510/issues}
+\url{https://github.com/mlongval/k4510/issues}
 \end{center}
 
-\noindent From the host, the report is in \pth{fs/SYSTEM/BUGREPORTS/} and
+\noindent From the host, the report is in \pth{fs/SYSTEM/LOG/BUGREPORTS/} and
 the dump in \pth{dumps/}: open an issue, attach both, and you are done ---
 the report is the whole text of the issue. The form there asks
 \verb|BUG|'s questions again for anyone who has no report file: a fault

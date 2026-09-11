@@ -4,7 +4,7 @@ The K4510 is a fantasy computer: a machine that never existed, built the
 way 1985 might have built it with no budget committee in the room. It is not
 an emulation of any real computer. Its CPU, video chip, sound, and operating
 software are its own; the parts it borrows --- a 6502-family instruction set,
-the SID sound chip --- it borrows openly and then outgrows.
+the AdLib's FM chip --- it borrows openly and then outgrows.
 
 \section{What is the K4510?}
 \begin{itemize}[leftmargin=1.4em]
@@ -13,22 +13,21 @@ the SID sound chip --- it borrows openly and then outgrows.
   machine's own memory management: bank registers, a far-call gate, and RAM
   under the ROM. Its clock is whatever the host it runs on can hold at
   sixty frames a second with no gaps in the sound: the machine is a
-  fantasy and its timings are suggestions. A desktop of the last ten years holds a hundred megahertz or
-  more; a Raspberry Pi 3B+ holds fifteen. Today the clock is a setting
-  (F7, under Machine --- the desktop starts at 40.5\,MHz, the MEGA65's
-  number, and the Pi at 15) --- but the first time the machine boots on
-  a host it measures that host, a third of a second with the SIDs
-  sounding, and sets the clock to the highest step it can hold with
-  room to spare. The answer is kept, so later boots pay nothing; a
-  clock you choose yourself in the menu is never second-guessed; and
-  while a program is running, the machine keeps an eye on how much of
-  each frame it is taking, stepping the clock down if it is losing.
-  What a clock costs depends on what the program does with it --- an
-  arithmetic loop and a loop polling the raster differ by three to one
-  --- so the measurement is a fair guess rather than a promise, and
-  \verb|BENCH| is there for when you want the whole picture. \verb|INFO| reports the clock in force, read live, which is the only
-  honest number --- and the banner names none, because the machine no
-  longer has one speed.
+  fantasy and its timings are suggestions. A desktop of the last ten
+  years holds a hundred megahertz or more. The clock is a setting (F7,
+  under Machine --- ten steps from 202.5\,MHz down to 10, and a fresh
+  host starts at 40.5, the MEGA65's number); the first time the machine
+  boots on a host it measures it and picks the highest step that fits
+  with room to spare, keeps the answer so later boots pay nothing, and
+  never second-guesses a clock you chose yourself. While a program runs
+  the machine watches how much of each frame it is taking and steps the
+  clock down if it is losing. What a clock costs depends on what the
+  program does with it --- an arithmetic loop and a loop polling the
+  raster differ by three to one --- so the measurement is a fair guess
+  rather than a promise, and \verb|BENCH| is there for when you want the
+  whole picture. \verb|INFO| reports the clock in force, read live,
+  which is the only honest number --- and the banner names none, because
+  the machine no longer has one speed.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
   everything else is one instruction away.
 \item \textbf{Video: VICKY} --- 640$\times$480, 256 colours from a 24-bit
@@ -37,93 +36,106 @@ the SID sound chip --- it borrows openly and then outgrows.
   (640$\times$240, 320$\times$240, 320$\times$200, 160$\times$200) are
   drawn into the same glass, doubled and centred, so the raster is always
   480 lines however few of them the picture uses.
-\item \textbf{Sound: one to four SID chips} (reSID 6581) --- four is what
-  the machine has and what it starts with, and a host that would rather
-  spend the frame elsewhere can run fewer (F7, under Audio). A
-  floating-point MATH unit sits beside them, which the BASIC leans on.
+\item \textbf{Sound: an OPL2} --- a Yamaha YM3812 at \texttt{\$D480},
+  nine FM voices wired the AdLib's way: an address port, a data port and
+  a status register you poll. Any AdLib register list or instrument
+  patch therefore means what it says on this machine. A four-channel
+  sound sequencer at \texttt{\$D5E0} plays through it, in the BBC
+  Micro's idiom, which is what BBC BASIC's \verb|SOUND| and Mad Pascal's
+  \verb|Sound| use. A floating-point MATH unit sits beside it, which the
+  BASICs lean on. (The machine had four SID chips until September 2026.
+  Appendix~\ref{cha:sound} is the whole story, and it is worth reading
+  before concluding that it was a performance decision.)
 \item \textbf{A system ROM}: a shell with directories, a Wozmon-style
-  monitor, and EhBASIC~2.22 extended with graphics and sound --- with three
-  more languages one word away: BBC BASIC on the Tube, Forth, and CP/M.
+  monitor, and EhBASIC~2.22 extended with graphics and sound --- with
+  five more languages one word away: BBC BASIC on the Tube, Forth,
+  Microsoft BASIC, CP/M, and RX, the machine's REXX
+  (Chapter~\ref{cha:rx}). Two compilers are one word away as well:
+  \verb|PAS| and \verb|CC| turn a Pascal or C source in the directory
+  you are standing in into a program beside it (Chapter~\ref{cha:linux}).
 \end{itemize}
 
-\section{Two names, one machine}\label{sec:names}
-This book is about the \textbf{K4510}: the 45GS10, VICKY, SHEILA, the
-four SIDs, and K/OS. That is the computer, and it is what you are running
-on a Linux desktop.
+\section{One machine, two ways to run it}\label{sec:names}
+The computer is the \textbf{K4510}: the 45GS10, VICKY, SHEILA, the OPL2
+and K/OS. There is one of it. What changes is what it is standing on.
 
-Put the same machine on an SD card and stand it on a
-\textbf{Raspberry~Pi~3B+ with no operating system underneath it}, and
-what boots is the \textbf{BMC-K4510} --- the appliance. \emph{BMC} is
-for Randy Rossi's BMC64, the bare-metal platform this was built on; the
-name has always meant ``the K4510 on bare metal'', and this edition is
-the first to use it that way and no other.
+\textbf{As a whole computer.} Write the image
+(\pth{linux/build-live.sh}) to a USB stick, boot a spare laptop from it,
+and the machine is the machine: a minimal Debian that exists only to
+hold it up, loaded into RAM, keeping its settings and your files on the
+stick and never touching the laptop's own drive. That Linux is not
+hidden --- the cross-compilers, git, an editor and a second terminal are
+on it, and the machine can reach them (Chapter~\ref{cha:linux}) --- but
+it is furniture. Switch the laptop on and you are at the \verb|/HOME]|
+prompt.
 
-The distinction is easy to apply. Everything in this book is the K4510
-unless it needs a board with a card in it --- the boot time, the four
-Circle cores, the HDMI output, writing the card. Speed belongs to the
-host rather than to the machine, which is why the K4510 measures whatever
-it wakes up on: the BMC-K4510 \emph{holds} fifteen megahertz; the K4510
-does not \emph{run at} any particular number.
+\textbf{As a window.} Run the same program on a Linux desktop and you
+get the same machine in a window, which is how it is developed and
+tested, and how most of the figures in this book were taken. There is
+also a sandboxed container flavour (\pth{linux/podman.sh}) that is shown
+nothing of your computer but the display, the sound, the game
+controllers and one shared folder.
 
-Same architecture, same ROM bytes, same software, either way. One of them
-you can unplug.
+Same ROM bytes, same software, either way. Everything in this book is
+the K4510 unless it says otherwise; where the desktop window and the
+laptop differ, the book says ``on a desktop''.
+
+\begin{aside}
+\textbf{The Raspberry Pi, honestly.} Until September~2026 there was a
+third way: the machine on bare metal on a Raspberry~Pi~3B+, with no
+operating system underneath it, called the \emph{BMC-K4510} after Randy
+Rossi's BMC64. It worked. It was retired on 2026-09-07 because every
+feature was being built twice --- once for the machine and once for the
+board --- to buy a boot three seconds faster, and one shape is worth
+more than that. A Pi still runs the K4510 perfectly well; it runs it
+under Linux, the same way the laptop does. Earlier printings of this
+book describe the bare-metal edition, and the tag \texttt{alpha-0.5} is
+the last tree that contains it.
+\end{aside}
 
 \section{Building the machine}
-On the \textbf{desktop} (Linux), three lines build the whole machine:
+On a \textbf{Linux desktop}, three lines build the whole machine:
 \begin{type}
-git clone https://github.com/mlongval/bmc-k4510
-cd bmc-k4510 && ./setup.sh
+git clone https://github.com/mlongval/k4510
+cd k4510 && ./setup.sh
 ./k4510
 \end{type}
 \verb|setup.sh| installs the compilers and SDL2, builds everything, and
-runs the machine's ten test suites.
+runs the machine's test suites.
 
-\subsection*{Or: the BMC-K4510, on a Raspberry Pi}
-On the \textbf{Raspberry Pi 3B+} nothing is built --- download the SD-card zip from the
-project's releases page and put it on a card --- either unzip it onto the
-card's root yourself, or let the script do it:
+\subsection*{Or: the whole computer, on a stick}
 \begin{type}
-./install-sd.sh bmc-k4510-pi3.zip /media/you/CARD
+sudo ./linux/build-live.sh
 \end{type}
-
-\begin{aside}
-\textbf{Use the official power supply --- 5.1\,V, 2.5\,A.} A phone
-charger or a thin cable sags with three cores flat out; the firmware
-then caps the ARM clock and the machine runs at a fraction of its speed
-while looking exactly like a software fault. That cost this project a
-night: the same card went from 18 to 55 frames a second on the right
-supply. \verb|INFO| and \verb|BENCH| say when it is happening. (The
-BMC64 keyboard adapter takes positive-centre barrel power; on a
-micro-USB supply, a USB keyboard is the way in.)
-
-\textbf{Use an SDHC card --- 4 to 32\,GB, specifically.} SDHC ships
-FAT32 from the factory and just works. Older plain SD cards (2\,GB and
-under) do \emph{not} boot --- we tested. Bigger SDXC cards (64\,GB+)
-ship exFAT and will not boot until reformatted;
-\verb|./install-sd.sh zip /dev/sdX --format| does that (and erases the
-card). The machine needs about 5\,MB, so the smallest SDHC card sold is
-plenty.
-\end{aside}
+\noindent makes the bootable image: a small Debian and a few
+compilers, about half an hour the first time. Write it to a USB stick
+with \texttt{dd} and boot a laptop from it. It loads itself to RAM, so the stick is not being read
+while you work; a persistence partition on the same stick keeps
+\texttt{k4510.cfg}, your saved states and your files, so the stick has
+to stay in. \pth{docs/LINUX.md} has the details, and
+Chapter~\ref{cha:linux} is what you can do with it once it is running.
 
 \section{First boot}
-Switch it on (on the desktop: \verb|./k4510|; on the
-on the BMC-K4510: insert the card and power up). The machine greets you in yellow on blue:
+Switch it on (on a desktop: \verb|./k4510|; on the stick: plug it in and
+power up). The machine greets you in yellow on blue:
 
 \screen{shots/boot.png}{The boot screen: five stepped colour bars, then
 the machine, its CPU, its memory and its chips --- and no clock, because
 the machine no longer has one speed. Everything else, the clock in force
 included, is one \texttt{INFO} away, and \texttt{LOGO} prints this again.}
 
-The \verb|/]| at the bottom is the shell prompt --- the \verb|/| is the
-directory you are in. Type \verb|HELP| for the commands, \verb|INFO| for the
-machine's full self-description, and \verb|DIR| to see your files.
+The \verb|/HOME]| at the bottom is the shell prompt --- the part before
+the \verb|]| is the directory you are in, and the machine starts you in
+\pth{/HOME}, which is yours. Type \verb|HELP| for the commands,
+\verb|INFO| for the machine's full self-description, and \verb|DIR| to
+see your files.
 
 \begin{aside}
-\textbf{Keys on the desktop:} Escape is RUN/STOP (stops a BASIC program),
-Ctrl-C is STOP, Shift+Escape quits the emulator. Reset is a chord, the
-way it was Commodore+Restore on the C64: Super+PageUp (the Windows or
-Command key and PageUp) --- one key cannot do it by accident. F7 opens
-the menu.
+\textbf{Keys:} Escape is RUN/STOP (stops a BASIC program), Ctrl-C is
+STOP, Shift+Escape quits the emulator. Reset is a chord, the way it was
+Commodore+Restore on the C64: Super+PageUp (the Windows or Command key
+and PageUp) --- one key cannot do it by accident. F7 opens the settings
+menu; F8 pauses the machine and turns the keyboard into a debugger's.
 \end{aside}
 
 \section{The F7 menu}
@@ -139,72 +151,133 @@ whatever was there.
 
 Up and Down move; Enter or Right crosses from the categories to the
 settings; Left and Right step a value; Escape goes back a pane, and
-closes at the categories; F7 closes from anywhere. A setting with a list
-of choices opens that list over the panes, and \emph{applies as the
-cursor passes each one} --- the screen font swaps under the menu so you
-can see it --- with Escape putting back whatever was there when the list
-opened.
+closes at the categories; F7 closes from anywhere. The mouse works too.
+A setting with a list of choices opens that list over the panes, and
+\emph{applies as the cursor passes each one} --- the screen font swaps
+under the menu so you can see it --- with Escape putting back whatever
+was there when the list opened.
 
 \screen{shots/menu.png}{The F7 menu: categories on the left, the Video
 page on the right, the screen-font list open over them.}
 
 \begin{description}
 \item[Video] border width and colour around the picture; the screen font
-  (\emph{kernel8}, \emph{unscii}, \emph{open-roms}, \emph{PXLfont} ---
-  a live swap of the chargen at \texttt{\$010000}, the two PETSCII fonts
-  rearranged into ASCII order, and \emph{C64 chargen} if you have put a
-  Commodore character ROM in \texttt{/SYSTEM/chargen.bin} --- the entry
-  says so when you have not); \emph{scanlines}, a dark line between each of
-  the machine's, in three strengths --- the picture is drawn at twice the
-  height and every second row dimmed, so it is exact rather than an overlay,
-  and it costs about a third of a millisecond a frame; \emph{scaling},
-  which is how the picture is fitted to the window: \emph{sharp} (hard
-  pixels, any window size --- so at a size that is not a whole multiple
-  some pixel rows are wider than others), \emph{soft} (smoothed), or
-  \emph{sharp-fit} (hard pixels \emph{and} a whole-number multiple, so
-  every pixel of the machine is the same size on the glass and what does
-  not divide becomes a black border); full screen.
+  (a live swap of the chargen at \texttt{\$010000} --- \emph{kernel8},
+  \emph{unscii}, \emph{open-roms} and \emph{PXLfont}, the two PETSCII
+  fonts rearranged into ASCII order, twelve of Damien Guard's ZX~Origins
+  faces, and \emph{C64 chargen} if you have put a Commodore character
+  ROM in \pth{/SYSTEM/ETC/chargen.bin} --- the entry says so when you
+  have not); \emph{resolution} and \emph{left/top margin}, which are the
+  \verb|MODE| command's two knobs; \emph{scanlines}, a dark line between
+  each of the machine's, in three strengths --- the picture is drawn at
+  twice the height and every second row dimmed, so it is exact rather
+  than an overlay; \emph{scaling}: \emph{sharp} (hard pixels, any window
+  size --- so at a size that is not a whole multiple some pixel rows are
+  wider than others), \emph{soft} (smoothed), or \emph{sharp-fit} (hard
+  pixels \emph{and} a whole-number multiple, so every pixel of the
+  machine is the same size on the glass and what does not divide becomes
+  a black border); full screen; \emph{vertical sync}, off to begin with
+  --- see the aside below; and \emph{placement} and \emph{side panel},
+  which are the next section.
 
   The figures in this book are taken with the effects off, whatever the
   settings say, so that what you see here is the machine's own output.
-\item[Audio] volume; \emph{Active SIDs}, one to four. Four is the
-  machine's own answer and what every demo expects; fewer is for a host
-  with no frame to spare, since a chip costs its render whether or not
-  it is sounding (Appendix~\ref{cha:sound}).
+\item[Terminal] \emph{status bands} and how many rows each takes: two
+  static bands framing a console that scrolls between them
+  (Section~\ref{sec:bands}), plus the clock and date format they print.
+\item[Audio] volume. There is one row here, because there is one sound
+  chip and it is always fitted.
 \item[Input] the reset chord (Super, Ctrl or Alt + PageUp, or
-  Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause).
+  Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause);
+  whether a click captures the mouse pointer (the menu always releases
+  it).
 \item[Machine] \emph{save state} and \emph{load state}, four slots
   each (the whole machine --- CPU, every used page of the 256~MB, the
   banks and MAP, VICKY, the devices, JIM --- to \texttt{k4510-slotN.k4s}
   beside the settings file; the row shows when the slot was written;
   the Tube co-processor is not in the file and is stopped by a load);
-  \emph{CPU clock} --- ten steps from 202.5\,MHz down to 10, live
-  (202.5, 162, 121.5, 81, 60, 40.5, 30, 20, 15, 10), measured for this
-  host at its first boot; choosing one here switches \emph{Auto clock}
-  off, because a clock chosen by hand is not to be second-guessed.
-  \emph{Auto clock} --- on, the machine measures the host at boot and
-  steps down if the sound starves; off, the clock is whatever the row
-  above says. The Info page names what the host measured. A clock is right for a host when it
-  holds 60 frames a second with no gaps in the sound; above that the
-  programs run faster than the host keeps up with, the frame rate falls
-  and the music slows with it. \verb|BENCH| measures every step
-  (Chapter~\ref{cha:shell}); reset; power cycle (memory cleared, ROM
-  reloaded, back at \texttt{/} with \texttt{STARTUP.BAT} run again);
-  stop the Tube co-processor; quit --- \emph{Power off} on the Pi.
+  reset; power cycle (memory cleared, ROM reloaded, back at the prompt
+  with \texttt{STARTUP.BAT} run again); stop the Tube co-processor;
+  quit; \emph{CPU clock} --- the ten steps, live (202.5, 162, 121.5, 81,
+  60, 40.5, 30, 20, 15, 10); choosing one here switches \emph{Auto
+  clock} off, because a clock chosen by hand is not to be second-guessed.
+  \emph{Auto clock} --- on, the machine measures the host at first boot
+  and steps down if the sound starves; off, the clock is whatever the
+  row above says. On the stick there is a last row, \emph{shut down the
+  computer}, because there the emulator quitting would leave you at a
+  bare console. A clock is right for a host when it holds 60 frames a
+  second with no gaps in the sound; above that the programs run faster
+  than the host keeps up with, the frame rate falls and the music slows
+  with it. \verb|BENCH| measures every step (Chapter~\ref{cha:shell}).
 \item[Shell] whether an unknown word at the prompt may run a CP/M
   \texttt{.COM} from drive~A: (Chapter~\ref{cha:cpm}). Off to begin
   with, on purpose: \verb|D| typed for \verb|DIR| should not start a Z80
   program. It changes only the guess --- a command that names \verb|CPM|
-  outright, an alias among them, works either way. This is the first
-  setting the machine itself reads: the host puts the menu's switches in
+  outright, an alias among them, works either way. And whether
+  \texttt{/STARTUP.BAT} runs at power-on, which is the way out of a bad
+  one (Section~\ref{sec:badstartup}). This is the first setting the
+  machine itself reads: the host puts the menu's switches in
   \texttt{\$D521} and the ROM looks there.
-\item[Info] version, ROM, files, host.
+\item[Info] version, ROM, files, and host --- the last of which says
+  whether the machine is running on its own Linux or in a window on
+  yours.
 \end{description}
 
 Leaving the menu writes the settings to \texttt{k4510.cfg} beside
-\texttt{fs/} (on the Pi, \texttt{SD:/k4510/k4510.cfg}) --- a plain
-\texttt{key = value} file you may edit; comments and keys it does not
-know are kept. Adding a setting is one row in \texttt{core/ui/settings.c},
-one row in the menu tree in \texttt{core/ui/menu.c}, and the place that
-reads it; the same code runs on the Pi, where the C64 keyboard's F7 opens
-it too.
+\texttt{fs/} --- a plain \texttt{key = value} file you may edit;
+comments and keys it does not know are kept, which is how a settings
+file survives the machine changing under it. Adding a setting is one row
+in \texttt{core/ui/settings.c}, one row in the menu tree in
+\texttt{core/ui/menu.c}, and the place that reads it.
+
+\begin{aside}
+\textbf{Vertical sync is off, and that is deliberate.} With it off the
+machine keeps its own 60\,Hz and presents a frame when it is ready; the
+cost is tearing. With it on, the pacing belongs to your display, and on
+a host whose refresh is not exactly 60 that costs frames --- and frames
+are sound here. A machine running at 51.8 frames a second makes 51.8
+frames of sound where the device wants 60, and you can hear the
+difference (Appendix~\ref{cha:sound}). Neither answer is right for every
+host, which is why it is a row and not a decision.
+\end{aside}
+
+\section{Placement, the side panel, and F8}
+A 4:3 picture on a 16:9 screen leaves a third of the glass empty.
+\emph{Placement} (centre, left, right) puts the picture against one edge
+instead of in the middle, and \emph{side panel} fills what is left ---
+at present with one thing, the machine as the emulator sees it. A panel
+with a centred picture makes no sense, so turning the panel on forces
+the picture left.
+
+The panel is a strip twenty-six columns wide taking the whole height of
+the window, one fact to a line, and its glyphs are sized from the space
+it has: the program counter, A~X~Y~Z, the stack pointer, the B register,
+the flags, the next few instructions disassembled, VICKY's mode and the
+raster line it is on, the eight bank registers with the engaged ones
+lit, the audio gaps, the frame counter and the frame rate. It reads the
+CPU's view for the disassembly but never through the I/O page --- a read
+of \texttt{\$D100} would pop a key off the keyboard, and an instrument
+that changes what it measures is not one.
+
+\textbf{F8 pauses the machine, and then the keyboard is the debugger's:}
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.60\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Does} \\
+\midrule
+F8 & pause, and again to run on \\
+Space & one instruction \\
+\texttt{L} & the rest of this scanline \\
+\texttt{F} & the rest of this frame \\
+\texttt{D} & write a dump --- \pth{dumps/dump-NNN.txt}, the same file \texttt{DUMP} writes, and arm the instruction recorder so the next one has history \\
+\texttt{T} & start or stop an instruction trace to \pth{/SYSTEM/LOG/TRACE.TXT}: one line per instruction with the registers after it, stopping itself at 200{,}000 lines \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Every other key is swallowed while the machine is paused ---
+it is stopped, and would only queue them. The panel shows the legend and
+the state: which scanline is next, whether the trace is running and how
+long it is, and the number of the last dump.

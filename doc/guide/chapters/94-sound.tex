@@ -14,10 +14,10 @@ emulating a SID is expensive.} Every fault the sound reported turned out
 to be somewhere else, and the chip emulation --- the part everyone
 suspects --- has never once been on the critical path.
 
-If you are reading it to find out whether the machine keeps its SID
-chips, look at the last section: at the time of this printing that is an
-open question, and it is not the question this appendix is mostly
-about.
+If you are reading it to find out what happened to the SID chips: they
+are gone, and the last two sections say why. The reason is not the one
+you would guess from the six weeks described here, which is most of what
+makes it worth writing down.
 
 \section{Four chips, because it is a fantasy}
 The C64 had one SID. The plan for this machine was four, at
@@ -202,42 +202,81 @@ after  & 16.668\,ms (60.0 fps) & 0.260\,ms \\
 \end{tabular}
 \end{center}
 
-\section{Where it stands}
-At the time of this printing the machine has four reSID chips in it and
-runs as many of them as you ask for --- \emph{Active SIDs} in the F7
-menu is one to four, live --- and whether it keeps them at all is an
-open question, though not the question it first looked like.
+\section{Where it stood, when it was decided}
+By the end of it the machine had four reSID chips in it and ran as many
+of them as you asked for, and the question of whether to keep them was
+open. It had been raised as a performance question, after a Raspberry Pi
+that would hold only 15\,MHz. On that ground it was settled, and settled
+\emph{against} replacement. \textbf{reSID was not the cost.} One chip
+sounding measured \textbf{0.039\,ms of a 16.67\,ms frame} on a desktop
+--- a quarter of one per cent --- and four chips written since reset came
+to about half a millisecond. The largest the sound ever cost was the
+3.4\,ms of \S C.4, on the Pi, before silent chips stopped being clocked,
+and that was a bookkeeping fault rather than a fidelity one. Nothing
+measurable was to be bought by removing them.
 
-It was raised as a performance question, after a Raspberry Pi that would
-hold only 15\,MHz. On that ground it is settled, and against
-replacement. \textbf{reSID is not the cost.} One chip sounding measures
-\textbf{0.039\,ms of a 16.67\,ms frame} on a desktop --- a quarter of one
-per cent --- and four chips written since reset come to about half a
-millisecond. The largest the sound has ever cost is the 3.4\,ms of §C.4,
-on the Pi, before silent chips stopped being clocked, and that was a
-bookkeeping fault rather than a fidelity one. Nothing measurable is
-bought by removing them. (What four \emph{sounding} chips cost on the Pi
-has never been measured --- the card is bare metal and the desktop
-figure does not transfer to an A53. If it were half a millisecond it
-would be some three per cent of that frame, which would still not be the
-bottleneck; but that is an estimate, and it is flagged as one.)
+Where the question was real was identity. The SID is a part this machine
+inherited rather than chose: it was in here because the C64 had one, in
+the same way the \verb|*| prefix is in here because Acorn had it. A
+machine that never existed is entitled to a voice its author picked on
+purpose --- and the original specification for this one read \emph{4
+SIDs\slash OPL2}, so a synthesiser of the other tradition would not be a
+betrayal of the plan but the rest of it. Against that: four SIDs were
+what the machine had sounded like since its first afternoon, they cost
+almost nothing, and the entire body of C64 music played on them, which
+is not a small thing to hand back.
 
-Where the question is real is identity, and there it deserves both
-sides. The SID is a part this machine inherited rather than chose: it is
-in here because the C64 had one, in the same way the \texttt{*} prefix
-is in here because Acorn had it. A machine that never existed is
-entitled to a voice its author picked on purpose --- and the original
-specification for this one read \emph{4 SIDs\slash OPL2}, so a
-synthesiser of the other tradition would not be a betrayal of the plan
-but the rest of it. Against that: four SIDs are what the machine has
-sounded like since its first afternoon, they cost almost nothing, and
-the entire body of C64 music plays on them, which is not a small thing
-to hand back.
+\section{What was decided}
+On 1~September~2026 the SIDs were turned \emph{off} --- not deleted. The
+OPL2 became the machine's default chip on every host, the menu rows that
+offered SIDs went away, and one line in \texttt{k4510.cfg} gave them
+back. That is the disposition this project calls OFF, and it exists so
+that a decision of this size can be tried before it is taken.
 
-So the honest statement is that the chips are cheap, the case for
-changing them is about what the machine wants to be rather than what it
-can afford, and that case has not been decided. If it is, this appendix
-will say what replaced them and why, and will keep everything above it
---- because the route matters more than the destination, and a book that
-quietly rewrote its own history would be worth less than one that admits
-what it tried.
+On 5~September it was taken: \emph{``nuke anything having to do with
+SIDs''}. Out went reSID, the four-chip mix with its phase carry, the SID
+clock select, the settings and their migration, the SID demos and the
+player, the tune archive, and every register write to \texttt{\$D400} in
+the ROM, in EhBASIC and in Mad Pascal's runtime. The machine has one
+sound chip now and it is the OPL2, at \texttt{\$D480}, nine FM voices
+wired the AdLib's way.
+
+Three things fell out of it that are worth recording:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{The sound sequencer had to learn FM.} It was the SIDs' last
+  real user --- BBC BASIC's \verb|SOUND|, Mad Pascal's \verb|Sound| and
+  the invaders all reach it --- so its four channels became OPL2 voices,
+  with the Beeb's noise channel as a feedback-heavy patch and the other
+  three as plain two-operator tones. The patch is rewritten on every
+  note, because a program may have zeroed the chip for its own purposes
+  and the sequencer must still sound after it.
+\item \textbf{The render seam got a name.} \pth{core/audio.c} is a page
+  of C that owes nothing to any chip: cycles in, samples out at the
+  device's rate, the clock advanced. Everything this appendix is about
+  --- the ring, the lead, the filling-in --- lives there now, and a
+  future chip plugs into it rather than into the machine.
+\item \textbf{Save states changed format}, and old ones refuse to load
+  rather than pretending.
+\end{itemize}
+
+\section{And the moral, once more}
+Read back, the six weeks argue for a conclusion the last two sections
+then decline to draw. Every fault the sound reported was somewhere else;
+the chip emulation was never on the critical path; and when the machine
+was measured properly, the SIDs cost a quarter of one per cent of a
+frame. The performance case for removing them was nil, and this appendix
+says so at length.
+
+They were removed anyway, and rightly, because the question was never
+performance. It was what the machine is. That is the difference between
+a fantasy computer and a product: a product's parts are decided by
+measurement, and a fantasy computer's are decided by its author ---
+having first taken the trouble to find out what the measurement actually
+said, so that the decision is an honest one rather than a rationalised
+one.
+
+Everything above this section is kept exactly as it was written, because
+the route matters more than the destination, and a book that quietly
+rewrote its own history would be worth less than one that admits what it
+tried.

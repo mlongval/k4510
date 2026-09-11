@@ -23,7 +23,8 @@ shot() { # name frames keys
     [ -s "$HERE/shots/$1.png" ] || { echo "shot $1 FAILED"; exit 1; }
 }
 shot boot 40 ""
-shot dir 60 "dir
+shot dir 90 "cd /
+dir
 "
 shot mon 80 "mon
 e000.e00f
@@ -42,8 +43,9 @@ shot forth 240 "forth
 7 cube .
 hex 4000 10 disasm
 "
-shot bbc 800 "bbc
-LOAD \"BBCBASIC/KALEID.BBC\"
+shot bbc 800 "cd /LANG/BBCBASIC
+bbc
+LOAD \"EX/KALEID.BBC\"
 RUN
 "
 shot cpm 500 "cpm

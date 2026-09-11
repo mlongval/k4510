@@ -1,4 +1,21 @@
-# K4510x — the machine as a Linux appliance
+# The Linux the machine boots on
+
+> **Note, 2026-09-09.** Renamed from `K4510X.md` after the 2026-09-08
+> ruling that there is one name: the machine is the **K4510**, and it
+> comes with its Linux. Two things below are superseded and kept for the
+> reasoning they carry, not as instructions:
+>
+> * **The delivery is `linux/build-live.sh`** — a squashfs loaded wholly
+>   into RAM, with a persistence partition for `/home`. The raw-image
+>   build (`build-image.sh`) described under "Building the image" was
+>   never booted from real hardware and was removed with the rename.
+> * **The target is a ThinkPad T480**, not the HP t520 the first
+>   decisions were written against. The internal drive is blacklisted
+>   absolutely, so this image cannot install itself.
+>
+> Everything about *why* Debian, the boot path, the toolchain and the
+> console arrangement still holds. Chapter 9 of the handbook is the
+> user's view of the same thing.
 
 **Decisions, 2026-09-02 (Doc).** Debian, x86-64, the toolchain installed
 by default, delivered as an image that boots from a USB stick *and* can

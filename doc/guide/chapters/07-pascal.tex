@@ -27,7 +27,7 @@ Borland's Turbo Pascal~3 is a CP/M program, so it runs where CP/M runs:
 on the Tube's Z80 (Chapter~\ref{cha:cpm}), in its own world, exactly as
 it did on a Kaypro. You write, compile and run without leaving it, and
 what it produces is a CP/M program that runs under CP/M on the Z80 ---
-it cannot see VICKY, the SIDs or anything else on the K4510 side of the
+it cannot see VICKY, the OPL2 or anything else on the K4510 side of the
 Tube, any more than a Kaypro could.
 
 It is not shipped, because it is Borland's. Put \texttt{TURBO.COM} and
@@ -39,7 +39,7 @@ drive \verb|P:| is a shortcut to --- and install it for a ``VT100'' or
 TURBO
 \end{type}
 
-\noindent \verb|TURBO| is an alias that \pth{/SYSTEM/STARTUP.SAMPLE}
+\noindent \verb|TURBO| is an alias that \pth{/SYSTEM/ETC/STARTUP.SAMPLE}
 defines, for \verb|CPM K-TURBO|: boot CP/M, go to \verb|P:|, start Turbo,
 and --- because the submit ends in \verb|EXIT| --- come all the way back
 to the K/OS prompt when you leave it. Chapter~\ref{cha:cpm} explains
@@ -59,8 +59,11 @@ from the CP/M prompt by name.
 \emph{Mad Pascal} is the other kind entirely --- a cross-compiler, like
 the cc65 this machine's ROM is built with. You write on the desktop,
 \texttt{mp} compiles to 6502 assembly, MADS assembles it, and the result
-is a \texttt{.prg} in \pth{fs/PRG} that the shell's \verb|RUN| loads like
-any other program. It is Tomasz Biela's compiler (MIT), a
+is a \texttt{.prg} beside the source in \pth{/LANG/PASCAL} that the
+shell's \verb|RUN| loads like any other program --- and, since 2026-09-08,
+one the machine can make for itself: \verb|PAS HELLO| compiles
+\texttt{HELLO.PAS} in the directory you are standing in
+(Chapter~\ref{cha:linux}). It is Tomasz Biela's compiler (MIT), a
 Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed
 and floating point, strings, records, pointers, units and inline
 assembly, made for the Atari and since taught the C64, the X16 and the
@@ -79,8 +82,9 @@ at the desktop's 40.5~MHz --- fixed point, 32-bit integers, forty lines
 of Pascal.
 \verb|PSIEVE| is the classic sieve, ten passes timed by the frame
 counter; \verb|HELLO| prints, shows the colours, and echoes what you
-typed after its name. All three are already compiled and in
-\pth{fs/PRG}, so you can run them without installing anything.
+typed after its name. All of them are already compiled and sitting
+beside their sources in \pth{/LANG/PASCAL}, so you can run them without
+installing anything.
 
 \subsection*{Building}
 On the desktop, with FPC and a Mad-Pascal checkout (the installer
@@ -90,10 +94,11 @@ checkout in \pth{~/Projects/neo6502_dev/Mad-Pascal} unless
 
 \begin{verbatim}
 make pascal-install    # once; MP_DIR=... to point elsewhere
-make pascal            # demo/pas/*.pas -> fs/PRG/*.prg
+make pascal            # fs/LANG/PASCAL/*.PAS -> *.prg beside them
 \end{verbatim}
 
-A new program is a file in \texttt{demo/pas/}; \texttt{make} finds it.
+A new program is a file in \pth{fs/LANG/PASCAL}; \texttt{make} finds
+it, and so does \verb|PAS| on the machine itself.
 The compiled \texttt{.prg} files are committed, so a machine without
 the toolchain still runs them, and the test suite (\texttt{test/pastest.sh})
 runs \verb|HELLO| and \verb|PSIEVE| through the ROM.
@@ -115,13 +120,16 @@ consequences for the programmer:
   \verb|InsLine|/\verb|DelLine|, \verb|WhereX|/\verb|WhereY|,
   \verb|CursorOn|/\verb|CursorOff|, \verb|ReadKey| and \verb|KeyPressed|
   on the keyboard device, \verb|Delay| and \verb|Pause| on the frame
-  counter, \verb|Sound| on SID~0. \verb|TextMode(0)| puts the ROM's
-  screen back.
+  counter, and \verb|Sound| on the machine's sound sequencer --- which
+  changed its contract when the OPL2 became the machine's chip:
+  \verb|Sound| takes a channel and a pitch in quarter-semitones and
+  holds the note until \verb|NoSound|. \verb|TextMode(0)| puts the
+  ROM's screen back.
 \item \verb|ParamCount| and \verb|ParamStr| come from the shell
   line (\texttt{RUN HELLO one two}, or just \texttt{HELLO one two});
   \verb|ParamStr(0)| is the whole tail.
 \item \verb|uses k4510| gives every chip as a typed variable at its
-  address --- \verb|VICKY[reg]|, \verb|SIDREG[]|, \verb|DMA_SRC|,
+  address --- \verb|VICKY[reg]|, \verb|DMA_SRC|,
   \verb|FS_CMD|, \verb|SYS_FRAMES|, \verb|MATH_F[]|, \verb|TERM_CX|
   and the rest --- plus \verb|FarPeek|/\verb|FarPoke| into the 256~MB
   through the 45GS02's flat addressing, \verb|DmaCopy|/\verb|DmaFill|,

@@ -7,8 +7,9 @@ about, and it is modal, so it expects you to have met \texttt{vi} before.
 
 Both draw through JIM, the VT100 in hardware (Chapter~\ref{cha:tube}), and
 both take their keys raw from the ROM --- an arrow arrives as one byte
-rather than an escape sequence to unpick. Neither needs the Tube, so both
-run on the Pi as well as the desktop.
+rather than an escape sequence to unpick, with a bit beside it saying
+that it \emph{is} an arrow and not the accented letter that shares its
+code. Neither needs the Tube.
 
 \section{EDIT}
 \verb|EDIT name| opens a file, or starts an empty one if there is no such
@@ -158,15 +159,19 @@ brackets:
 
 \noindent From then on, typing \verb|j| then \verb|k| in insert mode
 leaves it, and the two letters never reach the file. A lone \verb|j|
-still does: the editor holds it for half a second waiting for the
-\verb|k|, and hands it over when nothing comes. \verb|<CR>| is the other
+still does: the editor holds it for one second waiting for the
+\verb|k| --- vim's own \texttt{timeoutlen}, and long enough for a
+deliberate ``j, k'' --- and hands it over when nothing comes. \verb|<CR>| is the other
 spelt-out key; everything else in the result is literal.
 
 To have it every time, put the same line, without the colon, in
-\pth{/SYSTEM/VI.RC}: \verb|VI| runs that file once the text is loaded,
-one ex command per line, a line starting with \verb|"| being a comment.
-\pth{/SYSTEM/VI.SAMPLE} is one to copy, the way \texttt{STARTUP.SAMPLE}
-is, and the file is yours --- it is not in the repository.
+\pth{/SYSTEM/ETC/VI.RC}: \verb|VI| runs that file once the text is
+loaded, one ex command per line, a line starting with \verb|"| being a
+comment. \pth{/SYSTEM/ETC/VI.SAMPLE} is one to copy, the way
+\texttt{STARTUP.SAMPLE} is, and the file is yours --- it is not in the
+repository. If a mapping you have defined seems not to fire, the usual
+reason is that there is no \texttt{VI.RC} on that machine, only the
+sample.
 
 \begin{aside}
 \textbf{Where the file lives.} Nothing of it is in the 64\,KB. Every line

@@ -27,18 +27,24 @@ GCOL, PLOT, MOVE, DRAW, CIRCLE and the palette arrive at the machine as
 escape sequences, and the Tube's gatekeeper (the \emph{Tube ULA}) executes
 them on the VICKY blitter. \verb|SOUND| and \verb|ENVELOPE|-less music go
 the same way, onto the machine's four-channel sound sequencer and out
-through the SIDs --- the classic Beeb \texttt{SOUND chan,amp,pitch,dur},
-queued per channel like the original.
+through the OPL2 --- the classic Beeb \texttt{SOUND chan,amp,pitch,dur},
+queued per channel like the original. Channel~0, which was the Beeb's
+noise, is a feedback-heavy FM patch; 1 to 3 are plain two-operator tones.
+The patch is written again on every note, so a program that has zeroed
+the chip for its own purposes does not silence the sequencer.
 
 \begin{type}
-LOAD "BBCBASIC/KALEID.BBC"
+CD /LANG/BBCBASIC
+BBC
+LOAD "EX/KALEID.BBC"
 RUN
 \end{type}
 
 \screen{shots/bbc.png}{\texttt{KALEID.BBC}: MODE 2 kaleidoscope, drawn by
 BBC BASIC on the Tube, painted by VICKY.}
 
-The \texttt{/BBCBASIC} directory carries a period programme selection:
+The \pth{/LANG/BBCBASIC/EX} directory carries a period programme
+selection:
 \texttt{KALEID}, \texttt{CIRCLES}, \texttt{ROSES}, \texttt{MOUNTAIN},
 \texttt{BOUNCE}, \texttt{CLOCK} (a live analogue clock face) and
 \texttt{TUNE} --- Fr\`ere Jacques as a three-voice round, the sound
@@ -72,7 +78,7 @@ PLOT &ED,600,500
 
 A placed sprite is a register write: moving sixty-four of them every frame
 costs the interpreter nothing but the PLOTs. \texttt{SPRITES.BBC},
-\texttt{INVADERS.BBC} and \texttt{TUNNEL.BBC} in \texttt{/BBCBASIC} are
+\texttt{INVADERS.BBC} and \texttt{TUNNEL.BBC} beside them are
 the demonstrations (the last one moves nothing at all --- it cycles the
 palette with \verb|VDU 19|).
 
@@ -110,8 +116,8 @@ A line starting with \verb|*| goes to the machine: \verb|*DIR|, \verb|*CD|,
 any shell command --- and BBC BASIC's own file words (\verb|LOAD|,
 \verb|SAVE|) read and write the machine's filesystem directly, because the
 co-processor lives inside \texttt{fs/} too. The Tube starts in the shell's
-current directory, so \verb|CD BBCBASIC| then \verb|BBC| lets
-\verb|LOAD "KALEID.BBC"| work with no directory prefix; the machine's
+current directory, so \verb|CD /LANG/BBCBASIC| then \verb|BBC| lets
+\verb|LOAD "EX/KALEID.BBC"| work without spelling the whole path; the machine's
 filesystem is the co-processor's whole world --- \texttt{fs/} is shown as
 \texttt{/}, the host tree above it hidden, and \verb|*CD ..| stops at the
 root.
@@ -119,6 +125,5 @@ root.
 \begin{aside}
 \textbf{Edges, honestly:} \texttt{POINT(} and \texttt{TINT} are not
 implemented; \texttt{GCOL} modes 1--4 draw plain; \texttt{VDU 5} text
-prints as text. On the Pi both co-processors run on core 3, the
-second processor.
+prints as text.
 \end{aside}

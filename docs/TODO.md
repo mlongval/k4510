@@ -199,11 +199,11 @@ Microsoft BASIC runs (`/MSBASIC/msbasic.prg`, `docs/BUILD-LOG.md`
 
 - [ ] **K4510x — build the image and run it on the t520.**  Decided 2026-09-02:
       Debian, x86-64, toolchain by default, USB-or-install image, first target
-      an HP t520.  `docs/K4510X.md` and the live-build config in `k4510x/` are
+      an HP t520.  `docs/LINUX.md` and the live-build config in `k4510x/` are
       BUILT and boot-tested in qemu on 2026-09-02, under both UEFI and legacy
       BIOS: it reaches the machine's banner full-screen on KMSDRM.  Delivery is
       a raw disk image (`k4510x/build-image.sh`), not a live ISO — see
-      `docs/K4510X.md` for why live-build was dropped.  **Nothing has run on a
+      `docs/LINUX.md` for why live-build was dropped.  **Nothing has run on a
       t520.**  Watch for: the AMD GPU firmware
       (no KMS without it, and the symptom is a black screen rather than a
       driver message), the t520's M.2 being SATA and not NVMe, and a clock

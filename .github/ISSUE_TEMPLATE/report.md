@@ -15,7 +15,7 @@ written -- so the best issue is the one the machine writes itself.
 
 **At the machine:** type `DUMP ON`, make it go wrong again, then type `BUG`
 (or `*BUG` from a BASIC) and answer its questions. It writes
-`fs/SYSTEM/LOG/BUGREPORTS/BUG-*.TXT`; the dump is in `dumps/`. Attach both.
+`fs/SYSTEM/BUGREPORTS/BUG-*.TXT`; the dump is in `dumps/`. Attach both.
 That report is the whole text of the issue -- nothing below is needed.
 
 **If you have no report file** (a fault in the handbook, a machine that

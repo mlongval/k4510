@@ -18,9 +18,9 @@ CPM
 \texttt{TYPE}, on drive A.}
 
 \section{Drives are folders}
-Drives \verb|A:| to \verb|P:| are the host folders \texttt{fs/CPM/A}
-through \texttt{fs/CPM/P}; CP/M's user areas 0--15 are numbered subfolders.
-Drop any \texttt{.COM} file into \texttt{fs/CPM/A/0} and run it by name.
+Drives \verb|A:| to \verb|P:| are the host folders \pth{fs/CPM/A}
+through \pth{fs/CPM/P}; CP/M's user areas 0--15 are numbered subfolders.
+Drop any \texttt{.COM} file into \pth{fs/CPM/A/0} and run it by name.
 \verb|DIR|, \verb|TYPE|, \verb|ERA|, \verb|REN|, \verb|SAVE| and
 \verb|USER| are built into the CCP; \verb|EXIT| hands the console back to
 the K/OS shell.
@@ -30,12 +30,20 @@ Three of the drives are shortcuts rather than folders of their own:
 to each other in both directions; \verb|P:| is Turbo Pascal and \verb|D:|
 is WordStar, each pointing straight at the user area the program lives in.
 
+And one drive letter is spoken for: \verb|N:| is the network, reserved
+and empty. It is one letter and not two because on this machine the
+scheme lives in the \emph{name} rather than in the device --- FujiNet
+and Meatloaf are two URL schemes over one namespace, not two kinds of
+place --- so \verb|N:| will be a mount point showing whatever the
+shell's \verb|CD tnfs://| has the machine looking at. The plumbing is
+not written; the letter is held so that nothing else takes it.
+
 \section{Starting a program from the shell}
 \verb|CPM| on its own gives you the \verb|A0>| prompt. \verb|CPM command|
 runs a command at boot instead, through the CCP's \texttt{AUTOEXEC.TXT}.
 One line is all the CCP reads --- but a name with no \texttt{.COM} to
 match runs the \texttt{.SUB} of that name, and that may be as long as you
-like. \texttt{/CPM/A/0/K-TURBO.SUB} is the pattern:
+like. \pth{/CPM/A/0/K-TURBO.SUB} is the pattern:
 
 \begin{type}
 P:
@@ -47,8 +55,8 @@ Ending in \verb|EXIT| is what makes the round trip whole: quitting a CP/M
 program only drops you to the CCP, and the \verb|EXIT| carries you the
 rest of the way back to the K/OS prompt. With that in place
 \verb|ALIAS TURBO CPM K-TURBO| makes \verb|TURBO| a word you can type at
-the shell; \texttt{/SYSTEM/STARTUP.SAMPLE} defines that one, \verb|WS| and
-\verb|MBASIC|.
+the shell; \pth{/SYSTEM/ETC/STARTUP.SAMPLE} defines that one, \verb|WS|
+and \verb|MBASIC|.
 
 \begin{aside}
 \textbf{Why not \texttt{USER} in a submit.} The obvious script is

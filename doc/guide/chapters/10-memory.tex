@@ -33,16 +33,17 @@ window. The 256\,MB of physical memory is reached three ways:
 onto the RAM beneath the ROM: a program then owns
 \texttt{\$0800-\$CFFF} + \texttt{\$E000-\$FEFF} = 57\,KB. Every system call
 still works --- calls go through the \texttt{\$FF00} stub page, which banks
-the ROM in and out around them. \verb|RUN romout| demonstrates the whole
-mechanism on screen.
+the ROM in and out around them. Every system call still works because the calls go through the
+\texttt{\$FF00} stub page, which banks the ROM in and out around them.
 
 \section{Sideways ROM}
 The operating system is bigger than its half of the 64\,KB --- so, like
 the BBC Micro before it, the machine grew \emph{sideways}. The ROM file
 is a 24\,KB base image plus appended 8\,KB banks; cold commands live in
-the \texttt{\$A000-\$BFFF} window (bank 0 is the base image itself,
-\texttt{INFO} and \texttt{TIME} already run from bank 1), and the shell
-pages the right bank in around each call. System calls work throughout:
+the \texttt{\$A000-\$BFFF} window --- bank 0 is the base image itself,
+\texttt{INFO} and \texttt{TIME} run from bank~1, \texttt{PALETTE} and
+the command aliases from bank~2, and the line editor has bank~3 to
+itself --- and the shell pages the right bank in around each call. System calls work throughout:
 every call already passes through the always-ROM stub page at
 \texttt{\$FF00}, which banks the ROM view in and out. Up to sixteen
 banks --- 128\,KB of operating system --- fit in the scheme.

@@ -18,8 +18,15 @@ every instruction this book describes is his code executing. There
 would be no K4510 without it.
 
 \textbf{Dag Lem} wrote reSID, the SID emulation that has been the
-reference for thirty years. The K4510's one to four sound chips are
-that many copies of it (the 6581 model, as shipped in VICE~3.3).
+reference for thirty years. It was this machine's voice for its whole
+first summer --- four 6581s, as shipped in VICE~3.3 --- and it is not
+here any more (Appendix~\ref{cha:sound} says why, and the reason is not
+that anything was wrong with it). The thanks stands as it was.
+
+\textbf{Jarek Burczyński} and \textbf{Tatsuyuki Satoh} wrote
+\texttt{fmopl}, the OPL2 emulation in MAME that this machine's YM3812 is
+--- by way of VICE, vendored unaltered. Nine voices of FM that any
+AdLib register list from 1987 can drive is their work, not ours.
 
 \textbf{The VICE team}, whose decades of emulation scholarship ---
 documentation, test programs, arguments settled in code --- this
@@ -107,18 +114,35 @@ scale and a standard that has quietly furnished a decade of small games.
 The dungeon in the \verb|TINY| demo --- every tile, every little
 person, and the map they stand on --- is his
 \href{https://kenney.nl/assets/tiny-dungeon}{Tiny Dungeon}, CC0. The
-demo exists because the art did.
+demo exists because the art did. Two more games stand on the same
+ground: \verb|SKYFIRE| flies Kenney's
+\href{https://kenney.nl/assets/pixel-shmup}{Pixel Shmup} ships, and
+\verb|FLUFFY| is drawn with \textbf{Chloe Wolfe}'s Game Boy platformer
+set, also CC0. In both cases the art came first and the game was written
+around it, which is the reverse of the usual order and a much better way
+to spend an evening.
 
-\section{The bare metal}
+\textbf{Ian Schofield} wrote
+\href{https://github.com/ijschofield/Tek40xx}{Tek40xx}, a Tektronix
+4010/4014 storage tube on SDL2 that is also a telnet client. It rides
+along on the machine's Linux as the second terminal
+(Chapter~\ref{cha:linux}), built from upstream with one patch of ours.
+
+\section{The bare metal, which the machine no longer stands on}
+This section is kept because the debt is not cancelled by the code
+coming out. From August to September 2026 the K4510 ran on a Raspberry
+Pi~3B+ with no operating system underneath it, and that edition was
+retired on 2026-09-07 (page~\pageref{sec:names}). Everything below is
+why it was possible at all.
+
 \textbf{Randy Rossi} wrote
 \href{https://github.com/randyrossi/bmc64}{BMC64}: VICE on a Raspberry
 Pi with no operating system under it, 50\,Hz smooth scrolling and input
-latency measured in single frames. His initials are in the appliance's
-name: the \textbf{BMC-K4510} is the K4510 on the bare-metal platform he
-proved out (page~\pageref{sec:names}). It is the direct reason this
-machine has a Pi port at all --- the route to the Pi was always meant to be
-BMC64's \verb|emux_api| seam, and the bare-metal case it proved is what
-made the port thinkable. He also built the \textbf{VIC-II Kawari}, a
+latency measured in single frames. His initials were in that edition's
+name --- the \textbf{BMC-K4510} was the K4510 on the bare-metal platform
+he proved out --- and it is the direct reason the port existed at all:
+the route to the Pi was always meant to be BMC64's \verb|emux_api| seam,
+and the bare-metal case it proved is what made it thinkable. He also built the \textbf{VIC-II Kawari}, a
 modern drop-in VIC-II with video modes the original never had: the
 demonstration that you may extend an 8-bit machine's video chip and
 still be working inside the tradition rather than outside it. VICKY is
@@ -127,8 +151,8 @@ BMC64 over from him and carries it onto the newer Pis; the project is
 in good hands.
 
 \textbf{Rene Stange} wrote \href{https://github.com/rsta2/circle}{Circle},
-the bare-metal C++ environment that is the entire reason a Raspberry
-Pi~3B+ can boot straight into this machine with no operating system
+the bare-metal C++ environment that was the entire reason a Raspberry
+Pi~3B+ could boot straight into this machine with no operating system
 under it. \textbf{Xalior} wrote
 \href{https://github.com/Xalior/circle-libsdl2}{circle-libsdl2}, which
 let the desktop emulator move to the Pi essentially as written.
@@ -179,10 +203,11 @@ is the one this one is modelled on, down to the page size, and the rule
 that every example must be run and photographed before it may be
 printed is his. The other model is the \textbf{MEGA65 User's Guide}.
 
-\textbf{The High Voltage SID Collection} and the composers in it, whose
-tunes are what \verb|SIDPLAY| plays on a good evening. None of that
-music is distributed with this machine (see
-the Licences chapter); it is theirs.
+\textbf{The High Voltage SID Collection} and the composers in it, who
+kept thirty years of a machine's music alive and free to listen to. The
+K4510 played it for one summer, through a \verb|SIDPLAY| that retired
+with the chips. None of that music was ever distributed with this
+machine; it is theirs.
 
 \begin{aside}
 \textbf{The project's orchestrator} is Michael Longval --- Doc --- who
@@ -192,7 +217,7 @@ book against the machine.
 
 \textbf{And the machine's other author.} Most of the K4510's own code
 --- VICKY, SHEILA, the DMA engine, the ROM, K/OS, the Tube ULA, the
-editors, the Pi port --- was written in conversation with Claude
+editors, RX --- was written in conversation with Claude
 (Anthropic's Claude Code), over several months of long sessions with a
 build log to prove it. The design decisions are the author's; a great
 deal of the typing was not.
@@ -202,6 +227,6 @@ deal of the typing was not.
 This list was assembled by hand and is certainly incomplete. If your
 work is in this machine and your name is not on this page, that is an
 error and not a judgement --- open an issue at
-\url{https://github.com/mlongval/bmc-k4510} and it will be fixed in the
+\url{https://github.com/mlongval/k4510} and it will be fixed in the
 next printing.
 \endgroup

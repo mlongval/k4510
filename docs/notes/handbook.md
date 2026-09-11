@@ -2,9 +2,85 @@
 
 Protocol: `docs/AGENTS.md`. I write only this file.
 
-**Updated: 2026-08-26 21:3x**
+**Updated: 2026-09-09**
 
 ## Now
+
+- Nothing in flight. The book has just been brought up to date with the
+  ten days since 2026-08-30 (see below); everything under this heading
+  from before that date is history.
+
+## 2026-09-09 — the book caught up with the machine
+
+Doc: "update the handbook to reflect changes (additions and removals)".
+It had not been touched since 2026-08-30 and a great deal had happened.
+**103 pages now** (was 84); the PDF is rebuilt and committed, and
+**every figure was recaptured** from the running machine.
+
+**Removals the book was still asserting.** The SIDs (cover, chapter 1,
+the I/O map, EhBASIC, BBC BASIC's `SOUND`, Mad Pascal's `Sound`, the
+thanks, the licences). The bare-metal Pi -- chapter 1's "Two names, one
+machine" is now "One machine, two ways to run it", with an aside saying
+plainly that the BMC-K4510 existed, worked, and was retired on
+2026-09-07 and why. `ROMOUT` (retired, and it was broken). `SIDPLAY` and
+the HVSC section of "what is not shipped". The old `fs/` layout, in
+every chapter that named a path.
+
+**Additions.** Two new chapters: **9, RX** (the language, the three
+ADDRESS environments, the file-as-mailbox port, the eight scripts, and
+the Wumpus-found bugs as an aside) and **9, The Linux Underneath**
+(`!`, `PAS`/`CC`, what is on the stick, the consoles, the blacklisted
+internal drive, loopback telnet, Tek40xx and `tekplay`). New sections
+elsewhere: the disk's six folders and the search path; the two file
+managers and the trash; the line editor and the eight-line history; the
+status bands; what is in `/APPS`; `SUPERMON`; `PALETTE`; **MS BASIC**
+(3.6); placement, the side panel and **F8 the debugger** (1.7). The F7
+menu list is rewritten against `core/ui/menu.c` as it stands --
+Terminal is a category now, Audio is one row.
+
+**Appendix C (the sound) keeps its whole history** and gains three
+sections: where it stood when it was decided, what was decided (OFF on
+09-01, gone on 09-05, and what the sequencer had to learn), and a moral
+saying out loud that the measurement argued *against* removal and the
+chips went anyway, because the question was identity and not cost. That
+seemed the honest shape for a chapter whose thesis is that the
+instrument keeps measuring the wrong thing.
+
+**Also renamed `docs/K4510X.md` to `docs/LINUX.md`** as you asked in
+your note, with a banner marking what in it is superseded (the raw-image
+build, the t520). `docs/NAMING.md` and `docs/TODO.md` follow the rename.
+README's "70 pages" is now 103 -- the only line of yours I touched.
+
+## For you (coding) — three things in your area
+
+1. **`/SYSTEM/ETC/HELP` still says `BENCH` sweeps "with a note on SID
+   0".** One line; it is the only SID left in a user-facing string that
+   I found.
+2. **I edited two files of yours, both small, both because they were in
+   a figure.** `fs/LANG/EHBASIC/EX/DEMOS.BAS` offered five dead entries
+   (SIDWAVE, SIDBEAT, SIDFILT, SID6, SID12 -- the `.BAS` files went on
+   09-05) and said `*CD EHBASIC`; both fixed. `fs/CPM/A/0/README.TXT`
+   said "CP/M 2.2 ON THE BMC-K4510"; now K4510. Revert either if you
+   would rather do it your way.
+3. **`DEMOS.BAS` entry 5 chains to `README.BAS`, which is in
+   `/LANG/EHBASIC` and not in `EX/` beside the others.** I did not touch
+   it because I could not tell which one you meant to move. Also
+   `fs/LANG/BBCBASIC/README.BBC` still advertises TUNE as "a round for 3
+   SID voices".
+
+## Waiting on
+
+- Nothing blocking.
+- **`make-shots.sh` changed** (mine): `dir` is captured at `/` now, so
+  the figure shows the disk's shape rather than an almost-empty `/HOME`;
+  the BBC figure does `CD /LANG/BBCBASIC` first, because BBC BASIC's
+  filenames are relative to the machine's directory and the absolute
+  path simply failed (the old shot would have shipped "File or path not
+  found" as a kaleidoscope).
+
+---
+
+# Earlier
 
 - Nothing in flight.
 

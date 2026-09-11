@@ -12,6 +12,10 @@
 FROM docker.io/library/debian:trixie
 ARG UID=1000
 ARG PKGS
+# The commit this image is built from: .git is not in the build context, so the
+# Makefile's own `git rev-parse` would read "nogit".  podman.sh passes it here
+# (empty when built by hand -- then the Makefile default stands). Info -> Build.
+ARG BUILD=
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update -q && apt-get install -y -q --no-install-recommends \
         sudo ca-certificates tzdata libgl1-mesa-dri libegl1 libpipewire-0.3-0 libpulse0 \
@@ -25,7 +29,7 @@ USER k4510
 WORKDIR /home/k4510
 COPY --chown=k4510:k4510 . /home/k4510/k4510
 RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
-    && make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm \
+    && make ${BUILD:+K4510_BUILD="$BUILD"} -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm \
     && (make -C tube || echo "the Tube did not build; everything else did") \
     && mkdir -p ~/k4510/fs/MNT/SHARE
 # The compilers beside the machine, as on the stick (build-live.sh): Mad Pascal

@@ -594,6 +594,7 @@ static long evaln(const char *p) { char *t = tpush(); long v; eval(p, t); v = nu
 static void readln(char *b, uint8_t max)
 {
     uint8_t n = 0, k;
+    REG(0xDA0Eu) |= 1;                       /* the console cursor: the ROM hides it for programs (2026-09-11) */
     for (;;) {
         k = rom_getin();
         if (!k) { wait_vblank(); continue; }
@@ -1179,6 +1180,7 @@ static void parse_cmd(const char *p, uint8_t upper)
 static void exec_stmt(const char *s)
 {
     char w[16]; uint8_t n; const char *r;
+    if (REG(0xD103u)) die("interrupted");        /* ESC or Ctrl-C anywhere in the queue: the break every interpreter honours (2026-09-11) */
     s = skipsp(s);
     if (!*s) return;
     if (trace) { outs("... "); outs(s); nl(); }

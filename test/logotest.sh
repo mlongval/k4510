@@ -38,4 +38,8 @@ lit=sum(1 for v in col if v)
 print("logotest: pixels lit on the square's first edge:", lit, "of", len(col))
 sys.exit(0 if lit >= 40 else 1)
 PY
-echo "logotest: OK (MATH-unit arithmetic, TO/END, recursion, blitter lines, BYE)"
+# a runaway REPEAT, stopped by ESC (the $D103 break every interpreter honours)
+out2=$(./test/headless rom/kernal.bin "$(printf 'CD /LANG/LOGO\n~LOGO\n~~REPEAT 200000 [FD 1 RT 1]\n~\033~PRINT 77\n~BYE\n~~')" 3000 'LOGO]' 2>/dev/null)
+echo "$out2" | grep -q "stopped" || { echo "$out2" | tail -8; echo "logotest: FAILED: ESC did not stop the runaway REPEAT"; exit 1; }
+echo "$out2" | grep -q "^77$"    || { echo "$out2" | tail -8; echo "logotest: FAILED: no prompt after the break"; exit 1; }
+echo "logotest: OK (MATH-unit arithmetic, TO/END, recursion, blitter lines, ESC stops a run, BYE)"

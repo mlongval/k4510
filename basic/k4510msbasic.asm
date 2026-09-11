@@ -134,6 +134,9 @@ K_LF            = $0A
 
 k4510_start:
         cld
+        lda     $DA0E                    ; the ROM hides the console cursor for every program;
+        ora     #1                       ; a BASIC prompt wants it back (Doc, 2026-09-11: "does NOT show a cursor")
+        sta     $DA0E
 ; ---- the way back ----------------------------------------------------------
 ; Copy the live hardware stack out before COLD_START overwrites it.  The
 ; bytes from $0101+S to $01FF are the shell's frames -- the JSR in the RAM

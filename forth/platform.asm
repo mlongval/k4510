@@ -54,6 +54,9 @@ TALI_OPTION_TERSE := 0
 
 kernel_init:
         .byte $a3, $00          ; LDZ #0: pin the 45GS10's Z register
+        lda $DA0E               ; the console cursor back on: the ROM hides it for programs (2026-09-11)
+        ora #1
+        sta $DA0E
         tsx
         stx run_sp              ; remember K/OS's stack pointer for BYE
         ldy #0                  ; save the stack bytes above the entry SP:

@@ -285,6 +285,7 @@ static void do_print(void)
 static void command(void)
 {
     uint8_t c = peekc(); const char *a, *b; long n; int8_t pi;
+    if (REG(KBD + 3)) { error("stopped", 0); return; }   /* $D103: an ESC or Ctrl-C in the queue -- the break every interpreter honours */
     if (!c) return;
     if (c == '[' || c == ']') { cp++; error(c == '[' ? "a list where a command belongs" : "unexpected ]", 0); return; }
     if (!getword()) { cp++; error("I do not understand that", 0); return; }
@@ -397,6 +398,7 @@ int main(void)
     F0 = fint(0); F1 = fint(1); F10 = fint(10); F180 = fint(180); F360 = fint(360);
     FDEG = fdiv(fint(314159L), fint(18000000L));           /* pi / 180 */
     gfx_open(); gfx_clear();
+    REG(TERM + 0x0E) |= 1;                                 /* the console cursor: the ROM hides it for programs */
     turtle_home(); pendown = 1; pencol = 1;
     puts_("K4510 LOGO -- the turtle is home.  HELP lists the words; BYE leaves."); nl();
     for (;;) {

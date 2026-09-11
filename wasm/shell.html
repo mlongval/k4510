@@ -12,6 +12,12 @@
   #start { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.75); cursor: pointer; font-size: 22px; }
   #start span { border: 1px solid #cfd8dc; padding: 12px 24px; border-radius: 6px; }
   #status { margin: 8px 0; color: #90a4ae; font-size: 13px; }
+  #bar { width: min(96vw, 1280px); display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 4px 0 2px; }
+  #bar button, .filelink { background: #263238; color: #eceff1; border: 1px solid #37474f; border-radius: 4px; padding: 5px 10px; font: inherit; font-size: 13px; cursor: pointer; text-decoration: none; }
+  #bar button:hover, .filelink:hover { background: #37474f; }
+  #drop { flex: 1; min-width: 160px; color: #78909c; font-size: 12px; padding: 5px 8px; border: 1px dashed #37474f; border-radius: 4px; text-align: center; }
+  #drop.hot { border-color: #80cbc4; color: #b2dfdb; }
+  #files { width: min(96vw, 1280px); display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin: 2px 0 10px; color: #90a4ae; font-size: 12px; }
   p.keys { max-width: 900px; color: #90a4ae; font-size: 13px; margin: 6px 16px 20px; text-align: center; }
   kbd { background: #263238; border-radius: 3px; padding: 1px 5px; color: #eceff1; }
 </style>
@@ -23,19 +29,90 @@
   <div id="start"><span>click to switch on</span></div>
 </div>
 <div id="status">loading&hellip;</div>
+<div id="bar">
+  <button id="upBtn" disabled>Upload to /HOME</button>
+  <input id="upInput" type="file" multiple style="display:none">
+  <button id="refreshBtn" disabled>Refresh files</button>
+  <button id="saveBtn" disabled title="Write /HOME to this browser's storage now">Save now</button>
+  <span id="drop">or drop files here &mdash; they land in /HOME, and /HOME is kept in this browser</span>
+</div>
+<div id="files"><span>/HOME:</span> <span id="filelist">&mdash;</span></div>
 <p class="keys">
-  <kbd>F7</kbd> the menu &middot; <kbd>HELP</kbd> at the prompt &middot; <kbd>RUN chess</kbd>, <kbd>skyfire</kbd>, <kbd>fluffy</kbd>, <kbd>bomber</kbd>, <kbd>lode</kbd>, <kbd>basic</kbd>&hellip;
-  Click the screen first so it has the keyboard. Files you SAVE live only until the tab closes.
+  <kbd>F7</kbd> the menu &middot; <kbd>F8</kbd> pause &amp; debug &middot; <kbd>HELP</kbd> at the prompt &middot; <kbd>RUN chess</kbd>, <kbd>skyfire</kbd>, <kbd>lode</kbd>, <kbd>basic</kbd>&hellip;
+  Click the screen first so it has the keyboard. Uploaded files and anything you SAVE in /HOME are kept in this browser (IndexedDB) and survive a reload.
   No Tube here (no BBC BASIC, CP/M or Stockfish) and no N: network: a page has no processes and no sockets.
 </p>
 <script>
+  var HOME = '/fs/HOME';
+  var persistReady = false, needSync = false;
+
+  function syncOut(cb) {           // save the machine's /HOME into IndexedDB
+    if (!persistReady) { if (cb) cb(); return; }
+    try { FS.syncfs(false, function () { needSync = false; if (cb) cb(); }); } catch (e) { if (cb) cb(); }
+  }
+  function listFiles() {
+    var el = document.getElementById('filelist');
+    if (!persistReady) { el.textContent = '—'; return; }
+    var names;
+    try { names = FS.readdir(HOME).filter(function (n) { return n !== '.' && n !== '..'; }); } catch (e) { names = []; }
+    if (!names.length) { el.textContent = '(empty)'; return; }
+    el.innerHTML = '';
+    names.sort().forEach(function (n) {
+      var a = document.createElement('a');
+      a.className = 'filelink'; a.textContent = n; a.href = '#'; a.title = 'download ' + n;
+      a.onclick = function (ev) { ev.preventDefault(); downloadFile(n); };
+      el.appendChild(a); el.appendChild(document.createTextNode(' '));
+    });
+  }
+  function downloadFile(name) {
+    var data; try { data = FS.readFile(HOME + '/' + name); } catch (e) { return; }
+    var blob = new Blob([data], { type: 'application/octet-stream' });
+    var url = URL.createObjectURL(blob), a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(function () { document.body.removeChild(a); URL.revokeObjectURL(url); }, 0);
+  }
+  function upload(files) {
+    if (!persistReady || !files || !files.length) return;
+    var left = files.length;
+    Array.prototype.forEach.call(files, function (f) {
+      var r = new FileReader();
+      r.onload = function () {
+        try {
+          var nm = f.name.toUpperCase().replace(/[^A-Z0-9._-]/g, '_');   // the machine's names are upper-case
+          FS.writeFile(HOME + '/' + nm, new Uint8Array(r.result));
+        } catch (e) {}
+        if (--left === 0) { syncOut(); listFiles(); document.getElementById('status').textContent = 'uploaded to /HOME'; }
+      };
+      r.readAsArrayBuffer(f);
+    });
+  }
+
   var Module = {
     canvas: document.getElementById('canvas'),
     arguments: [],
     setStatus: function (t) { document.getElementById('status').textContent = t || 'running'; },
-    onRuntimeInitialized: function () { document.getElementById('status').textContent = 'ready'; }
+    preRun: [function () {
+      // /HOME is backed by IndexedDB so uploads and SAVEs survive a reload.
+      // Hardened so a storage hiccup can never hang the boot: the run
+      // dependency is added only after the mount succeeds, and always removed.
+      try { FS.mkdirTree('/fs/HOME'); FS.mount(FS.filesystems.IDBFS, {}, HOME); }
+      catch (e) { persistReady = false; return; }
+      Module.addRunDependency('idbfs');
+      var done = function () {
+        persistReady = true;
+        try { FS.stat(HOME + '/README.TXT'); }
+        catch (e) { try { FS.writeFile(HOME + '/README.TXT', 'K4510 in the browser.\nFiles you put here, and anything you SAVE, are kept in this browser.\nUse Upload / drop above; download by clicking a name.\n'); } catch (e2) {} }
+        Module.removeRunDependency('idbfs');
+      };
+      try { FS.syncfs(true, done); } catch (e) { done(); }   // load what a previous session kept
+    }],
+    onRuntimeInitialized: function () {
+      document.getElementById('status').textContent = 'ready';
+      ['upBtn', 'refreshBtn', 'saveBtn'].forEach(function (id) { document.getElementById(id).disabled = false; });
+      listFiles();
+    }
   };
-  // the browser wants a click before sound may play, and the machine wants the keyboard: one click does both
+
   var started = false;
   function start() {
     if (started) return; started = true;
@@ -45,8 +122,23 @@
     else Module.onRuntimeInitialized = function () { Module.callMain([]); };
   }
   document.getElementById('start').addEventListener('click', start);
-  if (location.search.indexOf('autostart') >= 0) { Module.onRuntimeInitialized = function () { document.getElementById('status').textContent = 'ready'; start(); }; }
+  if (location.search.indexOf('autostart') >= 0) { var pi = Module.onRuntimeInitialized; Module.onRuntimeInitialized = function () { pi(); start(); }; }
   Module.canvas.addEventListener('click', function () { Module.canvas.focus(); });
+
+  // the file toolbar
+  document.getElementById('upBtn').addEventListener('click', function () { document.getElementById('upInput').click(); });
+  document.getElementById('upInput').addEventListener('change', function (e) { upload(e.target.files); e.target.value = ''; });
+  document.getElementById('refreshBtn').addEventListener('click', function () { syncOut(listFiles); });
+  document.getElementById('saveBtn').addEventListener('click', function () { syncOut(function () { document.getElementById('status').textContent = '/HOME saved to this browser'; }); });
+  var drop = document.getElementById('drop');
+  ['dragenter', 'dragover'].forEach(function (ev) { document.body.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('hot'); }); });
+  ['dragleave', 'drop'].forEach(function (ev) { document.body.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('hot'); }); });
+  document.body.addEventListener('drop', function (e) { if (e.dataTransfer && e.dataTransfer.files) upload(e.dataTransfer.files); });
+
+  // keep the machine's writes: save periodically and when the tab is hidden or closed
+  setInterval(function () { if (persistReady) syncOut(); }, 15000);
+  window.addEventListener('pagehide', function () { syncOut(); });
+  document.addEventListener('visibilitychange', function () { if (document.hidden) syncOut(); });
 </script>
 {{{ SCRIPT }}}
 </body>

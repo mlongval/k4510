@@ -6816,3 +6816,22 @@ hidden only while the pointer is captured for a game.
 EXEC still sources a .BAT of shell lines; SOURCE was considered and
 dropped (Doc: "having both is too much") -- EXEC fits the .BAT/DOS
 lineage, and a second verb for one job is the redundancy to avoid.
+
+## 2026-09-11 — the browser build keeps /HOME, and takes files in and out
+
+Doc wanted a way to log in over Tailscale, use the machine, and upload
+and download software.  The WASM build (k4510web, tailscale serve 8687)
+already gave the live screen, F7/F8, the debugger and running programs in
+a browser; what it lacked was files that survive and a way to move them.
+
+/HOME is an IndexedDB-backed directory now (IDBFS): it is excluded from
+the preload, mounted and loaded in preRun before the machine boots, and
+flushed on a timer, on upload, on Save now, and when the tab hides or
+closes -- so uploads and SAVEs are kept across reloads.  The shell gained
+a toolbar: Upload to /HOME (a picker or a drop on the page, names
+upper-cased to the machine's convention), a /HOME list whose names
+download on a click, and Save now.  build.sh links -lidbfs.js with
+-sFORCE_FILESYSTEM and excludes fs/HOME; sdl/panel.c was added to the
+WASM sources (it had been missing since the side panel landed).  Built,
+smoke-tested headless (no errors, the toolbar renders), and deployed to
+k4510web.  Not added: a login -- Tailscale already gates the URL.

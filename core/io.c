@@ -404,6 +404,7 @@ static void fs_run(uint8_t cmd)
           if (i == fs_mnt_n) { if (fs_mnt_n >= 8) { st = 2; break; } fs_mnt_n++; }
           snprintf(fs_mnt[i].at, sizeof fs_mnt[i].at, "%s", rel);
           { size_t n; snprintf(fs_mnt[i].url, sizeof fs_mnt[i].url, "%s", url); n = strlen(fs_mnt[i].url); while (n > 8 && fs_mnt[i].url[n - 1] == '/') fs_mnt[i].url[--n] = 0; } }
+        mkdir(loc, 0777);                     /* a real (empty) directory, so the mount shows in a DIR of its parent */
         break; }
     case FS_UMOUNT: {                      /* NAMEPTR = PATH */
         char name[256], rel[256], loc[768]; int i, found = 0;
@@ -411,6 +412,7 @@ static void fs_run(uint8_t cmd)
         if ((st = fs_resolve(name, rel, sizeof rel, loc, sizeof loc))) break;
         for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) { found = 1; fs_mnt[i] = fs_mnt[--fs_mnt_n]; break; }
         if (!found) st = 1;
+        else rmdir(loc);                      /* remove the placeholder directory MOUNT made (only if it is empty) */
         break; }
     case FS_GETCWD: if (fs_remote[0]) { size_t i = 0; for (; fs_remote[i] && i < 250; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)fs_remote[i]; k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i); break; }
                     { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }

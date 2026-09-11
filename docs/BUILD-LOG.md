@@ -6787,3 +6787,9 @@ the host's ssh in the Tube terminal (one line -- cmd_compile("ssh", p),
 the same host-shell path as `!ssh`).  Verified: `SSH ... localhost echo`
 returns over the connection.  The appliance gains curl and
 openssh-client in its package list.
+
+**MOUNT makes the mount point visible (Doc).** A mount was virtual, so
+`MOUNT tnfs://atari8.us /MNT/ATARI` then `DIR /MNT` did not show ATARI at
+all.  MOUNT now `mkdir`s the mount path -- a real empty directory that
+appears in a listing of its parent and that CD/DIR still route to the
+server; UMOUNT `rmdir`s it when it is the empty placeholder.

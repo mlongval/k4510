@@ -66,7 +66,7 @@ system:  INFO
          DUMP [note|ON|OFF]
          LOGO (clear the screen, redraw the banner)
          BENCH (25 s: measures the machine, sweeps
-         the CPU clocks with a note on SID 0, and
+         the CPU clocks with a note on the OPL2, and
          writes /SYSTEM/LOG/BENCH-NN.TXT -- a clock is
          right when it holds 60 fps with 0 gaps)
          BUG (asks you about a fault and writes the

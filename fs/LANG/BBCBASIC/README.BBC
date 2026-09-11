@@ -3,7 +3,7 @@
 30 PRINT "CIRCLES  random filled circles (any key leaves)"
 40 PRINT "ROSES    rose curves, a new one every few seconds"
 50 PRINT "CLOCK    an analogue clock on the machine clock"
-60 PRINT "TUNE     Frere Jacques, a round for 3 SID voices"
+60 PRINT "TUNE     Frere Jacques, a round for 3 voices"
 70 PRINT "BOUNCE   a bouncing ball with a blip"
 80 PRINT "MOUNTAIN a scrolling mountain ridge"
 82 PRINT "SPRITES  64 hardware sprites: eight balls drawn once, then VICKY moves them"

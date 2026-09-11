@@ -118,3 +118,12 @@ wasm/dist/
 
 # a chess piece set of unknown licence: built where present, never shipped (data/chess/lines/VENDORED-FROM.txt)
 data/chess/lines/*.png
+
+# generated from data/ art by tools/mk*.py (Makefile)
+demo/chess.bin
+demo/chess.h
+demo/fluffy.bin
+demo/fluffy.h
+demo/skyfire.bin
+demo/skyfire.h
+tools/__pycache__/

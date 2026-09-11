@@ -57,7 +57,17 @@ SRV=$!
 sleep 0.3
 # the terminal: `tek` where the Linux build installed its wrapper, else the
 # binary on PATH, else the one build.sh puts in ~/.local/bin on a desktop
-if command -v tek >/dev/null 2>&1; then tek 127.0.0.1 "$PORT"
+# On the bare K4510 Linux the emulator itself owns the screen (KMSDRM on
+# tty1), so a second SDL program on the SAME VT cannot open the display --
+# "SDL_init fail: Video subsystem has not been initialized" (Doc, the Dell,
+# 2026-09-11).  Inside `!` there (no desktop, and the emulator's
+# K4510_PLACEMENT in the environment) run the terminal on a fresh VT instead:
+# openvt switches to it, waits, and switches back, and the emulator gives up
+# and retakes the display across the switch -- what the tty2 recipe did by hand.
+if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -n "$K4510_PLACEMENT" ] \
+   && command -v openvt >/dev/null 2>&1 && command -v tek >/dev/null 2>&1; then
+    sudo -n openvt -s -w -- env TEKPLAY=1 K4510_PLACEMENT="$K4510_PLACEMENT" tek 127.0.0.1 "$PORT"
+elif command -v tek >/dev/null 2>&1; then tek 127.0.0.1 "$PORT"
 elif command -v tek40xx >/dev/null 2>&1; then tek40xx 127.0.0.1 "$PORT"
 elif [ -x "$HOME/.local/bin/tek40xx" ]; then "$HOME/.local/bin/tek40xx" 127.0.0.1 "$PORT"
 else

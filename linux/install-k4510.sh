@@ -93,6 +93,7 @@ rsync -a --info=progress2 "$SMP/live/" "$DMP/live/"
 cat > "$DMP/persistence.conf" <<'PCONF'
 /home/k4510 union
 /etc/NetworkManager/system-connections union
+/var/lib/tailscale union
 PCONF
 # live-boot builds the overlay for /home/k4510 as  home/k4510/rw (upper) +
 # home/k4510/work, and makes them as ROOT -- so the merged /home/k4510 came

@@ -234,6 +234,26 @@ apt-get install -y -q --no-install-recommends \
     locales sudo $PKGS
 EOF
 
+# Tailscale (TAILSCALE=0 to leave it out): the tailnet reaches the Linux
+# beneath the machine while it runs -- `!sudo tailscale up --ssh` once, then
+# `ssh k4510@<its tailnet name>` from anywhere on the tailnet, no sshd needed.
+# Its identity lives in /var/lib/tailscale, which persistence.conf unions
+# (below, and in install-k4510.sh) so the login survives a reboot.  Debian
+# does not package it; the keyring and list come from pkgs.tailscale.com.
+if [ "${TAILSCALE:-1}" = 1 ]; then
+echo "== tailscale =="
+mkdir -p "$ROOT/usr/share/keyrings" "$ROOT/etc/apt/sources.list.d"
+curl -fsSL "https://pkgs.tailscale.com/stable/debian/$SUITE.noarmor.gpg" -o "$ROOT/usr/share/keyrings/tailscale-archive-keyring.gpg"
+echo "deb [signed-by=/usr/share/keyrings/tailscale-archive-keyring.gpg] https://pkgs.tailscale.com/stable/debian $SUITE main" \
+    > "$ROOT/etc/apt/sources.list.d/tailscale.list"
+$CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
+export DEBIAN_FRONTEND=noninteractive
+apt-get update -q
+apt-get install -y -q --no-install-recommends tailscale
+systemctl enable tailscaled
+EOF
+fi
+
 echo "== the keyboard picker (k4510.kbd= on the boot line) =="
 # A downloader picks a layout in the boot menu; this reads it from the kernel
 # command line and applies it BEFORE the emulator's tty1 login, so SDL's
@@ -500,6 +520,7 @@ mount "${LOOP}p4" "$PSAVE"
 cat > "$PSAVE/persistence.conf" <<'EOF'
 /home/k4510 union
 /etc/NetworkManager/system-connections union
+/var/lib/tailscale union
 EOF
 umount "$PSAVE"; rmdir "$PSAVE"
 

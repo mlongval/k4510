@@ -27,7 +27,7 @@ SDL_LIBS   := $(shell sdl2-config --libs)
 
 ACME ?= $(HOME)/.local/bin/acme
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -167,6 +167,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/bangtest.sh
 	./test/keytest.sh
 	./test/dirtest.sh
+	./test/logotest.sh
 
 clean: clean-demos
 # Only the .s files cc65 generates -- one per .c, plus the two built under a
@@ -273,6 +274,11 @@ fs/APPS/CHESS/chess.prg: demo/chess.c demo/chess.h demo/chess.bin demo/chess-hea
 	ca65 --cpu 65c02 -o demo/chess_c.o demo/chess_c.s
 	ca65 --cpu 65c02 -o demo/chess_h.o demo/chess-header.s
 	ld65 -C demo/chess.cfg -o $@ demo/prg0.o demo/romcalls.o demo/chess_c.o demo/chess_h.o none.lib -m demo/chess.map
+# logo: turtle graphics on the 45GS10 (demo/logo.c), the same shape as RX
+fs/LANG/LOGO/logo.prg: demo/logo.c demo/k4510.h demo/prg0.o demo/romcalls.o demo/logo.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/logo.s.tmp demo/logo.c && mv demo/logo.s.tmp demo/logo_c.s
+	ca65 --cpu 65c02 -o demo/logo_c.o demo/logo_c.s
+	ld65 -C demo/logo.cfg -o $@ demo/prg0.o demo/romcalls.o demo/logo_c.o none.lib -m demo/logo.map
 # rx: the REXX interpreter (demo/rexx.c), a plain .prg at $2000 with its own cfg
 fs/LANG/RX/rx.prg: demo/rexx.c demo/rxasm.s demo/k4510.h demo/prg0.o demo/romcalls.o demo/rexx.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/rexx.s.tmp demo/rexx.c && mv demo/rexx.s.tmp demo/rexx_c.s

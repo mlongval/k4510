@@ -33,7 +33,21 @@
 #define MATH_MUL 3
 #define MATH_DIV 4
 #define MATH_SQRT 5
+#define MATH_SIN 6            /* the rest of the unit's ops, as core/io.h names them (LOGO needed them, 2026-09-11) */
+#define MATH_COS 7
+#define MATH_TAN 8
+#define MATH_ATAN 9
+#define MATH_ATAN2 10
+#define MATH_EXP 11
+#define MATH_LOG 12
+#define MATH_POW 13
+#define MATH_ABS 14
+#define MATH_NEG 15
+#define MATH_FLOOR 16
+#define MATH_ROUND 17
 #define MATH_CMP 18
+#define MATH_FTOA 22          /* F[src] -> MS-BASIC-format ASCII at phys FSPTR ($D730), leading ' '/'-' */
+#define MATH_FTOAR 23         /* same, no leading character for positives */
 #define MATH_ITOF 19
 #define MATH_FTOI 20
 #define ML_END 0x80

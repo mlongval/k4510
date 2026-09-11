@@ -224,6 +224,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define IO_FS_ADDR     (IO_STORAGE + 0x08) /* 28-bit RAM address for READ/WRITE/DIRNEXT */
 #define IO_FS_LEN      (IO_STORAGE + 0x0C) /* 32-bit: bytes requested; updated to bytes done */
 #define IO_FS_SIZE     (IO_STORAGE + 0x10) /* 32-bit: file size after OPEN/STAT */
+#define IO_FS_WHEN     (IO_STORAGE + 0x14) /* after STAT / DIR_NEXT: 16-bit date (year-1980)<<9 | month<<5 | day, then 16-bit time hour<<8 | minute; 0 = unknown */
 #define FS_OPEN_READ   1   /* open NAMEPTR for reading; SIZE = file size; offset = 0 */
 #define FS_OPEN_WRITE  2   /* create/truncate NAMEPTR for writing */
 #define FS_READ        3   /* read LEN bytes at the current offset into ADDR; LEN = bytes read */

@@ -546,6 +546,8 @@ static void dump(uint32_t from, uint32_t to)
 static void error(const char *m) { uint8_t o = fg; fg = C_ERR; puts_(m); newline(); fg = o; SHELL_RC = 1; }
 static void put_cwd(void);
 
+static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p);
+static void dir_long(const char *name);   /* bank 3: the DIR -l line */
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
 static char upc(char c) { return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c; }
@@ -589,6 +591,7 @@ static void cmd_dir(const char *p)
         if (fs_cmd(7)) break;
         if (haspat && !wild(pat, name)) continue;
         sz = r32(FS + 16);
+        if (longf) { sw_call(3, dir_long, name); if (sz != 0xFFFFFFFFUL) { count++; total += sz; } newline(); continue; }
         if (sz == 0xFFFFFFFFUL) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; pad(col + 20); puts_("<DIR>"); }
         else { puts_(name); pad(col + 20); putdec(sz); count++; total += sz; }
         if (!longf && COLS >= 78 && col == 0) pad(COLS / 2); else newline();
@@ -1706,6 +1709,36 @@ static void try_rx(const char *p0)
 #pragma rodata-name (pop)
 #pragma code-name (push, "SWCODE3")   /* bank 3: navigation.  The base image (ROM2) is full; SW3 has room (2026-09-10) */
 #pragma rodata-name (push, "SWRODATA3")
+/* DIR -l: one entry a line -- the size right-aligned (or <DIR>), the date in
+ * the clock's own order, the time, the name.  In bank 3 because the base
+ * image has no room (ROM2: 16 bytes free, 2026-09-11).  The entry is still
+ * in the FS registers ($D310 size, $D314 date, $D316 time), so only the name
+ * comes across.  Doc: "can dir -l give more info (like in linux)". */
+static void dir_long(const char *name)
+{
+    static const uint8_t ord[3][3] = { { 0, 1, 2 }, { 2, 1, 0 }, { 1, 0, 2 } };
+    static const char sep[3] = { '.', '-', '/' };
+    char b[20], *d = b;
+    uint32_t sz = r32(FS + 0x10), v;
+    uint16_t dt = r16(FS + 0x14), tm = r16(FS + 0x16);
+    uint8_t k = (uint8_t)((REG(SYS + SYS_CLOCKFMT) >> 1) & 3), j, n = 1;
+    if (k > 2) k = 0;
+    if (sz == 0xFFFFFFFFUL) { pad(3); puts_("<DIR>"); }
+    else { for (v = sz; v >= 10; v /= 10) n++; pad((uint8_t)(8 - n)); putdec(sz); }
+    if (dt) {
+        pad(10);
+        for (j = 0; j < 3; j++) {
+            uint8_t w = ord[k][j];
+            if (w == 2) d = dig4(d, (uint16_t)(1980 + (dt >> 9)));
+            else        d = dig2(d, w ? (uint8_t)((dt >> 5) & 15) : (uint8_t)(dt & 31));
+            if (j < 2) *d++ = sep[k];
+        }
+        *d++ = ' '; d = dig2(d, (uint8_t)(tm >> 8)); *d++ = ':'; d = dig2(d, (uint8_t) tm); *d = 0;
+        puts_(b);
+    }
+    pad(28);
+    if (sz == 0xFFFFFFFFUL) { uint8_t o = fg; fg = C_HI; puts_(name); fg = o; } else puts_(name);
+}
 /* The rest of the line as one name: spaces and brackets kept (a TNFS server's
  * "4] APPLE_II"), quotes stripped if present (Doc, 2026-09-10). */
 static uint8_t getrest(const char **p, char *name)

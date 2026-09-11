@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <time.h>
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
@@ -37,6 +39,17 @@ int main(void)
     io_write(IO_FS_CMD, FS_DIR_FIRST); int count = 0, seen = 0;
     for (;;) { W32(IO_FS_ADDR, 0x400); io_write(IO_FS_CMD, FS_DIR_NEXT); if (io_read(IO_FS_STATUS)) break; count++; if (!strcmp((char *)&k4510_ram[0x400], "out.bin")) seen = 1; }
     printf("2. DIR: %d entries, out.bin seen=%d\n", count, seen);
+
+    /* 3. the date and time of a file, packed at $D314/$D316 for DIR -l (2026-09-11) */
+    { struct stat sb; struct tm *m; uint16_t d, t;
+      strcpy((char *)&k4510_ram[0x300], "hello.txt"); W32(IO_FS_NAMEPTR, 0x300); io_write(IO_FS_CMD, FS_STAT);
+      d = (uint16_t)(io_read(IO_FS_WHEN) | (io_read(IO_FS_WHEN + 1) << 8)); t = (uint16_t)(io_read(IO_FS_WHEN + 2) | (io_read(IO_FS_WHEN + 3) << 8));
+      CHECK(io_read(IO_FS_STATUS) == 0, "STAT hello.txt");
+      if (stat("fs/hello.txt", &sb) == 0 && (m = localtime(&sb.st_mtime))) {
+          CHECK((d & 31) == m->tm_mday && ((d >> 5) & 15) == m->tm_mon + 1 && 1980 + (d >> 9) == m->tm_year + 1900, "STAT date %04x is not %d-%02d-%02d", d, m->tm_year + 1900, m->tm_mon + 1, m->tm_mday);
+          CHECK((t >> 8) == m->tm_hour && (t & 255) == m->tm_min, "STAT time %04x is not %02d:%02d", t, m->tm_hour, m->tm_min);
+      } else CHECK(0, "cannot stat fs/hello.txt on the host");
+      printf("3. STAT date/time of hello.txt: %02d.%02d.%d %02d:%02d\n", d & 31, (d >> 5) & 15, 1980 + (d >> 9), t >> 8, t & 255); }
     CHECK(count >= 2 && seen, "dir");
     mem_load(0x0300, (const uint8_t *)"../etc/passwd", 14); io_write(IO_FS_CMD, FS_STAT);
     CHECK(io_read(IO_FS_STATUS) == 1, "sandbox");

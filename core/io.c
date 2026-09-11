@@ -1,3 +1,4 @@
+#include <time.h>
 #include <ctype.h>     /* toupper: the search path uppercases a name's stem (fs_path) */
 #include <strings.h>   /* strcasecmp: the extension table there */
 #include "io.h"
@@ -78,7 +79,7 @@ static uint8_t kbd_read(void)
 #include <sys/stat.h>
 static char fs_root[512] = "fs";
 static char fs_cwd[256] = "";            /* relative to fs_root, no leading/trailing slash; "" = root */
-static uint8_t fs_reg[0x14];
+static uint8_t fs_reg[0x18];
 static FILE *fs_file;
 static uint8_t *fs_netbuf; static uint32_t fs_netlen, fs_netpos;   /* a fetched URL, served as the open file */
 static char fs_remote[512];             /* the current directory when it is on a server: a tnfs:// URL; "" = local */
@@ -106,6 +107,20 @@ const char *fs_get_root(void) { return fs_root; }
 const char *fs_get_cwd(void) { return fs_cwd; }   /* the shell's current dir, relative to the root */
 static uint32_t fs_rd32(int off) { return rd32(&fs_reg[off]); }
 static void fs_wr32(int off, uint32_t v) { for (int i = 0; i < 4; i++) fs_reg[off + i] = (v >> (8 * i)) & 0xFF; }
+/* The date and time of a host file at $D314/$D316, packed for the ROM to
+ * print without dividing: (year-1980)<<9 | month<<5 | day, and hour<<8 |
+ * minute.  Zero when there is none to give (a network entry).  DIR -l shows
+ * them (Doc, 2026-09-11: "like in linux"). */
+static void fs_when(const char *path)
+{
+    struct stat sb; uint16_t d = 0, t = 0;
+    if (path && stat(path, &sb) == 0) {
+        struct tm *m = localtime(&sb.st_mtime);
+        if (m) { int y = m->tm_year + 1900 - 1980; if (y < 0) y = 0; if (y > 127) y = 127;
+                 d = (uint16_t)((y << 9) | ((m->tm_mon + 1) << 5) | m->tm_mday); t = (uint16_t)((m->tm_hour << 8) | m->tm_min); }
+    }
+    fs_reg[0x14] = (uint8_t) d; fs_reg[0x15] = (uint8_t)(d >> 8); fs_reg[0x16] = (uint8_t) t; fs_reg[0x17] = (uint8_t)(t >> 8);
+}
 #include <strings.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -304,7 +319,7 @@ static void fs_run(uint8_t cmd)
           } }
         local_fs:
         if ((st = fs_path(path, sizeof path, rd))) break;
-        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); break; }
+        if (cmd == FS_STAT) { struct stat sb; if (stat(path, &sb)) st = 1; else { fs_wr32(0x10, S_ISDIR(sb.st_mode) ? 0xFFFFFFFFu : (uint32_t)sb.st_size); fs_when(path); } break; }
         { struct stat sb;                     /* a directory is not a file: opening "FORTH" must fail as
                                                  not-found so the shell falls through to FORTH.prg */
           if (rd && !stat(path, &sb) && S_ISDIR(sb.st_mode)) { st = 1; break; } }
@@ -365,6 +380,8 @@ static void fs_run(uint8_t cmd)
         for (; nm[i] && i < 63; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)nm[i];
         k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0;
         fs_wr32(0x10, fs_list_size ? fs_list_size[fs_list_i] : fs_list_size_of(nm));
+        if (fs_list_size) fs_when(NULL);                                      /* a network listing: no date to give */
+        else { char p[1100]; snprintf(p, sizeof p, "%.800s/%.255s", fs_list_dir, nm); fs_when(p); }
         fs_list_i++;
         break; }
     case FS_CHDIR: {
@@ -1270,7 +1287,7 @@ int dbg_dump(const char *why)
     fprintf(f, "VICKY ctrl=%02X bg=%02X irqst=%02X irqmask=%02X\n", vicky_read(0), vicky_read(1), vicky_read(4), vicky_read(5));
     for (int n = 0; n < 4; n++) { fprintf(f, "  layer %d:", n); for (int i = 0; i < 16; i++) fprintf(f, " %02X", vicky_read(0x10 + n * 16 + i)); fprintf(f, "\n"); }
     fprintf(f, "  sprites=%02X sheila=%02X list=", vicky_read(0x0E), vicky_read(0x64)); for (int i = 3; i >= 0; i--) fprintf(f, "%02X", vicky_read(0x60 + i)); fprintf(f, "\n");
-    fprintf(f, "FS   reg:"); for (int i = 0; i < 0x14; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
+    fprintf(f, "FS   reg:"); for (int i = 0; i < (int)sizeof fs_reg; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
     fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
     fprintf(f, "\nSCREEN (text layer at $030000, 80 columns):\n");
     for (int y = 0; y < 60; y++) { char r[81]; int last = -1; for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); }

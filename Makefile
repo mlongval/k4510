@@ -166,6 +166,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/deletetest.sh
 	./test/bangtest.sh
 	./test/keytest.sh
+	./test/dirtest.sh
 
 clean: clean-demos
 # Only the .s files cc65 generates -- one per .c, plus the two built under a

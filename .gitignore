@@ -66,7 +66,6 @@ fs/APPS/OPLPLAY/TUNES/
 # your own startup script: yours, not the repo's (see /SYSTEM/ETC/STARTUP.SAMPLE)
 fs/STARTUP.BAT
 # and your own VI startup file (see /SYSTEM/ETC/VI.SAMPLE)
-fs/SYSTEM/ETC/VI.RC
 # the F7 menu's settings, written wherever the emulator was run from
 /k4510.cfg
 

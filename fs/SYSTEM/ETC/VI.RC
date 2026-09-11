@@ -1,0 +1,3 @@
+" K4510 VI startup file: one ex command per line, run at start (see demo/vi.c).
+" Lines beginning with " are comments, as in vi.
+imap jk <Esc>

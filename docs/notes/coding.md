@@ -1848,3 +1848,26 @@ sizes itself to the screen.
   to an installed K4510 moves tens of MB, not 750.
 - **Handbook:** the LOGO command is now BANNER wherever the book names it;
   DIR -l and RANGER's default deserve a line; the Dell dual-boot exists.
+
+## 2026-09-11 late — LOGO, the cursor, the F7 Host page, Tailscale
+
+- **LOGO exists**: `/LANG/LOGO/logo.prg` (cc65, MATH-unit floats, blitter
+  lines on a bitmap under the text). Words in `/LANG/LOGO/README.TXT`, four
+  examples in `/LANG/LOGO/EX` (SQUARE, SPIRAL, TREE, SNOW), `LOAD "name`,
+  `BYE`. No turtle glyph yet, no real lists. Worth a chapter section once
+  phase 2 lands (turtle, lists, FILL).
+- **Every interpreter shows the cursor now** (MS BASIC, FORTH, RX, LOGO): the
+  ROM hides the console cursor before a program runs and a REPL must turn it
+  back on ($DA0E bit 0). **ESC or Ctrl-C** stops a running RX script and a
+  LOGO command, as they already stopped MS BASIC; EhBASIC keeps its own
+  Ctrl-C; FORTH has no break key (Tali's inner loop is not ours to slow down).
+  `*BYE` leaves MS BASIC (the banner says so).
+- **F7 → Host** (K4510 Linux only): the host's name, its address and its
+  tailnet address; "Wi-Fi / network setup" (nmtui on a spare console, the
+  machine waits); "Telnet into the host" types `TELNET 127.0.0.1 23`.
+- **Tailscale is in the image.** Once: `!sudo tailscale up --ssh`; then the
+  Linux under the machine is `ssh k4510@<node>` from the tailnet. Its
+  identity persists (/var/lib/tailscale in persistence.conf).
+- **The Dell**: K4510 is a GRUB entry beside Fedora (`linux/install-k4510.sh`,
+  `linux/update-k4510.sh`), boots from an internal partition with persistence;
+  the same image, built with `NODISK=` (the stick's disk ban must not ship there).

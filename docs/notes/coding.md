@@ -1821,3 +1821,9 @@ the sound chip's friendly name is MELODY (OPL2/YM3812 stays the technical
 name, like VICKY). New setting Input->Mouse pointer (default on). The
 handbook's chip list and the cover/banner figures want MELODY, not OPL2,
 in the friendly name; keep OPL2 where the register/chip is meant.
+
+**2026-09-11 — retro host cursor + the console-size question.** The window
+pointer is MOUSETEST's 8-bit arrow now (SDL colour cursor). Also: a Pascal
+program reads the console size from the k4510 unit's TERM_COLS ($DA05) and
+TERM_ROWS ($DA06) -- worth a line in the Pascal chapter where screen size
+comes up (pmandel could be sized to fit instead of a fixed 78x28).

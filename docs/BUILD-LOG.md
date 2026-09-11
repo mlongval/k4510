@@ -6835,3 +6835,13 @@ download on a click, and Save now.  build.sh links -lidbfs.js with
 WASM sources (it had been missing since the side panel landed).  Built,
 smoke-tested headless (no errors, the toolbar renders), and deployed to
 k4510web.  Not added: a login -- Tailscale already gates the URL.
+
+## 2026-09-11 — an 8-bit arrow for the host pointer
+
+Doc: "the mouse cursor in k4510 an old school 8bit sprite pointer (like
+you did for a program already)."  That program is MOUSETEST; its arrow
+shape now becomes the window's cursor -- built into an SDL colour cursor,
+white with a one-pixel black outline, scaled 3x so the pixels read as
+chunky, hotspot at the tip.  Set once after the window is made; the Mouse
+pointer setting still shows or hides it.  The bitmap helper is file-scope
+(a nested function broke the WASM build's clang once).

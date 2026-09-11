@@ -299,6 +299,33 @@ static void machine_frame(int vol)            /* F, and every frame while runnin
     do machine_line(vol); while (m_line != 0);
 }
 
+/* An 8-bit sprite pointer for the host cursor: the same arrow MOUSETEST draws
+ * as a VICKY sprite (demo/mousetest.c), white with a one-pixel black outline,
+ * scaled up so the pixels read as chunky (Doc, 2026-09-11).  Built once and
+ * set as the window cursor; the Mouse pointer setting shows or hides it. */
+#define ARROW_W 8
+#define ARROW_H 12
+#define ARROW_SC 3                                  /* each source pixel -> ARROW_SC x ARROW_SC */
+static const unsigned char retro_arrow[ARROW_H] = { 0x80,0xC0,0xE0,0xF0,0xF8,0xFC,0xFE,0xF0,0xD8,0x98,0x0C,0x0C };
+static int arrow_on(int x, int y) { return (x >= 0 && x < ARROW_W && y >= 0 && y < ARROW_H && ((retro_arrow[y] << x) & 0x80)) ? 1 : 0; }
+static void set_retro_cursor(void)
+{
+    SDL_Surface *sf = SDL_CreateRGBSurfaceWithFormat(0, ARROW_W * ARROW_SC, ARROW_H * ARROW_SC, 32, SDL_PIXELFORMAT_ARGB8888);
+    SDL_Cursor *cur;
+    if (!sf) return;
+    for (int sy = 0; sy < ARROW_H; sy++) for (int sx = 0; sx < ARROW_W; sx++) {
+        Uint32 c = 0;                              /* transparent */
+        if (arrow_on(sx, sy)) c = 0xFFFFFFFFu;     /* white fill */
+        else { int edge = 0; for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) if (arrow_on(sx + dx, sy + dy)) edge = 1;
+               if (edge) c = 0xFF000000u; }        /* black outline */
+        for (int py = 0; py < ARROW_SC; py++) for (int px = 0; px < ARROW_SC; px++)
+            ((Uint32 *)sf->pixels)[(sy * ARROW_SC + py) * (sf->pitch / 4) + sx * ARROW_SC + px] = c;
+    }
+    cur = SDL_CreateColorCursor(sf, 0, 0);         /* hotspot at the tip */
+    SDL_FreeSurface(sf);
+    if (cur) SDL_SetCursor(cur);                   /* SDL owns it for the run */
+}
+
 static SDL_GameController *pad;
 static void pad_open(int idx)
 {
@@ -403,6 +430,7 @@ int k4510_frontend_main(int argc, char **argv)
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        win_w, win_h, SDL_WINDOW_RESIZABLE);
     grab_win = win;
+    set_retro_cursor();          /* the 8-bit arrow pointer, shown per the Mouse pointer setting */
 /* No vsync by default, anywhere.  It was off on the Pi already, because the
  * shim blocked the present until the flip and a frame that overran by a
  * millisecond waited for the next one, stepping the machine down to 30 or 20

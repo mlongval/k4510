@@ -64,5 +64,22 @@ int main(void)
     W(4, 2); send("abc\033[2\bJx");                          /* BS moves 3 -> 2, then ED 2 erases, cursor kept */
     row(r, 0); CHECK(!strcmp(r, "  x"), "a control among the parameters does not lose the sequence ('%s')", r);
     printf("6. controls inside a CSI: ok\n");
+
+    /* 7. A cell rewritten under the drawn cursor must not poison the cursor.
+     * The block cursor inverts the cell's reverse bit in place.  The ROM's
+     * line editor writes cells directly when it believes the cursor is
+     * hidden -- and a program's CursorOn had just shown it again -- so the
+     * inversion parity went off by one and every later move left a
+     * reverse-video space behind (PMANDEL on the Dell, 2026-09-11). */
+    W(4, 2); W(0x0E, 1); W(9, 3); W(10, 2);                     /* clear; cursor shown; put it at (3,2) */
+    CHECK(cell(3, 2)[1] & 0x80, "the shown cursor inverts the reverse bit of its cell");
+    cell(3, 2)[0] = ' '; cell(3, 2)[1] = 0; cell(3, 2)[2] = 7; cell(3, 2)[3] = 6;   /* the ROM blanks that cell directly */
+    send("abc\r\ndef\r\nghi\r\n"); W(9, 0); W(10, 5); send("jkl");   /* the cursor visits a dozen cells */
+    W(0x0E, 0);                                                  /* hide it, so the only reverse bit left would be a stray */
+    { int strays = 0; for (int y = 0; y < 8; y++) for (int x = 0; x < 40; x++) if ((cell(x, y)[1] & 0x80) && cell(x, y)[0] == ' ') strays++;
+      CHECK(strays == 0, "no reverse-video space left behind after a cell was rewritten under the cursor (%d)", strays); }
+    CHECK(!(cell(3, 2)[1] & 0x80), "the rewritten cell keeps what was written, not the cursor's inversion");
+    W(0x0E, 1); CHECK(cell(3, 5)[1] & 0x80, "and the cursor still draws afterwards");
+    printf("7. a cell rewritten under the cursor: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

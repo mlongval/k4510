@@ -8,7 +8,9 @@ procedure CursorOff;
 *)
 begin
  asm
-	stz k4_term_flags
+	lda k4_term_flags	; bit 0 only: the other bits (PETSCII, band claim) are not ours to clear
+	and #$FE
+	sta k4_term_flags
  end;
 end;
 
@@ -19,7 +21,8 @@ procedure CursorOn;
 *)
 begin
  asm
-	lda #1
+	lda k4_term_flags
+	ora #1
 	sta k4_term_flags
  end;
 end;

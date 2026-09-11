@@ -85,10 +85,22 @@ static void scroll_down(int top, int bot, int n)
 #define CUR_SHOWN (T.cur_on & 1)
 #define CUR_ATTR  (T.cur_on & 8)
 #define CUR_STYLE ((T.cur_on >> 1) & 3)
+/* The block cursor is the cell's reverse bit inverted in place, so undrawing
+ * must invert it back -- and that went wrong whenever something wrote the cell
+ * directly while the cursor sat on it (the ROM's line editor blanks a cell it
+ * believes cursor-free; a program's CursorOn had just put the cursor there).
+ * The inversion parity was then off by one for every cell the cursor visited
+ * after, each move leaving a reverse-video space behind: the blocks that
+ * followed PMANDEL on the Dell (Doc, 2026-09-11).  Now cur_on bit 4 remembers
+ * the ORIGINAL reverse bit, and undraw restores it only if the cell still
+ * carries the cursor's own inversion; a rewritten cell is left as written. */
+#define CUR_ORIG  ((T.cur_on >> 4) & 1)
 static void cur_undraw(void)
 {
     if (!CUR_SHOWN) return;
-    if (CUR_ATTR) k4510_ram[T.cur_at] ^= 0x80; else vicky_cursor(0, 0, 0);
+    if (CUR_ATTR) { uint8_t *a = &k4510_ram[T.cur_at];
+                    if (((*a >> 7) & 1) != CUR_ORIG) *a = (uint8_t)((*a & 0x7F) | (CUR_ORIG << 7)); }
+    else vicky_cursor(0, 0, 0);
     T.cur_on &= 6;
 }
 static void cur_draw(void)
@@ -96,7 +108,8 @@ static void cur_draw(void)
     cur_undraw();
     if (!T.shown) return;
     T.cur_at = (uint32_t)(cellp(T.cx, T.cy) - k4510_ram) + 1;
-    if (CUR_STYLE == 0) { k4510_ram[T.cur_at] ^= 0x80; T.cur_on |= 9; }
+    if (CUR_STYLE == 0) { uint8_t *a = &k4510_ram[T.cur_at]; uint8_t orig = (uint8_t)((*a >> 7) & 1);
+                          *a ^= 0x80; T.cur_on = (uint8_t)((T.cur_on & 6) | 9 | (orig << 4)); }
     else { vicky_cursor(T.cur_at, CUR_STYLE, 1); T.cur_on |= 1; }
 }
 void term_tick(void)
@@ -506,13 +519,18 @@ uint8_t term_read(uint8_t r)
     default: return 0;
     }
 }
+/* K4510_TERMLOG=file: every byte JIM receives, and every register write with
+ * the cursor bookkeeping beside the REAL reverse bit under it -- the trace
+ * that found the stray-cursor-block bug (Doc, the Dell, 2026-09-11). */
+static FILE *termlog(void) { static FILE *lg; static int tried;
+    if (!tried) { tried = 1; const char *f = getenv("K4510_TERMLOG"); if (f) lg = fopen(f, "wb"); } return lg; }
 void term_write(uint8_t r, uint8_t v)
 {
+    if (r != 0x00 && r != 0x03) { FILE *lg = termlog(); if (lg) { fprintf(lg, "\n<r%02X<-%02X shown=%u cur_on=%u cx=%u cy=%u at=%06X bit=%u>",
+        r, v, T.shown, T.cur_on, T.cx, T.cy, (unsigned) T.cur_at, (unsigned)((k4510_ram[T.cur_at] >> 7) & 1)); fflush(lg); } }
     switch (r) {
     case 0x00:
-        { static FILE *lg; static int tried;                          /* K4510_TERMLOG=file: every byte JIM receives (debugging a program's output) */
-          if (!tried) { tried = 1; const char *f = getenv("K4510_TERMLOG"); if (f) lg = fopen(f, "wb"); }
-          if (lg) { fputc(v, lg); fflush(lg); } }
+        { FILE *lg = termlog(); if (lg) { fputc(v, lg); fflush(lg); } }
         cur_undraw(); put_byte(v); T.dirty = 1; cur_draw(); return;
     case 0x03: key(v); return;
     case 0x04:

@@ -134,6 +134,12 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
         || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
         || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
+    # Tek40xx is built from upstream WITH OUR PATCH, so a change to that patch
+    # (the seamless-window and ESC/q-quit fixes, 2026-09-11) only reaches the
+    # stick if we rebuild it here too -- the emulator rebuild above does not.
+    # Same invocation as the full build below; needs the chroot's network.
+    $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh \
+        || echo "build-live.sh: Tek40xx did not rebuild; everything else works"
     binds_down
     sync
     squash

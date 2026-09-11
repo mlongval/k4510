@@ -80,6 +80,10 @@ static uint8_t kbd_read(void)
 static char fs_root[512] = "fs";
 static char fs_cwd[256] = "";            /* relative to fs_root, no leading/trailing slash; "" = root */
 static uint8_t fs_reg[0x18];
+static uint8_t fs_cap;                    /* $D318: GETCWD's buffer size, one shot; 0 = 64 (the ROM's) */
+static char fs_back_cwd[256], fs_back_remote[512];   /* where the last CHDIR came from: FS_CHDIR_BACK */
+static char fs_was_cwd[256], fs_was_remote[512];     /* taken as a CHDIR starts, kept only if it lands */
+static int  fs_chdir_ran;
 static FILE *fs_file;
 static uint8_t *fs_netbuf; static uint32_t fs_netlen, fs_netpos;   /* a fetched URL, served as the open file */
 static char fs_remote[512];             /* the current directory when it is on a server: a tnfs:// URL; "" = local */
@@ -387,6 +391,7 @@ static void fs_run(uint8_t cmd)
     case FS_CHDIR: {
         char name[128], rel[256], url[512]; struct stat sb;
         if ((st = fs_guest_name(name, sizeof name))) break;
+        memcpy(fs_was_cwd, fs_cwd, sizeof fs_was_cwd); memcpy(fs_was_remote, fs_remote, sizeof fs_was_remote); fs_chdir_ran = 1;
         if (fs_remote[0] && !strcmp(name, "-")) { fs_remote[0] = 0; break; }          /* CD - : home from the server */
         if (net_is_url(name) || (fs_remote[0] && strcmp(name, "-"))) {                 /* the URL-cwd model: CD tnfs://host, or a name while already on a server */
             if (fs_url_for(name, url, sizeof url)) {
@@ -438,9 +443,31 @@ static void fs_run(uint8_t cmd)
         for (j = 0; b[j] && j < 300; j++) k4510_ram[(addr + j) & K4510_PHYS_MASK] = (uint8_t)b[j];
         k4510_ram[(addr + j) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)j);
         break; }
-    case FS_GETCWD: if (fs_remote[0]) { size_t i = 0; for (; fs_remote[i] && i < 250; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)fs_remote[i]; k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i); break; }
-                    { size_t i = 0; k4510_ram[addr & K4510_PHYS_MASK] = '/'; for (; fs_cwd[i] && i < 250; i++) k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = (uint8_t)fs_cwd[i]; k4510_ram[(addr + 1 + i) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)i + 1); break; }
+    case FS_GETCWD: {
+        /* The caller's buffer is fs_cap bytes (64 when it says nothing -- the
+         * ROM's).  A longer path keeps its tail behind "...": the end of a
+         * path is the part that says where you are.  Before 2026-09-11 this
+         * wrote up to 251 bytes into the ROM's 64 and a deep DIR overwrote
+         * the shell's stack (review 2026-09-05, finding 1). */
+        char s[520]; size_t n, cap = fs_cap ? fs_cap : 64, i; const char *src = s;
+        fs_cap = 0;
+        if (fs_remote[0]) snprintf(s, sizeof s, "%s", fs_remote); else snprintf(s, sizeof s, "/%s", fs_cwd);
+        n = strlen(s);
+        if (n > cap - 1) { src = s + n - (cap - 4); n = cap - 1;
+            for (i = 0; i < 3; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = '.';
+            addr += 3; n -= 3; }
+        for (i = 0; i < n; i++) k4510_ram[(addr + i) & K4510_PHYS_MASK] = (uint8_t)src[i];
+        k4510_ram[(addr + i) & K4510_PHYS_MASK] = 0;
+        fs_wr32(0x10, (uint32_t)strlen(s) > cap - 1 ? (uint32_t)cap - 1 : (uint32_t)strlen(s));
+        break; }
+    case FS_CHDIR_BACK:                    /* undo the last CHDIR, however long the path: DIR's way home */
+        memcpy(fs_cwd, fs_back_cwd, sizeof fs_cwd); memcpy(fs_remote, fs_back_remote, sizeof fs_remote);
+        break;
     default: st = 3;
+    }
+    if (fs_chdir_ran) {                    /* a CHDIR that landed: remember where it came from */
+        fs_chdir_ran = 0;
+        if (!st) { memcpy(fs_back_cwd, fs_was_cwd, sizeof fs_back_cwd); memcpy(fs_back_remote, fs_was_remote, sizeof fs_back_remote); }
     }
     fs_reg[1] = (uint8_t)st; fs_reg[0] = 0;
 }
@@ -1418,6 +1445,7 @@ static uint8_t io_read_inner(uint16_t addr)
         return 0xFF;
     case IO_STORAGE:
         if ((addr & 0xFF) < sizeof fs_reg) return fs_reg[addr & 0xFF];
+        if (addr == IO_FS_CAP) return fs_cap;
         return 0xFF;
     case IO_NET:
         return net_read(addr & 0xFF);
@@ -1486,6 +1514,7 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_STORAGE:
         if (addr == IO_FS_CMD) { fs_run(v); return; }
         if ((addr & 0xFF) < sizeof fs_reg) fs_reg[addr & 0xFF] = v;
+        if (addr == IO_FS_CAP) fs_cap = v;
         return;
     case IO_NET:
         net_write(addr & 0xFF, v);

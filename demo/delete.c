@@ -144,6 +144,7 @@ void main(void)
     const char *p = *(const char **)0xF0;
     uint16_t done = 0, bad = 0;
 
+    REG(FS + 0x18) = sizeof cwd;                               /* GETCWD's CAP: our buffer's size */
     fs_addr((uint32_t)(uint16_t)cwd); fs_do(C_GETCWD);
     if (!cwd[0]) strcpy(cwd, "/");
 

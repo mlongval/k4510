@@ -567,7 +567,7 @@ static uint8_t wild(const char *pat, const char *s)
 
 static void cmd_dir(const char *p)
 {
-    char name[64], pat[NAMEMAX], back[64]; uint16_t count = 0; uint32_t total = 0, sz;   /* the device writes entries of at most 64 */
+    char name[64], pat[NAMEMAX]; uint16_t count = 0; uint32_t total = 0, sz;   /* the device writes entries of at most 64 */
     uint8_t first = 6, haspat, went = 0, longf = 0;      /* -a/A dotfiles too, -l one per line */
     skipsp(&p);
     while (*p == '-') { p++; while (*p && *p != ' ') { char c = *p | 0x20; if (c == 'a') first = 18; else if (c == 'l') longf = 1; p++; } skipsp(&p); }
@@ -578,7 +578,6 @@ static void cmd_dir(const char *p)
         while (*w) { if (*w == '*' || *w == '?') { went = 0; break; } w++; }
         if (went) {
             haspat = 0;
-            w32(FS + 8, (uint16_t)back); fs_cmd(15);      /* remember where we are */
             fs_name(pat);
             if (fs_cmd(11)) { error("dir: no such directory"); return; }
         }
@@ -598,7 +597,7 @@ static void cmd_dir(const char *p)
     }
     if (cx) newline();
     putdec(count); puts_(" file(s), "); putdec(total); puts_(" bytes"); newline();
-    if (went) { fs_name(back); fs_cmd(11); }             /* and back where we started */
+    if (went) fs_cmd(22);                                /* and back where we started (CHDIR_BACK: no copy of the path, so no length limit) */
 }
 
 #pragma code-name (push, "SWCODE1")   /* cold: bank 1 (ROM2 was full, 2026-09-07) */
@@ -628,7 +627,7 @@ static void cmd_mkdir(const char *p)
  * RANGER's first trash lost a file (docs/BUILD-LOG.md, 2026-08-29). */
 static void cmd_rm(const char *p)
 {
-    char name[NAMEMAX], dst[NAMEMAX + 8];
+    char name[NAMEMAX], dst[NAMEMAX + 12];                 /* "/.TRASH/" + name + "~99" + NUL */
     uint8_t force = 0, n, l;
     if (is_cmd(&p, "-f")) force = 1;
     if (!getname(&p, name)) { error("rm: name?"); return; }

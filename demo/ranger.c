@@ -694,6 +694,7 @@ int main(void)
     if (!ncols) ncols = cols < 34 ? 1 : 2;
     layout();
 
+    REG(FS + 0x18) = PATHW;                                    /* GETCWD's CAP: the buffer's size */
     fs_addr((uint32_t)(uint16_t)path); fs_do(C_GETCWD);      /* start where the shell is */
     if (!path[0]) strcpy(path, "/");
     refresh();

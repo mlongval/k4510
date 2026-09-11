@@ -154,8 +154,8 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
         for (int gx = gx0; gx < 8 && x < VICKY_WIDTH; gx++, x++) {
             int sw = cur && (cur_style == 1 || gx < 2);
             line[x] = (((row >> (7 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
+            layer_hit[x] = 1;              /* text32 cells are opaque: every pixel is "a layer drew here" */
         }
-        layer_hit[x] = 1;
     }
 }
 

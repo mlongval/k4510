@@ -177,6 +177,7 @@ static void relist_both(void) { relist(0); relist(1); set_cwd(active); }
 
 static void getcwd_into(uint8_t p)
 {
+    REG(FS + 0x18) = sizeof ppath[0];                          /* GETCWD's CAP: all ppath can hold */
     fs_addr((uint32_t)(uint16_t)tbuf);
     fs_do(C_GETCWD);
     { uint8_t i = 0; while (tbuf[i] && i < (uint8_t)(sizeof ppath[0] - 1)) { ppath[p][i] = tbuf[i]; i++; } ppath[p][i] = 0; }

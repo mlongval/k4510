@@ -225,6 +225,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define IO_FS_LEN      (IO_STORAGE + 0x0C) /* 32-bit: bytes requested; updated to bytes done */
 #define IO_FS_SIZE     (IO_STORAGE + 0x10) /* 32-bit: file size after OPEN/STAT */
 #define IO_FS_WHEN     (IO_STORAGE + 0x14) /* after STAT / DIR_NEXT: 16-bit date (year-1980)<<9 | month<<5 | day, then 16-bit time hour<<8 | minute; 0 = unknown */
+#define IO_FS_CAP      (IO_STORAGE + 0x18) /* write before GETCWD: the buffer's size in bytes, one shot (the device clears it); 0 = 64 */
 #define FS_OPEN_READ   1   /* open NAMEPTR for reading; SIZE = file size; offset = 0 */
 #define FS_OPEN_WRITE  2   /* create/truncate NAMEPTR for writing */
 #define FS_READ        3   /* read LEN bytes at the current offset into ADDR; LEN = bytes read */
@@ -239,13 +240,14 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define FS_MKDIR      12   /* create directory NAMEPTR */
 #define FS_RM         13   /* delete file NAMEPTR (1 absent, 2 is a directory / failed) */
 #define FS_RMDIR      14   /* delete directory NAMEPTR (must be empty) */
-#define FS_GETCWD     15   /* write the current directory ("/..." NUL-terminated) to ADDR; SIZE = length */
+#define FS_GETCWD     15   /* write the current directory ("/..." NUL-terminated) to ADDR, at most CAP bytes with the NUL ("..." + the tail when longer); SIZE = length */
 #define FS_RENAME     16   /* rename NAMEPTR to the name string ADDR points at */
 #define FS_COPYFILE   17   /* copy file NAMEPTR to the name string ADDR points at */
 #define FS_DIR_ALL    18   /* DIR_FIRST, dotfiles included (only . and .. stay hidden) */
 #define FS_MOUNT      19   /* NAMEPTR = "URL PATH": map a local path onto a server (tnfs://...) */
 #define FS_UMOUNT     20   /* NAMEPTR = PATH: remove a mount */
 #define FS_MOUNTS     21   /* list mounts: LEN = index, writes "/path  url" to ADDR, SIZE = len; status 4 past the end */
+#define FS_CHDIR_BACK 22   /* go back to where the last successful CHDIR started from, however long the path */
 /* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."
  * work, ".." never leaves the root. Lookups are case-insensitive when the
  * exact name is absent. Reads (OPEN_READ, STAT, LOAD) of a bare name not

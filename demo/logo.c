@@ -35,6 +35,9 @@
 #define GFX_BASE 0x200000UL
 #define GW 640
 #define GH 480
+#define SPR_DATA (GFX_BASE + (unsigned long) GW * GH)   /* the turtle's 16x16 8-bpp glyph, right after the bitmap */
+#define SPR_TAB  (SPR_DATA + 0x100UL)                  /* the sprite attribute table (128 x 16 B); entry 0 is the turtle */
+#define CMDLINE ((char *) 0x0300)                      /* SWAP's command line: below our image (see demo/ranger.c) */
 
 typedef unsigned long fbits;                       /* an IEEE single, as bits */
 
@@ -72,32 +75,93 @@ static void gfx_open(void)
 {
     uint8_t i;
     for (i = 0x21; i <= 0x25; i++) REG(VICKY + i) = 0;
+    w32r(VICKY + 0x0A, SPR_TAB); REG(VICKY + 0x0E) = 1;                       /* the turtle is sprite 0 (turtle_show) */
     REG(VICKY + 0x26) = (uint8_t)(GW & 255); REG(VICKY + 0x27) = (uint8_t)(GW >> 8);
     REG(VICKY + 0x28) = 0; REG(VICKY + 0x29) = 0; REG(VICKY + 0x2A) = 0x20; REG(VICKY + 0x2B) = 0;
     gfx_ctrl = REG(VICKY);
     REG(VICKY) = (uint8_t)(gfx_ctrl & 0xF9);                                   /* 640x480, no line doubling */
     REG(VICKY + 0x20) = 0x19;                                                  /* enable | bitmap | 8 bpp */
 }
-static void gfx_close(void) { REG(VICKY + 0x20) = 0; REG(VICKY) = gfx_ctrl; }
+static void gfx_close(void) { REG(VICKY + 0x20) = 0; REG(VICKY + 0x0E) = 0; REG(VICKY) = gfx_ctrl; }
 static void gfx_clear(void) { w32r(DMA, 0); w32r(DMA + 4, GFX_BASE); w32r(DMA + 8, (unsigned long) GW * GH); REG(DMA + 0x0C) = 2; }
+static void blt_target(uint8_t colour, unsigned long dst, unsigned w, unsigned h)   /* colour source, a surface of stride w */
+{
+    REG(BLT) = colour; REG(BLT + 1) = 0; REG(BLT + 2) = 0; REG(BLT + 3) = 0;
+    w32r(BLT + 4, dst);
+    REG(BLT + 8) = (uint8_t)(w & 255); REG(BLT + 9) = (uint8_t)(w >> 8);
+    REG(BLT + 10) = (uint8_t)(h & 255); REG(BLT + 11) = (uint8_t)(h >> 8);
+    REG(BLT + 14) = (uint8_t)(w & 255); REG(BLT + 15) = (uint8_t)(w >> 8);
+}
+static void blt_pt(uint8_t i, int x, int y) { REG(0xD084u + i * 4) = (uint8_t) x; REG(0xD085u + i * 4) = (uint8_t)(x >> 8); REG(0xD086u + i * 4) = (uint8_t) y; REG(0xD087u + i * 4) = (uint8_t)(y >> 8); }
 static void gfx_line(int x0, int y0, int x1, int y1)
 {
-    REG(BLT) = pencol; REG(BLT + 1) = 0; REG(BLT + 2) = 0; REG(BLT + 3) = 0;    /* the source: a colour */
-    w32r(BLT + 4, GFX_BASE);                                                    /* the destination: the bitmap */
-    REG(BLT + 8) = (uint8_t)(GW & 255); REG(BLT + 9) = (uint8_t)(GW >> 8);
-    REG(BLT + 10) = (uint8_t)(GH & 255); REG(BLT + 11) = (uint8_t)(GH >> 8);
-    REG(BLT + 14) = (uint8_t)(GW & 255); REG(BLT + 15) = (uint8_t)(GW >> 8);   /* its stride */
-    REG(0xD084u) = (uint8_t) x0; REG(0xD085u) = (uint8_t)(x0 >> 8);
-    REG(0xD086u) = (uint8_t) y0; REG(0xD087u) = (uint8_t)(y0 >> 8);
-    REG(0xD088u) = (uint8_t) x1; REG(0xD089u) = (uint8_t)(x1 >> 8);
-    REG(0xD08Au) = (uint8_t) y1; REG(0xD08Bu) = (uint8_t)(y1 >> 8);
+    blt_target(pencol, GFX_BASE, GW, GH);
+    blt_pt(0, x0, y0); blt_pt(1, x1, y1);
     REG(0xD080u) = 6; REG(0xD082u) = 1;
 }
+static uint8_t px_get(int x, int y) { return far_peek(GFX_BASE + (unsigned long) y * GW + x); }
+static void    px_set(int x, int y) { far_poke(GFX_BASE + (unsigned long) y * GW + x, pencol); }
 
 /* ---- the turtle --------------------------------------------------------- */
 static fbits tx, ty, th;                           /* position (origin the centre, y up) and heading (degrees, 0 = up, clockwise) */
 static int clampi(long v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : (int) v; }
+static uint8_t turtle_vis = 1;
+static int turtle_px(void) { return clampi(ftoi(fadd(tx, fint(GW / 2))), 0, GW - 1); }
+static int turtle_py(void) { return clampi(ftoi(fsub(fint(GH / 2), ty)), 0, GH - 1); }
+/* The turtle is VICKY sprite 0: a 16x16 8-bpp arrow the blitter draws into
+ * the sprite's own surface (TRIANGLE, op 7) each time it moves or turns --
+ * tip forward, colour 15 -- so the glyph never touches the picture and HT/ST
+ * are the enable bit.  Z = 3: over the bitmap and the text alike. */
+static void turtle_show(void)
+{
+    fbits r, sn, cs; int tipx, tipy, lx, ly, rx, ry;
+    if (!turtle_vis) { far_poke(SPR_TAB + 8, 0x32); return; }
+    r = fmul(th, FDEG); sn = f1(MATH_SIN, r); cs = f1(MATH_COS, r);
+    tipx = 8 + (int) ftoi(fmul(fint(7), sn));  tipy = 8 - (int) ftoi(fmul(fint(7), cs));
+    lx = 8 - (int) ftoi(fmul(fint(5), sn)) + (int) ftoi(fmul(fint(4), cs));  ly = 8 + (int) ftoi(fmul(fint(5), cs)) + (int) ftoi(fmul(fint(4), sn));
+    rx = 8 - (int) ftoi(fmul(fint(5), sn)) - (int) ftoi(fmul(fint(4), cs));  ry = 8 + (int) ftoi(fmul(fint(5), cs)) - (int) ftoi(fmul(fint(4), sn));
+    w32r(DMA, 0); w32r(DMA + 4, SPR_DATA); w32r(DMA + 8, 256); REG(DMA + 0x0C) = 2;   /* clear the glyph */
+    blt_target(15, SPR_DATA, 16, 16);
+    blt_pt(0, tipx, tipy); blt_pt(1, lx, ly); blt_pt(2, rx, ry);
+    REG(0xD080u) = 7; REG(0xD082u) = 1;
+    far_poke16(SPR_TAB, (unsigned)(turtle_px() - 8)); far_poke16(SPR_TAB + 2, (unsigned)(turtle_py() - 8));
+    far_poke(SPR_TAB + 4, (uint8_t) SPR_DATA); far_poke(SPR_TAB + 5, (uint8_t)(SPR_DATA >> 8)); far_poke(SPR_TAB + 6, (uint8_t)(SPR_DATA >> 16)); far_poke(SPR_TAB + 7, (uint8_t)(SPR_DATA >> 24));
+    far_poke(SPR_TAB + 9, 5); far_poke(SPR_TAB + 10, 0);                        /* 16 x 16, palette offset 0 */
+    far_poke(SPR_TAB + 8, 0x33);                                                /* enable | 8 bpp | Z 3 */
+}
 static void turtle_home(void) { tx = F0; ty = F0; th = F0; }
+/* FILL: paint the area under the turtle -- every pixel of the colour it
+ * stands on that touches it -- in the pen colour.  Span filling (the
+ * classic scanline algorithm) over far memory one pixel at a time, so a
+ * whole screen takes a few seconds; ESC stops it. */
+#define FSTK 300
+static struct { int x1, x2, y; int8_t dy; } fstk[FSTK]; static uint16_t fsp;
+static uint8_t fill_old;
+static uint8_t inside(int x, int y) { return x >= 0 && x < GW && y >= 0 && y < GH && px_get(x, y) == fill_old; }
+static void fpush(int x1, int x2, int y, int8_t dy) { if (y < 0 || y >= GH || fsp >= FSTK) return; fstk[fsp].x1 = x1; fstk[fsp].x2 = x2; fstk[fsp].y = y; fstk[fsp].dy = dy; fsp++; }
+static void do_fill(void)
+{
+    int x = turtle_px(), y = turtle_py(), x1, x2, yy; int8_t dy;
+    fill_old = px_get(x, y); if (fill_old == pencol) return;
+    fsp = 0; fpush(x, x, y, 1); fpush(x, x, y - 1, -1);
+    while (fsp) {
+        if (REG(KBD + 3)) { fsp = 0; break; }
+        fsp--; x1 = fstk[fsp].x1; x2 = fstk[fsp].x2; yy = fstk[fsp].y; dy = fstk[fsp].dy;
+        x = x1;
+        if (inside(x, yy)) {
+            while (inside(x - 1, yy)) { px_set(x - 1, yy); x--; }
+            if (x < x1) fpush(x, x1 - 1, yy - dy, (int8_t) -dy);
+        }
+        while (x1 <= x2) {
+            while (inside(x1, yy)) { px_set(x1, yy); x1++; }
+            if (x1 > x) fpush(x, x1 - 1, yy + dy, dy);
+            if (x1 - 1 > x2) fpush(x2 + 1, x1 - 1, yy - dy, (int8_t) -dy);
+            x1++;
+            while (x1 < x2 && !inside(x1, yy)) x1++;
+            x = x1;
+        }
+    }
+}
 static void turtle_to(fbits nx, fbits ny)
 {
     if (pendown) {
@@ -105,7 +169,7 @@ static void turtle_to(fbits nx, fbits ny)
         int x1 = clampi(ftoi(fadd(nx, fint(GW / 2))), 0, GW - 1), y1 = clampi(ftoi(fsub(fint(GH / 2), ny)), 0, GH - 1);
         gfx_line(x0, y0, x1, y1);
     }
-    tx = nx; ty = ny;
+    tx = nx; ty = ny; turtle_show();
 }
 static void turtle_fd(fbits d)
 {
@@ -117,6 +181,7 @@ static void turtle_turn(fbits d)                   /* keep the heading in 0..360
     th = fadd(th, d);
     while (fcmp(th, F360) >= 0) th = fsub(th, F360);
     while (fcmp(th, F0) < 0) th = fadd(th, F360);
+    turtle_show();
 }
 
 /* ---- the source pool, procedures, variables ------------------------------ */
@@ -295,13 +360,16 @@ static void command(void)
     if (!strcmp(word, "LT") || !strcmp(word, "LEFT")) { turtle_turn(f1(MATH_NEG, need())); return; }
     if (!strcmp(word, "PU") || !strcmp(word, "PENUP")) { pendown = 0; return; }
     if (!strcmp(word, "PD") || !strcmp(word, "PENDOWN")) { pendown = 1; return; }
-    if (!strcmp(word, "HT") || !strcmp(word, "HIDETURTLE") || !strcmp(word, "ST") || !strcmp(word, "SHOWTURTLE")) return;
+    if (!strcmp(word, "HT") || !strcmp(word, "HIDETURTLE")) { turtle_vis = 0; turtle_show(); return; }
+    if (!strcmp(word, "ST") || !strcmp(word, "SHOWTURTLE")) { turtle_vis = 1; turtle_show(); return; }
+    if (!strcmp(word, "FILL")) { do_fill(); return; }
+    if (!strcmp(word, "EDIT") || !strcmp(word, "ED")) { extern void do_edit(void); do_edit(); return; }
     if (!strcmp(word, "HOME")) { fbits ox = tx, oy = ty; turtle_home(); tx = ox; ty = oy; turtle_to(F0, F0); return; }
-    if (!strcmp(word, "CS") || !strcmp(word, "CLEARSCREEN") || !strcmp(word, "CLEAN")) { gfx_clear(); if (word[0] != 'C' || word[1] != 'L' || word[2] != 'E' || word[3] != 'A' || word[4] != 'N') turtle_home(); return; }
+    if (!strcmp(word, "CS") || !strcmp(word, "CLEARSCREEN") || !strcmp(word, "CLEAN")) { gfx_clear(); if (word[0] != 'C' || word[1] != 'L' || word[2] != 'E' || word[3] != 'A' || word[4] != 'N') turtle_home(); turtle_show(); return; }
     if (!strcmp(word, "SETXY")) { fbits x = need(), y = need(); turtle_to(x, y); return; }
     if (!strcmp(word, "SETX")) { turtle_to(need(), ty); return; }
     if (!strcmp(word, "SETY")) { turtle_to(tx, need()); return; }
-    if (!strcmp(word, "SETH") || !strcmp(word, "SETHEADING")) { th = F0; turtle_turn(need()); return; }
+    if (!strcmp(word, "SETH") || !strcmp(word, "SETHEADING")) { fbits d = need(); th = F0; turtle_turn(d); return; }
     if (!strcmp(word, "SETPC") || !strcmp(word, "SETPENCOLOR") || !strcmp(word, "SETPENCOLOUR")) { pencol = (uint8_t) ftoi(need()); return; }
     if (!strcmp(word, "PRINT") || !strcmp(word, "PR") || !strcmp(word, "SHOW")) { do_print(); return; }
     if (!strcmp(word, "MAKE")) { char nm[NAMEL]; if (peekc() != '"') { error("MAKE needs a \"name", 0); return; } cp++; getword(); strcpy(nm, word); var_make(nm, expr()); return; }
@@ -319,7 +387,7 @@ static void command(void)
     if (!strcmp(word, "TO")) { define_proc(); return; }
     if (!strcmp(word, "BYE")) { flow = 4; return; }
     if (!strcmp(word, "LOAD")) { extern void do_load(void); do_load(); return; }
-    if (!strcmp(word, "HELP")) { puts_("FD BK RT LT PU PD HOME CS SETXY SETH SETPC PRINT MAKE REPEAT IF IFELSE TO..END STOP OUTPUT LOAD BYE"); nl(); return; }
+    if (!strcmp(word, "HELP")) { puts_("FD BK RT LT PU PD HT ST HOME CS FILL SETXY SETH SETPC PRINT MAKE REPEAT IF IFELSE TO..END STOP OUTPUT LOAD EDIT BYE"); nl(); return; }
     pi = proc_find(word);
     if (pi >= 0) { call_proc(pi); if (flow == 2) { error("you don't say what to do with the output of", procs[pi].name); } return; }
     error("I don't know how to", word);
@@ -370,28 +438,59 @@ static void feed_to_end(void)                      /* a TO on the prompt: keep r
     }
     flow = 0; run(pool + at, pool + ptop); if (flow == 3) flow = 0;
 }
-void do_load(void)                                 /* LOAD "name: NAME.LGO from EX/ or here, run as if typed */
+static char fn[40];
+static uint8_t lgo_name(const char *what)             /* "name at the cursor -> fn = NAME.LGO */
 {
-    static char fn[40]; uint8_t i, n = 0; uint16_t at = ptop; unsigned long sz;
-    if (peekc() != '"') { error("LOAD needs a \"name", 0); return; }
+    uint8_t i, n = 0;
+    if (peekc() != '"') { error(what, 0); return 0; }
     cp++; getword();
     for (i = 0; word[i] && n < 30; i++) fn[n++] = word[i];
     if (!strchr(fn, '.')) { fn[n++] = '.'; fn[n++] = 'L'; fn[n++] = 'G'; fn[n++] = 'O'; } fn[n] = 0;
-    w32r(FSR + 4, (unsigned long)(uint16_t) fn);        /* the name */
-    w32r(FSR + 8, (unsigned long)(uint16_t)(pool + at)); /* where it goes */
+    return 1;
+}
+static uint8_t lgo_load(uint16_t at)                  /* the file into the pool at `at': here, else EX/; 1 if it loaded */
+{
+    w32r(FSR + 4, (unsigned long)(uint16_t) fn);
+    w32r(FSR + 8, (unsigned long)(uint16_t)(pool + at));
     REG(FSR) = 9;                                        /* FS_LOAD: the whole file to ADDR, LEN = its size */
     if (REG(FSR + 1)) {                                  /* not here: try EX/ */
         static char fn2[44]; strcpy(fn2, "EX/"); strcat(fn2, fn);
         w32r(FSR + 4, (unsigned long)(uint16_t) fn2); REG(FSR) = 9;
-        if (REG(FSR + 1)) { error("I can't find", fn); return; }
+        if (REG(FSR + 1)) return 0;
+        strcpy(fn, fn2);
     }
+    return 1;
+}
+static void run_file(void)
+{
+    uint16_t at = ptop; unsigned long sz;
     sz = r32r(FSR + 0x0C);                               /* LEN: bytes loaded */
     if (at + sz + 1 >= POOLSZ) { error("too big to load:", fn); return; }
     ptop = (uint16_t)(at + sz); pool[ptop++] = '\n';
     puts_("loaded "); puts_(fn); nl();
     flow = 0; run(pool + at, pool + ptop); if (flow == 3) flow = 0;
 }
-
+void do_load(void)                                 /* LOAD "name: NAME.LGO from EX/ or here, run as if typed */
+{
+    if (!lgo_name("LOAD needs a \"name")) return;
+    if (!lgo_load(ptop)) { error("I can't find", fn); return; }
+    run_file();
+}
+/* EDIT "name: VI on NAME.LGO (here, or the EX/ copy if only that exists; a
+ * new file otherwise) through the shell's SWAP -- our image and the screen
+ * are parked in far memory, the bitmap at $200000 is not touched -- then
+ * the file is loaded and run, so the picture shows what you just wrote. */
+void do_edit(void)
+{
+    if (!lgo_name("EDIT needs a \"name")) return;
+    lgo_load(ptop);                                      /* only to learn where it lives; not run */
+    gfx_close();
+    strcpy(CMDLINE, "SWAP VI "); strcat(CMDLINE, fn);
+    rom_shell(CMDLINE);
+    gfx_open(); REG(TERM + 0x0E) |= 1; turtle_show();
+    if (!lgo_load(ptop)) { error("nothing saved as", fn); return; }
+    run_file();
+}
 /* ---- main ---------------------------------------------------------------- */
 int main(void)
 {
@@ -400,6 +499,8 @@ int main(void)
     gfx_open(); gfx_clear();
     REG(TERM + 0x0E) |= 1;                                 /* the console cursor: the ROM hides it for programs */
     turtle_home(); pendown = 1; pencol = 1;
+    w32r(DMA, 0); w32r(DMA + 4, SPR_TAB); w32r(DMA + 8, 2048); REG(DMA + 0x0C) = 2;   /* an empty sprite table */
+    turtle_show();
     puts_("K4510 LOGO -- the turtle is home.  HELP lists the words; BYE leaves."); nl();
     for (;;) {
         if (!readline("? ")) continue;

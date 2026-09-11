@@ -83,6 +83,18 @@ static const item_t shell_items[] = {
 static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "Build", MI_INFO, INFO_BUILD }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
 };
+/* The Host category: the K4510 Linux's and nobody else's (menu_set_host), so
+ * it is the LAST category and simply off the end of main_items elsewhere --
+ * uitest's DOWN-counting walk is unchanged.  Wi-Fi setup runs nmtui on a
+ * spare console (the same VT switch tekplay uses; sdl/main.c); the telnet
+ * row types TELNET 127.0.0.1 23 at the prompt for you. */
+static const item_t host_items[] = {
+    { "Name",      MI_INFO, INFO_NAME }, { "Address", MI_INFO, INFO_ADDR }, { "Tailscale", MI_INFO, INFO_TS },
+    { "",          MI_SEP },
+    { "Wi-Fi / network setup", MI_ACTION, ACT_NETSETUP },
+    { "Telnet into the host",  MI_ACTION, ACT_TELNET },
+};
+static const menu_t host_menu    = { "Host",    host_items,    (int)(sizeof host_items / sizeof host_items[0]) };
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
 static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
 static const menu_t term_menu    = { "Terminal", term_items,   (int)(sizeof term_items / sizeof term_items[0]) };
@@ -101,8 +113,10 @@ static const item_t main_items[] = {
     { "Machine", MI_SUBMENU, 0, &machine_menu },
     { "Shell",   MI_SUBMENU, 0, &shell_menu },
     { "Info",    MI_SUBMENU, 0, &info_menu },
+    { "Host",    MI_SUBMENU, 0, &host_menu },     /* last, and off the end until menu_set_host */
 };
-static const menu_t main_menu = { "K4510", main_items, (int)(sizeof main_items / sizeof main_items[0]) };
+#define MAIN_N ((int)(sizeof main_items / sizeof main_items[0]))
+static menu_t main_menu = { "K4510", main_items, MAIN_N - 1 };
 
 /* ---- state ----------------------------------------------------------------
  * Two panes: the categories on the left, the chosen one's settings on the
@@ -137,6 +151,7 @@ int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
  * Only the K4510 Linux says yes (sdl/main.c looks for /etc/k4510-linux): on a desktop this
  * would offer to power off Doc's workstation from inside a toy computer. */
 void menu_set_shutdown(int available) { machine_menu.n = available ? MACHINE_N : MACHINE_N - 2; dirty = 1; }
+void menu_set_host(int available)     { main_menu.n = available ? MAIN_N : MAIN_N - 1; dirty = 1; }
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }
 void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { snprintf(info[row], sizeof info[row], "%s", text); dirty = 1; } }
 void menu_slot(int n, const char *text) { if (n >= 0 && n < MENU_SLOTS) { snprintf(slot[n], sizeof slot[n], "%s", text); dirty = 1; } }

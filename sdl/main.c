@@ -12,6 +12,12 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>   /* access(): is this the K4510 Linux? */
+#ifndef __EMSCRIPTEN__
+#include <sys/wait.h>
+#include <ifaddrs.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#endif
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
@@ -390,6 +396,54 @@ static uint8_t pad_held(void)
     return h;
 }
 
+/* ---- the Host page (F7 -> Host, the K4510 Linux only) ------------------------
+ * Name, the first real IPv4 address and the tailnet address, read from the
+ * host each time the menu opens (Wi-Fi may have just come up).  "Wi-Fi /
+ * network setup" runs nmtui on a spare console the way tekplay runs tek40xx:
+ * the emulator keeps running and holds the picture, the VT switches away and
+ * comes back when nmtui exits (openvt -s -w); the child is reaped each frame
+ * so the machine never blocks. */
+#ifndef __EMSCRIPTEN__
+static pid_t host_child;
+static void host_info_refresh(void)
+{
+    char name[64] = "?", addr[40] = "none", ts[40] = "none";
+    if (gethostname(name, sizeof name) != 0) snprintf(name, sizeof name, "?");
+    name[sizeof name - 1] = 0;
+    struct ifaddrs *ifa0 = NULL;
+    if (getifaddrs(&ifa0) == 0) {
+        for (struct ifaddrs *i = ifa0; i; i = i->ifa_next) {
+            if (!i->ifa_addr || i->ifa_addr->sa_family != AF_INET || !i->ifa_name) continue;
+            if (strcmp(i->ifa_name, "lo") == 0) continue;
+            char buf[INET_ADDRSTRLEN];
+            inet_ntop(AF_INET, &((struct sockaddr_in *)i->ifa_addr)->sin_addr, buf, sizeof buf);
+            if (strncmp(i->ifa_name, "tailscale", 9) == 0) { if (!strcmp(ts, "none")) snprintf(ts, sizeof ts, "%s", buf); }
+            else if (!strcmp(addr, "none")) snprintf(addr, sizeof addr, "%s (%s)", buf, i->ifa_name);
+        }
+        freeifaddrs(ifa0);
+    }
+    menu_info(INFO_NAME, name); menu_info(INFO_ADDR, addr); menu_info(INFO_TS, ts);
+}
+static void host_net_setup(void)
+{
+    if (host_child > 0) return;                       /* one at a time */
+    pid_t pid = fork();
+    if (pid == 0) {
+        execlp("sudo", "sudo", "-n", "openvt", "-s", "-w", "--", "env", "TERM=linux", "nmtui", (char *) NULL);
+        _exit(127);
+    }
+    host_child = pid > 0 ? pid : 0;
+}
+static void host_reap(void)                          /* once a frame */
+{
+    if (host_child > 0 && waitpid(host_child, NULL, WNOHANG) == host_child) { host_child = 0; host_info_refresh(); }
+}
+#else
+static void host_info_refresh(void) { }
+static void host_net_setup(void) { }
+static void host_reap(void) { }
+#endif
+
 int k4510_frontend_main(int argc, char **argv)
 {
     /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F7 switch
@@ -462,7 +516,8 @@ int k4510_frontend_main(int argc, char **argv)
      * gets a row the others must not have.  The marker file is written by
      * linux/build-live.sh; on any other host this call never happens and the
      * row stays off the end of the Machine menu. */
-    if (access("/etc/k4510-linux", F_OK) == 0) { menu_set_shutdown(1); io_host_kind = 1; }
+    if (access("/etc/k4510-linux", F_OK) == 0) { menu_set_shutdown(1); menu_set_host(1); io_host_kind = 1; }
+    host_info_refresh();
     /* K4510_WINDOW=WxH: the window's first size (1280x960 otherwise).  For a
      * wide window with the side panel, and for screenshots of one. */
     int win_w = VICKY_WIDTH * SCALE, win_h = VICKY_HEIGHT * SCALE;
@@ -892,8 +947,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: running = 0; break;
         case ACT_SHUTDOWN: shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
+        case ACT_NETSETUP: host_net_setup(); break;
+        case ACT_TELNET: { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }
         if (open && clock_at_open < 0) clock_at_open = settings_get(SET_CPU_CLOCK);
+        { static int host_open_was; if (open && !host_open_was) host_info_refresh(); host_open_was = open; host_reap(); }
         /* SETUP has finished measuring and asks us to keep the clock it settled
          * on.  The guest chose it; we supply the two things it cannot know --
          * which host this is, and where the file lives. */

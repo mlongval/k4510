@@ -47,7 +47,7 @@ STICK="/dev/disk/by-label/k4510-live"
 if [ "$MODE" = auto ]; then [ -b "$STICK" ] && MODE=stick || MODE=net; fi
 
 SMP=""; TMP=""
-cleanup() { [ -n "$SMP" ] && umount "$SMP" 2>/dev/null; [ -n "$DMP" ] && umount "$DMP" 2>/dev/null; rm -rf "$SMP" "$TMP" 2>/dev/null; [ -n "$DMP" ] && rmdir "$DMP" 2>/dev/null; return 0; }
+cleanup() { [ -n "$SMP" ] && umount "$SMP" 2>/dev/null; [ -n "$DMP" ] && umount "$DMP" 2>/dev/null; rm -rf "$SMP" 2>/dev/null; [ -n "$DMP" ] && rmdir "$DMP" 2>/dev/null; return 0; }
 trap cleanup EXIT
 
 if [ "$MODE" = stick ]; then
@@ -62,7 +62,10 @@ else
             "cd ~/$CHECKOUT && git fetch origin -q && git merge --ff-only origin/master >/dev/null 2>&1; sudo env NODISK= WORK=\$PWD/linux/.live-work-internal OUT=\$PWD/linux/k4510-internal-amd64.img REBUILD=1 sh linux/build-live.sh" \
             || die "the remote rebuild failed on $SRC_HOST"
     fi
-    TMP=$(mktemp -d); chown "$USER" "$TMP"   # the fetch runs as $USER, so it must own the dir
+    # A persistent cache, not a temp dir: rsync then moves only the files that
+    # changed on p15 (the 5 MB layer, usually) instead of the whole 810 MB every
+    # time (2026-09-11 evening).  The fetch runs as $USER, so it must own it.
+    TMP=/var/cache/k4510-live; mkdir -p "$TMP"; chown "$USER" "$TMP"
     say "pulling the payload from $SRC_HOST over the tailnet"
     # --partial: a 750 MB pull over the tailnet takes minutes; if it is cut off,
     # the next run resumes the file instead of starting over (2026-09-11).

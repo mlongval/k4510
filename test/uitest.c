@@ -180,6 +180,22 @@ int main(void)
       menu_take_action();
       printf("9. the mouse hovers, clicks, draws its pointer, backs out\n"); }
 
+    /* 10. The Host category (name, addresses, Wi-Fi setup, telnet) is the K4510
+     * Linux's alone, kept off the END of the category list the same way. */
+    { menu_open();
+      menu_key(KEY_END); menu_key(KEY_ENTER);                    /* the last category: Info on a plain host */
+      menu_key(KEY_END); menu_key(KEY_ENTER);                    /* an info row: nothing happens */
+      CHECK(menu_take_action() == ACT_NONE, "a plain host has a Host category with actions");
+      menu_close(); menu_take_action();
+      menu_set_host(1);
+      menu_open();
+      menu_key(KEY_END); menu_key(KEY_ENTER);                    /* Host */
+      menu_key(KEY_END); menu_key(KEY_ENTER);                    /* its last row: telnet */
+      CHECK(menu_take_action() == ACT_TELNET, "the K4510 Linux asked for the Host category and did not get its telnet row");
+      menu_close(); menu_take_action();
+      menu_set_host(0);
+      printf("10. the Host category stays off the menu until the host says so\n"); }
+
     remove(cfg);
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

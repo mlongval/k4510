@@ -13,9 +13,9 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT, ACT_SHUTDOWN, ACT_SAVE_SLOT = 16, ACT_LOAD_SLOT = 32 };   /* + slot 0-3 */
+enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT, ACT_SHUTDOWN, ACT_NETSETUP, ACT_TELNET, ACT_SAVE_SLOT = 16, ACT_LOAD_SLOT = 32 };   /* + slot 0-3 */
 #define MENU_SLOTS 4
-enum { INFO_VERSION, INFO_BUILD, INFO_ROM, INFO_FS, INFO_HOST, INFO_COUNT };
+enum { INFO_VERSION, INFO_BUILD, INFO_ROM, INFO_FS, INFO_HOST, INFO_NAME, INFO_ADDR, INFO_TS, INFO_COUNT };
 void menu_open(void);
 void menu_close(void);
 int  menu_is_open(void);
@@ -31,6 +31,7 @@ int  menu_draw(uint8_t *overlay);             /* 1 if it drew (the overlay chang
 void menu_dirty(void);                        /* redraw next time: the cell grid changed under it */
 int  menu_key_code(void);                     /* the K4510 key code that opens the menu (from the setting) */
 void menu_set_shutdown(int available);        /* the K4510 Linux only: reveal "Shut down the computer" (see menu.c) */
+void menu_set_host(int available);            /* the K4510 Linux only: reveal the Host category (name, addresses, Wi-Fi setup, telnet) */
 #ifdef __cplusplus
 }
 #endif

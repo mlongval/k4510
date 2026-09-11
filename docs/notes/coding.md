@@ -1814,3 +1814,10 @@ file-serving protocols (TYPE/CP/MOUNT/CD/DIR/RANGER), through the host's
 curl. SSH [user@]host is an interactive session on the host's ssh. A
 paragraph in the network chapter: the file protocols are tnfs/http(s)/
 ftp/sftp; SSH and telnet are the interactive ones.
+
+**2026-09-11 — banner + MELODY + mouse pointer.** New boot banner
+("K4510 Fantasy Computer - K/OS", CPU/RAM on one line, CHIPS: MELODY...);
+the sound chip's friendly name is MELODY (OPL2/YM3812 stays the technical
+name, like VICKY). New setting Input->Mouse pointer (default on). The
+handbook's chip list and the cover/banner figures want MELODY, not OPL2,
+in the friendly name; keep OPL2 where the register/chip is meant.

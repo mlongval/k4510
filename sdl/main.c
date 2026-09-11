@@ -388,8 +388,9 @@ int k4510_frontend_main(int argc, char **argv)
      * left corner on the K4510 Linux, where KMSDRM draws one because there is no
      * desktop to own it.  Hidden everywhere: in a window the pointer is still
      * there for the frame and the title bar, it just stops being drawn over
-     * the picture. */
-    SDL_ShowCursor(SDL_DISABLE);
+     * the picture.  Since 2026-09-11 this is a setting (Mouse pointer, default
+     * ON so the pointer does not confusingly vanish on the glass); the frame
+     * loop applies it, hidden while the pointer is captured for a game. */
     /* The K4510 Linux is a whole computer that exists to be this machine, so its menu
      * gets a row the others must not have.  The marker file is written by
      * linux/build-live.sh; on any other host this call never happens and the
@@ -678,6 +679,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           if (m && !menu_was) grab(0);
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
           if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
+          { static int cur_shown = -1; int want = (settings_get(SET_INPUT_MOUSE_SHOW) && !grabbed) ? 1 : 0;   /* the host pointer: shown per the setting, hidden while captured */
+            if (want != cur_shown) { SDL_ShowCursor(want ? SDL_ENABLE : SDL_DISABLE); cur_shown = want; } }
           menu_was = m; }
         {   /* $D104: which of the game keys are down right now (core/io.h) */
             const Uint8 *ks = SDL_GetKeyboardState(NULL); uint8_t held = 0;

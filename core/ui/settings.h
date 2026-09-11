@@ -32,6 +32,7 @@ typedef enum {
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
     SET_INPUT_MOUSE_GRAB,    /* BOOL a click on the picture confines the pointer to the window; F7 frees it */
+    SET_INPUT_MOUSE_SHOW,    /* BOOL show the host mouse pointer over the picture (on: it does not vanish on the glass) */
     SET_SHELL_CPMCOM,        /* BOOL an unknown word may run a CP/M .COM */
     SET_SHELL_STARTUP,       /* BOOL run /STARTUP.BAT at power-on */
     SET_CPU_CLOCK,           /* ENUM the emulated CPU's clock: full 40.5 MHz, or less where the host cannot keep up */

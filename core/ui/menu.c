@@ -42,6 +42,7 @@ static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },
     { "Menu key",    MI_SETTING, SET_INPUT_MENU_KEY },
     { "Mouse capture", MI_SETTING, SET_INPUT_MOUSE_GRAB },
+    { "Mouse pointer", MI_SETTING, SET_INPUT_MOUSE_SHOW },
 };
 static const item_t save_items[] = {
     { "Slot 1", MI_SAVESLOT, 0 }, { "Slot 2", MI_SAVESLOT, 1 }, { "Slot 3", MI_SAVESLOT, 2 }, { "Slot 4", MI_SAVESLOT, 3 },
@@ -85,7 +86,7 @@ static const item_t info_items[] = {
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
 static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
 static const menu_t term_menu    = { "Terminal", term_items,   (int)(sizeof term_items / sizeof term_items[0]) };
-static const menu_t input_menu   = { "Input",   input_items,   3 };
+static const menu_t input_menu   = { "Input",   input_items,   4 };
 /* NOT const, and not the full count: the shutdown row and its separator are
  * off the end until a host says it can honour them.  (Was a hard 8 once, and
  * the CPU clock entry never drew.) */

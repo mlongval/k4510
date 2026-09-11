@@ -1058,7 +1058,7 @@ static void info_video(void)
 static void info_sound(void)
 {
     uint8_t c, on = 0;
-    label("SOUND"); puts_("OPL2 (YM3812) at $D480, nine FM voices"); newline();
+    label("SOUND"); puts_("MELODY -- an OPL2 (YM3812) at $D480, nine FM voices"); newline();
     for (c = 0; c < 9; c++) { REG(FM) = (uint8_t)(0xB0 + c); if (REG(FM + 1) & 0x20) on++; }   /* key-on bits, from the data readback */
     pad(8); puts_("voices keyed on: "); putdec(on); puts_(" of 9; sequencer at $D5E0, four channels"); newline();
 }
@@ -2097,12 +2097,11 @@ static void banner(void)
         pad(20);
         switch (r) {
         case 0: fg = C_HI;  if (REG(SYS + 0x22)) puts_("BMC-");   /* on the card it IS the appliance; see docs/NAMING.md */
-                    puts_("K4510 -- A FANTASY 8/16-bit COMPUTER"); break;
+                    puts_("K4510 Fantasy Computer - K/OS"); break;
         /* No clock here: the machine has no one speed any more.  The clock in
          * force is INFO's business, and it says it in kHz. */
-        case 2: fg = C_FG; puts_("CPU: 45GS10"); break;
-        case 3: fg = C_FG;  puts_("RAM: 256 000 000 bytes"); break;
-        case 4: fg = C_FG;  puts_("CHIPS: OPL2, VICKY, SHEILA, FRED, JIM"); break;
+        case 2: fg = C_FG;  puts_("CPU: 45GS10   RAM: 256 Mb"); break;
+        case 4: fg = C_FG;  puts_("CHIPS: MELODY, VICKY, SHEILA, FRED, JIM"); break;
         }
         fg = ofg;
         newline();

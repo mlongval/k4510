@@ -6799,3 +6799,20 @@ server; UMOUNT `rmdir`s it when it is the empty placeholder.
 call, 21, read by nav_list in bank 3), or "no mounts".  DIR and LS now
 accept Unix-style flags: `-a` (and the old bare `A`) shows dotfiles,
 `-l` puts one entry per line, `-la` both.
+
+## 2026-09-11 — the banner, the sound chip's name, and the mouse pointer
+
+Doc rewrote the boot banner (logo.txt): "K4510 Fantasy Computer - K/OS",
+"CPU: 45GS10   RAM: 256 Mb", "CHIPS: MELODY, VICKY, SHEILA, FRED, JIM".
+The sound chip is MELODY now -- a friendly name beside VICKY and the
+others (Doc's pick); INFO still says "MELODY -- an OPL2 (YM3812)", the
+technical part kept, as VICKY is a friendly name for a video controller.
+
+The mouse pointer no longer vanishes on the glass.  It was hidden
+unconditionally (a stray KMSDRM arrow was the reason); now it is a
+setting -- Input -> Mouse pointer, default ON -- driven each frame and
+hidden only while the pointer is captured for a game.
+
+EXEC still sources a .BAT of shell lines; SOURCE was considered and
+dropped (Doc: "having both is too much") -- EXEC fits the .BAT/DOS
+lineage, and a second verb for one job is the redundancy to avoid.

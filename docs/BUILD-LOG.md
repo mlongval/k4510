@@ -6845,3 +6845,10 @@ white with a one-pixel black outline, scaled 3x so the pixels read as
 chunky, hotspot at the tip.  Set once after the window is made; the Mouse
 pointer setting still shows or hides it.  The bitmap helper is file-scope
 (a nested function broke the WASM build's clang once).
+
+**pmandel sizes itself to the console (Doc).** fs/LANG/PASCAL/PMANDEL.PAS
+now reads TERM_COLS ($DA05) and TERM_ROWS ($DA06) from the k4510 unit and
+maps the set over W x (H-1), so it fills 80x50 or 40x25 alike instead of
+a fixed 78x28 -- the worked answer to "how does Pascal query the console
+size."  Multiply per-pixel by the small step (integer is 16-bit in Mad
+Pascal); the status line names the size it drew.

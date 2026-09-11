@@ -1827,3 +1827,10 @@ pointer is MOUSETEST's 8-bit arrow now (SDL colour cursor). Also: a Pascal
 program reads the console size from the k4510 unit's TERM_COLS ($DA05) and
 TERM_ROWS ($DA06) -- worth a line in the Pascal chapter where screen size
 comes up (pmandel could be sized to fit instead of a fixed 78x28).
+
+**2026-09-11 — pmandel is size-adaptive now (HANDBOOK).** The shipped
+fs/LANG/PASCAL/PMANDEL.PAS reads TERM_COLS/TERM_ROWS and fills whatever
+console it finds, so its output is no longer fixed 78x28. The guide's
+Pascal chapter text ("78 x 28") and doc/guide/shots/pmandel.png want a
+look: recapture at the guide's build mode, and the caption can mention it
+sizes itself to the screen.

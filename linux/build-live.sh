@@ -61,7 +61,11 @@ LOOP=""
 # nothing for a filesystem probe, an automounter, or a curious user to find.
 # nvme/nvme_core is the M.2; ahci/libahci/ata_* is any SATA drive.  sd_mod and
 # usb-storage are deliberately NOT here -- the USB stick needs them to boot.
-NODISK="nvme,nvme_core,ahci,libahci,ata_piix,ata_generic,pata_acpi"
+# Overridable: `NODISK= sudo ./build-live.sh` (empty) builds a variant that CAN
+# see the internal drives -- for the K4510 installed ON one (the Dell dual-boot,
+# 2026-09-11: the ban baked into the initramfs hid the very NVMe it lived on,
+# so live-boot could not find its own squashfs).  Unset = the stick's default.
+NODISK=${NODISK-nvme,nvme_core,ahci,libahci,ata_piix,ata_generic,pata_acpi}
 
 # No `quiet`.  This is a first bring-up on hardware that has never run it; if
 # KMS or live-boot fails, Doc needs to see which one, not a silent black screen.
@@ -70,7 +74,8 @@ NODISK="nvme,nvme_core,ahci,libahci,ata_piix,ata_generic,pata_acpi"
 # costs: the system still lives in RAM, but SAVING now needs the stick, so
 # "pull it out once the banner is up" and "keep my changes" are no longer both
 # true at once.  Leave it in, and use F7 -> Shut down.
-CMDLINE="boot=live components toram union=overlay persistence modprobe.blacklist=$NODISK"
+CMDLINE="boot=live components toram union=overlay persistence"
+[ -n "$NODISK" ] && CMDLINE="$CMDLINE modprobe.blacklist=$NODISK"
 
 # The persistence partition.  100 MB is Doc's number and it is a good one: an
 # overlay stores only what CHANGED, not the base it sits on, so this holds
@@ -177,6 +182,7 @@ cp -a "$HERE/config/includes.chroot/etc/." "$ROOT/etc/"
 # modprobe.blacklist=, these keep the drivers out.  `install ... /bin/false` is
 # stronger than `blacklist` -- it defeats an explicit `modprobe nvme` too.
 mkdir -p "$ROOT/etc/modprobe.d"
+if [ -n "$NODISK" ]; then
 {
     echo "# K4510: the internal drives do not exist here (Doc, 2026-09-03)."
     echo "# Absolute by choice: there is no boot-menu entry that reveals them."
@@ -185,6 +191,9 @@ mkdir -p "$ROOT/etc/modprobe.d"
         echo "install $m /bin/false"
     done
 } > "$ROOT/etc/modprobe.d/k4510-no-internal-disks.conf"
+else
+    rm -f "$ROOT/etc/modprobe.d/k4510-no-internal-disks.conf"   # the internal-install variant must see its disk
+fi
 
 echo "== packages =="
 PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/packages.list" | tr '\n' ' ')

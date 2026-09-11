@@ -10,12 +10,13 @@
 # 2026-09-09): it is rendered through gnuplot if there is one, else refused
 # -- the shipped ones have their rendered .tek beside them.
 # From the K4510 prompt:  !tekplay        or   !tekplay gnu2
+export TEKPLAY=1              # tell tek40xx this is a plot viewer: ESC/q/Ctrl-C quit it
 PLT=$(cd "$(dirname "$(readlink -f "$0")")/../linux/tek40xx/plt" 2>/dev/null && pwd)
 # No argument: the whole shipped set, the test page first, a fresh page each.
 if [ $# -lt 1 ]; then
     [ -n "$PLT" ] || { echo "tekplay: no shipped plots found beside this script; give a file" >&2; exit 2; }
     set -- k4510 $(ls "$PLT" | sed -n 's/\.tek$//p' | grep -v '^k4510$')
-    echo "tekplay: $* -- HOME clears the page, END quits" >&2
+    echo "tekplay: $* -- HOME clears the page, ESC/q/END quits" >&2
 fi
 TMP=$(mktemp -d "${TMPDIR:-/tmp}/tekplay.XXXXXX") || exit 1
 trap 'rm -rf "$TMP"' EXIT

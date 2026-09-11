@@ -99,7 +99,7 @@ index ed19278..a6baf3c 100644
  {
      int dx, dy;
 diff --git a/Tek40xx/tek_main.c b/Tek40xx/tek_main.c
-index ca8d902..6037b3d 100644
+index ca8d902..fc9755b 100644
 --- a/Tek40xx/tek_main.c
 +++ b/Tek40xx/tek_main.c
 @@ -28,6 +28,7 @@ in this Software without prior written authorization from the author.
@@ -222,6 +222,30 @@ index ca8d902..6037b3d 100644
              save_state(ALPHA);
              GINon = 0;
              break;
+@@ -677,6 +718,23 @@ static int MLoop()
+                 vid_init = CLOSING;                         // Start orderly shutdown
+                 break;
+             }
++            /* K4510 plot viewer (TEKPLAY set by tekplay/tekmenu): ESC, q and
++               Ctrl-C quit too, since the playback server has nothing to say to
++               them.  A plain `tek host port` telnet does not set TEKPLAY, so it
++               still passes these keys through to the remote host. */
++            if (getenv("TEKPLAY") &&
++                (event.key.keysym.scancode == SDL_SCANCODE_ESCAPE ||
++                 event.key.keysym.sym == SDLK_q ||
++                 ((event.key.keysym.mod & KMOD_CTRL) && event.key.keysym.sym == SDLK_c)))
++            {
++#ifdef _WIN32
++                closesocket(tek_socket);
++#else
++                close(tek_socket);
++#endif
++                vid_init = CLOSING;
++                break;
++            }
+             if (event.key.keysym.scancode == SDL_SCANCODE_HOME)
+             {
+                 tek_erase();
 diff --git a/Tek40xx/tek_video.h b/Tek40xx/tek_video.h
 index 6aa4ad1..4ed59b3 100644
 --- a/Tek40xx/tek_video.h

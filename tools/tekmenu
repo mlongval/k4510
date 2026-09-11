@@ -24,7 +24,7 @@ done
 [ ${#names[@]} -gt 0 ] || { echo "tekmenu: no plots found (looked in ${DIRS[*]})" >&2; exit 1; }
 while :; do
     echo
-    echo "Tektronix plots (${#names[@]}) -- on the terminal HOME clears the page, END comes back here"
+    echo "Tektronix plots (${#names[@]}) -- on the terminal HOME clears the page, ESC/q/END come back here"
     echo
     cols=$(( $(tput cols 2>/dev/null || echo 80) / 26 )); [ "$cols" -ge 1 ] || cols=1
     for i in "${!names[@]}"; do

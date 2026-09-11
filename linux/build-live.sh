@@ -117,7 +117,12 @@ trap cleanup EXIT
 # change touches).  So a REBUILD squashes only the small one, and an update to
 # an installed machine (update-k4510.sh) moves only the small one -- Doc,
 # 2026-09-11: "only UPDATE the image on the Dell instead of copying the whole".
-LAYER_DIRS="home/k4510/k4510 usr/local/bin"
+# var/lib/tailscale rides in the layer too: the tailscale package does not
+# ship the directory (tailscaled makes it at first run), and a persistence.conf
+# union with NO lower directory kills live-boot ("overlay needs at least one
+# lower filesystem") -- the Dell failed to boot on it, 2026-09-11 19:28.
+# Being in the layer, a REBUILD (5 MB) fixes an installed base.
+LAYER_DIRS="home/k4510/k4510 usr/local/bin var/lib/tailscale"
 squash_base() {
     echo "== squashfs: the base =="
     # zstd: decompresses fast, and the whole thing is read into RAM once at boot.
@@ -127,6 +132,7 @@ squash_base() {
 }
 squash_layer() {
     echo "== squashfs: the machine layer =="
+    [ -d "$ROOT/var/lib/tailscale" ] || install -d -m 700 "$ROOT/var/lib/tailscale"   # see LAYER_DIRS
     rm -rf "$WORK/layer"; for d in $LAYER_DIRS; do mkdir -p "$WORK/layer/$(dirname "$d")"; cp -a "$ROOT/$d" "$WORK/layer/$d"; done
     mksquashfs "$WORK/layer" "$STAGE/live/k4510.squashfs" \
         -comp zstd -Xcompression-level 19 -noappend -no-progress
@@ -252,6 +258,7 @@ apt-get update -q
 apt-get install -y -q --no-install-recommends tailscale
 systemctl enable tailscaled
 EOF
+install -d -m 700 "$ROOT/var/lib/tailscale"   # the package does not ship it; persistence.conf unions it (see LAYER_DIRS)
 fi
 
 echo "== the keyboard picker (k4510.kbd= on the boot line) =="

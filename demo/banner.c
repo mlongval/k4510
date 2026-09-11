@@ -1,6 +1,6 @@
-/* K4510: LOGO -- clear the screen and draw the machine's banner.
+/* K4510: BANNER -- clear the screen and draw the machine's banner (was LOGO until 2026-09-11; LOGO is the language now).
  *
- * The same picture the ROM shows at power-on and the LOGO command reprints,
+ * The same picture the ROM shows at power-on and the BANNER command reprints,
  * but as a program you can edit: the bars, their colours and the text are the
  * four tables below.  It writes text32 cells straight into the screen rather
  * than printing, because printing cannot set a cell's background, and the

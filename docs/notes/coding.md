@@ -1834,3 +1834,17 @@ console it finds, so its output is no longer fixed 78x28. The guide's
 Pascal chapter text ("78 x 28") and doc/guide/shots/pmandel.png want a
 look: recapture at the guide's build mode, and the caption can mention it
 sizes itself to the screen.
+
+## 2026-09-11 evening — the Dell day, and LOGO becomes BANNER
+
+- **`LOGO` → `BANNER`.** The ROM command that reprints the boot banner, and the
+  `.prg` twin in /SYSTEM/BIN (demo/logo.c → demo/banner.c, logo.prg →
+  banner.prg), are both `BANNER` now. `LOGO` is reserved for the language:
+  a native Logo for the 45GS10 is next, at /LANG/LOGO (Doc's ruling today).
+- **DIR -l** prints size, date, time and name, one entry a line (bank 3
+  `dir_long`; the host packs the date at $D314/$D316 after STAT/DIR_NEXT).
+- **RANGER** shows two columns by default (`RANGER 3` for the parent).
+- **The live image is two squashfs** (base + the machine layer), so an update
+  to an installed K4510 moves tens of MB, not 750.
+- **Handbook:** the LOGO command is now BANNER wherever the book names it;
+  DIR -l and RANGER's default deserve a line; the Dell dual-boot exists.

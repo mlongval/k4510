@@ -67,7 +67,7 @@ uint8_t bband;                                       /* bottom-band height.  NOT
 
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
-static uint8_t mode_note;                  /* an F7 mode/status change was performed: the shell repaints (LOGO) at its next prompt */
+static uint8_t mode_note;                  /* an F7 mode/status change was performed: the shell repaints (BANNER) at its next prompt */
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
@@ -1829,7 +1829,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
-    if (is_cmd(&p, "LOGO"))  { banner(); return; }
+    if (is_cmd(&p, "BANNER")) { banner(); return; }   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
     if (is_cmd(&p, "SWAP"))    { cmd_swap(p); return; }
     if (is_cmd(&p, "ALIAS"))   { sw_call(ALIAS_BANK, cmd_alias, p); return; }
     if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
@@ -2113,7 +2113,7 @@ uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_line(p); if (cx) newline();
 /* The machine's face.  Five colour bars tapering to a point on the right --
  * the taper is a glyph in the bar's own colour rather than a block, which is
  * what makes the edge look cut rather than stepped -- and the machine's
- * description beside them.  LOGO reprints it; the shell calls it at boot.
+ * description beside them.  BANNER reprints it; the shell calls it at boot.
  * Lives in the sideways window (SWCODE0), not the resident ROM. */
 static void banner(void)
 {

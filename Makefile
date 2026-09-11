@@ -206,7 +206,7 @@ $(foreach n,$(PAS_NAMES),$(eval $(call PAS_RULE,$n)))
 #   the system's tools        fs/SYSTEM/BIN/name.prg
 #   programs, one folder each fs/APPS/NAME/name.prg (data beside it)
 #   the C examples            fs/LANG/C/name.prg, from fs/LANG/C/NAME.C on the disk itself
-BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet logo petscii bands keytest padtest mousetest chrout
+BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout
 APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
 C_EX_NAMES = hello sieve

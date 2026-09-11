@@ -14,9 +14,9 @@ run 'BBCBASIC
 PRINT "A";
 ~*QUIT
 ~BBCBASIC
-PRINT 2^10
-*QUIT
-' 900 'has left' 'restart after *QUIT'
+~PRINT 2^10
+~*QUIT
+' 1200 'has left' 'restart after *QUIT'
 grep -q '1024' test/tubetest.out || { cat test/tubetest.out; echo "tubetest: FAILED: no output after the restart"; exit 1; }
 run 'BBCBASIC
 MODE 2

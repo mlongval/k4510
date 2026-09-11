@@ -6,12 +6,12 @@
 # has no ssh, but /home/k4510 persists to the K4510 partition.  So instead of
 # photographing screens:
 #
-#     !k4510-diag                inside K4510 (writes ~/DIAG/<timestamp>/)
+#     !k4510-diag                inside K4510 (writes ~/k4510/DIAG/<timestamp>/)
 #     ... reboot into the other OS, mount the K4510 partition, read it.
 #
 # Everything is best-effort: a tool that is not installed just leaves its
 # "command not found" in the file, which is itself a useful fact.
-OUT=${1:-$HOME/DIAG/$(date +%Y%m%d-%H%M%S)}
+OUT=${1:-$HOME/k4510/DIAG/$(date +%Y%m%d-%H%M%S)}   # under ~/k4510: the top of ~ is root-owned on the persisted appliance (mkdir denied, 2026-09-11)
 mkdir -p "$OUT"
 run() { name=$1; shift; { echo "\$ $*"; echo; "$@"; } > "$OUT/$name.txt" 2>&1; }
 S="sudo -n"                                   # passwordless on the K4510 Linux; harmless elsewhere

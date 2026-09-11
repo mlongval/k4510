@@ -143,6 +143,7 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # (the seamless-window and ESC/q-quit fixes, 2026-09-11) only reaches the
     # stick if we rebuild it here too -- the emulator rebuild above does not.
     # Same invocation as the full build below; needs the chroot's network.
+    mkdir -p "$ROOT/usr/local/bin"; cp -a "$HERE/config/includes.chroot/usr/local/bin/." "$ROOT/usr/local/bin/"   # the tek wrapper too (see the full build)
     $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh \
         || echo "build-live.sh: Tek40xx did not rebuild; everything else works"
     binds_down
@@ -177,6 +178,11 @@ EOF
 
 # The autologin getty and the profile script that becomes the machine on tty1.
 cp -a "$HERE/config/includes.chroot/etc/." "$ROOT/etc/"
+# ... and its usr/local/bin: the `tek` wrapper.  Only etc/ was ever copied, so
+# the appliance had the tek40xx BINARY but not the wrapper that sets KMSDRM
+# and full screen -- `tek HOST` on tty2 and tekplay's wrapper path both
+# fell over (Doc, the Dell, 2026-09-11).
+mkdir -p "$ROOT/usr/local/bin"; cp -a "$HERE/config/includes.chroot/usr/local/bin/." "$ROOT/usr/local/bin/"
 
 # Second layer under the kernel command line: even if someone boots without the
 # modprobe.blacklist=, these keep the drivers out.  `install ... /bin/false` is

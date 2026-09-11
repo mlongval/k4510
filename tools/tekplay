@@ -64,9 +64,16 @@ sleep 0.3
 # K4510_PLACEMENT in the environment) run the terminal on a fresh VT instead:
 # openvt switches to it, waits, and switches back, and the emulator gives up
 # and retakes the display across the switch -- what the tty2 recipe did by hand.
-if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -n "$K4510_PLACEMENT" ] \
-   && command -v openvt >/dev/null 2>&1 && command -v tek >/dev/null 2>&1; then
-    sudo -n openvt -s -w -- env TEKPLAY=1 K4510_PLACEMENT="$K4510_PLACEMENT" tek 127.0.0.1 "$PORT"
+# Keyed on the appliance marker and on NOT sitting on a real VT (inside `!` the
+# tty is a pty; a tty2 login is /dev/ttyN and runs the terminal directly).  It
+# drives tek40xx itself with the KMSDRM/full-screen environment rather than
+# through the `tek` wrapper, which the image had not been installing.
+if [ -z "$DISPLAY" ] && [ -z "$WAYLAND_DISPLAY" ] && [ -f /etc/k4510-linux ] \
+   && command -v openvt >/dev/null 2>&1 \
+   && ! expr "$(tty 2>/dev/null)" : "/dev/tty[0-9]" >/dev/null; then
+    T=$(command -v tek40xx 2>/dev/null || echo /usr/local/bin/tek40xx)
+    sudo -n openvt -s -w -- env TEKPLAY=1 SDL_VIDEODRIVER=kmsdrm TEK40XX_FULLSCREEN=1 \
+        K4510_PLACEMENT="${K4510_PLACEMENT:-centre}" "$T" 127.0.0.1 "$PORT"
 elif command -v tek >/dev/null 2>&1; then tek 127.0.0.1 "$PORT"
 elif command -v tek40xx >/dev/null 2>&1; then tek40xx 127.0.0.1 "$PORT"
 elif [ -x "$HOME/.local/bin/tek40xx" ]; then "$HOME/.local/bin/tek40xx" 127.0.0.1 "$PORT"

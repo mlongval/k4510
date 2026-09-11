@@ -385,7 +385,7 @@ int k4510_frontend_main(int argc, char **argv)
     settings_label(SET_VIDEO_FONT, FONT_CHARGEN, chargen_present() ? "C64 chargen" : "C64 chargen (none)");
     int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKY at $010000 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
-    menu_info(INFO_VERSION, "k4510 0.3"); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
+    menu_info(INFO_VERSION, "K4510 K/OS"); menu_info(INFO_BUILD, K4510_BUILD); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
     menu_info(INFO_HOST, access("/etc/k4510-linux", F_OK) == 0 ? "the K4510 Linux" : "desktop, SDL2");
 
 

@@ -15,7 +15,7 @@ extern "C" {
 #endif
 enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT, ACT_SHUTDOWN, ACT_SAVE_SLOT = 16, ACT_LOAD_SLOT = 32 };   /* + slot 0-3 */
 #define MENU_SLOTS 4
-enum { INFO_VERSION, INFO_ROM, INFO_FS, INFO_HOST, INFO_COUNT };
+enum { INFO_VERSION, INFO_BUILD, INFO_ROM, INFO_FS, INFO_HOST, INFO_COUNT };
 void menu_open(void);
 void menu_close(void);
 int  menu_is_open(void);

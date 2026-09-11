@@ -6852,3 +6852,10 @@ maps the set over W x (H-1), so it fills 80x50 or 40x25 alike instead of
 a fixed 78x28 -- the worked answer to "how does Pascal query the console
 size."  Multiply per-pixel by the small step (integer is 16-bit in Mad
 Pascal); the status line names the size it drew.
+
+## 2026-09-11 — the Info menu shows the build
+
+F7 -> Info gained a Build row: K4510_BUILD (core/build.h, "0.5-<commit>",
+a "+" when the tree is dirty) -- the commit a running emulator came from,
+for telling one build from another at a glance.  Version now reads
+"K4510 K/OS" instead of the stale "k4510 0.3".

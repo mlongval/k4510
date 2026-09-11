@@ -81,7 +81,7 @@ static const item_t shell_items[] = {
     { "Run STARTUP.BAT",   MI_SETTING, SET_SHELL_STARTUP },
 };
 static const item_t info_items[] = {
-    { "Version", MI_INFO, INFO_VERSION }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
+    { "Version", MI_INFO, INFO_VERSION }, { "Build", MI_INFO, INFO_BUILD }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
 };
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
 static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
@@ -92,7 +92,7 @@ static const menu_t input_menu   = { "Input",   input_items,   4 };
  * the CPU clock entry never drew.) */
 static menu_t machine_menu = { "Machine", machine_items, MACHINE_N - 2 };
 static const menu_t shell_menu   = { "Shell",   shell_items,   2 };
-static const menu_t info_menu    = { "Info",    info_items,    4 };
+static const menu_t info_menu    = { "Info",    info_items,    5 };
 static const item_t main_items[] = {
     { "Video",   MI_SUBMENU, 0, &video_menu },
     { "Terminal",MI_SUBMENU, 0, &term_menu },

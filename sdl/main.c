@@ -208,6 +208,42 @@ static int geo_k = 1, geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
 static int to_machine(int v, int full) { int m = (v / geo_k - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
+/* The touchpad on the bare K4510 Linux (Doc's Dell, 2026-09-11: trackpoint
+ * fine, touchpad dead).  With no compositor SDL reads evdev itself, and a
+ * touchpad is an absolute multitouch device, so SDL reports FINGERS, not
+ * mouse motion, and the machine never saw it.  Here a finger's motion warps
+ * the pointer by its delta -- which comes back as an ordinary SDL_MOUSEMOTION
+ * with xrel/yrel, so the path above needs nothing -- and a short tap that
+ * hardly moved is a click (two fingers: the right button).  KMSDRM only: a
+ * desktop's compositor already turns the touchpad into a mouse. */
+static int touchpad_rel; static int tp_fingers; static Uint32 tp_down_at; static float tp_moved;
+static void touchpad_event(const SDL_Event *e, SDL_Window *win)
+{
+    int ww, wh; SDL_GetWindowSize(win, &ww, &wh);
+    switch (e->type) {
+    case SDL_FINGERDOWN: if (++tp_fingers == 1) { tp_down_at = e->tfinger.timestamp; tp_moved = 0; } break;
+    case SDL_FINGERMOTION: {
+        float dx = e->tfinger.dx * (float) ww, dy = e->tfinger.dy * (float) wh;   /* one sweep of the pad = the window */
+        tp_moved += SDL_fabsf(dx) + SDL_fabsf(dy);
+        if (tp_fingers == 1) {
+            int mx, my; SDL_GetMouseState(&mx, &my);
+            mx += (int)(dx + (dx < 0 ? -0.5f : 0.5f)); my += (int)(dy + (dy < 0 ? -0.5f : 0.5f));
+            if (mx < 0) mx = 0; if (my < 0) my = 0; if (mx >= ww) mx = ww - 1; if (my >= wh) my = wh - 1;
+            SDL_WarpMouseInWindow(win, mx, my);
+        }
+        break; }
+    case SDL_FINGERUP: {
+        int n = tp_fingers; if (tp_fingers > 0) tp_fingers--;
+        if (tp_fingers == 0 && e->tfinger.timestamp - tp_down_at < 250 && tp_moved < 8.0f) {
+            SDL_Event b; SDL_zero(b); b.button.which = SDL_TOUCH_MOUSEID; b.button.clicks = 1;
+            b.button.button = n >= 2 ? SDL_BUTTON_RIGHT : SDL_BUTTON_LEFT;
+            b.type = SDL_MOUSEBUTTONDOWN; b.button.state = SDL_PRESSED;  SDL_PushEvent(&b);
+            b.type = SDL_MOUSEBUTTONUP;   b.button.state = SDL_RELEASED; SDL_PushEvent(&b);
+        }
+        break; }
+    default: break;
+    }
+}
 /* Mouse capture: a click on the picture confines the host pointer to the
  * window (the coordinates stay absolute, so CHESS still clicks squares);
  * opening the menu, or the window losing focus, lets it go, and closing the
@@ -402,6 +438,10 @@ int k4510_frontend_main(int argc, char **argv)
     SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");   /* the keys are the canvas's once it is clicked, F-keys included */
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    /* the touchpad as a pointer on the bare console (see touchpad_event); K4510_TOUCHPAD=0|1 overrides */
+    { const char *d = SDL_GetCurrentVideoDriver(), *o = getenv("K4510_TOUCHPAD");
+      touchpad_rel = o ? atoi(o) : (d && SDL_strcasecmp(d, "KMSDRM") == 0);
+      if (touchpad_rel) SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0"); }   /* ours, not SDL's absolute synthesis */
     /* A USB gamepad or joystick, if one is plugged in (now or later): SDL's
      * controller layer knows the common ones (Xbox, PlayStation, 8BitDo,
      * Logitech) by their ids and gives every one the same buttons, so the
@@ -596,6 +636,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (e.type == SDL_MOUSEBUTTONDOWN && !menu_is_open() && settings_get(SET_INPUT_MOUSE_GRAB)) { grab_wanted = 1; grab(1); }
                 if (e.type == SDL_MOUSEBUTTONDOWN) mouse_btn |= bit; else mouse_btn &= ~bit;
                 mouse_to_menu(); break; }
+            case SDL_FINGERDOWN: case SDL_FINGERMOTION: case SDL_FINGERUP:
+                if (touchpad_rel) touchpad_event(&e, win);
+                break;
             case SDL_MOUSEWHEEL:
                 wheel_acc += e.wheel.y;
                 if (menu_is_open()) { menu_mouse(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, mouse_btn, e.wheel.y); wheel_acc = 0; }

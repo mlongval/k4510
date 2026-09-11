@@ -1063,7 +1063,29 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
            * placement option"), and goes full screen when the machine is */
           { static int place_env = -1, fs_env = -1;
             if (place != place_env) { place_env = place; setenv("K4510_PLACEMENT", place == PLACE_LEFT ? "left" : place == PLACE_RIGHT ? "right" : "centre", 1); }
-            if (fullscreen_applied != fs_env) { fs_env = fullscreen_applied; if (fullscreen_applied) setenv("TEK40XX_FULLSCREEN", "1", 1); else unsetenv("TEK40XX_FULLSCREEN"); } }
+            if (fullscreen_applied != fs_env) { fs_env = fullscreen_applied; if (fullscreen_applied) setenv("TEK40XX_FULLSCREEN", "1", 1); else unsetenv("TEK40XX_FULLSCREEN"); }
+            /* Same screen real estate as the machine (Doc, 2026-09-11: "the
+             * same screen real estate as the k4510 screen ... to maintain the
+             * illusion of a seamless machine").  A host program run through `!`
+             * inherits this environment at fork time, so we keep the live
+             * window rectangle in it: K4510_WINRECT for our own tek40xx (which
+             * sizes AND places itself to match), and SDL_VIDEO_WINDOW_POS,
+             * which SDL2 honours for ANY program's window (position only --
+             * size is the program's own).  Full screen takes precedence, so
+             * the rect is cleared then and TEK40XX_FULLSCREEN drives it. */
+            { static char rect_env[48] = ""; char now[48] = "";
+              if (!fullscreen_applied) {
+                  int wx = 0, wy = 0, ww = 0, wh = 0;
+                  SDL_GetWindowPosition(win, &wx, &wy); SDL_GetWindowSize(win, &ww, &wh);
+                  snprintf(now, sizeof now, "%d,%d,%d,%d", wx, wy, ww, wh);
+              }
+              if (strcmp(now, rect_env)) {
+                  strcpy(rect_env, now);
+                  if (now[0]) { char pos[24]; int wx = 0, wy = 0; sscanf(now, "%d,%d", &wx, &wy);
+                                snprintf(pos, sizeof pos, "%d,%d", wx, wy);
+                                setenv("K4510_WINRECT", now, 1); setenv("SDL_VIDEO_WINDOW_POS", pos, 1); }
+                  else        { unsetenv("K4510_WINRECT"); unsetenv("SDL_VIDEO_WINDOW_POS"); }
+              } } }
           int lw = VICKY_WIDTH * k, canvas_h = VICKY_HEIGHT * k, cow = 0, coh = 0;
           SDL_GetRendererOutputSize(ren, &cow, &coh);
           int custom = place != PLACE_CENTRE && cow > 0 && coh > 0;

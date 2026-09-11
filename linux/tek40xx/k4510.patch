@@ -99,7 +99,7 @@ index ed19278..a6baf3c 100644
  {
      int dx, dy;
 diff --git a/Tek40xx/tek_main.c b/Tek40xx/tek_main.c
-index ca8d902..22e04b6 100644
+index ca8d902..6037b3d 100644
 --- a/Tek40xx/tek_main.c
 +++ b/Tek40xx/tek_main.c
 @@ -28,6 +28,7 @@ in this Software without prior written authorization from the author.
@@ -110,7 +110,7 @@ index ca8d902..22e04b6 100644
  #include "tek_video.h"
  #include <math.h>
  #if defined (__linux__) || defined (VMS) || defined (__APPLE__)
-@@ -67,6 +68,27 @@ DWORD bcnt, brd, blft;
+@@ -67,6 +68,30 @@ DWORD bcnt, brd, blft;
  #if defined(HAVE_LIBSDL)
  
  static int iwd, iht, told, tnew, tvl;
@@ -124,7 +124,10 @@ index ca8d902..22e04b6 100644
 +{
 +    const char *p = getenv("K4510_PLACEMENT"); int W = 0, H = 0; double sc;
 +    placed = 0;
-+    if (!p || !getenv("TEK40XX_FULLSCREEN") || !place_rend) return;
++    /* Placed when the emulator is full screen (KMSDRM stick, TEK40XX_FULLSCREEN)
++       OR when it hands us its window rectangle on a desktop (K4510_WINRECT):
++       either way the page fills the machine's own screen real estate. */
++    if (!p || (!getenv("TEK40XX_FULLSCREEN") && !getenv("K4510_WINRECT")) || !place_rend) return;
 +    SDL_GetRendererOutputSize(place_rend, &W, &H);
 +    if (W <= 0 || H <= 0) return;
 +    sc = (double)W / place_w; if ((double)H / place_h < sc) sc = (double)H / place_h;
@@ -138,7 +141,7 @@ index ca8d902..22e04b6 100644
  static unsigned int init_w = 0;
  static unsigned int init_h = 0;
  static int32 lcurr_x = 0;
-@@ -160,7 +182,8 @@ int main(int argc, char* argv[])
+@@ -160,7 +185,8 @@ int main(int argc, char* argv[])
  void UpdateWindowSurface()
  {
      SDL_UpdateTexture(tex, NULL, surface->pixels, surface->pitch);
@@ -148,7 +151,7 @@ index ca8d902..22e04b6 100644
      SDL_RenderPresent(rend);
  }
  
-@@ -253,6 +276,11 @@ t_stat vid_create_window(void)
+@@ -253,6 +279,11 @@ t_stat vid_create_window(void)
  
      if (mode.h == 768 && mode.w == 1024)
          flags |= SDL_WINDOW_FULLSCREEN;
@@ -160,17 +163,24 @@ index ca8d902..22e04b6 100644
  
  
      window = SDL_CreateWindow(
-@@ -293,6 +321,9 @@ t_stat vid_create_window(void)
+@@ -293,6 +324,16 @@ t_stat vid_create_window(void)
      rend = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
      if (!rend)
          printf("%s\r\n", SDL_GetError());
++    /* K4510: on a desktop the emulator exports its live window rectangle as
++       K4510_WINRECT=x,y,w,h (and SDL_VIDEO_WINDOW_POS, which placed the window
++       above since the position is UNDEFINED).  Take the machine's exact
++       footprint so the page appears where its screen was -- a seamless swap. */
++    { const char *wr = getenv("K4510_WINRECT"); int rx, ry, rw, rh;
++      if (wr && !getenv("TEK40XX_FULLSCREEN") && sscanf(wr, "%d,%d,%d,%d", &rx, &ry, &rw, &rh) == 4 && rw > 0 && rh > 0) {
++          SDL_SetWindowSize(window, rw, rh); SDL_SetWindowPosition(window, rx, ry); } }
 +    place_rend = rend; place_w = init_w; place_h = init_h; place_compute();
 +    if (rend && !placed)
 +        SDL_RenderSetLogicalSize(rend, init_w, init_h);
      tex = SDL_CreateTextureFromSurface(rend, surface);
      if (!tex)
          printf("%s\r\n", SDL_GetError());
-@@ -609,8 +640,8 @@ static int MLoop()
+@@ -609,8 +650,8 @@ static int MLoop()
      case RUNNING:               // No action. Poll tek 4010 interface.
          if (dflag) {
              SDL_UpdateTexture(tex, NULL, surface->pixels, surface->pitch);
@@ -181,7 +191,7 @@ index ca8d902..22e04b6 100644
              SDL_RenderPresent(rend);
              dflag = 0;
          }
-@@ -642,15 +673,15 @@ static int MLoop()
+@@ -642,15 +683,15 @@ static int MLoop()
          case SDL_QUIT:
              return -1;
          case SDL_MOUSEMOTION:
@@ -201,7 +211,7 @@ index ca8d902..22e04b6 100644
              curflag++;
              GINon++;
              break;
-@@ -658,8 +689,8 @@ static int MLoop()
+@@ -658,8 +699,8 @@ static int MLoop()
              if (event.button.button == SDL_BUTTON_LEFT) xmev->b1_state = 0;
              if (event.button.button == SDL_BUTTON_RIGHT) xmev->b2_state = 0;
              if (event.button.button == SDL_BUTTON_MIDDLE) xmev->b3_state = 0;

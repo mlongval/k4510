@@ -54,7 +54,8 @@ static const set_desc desc[SET_COUNT] = {
      * keys are kept and ignored. */
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
     { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
-    { "input.mouse_grab",    "Mouse capture",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* a click captures the pointer; the menu releases it */
+    { "input.mouse_grab",    "Mouse capture",  ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* a click captures the pointer; the menu releases it.  OFF by default since
+                                                                                            2026-09-11: on a laptop the vanishing pointer startled Doc; a game turns it on */
     { "input.mouse_pointer", "Mouse pointer",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* on: the host pointer shows over the picture instead of vanishing (Doc, 2026-09-11) */
     { "shell.cpm_com",       "CP/M .COM by name", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: typing d must not launch a Z80 program */
     { "shell.startup",       "Run STARTUP.BAT", ST_BOOL, 1, 0, 1, 1, 0, 0, SF_RESTART },  /* read at power-on: the way out of a bad one */

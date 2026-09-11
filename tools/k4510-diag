@@ -1,0 +1,49 @@
+#!/bin/sh
+# k4510-diag -- dump this host's hardware, input and driver state to PERSISTENT
+# storage, so it can be read from another OS later.
+#
+# Doc's idea (2026-09-11), for the K4510 installed on the Dell: the live system
+# has no ssh, but /home/k4510 persists to the K4510 partition.  So instead of
+# photographing screens:
+#
+#     !k4510-diag                inside K4510 (writes ~/DIAG/<timestamp>/)
+#     ... reboot into the other OS, mount the K4510 partition, read it.
+#
+# Everything is best-effort: a tool that is not installed just leaves its
+# "command not found" in the file, which is itself a useful fact.
+OUT=${1:-$HOME/DIAG/$(date +%Y%m%d-%H%M%S)}
+mkdir -p "$OUT"
+run() { name=$1; shift; { echo "\$ $*"; echo; "$@"; } > "$OUT/$name.txt" 2>&1; }
+S="sudo -n"                                   # passwordless on the K4510 Linux; harmless elsewhere
+
+run uname          uname -a
+run build          cat "$HOME/k4510/core/build.h"
+run cmdline        cat /proc/cmdline
+run env            env
+# --- input: the trackpad / trackpoint / keyboard question -------------------
+run input-devices  cat /proc/bus/input/devices
+run lsmod          lsmod
+run modprobe-d     sh -c 'for f in /etc/modprobe.d/*; do echo "== $f"; cat "$f"; done'
+run udev-input     sh -c 'for d in /dev/input/event*; do echo "===== $d"; udevadm info -q all -n "$d"; echo; done'
+run libinput       $S libinput list-devices
+run i2c-devices    sh -c 'ls -la /sys/bus/i2c/devices/; for d in /sys/bus/i2c/devices/*; do echo "== $d: $(cat "$d/name" 2>/dev/null)  modalias=$(cat "$d/modalias" 2>/dev/null)"; done'
+run hid-devices    sh -c 'ls -la /sys/bus/hid/devices/; for d in /sys/bus/hid/devices/*; do echo "== $d: $(cat "$d/uevent" 2>/dev/null | tr "\n" " ")"; done'
+run serio          sh -c 'for d in /sys/bus/serio/devices/*; do echo "== $d: $(cat "$d/description" 2>/dev/null)  drv=$(basename "$(readlink "$d/driver")" 2>/dev/null)"; done'
+run modules-avail  sh -c 'K=/lib/modules/$(uname -r)/kernel; ls $K/drivers/hid/ $K/drivers/input/mouse/ $K/drivers/i2c/busses/ 2>&1'
+# --- the wider machine -------------------------------------------------------
+run dmesg          $S dmesg
+run journal        $S journalctl -b --no-pager
+run lspci          lspci -nnk
+run lsusb          lsusb
+run acpi-devices   ls /sys/bus/acpi/devices/
+run dri            sh -c 'ls -la /dev/dri/ /dev/dri/by-path/ 2>&1'
+run tty            sh -c 'tty; ls -la /dev/tty[0-9]* 2>&1 | head; fgconsole 2>&1'
+run block          lsblk -o NAME,SIZE,TYPE,FSTYPE,LABEL,MOUNTPOINT
+run mounts         sh -c 'mount | grep -E "overlay|persistence|K4510|live"'
+run persistence    sh -c 'ls -la /run/live/persistence/ 2>&1; for m in /run/live/persistence/*; do echo "== $m"; ls -la "$m" 2>&1; cat "$m/persistence.conf" 2>&1; done'
+# --- the machine itself ------------------------------------------------------
+run cfg            cat "$HOME/k4510/k4510.cfg"
+run fs-etc         ls -la "$HOME/k4510/fs/SYSTEM/ETC/"
+run tools          sh -c 'ls -la "$HOME/k4510/tools/"; which tek tek40xx tekplay tekmenu openvt 2>&1'
+
+echo "k4510-diag: wrote $(ls "$OUT" | wc -l) files to $OUT"

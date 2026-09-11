@@ -313,7 +313,7 @@ static void layout(void)
      * last program left there.  Each column's own first cell is its blank
      * left edge (names are drawn at x + 1), which is the separator.
      *
-     * Three columns is the ranger view and the default.  It is not always the
+     * Three columns is the ranger view; two (no parent) is the default since 2026-09-11.  It is not always the
      * right one: in MODE 2 the console is forty columns, and three of them
      * would be thirteen characters each -- a listing you cannot read of a
      * directory you cannot see.  So the count is an option (c cycles it, or
@@ -687,7 +687,11 @@ int main(void)
 
     cols = REG(TERM + 5); rows = REG(TERM + 6); ox = REG(TERM + 7); oy = REG(TERM + 8); pcols = REG(TERM + 0x0D);
     if (!cols) cols = 80; if (!rows) rows = 30; if (!pcols) pcols = 80;
-    if (!ncols) ncols = cols < 34 ? 1 : cols < 60 ? 2 : 3;   /* no argument: fit the screen we have */
+    /* No argument: two columns -- where you are and the preview.  The parent
+     * column is ranger's classic third, but Doc (the Dell, 2026-09-11) never
+     * wanted the list of directories above the one he is in: `RANGER 3` or the
+     * cycle key bring it back.  A very narrow console still gets one column. */
+    if (!ncols) ncols = cols < 34 ? 1 : 2;
     layout();
 
     fs_addr((uint32_t)(uint16_t)path); fs_do(C_GETCWD);      /* start where the shell is */

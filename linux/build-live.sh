@@ -110,15 +110,31 @@ trap cleanup EXIT
 # already in $WORK.  The expensive half of this script is twenty-five minutes
 # of debootstrap, apt and three compilers; the image half is thirty seconds.
 # Getting the second one wrong should not cost the first one again.
-squash() {
-    echo "== squashfs =="
+# Two images, and live-boot unions every *.squashfs it finds in /live, in name
+# order: filesystem.squashfs is the Debian base with the toolchains (700 MB,
+# made by a full build, rarely changes) and k4510.squashfs on top is just the
+# machine -- /home/k4510/k4510 and /usr/local/bin (tens of MB, what a code
+# change touches).  So a REBUILD squashes only the small one, and an update to
+# an installed machine (update-k4510.sh) moves only the small one -- Doc,
+# 2026-09-11: "only UPDATE the image on the Dell instead of copying the whole".
+LAYER_DIRS="home/k4510/k4510 usr/local/bin"
+squash_base() {
+    echo "== squashfs: the base =="
     # zstd: decompresses fast, and the whole thing is read into RAM once at boot.
     mksquashfs "$ROOT" "$STAGE/live/filesystem.squashfs" \
         -comp zstd -Xcompression-level 19 -noappend -no-progress \
-        -e proc sys dev/pts mnt tmp var/cache/apt/archives
+        -e proc sys dev/pts mnt tmp var/cache/apt/archives $LAYER_DIRS
 }
+squash_layer() {
+    echo "== squashfs: the machine layer =="
+    rm -rf "$WORK/layer"; for d in $LAYER_DIRS; do mkdir -p "$WORK/layer/$(dirname "$d")"; cp -a "$ROOT/$d" "$WORK/layer/$d"; done
+    mksquashfs "$WORK/layer" "$STAGE/live/k4510.squashfs" \
+        -comp zstd -Xcompression-level 19 -noappend -no-progress
+    rm -rf "$WORK/layer"
+}
+squash() { squash_base; squash_layer; }
 
-if [ "$REUSE" = 1 ] && [ -f "$STAGE/live/filesystem.squashfs" ]; then
+if [ "$REUSE" = 1 ] && [ -f "$STAGE/live/filesystem.squashfs" ] && [ -f "$STAGE/live/k4510.squashfs" ]; then
     echo "== reusing the rootfs and squashfs already in $WORK =="
     mkdir -p "$MNT"
 elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
@@ -151,7 +167,10 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
         || echo "build-live.sh: Tek40xx did not rebuild; everything else works"
     binds_down
     sync
-    squash
+    # the base is untouched by a code change; if a full build never made the
+    # split base (an older WORK dir), make it once now
+    [ -f "$STAGE/live/filesystem.squashfs" ] && grep -q k4510layer "$STAGE/.split" 2>/dev/null || { squash_base; echo k4510layer > "$STAGE/.split"; }
+    squash_layer
 else
 
 rm -rf "$WORK"
@@ -442,8 +461,8 @@ sync
 squash
 fi
 
-SQ=$(stat -c %s "$STAGE/live/filesystem.squashfs")
-echo "   squashfs: $(numfmt --to=iec "$SQ")"
+SQ=$(( $(stat -c %s "$STAGE/live/filesystem.squashfs") + $(stat -c %s "$STAGE/live/k4510.squashfs") ))
+echo "   squashfs: $(numfmt --to=iec "$SQ") (base + machine layer)"; echo k4510layer > "$STAGE/.split"
 
 echo "== image =="
 # Sized to fit, not to a round number: this gets written to a USB stick that

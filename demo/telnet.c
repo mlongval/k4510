@@ -4,8 +4,13 @@
  * BBSes get their ANSI art and colours, and cursor and function keys go
  * out as VT sequences. F12 hangs up (Escape is a key the far end wants).
  * Telnet option negotiation (IAC): the server is told the terminal type
- * (ANSI) and the window size (JIM's columns and rows, NAWS), so a BBS
- * lays its screens out for this screen; every other DO/WILL gets a
+ * and the window size (JIM's columns and rows, NAWS), so a BBS lays its
+ * screens out for this screen.  The type is a list, one name per TTYPE
+ * SEND (RFC 1091): XTERM-COLOR, VT220, VT100, ANSI, and ANSI again once
+ * the list is spent.  A Linux host takes the first -- its TERM=ansi is
+ * the PC's ANSI.SYS, which garbled htop on JIM; xterm-color draws it
+ * clean (test/ttypetest.sh) -- and an older system or a BBS that wants
+ * ANSI keeps asking until it hears a name it knows.  Every other DO/WILL gets a
  * WONT/DONT, so plain servers, MUDs and a raw TCP echo talk too. */
 #include "k4510.h"
 
@@ -21,6 +26,8 @@ static unsigned char rom_args(void) { return ((unsigned char (*)(void))0xFF95)()
 
 static char url[96];
 static unsigned char buf[256], rep[12], sb[16], sbn, cmd;
+static const char *const ttypes[] = { "XTERM-COLOR", "VT220", "VT100", "ANSI" };
+static unsigned char tt[20], tti;                         /* the TTYPE IS reply, and which name is next */
 
 static void say(const char *s) { while (*s) REG(TERM) = *s++; }
 static unsigned char net(unsigned char cmd) { REG(NET_CMD) = cmd; return REG(NET_ST); }
@@ -33,6 +40,7 @@ void main(void)
     unsigned int got, j;                              /* j indexes the 256-byte read buffer: a byte would wrap on a full one */
     REG(TERM + 4) = 1;                                    /* JIM: defaults, home... */
     REG(TERM + 9) = 0;                                    /* ...at the console's line (run_at handed the row over; the column is 0) */
+    tti = 0;                                              /* each session offers the TTYPE list from the top */
     if (!n) { say("telnet: host port  (F12 hangs up)\r\n"); return; }
     url[i++] = 't'; url[i++] = 'c'; url[i++] = 'p'; url[i++] = ':'; url[i++] = '/'; url[i++] = '/';
     while (*p && *p != ' ' && i < 90) url[i++] = *p++;
@@ -99,9 +107,17 @@ void main(void)
                 continue;
             }
             if (iac == 4) {
-                if (c == 240) {                           /* SE: TTYPE SEND -> IS "ANSI" */
+                if (c == 240) {                           /* SE: TTYPE SEND -> IS the next name on the list */
                     iac = 0;
-                    if (sbn >= 2 && sb[0] == 24 && sb[1] == 1) { rep[0] = 255; rep[1] = 250; rep[2] = 24; rep[3] = 0; rep[4] = 'A'; rep[5] = 'N'; rep[6] = 'S'; rep[7] = 'I'; rep[8] = 255; rep[9] = 240; net_send(rep, 10); }
+                    if (sbn >= 2 && sb[0] == 24 && sb[1] == 1) {
+                        const char *t = ttypes[tti];
+                        unsigned char n = 4;
+                        if (tti < 3) tti++;               /* the last name repeats: the list is spent */
+                        tt[0] = 255; tt[1] = 250; tt[2] = 24; tt[3] = 0;
+                        while (*t) tt[n++] = *t++;
+                        tt[n++] = 255; tt[n++] = 240;
+                        net_send(tt, n);
+                    }
                     continue;
                 }
                 if (sbn < sizeof sb) sb[sbn++] = c; iac = 3; continue;

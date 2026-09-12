@@ -6859,3 +6859,32 @@ F7 -> Info gained a Build row: K4510_BUILD (core/build.h, "0.5-<commit>",
 a "+" when the tree is dirty) -- the commit a running emulator came from,
 for telling one build from another at a glance.  Version now reads
 "K4510 K/OS" instead of the stale "k4510 0.3".
+
+## 2026-09-11 — TELNET offers xterm-color first: htop draws clean
+
+Doc ran htop on a Linux host over TELNET and got a partly garbled screen,
+and asked whether JIM should become a "full ANSI" terminal instead of a
+VT100.  It did not need to.  TELNET answered every TTYPE SEND with
+"ANSI", and Linux's telnetd makes that TERM=ansi -- the terminfo for the
+PC's ANSI.SYS (CP437 line drawing behind `ESC[11m`, no scroll region),
+not the VT-family terminal JIM is.  The same htop through the same JIM,
+captured headless with only TERM changed: ansi garbled (rows misplaced,
+the F-key bar gone) in UTF-8 and C locales alike; vt220 clean but
+monochrome; xterm-color and linux clean in colour.  UTF-8 was not the
+culprit -- htop sent three non-ASCII bytes, the sort arrow in its header.
+
+**The fix is the name.**  TELNET now offers a list, one name per SEND as
+RFC 1091 has it: XTERM-COLOR, VT220, VT100, ANSI, and ANSI again once the
+list is spent.  A Linux host takes the first; a system that does not know
+it asks again and gets an older name (2.11BSD's termcap has vt100), and a
+BBS that looks for ANSI finds it at the end.  The reply has its own
+20-byte buffer -- `rep` is 12, and XTERM-COLOR's IS is 17 bytes.
+
+**test/ttypetest.sh** (in `make test`): a loopback server
+(test/ttyped.py) asks five times and prints the answers, which must come
+in that order; then, where htop is installed, a second server takes the
+first answer as TERM the way telnetd does and runs htop, and its column
+header and F-key bar must both reach JIM's screen.  Against the old
+TELNET.PRG it fails: `TTYPES: ANSI,ANSI,ANSI,ANSI,ANSI`.  nettest still
+passes.  Still worth doing some day: UTF-8 in JIM, decoded onto the CP437
+font, for the few glyphs programs like htop send.

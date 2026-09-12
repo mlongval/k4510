@@ -100,7 +100,8 @@ static const menu_t host_menu    = { "Host",    host_items,    (int)(sizeof host
 static const menu_t video_menu   = { "Video",   video_items,   (int)(sizeof video_items / sizeof video_items[0]) };
 static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audio_items / sizeof audio_items[0]) };
 static const menu_t term_menu    = { "Terminal", term_items,   (int)(sizeof term_items / sizeof term_items[0]) };
-static const menu_t input_menu   = { "Input",   input_items,   4 };
+static const menu_t input_menu   = { "Input",   input_items,   (int)(sizeof input_items / sizeof input_items[0]) };   /* was a literal 4: the
+                                                                  * fifth row, Caps Lock is Ctrl, never showed (the Dell, 2026-09-12) */
 /* NOT const, and not the full count: the shutdown row and its separator are
  * off the end until a host says it can honour them.  (Was a hard 8 once, and
  * the CPU clock entry never drew.) */

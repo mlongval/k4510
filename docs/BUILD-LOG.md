@@ -7163,4 +7163,12 @@ house's other SSIDs (BELL932_HAUT/_HAUT5/_EXT/_EXT5, same password,
 copied from the stored profile without printing it) are profiles too --
 machine configuration in the persisted NetworkManager directory, not in
 this repository.  The missing `regulatory.db` (no wireless-regdb) was not
-the cause: the card sets the country itself (CA).
+the cause: the card sets the country itself (CA).  Measured on the next
+boot: Wi-Fi in 5 s (was 25), Tailscale in 7, no 2.4 GHz tries; it took
+BELL932_HAUT5, the strongest 5 GHz radio.
+
+**"Caps Lock is Ctrl" was not in F7 -> Input** on the Dell although the
+binary carried it: `input_menu` in `core/ui/menu.c` gave its row count
+as a literal 4, so a fifth row was never drawn.  It counts its array now,
+like every other page.  (Caught from a screenshot of the menu: the
+strings were in the binary, the row was not on the screen.)

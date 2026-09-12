@@ -168,7 +168,7 @@ static void draw_bat(uint8_t b)
 {
     uint8_t last = PROWS - 1, c = PCOLS - 16;
     if (b == 0xFF) return;
-    bar_str(c, last, "BAT    ");                                 /* the old digits cleared with it */
+    bar_str(c + 3, last, "   ");                                 /* the old digits cleared ("BAT" dropped: Doc) */
     bar_num(c + 6, last, b & 0x7F);
     put_at(c + 7, last, '%', BAND_FG, BAND_BG);
     put_at(c + 8, last, (b & 0x80) ? 0x18 : 0x19, BAND_FG, BAND_BG);   /* CP437 up / down arrow */

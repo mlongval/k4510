@@ -7235,4 +7235,5 @@ shape: BSSR is full, so `band_mhz` now packs the MHz (never past 202)
 low and the battery byte high, and the key poll's refresh moved from
 ROM2 (33 bytes free) into a `band_refresh()` in ROM1C, which saves ROM2
 more than it costs.  `K4510_BATTERY=52` (or `52+`) stands in for a
-battery, for a headless test.
+battery, for a headless test.  Then, at Doc's word, the "BAT" went:
+the band shows `52%` and the arrow, nothing more.

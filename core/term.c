@@ -557,7 +557,20 @@ static int utf8_byte(uint8_t c)                                 /* 1: taken */
     }
     return 0;                                                   /* ASCII, a control, a byte no sequence starts with */
 }
-void term_set_utf8(int on) { utf8_mode(on); }
+/* A host session -- the `!` shell -- is a Unix program on a pty: it speaks
+ * UTF-8, and its LF means "down a row, same column" (xterm-color's cud1 is ^J;
+ * the pty's ONLCR already makes a program's \n a \r\n).  The ROM console wants
+ * LNM, LF-returns-the-column, and sets it in video_init; left on under tmux,
+ * every bare LF sent the cursor to column 0 and the ESC[nC after it skipped
+ * cells tmux believed blank -- the stray characters at the left edge (Doc, the
+ * Dell, 2026-09-12; found in a K4510_TERMLOG).  So a session turns LNM off and
+ * gives it back after. */
+static uint8_t host_lnm;
+void term_host_session(int on)
+{
+    if (on) { host_lnm = T.lnm; T.lnm = 0; utf8_mode(1); }
+    else    { T.lnm = host_lnm; utf8_mode(0); }
+}
 
 /* ---- the stream -------------------------------------------------------------- */
 static void put_byte(uint8_t c)

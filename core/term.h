@@ -52,7 +52,7 @@ void    term_reset(void);          /* power-on: geometry defaults too */
 uint8_t term_read(uint8_t reg);
 void    term_write(uint8_t reg, uint8_t v);
 void    term_tick(void);           /* once a frame: the cursor blink */
-void    term_set_utf8(int on);     /* the `!` shell's session: decode UTF-8 (ESC % G / ESC % @ from the host side) */
+void    term_host_session(int on); /* the `!` shell's session: UTF-8 on and LNM off; off gives LNM back */
 int     term_cursor_park(void);    /* take the cursor out of RAM (a save state); returns whether it was lit */
 void    term_cursor_unpark(int was);
 #ifdef __cplusplus

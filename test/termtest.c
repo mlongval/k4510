@@ -108,8 +108,22 @@ int main(void)
     CHECK(cell(0, 4)[0] == 0xE2 && cell(1, 4)[0] == 0x94 && cell(2, 4)[0] == 0x80, "ESC %% @ turns it off");
     send("\033%G"); W(4, 1); W(4, 2); send("\xE2\x94\x80");      /* CTRL 1, the machine's reset: off too */
     CHECK(cell(0, 0)[0] == 0xE2 && cell(2, 0)[0] == 0x80, "CTRL 1 turns it off (%02X)", cell(0, 0)[0]);
-    term_set_utf8(1); W(4, 2); send("\xE2\x94\x80"); CHECK(cell(0, 0)[0] == 0xC4, "term_set_utf8 (the ! shell's switch)");
-    term_set_utf8(0);
+    term_host_session(1); W(4, 2); send("\xE2\x94\x80"); CHECK(cell(0, 0)[0] == 0xC4, "term_set_utf8 (the ! shell's switch)");
+    term_host_session(0);
     printf("8. UTF-8: ok\n");
+
+    /* 9. A host session turns LNM off and gives it back.  The ROM sets LNM
+     * (LF returns the column); tmux moves down with a bare LF and expects the
+     * column kept -- left on, it drew "Go ahead" at column 0 and left stray
+     * characters behind (the Dell, 2026-09-12). */
+    W(4, 2); send("\033[20h");                                  /* as the ROM's video_init */
+    term_host_session(1);
+    send("\033[5;3HX\nY");                                      /* X at (2,4); LF: down, the column kept */
+    CHECK(cell(2, 4)[0] == 'X' && cell(3, 5)[0] == 'Y', "in a session a bare LF keeps the column (Y at col %d)", cell(3, 5)[0] == 'Y' ? 3 : -1);
+    term_host_session(0);
+    send("\nZ");                                                /* LNM back: LF returns the column */
+    CHECK(cell(0, 6)[0] == 'Z', "after the session LNM is back (Z %s)", cell(0, 6)[0] == 'Z' ? "at col 0" : "misplaced");
+    send("\xE2\x94\x80"); CHECK(cell(1, 6)[0] == 0xE2, "and UTF-8 is off again");
+    printf("9. a host session: LNM off, then back: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

@@ -1226,7 +1226,7 @@ static void tube_pump(void)
  * session's last byte has been read out, not at the reap, when the ROM may still
  * be pumping the tail.  CP/M and BBC BASIC send CP437 of their own: prog 4 only. */
 static int tube_utf8;
-static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_r) { term_set_utf8(0); tube_utf8 = 0; } }
+static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_r) { term_host_session(0); tube_utf8 = 0; } }
 static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM), 4 = the host shell */
 {
     struct winsize ws = { 29, 79, 0, 0 };
@@ -1312,7 +1312,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     }
     if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
     fcntl (tube_fd, F_SETFL, O_NONBLOCK);
-    if (prog == 4) { term_set_utf8(1); tube_utf8 = 1; }   /* after the ROM's JIM reset, which turns it off */
+    if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* after the ROM's JIM reset, which turns it off */
 }
 static void tube_stop(void)
 {
@@ -1320,7 +1320,7 @@ static void tube_stop(void)
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
     tube_w = tube_r = 0;
     tula_close();
-    if (tube_utf8) { term_set_utf8(0); tube_utf8 = 0; }
+    if (tube_utf8) { term_host_session(0); tube_utf8 = 0; }
 }
 static uint8_t tube_status(void) { tube_pump(); tube_utf8_done(); return (tube_pid ? 1 : 0) | 4 | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); if (tube_w != tube_r) return tube_ring[tube_r++ & 4095]; tube_utf8_done(); return 0; }

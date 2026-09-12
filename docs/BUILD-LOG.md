@@ -7044,3 +7044,15 @@ find it, `profile.d/k4510.sh` gains a switch: while
 `~/k4510/DIAG/TERMLOG` exists, the emulator starts with `K4510_TERMLOG`
 pointed at `~/k4510/DIAG/termlog-<time>.bin` (persistent, so it survives
 the reboot that brings a build; delete the file to stop).
+
+**The log found it in one pass: LNM.**  The ROM sets ANSI mode 20 in
+`video_init` -- LF returns the column, which its console wants -- and
+nothing turned it off for a session (CTRL 1's soft reset leaves it).
+tmux under `TERM=xterm-color` moves down with a bare LF and expects the
+column kept.  Straight from the log: `ESC[12;3H ESC[K \n Go ESC[C
+ahead...` -- tmux meant "Go ahead" at column 3; JIM drew it at column 0,
+and every `ESC[nC` after that skipped cells tmux believed blank.  Fix:
+a host session runs with LNM off and hands it back -- `term_host_session()`
+(which also switches UTF-8) for the `!` shell, `ESC[20l` / `ESC[20h`
+around a TELNET connection.  A pty's ONLCR already turns a program's `\n`
+into `\r\n`, so plain shell output is unaffected.  termtest leg 9.

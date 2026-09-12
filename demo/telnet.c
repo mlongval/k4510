@@ -89,6 +89,8 @@ void main(void)
     REG(TERM + 4) = 2;                                    /* clear, so no blue is left around the art */
     say("connected to "); say(url + 6); say("  (F12 hangs up)\r\n");
     u8 = 0;                                               /* CP437 until the far end takes XTERM-COLOR */
+    say("\033[20l");                                      /* LNM off: a far end's bare LF keeps the column (tmux moves down
+                                                           * that way); the ROM console gets its LNM back on the way out */
     REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
     for (;;) {
         k = rom_getin();
@@ -163,6 +165,7 @@ void main(void)
     }
     net(4);
     if (u8) { say("\033%@"); u8 = 0; }                     /* the machine's own screen is CP437 */
+    say("\033[20h");                                      /* and LNM, as the ROM's video_init sets it */
     REG(TERM + 0x0E) = 0;
     REG(TERM + 0x15) = odbg;                              /* every exit comes through here: F12, */
     REG(TERM + 0x0C) = odbg;                              /* a far end that hung up, or a closed */

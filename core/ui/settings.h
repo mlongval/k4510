@@ -48,6 +48,7 @@ typedef enum {
     SET_TERM_CLOCK24,        /* BOOL 24-hour clock; off is 12-hour with AM/PM */
     SET_TERM_DATEFMT,        /* ENUM DD.MM.YYYY / YYYY-MM-DD / MM/DD/YYYY -- all ten cells wide, which is
                               * what lets the IRQ's clock painter stay a fixed-width digit poker */
+    SET_INPUT_CAPS_CTRL,     /* BOOL Caps Lock is a Ctrl key (F7 -> Input); at the end so no index moves (Doc, 2026-09-12) */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;

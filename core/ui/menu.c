@@ -43,6 +43,7 @@ static const item_t input_items[] = {
     { "Menu key",    MI_SETTING, SET_INPUT_MENU_KEY },
     { "Mouse capture", MI_SETTING, SET_INPUT_MOUSE_GRAB },
     { "Mouse pointer", MI_SETTING, SET_INPUT_MOUSE_SHOW },
+    { "Caps Lock is Ctrl", MI_SETTING, SET_INPUT_CAPS_CTRL },
 };
 static const item_t save_items[] = {
     { "Slot 1", MI_SAVESLOT, 0 }, { "Slot 2", MI_SAVESLOT, 1 }, { "Slot 3", MI_SAVESLOT, 2 }, { "Slot 4", MI_SAVESLOT, 3 },

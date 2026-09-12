@@ -7098,3 +7098,16 @@ net".  LNM survived because CTRL 1 never touched it, which is exactly
 the screen Doc saw.  CTRL 1 now leaves UTF-8 alone (it still goes off at
 the session's end, at TELNET's exit, and at power-on); termtest replays
 the ROM's order, session then reset.
+
+## 2026-09-12 — F7 -> Input -> Caps Lock is Ctrl
+
+Doc asked for it.  It lives in the emulator, not in a keymap: on the
+K4510 Linux SDL reads evdev scancodes, which neither an XKB option nor a
+console keymap reaches.  With the setting on, Caps Lock is a held Ctrl
+for everything -- Ctrl+letters, the reset chord, Ctrl+Alt+F2 -- and never
+reaches the machine.  The host still toggles its lock state, so the
+modifier is masked out, a letter typed while the key is held is dropped
+(the Ctrl code comes from SDL_KEYDOWN, the host would type the letter
+too), and text arriving with the lock on has its case flipped back.  The
+Caps Lock LED still toggles; that is the host's.  New settings go at the
+END of the table, so no index moves.

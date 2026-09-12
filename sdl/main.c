@@ -51,6 +51,7 @@
  * nothing.  Doc, 2026-09-12: the Dell's KMSDRM screen could not be grabbed
  * from outside (fbdev is bypassed, the scanout is tiled). */
 static volatile sig_atomic_t shot_req;
+static int caps_ctrl_down;          /* F7 -> Input -> Caps Lock is Ctrl: the key is held now */
 #ifndef __EMSCRIPTEN__
 static void shot_signal(int sig) { (void) sig; shot_req = 1; }
 #endif
@@ -803,6 +804,14 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 break;
             case SDL_TEXTINPUT: {
                 pend = 0;                                    /* SDL does send text here: the key code is not needed */
+                /* Caps Lock as Ctrl: while it is held a letter is a Ctrl code, and
+                 * SDL_KEYDOWN sends that -- the host would type the letter too.  And
+                 * the host still toggles its caps state, so undo the case it flips. */
+                int caps_flip = 0;
+                if (settings_get(SET_INPUT_CAPS_CTRL)) {
+                    if (caps_ctrl_down) break;
+                    caps_flip = (SDL_GetModState() & KMOD_CAPS) != 0;
+                }
                 /* The host layout has already composed the character -- a dead key
                  * plus a vowel arrives here as one UTF-8 sequence.  ASCII goes
                  * straight through; anything above it is decoded and looked up in
@@ -816,13 +825,29 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     else if ((ch & 0xF0) == 0xE0 && (c[1] & 0xC0) == 0x80 && (c[2] & 0xC0) == 0x80)
                          { cp = ((unsigned long)(ch & 0x0F) << 12) | ((unsigned long)(c[1] & 0x3F) << 6) | (c[2] & 0x3F); c += 3; }
                     else { c++; continue; }                      /* 4-byte or malformed: nothing to type */
+                    if (caps_flip && (((cp | 0x20) >= 'a' && (cp | 0x20) <= 'z')
+                                      || (cp >= 0xC0 && cp <= 0xFE && cp != 0xD7 && cp != 0xDF && cp != 0xF7))) cp ^= 0x20;
                     if (cp >= 0x20 && cp < 0x7F) { kbd_push((uint8_t)cp); continue; }
                     { uint8_t b = cp437_of(cp); if (b) kbd_push(b); }
                 }
                 break;
             }
             case SDL_KEYDOWN: case SDL_KEYUP: {
+                /* Caps Lock as Ctrl (F7 -> Input), in the emulator because on the
+                 * K4510 Linux SDL reads evdev scancodes, which an XKB or console
+                 * keymap option never reaches.  The key is a held Ctrl for every
+                 * chord below and never reaches the machine; the lock state it
+                 * still toggles is taken out of the modifiers here and out of the
+                 * text in SDL_TEXTINPUT.  Doc, 2026-09-12. */
+                if (settings_get(SET_INPUT_CAPS_CTRL) && e.key.keysym.scancode == SDL_SCANCODE_CAPSLOCK) {
+                    SDL_Keymod cm = SDL_GetModState();
+                    caps_ctrl_down = (e.type == SDL_KEYDOWN);
+                    kbd_modifiers(cm & KMOD_SHIFT, (cm & KMOD_CTRL) || caps_ctrl_down, cm & KMOD_ALT);
+                    break;
+                }
                 SDL_Keymod m = SDL_GetModState();
+                if (settings_get(SET_INPUT_CAPS_CTRL)) m = (SDL_Keymod)((m & ~KMOD_CAPS) | (caps_ctrl_down ? KMOD_LCTRL : 0));
+                else caps_ctrl_down = 0;                         /* the setting went off while the key was held */
                 kbd_modifiers(m & KMOD_SHIFT, m & KMOD_CTRL, m & KMOD_ALT);
                 if (e.type != SDL_KEYDOWN) break;
                 SDL_Keycode k = e.key.keysym.sym;

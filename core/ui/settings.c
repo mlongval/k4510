@@ -79,6 +79,7 @@ static const set_desc desc[SET_COUNT] = {
     { "term.band.bottom",    "Bottom band rows", ST_INT, 2, 0, 10, 1, 0, 0, SF_LIVE },
     { "term.clock24",        "24-hour clock",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },
     { "term.datefmt",        "Date format",    ST_ENUM,  DATEFMT_DMY, 0, 0, 0, date_names, DATEFMT_COUNT, SF_LIVE },
+    { "input.caps_ctrl",     "Caps Lock is Ctrl", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* the old Unix keyboard's Ctrl, where Caps Lock sits (Doc, 2026-09-12) */
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
                                                      40500000u, 30000000u, 20000000u, 15000000u, 10000000u };

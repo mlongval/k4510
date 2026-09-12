@@ -1,0 +1,18 @@
+Linux kernel lib/fonts/font_8x16.c, GPL-2.0 -- last changed upstream in
+commit db65872b38dc (2026-03-09); fetched from torvalds/linux master
+2026-09-12 (sha256 of the .c: 87e0693fb9ae7f342710cf230e76df0ec213988f833a7d82cb01db5de54cf20d).
+
+linux/config/includes.chroot/usr/share/consolefonts/K4510-VGA24x43.psf is
+not vendored directly: data/mkconsolefont.py reads the kernel's
+font_8x16.c (the IBM VGA ROM set, code page 437 order) and writes a PSF2
+console font of 256 glyphs at 24x43 with a Unicode table -- each glyph
+widened to the VGA's 9-dot cell (column 9 repeats column 8 for C0-DF) and
+area-sampled up, so a 1920x1080 Linux console is 80x25.  Glyph shapes are
+the kernel's; only the size changed.
+
+To check it:
+  curl -fsSLO https://raw.githubusercontent.com/torvalds/linux/db65872b38dc/lib/fonts/font_8x16.c
+  python3 data/mkconsolefont.py font_8x16.c /tmp/K4510-VGA24x43.psf
+  cmp /tmp/K4510-VGA24x43.psf linux/config/includes.chroot/usr/share/consolefonts/K4510-VGA24x43.psf
+
+sha256  fcaa9079d3f73095b1fb33125fef086af023fc0aabac0a0b36c5c4f8b4a4c8c9

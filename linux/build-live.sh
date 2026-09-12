@@ -122,7 +122,12 @@ trap cleanup EXIT
 # union with NO lower directory kills live-boot ("overlay needs at least one
 # lower filesystem") -- the Dell failed to boot on it, 2026-09-11 19:28.
 # Being in the layer, a REBUILD (5 MB) fixes an installed base.
-LAYER_DIRS="home/k4510/k4510 usr/local/bin var/lib/tailscale"
+# The files of config/includes.chroot (/etc settings, the console font) ride in
+# the layer too: a REBUILD copied them into the rootfs but squashed only the
+# layer, so a settings change never reached an installed machine without a
+# full base pull.  Found 2026-09-12 shipping the console font.
+OVERLAY_FILES=$(cd "$HERE/config/includes.chroot" && find . -type f ! -path './usr/local/bin/*' | sed 's|^\./||' | sort)
+LAYER_DIRS="home/k4510/k4510 usr/local/bin var/lib/tailscale $OVERLAY_FILES"
 squash_base() {
     echo "== squashfs: the base =="
     # zstd: decompresses fast, and the whole thing is read into RAM once at boot.
@@ -167,8 +172,7 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # Same invocation as the full build below; needs the chroot's network.
     # This checkout's /etc overlay too (the lid setting, keymaps...): a config
     # change must reach the fast path, not only a 30-minute full build.
-    cp -a "$HERE/config/includes.chroot/etc/." "$ROOT/etc/"
-    mkdir -p "$ROOT/usr/local/bin"; cp -a "$HERE/config/includes.chroot/usr/local/bin/." "$ROOT/usr/local/bin/"   # the tek wrapper too (see the full build)
+    cp -a "$HERE/config/includes.chroot/." "$ROOT/"   # etc, usr/local/bin (the tek wrapper), usr/share (the console font)
     $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh \
         || echo "build-live.sh: Tek40xx did not rebuild; everything else works"
     binds_down
@@ -205,12 +209,10 @@ cat > "$ROOT/etc/fstab" <<'EOF'
 EOF
 
 # The autologin getty and the profile script that becomes the machine on tty1.
-cp -a "$HERE/config/includes.chroot/etc/." "$ROOT/etc/"
-# ... and its usr/local/bin: the `tek` wrapper.  Only etc/ was ever copied, so
-# the appliance had the tek40xx BINARY but not the wrapper that sets KMSDRM
-# and full screen -- `tek HOST` on tty2 and tekplay's wrapper path both
-# fell over (Doc, the Dell, 2026-09-11).
-mkdir -p "$ROOT/usr/local/bin"; cp -a "$HERE/config/includes.chroot/usr/local/bin/." "$ROOT/usr/local/bin/"
+# The WHOLE overlay: once only etc/ was copied, so the appliance had the
+# tek40xx BINARY but not the usr/local/bin wrapper that sets KMSDRM and full
+# screen (Doc, the Dell, 2026-09-11).  It also carries usr/share/consolefonts.
+cp -a "$HERE/config/includes.chroot/." "$ROOT/"
 
 # Second layer under the kernel command line: even if someone boots without the
 # modprobe.blacklist=, these keep the drivers out.  `install ... /bin/false` is

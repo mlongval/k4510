@@ -6926,3 +6926,23 @@ arrived at the PDP-11 as cursor keys.
 `make test` now runs `nettest.sh` and `cwdtest.sh` too; 30 suites
 green.  ROM: ROM2 33 free, SW2 16.  The PiDP-11 got its own commit:
 Unix V4/V6/V7 and RT-11 never had their serial lines reach port 1171.
+
+## 2026-09-12 — the Linux consoles are 80x25 in the VGA font
+
+Doc, on the Dell: the Linux side's consoles were hard to read -- the stock
+8x16 font on a 1920x1080 panel is 240x67.  He asked for CP437 at 80x25.
+No shipped console font is that size (80x25 needs a 24x43 cell), so
+`data/mkconsolefont.py` makes one from the kernel's own VGA font,
+`lib/fonts/font_8x16.c`: every glyph widened to the VGA's 9-dot cell
+(column 9 repeats column 8 for the line-drawing block, as the card did)
+and area-sampled to 24x43 -- the 720x400 text mode on the panel with
+nearly square pixels.  `/etc/default/console-setup` names it; `setupcon`
+applies it at boot and the udev rule re-applies it once i915 is up.
+Debian's `Uni2-VGA16` was tried first and lacks 27 of CP437's 256 (the
+smileys, suits, ▓ and the half-blocks); the kernel's set is complete.
+
+Shipping it found a hole in the fast path: a REBUILD copied
+`config/includes.chroot/etc` into the rootfs but squashed only the machine
+layer, so a settings change never reached an installed machine without a
+750 MB base pull.  The layer now carries every file of the overlay
+(`/etc` settings, the font), and both build paths copy the whole overlay.

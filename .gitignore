@@ -52,6 +52,7 @@ tube/bbcbasic
 test/tubetest
 test/tubetest.out
 test/termtest
+test/termreplay
 test/uitest
 test/statetest
 k4510-slot*.k4s

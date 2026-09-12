@@ -295,22 +295,10 @@ EOF2
 setupcon --force 2>/dev/null || true
 KBD
 chmod +x "$ROOT/usr/local/sbin/k4510-keymap"
-cat > "$ROOT/etc/systemd/system/k4510-keymap.service" <<'EOF'
-[Unit]
-Description=K4510 keyboard layout from the boot menu (k4510.kbd=)
-DefaultDependencies=no
-After=systemd-tmpfiles-setup.service
-Before=console-setup.service keyboard-setup.service getty@tty1.service
-ConditionKernelCommandLine=k4510.kbd
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/sbin/k4510-keymap
-RemainAfterExit=yes
-
-[Install]
-WantedBy=sysinit.target
-EOF
+# Its unit, k4510-keymap.service, lives in config/includes.chroot/etc/systemd/
+# system/ (copied in above), so a fix to it rides the machine layer; written
+# here it reached only a full build -- and carried an ordering cycle
+# (After=systemd-tmpfiles-setup) that the Dell's journal showed, 2026-09-12.
 
 echo "== telnet, loopback only =="
 # Lifted from the working service on ubuntu-s1 (TELNET-SERVER.md), with the

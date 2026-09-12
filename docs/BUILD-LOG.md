@@ -7077,3 +7077,13 @@ save themselves once `save_default` is in grubenv), and a `savedefault`
 line in the K4510 entry -- now written by `install-k4510.sh` too.
 Restart from K4510, K4510 comes back; restart from Fedora, updates
 included, Fedora comes back.  `UPDATEDEFAULT` is back to Fedora's `yes`.
+
+**One more ordering cycle, older than today's.**  With the telnet one
+gone the journal still broke a cycle every boot, by dropping
+`local-fs-pre.target`: `k4510-keymap.service` (the stick's boot-menu
+keyboard picker, 2026-09-10) said `After=systemd-tmpfiles-setup.service`
+-- which waits for local-fs.target -- and `Before=keyboard-setup.service`,
+which comes before local-fs-pre.target.  Harmless on the Dell (its boot
+line picks no layout) but the same class of fault that silently dropped
+telnet.  Now `After=systemd-remount-fs.service`; the unit moved into
+`config/includes.chroot` like the socket, so the fix rides the layer.

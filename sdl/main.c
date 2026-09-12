@@ -524,6 +524,17 @@ static void host_info_refresh(void)
         }
         freeifaddrs(ifa0);
     }
+    /* No address yet: say whether the Wi-Fi is still joining.  Right after
+     * boot it takes ~25 s, and "none" read as "not connected" (Doc, the
+     * Dell, 2026-09-12).  NetworkManager knows; only the K4510 Linux asks. */
+    if (!strcmp(addr, "none") && access("/etc/k4510-linux", F_OK) == 0) {
+        FILE *p = popen("nmcli -t -f STATE general 2>/dev/null", "r");
+        char st[40] = "";
+        if (p) { if (!fgets(st, sizeof st, p)) st[0] = 0; pclose(p); }
+        if (!strncmp(st, "connecting", 10)) snprintf(addr, sizeof addr, "connecting...");
+        else if (!strncmp(st, "disconnected", 12) || !strncmp(st, "asleep", 6)) snprintf(addr, sizeof addr, "none (see Wi-Fi setup)");
+    }
+    if (!strcmp(ts, "none") && access("/etc/k4510-linux", F_OK) == 0 && !strncmp(addr, "connecting", 10)) snprintf(ts, sizeof ts, "waiting for the network");
     menu_info(INFO_NAME, name); menu_info(INFO_ADDR, addr); menu_info(INFO_TS, ts);
 }
 static void host_net_setup(void)
@@ -1124,7 +1135,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_TELNET: { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }
         if (open && clock_at_open < 0) clock_at_open = settings_get(SET_CPU_CLOCK);
-        { static int host_open_was; if (open && !host_open_was) host_info_refresh(); host_open_was = open; host_reap(); }
+        { static int host_open_was; static Uint32 host_read_at;   /* the Host page: read at open, then every 2 s while open */
+          if (open && (!host_open_was || SDL_GetTicks() - host_read_at >= 2000)) { host_info_refresh(); host_read_at = SDL_GetTicks(); }
+          host_open_was = open; host_reap(); }
         /* SETUP has finished measuring and asks us to keep the clock it settled
          * on.  The guest chose it; we supply the two things it cannot know --
          * which host this is, and where the file lives. */

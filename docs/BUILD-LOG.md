@@ -7144,3 +7144,23 @@ DA2 (`ESC[>c`, which tmux asks) got the DA1 answer and now gets
 within 3 ms of the password and the handshake takes 0.2 s, so the
 seconds are on the machine's side, and the next log will show where.
 termtest leg 10.
+
+## 2026-09-12 — "network not connected" right after boot
+
+Doc saw F7 -> Host say no network just after boot, and suspected an
+error.  It was a snapshot: the Host page read the network once, when the
+menu opened, and the Dell's Wi-Fi takes ~25 s after the machine starts
+(16:42:51 emulator, 16:43:16 address, 16:43:19 Tailscale).  The page now
+re-reads every 2 s while it is open, and with no address yet asks
+NetworkManager: "connecting..." (Tailscale "waiting for the network"),
+or "none (see Wi-Fi setup)" when it is not even trying.
+
+Why ~25 s: the journal shows NetworkManager trying BELL932's 2.4 GHz
+radio four times (band steering on the Bell hub turns a 5 GHz-capable
+client away) before its 5 GHz radio took it in 0.2 s.  On the Dell,
+BELL932 is now pinned to 5 GHz (`802-11-wireless.band a`), and the
+house's other SSIDs (BELL932_HAUT/_HAUT5/_EXT/_EXT5, same password,
+copied from the stored profile without printing it) are profiles too --
+machine configuration in the persisted NetworkManager directory, not in
+this repository.  The missing `regulatory.db` (no wireless-regdb) was not
+the cause: the card sets the country itself (CA).

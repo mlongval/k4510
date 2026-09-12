@@ -117,8 +117,15 @@ static void cur_draw(void)
                           *a ^= 0x80; T.cur_on = (uint8_t)((T.cur_on & 6) | 9 | (orig << 4)); }
     else { vicky_cursor(T.cur_at, CUR_STYLE, 1); T.cur_on |= 1; }
 }
+static FILE *termlog(void);
 void term_tick(void)
 {
+    /* K4510_TERMLOG is buffered and flushed here, once a second.  Flushed per
+     * byte it was one write() each, and on the Dell's persistence -- mounted
+     * `sync` -- that is 242 bytes/s: a tmux redraw stalled the machine for
+     * minutes, which is what "ssh crashed" was (2026-09-12).  A crash now loses
+     * at most the last second of the log. */
+    { static unsigned n; if (++n % 60 == 0) { FILE *lg = termlog(); if (lg) fflush(lg); } }
     if (!T.shown) return;
     T.frames++;
     if (T.frames & 16) { if (CUR_SHOWN) cur_undraw(); } else if (!CUR_SHOWN) cur_draw();
@@ -691,11 +698,12 @@ uint8_t term_read(uint8_t r)
  * the cursor bookkeeping beside the REAL reverse bit under it -- the trace
  * that found the stray-cursor-block bug (Doc, the Dell, 2026-09-11). */
 static FILE *termlog(void) { static FILE *lg; static int tried;
-    if (!tried) { tried = 1; const char *f = getenv("K4510_TERMLOG"); if (f) lg = fopen(f, "wb"); } return lg; }
+    if (!tried) { tried = 1; const char *f = getenv("K4510_TERMLOG"); if (f) { lg = fopen(f, "wb"); if (lg) setvbuf(lg, NULL, _IOFBF, 1 << 16); } }
+    return lg; }
 void term_write(uint8_t r, uint8_t v)
 {
     if (r != 0x00 && r != 0x03) { FILE *lg = termlog(); if (lg) { fprintf(lg, "\n<r%02X<-%02X shown=%u cur_on=%u cx=%u cy=%u at=%06X bit=%u>",
-        r, v, T.shown, T.cur_on, T.cx, T.cy, (unsigned) T.cur_at, (unsigned)((k4510_ram[T.cur_at] >> 7) & 1)); fflush(lg); } }
+        r, v, T.shown, T.cur_on, T.cx, T.cy, (unsigned) T.cur_at, (unsigned)((k4510_ram[T.cur_at] >> 7) & 1)); } }
     switch (r) {
     case 0x00:
         { FILE *lg = termlog(); if (lg) {
@@ -706,7 +714,7 @@ void term_write(uint8_t r, uint8_t v)
               if (now - last_ms >= 100) { time_t t = ts.tv_sec; struct tm tm; localtime_r(&t, &tm);
                   fprintf(lg, "\n<t %02d:%02d:%02d.%03d>", tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(now % 1000)); }
               last_ms = now;
-              fputc(v, lg); fflush(lg); } }
+              fputc(v, lg); } }                         /* flushed once a second in term_tick */
         cur_undraw(); put_byte(v); T.dirty = 1; cur_draw(); return;
     case 0x03: key(v); return;
     case 0x04:

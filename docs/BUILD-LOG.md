@@ -7254,3 +7254,18 @@ properly: while the log switch is on, the emulator's stderr goes to
 the child ended (exit code or signal), every forced stop, every way out
 (Shift+Esc, SDL_QUIT, F7 Quit / Power off, a normal end) and a heartbeat
 every ten seconds -- and core dumps are enabled, into `~/k4510/core`.
+
+**And the heartbeat found it at once: the log itself.**  On the next boot
+the beats came late (19 s apart) and then one frame per 15 s: 1326, 1327,
+1328 -- Doc: "garbled, messy hung".  The byte log flushed every byte, a
+`write()` each, into the persistence partition, which live-boot mounts
+`sync` (right for a stick that may be pulled, wrong for the Dell's NVMe):
+measured on the Dell, 2000 one-byte writes took 8.3 s, 242 bytes/s, where
+/tmp took 5 ms.  A tmux redraw is tens of kilobytes -- minutes of
+stalling.  That was the slow logins and the "crashes", all of them after
+the log went on at 15:02.  Remounting the partition `async` on the
+running machine brought the beats straight back to 60 a second (1330,
+1929, 2530), the ssh session alive.  Fixed twice over: the byte log is
+buffered (64 KB) and flushed once a second from `term_tick`, and
+`profile.d` remounts a persistence partition on a non-removable disk
+`async` at login -- a stick keeps its `sync`.

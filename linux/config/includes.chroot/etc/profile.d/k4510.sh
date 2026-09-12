@@ -19,6 +19,18 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
     # JIM logs every byte it is sent (K4510_TERMLOG) beside it -- persistent,
     # unlike /etc, so it survives the reboot that brings a new build.  Remove the
     # file to stop.  Doc, 2026-09-12 (stray characters under tmux + Claude Code).
+    # An installed machine (the Dell) keeps its persistence on a fixed disk,
+    # which live-boot mounts `sync` as if it were a stick about to be pulled:
+    # 242 bytes/s for small writes, and the byte log stalled the machine to a
+    # standstill (2026-09-12).  On a disk that cannot be pulled, async it; a
+    # stick (removable) keeps its sync.
+    for m in /run/live/persistence/*; do
+        dev=$(findmnt -rno SOURCE "$m" 2>/dev/null); [ -n "$dev" ] || continue
+        blk=$(lsblk -ndo PKNAME "$dev" 2>/dev/null); [ -n "$blk" ] || blk=$(basename "$dev")
+        if [ "$(cat "/sys/block/$blk/removable" 2>/dev/null)" = 0 ] && findmnt -rno OPTIONS "$m" | tr , '\n' | grep -qx sync; then
+            sudo -n mount -o remount,async "$m" 2>/dev/null
+        fi
+    done
     # The same switch keeps the emulator's own account too: its stderr (tube
     # sessions, every way out, a heartbeat every ten seconds) in
     # emulator-<time>.log beside the byte log, and a core dump if it crashes --

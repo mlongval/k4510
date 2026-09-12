@@ -116,8 +116,13 @@ cat > /etc/grub.d/42_k4510 <<EOF
 #!/bin/sh
 # Added by install-k4510.sh -- the K4510 live system on the internal $DST_LABEL
 # partition.  Loaded straight from GRUB; nothing about the host OS is changed.
+# savedefault: with GRUB_DEFAULT=saved and GRUB_SAVEDEFAULT=true in the host's
+# /etc/default/grub, the OS booted last is the next default -- so the host's
+# own update restarts come back to the host (the Dell, Doc, 2026-09-12).
+# Without GRUB_SAVEDEFAULT it records the choice and changes nothing else.
 cat <<'MENU'
 menuentry "K4510 Fantasy Computer" --class k4510 {
+    savedefault
     insmod part_gpt
     insmod ext2
     search --no-floppy --set=root --label $DST_LABEL

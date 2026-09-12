@@ -7066,3 +7066,14 @@ network, so the line was a cycle, and systemd broke it by dropping
 whichever job it chose -- usually this one.  The 52f3114 boot happened
 to drop another, which is why 127.0.1.1 "worked" once and then did not.
 The line is gone; loopback needs no network.
+
+**The Dell's boot menu: the OS booted last is the default.**  Doc first
+asked for K4510 as the fixed default (saved_entry set, and
+`UPDATEDEFAULT=no` so a Fedora kernel update would not take it back),
+then saw the catch: Fedora's own update restart would come up in K4510
+and the update would wait.  So, his choice: `GRUB_SAVEDEFAULT=true`
+beside `GRUB_DEFAULT=saved` on the Fedora side (Fedora's BLS entries
+save themselves once `save_default` is in grubenv), and a `savedefault`
+line in the K4510 entry -- now written by `install-k4510.sh` too.
+Restart from K4510, K4510 comes back; restart from Fedora, updates
+included, Fedora comes back.  `UPDATEDEFAULT` is back to Fedora's `yes`.

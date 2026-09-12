@@ -38,6 +38,11 @@
 #include <time.h>
 #include <signal.h>
 #include <sys/time.h>
+#if defined(__linux__) && !defined(__EMSCRIPTEN__)
+#include <fcntl.h>
+#include <sys/ioctl.h>
+#include <linux/vt.h>      /* VT_ACTIVATE: Ctrl+Alt+F2..F6 on the K4510 Linux */
+#endif
 
 /* A screenshot on request -- SIGUSR1 (tools/k4510-shot) or PrtSc -- of the
  * machine's own picture: one row per line of the machine, the menu over it
@@ -827,7 +832,29 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
                 if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; }
-                if (k == SDLK_PRINTSCREEN) { shot_req = 1; break; }   /* shots/shot-*.png, paused or not */
+                /* PrtSc: shots/shot-*.png, paused or not.  Both keys: on the K4510
+                 * Linux SDL reads evdev, where PrtSc is KEY_SYSRQ and SDL's table
+                 * makes that SDLK_SYSREQ; SDLK_PRINTSCREEN is X11/Wayland's (and
+                 * evdev's KEY_PRINT).  Found on the Dell with a key logger, 2026-09-12. */
+                if (k == SDLK_PRINTSCREEN || k == SDLK_SYSREQ) { shot_req = 1; break; }
+#if defined(__linux__) && !defined(__EMSCRIPTEN__)
+                /* Ctrl+Alt+F1..F6 on the K4510 Linux: the other consoles.  SDL
+                 * puts tty1's keyboard in K_OFF so no key leaks into the text
+                 * console under us -- and that switches off the kernel's own
+                 * console keys with it.  So the switch is asked for here; from
+                 * tty2..6 the kernel's Ctrl+Alt+F1 brings you back (their
+                 * keyboards are normal).  Doc, the Dell, 2026-09-12. */
+                { static int appliance = -1;
+                  if (appliance < 0) appliance = access("/etc/k4510-linux", F_OK) == 0;
+                  if (appliance && (m & KMOD_CTRL) && (m & KMOD_ALT) && k >= SDLK_F1 && k <= SDLK_F6) {
+                      int vt = 1 + (int)(k - SDLK_F1), fd;
+                      if (vt > 1 && (fd = open("/dev/tty", O_RDWR)) >= 0) {   /* our own tty: no privilege needed */
+                          if (ioctl(fd, VT_ACTIVATE, vt) < 0) perror("k4510: VT_ACTIVATE");
+                          close(fd);
+                      }
+                      break;
+                  } }
+#endif
                 /* Paused, the keyboard is the debugger's (the legend is on the
                  * side panel; it works without the panel too).  Space steps one
                  * instruction, L one scanline, F one frame, D writes a dump

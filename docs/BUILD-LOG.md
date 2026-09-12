@@ -6960,3 +6960,20 @@ text reads.  `tools/k4510-shot` sends the signal and prints the path, so
 writer is thirty lines of stored deflate blocks (no zlib to link; 900 KB
 a frame); the file is renamed into place when whole.  `K4510_SHOT` (the
 guide's one-shot figure at frame N) is unchanged.
+
+**Two keys, found on the Dell the same afternoon with a raw evdev logger**
+(a Python loop over `/dev/input/event*`, reading beside SDL, no grab):
+
+- **PrtSc did nothing** although the kernel sent it: KEY_SYSRQ, 99.  SDL
+  reading evdev (KMSDRM) maps 99 to `SDL_SCANCODE_SYSREQ`; only KEY_PRINT
+  (210) and the X11/Wayland path give `SDLK_PRINTSCREEN`.  Both are taken
+  now.  (On that Dell, Fn+PrtSc is F10.)
+- **Ctrl+Alt+F2 did not leave the machine.**  SDL puts tty1's keyboard in
+  K_OFF (kbd_mode reads "unknown") so keys cannot leak into the text
+  console underneath -- and K_OFF turns off the kernel's console keys too.
+  The emulator now catches Ctrl+Alt+F2..F6 on the K4510 Linux and asks for
+  the switch itself (`VT_ACTIVATE` on its own tty, no privilege needed);
+  Ctrl+Alt+F1 on tty2..6 is the kernel's, as ever.  On the Dell the F-keys
+  are media keys first (Fn-lock), so it is Ctrl+Alt+Fn+F2 there -- plain
+  Ctrl+Alt+F2 arrived as Ctrl+Alt+VolumeDown and turned the machine down.
+  The network screen always worked because `openvt` switches by ioctl.

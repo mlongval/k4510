@@ -7172,3 +7172,31 @@ binary carried it: `input_menu` in `core/ui/menu.c` gave its row count
 as a literal 4, so a fifth row was never drawn.  It counts its array now,
 like every other page.  (Caught from a screenshot of the menu: the
 strings were in the binary, the row was not on the screen.)
+
+## 2026-09-12 — the machine's own keyboard layout, the host in step
+
+Doc, correcting me: "I want a selectable keyboard layout in the K4510.  I
+want it reflected immediately after selection.  I would like the host to
+also reflect the choice ... in SYNC."  I had built a Linux-side layout
+that reached the machine only at the emulator's next start -- on KMSDRM
+SDL copies the kernel keymap once, at init, and has no way to re-read it.
+
+So the machine now types through its own tables: **F7 -> Input ->
+Keyboard layout** -- Host, US, US-intl, Canada-FR, France, Germany,
+Spain, UK, Italy.  "Host" (the default) is the old behaviour, SDL's
+composed text, which is right on a desktop.  Any other maps the PHYSICAL
+key (SDL scancode -> Linux keycode) through `core/kbdmaps.h`: Shift,
+AltGr, Caps Lock on letters, dead keys (`^`, `¨`, `` ` ``, `¸`, `~`, `´`,
+`˚` plus a letter -> the composed letter; twice, or before a space -> the
+accent itself) and Ctrl+letter by the layout's letter, so Ctrl+A is right
+on AZERTY.  SDL's text events are ignored while a table is in force.  It
+applies the moment the menu choice is made.
+
+The tables are generated, not typed: `tools/mkkbdmaps.py` runs Debian's
+`ckbcomp` for each XKB layout -- the same compiler console-setup uses for
+the Linux consoles -- and takes the compositions from Unicode NFC (144 of
+them).  And the host follows: on a menu close that changed the layout or
+Caps as Ctrl, the K4510 Linux runs `k4510-keymap --set`, and at boot the
+helper applies the saved `input.kbd_layout` (renamed from the short-lived
+`host.kbd_layout`; "Host" keeps Linux's own layout and changes only Caps).
+The row left F7 -> Host for F7 -> Input.

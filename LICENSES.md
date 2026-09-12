@@ -18,6 +18,7 @@ where each one came from and how to verify it):
 | `tube/` | BBCSDL console edition ("BBCTTY"), Richard T. Russell (vendored, altered -- see `tube/ALTERED.md`; the name "BBC BASIC" is Richard Russell's interpreter's, and this project holds no licence to it) | zlib |
 | `data/font8.bin`, built by `data/mkfont.py` | the Linux kernel's 8x8 console font (`lib/fonts/font_8x8.c`) | GPL-2.0 |
 | `linux/config/includes.chroot/usr/share/consolefonts/K4510-VGA24x43.psf`, built by `data/mkconsolefont.py` | the Linux kernel's 8x16 VGA console font (`lib/fonts/font_8x16.c`), scaled to 24x43 for the K4510x consoles | GPL-2.0 |
+| `core/kbdmaps.h`, built by `tools/mkkbdmaps.py` | keyboard layouts from xkeyboard-config, compiled by console-setup's `ckbcomp` | MIT/X11 (xkeyboard-config) |
 | `data/fonts/openroms/` | clean-room C64/C65 chargen + PXLfont 2.3 (via open-roms' recorded permission), MEGA65 open-roms project -- `8x8font.png` is the editable source, shipped for LGPL compliance | LGPL-3.0-or-later |
 | `data/fonts/unscii/` | unscii-8, Viznut; `font8-unscii.bin` is a generated drop-in alternative to `data/font8.bin` (not yet wired) | public domain |
 | `data/fonts/bescii/` | BESCII v3 (Mono + source), Damian Vila | CC0-1.0 |

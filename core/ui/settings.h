@@ -49,8 +49,9 @@ typedef enum {
     SET_TERM_DATEFMT,        /* ENUM DD.MM.YYYY / YYYY-MM-DD / MM/DD/YYYY -- all ten cells wide, which is
                               * what lets the IRQ's clock painter stay a fixed-width digit poker */
     SET_INPUT_CAPS_CTRL,     /* BOOL Caps Lock is a Ctrl key (F7 -> Input); at the end so no index moves (Doc, 2026-09-12) */
-    SET_HOST_KBD_LAYOUT,     /* ENUM the K4510 Linux's keyboard layout (F7 -> Host): its consoles at once, the machine at
-                              * the emulator's next start; k4510-keymap applies it (and Caps-as-Ctrl) at every boot */
+    SET_INPUT_KBD_LAYOUT,    /* ENUM the machine's keyboard layout (F7 -> Input): "Host" follows the desktop / kernel keymap;
+                              * any other is the emulator's own table (core/kbdmaps.h), at once, and on the K4510 Linux
+                              * the consoles are set to match (k4510-keymap, also at every boot).  Doc, 2026-09-12 */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;

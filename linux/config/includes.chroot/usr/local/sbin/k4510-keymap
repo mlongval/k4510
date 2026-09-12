@@ -6,12 +6,13 @@
 #                              the emulator's saved F7 settings -- /etc lives in
 #                              RAM, the emulator's k4510.cfg persists
 #   k4510-keymap --set L C     from the emulator when F7 changes them: L a layout
-#                              name (F7 -> Host -> Keyboard layout), C 1 or 0
+#                              name (F7 -> Input -> Keyboard layout; "Host" keeps Linux's own), C 1 or 0
 #                              (F7 -> Input -> Caps Lock is Ctrl)
 #
 # It writes /etc/default/keyboard and reloads the kernel keymap, which every
-# console uses -- and which SDL reads when the emulator starts, so the machine's
-# own typing follows at its next start.  Caps as Ctrl is XKB's ctrl:nocaps.
+# console uses.  The machine types through its own copy of the same XKB layout
+# (core/kbdmaps.h) the moment F7 chooses it; this keeps the Linux side in step.
+# Caps as Ctrl is XKB's ctrl:nocaps.
 # Doc, 2026-09-12 ("make that f7 option change the same thing for the linux side
 # as well as keyboard language"); the boot-menu codes are from 2026-09-10.
 set -e
@@ -22,14 +23,16 @@ if [ "$1" = "--set" ]; then
     name=$2; caps=$3
 else
     name=$(sed -n 's/.*\bk4510\.kbd=\([^ ]*\).*/\1/p' /proc/cmdline)
-    [ -n "$name" ] || name=$(cfgval host.kbd_layout)
+    [ -n "$name" ] || name=$(cfgval input.kbd_layout)
     caps=$(cfgval input.caps_ctrl)
 fi
 case "$caps" in 1|on|yes|true) OPT="ctrl:nocaps" ;; *) OPT="" ;; esac
 [ -n "$name" ] || [ -n "$OPT" ] || exit 0     # nothing chosen anywhere: the shipped default stands
 
 case "$name" in
-    ""|us|US)          L=us; V="" ;;
+    us|US)            L=us; V="" ;;
+    ""|Host)          L=$(sed -n 's/^XKBLAYOUT="\(.*\)"/\1/p' /etc/default/keyboard); L=${L:-us}
+                       V=$(sed -n 's/^XKBVARIANT="\(.*\)"/\1/p' /etc/default/keyboard) ;;   # Host: keep the layout, change only Caps
     us-intl|US-intl)   L=us; V=intl ;;
     ca|cf|Canada-FR)   L=ca; V="" ;;
     fr|France)         L=fr; V="" ;;

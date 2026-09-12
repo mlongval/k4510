@@ -259,6 +259,66 @@ static uint8_t key_ascii(SDL_Keycode k, int shift)
     return 0;
 }
 
+/* ---- the machine's own keyboard layout (F7 -> Input -> Keyboard layout) ----
+ * "Host" types what the host composed (SDL_TEXTINPUT).  Any other layout is
+ * the emulator's own table, from the same XKB data the Linux consoles use
+ * (tools/mkkbdmaps.py -> core/kbdmaps.h), applied to the PHYSICAL key -- so it
+ * takes effect the moment it is chosen: on KMSDRM, SDL copies the kernel
+ * keymap once at init and could never follow a change.  Shift, AltGr, Caps
+ * Lock on letters, dead keys, and Ctrl+letter by the layout's letter.  Doc,
+ * 2026-09-12: "selectable in the K4510, immediately, the host in sync". */
+#include "../core/kbdmaps.h"
+static const uint8_t sdl2lnx[] = {                        /* SDL scancode -> Linux keycode, the typing keys */
+    [SDL_SCANCODE_A] = 30, [SDL_SCANCODE_B] = 48, [SDL_SCANCODE_C] = 46, [SDL_SCANCODE_D] = 32, [SDL_SCANCODE_E] = 18,
+    [SDL_SCANCODE_F] = 33, [SDL_SCANCODE_G] = 34, [SDL_SCANCODE_H] = 35, [SDL_SCANCODE_I] = 23, [SDL_SCANCODE_J] = 36,
+    [SDL_SCANCODE_K] = 37, [SDL_SCANCODE_L] = 38, [SDL_SCANCODE_M] = 50, [SDL_SCANCODE_N] = 49, [SDL_SCANCODE_O] = 24,
+    [SDL_SCANCODE_P] = 25, [SDL_SCANCODE_Q] = 16, [SDL_SCANCODE_R] = 19, [SDL_SCANCODE_S] = 31, [SDL_SCANCODE_T] = 20,
+    [SDL_SCANCODE_U] = 22, [SDL_SCANCODE_V] = 47, [SDL_SCANCODE_W] = 17, [SDL_SCANCODE_X] = 45, [SDL_SCANCODE_Y] = 21,
+    [SDL_SCANCODE_Z] = 44,
+    [SDL_SCANCODE_1] = 2, [SDL_SCANCODE_2] = 3, [SDL_SCANCODE_3] = 4, [SDL_SCANCODE_4] = 5, [SDL_SCANCODE_5] = 6,
+    [SDL_SCANCODE_6] = 7, [SDL_SCANCODE_7] = 8, [SDL_SCANCODE_8] = 9, [SDL_SCANCODE_9] = 10, [SDL_SCANCODE_0] = 11,
+    [SDL_SCANCODE_MINUS] = 12, [SDL_SCANCODE_EQUALS] = 13, [SDL_SCANCODE_LEFTBRACKET] = 26, [SDL_SCANCODE_RIGHTBRACKET] = 27,
+    [SDL_SCANCODE_BACKSLASH] = 43, [SDL_SCANCODE_NONUSHASH] = 43, [SDL_SCANCODE_SEMICOLON] = 39, [SDL_SCANCODE_APOSTROPHE] = 40,
+    [SDL_SCANCODE_GRAVE] = 41, [SDL_SCANCODE_COMMA] = 51, [SDL_SCANCODE_PERIOD] = 52, [SDL_SCANCODE_SLASH] = 53,
+    [SDL_SCANCODE_SPACE] = 57, [SDL_SCANCODE_NONUSBACKSLASH] = 86,
+};
+static uint32_t kbd_dead;                                 /* a dead key's accent, waiting for its letter */
+static uint8_t cp437_of(unsigned long cp);
+static const uint32_t *layout_entry(int layout, SDL_Scancode sc)
+{
+    if (layout <= 0 || layout > KBD_MAPS || sc < 0 || sc >= (int)sizeof sdl2lnx || !sdl2lnx[sc]) return NULL;
+    return kbd_maps[layout - 1][sdl2lnx[sc]];
+}
+static void push_unicode(uint32_t u)
+{
+    if (u >= 0x20 && u < 0x7F) kbd_push((uint8_t) u);
+    else if (u) { uint8_t b = cp437_of(u); if (b) kbd_push(b); }
+}
+static int layout_key(int layout, SDL_Scancode sc, SDL_Keymod m)   /* 1: the layout typed it (or knowingly nothing) */
+{
+    const uint32_t *e = layout_entry(layout, sc);
+    if (!e) return 0;
+    int shift = (m & KMOD_SHIFT) != 0, altgr = (m & (KMOD_RALT | KMOD_MODE)) != 0;
+    if ((e[0] & KBD_CAPS) && (m & KMOD_CAPS)) shift = !shift;
+    uint32_t v = e[(shift ? 1 : 0) + (altgr ? 2 : 0)];
+    if (!v) return 1;
+    if (v & KBD_DEAD) {                                   /* a dead key: wait for the letter; twice types the accent */
+        uint32_t acc = v & 0xFFFF;
+        if (kbd_dead) { push_unicode(kbd_dead); if (kbd_dead == acc) { kbd_dead = 0; return 1; } }
+        kbd_dead = acc; return 1;
+    }
+    uint32_t u = v & KBD_CHAR;
+    if (kbd_dead) {
+        uint32_t out = 0;
+        for (unsigned i = 0; i < sizeof kbd_compose / sizeof kbd_compose[0]; i++)
+            if (kbd_compose[i].dead == kbd_dead && kbd_compose[i].base == u) { out = kbd_compose[i].out; break; }
+        if (out) u = out; else push_unicode(kbd_dead);    /* no such letter: the accent, then the key */
+        kbd_dead = 0;
+    }
+    push_unicode(u);
+    return 1;
+}
+
 /* Unicode -> code page 437, for the half of the machine's font above ASCII.
  * Only the letters and marks a keyboard can actually produce are here; the box
  * drawing has no key.  0 means "this machine cannot show it". */
@@ -491,14 +551,14 @@ static pid_t kbd_child;
 static void host_keymap_apply(void)
 {
     static int last_layout = -1, last_caps = -1;
-    int l = settings_get(SET_HOST_KBD_LAYOUT), c = settings_get(SET_INPUT_CAPS_CTRL);
+    int l = settings_get(SET_INPUT_KBD_LAYOUT), c = settings_get(SET_INPUT_CAPS_CTRL);
     if (kbd_child > 0 && waitpid(kbd_child, NULL, WNOHANG) == kbd_child) kbd_child = 0;
     if (last_layout < 0) { last_layout = l; last_caps = c; return; }
     if (l == last_layout && c == last_caps) return;
     if (access("/etc/k4510-linux", F_OK) != 0) { last_layout = l; last_caps = c; return; }   /* a desktop owns its keyboard */
     if (kbd_child > 0) return;                        /* one at a time; the next close tries again */
     last_layout = l; last_caps = c;
-    char name[32]; settings_text(SET_HOST_KBD_LAYOUT, name, sizeof name);
+    char name[32]; settings_text(SET_INPUT_KBD_LAYOUT, name, sizeof name);
     pid_t pid = fork();
     if (pid == 0) {
         int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
@@ -844,6 +904,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (e.cbutton.button == SDL_CONTROLLER_BUTTON_BACK)  kbd_push(0x1B);   /* Back/Select = Esc, how every game leaves */
                 break;
             case SDL_TEXTINPUT: {
+                if (settings_get(SET_INPUT_KBD_LAYOUT) > 0) break;   /* the machine's own layout typed it at SDL_KEYDOWN */
                 pend = 0;                                    /* SDL does send text here: the key code is not needed */
                 /* Caps Lock as Ctrl: while it is held a letter is a Ctrl code, and
                  * SDL_KEYDOWN sends that -- the host would type the letter too.  And
@@ -959,6 +1020,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                       printf("volume %d%%\n", v); fflush(stdout);
                       break;
                   } }
+                { int lay = settings_get(SET_INPUT_KBD_LAYOUT);   /* the machine's own layout: Ctrl by ITS letter (AZERTY's A), then typing */
+                  const uint32_t *le = layout_entry(lay, e.key.keysym.scancode);
+                  if (le && (m & KMOD_CTRL)) { uint32_t b = le[0] & KBD_CHAR; if (b >= 'a' && b <= 'z') { kbd_push((uint8_t)(b - 'a' + 1)); break; } }
+                  if (le && !(m & (KMOD_CTRL | KMOD_LALT | KMOD_GUI)) && layout_key(lay, e.key.keysym.scancode, m)) break; }
                 if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
                 switch (k) {
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;

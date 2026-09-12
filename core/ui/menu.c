@@ -44,6 +44,7 @@ static const item_t input_items[] = {
     { "Mouse capture", MI_SETTING, SET_INPUT_MOUSE_GRAB },
     { "Mouse pointer", MI_SETTING, SET_INPUT_MOUSE_SHOW },
     { "Caps Lock is Ctrl", MI_SETTING, SET_INPUT_CAPS_CTRL },
+    { "Keyboard layout",   MI_SETTING, SET_INPUT_KBD_LAYOUT },
 };
 static const item_t save_items[] = {
     { "Slot 1", MI_SAVESLOT, 0 }, { "Slot 2", MI_SAVESLOT, 1 }, { "Slot 3", MI_SAVESLOT, 2 }, { "Slot 4", MI_SAVESLOT, 3 },
@@ -92,7 +93,6 @@ static const item_t info_items[] = {
 static const item_t host_items[] = {
     { "Name",      MI_INFO, INFO_NAME }, { "Address", MI_INFO, INFO_ADDR }, { "Tailscale", MI_INFO, INFO_TS },
     { "",          MI_SEP },
-    { "Keyboard layout", MI_SETTING, SET_HOST_KBD_LAYOUT },
     { "Wi-Fi / network setup", MI_ACTION, ACT_NETSETUP },
     { "Telnet into the host",  MI_ACTION, ACT_TELNET },
 };

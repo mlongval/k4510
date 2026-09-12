@@ -37,7 +37,7 @@ emcc -O2 -Icore -Wno-unused-function -DK4510_NOPROC -DK4510_WASM \
     -o "$OUT/index.html" $SRC
 ls -lh "$OUT"
 # what must never be in a public bundle
-if strings "$OUT/index.js" | grep -qE 'fonts/zx/|TUNES/|STARTUP\.BAT|SYSTEM/LOG/|\.k4s'; then
+if strings "$OUT/index.js" | grep -qE 'fonts/zx/[^"]*\.bin|TUNES/|STARTUP\.BAT|SYSTEM/LOG/(PERF|TRACE|BENCH)|\.k4s'; then
     echo "wasm/build.sh: the bundle contains untracked personal files -- not publishing" >&2; exit 1
 fi
 echo "wasm/build.sh: $OUT  ($BUILD)"

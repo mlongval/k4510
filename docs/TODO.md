@@ -30,6 +30,30 @@ every guest caller polls -- the ROM, the demos, both BASICs, Pascal, CP/M.
 - [ ] **Hear it**: during a slow `LOAD http://...` the window should keep
       responding and the picture stay put; sound goes quiet while it waits.
 
+## From the 2026-09-12 review (`docs/notes/review-2026-09-12.md`)
+
+Fixed the same day except these:
+
+- [ ] **The stick keeps the Tailscale node key and Wi-Fi PSKs in clear** on
+      its persistence partition — Doc's call: `tailscale logout` before
+      lending it, or drop `/var/lib/tailscale` from the stick's persistence.
+- [ ] **STAT/CHDIR on ftp/sftp/http fetch the whole file** — a HEAD
+      request (`curl -sI`) for the size; cache one listing per CD→DIR.
+- [ ] **Chess's port reply buffer is unbounded** (~40 BOARD lines in one
+      .CMD); RX `RANDOM(5,4)` divides by zero; PARSE patterns copy a clause
+      into 160-byte temps; `EX/SPIRAL.LGO` is empty.
+- [ ] **`nav_list`'s `b[256]`** on the shell's stack — list into the
+      resident `line` with CAP = its size, as GETCWD does.
+- [ ] **Header dependencies**: `-MMD -MP` in CFLAGS and `-include *.d`;
+      today no `.d` is ever produced and the three cleanups clean nothing.
+- [ ] `tekplay`/`tekmenu` break on plot paths with spaces; `tek40xx/build.sh`
+      clones an unpinned upstream; `git archive | tar` masks a git failure
+      (POSIX sh, no pipefail) in build-live/podman.
+- [ ] `patch_cpm.py` is not re-runnable; the in-process Tube is test-only
+      since the Pi went and `io.c`/`tube_cp.h`/`io.h`/`net.h`/`sndq.c`
+      comments still describe core 3.
+- [ ] Tests worth adding are listed at the end of the review note.
+
 ## Small, known
 
 - [ ] **FORTH has no break key** — poll `$D103` like RX and LOGO do.

@@ -14,20 +14,49 @@
 #include <sys/wait.h>
 #include <netdb.h>
 #include <poll.h>
+#include <signal.h>
 
 int plat_net_ready(void) { return 1; }
 unsigned plat_ticks(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (unsigned)(ts.tv_sec * 1000 + ts.tv_nsec / 1000000); }
+
+/* The machine waits on its network the way it would on a disk: the guest's
+ * device call does not return until the answer is in.  What must NOT stop is
+ * the frontend -- a 120 s curl used to freeze the window until the compositor
+ * greyed it out (review 2026-09-05, 4).  So every wait here is cut into
+ * slices of WAIT_SLICE ms, and between slices the frontend's hook runs
+ * (sdl/main.c: pump events so the window stays alive). */
+void (*plat_net_wait_hook)(void);
+#define WAIT_SLICE 50
+static void waited(void) { if (plat_net_wait_hook) plat_net_wait_hook(); }
+/* poll() one fd for ev, up to timeout_ms, in slices: >0 ready, 0 timed out, <0 error */
+static int poll_sliced(int fd, short ev, int timeout_ms)
+{
+    struct pollfd pf = { fd, ev, 0 }; unsigned t0 = plat_ticks();
+    for (;;) {
+        int left = timeout_ms - (int)(plat_ticks() - t0), r;
+        if (left < 0) left = 0;
+        r = poll(&pf, 1, left < WAIT_SLICE ? left : WAIT_SLICE);
+        if (r != 0) return r;
+        if (left <= WAIT_SLICE) return 0;
+        waited();
+    }
+}
 
 static int connect_to(const char *host, int port, int socktype)
 {
     struct addrinfo hints, *res, *ai; char ps[16]; int fd = -1;
     snprintf(ps, sizeof ps, "%d", port);
     memset(&hints, 0, sizeof hints); hints.ai_socktype = socktype;
-    if (getaddrinfo(host, ps, &hints, &res)) return -1;
+    if (getaddrinfo(host, ps, &hints, &res)) return -1;     /* the name lookup itself still blocks; it is quick or it fails */
     for (ai = res; ai; ai = ai->ai_next) {
+        int fl, err = 0; socklen_t el = sizeof err;
         fd = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
         if (fd < 0) continue;
-        if (!connect(fd, ai->ai_addr, ai->ai_addrlen)) break;
+        /* connect without blocking, then wait for it in slices (10 s) */
+        fl = fcntl(fd, F_GETFL); fcntl(fd, F_SETFL, fl | O_NONBLOCK);
+        if (!connect(fd, ai->ai_addr, ai->ai_addrlen)
+            || (errno == EINPROGRESS && poll_sliced(fd, POLLOUT, 10000) > 0
+                && !getsockopt(fd, SOL_SOCKET, SO_ERROR, &err, &el) && !err)) { fcntl(fd, F_SETFL, fl); break; }
         close(fd); fd = -1;
     }
     freeaddrinfo(res);
@@ -37,8 +66,7 @@ int  plat_udp_open(const char *host, int port) { return connect_to(host, port, S
 int  plat_udp_send(int h, const void *buf, int n) { return (int) send(h, buf, (size_t) n, 0); }
 int  plat_udp_recv(int h, void *buf, int max, int timeout_ms)
 {
-    struct pollfd pf = { h, POLLIN, 0 };
-    int r = poll(&pf, 1, timeout_ms);
+    int r = poll_sliced(h, POLLIN, timeout_ms);
     if (r <= 0) return r < 0 ? -1 : 0;
     r = (int) recv(h, buf, (size_t) max, 0);
     return r < 0 ? -1 : r;
@@ -103,6 +131,7 @@ int plat_http_fetch(const char *url, uint8_t **buf, uint32_t *len)
     for (;;) {
         ssize_t r;
         if (n == cap) { uint8_t *nb; cap *= 2; if (!(nb = realloc(b, cap))) { free(b); close(p[0]); waitpid(pid, &st, 0); return 2; } b = nb; }
+        if (poll_sliced(p[0], POLLIN, 130000) <= 0) { kill(pid, SIGKILL); break; }   /* curl's own --max-time is 120 */
         r = read(p[0], b + n, cap - n);
         if (r <= 0) break;
         n += (uint32_t) r;

@@ -120,8 +120,14 @@ static tnfs_t *tnfs_session(const url_t *u)
     tnfs_t *t = NULL; uint8_t req[160], rep[16]; int n, k;
     for (int i = 0; i < sess_n; i++) if (!strcasecmp(sess[i].host, u->host) && sess[i].port == u->port) t = &sess[i];
     if (t && t->up) return t;
-    if (!t) { if (sess_n == 4) { sess_n = 0; }   /* the oldest goes */
-              t = &sess[sess_n++]; memset(t, 0, sizeof *t); snprintf(t->host, sizeof t->host, "%s", u->host); t->port = u->port; t->h = -1; }
+    /* A new server takes a free slot; when all four are live the oldest goes
+     * round-robin, and its socket is closed first.  (Before 2026-09-11 a fifth
+     * server reset sess_n to 0: slot 0's socket leaked, and slots 1-3 stayed
+     * open but unsearched until they too were overwritten -- review 2026-09-05, 5.) */
+    if (!t) { static int oldest;
+              if (sess_n < 4) t = &sess[sess_n++];
+              else { t = &sess[oldest]; oldest = (oldest + 1) & 3; if (t->h >= 0) plat_udp_close(t->h); }
+              memset(t, 0, sizeof *t); snprintf(t->host, sizeof t->host, "%s", u->host); t->port = u->port; t->h = -1; }
     if (t->h < 0 && (t->h = plat_udp_open(u->host, u->port)) < 0) return NULL;
     /* version 1.0, mount "/", then user and password (Chapter 2.3 -- empty for
      * a public server, filled from user:password@ in the devicespec) */

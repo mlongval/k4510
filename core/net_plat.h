@@ -23,6 +23,9 @@ void plat_tcp_close(int h);
 /* the whole body of an http(s) URL; 0 ok, 1 not found, 2 error, 6 unsupported (https where there is no TLS) */
 int  plat_http_fetch(const char *url, uint8_t **buf, uint32_t *len);
 unsigned plat_ticks(void);                                    /* milliseconds */
+/* Called every ~50 ms while a transfer waits, so the frontend can keep its
+ * window alive; the machine itself waits, as on a disk.  NULL = nothing. */
+extern void (*plat_net_wait_hook)(void);
 #ifdef __cplusplus
 }
 #endif

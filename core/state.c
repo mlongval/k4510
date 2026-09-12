@@ -2,6 +2,7 @@
 #include "state.h"
 #include "mem.h"
 #include "host.h"
+#include "term.h"
 #include "xemu/emutools_basicdefs.h"
 #include "xemu/cpu65.h"
 #include <string.h>
@@ -47,8 +48,9 @@ static int ram_load(FILE *f)
 
 int state_save(const char *path)
 {
-    FILE *f = fopen(path, "wb");
+    FILE *f = fopen(path, "wb"); int cur;
     if (!f) return -1;
+    cur = term_cursor_park();              /* the RAM goes out without the cursor XORed into it */
     fwrite(magic, 1, 8, f);
     state_put(f, "CPU ", &cpu65, sizeof cpu65);
     ram_save(f);
@@ -57,6 +59,7 @@ int state_save(const char *path)
     io_state_save(f);
     term_state_save(f);
     state_put(f, "END ", 0, 0);
+    term_cursor_unpark(cur);
     return fclose(f) ? -1 : 0;
 }
 int state_load(const char *path)

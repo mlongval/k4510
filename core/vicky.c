@@ -6,14 +6,17 @@
 
 static uint8_t  reg[256];
 static uint32_t pal[256];
+static uint32_t pal_gen;                     /* bumped on every palette change: the frontend rebuilds its tables on a new value */
 static int      cur_line;
 static uint8_t  col_ss[16], col_sl[16];     /* collision accumulators for the frame in progress */
 static uint8_t *frame_fb; static int frame_pitch;
 static uint32_t sh_pc; static int sh_wait;   /* -1 = not waiting, -2 = ended */
 static uint16_t raster_cmp;
 static uint8_t  owner[VICKY_WIDTH];          /* per-pixel: 0 = layers only, else sprite n+1 */
-static uint8_t  layer_hit[VICKY_WIDTH];
-static uint8_t  lowres_tmp[VICKY_WIDTH];     /* CTRL bit1: 320x240 rendered here, then doubled */      /* per-pixel: a layer drew a non-zero index here */
+static uint8_t  layer_hit[VICKY_WIDTH];      /* per-pixel: a layer drew a non-zero index here */
+static uint8_t  lowres_tmp[VICKY_WIDTH];     /* CTRL bit1: 320x240 rendered here, then doubled */
+static uint8_t  spr_list[4][VICKY_SPRITES];  /* this line's sprites, by Z, in table order (sprites_gather) */
+static int      spr_n[4];
 
 static const uint32_t c64_palette[16] = {   /* VIC-II colours as the first 16 entries (spec §2) */
     0x000000, 0xFFFFFF, 0x880000, 0xAAFFEE, 0xCC44CC, 0x00CC55, 0x0000AA, 0xEEEE77,
@@ -24,12 +27,14 @@ void vicky_reset(void)
 {
     memset(reg, 0, sizeof reg);
     for (int i = 0; i < 256; i++) pal[i] = (i < 16) ? c64_palette[i] : (uint32_t)(i * 0x010101);
+    pal_gen++;
     cur_line = 0;
     sh_wait = -2; raster_cmp = 0xFFFF;
 }
 
 static void blit(void);
 uint32_t vicky_palette_rgb(int i) { return pal[i & 0xFF]; }
+uint32_t vicky_palette_gen(void) { return pal_gen; }
 
 uint8_t vicky_read(uint8_t r)
 {
@@ -57,6 +62,7 @@ void vicky_write(uint8_t r, uint8_t v)
         uint8_t i = reg[VR_PALIDX];
         pal[i] = ((uint32_t)reg[VR_PALR] << 16) | ((uint32_t)reg[VR_PALG] << 8) | v;
         reg[VR_PALIDX] = i + 1;
+        pal_gen++;
     }
 }
 
@@ -65,18 +71,22 @@ static inline uint16_t rd16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 static inline uint8_t  ram(uint32_t a) { return k4510_ram[a & K4510_PHYS_MASK]; }
 #define ram_ptr(a) k4510_ram[(a) & K4510_PHYS_MASK]
 
-/* Render one scanline of one layer into line[], honouring transparency.
- * opaque: this is the lowest enabled layer, so index 0 is drawn too. */
 static uint32_t cur_at; static int cur_style, cur_on;      /* JIM's shaped cursor */
 void vicky_cursor(uint32_t attr_addr, int style, int on) { cur_at = attr_addr; cur_style = style; cur_on = on && style; }
 
-static void layer_line(int n, int y, uint8_t *line, int opaque)
+/* Render the first w pixels of one scanline of one layer into line[]; index 0
+ * is transparent.  w is 640, or 320/160 in the half- and quarter-width modes,
+ * where nothing past w is ever shown (review 2026-09-05, 8: those modes used
+ * to render all 640 and throw most away).  Cell and pixel sizes are powers of
+ * two, so positions are shifts and masks, not a divide per pixel. */
+static void layer_line(int n, int y, uint8_t *line, int w)
 {
     const uint8_t *L = &reg[VR_LAYER(n)];
     int mode  = (L[VL_CTRL] >> 1) & 3;
     int depth = (L[VL_CTRL] >> 3) & 3;          /* 0..3 -> 1,2,4,8 bpp */
     int csz   = (L[VL_CTRL] >> 5) & 3;          /* cell size field */
     int bpp   = 1 << depth;
+    int ppb   = 8 >> depth;                     /* pixels per byte */
     uint8_t  palofs = L[VL_PALOFS];
     uint32_t data   = rd32(&L[VL_DATA]);
     uint32_t map    = rd32(&L[VL_MAP]);
@@ -86,38 +96,43 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
     uint8_t mask = (uint8_t)((1 << bpp) - 1);
 
     if (mode == VL_MODE_BITMAP) {
-        int ppb = 8 / bpp;
         uint8_t base = (uint8_t)(palofs << bpp);
         uint32_t row = data + (uint32_t)sy * stride;
-        for (int x = 0; x < VICKY_WIDTH; x++) {
-            int sx = x + sx0;
-            uint8_t b = ram(row + sx / ppb);
-            int shift = (bpp == 8) ? 0 : (8 - bpp - (sx % ppb) * bpp);
-            uint8_t pix = (b >> shift) & mask;
-            if (pix || opaque) { line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix); if (pix) layer_hit[x] = 1; }
+        if (bpp == 8) {
+            for (int x = 0; x < w; x++) { uint8_t pix = ram(row + (uint32_t)(sx0 + x)); if (pix) { line[x] = pix; layer_hit[x] = 1; } }
+            return;
+        }
+        /* 1/2/4 bpp: fetch each byte once and walk its pixels */
+        uint32_t a = row + (uint32_t)(sx0 >> (3 - depth));
+        int sub = sx0 & (ppb - 1);
+        uint8_t b = ram(a);
+        for (int x = 0; x < w; x++) {
+            uint8_t pix = (b >> (8 - bpp - sub * bpp)) & mask;
+            if (pix) { line[x] = (uint8_t)(base | pix); layer_hit[x] = 1; }
+            if (++sub == ppb) { sub = 0; b = ram(++a); }
         }
         return;
     }
     if (mode == VL_MODE_TILE) {
-        int size = 8 << csz;                               /* 8,16,32,64 */
+        int lg = 3 + csz, size = 1 << lg;                  /* 8,16,32,64 */
         int tbytes = size * size * bpp / 8;
         int rowbytes = size * bpp / 8;
-        int cy = sy / size, ty = sy % size;
-        for (int x = 0; x < VICKY_WIDTH; ) {
+        int cy = sy >> lg, ty = sy & (size - 1);
+        for (int x = 0; x < w; ) {
             int sx = x + sx0;
-            int cx = sx / size, tx0 = sx % size;
+            int cx = sx >> lg, tx0 = sx & (size - 1);
             uint32_t e = map + ((uint32_t)cy * stride + cx) * 2;
             uint16_t ent = ram(e) | (ram(e + 1) << 8);
             int idx = ent & 0x3FF, hf = ent & 0x400, vf = ent & 0x800;
             uint8_t base = (uint8_t)((ent >> 12) << bpp);
             int ry = vf ? (size - 1 - ty) : ty;
             uint32_t trow = data + (uint32_t)idx * tbytes + (uint32_t)ry * rowbytes;
-            for (int tx = tx0; tx < size && x < VICKY_WIDTH; tx++, x++) {
+            for (int tx = tx0; tx < size && x < w; tx++, x++) {
                 int px = hf ? (size - 1 - tx) : tx;
-                uint8_t b = ram(trow + px * bpp / 8);
-                int shift = (bpp == 8) ? 0 : (8 - bpp - (px % (8 / bpp)) * bpp);
+                uint8_t b = ram(trow + (uint32_t)((px << depth) >> 3));
+                int shift = (bpp == 8) ? 0 : (8 - bpp - (px & (ppb - 1)) * bpp);
                 uint8_t pix = (b >> shift) & mask;
-                if (pix || opaque) { line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix); if (pix) layer_hit[x] = 1; }
+                if (pix) { line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix); layer_hit[x] = 1; }
             }
         }
         return;
@@ -127,19 +142,19 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
     int cy = sy / H, gy = sy % H;
     if (mode == VL_MODE_TEXT) {
         uint8_t base = (uint8_t)(palofs << 1);
-        for (int x = 0; x < VICKY_WIDTH; ) {
+        for (int x = 0; x < w; ) {
             int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
             uint8_t cell = ram(map + (uint32_t)cy * stride + cx);
             uint8_t row  = ram(data + (uint32_t)cell * H + gy);
-            for (int gx = gx0; gx < 8 && x < VICKY_WIDTH; gx++, x++) {
+            for (int gx = gx0; gx < 8 && x < w; gx++, x++) {
                 uint8_t pix = (row >> (7 - gx)) & 1;
-                if (pix || opaque) { line[x] = (uint8_t)(base | pix); if (pix) layer_hit[x] = 1; }
+                if (pix) { line[x] = (uint8_t)(base | pix); layer_hit[x] = 1; }
             }
         }
         return;
     }
     /* text32 */
-    for (int x = 0; x < VICKY_WIDTH; ) {
+    for (int x = 0; x < w; ) {
         int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
         uint32_t e = map + ((uint32_t)cy * stride + cx) * 4;
         uint16_t g = ram(e) | ((ram(e + 1) & 0x7F) << 8);
@@ -151,7 +166,7 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
          * bottom two rows, a bar its left two columns */
         int cur = cur_on && e + 1 == cur_at;
         if (cur && cur_style == 1 && gy < H - 2) cur = 0;
-        for (int gx = gx0; gx < 8 && x < VICKY_WIDTH; gx++, x++) {
+        for (int gx = gx0; gx < 8 && x < w; gx++, x++) {
             int sw = cur && (cur_style == 1 || gx < 2);
             line[x] = (((row >> (7 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
             layer_hit[x] = 1;              /* text32 cells are opaque: every pixel is "a layer drew here" */
@@ -159,31 +174,51 @@ static void layer_line(int n, int y, uint8_t *line, int opaque)
     }
 }
 
-/* Draw every enabled sprite with Z == z that covers line y. */
-static void sprites_line(int z, int y, uint8_t *line)
+/* Once per line: which enabled sprites cover line y, bucketed by Z in table
+ * order.  The four sprites_line calls then walk only those, instead of each
+ * reading all 128 entries (review 2026-09-05, 7).  Per line, not per frame,
+ * because SHEILA or a raster IRQ may rewrite the table mid-frame. */
+static void sprites_gather(int y)
 {
+    spr_n[0] = spr_n[1] = spr_n[2] = spr_n[3] = 0;
     if (!(reg[VR_SPRCTL] & 1)) return;
     uint32_t tab = rd32(&reg[VR_SPRTAB]);
     for (int n = 0; n < VICKY_SPRITES; n++) {
         uint32_t e = tab + (uint32_t)n * 16;
         uint8_t ctrl = ram(e + 8);
-        if (!(ctrl & 1) || ((ctrl >> 4) & 3) != z) continue;
+        if (!(ctrl & 1)) continue;
+        int16_t syp = (int16_t)(ram(e + 2) | (ram(e + 3) << 8));
+        int h = 8 << ((ram(e + 9) >> 2) & 3);
+        int ry = y - syp;
+        if (ry < 0 || ry >= h) continue;
+        int z = (ctrl >> 4) & 3;
+        spr_list[z][spr_n[z]++] = (uint8_t)n;
+    }
+}
+
+/* Draw this line's sprites with Z == z (sprites_gather ran first), clipped to w. */
+static void sprites_line(int z, int y, uint8_t *line, int w)
+{
+    uint32_t tab = rd32(&reg[VR_SPRTAB]);
+    for (int k = 0; k < spr_n[z]; k++) {
+        int n = spr_list[z][k];
+        uint32_t e = tab + (uint32_t)n * 16;
+        uint8_t ctrl = ram(e + 8);
         int16_t sxp = (int16_t)(ram(e) | (ram(e + 1) << 8));
         int16_t syp = (int16_t)(ram(e + 2) | (ram(e + 3) << 8));
         uint8_t size = ram(e + 9);
-        int w = 8 << (size & 3), h = 8 << ((size >> 2) & 3);
+        int sw = 8 << (size & 3), h = 8 << ((size >> 2) & 3);
         int ry = y - syp;
-        if (ry < 0 || ry >= h) continue;
         int bpp = (ctrl & 2) ? 8 : 4;
-        int rowbytes = w * bpp / 8;
+        int rowbytes = sw * bpp / 8;
         uint32_t data = rd32(&ram_ptr(e + 4));
         if (ctrl & 8) ry = h - 1 - ry;                  /* V-flip */
         uint32_t row = data + (uint32_t)ry * rowbytes;
         uint8_t base = (uint8_t)(ram(e + 10) << 4);
-        for (int px = 0; px < w; px++) {
+        for (int px = 0; px < sw; px++) {
             int x = sxp + px;
-            if (x < 0 || x >= VICKY_WIDTH) continue;
-            int sp = (ctrl & 4) ? (w - 1 - px) : px;    /* H-flip */
+            if (x < 0 || x >= w) continue;
+            int sp = (ctrl & 4) ? (sw - 1 - px) : px;   /* H-flip */
             uint8_t b = ram(row + sp * bpp / 8);
             uint8_t pix = (bpp == 8) ? b : ((sp & 1) ? (b & 0x0F) : (b >> 4));
             if (!pix) continue;
@@ -302,27 +337,30 @@ void vicky_line(int y)
     int yy = y - top;
     if (ctrl & 6) {
         int half = ctrl & 2;
+        int q = (ctrl & 16) ? 4 : 2;                           /* screen pixels per pixel of the machine */
+        int w = half ? VICKY_WIDTH / q : VICKY_WIDTH;
         if (yy & 1) { memcpy(line, line - frame_pitch, VICKY_WIDTH); return; }
         uint8_t *dst = half ? lowres_tmp : line;
         memset(dst, reg[VR_BGCOL], VICKY_WIDTH);
         if (ctrl & 1) {
             memset(owner, 0, VICKY_WIDTH); memset(layer_hit, 0, VICKY_WIDTH);
+            sprites_gather(yy >> 1);
             for (int n = 0; n < VICKY_LAYERS; n++) {
-                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy >> 1, dst, 0);
-                sprites_line(n, yy >> 1, dst);
+                if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy >> 1, dst, w);
+                sprites_line(n, yy >> 1, dst, w);
             }
         }
-        if (half) { int q = (ctrl & 16) ? 4 : 2;             /* screen pixels per pixel of the machine */
-                    for (int x = 0; x < VICKY_WIDTH / q; x++)
+        if (half) { for (int x = 0; x < w; x++)
                         for (int i = 0; i < q; i++) line[x * q + i] = lowres_tmp[x]; }
         return;
     }
     memset(line, reg[VR_BGCOL], VICKY_WIDTH);
     if (!(ctrl & 1)) return;
     memset(owner, 0, VICKY_WIDTH); memset(layer_hit, 0, VICKY_WIDTH);
+    sprites_gather(yy);
     for (int n = 0; n < VICKY_LAYERS; n++) {
-        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy, line, 0);
-        sprites_line(n, yy, line);
+        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy, line, VICKY_WIDTH);
+        sprites_line(n, yy, line, VICKY_WIDTH);
     }
 }
 
@@ -377,5 +415,6 @@ int vicky_state_load(FILE *f)
     if (state_get(f, "VREG", reg, sizeof reg) || state_get(f, "VPAL", pal, sizeof pal) || state_get(f, "VRAS", &raster_cmp, sizeof raster_cmp)
         || state_get(f, "VSHP", &sh_pc, sizeof sh_pc) || state_get(f, "VSHW", &sh_wait, sizeof sh_wait)) return -2;
     memset(col_ss, 0, sizeof col_ss); memset(col_sl, 0, sizeof col_sl);
+    pal_gen++;
     return 0;
 }

@@ -1165,6 +1165,15 @@ static void tube_pump(void)
 {
     uint8_t buf[256]; ssize_t n; int full = 0;
     if (tube_fd < 0) return;
+    /* The ROM polls $D800 every few instructions while the Tube is up, and a
+     * read() per poll was ~100k syscalls a second doing nothing (review
+     * 2026-09-05, 6).  Read the pty at most once per 100 us of real time --
+     * clock_gettime is a vDSO call, not a syscall -- and let the polls in
+     * between see the ring as it stands. */
+    { static struct timespec last; struct timespec now;
+      clock_gettime(CLOCK_MONOTONIC, &now);
+      if ((now.tv_sec - last.tv_sec) * 1000000000L + (now.tv_nsec - last.tv_nsec) < 100000L && tube_w != tube_r) return;
+      last = now; }
     for (;;) {
         if (tube_w - tube_r >= sizeof tube_ring - 600) { full = 1; break; }
         if ((n = read (tube_fd, buf, sizeof buf)) <= 0) break;

@@ -564,4 +564,10 @@ void term_write(uint8_t r, uint8_t v)
 /* ---- save states (core/state.h) ------------------------------------------ */
 #include "state.h"
 void term_state_save(FILE *f) { state_put(f, "JIM ", &T, sizeof T); }
+/* Around a save: the blink XORs the cell under the cursor in RAM, so a state
+ * taken with it lit kept a reversed cell that nothing would put back (review
+ * 2026-09-05, 2).  state_save parks it before the RAM goes out and puts it
+ * back after; load already starts with the cursor off. */
+int  term_cursor_park(void) { int was = CUR_SHOWN; cur_undraw(); return was; }
+void term_cursor_unpark(int was) { if (was) cur_draw(); }
 int  term_state_load(FILE *f) { if (state_get(f, "JIM ", &T, sizeof T)) return -2; T.cur_on &= 6; vicky_cursor(0, 0, 0); return 0; }

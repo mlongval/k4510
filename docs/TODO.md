@@ -22,16 +22,13 @@ Pi port was removed 2026-09-07, the SIDs 2026-09-05, the names settled
 
 ## From the 2026-09-05 review (`docs/notes/review-2026-09-05.md`)
 
-Fixed 2026-09-11: **1** (a deep cwd overflowed the ROM's GETCWD buffer — the
-device now clamps to a declared size, `$D318`, and DIR comes home through
-`FS_CHDIR_BACK`; `test/cwdtest.sh`), **3** (text32's `layer_hit` store one
-past the cell), **11** (RM's trash name buffer).  Still open, awaiting Doc's
-ruling:
+All thirteen closed on 2026-09-11; how each landed is at the top of the
+file.  One thing it leaves: a network fetch still makes the *machine* wait
+(the window stays alive now).  A true background fetch needs a "busy" bit
+every guest caller polls -- the ROM, the demos, both BASICs, Pascal, CP/M.
 
-- [ ] **2** save states keep the cursor's XOR in the saved cell.
-- [ ] **4** a network fetch blocks the whole frame (picture, sound, window).
-- [ ] **5** `tnfs_session` leaks a socket every fifth server.
-- [ ] **6–10, 12, 13** — the smaller ones; see the file.
+- [ ] **Hear it**: during a slow `LOAD http://...` the window should keep
+      responding and the picture stay put; sound goes quiet while it waits.
 
 ## Small, known
 

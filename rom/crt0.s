@@ -400,6 +400,10 @@ s_reset: ldx #28                ; a reset clears every bank (F12 does not reset 
         jmp s_load              ; $FF89  LOAD    name ptr in $F0/$F1, dest in $F2..$F5 -> A status, size in $F6..$F9
         jmp s_save              ; $FF8C  SAVE    name ptr $F0/$F1, src $F2..$F5, len $F6..$F9 -> A status
         jmp s_shell             ; $FF8F  SHELL   A/X = pointer to a command line; runs it as if typed
+                                ;        A command that RUNs a second program comes back with $02-$21
+                                ;        as that program's system calls left them (zp_in/zp_out keep
+                                ;        one save), so a caller that lives in $02-$21 must not SHELL a
+                                ;        program -- use SWAP, as RANGER does (review 2026-09-05, 12).
         jmp s_video             ; $FF92  VIDEO   restore the ROM's video mode and palette (after a program drew)
         jmp s_args              ; $FF95  ARGS    $F0/$F1 = the command tail the shell saved, A = its length
 

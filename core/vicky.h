@@ -43,9 +43,9 @@
  *   $84,85  LX0   $86,87 LY0   $88,89 LX1   $8A,8B LY1   $8C,8D LX2   $8E,8F LY2  (signed 16-bit)
  *   Blits are 8 bpp (one byte per pixel) in this version.
  *   $90-$9F COLSS  read: sprite-sprite collision bits, one bit per sprite
- *                  (sprite n hit another sprite this frame). Cleared on read of $40.
+ *                  (sprite n hit another sprite this frame). All 16 cleared on read of $90.
  *   $A0-$AF COLSL  read: sprite-layer collision bits (sprite n over a
- *                  non-transparent layer pixel). Cleared on read of $50.
+ *                  non-transparent layer pixel). All 16 cleared on read of $A0.
  *
  *   Sprite attribute entry, 16 bytes, in main RAM:
  *   +0,1 X (signed 16)   +2,3 Y (signed 16)   +4..7 DATA 28-bit pointer
@@ -167,5 +167,6 @@ void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest 
 void     vicky_cursor(uint32_t attr_addr, int style, int on);
 int      vicky_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
 uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
+uint32_t vicky_palette_gen(void);                     /* changes whenever any palette entry may have */
 
 #endif

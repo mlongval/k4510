@@ -444,6 +444,22 @@ static void host_net_setup(void) { }
 static void host_reap(void) { }
 #endif
 
+/* While the machine waits on the network (core/net_posix.c), keep the window
+ * answering: the compositor greys out a window that stops pumping events.
+ * The machine itself waits, as it would on a disk; only the main thread may
+ * touch SDL, and a CP/M or BBC BASIC fetch on another thread just waits. */
+#include "net_plat.h"
+static SDL_threadID main_tid;
+static void net_wait_alive(void)
+{
+    static Uint32 last; Uint32 now;
+    if (SDL_ThreadID() != main_tid) return;
+    now = SDL_GetTicks();
+    if (now - last < 50) return;
+    last = now;
+    SDL_PumpEvents();
+}
+
 int k4510_frontend_main(int argc, char **argv)
 {
     /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F7 switch
@@ -492,6 +508,7 @@ int k4510_frontend_main(int argc, char **argv)
     SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");   /* the keys are the canvas's once it is clicked, F-keys included */
 #endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    main_tid = SDL_ThreadID(); plat_net_wait_hook = net_wait_alive;
     /* the touchpad as a pointer on the bare console (see touchpad_event); K4510_TOUCHPAD=0|1 overrides */
     { const char *d = SDL_GetCurrentVideoDriver(), *o = getenv("K4510_TOUCHPAD");
       touchpad_rel = o ? atoi(o) : (d && SDL_strcasecmp(d, "KMSDRM") == 0);
@@ -566,6 +583,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
     static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
+    int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
     int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
     int mode_shown = -1, margin_shown = -1, status_shown = -1, mode_req = 0, mode_wait = 0;
@@ -942,7 +960,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               act = ACT_NONE; }
         switch (act) {
         case ACT_RESET: cpu65_reset(); break;
-        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); io_reset(); apply_font(font_applied); mem_load_rom(rom); cpu65_reset();
+        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); /* resets the I/O too */ apply_font(font_applied); mem_load_rom(rom); cpu65_reset();
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: running = 0; break;
@@ -1100,12 +1118,19 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               (dst)  = 0xFF000000u | (LIT(r_) << 16) | (LIT(g_) << 8) | LIT(b_); \
               (ddst) = 0xFF000000u | (DIM(r_) << 16) | (DIM(g_) << 8) | DIM(b_); \
           } while (0)
-          for (int i = 0; i < 256; i++) {
-              uint32_t c = vicky_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
-              BUILD(pal[i], dpal[i], c);
-              BUILD(mpal[i], mdpal[i], h);
-          }
-          for (int i = 0; i < UIC_COUNT; i++) BUILD(upal[i], udpal[i], ui_palette_rgb(i));
+          /* the 256-entry tables only when VICKY's palette or the scanlines
+           * changed (review 2026-09-05, 9); the menu's dozen and the border
+           * are cheap enough to do every frame */
+          { static uint32_t gen_done = 0xFFFFFFFFu; static int scan_done = -1;
+            if (vicky_palette_gen() != gen_done || scan_applied != scan_done) {
+                gen_done = vicky_palette_gen(); scan_done = scan_applied; tex_stale = 1;
+                for (int i = 0; i < 256; i++) {
+                    uint32_t c = vicky_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
+                    BUILD(pal[i], dpal[i], c);
+                    BUILD(mpal[i], mdpal[i], h);
+                }
+            } }
+          for (int i = 0; i < UIC_COUNT; i++) { uint32_t o = upal[i]; BUILD(upal[i], udpal[i], ui_palette_rgb(i)); if (upal[i] != o) tex_stale = 1; }
           /* The border is part of the picture, so it is scanlined and gained
            * with it.  It used to be a flat SDL_RenderClear at full palette
            * brightness, which left it both unstriped and brighter than the
@@ -1121,6 +1146,14 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
         void *pixels; int pitch;
         p_a = SDL_GetPerformanceCounter();
+        /* Nothing new to show -- same picture, same overlay, same tables --
+         * and the texture already holds it: skip the 307,200 lookups (review
+         * 2026-09-05, 9).  A still screen at the prompt is most frames. */
+        { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1, last_scan = -1;
+          if (!tex_stale && open == last_open && scan_applied == last_scan
+              && !memcmp(fb, last_fb, sizeof fb) && (!open || !memcmp(ov, last_ov, sizeof ov))) goto tex_done;
+          tex_stale = 0; last_open = open; last_scan = scan_applied;
+          memcpy(last_fb, fb, sizeof fb); if (open) memcpy(last_ov, ov, sizeof ov); }
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
         { int tall = scan_applied != SCAN_OFF;         /* two texture rows per line of the machine */
           for (int y = 0; y < VICKY_HEIGHT; y++) {
@@ -1139,6 +1172,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               }
           } }
         SDL_UnlockTexture(tex);
+tex_done:
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);

@@ -6,6 +6,7 @@
 #include "net_plat.h"
 #include <stdlib.h>
 #include <time.h>
+void (*plat_net_wait_hook)(void);                             /* nothing here ever waits */
 int  plat_net_ready(void) { return 0; }
 int  plat_udp_open(const char *host, int port) { (void) host; (void) port; return -1; }
 int  plat_udp_send(int h, const void *buf, int n) { (void) h; (void) buf; (void) n; return -1; }

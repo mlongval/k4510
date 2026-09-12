@@ -127,3 +127,6 @@ static void text8_print(uint32_t map, uint8_t cols, uint8_t x, uint8_t y, const 
 #endif
 
 unsigned char __fastcall__ rom_shell(const char *line);   /* run a K/OS command ($FF8F) */
+/* rom_shell and $02-$21: a command that RUNs another program returns with
+ * $02-$21 as that program's system calls left them.  A caller that keeps
+ * state there must not rom_shell a program; use SWAP, as RANGER does. */

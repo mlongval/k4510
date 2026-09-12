@@ -102,14 +102,25 @@ static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included
 
 #pragma code-name (pop)
 
+/* The cursor is the reverse bit of the attribute byte under it, flipped; the
+ * IRQ blinks it by XOR.  cursor_vis bit 7 keeps what that bit was, so taking
+ * the cursor away puts the cell back as it was drawn -- it used to write 0,
+ * which lost a program's reversed character and the glyph's high bits (review
+ * 2026-09-05, 2).  The IRQ only asks whether cursor_vis is zero.  In ROM1C:
+ * ROM2 has no room for the extra bytes. */
+#pragma code-name (push, "CODE")
 static void draw_cursor(uint8_t on)
 {
-    uint32_t c = cell(cx, cy) + 1;
-    cursor_vis = 0;
-    far_poke(c, on ? 0x80 : 0x00);           /* reverse bit = cursor; IRQ blinks it */
-    cursor_far = c;
-    cursor_vis = on;
+    uint8_t was = cursor_vis, v;
+    cursor_vis = 0;                          /* the IRQ stops first */
+    if (was) { v = far_peek(cursor_far); far_poke(cursor_far, (uint8_t)((v & 0x7F) | (was & 0x80))); }
+    if (!on) return;
+    cursor_far = cell(cx, cy) + 1;
+    v = far_peek(cursor_far);
+    far_poke(cursor_far, (uint8_t)(v ^ 0x80));
+    cursor_vis = (uint8_t)(1 | (v & 0x80));
 }
+#pragma code-name (pop)
 
 /* ---- the status bands -------------------------------------------------- *
  * Two static bars frame the console when status mode is on.  The console is

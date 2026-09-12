@@ -19,6 +19,15 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
     # JIM logs every byte it is sent (K4510_TERMLOG) beside it -- persistent,
     # unlike /etc, so it survives the reboot that brings a new build.  Remove the
     # file to stop.  Doc, 2026-09-12 (stray characters under tmux + Claude Code).
-    [ -f "$HOME/k4510/DIAG/TERMLOG" ] && export K4510_TERMLOG="$HOME/k4510/DIAG/termlog-$(date +%Y%m%d-%H%M%S).bin"
+    # The same switch keeps the emulator's own account too: its stderr (tube
+    # sessions, every way out, a heartbeat every ten seconds) in
+    # emulator-<time>.log beside the byte log, and a core dump if it crashes --
+    # core_pattern is "core", so ~/k4510/core, which persists.
+    if [ -f "$HOME/k4510/DIAG/TERMLOG" ]; then
+        TS=$(date +%Y%m%d-%H%M%S)
+        export K4510_TERMLOG="$HOME/k4510/DIAG/termlog-$TS.bin"
+        ulimit -c unlimited 2>/dev/null
+        cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510 2>>"$HOME/k4510/DIAG/emulator-$TS.log"
+    fi
     cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510
 fi

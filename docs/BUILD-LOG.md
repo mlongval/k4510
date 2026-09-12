@@ -7237,3 +7237,20 @@ ROM2 (33 bytes free) into a `band_refresh()` in ROM1C, which saves ROM2
 more than it costs.  `K4510_BATTERY=52` (or `52+`) stands in for a
 battery, for a headless test.  Then, at Doc's word, the "BAT" went:
 the band shows `52%` and the arrow, nothing more.
+
+## 2026-09-12 — "ssh crashed again on login": what the logs could and could not say
+
+The byte logs place it: the session of the boot at 17:46 stopped dead at
+17:47:33 while tmux was drawing Claude Code, the second ubuntu-s1 logged
+"Received disconnect ... disconnected by user".  No new byte log followed
+until Doc rebooted at 17:49:58, though an emulator that exits or crashes
+is restarted by the tty1 autologin within seconds -- so the facts do not
+yet fit together (a clean disconnect wants the pty closed; no restart
+wants the process alive).  Replaying both logs through JIM under
+AddressSanitizer and UBSan (`test/termreplay LOG [--host]`, new) found
+nothing: JIM is not what fell over.  So the next occurrence is recorded
+properly: while the log switch is on, the emulator's stderr goes to
+`~/k4510/DIAG/emulator-<time>.log` -- every Tube start with its pid, how
+the child ended (exit code or signal), every forced stop, every way out
+(Shift+Esc, SDL_QUIT, F7 Quit / Power off, a normal end) and a heartbeat
+every ten seconds -- and core dumps are enabled, into `~/k4510/core`.

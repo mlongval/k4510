@@ -886,6 +886,7 @@ static int tube_was_alive;
 #include <termios.h>
 #ifdef __linux__
 #include <sys/prctl.h>          /* PR_SET_PDEATHSIG: the child dies with the emulator */
+static void tube_log(const char *fmt, ...);   /* defined with tube_start; the reap in tube_pump uses it first */
 #endif
 #include <sys/wait.h>
 #include <signal.h>
@@ -1221,12 +1222,28 @@ static void tube_pump(void)
      * the same instant, and closing the master with bytes still in it lost
      * the end of the line.  With the ring full the read stopped early, so
      * the child's last words may still be in the pty -- next time. */
-    if (!full && tube_pid && waitpid (tube_pid, NULL, WNOHANG) == tube_pid) { tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); }
+    { int st = 0;
+      if (!full && tube_pid && waitpid (tube_pid, &st, WNOHANG) == tube_pid) {
+          tube_log("pid %d ended: %s %d", (int) tube_pid, WIFSIGNALED (st) ? "signal" : "exit", WIFSIGNALED (st) ? WTERMSIG (st) : WEXITSTATUS (st));
+          tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); } }
 }
 /* The `!` shell talks UTF-8 (a Linux host's programs do) and JIM draws CP437, so
  * JIM decodes for the length of a shell session -- switched off once the
  * session's last byte has been read out, not at the reap, when the ROM may still
  * be pumping the tail.  CP/M and BBC BASIC send CP437 of their own: prog 4 only. */
+#include <stdarg.h>
+#include <time.h>
+/* The Tube's comings and goings, on stderr with the wall clock -- which the
+ * K4510 Linux keeps in ~/k4510/DIAG/emulator-*.log while the log switch is on.
+ * Put in to find out what ended an ssh session on the Dell (2026-09-12). */
+static void tube_log(const char *fmt, ...)
+{
+    struct timespec ts; struct tm tm; va_list ap;
+    clock_gettime(CLOCK_REALTIME, &ts); localtime_r(&ts.tv_sec, &tm);
+    fprintf(stderr, "%02d:%02d:%02d.%03ld tube: ", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000);
+    va_start(ap, fmt); vfprintf(stderr, fmt, ap); va_end(ap);
+    fputc('\n', stderr); fflush(stderr);
+}
 static int tube_utf8;
 static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_r) { term_host_session(0); tube_utf8 = 0; } }
 static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM), 4 = the host shell */
@@ -1314,11 +1331,13 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     }
     if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
     fcntl (tube_fd, F_SETFL, O_NONBLOCK);
-    if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* after the ROM's JIM reset, which turns it off */
+    if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* the ROM's JIM reset (tube_term) follows, and leaves it */
+    tube_log("start prog %d pid %d%s%s", prog, (int) tube_pid, cmd[0] ? " cmd: " : "", cmd);
 }
 static void tube_stop(void)
 {
-    if (tube_pid) { kill (-tube_pid, SIGKILL); kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }   /* the session: a `!nohup x &` too */
+    if (tube_pid) { tube_log("stop: killing pid %d", (int) tube_pid);
+                    kill (-tube_pid, SIGKILL); kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }   /* the session: a `!nohup x &` too */
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
     tube_w = tube_r = 0;
     tula_close();

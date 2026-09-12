@@ -53,6 +53,16 @@
  * from outside (fbdev is bypassed, the scanout is tiled). */
 static volatile sig_atomic_t shot_req;
 static int caps_ctrl_down;          /* F7 -> Input -> Caps Lock is Ctrl: the key is held now */
+/* Why the machine stopped, on stderr with the wall clock (the K4510 Linux keeps
+ * it in ~/k4510/DIAG/emulator-*.log while the log switch is on): every way out,
+ * and a heartbeat every ten seconds, so a freeze shows as the beats stopping.
+ * Put in to explain an ssh session that ended on the Dell (2026-09-12). */
+static void mlog(const char *what)
+{
+    struct timespec ts; struct tm tm;
+    clock_gettime(CLOCK_REALTIME, &ts); localtime_r(&ts.tv_sec, &tm);
+    fprintf(stderr, "%02d:%02d:%02d.%03ld %s\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000, what); fflush(stderr);
+}
 #ifndef __EMSCRIPTEN__
 static void shot_signal(int sig) { (void) sig; shot_req = 1; }
 #endif
@@ -912,7 +922,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         uint8_t pend = 0;               /* a printable key waiting to see whether SDL sends its text */
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
-            case SDL_QUIT: running = 0; break;
+            case SDL_QUIT: mlog("quit: SDL_QUIT (the window closed, or a SIGTERM)"); running = 0; break;
             case SDL_WINDOWEVENT:
                 if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) grab(0);   /* alt-tab always frees the pointer */
                 break;
@@ -1066,7 +1076,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;
                 case SDLK_BACKSPACE: kbd_push(KEY_BS); break;
                 case SDLK_TAB:       kbd_push(KEY_TAB); break;
-                case SDLK_ESCAPE:    if (m & KMOD_SHIFT) running = 0; else kbd_push(KEY_ESC); break;
+                case SDLK_ESCAPE:    if (m & KMOD_SHIFT) { mlog("quit: Shift+Esc"); running = 0; } else kbd_push(KEY_ESC); break;
                 case SDLK_UP: kbd_push_key(KEY_UP); break;     case SDLK_DOWN: kbd_push_key(KEY_DOWN); break;
                 case SDLK_LEFT: kbd_push_key(KEY_LEFT); break; case SDLK_RIGHT: kbd_push_key(KEY_RIGHT); break;
                 case SDLK_HOME: kbd_push_key(KEY_HOME); break; case SDLK_END: kbd_push_key(KEY_END); break;
@@ -1231,8 +1241,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); /* resets the I/O too */ apply_font(font_applied); mem_load_rom(rom); cpu65_reset();
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
-        case ACT_QUIT: running = 0; break;
-        case ACT_SHUTDOWN: shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
+        case ACT_QUIT: mlog("quit: F7 -> Quit"); running = 0; break;
+        case ACT_SHUTDOWN: mlog("quit: F7 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
         case ACT_NETSETUP: host_net_setup(); break;
         case ACT_TELNET: { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }
@@ -1243,6 +1253,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 #ifndef __EMSCRIPTEN__
         host_battery_poll();                                          /* $D53A, every ten seconds */
 #endif
+        { static Uint32 beat_at; static unsigned long loops; loops++;  /* the heartbeat: a freeze is the beats stopping */
+          if (SDL_GetTicks() - beat_at >= 10000) { char b[96]; beat_at = SDL_GetTicks();
+              snprintf(b, sizeof b, "alive: %lu loops, Tube %s, menu %s", loops, (io_read(IO_TUBE) & 1) ? "running" : "idle", open ? "open" : "shut");
+              mlog(b); } }
         /* SETUP has finished measuring and asks us to keep the clock it settled
          * on.  The guest chose it; we supply the two things it cannot know --
          * which host this is, and where the file lives. */
@@ -1677,6 +1691,7 @@ tex_done:
               running = 0; } }
     }
     if (settings_changed()) settings_save(cfg);
+    mlog("exit: the frame loop ended normally");
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
     /* Shut the computer down, in this order and not another: the settings are
      * already written above, SDL has given the console back, and only then do

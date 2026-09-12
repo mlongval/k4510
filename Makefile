@@ -66,6 +66,8 @@ test/uitest: test/uitest.c $(CORE_OBJS)
 
 test/termtest: test/termtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+test/termreplay: test/termreplay.c $(CORE_OBJS)   # replay a K4510_TERMLOG through JIM (a crash hunt)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/fstest: test/fstest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)

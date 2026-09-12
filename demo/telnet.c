@@ -11,7 +11,14 @@
  * the PC's ANSI.SYS, which garbled htop on JIM; xterm-color draws it
  * clean (test/ttypetest.sh) -- and an older system or a BBS that wants
  * ANSI keeps asking until it hears a name it knows.  Every other DO/WILL gets a
- * WONT/DONT, so plain servers, MUDs and a raw TCP echo talk too. */
+ * WONT/DONT, so plain servers, MUDs and a raw TCP echo talk too.
+ * UTF-8: a Linux host's programs speak it -- Claude Code's bullets and lines
+ * were noise without (Doc, 2026-09-12).  But CP437 art can be valid UTF-8 by
+ * accident (C4 B3), so JIM decodes (ESC % G) only for a far end that asks the
+ * terminal type and takes the first answer, XTERM-COLOR: that is a Unix host.
+ * One that asks again is working down to VT220/ANSI -- a BBS or an old system --
+ * and gets CP437 back (ESC % @); one that never asks never leaves CP437.  In a
+ * UTF-8 session an accented letter typed goes out as UTF-8 too. */
 #include "k4510.h"
 
 #define NET      0xD900u
@@ -28,8 +35,25 @@ static char url[96];
 static unsigned char buf[256], rep[12], sb[16], sbn, cmd;
 static const char *const ttypes[] = { "XTERM-COLOR", "VT220", "VT100", "ANSI" };
 static unsigned char tt[20], tti;                         /* the TTYPE IS reply, and which name is next */
+static unsigned char u8;                                  /* the session is UTF-8 (JIM decoding) */
+static const unsigned int cp437u[128] = {                 /* CP437 $80-$FF -> Unicode, for a typed letter */
+    0x00C7,0x00FC,0x00E9,0x00E2,0x00E4,0x00E0,0x00E5,0x00E7,0x00EA,0x00EB,0x00E8,0x00EF,0x00EE,0x00EC,0x00C4,0x00C5,
+    0x00C9,0x00E6,0x00C6,0x00F4,0x00F6,0x00F2,0x00FB,0x00F9,0x00FF,0x00D6,0x00DC,0x00A2,0x00A3,0x00A5,0x20A7,0x0192,
+    0x00E1,0x00ED,0x00F3,0x00FA,0x00F1,0x00D1,0x00AA,0x00BA,0x00BF,0x2310,0x00AC,0x00BD,0x00BC,0x00A1,0x00AB,0x00BB,
+    0x2591,0x2592,0x2593,0x2502,0x2524,0x2561,0x2562,0x2556,0x2555,0x2563,0x2551,0x2557,0x255D,0x255C,0x255B,0x2510,
+    0x2514,0x2534,0x252C,0x251C,0x2500,0x253C,0x255E,0x255F,0x255A,0x2554,0x2569,0x2566,0x2560,0x2550,0x256C,0x2567,
+    0x2568,0x2564,0x2565,0x2559,0x2558,0x2552,0x2553,0x256B,0x256A,0x2518,0x250C,0x2588,0x2584,0x258C,0x2590,0x2580,
+    0x03B1,0x00DF,0x0393,0x03C0,0x03A3,0x03C3,0x00B5,0x03C4,0x03A6,0x0398,0x03A9,0x03B4,0x221E,0x03C6,0x03B5,0x2229,
+    0x2261,0x00B1,0x2265,0x2264,0x2320,0x2321,0x00F7,0x2248,0x00B0,0x2219,0x00B7,0x221A,0x207F,0x00B2,0x25A0,0x00A0 };
 
 static void say(const char *s) { while (*s) REG(TERM) = *s++; }
+static unsigned char utf8_of(unsigned char k, unsigned char *o)   /* a CP437 letter -> its UTF-8 bytes */
+{
+    unsigned int u = cp437u[k - 0x80];
+    if (u < 0x800) { o[0] = (unsigned char)(0xC0 | (u >> 6)); o[1] = (unsigned char)(0x80 | (u & 0x3F)); return 2; }
+    o[0] = (unsigned char)(0xE0 | (u >> 12)); o[1] = (unsigned char)(0x80 | ((u >> 6) & 0x3F)); o[2] = (unsigned char)(0x80 | (u & 0x3F));
+    return 3;
+}
 static unsigned char net(unsigned char cmd) { REG(NET_CMD) = cmd; return REG(NET_ST); }
 static void net_send(const unsigned char *p, unsigned int n) { w32(NET + 8, (uint16_t)p); w32(NET + 12, n); net(3); }
 
@@ -64,12 +88,16 @@ void main(void)
     REG(V_BGCOL)     = 0;                                 /* the screen behind the terminal */
     REG(TERM + 4) = 2;                                    /* clear, so no blue is left around the art */
     say("connected to "); say(url + 6); say("  (F12 hangs up)\r\n");
+    u8 = 0;                                               /* CP437 until the far end takes XTERM-COLOR */
     REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
     for (;;) {
         k = rom_getin();
         if (k == 0x9B && (REG(KBDST) & 0x40)) break;      /* F12 (the kind bit: $9B is also a letter) */
         if (k == 0x0D) { buf[0] = 13; buf[1] = 10; net_send(buf, 2); }
-        else if (k >= 0x80 && !(REG(KBDST) & 0x40)) { buf[0] = k; net_send(buf, 1); }   /* an accented letter: raw, JIM would make it a cursor key */
+        else if (k >= 0x80 && !(REG(KBDST) & 0x40)) {   /* an accented letter: not through JIM, which would make it a cursor key */
+            if (u8) i = utf8_of(k, buf); else { buf[0] = k; i = 1; }
+            net_send(buf, i);
+        }
         else if (k) {                                     /* through JIM: arrows and F-keys become VT sequences */
             REG(TERM + 3) = k;
             for (i = 0; (REG(TERM + 1) & 0x80) && i < 16; i++) buf[i] = REG(TERM + 2);
@@ -113,6 +141,8 @@ void main(void)
                     if (sbn >= 2 && sb[0] == 24 && sb[1] == 1) {
                         const char *t = ttypes[tti];
                         unsigned char n = 4;
+                        if (tti == 0) { say("\033%G"); u8 = 1; }          /* offering XTERM-COLOR: UTF-8 if it is taken */
+                        else if (u8) { say("\033%@"); u8 = 0; }           /* asked again: not a Unix host, CP437 */
                         if (tti < 3) tti++;               /* the last name repeats: the list is spent */
                         tt[0] = 255; tt[1] = 250; tt[2] = 24; tt[3] = 0;
                         while (*t) tt[n++] = *t++;
@@ -132,6 +162,7 @@ void main(void)
         if (!got) wait_vblank();
     }
     net(4);
+    if (u8) { say("\033%@"); u8 = 0; }                     /* the machine's own screen is CP437 */
     REG(TERM + 0x0E) = 0;
     REG(TERM + 0x15) = odbg;                              /* every exit comes through here: F12, */
     REG(TERM + 0x0C) = odbg;                              /* a far end that hung up, or a closed */

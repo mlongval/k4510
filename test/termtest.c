@@ -81,5 +81,32 @@ int main(void)
     CHECK(!(cell(3, 2)[1] & 0x80), "the rewritten cell keeps what was written, not the cursor's inversion");
     W(0x0E, 1); CHECK(cell(3, 5)[1] & 0x80, "and the cursor still draws afterwards");
     printf("7. a cell rewritten under the cursor: ok\n");
+
+    /* 8. UTF-8 (ESC % G): a Linux host's box lines and bullets as CP437, a BBS's
+     * CP437 art untouched, wide and zero-width characters keeping the columns,
+     * and off again by ESC % @ and by the machine's reset (Doc, 2026-09-12). */
+    W(0x0E, 0); W(4, 1); W(4, 2);
+    send("\033%G\xE2\x94\x80\xE2\x94\x82\xE2\x95\xAD\xE2\x97\x8F\xC3\xA9\xE2\x86\x92\xE2\x94\x81");   /* ─ │ ╭ ● é → ━ */
+    CHECK(cell(0, 0)[0] == 0xC4 && cell(1, 0)[0] == 0xB3 && cell(2, 0)[0] == 0xDA && cell(3, 0)[0] == 0x07
+          && cell(4, 0)[0] == 0x82 && cell(5, 0)[0] == 0x1A && cell(6, 0)[0] == 0xC4,
+          "UTF-8 -> CP437: %02X %02X %02X %02X %02X %02X %02X", cell(0, 0)[0], cell(1, 0)[0], cell(2, 0)[0], cell(3, 0)[0], cell(4, 0)[0], cell(5, 0)[0], cell(6, 0)[0]);
+    CHECK(R(9) == 7, "seven characters, seven cells (cursor %d)", R(9));
+    send("\r\n\xDB\xDB \xB1\xC4" "A\xFF");                     /* not UTF-8: a lead before a lead, a lone B1, a lead before 'A', FF */
+    CHECK(cell(0, 1)[0] == 0xDB && cell(1, 1)[0] == 0xDB && cell(2, 1)[0] == ' ' && cell(3, 1)[0] == 0xB1
+          && cell(4, 1)[0] == 0xC4 && cell(5, 1)[0] == 'A' && cell(6, 1)[0] == 0xFF,
+          "bytes that cannot be UTF-8 draw as CP437: %02X %02X %02X %02X %02X %02X %02X", cell(0, 1)[0], cell(1, 1)[0], cell(2, 1)[0], cell(3, 1)[0], cell(4, 1)[0], cell(5, 1)[0], cell(6, 1)[0]);
+    W(9, 20); send("\xC4\xB3");                                 /* the known limit: a line + a bar IS valid UTF-8 (U+0133) -- why TELNET keeps a BBS in CP437 */
+    CHECK(cell(20, 1)[0] == '?' && R(9) == 21, "C4 B3 decodes as one character, not a line and a bar (%02X, cursor %d)", cell(20, 1)[0], R(9));
+    send("\r\n\xE4\xB8\xADx\xCC\x81y\xF0\x9F\x98\x80z");      /* 中 (wide) x + combining acute, y, 😀 (wide), z */
+    row(r, 2); CHECK(!strcmp(r, "? xy? z"), "wide = '?' + space, combining = nothing ('%s')", r);
+    send("\r\n\xE2\x94\033[1mA");                               /* ESC mid-sequence: the half-read bytes spill, the ESC still acts */
+    CHECK(cell(0, 3)[0] == 0xE2 && cell(1, 3)[0] == 0x94 && cell(2, 3)[0] == 'A', "ESC mid-sequence (%02X %02X %c)", cell(0, 3)[0], cell(1, 3)[0], cell(2, 3)[0]);
+    send("\033[0m\033%@\r\n\xE2\x94\x80");                      /* off: three CP437 glyphs */
+    CHECK(cell(0, 4)[0] == 0xE2 && cell(1, 4)[0] == 0x94 && cell(2, 4)[0] == 0x80, "ESC %% @ turns it off");
+    send("\033%G"); W(4, 1); W(4, 2); send("\xE2\x94\x80");      /* CTRL 1, the machine's reset: off too */
+    CHECK(cell(0, 0)[0] == 0xE2 && cell(2, 0)[0] == 0x80, "CTRL 1 turns it off (%02X)", cell(0, 0)[0]);
+    term_set_utf8(1); W(4, 2); send("\xE2\x94\x80"); CHECK(cell(0, 0)[0] == 0xC4, "term_set_utf8 (the ! shell's switch)");
+    term_set_utf8(0);
+    printf("8. UTF-8: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

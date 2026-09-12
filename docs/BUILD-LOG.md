@@ -6977,3 +6977,31 @@ guide's one-shot figure at frame N) is unchanged.
   are media keys first (Fn-lock), so it is Ctrl+Alt+Fn+F2 there -- plain
   Ctrl+Alt+F2 arrived as Ctrl+Alt+VolumeDown and turned the machine down.
   The network screen always worked because `openvt` switches by ioctl.
+
+## 2026-09-12 — JIM reads UTF-8 for the `!` shell and a Unix TELNET
+
+Doc was reading Claude Code through TELNET from the Dell's K4510 and it
+was noise: every bullet, box line and arrow is two or three UTF-8 bytes,
+and JIM drew each byte as its own CP437 glyph (a bullet came out `ΓùÅ`).
+JIM now has a UTF-8 mode -- `ESC % G` on, `ESC % @` off, and CTRL 1 (the
+machine's reset) off -- in which a sequence draws as its CP437 glyph:
+the lines, blocks, suits, arrows and accented letters CP437 has, a near
+neighbour for the common ones it lacks (rounded corners, heavy lines,
+bullets, dashes, curly quotes, ticks, braille by dot count), `?` for the
+rest.  Wide characters are `?` and a space and combining ones nothing,
+so the far end's columns still line up; a byte that cannot be UTF-8
+(a lead with no continuation) draws as CP437.
+
+**What turns it on.**  The `!` shell: always -- the emulator switches it
+on when it starts the session (after the ROM's JIM reset) and off once
+the session's last byte has been read out, and sets `LANG=C.UTF-8` when
+the host set no locale.  TELNET: only for a far end that asks the
+terminal type and takes the first answer, XTERM-COLOR (a Unix host);
+one that asks again is working down to ANSI and gets CP437 back, and one
+that never asks never leaves CP437.  The first cut turned it on at every
+connect, and the new test showed why not: CP437 art is valid UTF-8 by
+accident often enough -- `C4 B3`, a line and a bar, is `ĳ`; `DB B0`, a
+block and a shade, is an Arabic digit -- so a BBS that never negotiates
+would have lost its art.  In a UTF-8 session TELNET also sends a typed
+accented letter as UTF-8.  `test/termtest` leg 8 covers the decoding,
+the fallback, the widths, the known `C4 B3` limit and the three offs.

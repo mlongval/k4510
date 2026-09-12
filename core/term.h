@@ -37,7 +37,10 @@
  * DECALN, RIS), ANSI SGR 0/1/4/5/7/22/24/27/30-37/39/40-47/49/90-97/100-107
  * and 38;5;n / 48;5;n for n < 16, VT220 ICH/DCH/IL/DL/ECH/SU/SD/CHA/VPA,
  * IRM, ESC[?25 cursor, ESC[s/u, DECSTR, DECSCUSR (ESC [ n SP q: 0-2 block, 3-4 underline,
- * 5-6 bar -- the shape VI changes with its mode). Bytes $80-$FF are glyphs (CP437). */
+ * 5-6 bar -- the shape VI changes with its mode). Bytes $80-$FF are glyphs (CP437).
+ * UTF-8: ESC % G on, ESC % @ off, CTRL 1 off.  On, a UTF-8 sequence draws as its
+ * CP437 glyph (or a near one, or '?'), and a byte that continues no sequence is
+ * CP437 as before.  The `!` shell and TELNET turn it on for their sessions. */
 #ifndef K4510_TERM_H
 #define K4510_TERM_H
 #include <stdint.h>
@@ -49,6 +52,7 @@ void    term_reset(void);          /* power-on: geometry defaults too */
 uint8_t term_read(uint8_t reg);
 void    term_write(uint8_t reg, uint8_t v);
 void    term_tick(void);           /* once a frame: the cursor blink */
+void    term_set_utf8(int on);     /* the `!` shell's session: decode UTF-8 (ESC % G / ESC % @ from the host side) */
 int     term_cursor_park(void);    /* take the cursor out of RAM (a save state); returns whether it was lit */
 void    term_cursor_unpark(int was);
 #ifdef __cplusplus

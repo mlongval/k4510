@@ -27,10 +27,11 @@ static struct {
      * nowhere else to put a request of its own that would survive. */
     uint8_t bandclaim, bandtop, bandbot;
     uint8_t g0, g1, shift;             /* charsets: 0 ASCII, 1 DEC line drawing; shift = SO */
+    uint8_t utf8, u_need, u_nraw, u_raw[4]; uint32_t u_cp;   /* UTF-8 mode (ESC % G .. ESC % @) and a sequence half-read */
     uint8_t tabs[32];                  /* tab stops, one bit per column */
     struct { uint8_t cx, cy, fg, bg, bold, rev, uline, g0, g1, shift, origin; } saved;
     /* the parser */
-    uint8_t st;                        /* 0 ground 1 ESC 2 CSI 3 OSC 4 ESC( 5 ESC) 6 ESC# 7 OSC-ESC */
+    uint8_t st;                        /* 0 ground 1 ESC 2 CSI 3 OSC 4 ESC( 5 ESC) 6 ESC# 7 OSC-ESC 8 ESC% */
     uint16_t par[NPAR]; uint8_t npar, priv, inter;
     /* the reply FIFO */
     uint8_t rep[128]; uint8_t rh, rt;
@@ -324,6 +325,7 @@ static void esc(uint8_t c)
     case '(': T.st = 4; return;
     case ')': T.st = 5; return;
     case '#': T.st = 6; return;
+    case '%': T.st = 8; return;                                    /* ESC % G / ESC % @: UTF-8 on / off */
     case '7': save_cursor(); break;
     case '8': restore_cursor(); break;
     case 'D': linefeed(); break;
@@ -444,10 +446,121 @@ static void pet_byte(uint8_t c)
     }
 }
 
+/* ---- UTF-8 ------------------------------------------------------------------- *
+ * A Linux host talks UTF-8 -- the `!` shell, a TELNET to a Linux box, Claude
+ * Code's bullets and box lines -- and JIM draws CP437.  With the mode on (ESC % G,
+ * which the `!` shell and TELNET send), a sequence becomes its CP437 glyph: the
+ * lines, blocks, arrows, card suits and accented letters CP437 has, a near
+ * neighbour for the common ones it lacks (rounded corners, heavy lines, bullets,
+ * dashes, quotes, ticks), '?' for the rest.  A wide character is '?' and a space
+ * and a combining one nothing, so the far end's columns still line up.  A byte
+ * that cannot be UTF-8 (a lead byte with no continuation after it) is CP437
+ * after all and draws as itself.  That does NOT make CP437 art safe: C4 B3 (a
+ * line, a bar) and DB B0 (a block, a shade) are valid UTF-8 by accident, so the
+ * mode must stay off for a BBS -- TELNET turns it on only for a far end that
+ * takes XTERM-COLOR.  Off by default, and CTRL 1 turns it off, so a CP/M or BBC
+ * BASIC session is never decoded.  Doc, 2026-09-12: reading Claude Code through
+ * TELNET, every bullet was three glyphs of noise. */
+static const uint16_t cp437_hi[128] = {                          /* $80-$FF */
+    0x00C7,0x00FC,0x00E9,0x00E2,0x00E4,0x00E0,0x00E5,0x00E7,0x00EA,0x00EB,0x00E8,0x00EF,0x00EE,0x00EC,0x00C4,0x00C5,
+    0x00C9,0x00E6,0x00C6,0x00F4,0x00F6,0x00F2,0x00FB,0x00F9,0x00FF,0x00D6,0x00DC,0x00A2,0x00A3,0x00A5,0x20A7,0x0192,
+    0x00E1,0x00ED,0x00F3,0x00FA,0x00F1,0x00D1,0x00AA,0x00BA,0x00BF,0x2310,0x00AC,0x00BD,0x00BC,0x00A1,0x00AB,0x00BB,
+    0x2591,0x2592,0x2593,0x2502,0x2524,0x2561,0x2562,0x2556,0x2555,0x2563,0x2551,0x2557,0x255D,0x255C,0x255B,0x2510,
+    0x2514,0x2534,0x252C,0x251C,0x2500,0x253C,0x255E,0x255F,0x255A,0x2554,0x2569,0x2566,0x2560,0x2550,0x256C,0x2567,
+    0x2568,0x2564,0x2565,0x2559,0x2558,0x2552,0x2553,0x256B,0x256A,0x2518,0x250C,0x2588,0x2584,0x258C,0x2590,0x2580,
+    0x03B1,0x00DF,0x0393,0x03C0,0x03A3,0x03C3,0x00B5,0x03C4,0x03A6,0x0398,0x03A9,0x03B4,0x221E,0x03C6,0x03B5,0x2229,
+    0x2261,0x00B1,0x2265,0x2264,0x2320,0x2321,0x00F7,0x2248,0x00B0,0x2219,0x00B7,0x221A,0x207F,0x00B2,0x25A0,0x00A0 };
+static const uint16_t cp437_lo[32] = {                           /* $01-$1F: the ROM's pictures; [0] is $7F's house */
+    0x2302,0x263A,0x263B,0x2665,0x2666,0x2663,0x2660,0x2022,0x25D8,0x25CB,0x25D9,0x2642,0x2640,0x266A,0x266B,0x263C,
+    0x25BA,0x25C4,0x2195,0x203C,0x00B6,0x00A7,0x25AC,0x21A8,0x2191,0x2193,0x2192,0x2190,0x221F,0x2194,0x25B2,0x25BC };
+static const struct { uint16_t u; uint8_t c; } cp437_near[] = { /* what CP437 lacks, drawn as its nearest */
+    {0x00D7,'x'},{0x00A9,'C'},{0x00AE,'R'},{0x2122,'T'},{0x20AC,'E'},{0x00A6,0xB3},{0x00AF,0xC4},{0x00B4,'\''},{0x00A8,'"'},{0x00B8,','},
+    {0x2010,'-'},{0x2011,'-'},{0x2012,'-'},{0x2013,'-'},{0x2014,'-'},{0x2015,0xC4},{0x2212,'-'},{0x2016,0xBA},
+    {0x2018,'\''},{0x2019,'\''},{0x201A,','},{0x201C,'"'},{0x201D,'"'},{0x201E,'"'},{0x2032,'\''},{0x2033,'"'},
+    {0x2039,'<'},{0x203A,'>'},{0x2026,'.'},{0x2024,'.'},{0x2027,0xFA},{0x22C5,0xFA},{0x02C6,'^'},{0x02DC,'~'},{0xFFFD,'?'},
+    {0x25CF,0x07},{0x23FA,0x07},{0x2B24,0x07},{0x25C9,0x07},{0x25E6,0x09},{0x25B6,0x10},{0x25B8,0x10},{0x25B7,0x10},
+    {0x25C0,0x11},{0x25C2,0x11},{0x25C1,0x11},{0x25B4,0x1E},{0x25BE,0x1F},{0x276F,'>'},{0x276E,'<'},{0x21D2,0x1A},
+    {0x2794,0x1A},{0x279C,0x1A},{0x21B5,0x11},{0x23CE,0x11},{0x21B3,0xC0},
+    {0x2501,0xC4},{0x2503,0xB3},{0x2504,0xC4},{0x2505,0xC4},{0x2506,0xB3},{0x2507,0xB3},{0x2508,0xC4},{0x2509,0xC4},
+    {0x250A,0xB3},{0x250B,0xB3},{0x250D,0xDA},{0x250E,0xDA},{0x250F,0xDA},{0x2511,0xBF},{0x2512,0xBF},{0x2513,0xBF},
+    {0x2515,0xC0},{0x2516,0xC0},{0x2517,0xC0},{0x2519,0xD9},{0x251A,0xD9},{0x251B,0xD9},{0x251D,0xC3},{0x2520,0xC3},
+    {0x2523,0xC3},{0x2525,0xB4},{0x2528,0xB4},{0x252B,0xB4},{0x252F,0xC2},{0x2533,0xC2},{0x2537,0xC1},{0x253B,0xC1},
+    {0x253F,0xC5},{0x254B,0xC5},{0x254C,0xC4},{0x254D,0xC4},{0x254E,0xB3},{0x254F,0xB3},{0x256D,0xDA},{0x256E,0xBF},
+    {0x256F,0xD9},{0x2570,0xC0},{0x2574,0xC4},{0x2575,0xB3},{0x2576,0xC4},{0x2577,0xB3},{0x2578,0xC4},{0x2579,0xB3},
+    {0x257A,0xC4},{0x257B,0xB3},{0x257C,0xC4},{0x257D,0xB3},{0x257E,0xC4},{0x257F,0xB3},{0x23BF,0xC0},{0x23BD,'_'},
+    {0x2581,0xDC},{0x2582,0xDC},{0x2583,0xDC},{0x2585,0xDC},{0x2586,0xDB},{0x2587,0xDB},{0x2589,0xDB},{0x258A,0xDB},
+    {0x258B,0xDD},{0x258D,0xDD},{0x258E,0xDD},{0x258F,0xDD},{0x2594,0xDF},{0x2595,0xDE},{0x2596,0xDC},{0x2597,0xDC},
+    {0x2598,0xDF},{0x259D,0xDF},{0x2599,0xDB},{0x259B,0xDB},{0x259C,0xDB},{0x259F,0xDB},{0x259A,0xB1},{0x259E,0xB1},
+    {0x25A1,0xFE},{0x25AA,0xFE},{0x25AB,0xFE},{0x25FB,0xFE},{0x25FC,0xFE},{0x25FD,0xFE},{0x25FE,0xFE},{0x2B1B,0xFE},{0x2B1C,0xFE},
+    {0x2713,0xFB},{0x2714,0xFB},{0x2705,0xFB},{0x2715,'x'},{0x2716,'x'},{0x2717,'x'},{0x2718,'x'},{0x274C,'x'},
+    {0x2605,'*'},{0x2606,'*'},{0x22C6,'*'},{0x2722,'*'},{0x2723,'*'},{0x2724,'*'},{0x2725,'*'},{0x2726,'*'},{0x2727,'*'},
+    {0x2731,'*'},{0x2732,'*'},{0x2733,'*'},{0x2734,'*'},{0x2735,'*'},{0x2736,'*'},{0x2737,'*'},{0x2738,'*'},{0x2739,'*'},
+    {0x273A,'*'},{0x273B,'*'},{0x273C,'*'},{0x273D,'*'} };
+static uint8_t cp437_for(uint32_t u)                            /* 0: CP437 has nothing like it */
+{
+    unsigned i;
+    for (i = 0; i < 128; i++) if (cp437_hi[i] == u) return (uint8_t)(0x80 + i);
+    for (i = 1; i < 32; i++)  if (cp437_lo[i] == u) return (uint8_t) i;
+    if (u == cp437_lo[0]) return 0x7F;
+    for (i = 0; i < sizeof cp437_near / sizeof cp437_near[0]; i++) if (cp437_near[i].u == u) return cp437_near[i].c;
+    if (u >= 0x2800 && u <= 0x28FF) {                           /* braille (btop's graphs): by how many dots */
+        int d = 0; for (unsigned b = u & 0xFF; b; b >>= 1) d += b & 1;
+        return d == 0 ? ' ' : d < 3 ? 0xB0 : d < 6 ? 0xB1 : 0xB2;
+    }
+    return 0;
+}
+static int uwidth(uint32_t u)                                   /* cells the far end reckons it takes */
+{
+    if (u < 0xA0) return u >= 0x80 ? 0 : 1;                     /* C1 controls: nothing */
+    if ((u >= 0x0300 && u <= 0x036F) || (u >= 0x200B && u <= 0x200F) || (u >= 0x2028 && u <= 0x202E)
+        || (u >= 0x2060 && u <= 0x2064) || (u >= 0xFE00 && u <= 0xFE0F) || u == 0xFEFF || u == 0x00AD
+        || (u >= 0x1F3FB && u <= 0x1F3FF) || (u >= 0xE0000 && u <= 0xE01EF)) return 0;
+    if ((u >= 0x1100 && u <= 0x115F) || (u >= 0x2E80 && u <= 0xA4CF && u != 0x303F) || (u >= 0xAC00 && u <= 0xD7A3)
+        || (u >= 0xF900 && u <= 0xFAFF) || (u >= 0xFE30 && u <= 0xFE4F) || (u >= 0xFF00 && u <= 0xFF60)
+        || (u >= 0xFFE0 && u <= 0xFFE6) || (u >= 0x1F300 && u <= 0x1F64F) || (u >= 0x1F680 && u <= 0x1F6FF)
+        || (u >= 0x1F900 && u <= 0x1F9FF) || (u >= 0x20000 && u <= 0x3FFFD)) return 2;
+    return 1;
+}
+static void utf8_mode(int on) { T.utf8 = (uint8_t)(on != 0); T.u_need = T.u_nraw = 0; }
+static void utf8_spill(void)                                    /* not UTF-8 after all: the bytes were CP437 */
+{
+    uint8_t n = T.u_nraw, i;
+    T.u_need = T.u_nraw = 0;
+    for (i = 0; i < n; i++) print_char(T.u_raw[i]);
+}
+static int utf8_byte(uint8_t c)                                 /* 1: taken */
+{
+    if (T.u_need) {
+        if ((c & 0xC0) == 0x80) {
+            T.u_raw[T.u_nraw++] = c; T.u_cp = (T.u_cp << 6) | (c & 0x3F);
+            if (--T.u_need == 0) {
+                uint32_t u = T.u_cp; uint8_t n = T.u_nraw, g; int w;
+                if ((n == 3 && u < 0x800) || (n == 4 && (u < 0x10000 || u > 0x10FFFF)) || (u >= 0xD800 && u <= 0xDFFF)) { utf8_spill(); return 1; }
+                T.u_nraw = 0;
+                if ((w = uwidth(u)) == 0) return 1;
+                g = cp437_for(u);
+                print_char(g ? g : '?');
+                if (w == 2) print_char(' ');
+            }
+            return 1;
+        }
+        utf8_spill();                                           /* ... and c goes on to be itself */
+    }
+    if (c >= 0xC2 && c <= 0xF4) {
+        T.u_need = (uint8_t)(c >= 0xF0 ? 3 : c >= 0xE0 ? 2 : 1);
+        T.u_cp = c & (c >= 0xF0 ? 0x07 : c >= 0xE0 ? 0x0F : 0x1F);
+        T.u_raw[0] = c; T.u_nraw = 1;
+        return 1;
+    }
+    return 0;                                                   /* ASCII, a control, a byte no sequence starts with */
+}
+void term_set_utf8(int on) { utf8_mode(on); }
+
 /* ---- the stream -------------------------------------------------------------- */
 static void put_byte(uint8_t c)
 {
     if (T.petscii && T.st == 0) { pet_byte(c); return; }
+    if (T.utf8 && T.st == 0 && utf8_byte(c)) return;
     switch (T.st) {
     case 0:
         if (c >= 0x20 && c != 0x7F) { print_char(c); return; }
@@ -476,6 +589,7 @@ static void put_byte(uint8_t c)
     case 4: T.g0 = (c == '0') ? 1 : 0; T.st = 0; return;
     case 5: T.g1 = (c == '0') ? 1 : 0; T.st = 0; return;
     case 6: if (c == '8') { for (int y = 0; y < T.rows; y++) for (int x = 0; x < T.cols; x++) put_cell(x, y, 'E', 0, T.fg, T.bg); } T.st = 0; return;
+    case 8: if (c == 'G' || c == '@') utf8_mode(c == 'G'); T.st = 0; return;
     }
 }
 
@@ -538,7 +652,7 @@ void term_write(uint8_t r, uint8_t v)
     case 0x03: key(v); return;
     case 0x04:
         cur_undraw();
-        if (v == 1) { uint8_t sh = T.shown; soft_reset(); T.shown = sh; T.cx = T.cy = 0; }
+        if (v == 1) { uint8_t sh = T.shown; soft_reset(); T.shown = sh; T.cx = T.cy = 0; utf8_mode(0); }   /* a machine-side reset: CP437 again */
         if (v == 2) { for (int y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1); T.cx = T.cy = 0; T.pending = 0; }
         cur_draw(); return;
     case 0x05: cur_undraw(); T.cols = v; clamp_geometry(); T.bot = (uint8_t)(T.rows - 1); T.top = 0; cur_draw(); return;

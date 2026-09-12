@@ -7220,3 +7220,19 @@ side."**  Two faults, stacked:
    `dead_circumflex` for Canada-FR), with a journal line if it fails.
    At boot the helper runs before keyboard-setup; that one still fails on
    Canada-FR, and a failed load changes nothing, so ours stands.
+
+## 2026-09-12 — the battery in the status band
+
+Doc, on the Dell: "I also need battery info in either the top or bottom
+bar."  The frontend reads `/sys/class/power_supply` every ten seconds
+(any Linux laptop -- the Battery's capacity and status, the Mains
+supply's online) and offers it at **`$D53A`**: charge % in bits 0-6, bit
+7 on AC or charging, `$FF` with no battery.  ($D536-$D539 were taken:
+the wall clock in ms, which CHESS and RX read.)  K/OS draws it in the
+bottom band left of the MHz, `BAT nn%` and an arrow, up on AC, down on
+the battery; nothing on a host without one.  ROM room decided the
+shape: BSSR is full, so `band_mhz` now packs the MHz (never past 202)
+low and the battery byte high, and the key poll's refresh moved from
+ROM2 (33 bytes free) into a `band_refresh()` in ROM1C, which saves ROM2
+more than it costs.  `K4510_BATTERY=52` (or `52+`) stands in for a
+battery, for a headless test.

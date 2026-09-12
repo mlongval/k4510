@@ -672,6 +672,7 @@ static const char sys_version[16] = K4510_BUILD;
  * and BUG and INFO have to say which one an issue came from.  The frontend
  * sets it: 0 = a desktop (or a container on one), 1 = the K4510 Linux. */
 int io_host_kind;
+uint8_t io_battery = 0xFF;    /* $D53A: none until the frontend finds one */
 /* ---- the sound sequencer ($D5E0-$D5E3) ---------------------------------
  * The BBC Micro's four queued sound channels, in K4510 silicon. Write CH
  * ($D5E0: low nibble = channel, bit 4 = flush that channel's queue first,
@@ -865,6 +866,7 @@ static uint8_t sys_read(uint8_t r)
     if (r >= 0x36 && r <= 0x39) return (uint8_t)(sys_ms() >> (8 * (r - 0x36)));   /* the wall clock, in ms */
     if (r == 0x34) return dbg_watch_ctl;
     if (r == 0x35) return dbg_watch_hits;
+    if (r == 0x3A) return io_battery;        /* the host's battery: % in bits 0-6, bit 7 on AC / charging, $FF none */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     return 0xFF;

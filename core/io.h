@@ -58,6 +58,11 @@ extern uint16_t io_audio_fill;           /* samples the sound made WITHOUT the m
  * $D803 program: 1 BBC BASIC, 3 CP/M, 4 the host shell (`!`), 5 the chess engine, 2 stop.  $D804-7 the command
  * string's address for program 4 (empty = an interactive shell), $D808/9 its rows/columns. */
 extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
+/* $D53A R  BATTERY   the host's battery, for the status band: charge in % in bits 0-6
+ *                    (0-100), bit 7 set on AC power or charging, $FF = no battery (a
+ *                    desktop, the browser build).  The frontend reads it from the host
+ *                    every ten seconds; K/OS draws "BAT nn%" with an arrow beside the MHz. */
+extern uint8_t io_battery;
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
 /* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.

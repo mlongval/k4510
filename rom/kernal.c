@@ -161,6 +161,18 @@ static uint8_t day_col(void)
     uint8_t k = (uint8_t)((REG(SYS + SYS_CLOCKFMT) >> 1) & 3);
     return (uint8_t)(PCOLS - (k == 1 ? 2 : k == 2 ? 7 : 10));
 }
+/* The host's battery ($D53A) in the bottom band, left of the MHz: "BAT nn%"
+ * and an arrow -- up on AC or charging, down on the battery.  A host with no
+ * battery ($FF) shows nothing.  Doc, 2026-09-12, for the Dell. */
+static void draw_bat(uint8_t b)
+{
+    uint8_t last = PROWS - 1, c = PCOLS - 16;
+    if (b == 0xFF) return;
+    bar_str(c, last, "BAT    ");                                 /* the old digits cleared with it */
+    bar_num(c + 6, last, b & 0x7F);
+    put_at(c + 7, last, '%', BAND_FG, BAND_BG);
+    put_at(c + 8, last, (b & 0x80) ? 0x18 : 0x19, BAND_FG, BAND_BG);   /* CP437 up / down arrow */
+}
 static void draw_bands(void)
 {
     uint8_t i, ofg = fg, obg = bg, last = PROWS - 1;
@@ -180,7 +192,7 @@ static void draw_bands(void)
      * late, and is the one widget that shows the machine acting behind your
      * back. */
     if (OY) { (void)REG(SYS + 4); draw_clock(); }
-    if (bband) { bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz); }
+    if (bband) { bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz); draw_bat(REG(SYS + 0x3A)); }
 }
 #pragma code-name (pop)
 
@@ -239,7 +251,18 @@ static void cls(void)
     REG(TERM + 9) = 0; REG(TERM + 10) = 0;      /* the cursor is JIM's: moving it means telling it */
 }
 
-static uint16_t band_mhz = 0xFFFF;           /* what the status band's clock last showed */
+static uint16_t band_mhz = 0xFFFF;           /* what the bottom band last showed: the MHz (never past 202)
+                                              * low, the battery byte high -- packed because BSSR has no
+                                              * byte left for a second variable (2026-09-12) */
+#pragma code-name (push, "CODE")              /* ROM1C, beside draw_bat: ROM2, the key poll's segment, is full */
+/* The battery follows the host: called from the key poll, it redraws only when
+ * the byte changed.  The MHz beside it is still checked in the key poll. */
+static void bat_refresh(void)
+{
+    uint8_t b = REG(SYS + 0x3A);
+    if (b != (uint8_t)(band_mhz >> 8)) { draw_bat(b); band_mhz = (uint16_t)((band_mhz & 0xFF) | ((uint16_t) b << 8)); }
+}
+#pragma code-name (pop)
 static uint8_t paging, paged_out;            /* newline() pages while paging is set; paged_out is
                                               * the reader having said q -- the caller checks it,
                                               * since newline cannot abort anyone itself */
@@ -359,8 +382,9 @@ uint8_t k_getin(void)
      * The MHz sits in the BOTTOM band, so this asks for that one specifically:
      * with a bottom height of zero there is nowhere to put it. */
     if (bband && !claimed()) {
-        uint16_t m = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
-        if (m != band_mhz) { band_mhz = m; bar_num(PCOLS - 5, (uint8_t)(PROWS - 1), m); }
+        uint8_t m = (uint8_t)((((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000));
+        if (m != (uint8_t) band_mhz) { band_mhz = (uint16_t)((band_mhz & 0xFF00) | m); bar_num(PCOLS - 5, (uint8_t)(PROWS - 1), m); }
+        bat_refresh();                           /* the battery beside it, in ROM1C */
     }
     /* And the date, once a day.  The IRQ keeps HH:MM right -- that is the part
      * that has to tick inside a program which never polls -- but it is

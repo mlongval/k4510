@@ -38,6 +38,7 @@
 #include <time.h>
 #include <signal.h>
 #include <sys/time.h>
+#include <dirent.h>        /* /sys/class/power_supply: the battery */
 #if defined(__linux__) && !defined(__EMSCRIPTEN__)
 #include <fcntl.h>
 #include <sys/ioctl.h>
@@ -540,6 +541,40 @@ static uint8_t pad_held(void)
  * so the machine never blocks. */
 #ifndef __EMSCRIPTEN__
 static pid_t host_child;
+/* The host's battery, for the status band ($D53A): every ten seconds, from
+ * /sys/class/power_supply -- any Linux laptop, the K4510 Linux or a desktop.
+ * % in bits 0-6, bit 7 on AC or charging, $FF with no battery.  K4510_BATTERY
+ * ("52", "52+") stands in for one, for a headless test.  Doc, 2026-09-12. */
+static void host_battery_poll(void)
+{
+    static Uint32 at; static int first = 1;
+    if (!first && SDL_GetTicks() - at < 10000) return;
+    first = 0; at = SDL_GetTicks();
+    const char *fake = getenv("K4510_BATTERY");
+    if (fake) { int p = atoi(fake); io_battery = (uint8_t)((p < 0 ? 0 : p > 100 ? 100 : p) | (strchr(fake, '+') ? 0x80 : 0)); return; }
+    int pct = -1, ac = 0; char path[300], buf[32];
+    DIR *d = opendir("/sys/class/power_supply");
+    if (d) {
+        struct dirent *de;
+        while ((de = readdir(d))) {
+            if (de->d_name[0] == '.') continue;
+            snprintf(path, sizeof path, "/sys/class/power_supply/%s/type", de->d_name);
+            FILE *f = fopen(path, "r"); if (!f) continue;
+            if (!fgets(buf, sizeof buf, f)) buf[0] = 0; fclose(f);
+            if (!strncmp(buf, "Battery", 7) && pct < 0) {
+                snprintf(path, sizeof path, "/sys/class/power_supply/%s/capacity", de->d_name);
+                if ((f = fopen(path, "r"))) { if (fgets(buf, sizeof buf, f)) pct = atoi(buf); fclose(f); }
+                snprintf(path, sizeof path, "/sys/class/power_supply/%s/status", de->d_name);
+                if ((f = fopen(path, "r"))) { if (fgets(buf, sizeof buf, f) && (!strncmp(buf, "Charging", 8) || !strncmp(buf, "Full", 4))) ac = 1; fclose(f); }
+            } else if (!strncmp(buf, "Mains", 5)) {
+                snprintf(path, sizeof path, "/sys/class/power_supply/%s/online", de->d_name);
+                if ((f = fopen(path, "r"))) { if (fgets(buf, sizeof buf, f) && buf[0] == '1') ac = 1; fclose(f); }
+            }
+        }
+        closedir(d);
+    }
+    io_battery = pct < 0 ? 0xFF : (uint8_t)((pct > 100 ? 100 : pct) | (ac ? 0x80 : 0));
+}
 /* F7 -> Host -> Keyboard layout and F7 -> Input -> Caps Lock is Ctrl, for the
  * Linux beside the machine: its consoles at once (k4510-keymap --set writes
  * /etc/default/keyboard and reloads the kernel keymap), the machine's own
@@ -1205,6 +1240,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { static int host_open_was; static Uint32 host_read_at;   /* the Host page: read at open, then every 2 s while open */
           if (open && (!host_open_was || SDL_GetTicks() - host_read_at >= 2000)) { host_info_refresh(); host_read_at = SDL_GetTicks(); }
           host_open_was = open; host_reap(); }
+#ifndef __EMSCRIPTEN__
+        host_battery_poll();                                          /* $D53A, every ten seconds */
+#endif
         /* SETUP has finished measuring and asks us to keep the clock it settled
          * on.  The guest chose it; we supply the two things it cannot know --
          * which host this is, and where the file lives. */

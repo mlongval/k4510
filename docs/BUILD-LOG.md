@@ -7087,3 +7087,14 @@ which comes before local-fs-pre.target.  Harmless on the Dell (its boot
 line picks no layout) but the same class of fault that silently dropped
 telnet.  Now `After=systemd-remount-fs.service`; the unit moved into
 `config/includes.chroot` like the socket, so the fix rides the layer.
+
+**`!ssh` came up in CP437 after all -- the order of two writes.**  With
+LNM fixed, Doc's `!ssh` + tmux screen had the right columns but the old
+three-glyph noise; through F7 -> TELNET it was clean.  The ROM's
+`cmd_bbcbasic()` writes the Tube start register FIRST -- the emulator
+starts the shell there and switched UTF-8 on -- and THEN `tube_term()`
+resets JIM, and this morning's CTRL 1 turned UTF-8 off as a "safety
+net".  LNM survived because CTRL 1 never touched it, which is exactly
+the screen Doc saw.  CTRL 1 now leaves UTF-8 alone (it still goes off at
+the session's end, at TELNET's exit, and at power-on); termtest replays
+the ROM's order, session then reset.

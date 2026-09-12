@@ -38,7 +38,7 @@
  * and 38;5;n / 48;5;n for n < 16, VT220 ICH/DCH/IL/DL/ECH/SU/SD/CHA/VPA,
  * IRM, ESC[?25 cursor, ESC[s/u, DECSTR, DECSCUSR (ESC [ n SP q: 0-2 block, 3-4 underline,
  * 5-6 bar -- the shape VI changes with its mode). Bytes $80-$FF are glyphs (CP437).
- * UTF-8: ESC % G on, ESC % @ off, CTRL 1 off.  On, a UTF-8 sequence draws as its
+ * UTF-8: ESC % G on, ESC % @ off (CTRL 1 leaves it).  On, a UTF-8 sequence draws as its
  * CP437 glyph (or a near one, or '?'), and a byte that continues no sequence is
  * CP437 as before.  The `!` shell and TELNET turn it on for their sessions. */
 #ifndef K4510_TERM_H

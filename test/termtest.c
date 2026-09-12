@@ -106,8 +106,9 @@ int main(void)
     CHECK(cell(0, 3)[0] == 0xE2 && cell(1, 3)[0] == 0x94 && cell(2, 3)[0] == 'A', "ESC mid-sequence (%02X %02X %c)", cell(0, 3)[0], cell(1, 3)[0], cell(2, 3)[0]);
     send("\033[0m\033%@\r\n\xE2\x94\x80");                      /* off: three CP437 glyphs */
     CHECK(cell(0, 4)[0] == 0xE2 && cell(1, 4)[0] == 0x94 && cell(2, 4)[0] == 0x80, "ESC %% @ turns it off");
-    send("\033%G"); W(4, 1); W(4, 2); send("\xE2\x94\x80");      /* CTRL 1, the machine's reset: off too */
-    CHECK(cell(0, 0)[0] == 0xE2 && cell(2, 0)[0] == 0x80, "CTRL 1 turns it off (%02X)", cell(0, 0)[0]);
+    send("\033%G"); W(4, 1); W(4, 2); send("\xE2\x94\x80");      /* CTRL 1 leaves it: the ROM resets JIM AFTER a ! session switched it on */
+    CHECK(cell(0, 0)[0] == 0xC4, "CTRL 1 leaves UTF-8 as it was (%02X)", cell(0, 0)[0]);
+    send("\033%@");
     term_host_session(1); W(4, 2); send("\xE2\x94\x80"); CHECK(cell(0, 0)[0] == 0xC4, "term_set_utf8 (the ! shell's switch)");
     term_host_session(0);
     printf("8. UTF-8: ok\n");
@@ -117,7 +118,10 @@ int main(void)
      * column kept -- left on, it drew "Go ahead" at column 0 and left stray
      * characters behind (the Dell, 2026-09-12). */
     W(4, 2); send("\033[20h");                                  /* as the ROM's video_init */
-    term_host_session(1);
+    term_host_session(1);                                       /* the ROM's order for `!`: REG(TUBE+3) starts the session... */
+    W(4, 1);                                                    /* ...THEN tube_term resets JIM -- which once turned UTF-8 off again */
+    send("\033[4;1H\xE2\x94\x80");
+    CHECK(cell(0, 3)[0] == 0xC4, "UTF-8 survives the ROM's reset after the session starts (%02X)", cell(0, 3)[0]);
     send("\033[5;3HX\nY");                                      /* X at (2,4); LF: down, the column kept */
     CHECK(cell(2, 4)[0] == 'X' && cell(3, 5)[0] == 'Y', "in a session a bare LF keeps the column (Y at col %d)", cell(3, 5)[0] == 'Y' ? 3 : -1);
     term_host_session(0);

@@ -458,7 +458,7 @@ static void pet_byte(uint8_t c)
  * after all and draws as itself.  That does NOT make CP437 art safe: C4 B3 (a
  * line, a bar) and DB B0 (a block, a shade) are valid UTF-8 by accident, so the
  * mode must stay off for a BBS -- TELNET turns it on only for a far end that
- * takes XTERM-COLOR.  Off by default, and CTRL 1 turns it off, so a CP/M or BBC
+ * takes XTERM-COLOR.  Off by default, and only ESC % G or a `!` session turns it on, so a CP/M or BBC
  * BASIC session is never decoded.  Doc, 2026-09-12: reading Claude Code through
  * TELNET, every bullet was three glyphs of noise. */
 static const uint16_t cp437_hi[128] = {                          /* $80-$FF */
@@ -668,7 +668,9 @@ void term_write(uint8_t r, uint8_t v)
     case 0x03: key(v); return;
     case 0x04:
         cur_undraw();
-        if (v == 1) { uint8_t sh = T.shown; soft_reset(); T.shown = sh; T.cx = T.cy = 0; utf8_mode(0); }   /* a machine-side reset: CP437 again */
+        if (v == 1) { uint8_t sh = T.shown; soft_reset(); T.shown = sh; T.cx = T.cy = 0; }   /* UTF-8 and LNM are left as they
+                                                                                              * are: the ROM resets JIM (tube_term) AFTER
+                                                                                              * the `!` session has switched them */
         if (v == 2) { for (int y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1); T.cx = T.cy = 0; T.pending = 0; }
         cur_draw(); return;
     case 0x05: cur_undraw(); T.cols = v; clamp_geometry(); T.bot = (uint8_t)(T.rows - 1); T.top = 0; cur_draw(); return;

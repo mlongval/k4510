@@ -7056,3 +7056,13 @@ a host session runs with LNM off and hands it back -- `term_host_session()`
 (which also switches UTF-8) for the `!` shell, `ESC[20l` / `ESC[20h`
 around a TELNET connection.  A pty's ONLCR already turns a program's `\n`
 into `\r\n`, so plain shell output is unaffected.  termtest leg 9.
+
+**And the telnet socket that listened one boot and not the next.**  The
+journal said it outright: `sockets.target: Found ordering cycle on
+k4510-telnet.socket/start ... Job deleted to break ordering cycle`.
+The unit carried `After=network.target` from the day it was lifted from
+ubuntu-s1; a socket belongs to sockets.target, which comes before the
+network, so the line was a cycle, and systemd broke it by dropping
+whichever job it chose -- usually this one.  The 52f3114 boot happened
+to drop another, which is why 127.0.1.1 "worked" once and then did not.
+The line is gone; loopback needs no network.

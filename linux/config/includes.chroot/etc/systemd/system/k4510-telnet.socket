@@ -6,10 +6,13 @@
 # 127.0.1.1 too: Debian's /etc/hosts gives the machine's own name (k4510) that
 # address, so `!telnet k4510` found nothing listening (Doc, 2026-09-12).  Both
 # are loopback -- 127.0.0.0/8 never leaves the machine.
+# No After=network.target: sockets.target starts before the network, so that
+# line was an ordering cycle, and systemd broke it by dropping this socket on
+# most boots ("Job k4510-telnet.socket/start deleted to break ordering cycle",
+# the Dell, 2026-09-12).  Loopback needs no network.
 [Unit]
 Description=K4510 telnet (loopback only)
 Documentation=man:telnetd(8)
-After=network.target
 
 [Socket]
 ListenStream=127.0.0.1:23

@@ -7024,3 +7024,11 @@ true.  Also: the clone URL in README/setup.sh is `mlongval/k4510` (the
 GitHub rename of 2026-09-09; the old one redirects), the design docs'
 titles, the issue form's Machine line (K4510 / K4510x), and the folder on
 ubuntu-s1 is `~/Projects/K4510`.  `pi/` and the history keep the old name.
+
+**`!telnet k4510` was refused**, the same afternoon: the machine's own
+telnet socket listened on 127.0.0.1 only, and Debian's `/etc/hosts` gives
+the machine's name 127.0.1.1.  The socket now listens on both (loopback
+either way, so still no door from the network), and the unit moved into
+`config/includes.chroot` so the change rides the 5 MB layer -- it had
+been written by the full build alone, which an installed machine never
+gets.

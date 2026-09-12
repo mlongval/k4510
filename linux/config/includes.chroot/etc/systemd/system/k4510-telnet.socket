@@ -1,0 +1,20 @@
+# Telnet for the K4510, reachable from the machine itself and nowhere else.
+#
+# The binding is the control that matters: ListenStream names loopback
+# addresses, so the socket never exists on the wifi or the ethernet, whatever a
+# firewall happens to say.  From inside the machine:  TELNET 127.0.0.1 23
+# 127.0.1.1 too: Debian's /etc/hosts gives the machine's own name (k4510) that
+# address, so `!telnet k4510` found nothing listening (Doc, 2026-09-12).  Both
+# are loopback -- 127.0.0.0/8 never leaves the machine.
+[Unit]
+Description=K4510 telnet (loopback only)
+Documentation=man:telnetd(8)
+After=network.target
+
+[Socket]
+ListenStream=127.0.0.1:23
+ListenStream=127.0.1.1:23
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

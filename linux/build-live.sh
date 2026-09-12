@@ -314,26 +314,11 @@ EOF
 
 echo "== telnet, loopback only =="
 # Lifted from the working service on ubuntu-s1 (TELNET-SERVER.md), with the
-# one change that matters: ListenStream is 127.0.0.1, so the socket exists
+# one change that matters: ListenStream is loopback, so the socket exists
 # nowhere else.  No firewall is doing this work -- the binding is.
-cat > "$ROOT/etc/systemd/system/k4510-telnet.socket" <<'EOF'
-# Telnet for the K4510, reachable from the machine itself and nowhere else.
-#
-# The binding is the control that matters: ListenStream names the loopback
-# address, so the socket never exists on the wifi or the ethernet, whatever a
-# firewall happens to say.  From inside the machine:  TELNET 127.0.0.1 23
-[Unit]
-Description=K4510 telnet (loopback only)
-Documentation=man:telnetd(8)
-After=network.target
-
-[Socket]
-ListenStream=127.0.0.1:23
-Accept=yes
-
-[Install]
-WantedBy=sockets.target
-EOF
+# The socket unit itself lives in config/includes.chroot/etc/systemd/system/
+# (copied in above), so a change to its binding rides the machine layer to an
+# installed machine; it was written here once, which only a full build reached.
 cat > "$ROOT/etc/systemd/system/k4510-telnet@.service" <<'EOF'
 [Unit]
 Description=K4510 telnet session

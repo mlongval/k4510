@@ -28,8 +28,10 @@ glass: the host's shell is started on the same pty the co-processors use,
 JIM renders it, and the ROM's own key loop feeds it. So the colours stay
 the machine's, full-screen programs work --- \verb|nvim| runs in the
 window --- and \verb|ls --color| lands in the machine's palette. The
-terminal type to tell anything that asks is \textbf{ansi}: JIM has
-colour, and \texttt{vt100}'s terminfo does not.
+shell is told its terminal is \textbf{xterm-color}: JIM has colour,
+which \texttt{vt100}'s terminfo leaves out, and \texttt{ansi} is the
+PC's ANSI.SYS, which garbles \verb|htop|. \verb|TELNET| offers the
+same name first.
 
 \begin{aside}
 \textbf{What this means for the container.} The sandboxed flavour

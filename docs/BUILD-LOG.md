@@ -6888,3 +6888,12 @@ header and F-key bar must both reach JIM's screen.  Against the old
 TELNET.PRG it fails: `TTYPES: ANSI,ANSI,ANSI,ANSI,ANSI`.  nettest still
 passes.  Still worth doing some day: UTF-8 in JIM, decoded onto the CP437
 font, for the few glyphs programs like htop send.
+
+**The `!` shell too (Doc: "fix the ! shell too").**  core/io.c gave the
+host shell TERM=ansi unless K4510_TERM said otherwise -- chosen because
+vt100's terminfo has no colour, and with the same htop garbling waiting in
+it.  The default is xterm-color now; K4510_TERM still wins.  Checked
+headless: `!echo TERM=$TERM` prints xterm-color, and `!htop` draws its
+column header and F-key bar.  bangtest passes.  Handbook ch. 9 says so
+(the old sentence gave vt100's missing colour as the reason for ansi);
+PDF rebuilt, 103 pages.

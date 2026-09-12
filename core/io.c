@@ -1231,11 +1231,13 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             const char *u = uci_path();
             if (u) execl (u, "stockfish", (char *) NULL);
         } else if (prog == 4) {                   /* `!`: the host's own shell, in the machine's current directory.
-                                                   * JIM is a VT100 with ANSI colours, and "ansi" is the terminfo
-                                                   * that says so (vt100's has no colour); K4510_TERM overrides. */
+                                                   * JIM is a VT100 with ANSI colours.  "xterm-color" is the terminfo
+                                                   * that says so (vt100's has no colour).  "ansi" is the PC's
+                                                   * ANSI.SYS and garbled htop (test/ttypetest.sh, BUILD-LOG
+                                                   * 2026-09-11).  K4510_TERM overrides. */
             const char *term = getenv ("K4510_TERM"), *sh = getenv ("SHELL");
             char dir[800]; snprintf (dir, sizeof dir, "%.511s%s%.255s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
-            setenv ("TERM", term && *term ? term : "ansi", 1);
+            setenv ("TERM", term && *term ? term : "xterm-color", 1);
             /* $SHELL as the host has it, if it exists HERE: a distrobox hands the
              * container the host's $SHELL, and Fedora's zsh is not in a Debian box. */
             if (!sh || !*sh || access (sh, X_OK) != 0) sh = access ("/bin/bash", X_OK) == 0 ? "/bin/bash" : "/bin/sh";

@@ -7200,3 +7200,23 @@ Caps as Ctrl, the K4510 Linux runs `k4510-keymap --set`, and at boot the
 helper applies the saved `input.kbd_layout` (renamed from the short-lived
 `host.kbd_layout`; "Host" keeps Linux's own layout and changes only Caps).
 The row left F7 -> Host for F7 -> Input.
+
+**Doc: "works on the K4510 side but does not carry over to the Linux
+side."**  Two faults, stacked:
+
+1. The emulator called the helper as `--set '' 1`.  `settings_text()`
+   returns an ENUM's label and leaves the caller's buffer alone; I passed
+   the buffer.  An empty name is "Host", so Linux kept `us` and only Caps
+   went across.  Now the returned text is passed.
+2. Even with the name right, Canada-FR never reached the consoles.
+   `setupcon` (Debian's own path, which keyboard-setup uses at boot too)
+   with CHARMAP UTF-8 asks `ckbcomp` for an ISO-8859-1 map; that writes
+   symbol names such as `Mu` which this `loadkeys` rejects -- "unknown
+   keysym", then "lk_add_key called with bad keycode -1" -- and the whole
+   load is dropped while `setupcon` exits 0.  US has no such names, which
+   is why it seemed to work.  The helper now loads it itself:
+   `ckbcomp -compact` (every symbol as U+XXXX) piped to `loadkeys`,
+   verified on the Dell in both directions (key 26 `[` for US,
+   `dead_circumflex` for Canada-FR), with a journal line if it fails.
+   At boot the helper runs before keyboard-setup; that one still fails on
+   Canada-FR, and a failed load changes nothing, so ours stands.

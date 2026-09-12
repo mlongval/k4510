@@ -49,4 +49,11 @@ XKBVARIANT="$V"
 XKBOPTIONS="$OPT"
 BACKSPACE="guess"
 EOF
-setupcon --force -k 2>/dev/null || true       # the keymap only; the console font is console-setup's
+# Load it ourselves, not through setupcon: with CHARMAP UTF-8 setupcon asks
+# ckbcomp for an ISO-8859-1 map, whose symbol NAMES (Mu...) this loadkeys
+# rejects -- "bad keycode -1", the whole load dropped, exit 0 all the same --
+# so Canada-FR never reached the consoles (the Dell, 2026-09-12).  -compact
+# writes every symbol as U+XXXX.  The console font is console-setup's.
+if ! LC_ALL=C ckbcomp -compact -layout "$L" ${V:+-variant "$V"} ${OPT:+-option "$OPT"} 2>/dev/null | loadkeys -q 2>/dev/null; then
+    logger -t k4510-keymap "could not load the $L${V:+($V)} keymap${OPT:+ with $OPT}" 2>/dev/null || true
+fi

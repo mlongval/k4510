@@ -558,7 +558,9 @@ static void host_keymap_apply(void)
     if (access("/etc/k4510-linux", F_OK) != 0) { last_layout = l; last_caps = c; return; }   /* a desktop owns its keyboard */
     if (kbd_child > 0) return;                        /* one at a time; the next close tries again */
     last_layout = l; last_caps = c;
-    char name[32]; settings_text(SET_INPUT_KBD_LAYOUT, name, sizeof name);
+    char buf[32]; const char *name = settings_text(SET_INPUT_KBD_LAYOUT, buf, sizeof buf);   /* the RETURNED text: for an
+                                                                * ENUM it is the label itself, and buf stays empty -- the
+                                                                * helper got "--set '' 1" and kept "us" (the Dell, 2026-09-12) */
     pid_t pid = fork();
     if (pid == 0) {
         int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }

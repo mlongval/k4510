@@ -7111,3 +7111,18 @@ modifier is masked out, a letter typed while the key is held is dropped
 too), and text arriving with the lock on has its case flipped back.  The
 Caps Lock LED still toggles; that is the host's.  New settings go at the
 END of the table, so no index moves.
+
+**...and the Linux side, with the layout.**  Doc: "might as well make
+that f7 option change the same thing for the linux side (as well as
+keyboard language)".  F7 -> Host (the K4510 Linux only) gains **Keyboard
+layout** -- US, US-intl, Canada-FR, France, Germany, Spain, UK, Italy,
+the stick's boot-menu set.  On a menu close that changed it or Caps as
+Ctrl, the emulator runs `sudo -n k4510-keymap --set <layout> <0|1>`:
+`/etc/default/keyboard` (with XKB's `ctrl:nocaps` for Caps) and
+`setupcon -k`, so every console changes at once.  The machine's own
+typing follows at the emulator's next start: on KMSDRM, SDL copies the
+kernel keymap once, at init.  At boot `k4510-keymap.service` now always
+runs (its `ConditionKernelCommandLine` is gone): the boot line's
+`k4510.kbd=` wins, else the saved F7 pair from `k4510.cfg` -- /etc is in
+RAM, the cfg persists.  The helper moved from a build-live.sh heredoc
+into `config/includes.chroot/usr/local/sbin`, so it rides the layer.

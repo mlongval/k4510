@@ -92,6 +92,7 @@ static const item_t info_items[] = {
 static const item_t host_items[] = {
     { "Name",      MI_INFO, INFO_NAME }, { "Address", MI_INFO, INFO_ADDR }, { "Tailscale", MI_INFO, INFO_TS },
     { "",          MI_SEP },
+    { "Keyboard layout", MI_SETTING, SET_HOST_KBD_LAYOUT },
     { "Wi-Fi / network setup", MI_ACTION, ACT_NETSETUP },
     { "Telnet into the host",  MI_ACTION, ACT_TELNET },
 };

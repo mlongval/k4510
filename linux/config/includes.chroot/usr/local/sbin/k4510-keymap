@@ -1,0 +1,49 @@
+#!/bin/sh
+# k4510-keymap -- the K4510 Linux's keyboard: its layout, and Caps Lock as Ctrl.
+#
+#   k4510-keymap               at boot (k4510-keymap.service, before tty1): the
+#                              boot menu's k4510.kbd=<code> if it chose one, else
+#                              the emulator's saved F7 settings -- /etc lives in
+#                              RAM, the emulator's k4510.cfg persists
+#   k4510-keymap --set L C     from the emulator when F7 changes them: L a layout
+#                              name (F7 -> Host -> Keyboard layout), C 1 or 0
+#                              (F7 -> Input -> Caps Lock is Ctrl)
+#
+# It writes /etc/default/keyboard and reloads the kernel keymap, which every
+# console uses -- and which SDL reads when the emulator starts, so the machine's
+# own typing follows at its next start.  Caps as Ctrl is XKB's ctrl:nocaps.
+# Doc, 2026-09-12 ("make that f7 option change the same thing for the linux side
+# as well as keyboard language"); the boot-menu codes are from 2026-09-10.
+set -e
+CFG=/home/k4510/k4510/k4510.cfg
+cfgval() { sed -n "s/^$1 *= *//p" "$CFG" 2>/dev/null | tail -n 1; }
+
+if [ "$1" = "--set" ]; then
+    name=$2; caps=$3
+else
+    name=$(sed -n 's/.*\bk4510\.kbd=\([^ ]*\).*/\1/p' /proc/cmdline)
+    [ -n "$name" ] || name=$(cfgval host.kbd_layout)
+    caps=$(cfgval input.caps_ctrl)
+fi
+case "$caps" in 1|on|yes|true) OPT="ctrl:nocaps" ;; *) OPT="" ;; esac
+[ -n "$name" ] || [ -n "$OPT" ] || exit 0     # nothing chosen anywhere: the shipped default stands
+
+case "$name" in
+    ""|us|US)          L=us; V="" ;;
+    us-intl|US-intl)   L=us; V=intl ;;
+    ca|cf|Canada-FR)   L=ca; V="" ;;
+    fr|France)         L=fr; V="" ;;
+    de|Germany)        L=de; V="" ;;
+    es|Spain)          L=es; V="" ;;
+    gb|uk|UK)          L=gb; V="" ;;
+    it|Italy)          L=it; V="" ;;
+    *)                 exit 0 ;;              # unknown: leave the shipped default
+esac
+cat > /etc/default/keyboard <<EOF
+XKBMODEL="pc105"
+XKBLAYOUT="$L"
+XKBVARIANT="$V"
+XKBOPTIONS="$OPT"
+BACKSPACE="guess"
+EOF
+setupcon --force -k 2>/dev/null || true       # the keymap only; the console font is console-setup's

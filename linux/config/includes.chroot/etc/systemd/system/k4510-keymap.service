@@ -1,4 +1,5 @@
-# The keyboard layout chosen in the boot menu (k4510.kbd=<code>), applied before
+# The keyboard layout -- the boot menu's k4510.kbd=<code>, else the emulator's saved
+# F7 choice (no Condition: it runs every boot, since /etc lives in RAM) -- applied before
 # the console's own keyboard setup and the emulator's tty1 login.
 #
 # After=systemd-remount-fs, not systemd-tmpfiles-setup: tmpfiles-setup waits
@@ -8,11 +9,10 @@
 # Nothing here needs tmpfiles: /etc is the live overlay, writable from the
 # start, and setupcon needs no more than keyboard-setup itself does.
 [Unit]
-Description=K4510 keyboard layout from the boot menu (k4510.kbd=)
+Description=K4510 keyboard layout and Caps-as-Ctrl (boot menu k4510.kbd=, else the F7 settings)
 DefaultDependencies=no
 After=systemd-remount-fs.service
 Before=console-setup.service keyboard-setup.service getty@tty1.service
-ConditionKernelCommandLine=k4510.kbd
 
 [Service]
 Type=oneshot

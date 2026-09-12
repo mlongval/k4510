@@ -480,6 +480,33 @@ static uint8_t pad_held(void)
  * so the machine never blocks. */
 #ifndef __EMSCRIPTEN__
 static pid_t host_child;
+/* F7 -> Host -> Keyboard layout and F7 -> Input -> Caps Lock is Ctrl, for the
+ * Linux beside the machine: its consoles at once (k4510-keymap --set writes
+ * /etc/default/keyboard and reloads the kernel keymap), the machine's own
+ * typing at the emulator's next start -- SDL reads that keymap once, at init.
+ * The helper applies the saved pair at every boot too, before tty1, since
+ * /etc lives in RAM.  Called once before the frame loop (to note what the boot
+ * applied) and at each menu close.  Doc, 2026-09-12. */
+static pid_t kbd_child;
+static void host_keymap_apply(void)
+{
+    static int last_layout = -1, last_caps = -1;
+    int l = settings_get(SET_HOST_KBD_LAYOUT), c = settings_get(SET_INPUT_CAPS_CTRL);
+    if (kbd_child > 0 && waitpid(kbd_child, NULL, WNOHANG) == kbd_child) kbd_child = 0;
+    if (last_layout < 0) { last_layout = l; last_caps = c; return; }
+    if (l == last_layout && c == last_caps) return;
+    if (access("/etc/k4510-linux", F_OK) != 0) { last_layout = l; last_caps = c; return; }   /* a desktop owns its keyboard */
+    if (kbd_child > 0) return;                        /* one at a time; the next close tries again */
+    last_layout = l; last_caps = c;
+    char name[32]; settings_text(SET_HOST_KBD_LAYOUT, name, sizeof name);
+    pid_t pid = fork();
+    if (pid == 0) {
+        int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
+        execlp("sudo", "sudo", "-n", "/usr/local/sbin/k4510-keymap", "--set", name, c ? "1" : "0", (char *) NULL);
+        _exit(127);
+    }
+    if (pid > 0) kbd_child = pid;
+}
 static void host_info_refresh(void)
 {
     char name[64] = "?", addr[40] = "none", ts[40] = "none";
@@ -720,6 +747,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static unsigned p_runs;                       /* windows written this run: the first truncates, the rest append */
 #define PCLK_HZ() SDL_GetPerformanceFrequency()
 #define PERF_FRAMES 300
+#ifndef __EMSCRIPTEN__
+    host_keymap_apply();                          /* the first look: note the layout the boot already applied */
+#endif
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
           /* the window opens 20 s after start, so it measures the machine at
@@ -1117,6 +1147,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
             clock_at_open = -1;
             if (settings_changed()) settings_save(cfg);
+#ifndef __EMSCRIPTEN__
+            host_keymap_apply();                  /* layout / Caps-as-Ctrl changed: the Linux side too (K4510 Linux only) */
+#endif
         }
         /* ---- the governor -------------------------------------------------
          * The measurement is a guess about programs it has not seen, so the

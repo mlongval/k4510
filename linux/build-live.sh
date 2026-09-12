@@ -268,33 +268,10 @@ echo "== the keyboard picker (k4510.kbd= on the boot line) =="
 # command line and applies it BEFORE the emulator's tty1 login, so SDL's
 # console keyboard reads the chosen map.  No k4510.kbd= -> the shipped default
 # (plain US) stands.  The map codes are the boot menu's.
-cat > "$ROOT/usr/local/sbin/k4510-keymap" <<'KBD'
-#!/bin/sh
-# Apply the keyboard layout chosen in the boot menu (k4510.kbd=<code>).
-set -e
-code=$(sed -n 's/.*\bk4510\.kbd=\([^ ]*\).*/\1/p' /proc/cmdline)
-[ -n "$code" ] || exit 0
-case "$code" in
-    us)      L=us; V="" ;;
-    us-intl) L=us; V=intl ;;
-    de)      L=de; V="" ;;
-    es)      L=es; V="" ;;
-    fr)      L=fr; V="" ;;
-    ca|cf)   L=ca; V="" ;;
-    gb|uk)   L=gb; V="" ;;
-    it)      L=it; V="" ;;
-    *)       exit 0 ;;                 # unknown code: leave the shipped default
-esac
-cat > /etc/default/keyboard <<EOF2
-XKBMODEL="pc105"
-XKBLAYOUT="$L"
-XKBVARIANT="$V"
-XKBOPTIONS=""
-BACKSPACE="guess"
-EOF2
-setupcon --force 2>/dev/null || true
-KBD
-chmod +x "$ROOT/usr/local/sbin/k4510-keymap"
+# The helper, /usr/local/sbin/k4510-keymap, lives in config/includes.chroot
+# (copied in above) so a change to it rides the machine layer; it also applies
+# the emulator's saved F7 layout and Caps-as-Ctrl when the boot line picks none
+# (Doc, 2026-09-12).
 # Its unit, k4510-keymap.service, lives in config/includes.chroot/etc/systemd/
 # system/ (copied in above), so a fix to it rides the machine layer; written
 # here it reached only a full build -- and carried an ordering cycle

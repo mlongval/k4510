@@ -7126,3 +7126,21 @@ runs (its `ConditionKernelCommandLine` is gone): the boot line's
 `k4510.kbd=` wins, else the saved F7 pair from `k4510.cfg` -- /etc is in
 RAM, the cfg persists.  The helper moved from a build-live.sh heredoc
 into `config/includes.chroot/usr/local/sbin`, so it rides the layer.
+
+## 2026-09-12 — blue on blue, and colours a Unix host sends
+
+Claude Code's inline code came out blank on the Dell.  The log said why
+in one line: it is `ESC[34m`, ANSI blue, and JIM's ANSI blue is C64
+colour 6 -- the machine's own background.  In a UTF-8 session (a Unix
+host) a character whose colour equals its background now takes the
+bright one (light blue on blue), or white/black; a BBS in CP437 keeps
+its exact colours, since art can mean it.  While there: 256-colour
+`38;5;n` above 15 was `n & 15` (arbitrary) and is now the nearest of the
+xterm 16; truecolour `38;2;r;g;b` was not read at all -- its values were
+taken as SGR codes, 34 being blue -- and is now mapped the same way;
+DA2 (`ESC[>c`, which tmux asks) got the DA1 answer and now gets
+`ESC[>1;10;0c`.  And `K4510_TERMLOG` marks the wall clock after any
+100 ms pause, for Doc's slow `!ssh` login: ubuntu-s1 opens the session
+within 3 ms of the password and the handshake takes 0.2 s, so the
+seconds are on the machine's side, and the next log will show where.
+termtest leg 10.

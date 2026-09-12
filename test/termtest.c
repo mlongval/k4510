@@ -14,6 +14,7 @@ static void send(const char *s) { while (*s) W(0, *s++); }
 static uint8_t *cell(int x, int y) { return k4510_ram + 0x030000 + ((y + 1) * 80 + x + 1) * 4; }   /* the ROM's MODE 1 1 window: origin (1,1), stride 80 */
 static void row(char *out, int y) { for (int x = 0; x < 79; x++) out[x] = (char) cell(x, y)[0]; out[79] = 0; for (int x = 78; x >= 0 && out[x] == ' '; x--) out[x] = 0; }
 static void drain(char *out) { int i = 0; while (R(1) & 0x80) out[i++] = (char) R(2); out[i] = 0; }
+static int apalb_test(int ansi) { static const int b[8] = { 11, 10, 13, 7, 14, 4, 3, 1 }; return b[ansi]; }   /* term.c's bright set */
 int main(void)
 {
     char r[80], rep[32];
@@ -129,5 +130,26 @@ int main(void)
     CHECK(cell(0, 6)[0] == 'Z', "after the session LNM is back (Z %s)", cell(0, 6)[0] == 'Z' ? "at col 0" : "misplaced");
     send("\xE2\x94\x80"); CHECK(cell(1, 6)[0] == 0xE2, "and UTF-8 is off again");
     printf("9. a host session: LNM off, then back: ok\n");
+
+    /* 10. Colours from a Unix host.  Claude Code's inline code is ESC[34m, and
+     * ANSI blue is the machine's blue background: blue on blue, invisible (the
+     * Dell, 2026-09-12).  In a UTF-8 session it takes the bright blue; a BBS
+     * (CP437) keeps its exact colours.  256-colour and truecolour map to the
+     * nearest of the 16, and DA2 gets its own answer. */
+    W(4, 1); W(4, 2);                                           /* bg = DEFBG 6 (blue) */
+    term_host_session(1);
+    send("\033[34mA\033[m");
+    CHECK(cell(0, 0)[2] == 14 && cell(0, 0)[3] == 6, "blue on blue in a Unix session draws light blue (fg %d bg %d)", cell(0, 0)[2], cell(0, 0)[3]);
+    send("\033[38;5;196mR\033[38;2;0;205;0mG\033[38;5;244mY\033[m");   /* 256-colour red, truecolour green, a 256 grey */
+    CHECK(cell(1, 0)[2] == 10 && cell(2, 0)[2] == 5, "256-colour red -> bright red, truecolour green -> green (%d %d)", cell(1, 0)[2], cell(2, 0)[2]);
+    CHECK(cell(3, 0)[2] == apalb_test(0), "a 256-colour grey -> dark grey (%d)", cell(3, 0)[2]);
+    send("\033[38;2;0;0;0;1mB\033[m");                          /* truecolour black then bold: the 1 is SGR, not a colour */
+    CHECK(cell(4, 0)[0] == 'B', "truecolour consumes its three values");
+    term_host_session(0);
+    send("\033[34mb\033[m");                                    /* CP437 (a BBS): exact, even blue on blue */
+    CHECK(cell(5, 0)[2] == 6, "outside a Unix session blue on blue stays exact (%d)", cell(5, 0)[2]);
+    send("\033[>c"); drain(rep); CHECK(!strcmp(rep, "\033[>1;10;0c"), "DA2 answer '%s'", rep + 1);
+    send("\033[c");  drain(rep); CHECK(!strncmp(rep, "\033[?62", 5), "DA1 still answers DA1");
+    printf("10. host colours, 256/truecolour, DA2: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

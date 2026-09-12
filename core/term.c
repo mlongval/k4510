@@ -6,6 +6,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <time.h>
 
 #define NPAR 16
 static struct {
@@ -190,6 +191,15 @@ static void print_char(uint8_t ch)
     if (cs == 1 && ch >= 0x60 && ch <= 0x7E) ch = decgfx[ch - 0x60];
     if (T.bold) { for (int i = 0; i < 8; i++) if (apal[i] == T.fg) { fg = apalb[i]; break; } }
     if (T.rev) { uint8_t t = fg; fg = bg; bg = t; }
+    /* A Unix program's ANSI blue is the machine's own blue background (both
+     * C64 colour 6), so Claude Code's inline code -- ESC[34m -- drew blue on
+     * blue and vanished (the Dell, 2026-09-12).  In a UTF-8 session (a Unix
+     * host) a character whose colour IS its background takes the bright one,
+     * or white/black.  A BBS (CP437) keeps its exact colours: art may mean it. */
+    if (T.utf8 && fg == bg) {
+        for (int i = 0; i < 8; i++) if (apal[i] == fg) { fg = apalb[i]; break; }
+        if (fg == bg) fg = (bg == 1) ? 0 : 1;
+    }
     if (T.uline) attr |= 0x00;           /* text32 has no underline; kept for the day it does */
     if (T.pending) {                     /* the VT100 way: the wrap happens as the next character lands */
         if (T.wrap) { T.cx = 0; linefeed(); } else T.cx = (uint8_t)(T.cols - 1);
@@ -202,6 +212,17 @@ static void print_char(uint8_t ch)
 
 /* ---- CSI ---------------------------------------------------------------------- */
 static int P(int i, int dflt) { return (i < T.npar && T.par[i]) ? T.par[i] : dflt; }
+static int ansi16_of(int r, int g, int b)                       /* 0-15: the xterm colour nearest r,g,b */
+{
+    static const uint8_t x[16][3] = { {0,0,0}, {205,0,0}, {0,205,0}, {205,205,0}, {0,0,238}, {205,0,205}, {0,205,205}, {229,229,229},
+                                      {127,127,127}, {255,0,0}, {0,255,0}, {255,255,0}, {92,92,255}, {255,0,255}, {0,255,255}, {255,255,255} };
+    int best = 0; long bd = -1;
+    for (int i = 0; i < 16; i++) {
+        long dr = r - x[i][0], dg = g - x[i][1], db = b - x[i][2], d = dr * dr + dg * dg + db * db;
+        if (bd < 0 || d < bd) { bd = d; best = i; }
+    }
+    return best;
+}
 static void sgr(void)
 {
     if (!T.npar) { T.par[0] = 0; T.npar = 1; }
@@ -220,10 +241,21 @@ static void sgr(void)
         else if (v == 49) T.bg = T.defbg;
         else if (v >= 90 && v <= 97) T.fg = apalb[v - 90];
         else if (v >= 100 && v <= 107) T.bg = apalb[v - 100];
-        else if ((v == 38 || v == 48) && i + 2 < T.npar && T.par[i + 1] == 5) {
-            int n = T.par[i + 2]; uint8_t c = n < 8 ? apal[n] : n < 16 ? apalb[n - 8] : (uint8_t)(n & 15);
+        else if ((v == 38 || v == 48) && i + 2 < T.npar && T.par[i + 1] == 5) {   /* 256 colours: the nearest of the 16 */
+            int n = T.par[i + 2], a;
+            if (n < 16) a = n;
+            else if (n < 232) { n -= 16; a = ansi16_of(n / 36 ? 55 + 40 * (n / 36) : 0, (n / 6) % 6 ? 55 + 40 * ((n / 6) % 6) : 0, n % 6 ? 55 + 40 * (n % 6) : 0); }
+            else { int g = 8 + 10 * (n - 232); a = ansi16_of(g, g, g); }
+            uint8_t c = a < 8 ? apal[a] : apalb[a - 8];
             if (v == 38) T.fg = c; else T.bg = c;
             i += 2;
+        }
+        else if ((v == 38 || v == 48) && i + 4 < T.npar && T.par[i + 1] == 2) {   /* truecolour: the nearest of the 16.  Unread,
+                                                                                 * its r;g;b were taken as SGR codes (34 = blue) */
+            int a = ansi16_of(T.par[i + 2], T.par[i + 3], T.par[i + 4]);
+            uint8_t c = a < 8 ? apal[a] : apalb[a - 8];
+            if (v == 38) T.fg = c; else T.bg = c;
+            i += 4;
         }
     }
 }
@@ -285,7 +317,10 @@ static void csi(uint8_t c)
         if (m == 5) reply("\033[0n");
         else if (m == 6) { char b[16]; strcpy(b, "\033["); reply_num(b + 2, (T.origin ? T.cy - T.top : T.cy) + 1); strcat(b, ";"); reply_num(b + strlen(b), T.cx + 1); strcat(b, "R"); reply(b); }
         break; }
-    case 'c': if (!T.inter) reply("\033[?62;1;6;22c"); break;      /* a VT220 with 132 columns absent, selective erase, colour */
+    case 'c': if (!T.inter) {                                     /* DA1: a VT220 with 132 columns absent, selective erase, colour */
+                  if (!T.priv) reply("\033[?62;1;6;22c");
+                  else if (T.priv == '>') reply("\033[>1;10;0c");   /* DA2 (tmux asks): a VT220, firmware 10.  It once got the DA1 answer */
+              } break;
     case 'r': {
         int t = P(0, 1), b = P(1, T.rows);
         if (t < 1) t = 1;
@@ -663,7 +698,15 @@ void term_write(uint8_t r, uint8_t v)
         r, v, T.shown, T.cur_on, T.cx, T.cy, (unsigned) T.cur_at, (unsigned)((k4510_ram[T.cur_at] >> 7) & 1)); fflush(lg); } }
     switch (r) {
     case 0x00:
-        { FILE *lg = termlog(); if (lg) { fputc(v, lg); fflush(lg); } }
+        { FILE *lg = termlog(); if (lg) {
+              /* a wall-clock mark after any pause of 100 ms or more, so a log
+               * says where the seconds went (a slow ssh login, 2026-09-12) */
+              static long long last_ms; struct timespec ts; clock_gettime(CLOCK_REALTIME, &ts);
+              long long now = (long long) ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+              if (now - last_ms >= 100) { time_t t = ts.tv_sec; struct tm tm; localtime_r(&t, &tm);
+                  fprintf(lg, "\n<t %02d:%02d:%02d.%03d>", tm.tm_hour, tm.tm_min, tm.tm_sec, (int)(now % 1000)); }
+              last_ms = now;
+              fputc(v, lg); fflush(lg); } }
         cur_undraw(); put_byte(v); T.dirty = 1; cur_draw(); return;
     case 0x03: key(v); return;
     case 0x04:

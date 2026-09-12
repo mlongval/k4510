@@ -199,7 +199,7 @@ CUT   SID playback  SIDPLAY.prg retired (see 13).  `fs/SID` is a SYMLINK to
 ?  State save/load (core/state.c)
 ?  Reset chord
 
-## 12. The Pi appliance (BMC-K4510)
+## 12. The Pi appliance (BMC-K4510) -- retired 2026-09-07, its name 2026-09-12
 
 ?  Bare-metal Circle boot on a 3B+
 ?  USB keyboard        layout via cmdline.txt keymap=; FIXED to us 2026-09-01,

@@ -1,7 +1,7 @@
 #!/bin/sh
 # K4510: one-shot desktop setup -- install the build dependencies,
 # build the machine and its tools, run the test suite.
-#   git clone https://github.com/mlongval/bmc-k4510 && cd bmc-k4510 && ./setup.sh
+#   git clone https://github.com/mlongval/k4510 && cd k4510 && ./setup.sh
 # Understands apt (Debian/Ubuntu), dnf (Fedora) and pacman (Arch).
 set -e
 
@@ -29,7 +29,7 @@ if [ -n "$MISSING" ]; then
     echo "  sdl2   -- required (the emulator's window and sound)"
 fi
 
-[ -f Makefile ] || { echo "setup: run me from the repo root (git clone https://github.com/mlongval/bmc-k4510)"; exit 1; }
+[ -f Makefile ] || { echo "setup: run me from the repo root (git clone https://github.com/mlongval/k4510)"; exit 1; }
 make all
 make -C tube 2>/dev/null && echo "setup: Tube (BBC BASIC) built" || echo "setup: Tube skipped (nasm missing?) -- everything else works"
 make cpm/runcpm 2>/dev/null && echo "setup: CP/M co-processor built" || true

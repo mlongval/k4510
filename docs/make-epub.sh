@@ -5,7 +5,7 @@ cd "$(dirname "$0")"
 
 cat > .meta.yaml <<'HDR'
 ---
-title: "BMC-K4510"
+title: "K4510"
 subtitle: "A Modern C64 Successor for the Bare-Metal Raspberry Pi 3B+"
 creator:
   - role: author

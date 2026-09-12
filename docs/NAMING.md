@@ -1,5 +1,27 @@
 # The names
 
+**Decision, 2026-09-12 (Doc): one name.** The Pi appliance was retired on
+2026-09-07 (`decision-2026-09-07-one-shape.md`), and its name goes with it:
+**BMC-K4510 is retired.** The machine is the **K4510** on every host.
+**K4510x** stays as the name of the small Linux that boots into it -- the
+stick for old hardware, and the dual-boot install (the Dell) -- and the
+sandboxed desktop flavour is the K4510 in a container (`linux/podman.sh`).
+
+- **The ROM no longer prints `BMC-`** anywhere.  The banner branched on
+  `$D522`, and since the K4510 Linux arrived that byte means "the K4510
+  Linux", not "a card" -- so K4510x had been calling itself BMC-K4510.
+- **The repository** is `github.com/mlongval/k4510` (renamed 2026-09-09;
+  the old URL redirects), and the working folder on ubuntu-s1 is
+  `~/Projects/K4510`.
+- **`pi/` and the history keep the old name**: they describe the retired
+  appliance, and the tag `alpha-0.5` is the last tree that builds it.
+
+Everything below is the record of how the names got here. Where it says
+BMC-K4510 it means the retired appliance; where it says the repository
+stays `bmc-k4510`, that was overtaken on 2026-09-09.
+
+---
+
 **Decision, 2026-08-29 (Doc), extended 2026-09-01.** There are now
 THREE names, because there are three ways to deliver the machine. The
 2026-08-29 decision below settled the first two; the third arrived when

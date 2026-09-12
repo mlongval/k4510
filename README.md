@@ -37,8 +37,8 @@ first page says so.
 
 **Desktop (Linux):**
 
-    git clone https://github.com/mlongval/bmc-k4510
-    cd bmc-k4510 && ./setup.sh
+    git clone https://github.com/mlongval/k4510
+    cd k4510 && ./setup.sh
     ./k4510
 
 `setup.sh` installs the dependencies (gcc, SDL2, cc65, 64tass, nasm),

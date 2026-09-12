@@ -29,7 +29,7 @@ in what you can and delete what does not apply.
 - Check this book.
 
 ```
-Machine:  K4510 (desktop)  |  BMC-K4510 (bare metal, Raspberry Pi 3B+)
+Machine:  K4510 (desktop or container)  |  K4510x (the Linux: stick or installed)
 Version:  what INFO -v gives, e.g. build 0.3-044bac5+  (a trailing
           + means that build was made from an edited tree).  Or,
           if it will not boot, the version on the handbook's cover

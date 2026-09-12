@@ -1,4 +1,4 @@
-# BMC-K4510 — Video Architecture Options
+# K4510 — Video Architecture Options
 
 Input for the video conversation flagged in §2 of `K4510-Design.md`.
 Nothing here is ratified; §2 stays frozen until you make the call.

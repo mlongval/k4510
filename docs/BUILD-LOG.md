@@ -7005,3 +7005,22 @@ block and a shade, is an Arabic digit -- so a BBS that never negotiates
 would have lost its art.  In a UTF-8 session TELNET also sends a typed
 accented letter as UTF-8.  `test/termtest` leg 8 covers the decoding,
 the fallback, the widths, the known `C4 B3` limit and the three offs.
+
+## 2026-09-12 — one name: BMC-K4510 is retired
+
+Doc: the Pi port is dead (the 3B+ lacks the horsepower), and the work is
+two things -- the small Linux + emulator for old hardware (K4510x: the
+stick, the dual-boot install on the Dell) and the same in a container on
+a full desktop.  So the appliance's name goes the way of the appliance
+(retired 2026-09-07): **K4510** everywhere, **K4510x** for the Linux.
+`docs/NAMING.md` has the decision on top of the record.
+
+The one thing a user could see: **the banner said `BMC-K4510` on the
+Dell.**  It printed `BMC-` when `$D522` was set -- meant as "on the card",
+but since the K4510 Linux that byte is `io_host_kind`, 1 on K4510x -- so
+the Linux edition had been announcing itself as the Pi.  The branch is
+gone; `INFO` still says "on the K4510 Linux" from the same byte, which is
+true.  Also: the clone URL in README/setup.sh is `mlongval/k4510` (the
+GitHub rename of 2026-09-09; the old one redirects), the design docs'
+titles, the issue form's Machine line (K4510 / K4510x), and the folder on
+ubuntu-s1 is `~/Projects/K4510`.  `pi/` and the history keep the old name.

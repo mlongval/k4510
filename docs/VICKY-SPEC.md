@@ -2,7 +2,7 @@
 
 *VIC-Kawari extended. Pronounced "Vicky".*
 
-The BMC-K4510's video chip. Clean-sheet design, decided 2026-08-21
+The K4510's video chip. Clean-sheet design, decided 2026-08-21
 after the survey in `VIDEO-OPTIONS.md`. This document is the capability
 list; it is a proposal until you edit it.
 

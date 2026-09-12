@@ -2149,8 +2149,7 @@ static void banner(void)
         bg = obg;
         pad(20);
         switch (r) {
-        case 0: fg = C_HI;  if (REG(SYS + 0x22)) puts_("BMC-");   /* on the card it IS the appliance; see docs/NAMING.md */
-                    puts_("K4510 Fantasy Computer - K/OS"); break;
+        case 0: fg = C_HI;  puts_("K4510 Fantasy Computer - K/OS"); break;   /* one name everywhere (docs/NAMING.md, 2026-09-12) */
         /* No clock here: the machine has no one speed any more.  The clock in
          * force is INFO's business, and it says it in kHz. */
         case 2: fg = C_FG;  puts_("CPU: 45GS10   RAM: 256 Mb"); break;

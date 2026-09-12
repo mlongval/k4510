@@ -1,4 +1,4 @@
-# BMC-K4510 — Design Document
+# K4510 — Design Document
 
 A fantasy 8/16-bit computer inspired by the C64 and the MEGA65,
 running bare metal on a Raspberry Pi 3B+.
@@ -833,7 +833,7 @@ and the MEGA65's processor, and owes neither of them compatibility.
 
 ---
 
-# BMC-K4510 — Plan
+# K4510 — Plan
 
 Second plan, adopted 2026-08-22. The first (the VICE route) is kept in
 `sources-superseded/PLAN-v1-vice-route.md`. The capability matrix
@@ -867,7 +867,7 @@ ours and small. There is no third category; that was VICE.
 ## 1. Shape of the code
 
 ```
-k4510/                        t480i5 ~/Projects/BMC-K4510/k4510, git
+k4510/                        t480i5 ~/Projects/K4510/k4510, git
   core/xemu/    cpu65.c + headers      Xemu, byte-for-byte (GPL2)
   core/         shim, mem, vicky, (sid, opl, io, dma to come)
   sdl/          desktop frontend: window, audio, input
@@ -1026,7 +1026,7 @@ Settings, menus (BMC64's on the Pi; minimal on the desktop).
 
 ## 6. Repositories
 
-- Code: github.com/mlongval/bmc-k4510 (private); working copy on the
+- Code: github.com/mlongval/k4510 (public); working copy on the
   t480i5, bare mirror on ubuntu-s1 `~/LocalRepositories/k4510.git`.
 - Docs: this folder, ubuntu-s1, git.
 - The bmc64 fork's `k4510` branch (t480i5) is history; the fork itself

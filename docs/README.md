@@ -50,7 +50,7 @@ kept in step by hand — change one, check the other.
 
 ## What is *not* here
 
-The archive folder on ubuntu-s1 (`~/Projects/BMC-K4510/`) keeps only what
+The archive folder on ubuntu-s1 (`~/Projects/K4510/`) keeps only what
 does not belong in a public repository: full-resolution phone photos,
 release zips and probe logs, font staging, and its own git history. It
 holds no living document. If you find a copy of a document from this

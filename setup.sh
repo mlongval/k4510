@@ -7,7 +7,7 @@ set -e
 
 if command -v apt-get >/dev/null; then
     sudo apt-get update
-    sudo apt-get install -y git make gcc g++ libsdl2-dev cc65 64tass nasm unzip
+    sudo apt-get install -y git make gcc g++ libsdl2-dev cc65 64tass nasm acme unzip
 elif command -v dnf >/dev/null; then
     sudo dnf install -y git make gcc gcc-c++ SDL2-devel cc65 64tass nasm unzip || true
 elif command -v pacman >/dev/null; then
@@ -36,10 +36,10 @@ make cpm/runcpm 2>/dev/null && echo "setup: CP/M co-processor built" || true
 
 echo
 PASS=0; FAIL=""
-for t in mathtest fstest romtest cputest woztest maptest banktest dmatest vickytest sidtest; do
+for t in mathtest fstest romtest cputest woztest maptest banktest dmatest vickytest; do
     if ./test/$t >/dev/null 2>&1; then PASS=$((PASS+1)); else FAIL="$FAIL $t"; fi
 done
-echo "setup: tests: $PASS/10 pass${FAIL:+ (failed:$FAIL)}"
+echo "setup: tests: $PASS/9 pass${FAIL:+ (failed:$FAIL)}"
 echo
 echo "Run the machine:   ./sdl/k4510 rom/kernal.bin fs"
 echo "Read the book:     doc/guide/  (or the PDF from the releases page)"

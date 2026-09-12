@@ -60,9 +60,10 @@ static void say(const char *s) { while (*s) rom_chrout(*s++); }
 static void sayln(const char *s) { say(s); rom_chrout('\n'); }
 static void dec(uint16_t v) { char t[6]; uint8_t n = 0; if (!v) { rom_chrout('0'); return; } while (v) { t[n++] = (char)('0' + v % 10); v /= 10; } while (n) rom_chrout(t[--n]); }
 
-static void join(char *out, const char *dir, const char *leaf)
+static void join(char *out, const char *dir, const char *leaf)  /* out is 192 bytes (src, dst) */
 {
     uint8_t l;
+    if (strlen(dir) + strlen(leaf) + 2 > 192) { out[0] = 0; return; }   /* a deep cwd: an empty path fails as not found */
     strcpy(out, dir); l = (uint8_t)strlen(out);
     if (l && out[l - 1] != '/') { out[l] = '/'; out[l + 1] = 0; }
     strcat(out, leaf);

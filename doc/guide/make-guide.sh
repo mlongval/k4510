@@ -63,7 +63,7 @@ printf '%s\n%s\n' \
   "\\renewcommand{\\guideversion}{$VER}" \
   "\\renewcommand{\\guidedate}{$(date +%d.%m.%Y)}" > version.tex
 
-xelatex -interaction=nonstopmode k4510-guide.tex >/dev/null
+xelatex -interaction=nonstopmode k4510-guide.tex >/dev/null || true   # errors are read from the log below
 xelatex -interaction=nonstopmode k4510-guide.tex | tail -2
 
 # Any LaTeX error at all. nonstopmode keeps going and still writes a PDF, so

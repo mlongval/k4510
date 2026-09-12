@@ -19,7 +19,7 @@ S="sudo -n"                                   # passwordless on the K4510 Linux;
 run uname          uname -a
 run build          cat "$HOME/k4510/core/build.h"
 run cmdline        cat /proc/cmdline
-run env            env
+run env            env | grep -viE 'token|key|secret|pass'   # a desktop may hold credentials
 # --- input: the trackpad / trackpoint / keyboard question -------------------
 run input-devices  cat /proc/bus/input/devices
 run lsmod          lsmod

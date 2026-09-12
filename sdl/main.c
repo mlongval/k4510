@@ -520,9 +520,9 @@ int k4510_frontend_main(int argc, char **argv)
      * keyboard.  Hot-plug: the first pad to appear is the one; unplug it and
      * the next one to appear takes over.  Nothing to configure. */
     { int n = SDL_NumJoysticks(); for (int i = 0; i < n && !pad; i++) if (SDL_IsGameController(i)) pad_open(i); }
-    /* The machine has no mouse -- no pointer, nothing to click, not one byte
-     * of mouse in the I/O map -- so a cursor sitting on the glass is never
-     * anything but wrong.  It showed up as a white arrow parked in the top
+    /* The host's pointer is never drawn on the glass: the machine has its own
+     * ($D108-$D10F and the Mouse pointer setting, 2026-09-11), and the host's
+     * was only ever wrong there.  It showed up as a white arrow parked in the top
      * left corner on the K4510 Linux, where KMSDRM draws one because there is no
      * desktop to own it.  Hidden everywhere: in a window the pointer is still
      * there for the frame and the title bar, it just stops being drawn over

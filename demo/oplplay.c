@@ -186,7 +186,7 @@ static uint8_t steps_due(uint8_t per_step_frames)
 
 /* ---- the .OPL library, when there is one -------------------------------- */
 static uint16_t ntunes;                   /* 0 = play the built-in tunes */
-static char fsname[36];
+static char fsname[64];                   /* DIR_NEXT writes up to 64 */
 static uint32_t tp, tend;                 /* the walk: cursor and end */
 static uint32_t tloop;                    /* loop point, 0 = one-shot */
 static uint16_t twait;                    /* frames still owed to a 02 nn */
@@ -199,7 +199,7 @@ static void list_tunes(void)
 {
     ntunes = 0;
     fs_setname("/APPS/OPLPLAY/TUNES"); if (fs_cmd(11)) return;   /* no TUNES: built-ins it is */
-    if (fs_cmd(6)) return;
+    if (fs_cmd(6)) { fs_cmd(22); return; }
     for (;;) {
         uint8_t i, len; char *e;
         far_w32(0xD308, (uint16_t)fsname);
@@ -212,6 +212,7 @@ static void list_tunes(void)
         far_poke(LISTBUF + (uint32_t)ntunes * 32 + 31, 0);
         if (++ntunes == MAXTUNES) break;
     }
+    fs_cmd(22);                               /* CHDIR_BACK: the shell's prompt stayed in TUNES after q */
 }
 
 /* Load tune n and stand the walker at the first command.  A bad header is not
@@ -221,7 +222,10 @@ static uint8_t load_tune(uint16_t n)
     uint32_t size; uint8_t i;
     for (i = 0; i < 31; i++) fsname[i] = (char)far_peek(LISTBUF + (uint32_t)n * 32 + i);
     fsname[31] = 0;
-    fs_setname(fsname); far_w32(0xD308, TUNEBUF);
+    { static char full[96]; uint8_t j = 0; const char *d = "/APPS/OPLPLAY/TUNES/";   /* absolute: the cwd is the shell's again */
+      while (*d) full[j++] = *d++; for (i = 0; fsname[i]; i++) full[j++] = fsname[i]; full[j] = 0;
+      fs_setname(full); }
+    far_w32(0xD308, TUNEBUF);
     if (fs_cmd(9)) return 1;
     size = far_r32(0xD30C);
     if (size < 45) return 1;

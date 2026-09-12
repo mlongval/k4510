@@ -19,7 +19,7 @@
  * corrupt it, and vice versa. Resets happen only while the co-processor is
  * not running, from the machine's side. */
 #define OUT_SZ 16384                      /* co-processor -> machine (its screen) */
-#define IN_SZ  256                        /* machine -> co-processor (its keyboard) */
+#define IN_SZ  4096                       /* machine -> co-processor (its keyboard) */
 static uint8_t out_ring[OUT_SZ]; static volatile unsigned out_w, out_r;
 static uint8_t in_ring[IN_SZ];   static volatile unsigned in_w, in_r;
 
@@ -50,6 +50,11 @@ int tube_cp_start(int prog)
         atomic_store(&out_w, 0); atomic_store(&out_r, 0);
         atomic_store(&in_w, 0);  atomic_store(&in_r, 0);
     }
+    /* A stop still in flight (cp_kill set, the interpreter not yet at a trap)
+     * must land before the next start, or the old program keeps running with
+     * the ROM attached to it.  Bounded: 200 x 5 ms. */
+    for (int i = 0; i < 200 && atomic_load(&cp_alive) && atomic_load(&cp_kill); i++) usleep(5000);
+    if (atomic_load(&cp_alive) && atomic_load(&cp_kill)) return -1;
     atomic_store(&cp_kill, 0);
     atomic_store(&cp_req, prog);
     return 0;
@@ -163,14 +168,31 @@ static void cp_path(char *out, size_t max, const char *in)
     cp_normalise(rel);
     if (rel[0]) snprintf(out, max, "%s/%s", fs_get_root(), rel); else snprintf(out, max, "%s", fs_get_root());
 }
+/* A fetched URL as a FILE*: a memory stream wrapped so that closing it also
+ * frees the buffer (fmemopen never owns its memory). */
+#define CP_MEM_N 8
+static struct { FILE *f; uint8_t *b; } cp_mem[CP_MEM_N];
+static void cp_mem_register(FILE *f, uint8_t *b) { for (int i = 0; i < CP_MEM_N; i++) if (!cp_mem[i].f) { cp_mem[i].f = f; cp_mem[i].b = b; return; } }
+static ssize_t cp_mem_read(void *c, char *buf, size_t n) { return (ssize_t) fread(buf, 1, n, (FILE *) c); }
+static int cp_mem_seek(void *c, off64_t *off, int whence) { if (fseeko((FILE *) c, (off_t) *off, whence)) return -1; *off = (off64_t) ftello((FILE *) c); return 0; }
+static int cp_mem_close(void *c)
+{
+    for (int i = 0; i < CP_MEM_N; i++) if (cp_mem[i].f == (FILE *) c) { free(cp_mem[i].b); cp_mem[i].f = NULL; cp_mem[i].b = NULL; break; }
+    return fclose((FILE *) c);
+}
 FILE *tube_cp_fopen(const char *path, const char *mode)
 {
     char p[512];
     if (net_is_url(path)) {                                /* the Meatloaf rule reaches the co-processor too */
-        static uint8_t *last; uint8_t *b; uint32_t n;
+        uint8_t *b; uint32_t n; FILE *f;
         if (mode[0] != 'r' || net_fetch(path, &b, &n)) return NULL;
-        free(last); last = b;                              /* one fetched file at a time: freed by the next */
-        return fmemopen(b, n ? n : 1, "rb");
+        /* The buffer belongs to the FILE and goes when it is closed: the old
+         * "one static, freed by the next open" left a live FILE* reading freed
+         * memory when two URLs were open at once (review 2026-09-05, 13). */
+        if (!(f = fmemopen(b, n ? n : 1, "rb"))) { free(b); return NULL; }
+        { FILE *g = fopencookie(f, "rb", (cookie_io_functions_t){ cp_mem_read, NULL, cp_mem_seek, cp_mem_close });
+          if (!g) { fclose(f); free(b); return NULL; }
+          cp_mem_register(f, b); return g; }
     }
     cp_path(p, sizeof p, path); return fopen(p, mode);
 }

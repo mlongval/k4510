@@ -44,11 +44,11 @@
 </p>
 <script>
   var HOME = '/fs/HOME';
-  var persistReady = false, needSync = false;
+  var persistReady = false;
 
   function syncOut(cb) {           // save the machine's /HOME into IndexedDB
     if (!persistReady) { if (cb) cb(); return; }
-    try { FS.syncfs(false, function () { needSync = false; if (cb) cb(); }); } catch (e) { if (cb) cb(); }
+    try { FS.syncfs(false, function (err) { if (cb) cb(err); }); } catch (e) { if (cb) cb(e); }
   }
   function listFiles() {
     var el = document.getElementById('filelist');
@@ -73,15 +73,22 @@
   }
   function upload(files) {
     if (!persistReady || !files || !files.length) return;
-    var left = files.length;
+    var left = files.length, bad = 0;
     Array.prototype.forEach.call(files, function (f) {
       var r = new FileReader();
       r.onload = function () {
         try {
           var nm = f.name.toUpperCase().replace(/[^A-Z0-9._-]/g, '_');   // the machine's names are upper-case
           FS.writeFile(HOME + '/' + nm, new Uint8Array(r.result));
-        } catch (e) {}
-        if (--left === 0) { syncOut(); listFiles(); document.getElementById('status').textContent = 'uploaded to /HOME'; }
+        } catch (e) { bad++; }
+        if (--left === 0) {
+          syncOut(function (err) {
+            document.getElementById('status').textContent =
+              err ? 'uploaded, but saving to this browser failed: ' + err
+                  : bad ? bad + ' of ' + files.length + ' failed to upload' : 'uploaded to /HOME';
+          });
+          listFiles();
+        }
       };
       r.readAsArrayBuffer(f);
     });
@@ -118,8 +125,8 @@
     if (started) return; started = true;
     document.getElementById('start').style.display = 'none';
     Module.canvas.focus();
-    if (typeof Module.callMain === 'function') Module.callMain([]);
-    else Module.onRuntimeInitialized = function () { Module.callMain([]); };
+    // main() already ran at load (noInitialRun is unset and callMain is not
+    // exported); the button only takes the overlay away and gives focus.
   }
   document.getElementById('start').addEventListener('click', start);
   if (location.search.indexOf('autostart') >= 0) { var pi = Module.onRuntimeInitialized; Module.onRuntimeInitialized = function () { pi(); start(); }; }
@@ -129,7 +136,7 @@
   document.getElementById('upBtn').addEventListener('click', function () { document.getElementById('upInput').click(); });
   document.getElementById('upInput').addEventListener('change', function (e) { upload(e.target.files); e.target.value = ''; });
   document.getElementById('refreshBtn').addEventListener('click', function () { syncOut(listFiles); });
-  document.getElementById('saveBtn').addEventListener('click', function () { syncOut(function () { document.getElementById('status').textContent = '/HOME saved to this browser'; }); });
+  document.getElementById('saveBtn').addEventListener('click', function () { syncOut(function (err) { document.getElementById('status').textContent = err ? 'save failed: ' + err : '/HOME saved to this browser'; }); });
   var drop = document.getElementById('drop');
   ['dragenter', 'dragover'].forEach(function (ev) { document.body.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add('hot'); }); });
   ['dragleave', 'drop'].forEach(function (ev) { document.body.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove('hot'); }); });

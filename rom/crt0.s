@@ -71,6 +71,9 @@ _speed_loop:
 ; The cursor cell is in far memory; the IRQ borrows $02-$05 for the flat
 ; pointer and restores them, so it is safe whatever program owns the zero page.
 irq:    pha
+        .byte $DB               ; PHZ
+        .byte $A3, $00          ; LDZ #0: the flat [$02],Z ops below assume it, and a program
+                                ; interrupted inside far_poke16 (Z=1) or map_window (Z=$0F) does not
         lda $D004               ; VICKY IRQSTAT
         pha
         and #1                  ; vblank?
@@ -120,6 +123,7 @@ irq:    pha
         plx
 @ack:   pla
         sta $D004               ; acknowledge what we saw
+        .byte $FB               ; PLZ
         pla
         rts                     ; back to the stub (s_irq), which banks the ROM out again and RTIs
 

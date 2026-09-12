@@ -59,7 +59,7 @@ else
     if [ "$REBUILD" = 1 ]; then
         say "rebuilding the machine on $SRC_HOST (REBUILD=1; a couple of minutes)"
         sudo -u "$USER" ssh -o BatchMode=yes -o ConnectTimeout=8 "$SRC_HOST" \
-            "cd ~/$CHECKOUT && git fetch origin -q && git merge --ff-only origin/master >/dev/null 2>&1; sudo env NODISK= WORK=\$PWD/linux/.live-work-internal OUT=\$PWD/linux/k4510-internal-amd64.img REBUILD=1 sh linux/build-live.sh" \
+            "cd ~/$CHECKOUT && git fetch origin -q && git merge --ff-only @{u} && sudo env NODISK= WORK=\$PWD/linux/.live-work-internal OUT=\$PWD/linux/k4510-internal-amd64.img REBUILD=1 sh linux/build-live.sh" \
             || die "the remote rebuild failed on $SRC_HOST"
     fi
     # A persistent cache, not a temp dir: rsync then moves only the files that
@@ -75,6 +75,7 @@ else
     SRCDIR="$TMP"
 fi
 [ -f "$SRCDIR/filesystem.squashfs" ] || die "source has no filesystem.squashfs."
+[ -f "$SRCDIR/k4510.squashfs" ] || die "source has no k4510.squashfs (a build from before the two-layer stick?)."
 
 # --- apply: only /live, nothing else ---------------------------------------
 DMP=$(mktemp -d)
@@ -83,7 +84,9 @@ mount "$DSTDEV" "$DMP"
 OLD=$(cat "$DMP"/live/*.squashfs 2>/dev/null | sha256sum | cut -c1-12)
 say "applying to $DSTDEV:/live  (persistence.conf and GRUB untouched)"
 mkdir -p "$DMP/live"
-rsync -a --info=progress2 --delete "$SRCDIR"/*.squashfs "$SRCDIR/"vmlinuz "$SRCDIR/"initrd.img "$DMP/live/"   # every layer: base + k4510.squashfs (rsync moves only what changed)
+# A directory sync, so --delete really removes a stale layer: live-boot unions
+# every *.squashfs in /live, in name order.
+rsync -a --info=progress2 --delete --include='*.squashfs' --include=vmlinuz --include=initrd.img --exclude='*' "$SRCDIR/" "$DMP/live/"
 NEW=$(cat "$DMP"/live/*.squashfs | sha256sum | cut -c1-12)
 sync
 

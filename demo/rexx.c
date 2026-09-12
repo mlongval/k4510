@@ -97,7 +97,7 @@ static unsigned sp0;                     /* what it was at the start */
  * file's own buffers, and nothing but this check stands between them: a
  * recursion that overruns used to corrupt the variable pool and report
  * nonsense (2026-09-07).  Each nested call costs roughly 400 bytes. */
-#define STACK_BUDGET 2200
+#define STACK_BUDGET 1500                 /* BSS ends at ~$C8D0 under sp0 = $D000: 2200 refused nothing (review 2026-09-12) */
 static int exit_code;
 static uint8_t call_depth;          /* ARG() levels */
 static uint8_t var_lvl = 1;         /* PROCEDURE levels */
@@ -463,7 +463,10 @@ static uint8_t is_op(const char *s) { return tk == T_OP && !strcmp(tv, s); }
 /* ---- the evaluator ---------------------------------------------------------- */
 static void expr(char *out);
 static void call_function(const char *name, uint8_t argc, char **argv, char *out);
-static void primary(char *out)
+static void primary_(char *out);
+static uint8_t pnest;                                  /* parentheses and unary operators nest without a tpush: bound them */
+static void primary(char *out) { if (++pnest > 12) { pnest = 0; die("expression too deep"); } primary_(out); pnest--; }
+static void primary_(char *out)
 {
     if (tk == T_STR) { strcpy(out, tv); lex(); return; }
     if (tk == T_SYM) {
@@ -495,7 +498,7 @@ static void primary(char *out)
     if (is_op("\\")) { lex(); primary(out); if (strcmp(out, "0") && strcmp(out, "1")) die("logical value not 0 or 1"); out[0] = (char)('1' - (out[0] - '0')); return; }
     die("expression expected");
 }
-static long ipow(long b, long e) { long r = 1; if (e < 0) return 0; while (e--) r *= b; return r; }
+static long ipow(long b, long e) { long r = 1; if (e < 0) return 0; if (e > 64) e = 64; while (e--) r *= b; return r; }   /* 2**1000000000 was an hour's loop; past 64 it has overflowed anyway */
 static void power(char *out)
 {
     primary(out);
@@ -752,6 +755,7 @@ static void two_digits(char *d, uint8_t v) { d[0] = (char)('0' + v / 10); d[1] =
 static void padfill(char *out, const char *s, int from, int n, char pd)   /* out = s[from..from+n) padded */
 {
     int i, l = strlen(s);
+    if (n < 0) n = 0;                                  /* LEFT(s,-3) wrote out[-3] */
     if (n > VMAX - 1) n = VMAX - 1;
     for (i = 0; i < n; i++) { int k = from + i; out[i] = (k >= 0 && k < l) ? s[k] : pd; }
     out[n] = 0;
@@ -779,7 +783,7 @@ static void builtin(const char *f, uint8_t argc, char **argv, char *out)
         break;
     case 'D':
         if (!strcmp(f, "D2C")) { out[0] = (char)num(s); out[1] = 0; return; }
-        if (!strcmp(f, "D2X")) { n = argn(argc, argv, 1, 0); ltoa(num(s), out, 16); upstr(out); while ((int)strlen(out) < n) { memmove(out + 1, out, strlen(out) + 1); out[0] = '0'; } return; }
+        if (!strcmp(f, "D2X")) { n = argn(argc, argv, 1, 0); if (n > VMAX - 1) n = VMAX - 1; ltoa(num(s), out, 16); upstr(out); while ((int)strlen(out) < n) { memmove(out + 1, out, strlen(out) + 1); out[0] = '0'; } return; }
         if (!strcmp(f, "DATATYPE")) {
             char t = argc > 1 ? (char)upc((uint8_t)argv[1][0]) : 0; uint8_t ok = l > 0;
             if (!t) { strcpy(out, is_num(s) ? "NUM" : "CHAR"); return; }
@@ -1185,6 +1189,7 @@ static void exec_stmt(const char *s)
     if (!*s) return;
     if (trace) { outs("... "); outs(s); nl(); }
     n = word_at(s, w, 16);
+    { const char *e = s; while (is_symch((uint8_t)*e)) e++; if (e - s > n) n = (int)(e - s); }   /* w is for keywords; a 16+ char symbol still ends where it ends (it ran as a shell command) */
     r = skipsp(s + n);
     if (n && *r == ':' ) { run_stmt(r + 1, 0); return; }                      /* a label */
     if (n && *r == '=' && r[1] != '=' && !is_digit((uint8_t)w[0])) {          /* assignment */
@@ -1354,7 +1359,7 @@ static uint8_t load_script(const char *name)
     for (i = 0; i < 3; i++) {
         if (i == 0) strcpy(nm, name);
         else if (i == 1) { strcpy(nm, name); strcat(nm, ".RX"); }
-        else { if (name[0] == '/') return 0; strcpy(nm, "/LANG/RX/"); strcat(nm, name); strcat(nm, ".RX"); }
+        else { if (name[0] == '/' || strlen(name) > VMAX - 14) return 0; strcpy(nm, "/LANG/RX/"); strcat(nm, name); strcat(nm, ".RX"); }
         fs_name(nm); w32(FS_ADDR, SRC_PHYS); w32(FS_LEN, 0xFFFEUL);
         if (!fs_do(C_LOAD)) { srclen = (uint16_t)r32(FS_LEN); return 1; }
     }

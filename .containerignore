@@ -5,3 +5,13 @@ linux/.live-work-internal
 linux/*.img
 **/*.o
 **/*.d
+# personal / unlicensed-to-redistribute (mirrors .gitignore)
+fs/HOME/*
+fs/APPS/OPLPLAY/TUNES
+data/fonts/zx/*.bin
+fs/STARTUP.BAT
+k4510.cfg
+**/*.k4s
+dumps
+fs/SYSTEM/LOG/*
+fs/.TRASH

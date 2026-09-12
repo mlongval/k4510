@@ -41,7 +41,7 @@ void main(void)
         "",
         "CPU: 45GS10",
         "RAM: 256 000 000 bytes",
-        "CHIPS: 1-4 reSID, VICKY, SHEILA, FRED, JIM" };
+        "CHIPS: MELODY (OPL2), VICKY, SHEILA, FRED, JIM" };
     uint8_t r, i, bg0;
 
     cols = REG(TERM + 5); rows = REG(TERM + 6);

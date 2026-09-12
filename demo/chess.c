@@ -392,6 +392,7 @@ static void judge(void)                              /* after a move: mate, stal
     uint8_t n = count_legal(MAXPLY - 1);
     if (!n) { game_over = 1; result_text = in_check(stm) ? (stm == WHITE ? "Checkmate . Black wins" : "Checkmate . White wins") : "Stalemate . draw"; return; }
     if (half >= 100) { game_over = 1; result_text = "Fifty moves . draw"; return; }
+    if (nhist >= MAXHIST - MAXPLY - 2) { game_over = 1; result_text = "Move limit . draw"; return; }   /* hist[] has no other bound; san[] sits right after it */
     if (insufficient()) { game_over = 1; result_text = "Insufficient material . draw"; }
 }
 
@@ -412,7 +413,7 @@ static int16_t eng_byte(void)                        /* -1 none yet */
 {
     if (eng_kind == 1) return (REG(TUBE) & 0x80) ? (int16_t)REG(TUBE + 1) : -1;
     if (npos < nlen) return nbuf[npos++];
-    w32(NET + 8, (uint16_t)nbuf); w32(NET + 12, sizeof nbuf); net(2);
+    w32(NET + 8, (uint16_t)nbuf); w32(NET + 12, sizeof nbuf - 1); net(2);   /* 255: a 256-byte read came back as 0 and lost a byte */
     nlen = (uint8_t)(REG(NET + 12) | (REG(NET + 13) << 8) ? (REG(NET + 12) | (REG(NET + 13) << 8)) : 0); npos = 0;
     if (REG(NET + 12) == 0 && REG(NET + 13) == 1) nlen = 255;   /* a full buffer read as 256 */
     return npos < nlen ? nbuf[npos++] : -1;
@@ -485,10 +486,11 @@ static uint8_t eng_move(move_t *out)                 /* 1 a move, 0 the engine f
     while (*p) b[i++] = *p++;
     b[i++] = (char)('0' + t / 1000); b[i++] = (char)('0' + (t / 100) % 10); b[i++] = (char)('0' + (t / 10) % 10); b[i++] = (char)('0' + t % 10); b[i++] = '\n'; b[i] = 0;
     eng_send(b);
+    { uint32_t until = ms() + 60000UL;              /* its own clock: `deadline` belongs to think() and was 0, so the engine was dropped after 30 s of uptime */
     for (;;) {
-        if (!eng_line(1000)) { if (!aborted && REG(KBDBREAK)) { eng_send("stop\n"); aborted = 1; } if (ms() > deadline + 30000) return 0; continue; }
+        if (!eng_line(1000)) { if (!aborted && REG(KBDBREAK)) { eng_send("stop\n"); aborted = 1; } if (ms() > until) return 0; continue; }
         if (starts(line, "bestmove")) break;
-    }
+    } }
     if (aborted) return 2;
     if (line[9] < 'a' || line[9] > 'h') return 0;
     n = count_legal(0);
@@ -876,7 +878,7 @@ static void engine_turn(void)
         r = eng_move(&m);
         if (r == 0) { eng_stop(); eng_kind = 0; draw_engine_line(); r = think(&m); }
     } else { deadline = 0; r = think(&m); }
-    if (r == 0) { judge(); redraw(); return; }
+    if (r != 1) { if (r == 0) judge(); redraw(); return; }   /* 2 = Esc while the engine thought: m is not a move */
     snd_move(m.flags & MF_CAP);
     play(&m); judge();
     if (game_over) snd_end();

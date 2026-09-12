@@ -78,7 +78,9 @@ void opl2_init(int rate)
 }
 void opl2_reset(void)
 {
-    nalarms = 0;
+    /* nalarms stays: the chip object survives a reset and still owns its two
+     * alarms.  Zeroing it here left the timers dead after every power cycle
+     * (review 2026-09-12, 4); opl2_init rebuilds both chip and alarms. */
     memset(opl_shadow, 0, sizeof opl_shadow);
     opl_addr = 0;
     if (opl) ym3812_reset_chip(opl);

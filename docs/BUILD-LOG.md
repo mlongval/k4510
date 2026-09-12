@@ -6897,3 +6897,32 @@ headless: `!echo TERM=$TERM` prints xterm-color, and `!htop` draws its
 column header and F-key bar.  bangtest passes.  Handbook ch. 9 says so
 (the old sentence gave vt100's missing colour as the reason for ansi);
 PDF rebuilt, 103 pages.
+
+## 2026-09-12 — the weekly review, and the fixes in one sitting
+
+Doc: "please do our weekly code review... make any changes you see
+appropriate, including optimisations."  Six readers over the whole tree
+(core, ROM and shell programs, games and interpreters, Tube/CP/M/panel,
+scripts and Linux, the PiDP-11 project); `docs/notes/review-2026-09-12.md`
+is the record, ranked, with what was FIXED and what stays OPEN.
+
+The ones that mattered most: JIM's scroll and VICKY's TRIANGLE could run
+off the end of physical RAM (both reproduced with a guard page); GETCWD
+with a tiny CAP crashed the emulator (the hole in last week's fix);
+the OPL2 timers died after any reset; typing a data file's name at the
+prompt loaded it whole over the machine, and FS_LOAD ignored LEN so
+EDIT, KOMMANDER, LODE, CHESS, RX and LOGO all loaded files over their
+own code -- LEN is honoured now (status 6 when the file is longer);
+LOGO recursion overflowed the hardware stack at ~40 levels; MS BASIC's
+`*program` killed the machine; an RX symbol of 16+ characters ran as a
+shell command; the public wasm build shipped the ZX Origins fonts and
+Doc's OPL tunes; and `$(DEMOS)` was empty where `all` and
+`check-artifacts` used it, so plain `make` built no demo and the
+artifact guard guarded none.  Also the pty throttle that did nothing
+in the idle case (2.9 M read() calls per run, gone), an OSC ended by
+ESC \ that ate the rest of a `!` session, and the accented letters that
+arrived at the PDP-11 as cursor keys.
+
+`make test` now runs `nettest.sh` and `cwdtest.sh` too; 30 suites
+green.  ROM: ROM2 33 free, SW2 16.  The PiDP-11 got its own commit:
+Unix V4/V6/V7 and RT-11 never had their serial lines reach port 1171.

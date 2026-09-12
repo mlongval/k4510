@@ -337,6 +337,7 @@ static void view_file(void)
     unsigned n, vtop = 0, o;
     uint8_t st, y, running = 1;
     fs_name(names[active][cur[active]]);
+    if (fs_do(8) || rr32(FS + 0x10) > VMAX) { message("Too big to view (or not a file)"); return; }   /* STAT: LOAD ignores LEN and would land on this program */
     fs_addr(0x00000800UL);
     w32(FS_LEN, VMAX);
     st = fs_do(C_LOAD);

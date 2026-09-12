@@ -7,11 +7,10 @@ set -e
 if [ "$(id -u)" = 0 ]; then DEST=/usr/local/bin; else DEST=$HOME/.local/bin; mkdir -p "$DEST"; fi
 command -v sdl2-config >/dev/null 2>&1 || { echo "tek40xx: no SDL2 headers (apt install libsdl2-dev / dnf install SDL2-devel)" >&2; exit 1; }
 HERE=$(cd "$(dirname "$0")" && pwd)
-W=$(mktemp -d)
+W=$(mktemp -d); trap 'rm -rf "$W"' EXIT
 git clone -q --depth 1 https://github.com/Isysxp/Tek40xx.git "$W/Tek40xx"
 cd "$W/Tek40xx"
 patch -p1 < "$HERE/k4510.patch"
 cd Tek40xx && make -s tek4010
 install -m 755 tek4010 "$DEST/tek40xx"
-rm -rf "$W"
 echo "tek40xx: installed in $DEST"

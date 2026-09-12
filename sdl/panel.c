@@ -160,7 +160,7 @@ void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t
       switch (c & 0x1F) { case 1: name = "640x480"; break; case 5: name = "640x240"; break; case 3: name = "320x240"; break;
                           case 11: name = "320x200"; break; case 27: name = "160x200"; break; case 13: name = "640x200"; break; case 0: name = "off"; break; }
       snprintf(t, sizeof t, "%-8s  ctrl $%02X", name, c); put(r++, 1, t, C_TEXT);
-      snprintf(t, sizeof t, "raster %3u", vicky_read(0x0A)); put(r++, 1, t, C_TEXT); }
+      snprintf(t, sizeof t, "raster %3u", vicky_read(VR_RASTER) | vicky_read(VR_RASTER + 1) << 8); put(r++, 1, t, C_TEXT); }
     r++;
 
     rule(r++, 0, all_banks ? "BANKS $D600" : "BANKS $D600 (active)", cols);

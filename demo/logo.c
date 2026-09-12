@@ -179,8 +179,10 @@ static void turtle_fd(fbits d)
 static void turtle_turn(fbits d)                   /* keep the heading in 0..360 */
 {
     th = fadd(th, d);
-    while (fcmp(th, F360) >= 0) th = fsub(th, F360);
-    while (fcmp(th, F0) < 0) th = fadd(th, F360);
+    { uint8_t i;                                    /* bounded: RT 1e18 (or 1/0) never converged and ESC could not break it */
+      for (i = 0; i < 64 && fcmp(th, F360) >= 0; i++) th = fsub(th, F360);
+      for (i = 0; i < 64 && fcmp(th, F0) < 0; i++) th = fadd(th, F360);
+      if (fcmp(th, F360) >= 0 || fcmp(th, F0) < 0) th = F0; }
     turtle_show();
 }
 
@@ -196,7 +198,11 @@ static struct { char name[NAMEL]; uint8_t np; char parm[NPARM][NAMEL]; uint16_t 
 static struct { char name[NAMEL]; fbits v; } gvar[NVAR]; static uint8_t ngvar;
 static struct { char name[NAMEL]; fbits v; } lvar[NLOC]; static uint8_t nlvar;
 static uint8_t depth;
-#define MAXDEPTH 100                                    /* SPIRAL in EX/ goes 73 deep; ~65 bytes of C stack a level, logo.cfg gives 8 KB */
+#define MAXDEPTH 100                                    /* the C stack (8 KB) is not the limit: the 256-byte hardware
+                                                         * stack is, ~6 bytes of JSRs a level -- hw_sp() below is the guard */
+static uint8_t hwsp;
+static uint8_t hw_sp(void) { __asm__("tsx"); __asm__("stx %v", hwsp); return hwsp; }
+#define HW_SP_MIN 0x30                                  /* what one more level of expr/call_proc needs, with margin */
 
 /* the cursor into the text being run, and how a command ended */
 static const char *cp, *cend;
@@ -279,7 +285,9 @@ static fbits unary(void)
     if (!strcmp(word, "YCOR")) return ty;
     if (!strcmp(word, "HEADING")) return th;
     if (!strcmp(word, "REPCOUNT")) return fint(repcount);
-    if (!strcmp(word, "RANDOM")) { long n = ftoi(need()); long r = (long) REG(0xD50Du) * 7919L + (long) REG(0xD50Eu) * 131L + (long)(uint16_t) cp; if (r < 0) r = -r; return fint(n > 0 ? r % n : 0); }
+    if (!strcmp(word, "RANDOM")) { long n = ftoi(need()); static uint16_t seed;   /* an LCG: the frame-and-cursor mix repeated inside a REPEAT */
+        if (!seed) seed = (uint16_t)(REG(0xD50Du) | REG(0xD50Eu) << 8) | 1;
+        seed = seed * 25173u + 13849u; return fint(n > 0 ? (long)(seed >> 1) % n : 0); }
     if (!strcmp(word, "SQRT")) return f1(MATH_SQRT, need());
     if (!strcmp(word, "SIN")) return f1(MATH_SIN, fmul(need(), FDEG));
     if (!strcmp(word, "COS")) return f1(MATH_COS, fmul(need(), FDEG));
@@ -301,7 +309,9 @@ static fbits sum(void)
 }
 static fbits expr(void)
 {
-    fbits v = sum(); uint8_t c = peekc();
+    fbits v; uint8_t c;
+    if (hw_sp() < HW_SP_MIN) { error("expression too deep", 0); return F0; }   /* 17 nested calls in an expression crashed the hardware stack */
+    v = sum(); c = peekc();
     if (c == '<' || c == '>' || c == '=') { int r; cp++; r = fcmp(v, sum()); return fint(c == '<' ? r < 0 : c == '>' ? r > 0 : r == 0); }
     return v;
 }
@@ -311,7 +321,7 @@ static void call_proc(int8_t i)
 {
     fbits args[NPARM]; uint8_t k, mark = nlvar;      /* run() restores the cursor itself: it must sit AFTER the arguments */
     for (k = 0; k < procs[i].np; k++) { args[k] = expr(); if (flow) return; }
-    if (depth >= MAXDEPTH) { error("too deep:", procs[i].name); return; }
+    if (depth >= MAXDEPTH || hw_sp() < HW_SP_MIN) { error("too deep:", procs[i].name); return; }   /* COUNT 45 printed garbage, F 20 crashed (review 2026-09-12) */
     if (nlvar + procs[i].np > NLOC) { error("too many locals in", procs[i].name); return; }
     for (k = 0; k < procs[i].np; k++) { strcpy(lvar[nlvar].name, procs[i].parm[k]); lvar[nlvar++].v = args[k]; }
     depth++;
@@ -420,11 +430,12 @@ static uint8_t readline(const char *prompt)
  * needs its body to persist). */
 static void feed(const char *text, uint16_t len)
 {
-    uint16_t at = ptop;
+    uint16_t at = ptop; uint8_t np = nproc;
     if (ptop + len + 1 > POOLSZ) { error("out of room for text", 0); return; }
     memcpy(pool + ptop, text, len); ptop += len; pool[ptop++] = '\n';
     flow = 0; run(pool + at, pool + ptop);
     if (flow == 3) flow = 0;
+    if (nproc == np) ptop = at;                    /* only a TO needs its text kept; 77 prompt lines used to fill the pool for good */
 }
 static void feed_to_end(void)                      /* a TO on the prompt: keep reading lines until END */
 {

@@ -34,7 +34,9 @@ say() { printf '\n== %s ==\n' "$*"; }
 die() { printf 'install-k4510: %s\n' "$*" >&2; exit 1; }
 
 [ "$(id -u)" = 0 ] || die "run me with sudo"
-for t in blkid lsblk mkfs.ext4 rsync grub2-mkconfig; do
+MKCFG=$(command -v grub2-mkconfig || command -v grub-mkconfig || true)
+[ -n "$MKCFG" ] || die "missing tool: grub2-mkconfig or grub-mkconfig"
+for t in blkid lsblk mkfs.ext4 rsync; do
     command -v "$t" >/dev/null 2>&1 || die "missing tool: $t"
 done
 
@@ -85,7 +87,8 @@ mount "$DSTDEV" "$DMP"
 # --- copy the live payload -------------------------------------------------
 say "copying the live payload (this is the ~750 MB squashfs; a minute or two)"
 mkdir -p "$DMP/live"
-rsync -a --info=progress2 "$SMP/live/" "$DMP/live/"
+# --delete: live-boot unions EVERY *.squashfs in /live, so a stale layer must go
+rsync -a --info=progress2 --delete "$SMP/live/" "$DMP/live/"
 
 # --- persistence: save settings + saved work to this partition's free space -
 # live-boot reads this file from the partition named by persistence-label and
@@ -126,11 +129,13 @@ MENU
 EOF
 chmod +x /etc/grub.d/42_k4510
 
-GCFG=/boot/grub2/grub.cfg
-[ -f "$GCFG" ] || GCFG=/boot/efi/EFI/fedora/grub.cfg
-[ -f "$GCFG" ] || die "cannot find grub.cfg (looked in /boot/grub2 and /boot/efi/EFI/fedora)"
+GCFG=
+for c in /boot/grub2/grub.cfg /boot/grub/grub.cfg /boot/efi/EFI/*/grub.cfg; do
+    [ -f "$c" ] && { GCFG=$c; break; }
+done
+[ -n "$GCFG" ] || die "cannot find grub.cfg (looked in /boot/grub2, /boot/grub and /boot/efi/EFI/*)"
 cp -a "$GCFG" "$GCFG.pre-k4510.$(date +%Y%m%d%H%M%S)"
-grub2-mkconfig -o "$GCFG" >/dev/null 2>&1 || die "grub2-mkconfig failed; your old grub.cfg backup is beside it"
+"$MKCFG" -o "$GCFG" >/dev/null 2>&1 || die "$MKCFG failed; your old grub.cfg backup is beside it"
 
 say "done"
 echo "The machine now offers 'K4510 Fantasy Computer' in the boot menu; your"

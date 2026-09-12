@@ -25,7 +25,21 @@ LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
 
-ACME ?= $(HOME)/.local/bin/acme
+ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
+
+# The demo list must be defined BEFORE `all` and `check-artifacts` name it:
+# make expands prerequisite lists at once, so a later definition left both
+# empty and check-artifacts guarded nothing (review 2026-09-12).
+uc = $(shell echo $1 | tr a-z A-Z)
+BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout
+APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode
+APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
+C_EX_NAMES = hello sieve
+BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
+APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
+C_EX_PRGS = $(foreach n,$(C_EX_NAMES),fs/LANG/C/$n.prg)
+DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg
+
 
 all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
@@ -104,7 +118,6 @@ sdl/k4510: sdl/main.c sdl/panel.c sdl/panel.h sdl/panel_ops.h $(CORE_OBJS)
 
 test/cputest: test/cputest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
-	./test/nettest.sh
 
 test/woztest: test/woztest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -169,6 +182,8 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/dirtest.sh
 	./test/logotest.sh
 	./test/ttypetest.sh
+	./test/cwdtest.sh
+	./test/nettest.sh
 
 clean: clean-demos
 # Only the .s files cc65 generates -- one per .c, plus the two built under a
@@ -190,7 +205,6 @@ clean-demos:
 # checkout the K4510 target was installed into, MADS beside it.
 MP_DIR ?= $(HOME)/Projects/neo6502_dev/Mad-Pascal
 MADS   ?= $(HOME)/Projects/neo6502_dev/Mad-Assembler/mads
-uc = $(shell echo $1 | tr a-z A-Z)
 PAS_NAMES = hello pfloat pgraph pmandel psieve
 PAS_PRGS = $(foreach n,$(PAS_NAMES),fs/LANG/PASCAL/$n.prg)
 pascal-prgs: $(PAS_PRGS)
@@ -208,14 +222,6 @@ $(foreach n,$(PAS_NAMES),$(eval $(call PAS_RULE,$n)))
 #   the system's tools        fs/SYSTEM/BIN/name.prg
 #   programs, one folder each fs/APPS/NAME/name.prg (data beside it)
 #   the C examples            fs/LANG/C/name.prg, from fs/LANG/C/NAME.C on the disk itself
-BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout
-APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode
-APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
-C_EX_NAMES = hello sieve
-BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
-APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
-C_EX_PRGS = $(foreach n,$(C_EX_NAMES),fs/LANG/C/$n.prg)
-DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg
 # bomber: the Bomb Party sheet (CC-BY 3.0, data/bombparty/) as arena tiles and
 # sprites; tools/mkbomber.py crops, composites and palettizes into bomber.h
 demo/bomber.h: tools/mkbomber.py data/bombparty/bomb_party_v4.png
@@ -342,7 +348,7 @@ tube/ip_bbccos.o: tube/src/bbccos.c $(TUBE_IP_DEPS)
 tube/ip_bbccon.o: tube/src/bbccon.c $(TUBE_IP_DEPS)
 	$(CC) $(CFLAGS) $(TUBE_IP_CFLAGS) -Os -c -o $@ $<
 tube/ip_bbdata.o: tube/src/bbdata_x86_64.nas
-	@if command -v nasm >/dev/null; then nasm -f elf64 -s $< -o $@; else echo "no nasm: reusing tube/bbdata.o"; cp tube/bbdata.o $@; fi
+	@if command -v nasm >/dev/null; then nasm -f elf64 -s $< -o $@; else echo "tube/ip_bbdata.o needs nasm (apt install nasm)" >&2; exit 1; fi
 core/io_ip.o: core/io.c core/io.h core/tube_cp.h core/net.h
 	$(CC) $(CFLAGS) -DK4510_TUBE_INPROC -c -o $@ $<
 core/tube_cp.o: core/tube_cp.c core/tube_cp.h

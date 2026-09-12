@@ -67,8 +67,9 @@ void main(void)
     REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
     for (;;) {
         k = rom_getin();
-        if (k == 0x9B) break;                             /* F12 */
+        if (k == 0x9B && (REG(KBDST) & 0x40)) break;      /* F12 (the kind bit: $9B is also a letter) */
         if (k == 0x0D) { buf[0] = 13; buf[1] = 10; net_send(buf, 2); }
+        else if (k >= 0x80 && !(REG(KBDST) & 0x40)) { buf[0] = k; net_send(buf, 1); }   /* an accented letter: raw, JIM would make it a cursor key */
         else if (k) {                                     /* through JIM: arrows and F-keys become VT sequences */
             REG(TERM + 3) = k;
             for (i = 0; (REG(TERM + 1) & 0x80) && i < 16; i++) buf[i] = REG(TERM + 2);

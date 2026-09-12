@@ -297,10 +297,34 @@ static int fs_name_mounted(void)
     if (fs_resolve(name, rel, sizeof rel, loc, sizeof loc)) return 0;
     return fs_mount_url(rel, url, sizeof url);
 }
+/* Bulk copies between a FILE and guest RAM, in the largest contiguous spans
+ * (the address wraps at the top of RAM): fread/fwrite, not a call per byte. */
+static uint32_t fs_read_span(FILE *f, uint32_t addr, uint32_t len)
+{
+    uint32_t done = 0;
+    while (done < len) {
+        uint32_t a = (addr + done) & K4510_PHYS_MASK, n = len - done; size_t r;
+        if (n > K4510_PHYS_SIZE - a) n = K4510_PHYS_SIZE - a;
+        r = fread(k4510_ram + a, 1, n, f); done += (uint32_t) r;
+        if (r < n) break;
+    }
+    return done;
+}
+static void fs_write_span(FILE *f, uint32_t addr, uint32_t len)
+{
+    uint32_t done = 0;
+    while (done < len) {
+        uint32_t a = (addr + done) & K4510_PHYS_MASK, n = len - done;
+        if (n > K4510_PHYS_SIZE - a) n = K4510_PHYS_SIZE - a;
+        if (fwrite(k4510_ram + a, 1, n, f) < n) break;
+        done += n;
+    }
+}
 static void fs_run(uint8_t cmd)
 {
     char path[768]; int st = 0;
     uint32_t addr = fs_rd32(8) & K4510_PHYS_MASK, len = fs_rd32(12);
+    if (len > K4510_PHYS_SIZE) len = K4510_PHYS_SIZE;   /* a 32-bit LEN wrote 4 GB to the host (review 2026-09-12, 7) */
     switch (cmd) {
     case FS_OPEN_READ: case FS_OPEN_WRITE: case FS_STAT: case FS_LOAD: case FS_SAVE: {
         int rd = (cmd == FS_OPEN_READ || cmd == FS_STAT || cmd == FS_LOAD);
@@ -318,7 +342,7 @@ static void fs_run(uint8_t cmd)
               if (fs_file) { fclose(fs_file); fs_file = NULL; }
               fs_net_drop(); fs_netbuf = b; fs_netlen = n; fs_netpos = 0;
               fs_wr32(0x10, n);
-              if (cmd == FS_LOAD) { uint32_t done = 0; while (done < n && done < K4510_PHYS_SIZE) { k4510_ram[(addr + done) & K4510_PHYS_MASK] = b[done]; done++; } fs_wr32(12, done); fs_net_drop(); }
+              if (cmd == FS_LOAD) { uint32_t done = 0, lim = len ? len : K4510_PHYS_SIZE; while (done < n && done < lim) { k4510_ram[(addr + done) & K4510_PHYS_MASK] = b[done]; done++; } fs_wr32(12, done); if (len && n > len) st = 6; fs_net_drop(); }
               break;
           } }
         local_fs:
@@ -332,16 +356,18 @@ static void fs_run(uint8_t cmd)
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
         if (!fs_file) { st = 1; break; }
         if (cmd == FS_OPEN_READ || cmd == FS_LOAD) { fseek(fs_file, 0, SEEK_END); long sz = ftell(fs_file); fseek(fs_file, 0, SEEK_SET); fs_wr32(0x10, (uint32_t)sz); }
-        if (cmd == FS_LOAD)  { uint32_t done = 0; int c; while ((c = fgetc(fs_file)) != EOF && done < K4510_PHYS_SIZE) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c; fs_wr32(12, done); fclose(fs_file); fs_file = NULL; }
-        if (cmd == FS_SAVE)  { for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); fclose(fs_file); fs_file = NULL; }
+        if (cmd == FS_LOAD)  {                /* LEN, when the caller set one, is the buffer: LOAD used to run to EOF over it (review 2026-09-12); 0 = whole file */
+            uint32_t got = fs_read_span(fs_file, addr, len ? len : K4510_PHYS_SIZE); fs_wr32(12, got);
+            if (len && got == len && fgetc(fs_file) != EOF) st = 6;
+            fclose(fs_file); fs_file = NULL; }
+        if (cmd == FS_SAVE)  { fs_write_span(fs_file, addr, len); fclose(fs_file); fs_file = NULL; }
         break; }
     case FS_READ: {
-        uint32_t done = 0; int c;
+        uint32_t done = 0;
         if (fs_netbuf) { while (done < len && fs_netpos < fs_netlen) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = fs_netbuf[fs_netpos++]; fs_wr32(12, done); break; }
         if (!fs_file) { st = 2; break; }
-        while (done < len && (c = fgetc(fs_file)) != EOF) k4510_ram[(addr + done++) & K4510_PHYS_MASK] = (uint8_t)c;
-        fs_wr32(12, done); break; }
-    case FS_WRITE: { if (!fs_file) { st = 2; break; } for (uint32_t i = 0; i < len; i++) fputc(k4510_ram[(addr + i) & K4510_PHYS_MASK], fs_file); break; }
+        fs_wr32(12, fs_read_span(fs_file, addr, len)); break; }
+    case FS_WRITE: { if (!fs_file) { st = 2; break; } fs_write_span(fs_file, addr, len); break; }
     case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } fs_net_drop(); break;
     case FS_DIR_FIRST: case FS_DIR_ALL: {
         char durl[512]; const char *lurl = fs_remote[0] ? fs_remote : (fs_mount_url(fs_cwd, durl, sizeof durl) ? durl : NULL);
@@ -451,6 +477,7 @@ static void fs_run(uint8_t cmd)
          * the shell's stack (review 2026-09-05, finding 1). */
         char s[520]; size_t n, cap = fs_cap ? fs_cap : 64, i; const char *src = s;
         fs_cap = 0;
+        if (cap < 8) cap = 8;                  /* "..." + 4 + NUL; less made cap-4 wrap (review 2026-09-12, 3) */
         if (fs_remote[0]) snprintf(s, sizeof s, "%s", fs_remote); else snprintf(s, sizeof s, "/%s", fs_cwd);
         n = strlen(s);
         if (n > cap - 1) { src = s + n - (cap - 4); n = cap - 1;
@@ -535,6 +562,8 @@ static void ms_ftoa(float vf, char *out, int lead)
     else if (vf < 0) *p++ = '-';
     if (v < 0) v = -v;
     if (v == 0) { *p++ = '0'; *p = 0; return; }
+    if (isnan(v)) { strcpy(p, "NAN"); return; }
+    if (isinf(v)) { strcpy(p, "1E+38"); return; }         /* MS BASIC has no inf: overflow prints as its largest */
     while (v >= 999999.5) { v /= 10; e10++; }
     while (v < 99999.95)  { v *= 10; e10--; }
     snprintf(digits, sizeof digits, "%06lu", (unsigned long)(v + 0.5));
@@ -949,6 +978,7 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
 {
     double fdx = ex - cx, fdy = ey - cy, r2 = fdx * fdx + fdy * fdy;
     int r = (int)(sqrt(r2) + 0.5);
+    if (r > 4096) r = 4096;                      /* four screens across; a bigger radius would be 10^9 blits */
     for (int d = -r; d <= r; d += 2) {           /* scanlines, 2 BBC units apart ~= one pixel row */
         int s = (int)(sqrt(r2 - (double)d * d) + 0.5);
         if (fill)
@@ -1077,7 +1107,7 @@ static int tula_parse(const char *p, int *a)
     while (*p && n < TULA_ARGS) {
         int neg = 0, v = 0;
         if (*p == '-') { neg = 1; p++; }
-        while (*p >= '0' && *p <= '9') v = v * 10 + (*p++ - '0');
+        while (*p >= '0' && *p <= '9') { v = v * 10 + (*p++ - '0'); if (v > 32767) v = 32767; }   /* saturate: int overflow made CIRCLE spin for minutes */
         a[n++] = neg ? -v : v;
         if (*p == ',') p++; else break;
     }
@@ -1121,7 +1151,13 @@ static void tula_in(uint8_t b)                   /* every byte from the co-proce
     case 1:
         if (b == ']') { ula_st = 2; ula_buf[1] = b; ula_n = 2; return; }
         ring_put(0x1B); ring_put(b); ula_st = 0; return;
+    case 3:                                       /* ESC inside an OSC: ESC \ (ST) ends it as BEL does -- the machine's
+                                                  * own strings are BEL-terminated, so this one is the console's */
+        if (b == '\\') { for (unsigned i = 0; i < ula_n; i++) ring_put(ula_buf[i]); ring_put(0x1B); ring_put('\\'); ula_st = 0; return; }
+        ula_st = 2; if (ula_n < sizeof ula_buf - 2) ula_buf[ula_n++] = 0x1B;
+        /* fall through: b is the next byte of the string */
     default:
+        if (b == 0x1B) { ula_st = 3; return; }
         if (b == 7) {
             ula_st = 0; ula_buf[ula_n] = 0;
             if (ula_n > 6 && !memcmp(ula_buf + 2, "K4G;", 4)) {
@@ -1172,7 +1208,7 @@ static void tube_pump(void)
      * between see the ring as it stands. */
     { static struct timespec last; struct timespec now;
       clock_gettime(CLOCK_MONOTONIC, &now);
-      if ((now.tv_sec - last.tv_sec) * 1000000000L + (now.tv_nsec - last.tv_nsec) < 100000L && tube_w != tube_r) return;
+      if ((now.tv_sec - last.tv_sec) * 1000000000L + (now.tv_nsec - last.tv_nsec) < 100000L) return;   /* empty ring included: the idle prompt was the 100k/s case */
       last = now; }
     for (;;) {
         if (tube_w - tube_r >= sizeof tube_ring - 600) { full = 1; break; }
@@ -1208,6 +1244,10 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         prctl (PR_SET_PDEATHSIG, SIGKILL);
         if (getppid () != parent) _exit (0); /* the parent died between fork and here */
 #endif
+        /* Nothing of the emulator's crosses into a program the guest chose:
+         * sockets, the open file, the trace, /dev/dri and evdev on the bare
+         * Linux all lack CLOEXEC, so close everything above the pty. */
+        for (int fd = 3; fd < 4096; fd++) close (fd);
         setenv ("TERM", "dumb", 1);
         /* The machine's own tools -- k4510-pas and k4510-cc, which PAS and CC
          * run through this shell -- on PATH wherever the emulator is started
@@ -1247,7 +1287,8 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             { const char *m = "!: the shell would not start\r\n"; ssize_t n = write (1, m, strlen (m)); (void) n; }
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);
-            if (chdir ("fs/CPM") != 0) { }
+            char dir[800]; snprintf (dir, sizeof dir, "%.511s/CPM", fs_root);   /* the configured root, as BASIC below, not ./fs */
+            if (chdir (dir) != 0) { }
             if (bin) execl (bin, "runcpm", (char *) NULL);
         } else {
             /* BBC BASIC starts where the machine's shell is (fs_root/fs_cwd), so
@@ -1267,7 +1308,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
 }
 static void tube_stop(void)
 {
-    if (tube_pid) { kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }
+    if (tube_pid) { kill (-tube_pid, SIGKILL); kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }   /* the session: a `!nohup x &` too */
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
     tube_w = tube_r = 0;
     tula_close();
@@ -1355,6 +1396,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
+    tube_stop(); fs_cap = 0;                     /* a power cycle left BBC BASIC running and $D800 saying so (review 2026-09-12) */
     net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_mnt_n = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
     /* The prompt starts in /HOME where the disk has one (fs/HOME/README.TXT);
      * the ROM reads /STARTUP.BAT by its absolute name, so boot is unaffected. */
@@ -1588,7 +1630,9 @@ int io_state_load(FILE *f)
      * registers are not carried: a state loads with the chip reset, and the
      * sequencer's playing notes re-sound as their queues advance. */
     math_int_update();
+    kbd_head %= 64; kbd_tail %= 64; fs_cwd[sizeof fs_cwd - 1] = 0;        /* a corrupt .k4s must not index out of bounds */
+    for (int c = 0; c < 4; c++) { seq_head[c] %= SEQ_DEPTH; if (seq_len[c] > SEQ_DEPTH) seq_len[c] = SEQ_DEPTH; }
     if (fs_file) { fclose(fs_file); fs_file = 0; }
-    fs_net_drop(); fs_remote[0] = 0; fs_mnt_n = 0; net_reset();
+    fs_net_drop(); fs_remote[0] = 0; fs_mnt_n = 0; net_reset(); tube_stop(); fs_cap = 0;
     return 0;
 }

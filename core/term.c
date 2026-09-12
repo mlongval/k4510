@@ -58,7 +58,10 @@ static void put_cell(int x, int y, uint8_t ch, uint8_t attr, uint8_t fg, uint8_t
 }
 static void blank(int x, int y) { put_cell(x, y, ' ', 0, T.fg, T.bg); }
 static void blank_span(int y, int x0, int x1) { for (int x = x0; x <= x1; x++) blank(x, y); }
-static void copy_row(int dst, int src) { memcpy(cellp(0, dst), cellp(0, src), (size_t) T.cols * 4); }
+/* Per cell, not one memcpy of the row: cellp wraps the START of a cell only,
+ * so a row placed at the top of physical RAM ran the copy off the end of the
+ * mapping (review 2026-09-12, 1). */
+static void copy_row(int dst, int src) { for (int x = 0; x < T.cols; x++) memcpy(cellp(x, dst), cellp(x, src), 4); }
 static void scroll_up(int top, int bot, int n)
 {
     if (n <= 0) return;
@@ -570,4 +573,9 @@ void term_state_save(FILE *f) { state_put(f, "JIM ", &T, sizeof T); }
  * back after; load already starts with the cursor off. */
 int  term_cursor_park(void) { int was = CUR_SHOWN; cur_undraw(); return was; }
 void term_cursor_unpark(int was) { if (was) cur_draw(); }
-int  term_state_load(FILE *f) { if (state_get(f, "JIM ", &T, sizeof T)) return -2; T.cur_on &= 6; vicky_cursor(0, 0, 0); return 0; }
+int  term_state_load(FILE *f)
+{
+    if (state_get(f, "JIM ", &T, sizeof T)) return -2;
+    T.cur_on &= 6; T.rh &= 127; T.rt &= 127; clamp_geometry();   /* a hand-edited .k4s must not index out of bounds */
+    vicky_cursor(0, 0, 0); return 0;
+}

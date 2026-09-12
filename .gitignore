@@ -127,3 +127,4 @@ demo/fluffy.h
 demo/skyfire.bin
 demo/skyfire.h
 tools/__pycache__/
+test/bench

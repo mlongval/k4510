@@ -343,8 +343,8 @@ static void mode_do(void)
 static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
-    if (REG(SYS + 0x21) & 0x10) { mode_do(); return 13; }   /* rare: the F7 menu asked for a mode; the CR
-                                                              * unsticks readline so the shell repaints now */
+    if (REG(SYS + 0x21) & 0x10) { mode_do(); return 27; }   /* rare: the F7 menu asked for a mode; ESC unsticks
+                                                              * readline (a CR ran the half-typed line) */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     /* Not while JIM is showing its own: a program that draws through the
      * terminal (VI, EDIT, anything under CP/M) polls this for keys, and the
@@ -486,7 +486,7 @@ static void fs_name(const char *name) { w32(FS + 4, (uint16_t)name); }
 #define P_NAME  (*(volatile uint16_t *)0xF0)
 #define P_ADDR  (*(volatile uint32_t *)0xF2)
 #define P_LEN   (*(volatile uint32_t *)0xF6)
-uint8_t k_load(void) { uint8_t st; w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); st = fs_cmd(9); P_LEN = r32(FS + 12); return st; }
+uint8_t k_load(void) { uint8_t st; w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); w32(FS + 12, 0); st = fs_cmd(9); P_LEN = r32(FS + 12); return st; }
 uint8_t k_save(void) { w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); w32(FS + 12, P_LEN); return fs_cmd(10); }
 
 /* ---- 28-bit memory through DMA ------------------------------------------ */
@@ -745,7 +745,7 @@ static uint8_t do_load(const char *name, uint32_t addr, uint8_t has_addr)
         }
     } else {
         w32(FS + 8, addr);
-        if (fs_cmd(9)) return 1;
+        if ((w32(FS + 12, 0), fs_cmd(9))) return 1;   /* LEN 0: the whole file (a stale LEN would now truncate) */
         last_len = r32(FS + 12);
     }
     last_addr = addr; strcpy(last_name, name); xam = addr;
@@ -759,7 +759,7 @@ static void cmd_load(const char *p)
 {
     char name[NAMEMAX]; uint8_t d, st, has = 0; uint32_t addr = USER;
     if (!getname(&p, name)) { error("load: name?"); return; }
-    if (*p) { addr = parsehex(&p, &d); has = 1; }
+    if (*p) { addr = parsehex(&p, &d); if (!d) { error("load: name [hexaddr]"); return; } has = 1; }   /* LOAD X $2000 landed at 0 */
     st = do_load(name, addr, has);
     if (st == 1) { error("load: not found"); return; }
     if (st) { error("load: bad file"); return; }
@@ -916,17 +916,22 @@ static void cmd_run(const char *p)
 {
     uint8_t d; uint32_t a; const char *q = p;
     while (ishex(*q)) q++;
-    if (*p && *q && *q != ' ') {                  /* not a hex number: RUN name.prg */
-        char name[NAMEMAX]; uint8_t st;
+    if (*p) {                                     /* a name first (RUN FACE, RUN 2048 are programs if they exist), else hex */
+        char name[NAMEMAX]; uint8_t st; const char *q2 = p;
+        if (!(*q && *q != ' ')) {                 /* all hex digits: only if NAME.prg is there */
+            getname(&q2, name); strcat(name, ".prg");
+            w32(FS + 4, (uint32_t)(uint16_t)name); if (fs_cmd(8)) goto hex;   /* FS_STAT */
+        }
         getname(&p, name);
-        st = do_load(name, USER, 0);
+        st = is_prg(name) ? do_load(name, USER, 0) : 1;
         if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN ehbasic -> ehbasic.prg */
         if (st == 1) { error("run: not found"); return; }
         if (st) { error("run: bad file"); return; }
         args_tail = p;
         if (!last_run) { error("run: not a program"); return; }
-        run_at(last_run); return;
+        run_at(last_run); args_tail = 0; return;
     }
+hex:
     a = last_run ? last_run : (last_addr ? last_addr : xam);
     if (*p) a = parsehex(&p, &d);
     if (a >= 0x10000UL) { error("run: 16-bit address"); return; }
@@ -1335,7 +1340,7 @@ static void cmd_exec(const char *p)
     char name[NAMEMAX]; static uint32_t len, off; uint32_t L; uint8_t i;
     if (exec_busy) { error("exec: no nesting"); return; }
     if (!getname(&p, name)) { error("exec: name?"); return; }
-    fs_name(name); w32(FS + 8, EXECBUF);
+    fs_name(name); w32(FS + 8, EXECBUF); w32(FS + 12, 0);   /* LEN 0 = whole file; a stale LEN now truncates */
     if (fs_cmd(9)) { error("exec: not found"); return; }
     len = r32(FS + 12);
     exec_busy = 1;
@@ -1486,6 +1491,7 @@ static void pal_path(const char *name, char *out)
 {
     const char *q = name; uint8_t dot = 0, slash = 0, i = 0;
     while (*q) { if (*q == '.') dot = 1; if (*q == '/') slash = 1; q++; }
+    if (q - name > NAMEMAX - 26) { out[0] = 0; error("palette: name too long"); return; }   /* 21 + name + 4 must fit path[NAMEMAX] */
     if (!slash) { const char *d = "/SYSTEM/ETC/PALETTES/"; while (*d) out[i++] = *d++; }
     q = name; while (*q) out[i++] = *q++;
     if (!dot) { const char *e = ".PAL"; while (*e) out[i++] = *e++; }
@@ -1496,8 +1502,8 @@ static void pal_load(const char *name)
 {
     char path[NAMEMAX], lb[64];
     uint32_t len, off = 0; uint8_t n = 0;
-    pal_path(name, path);
-    fs_name(path); w32(FS + 8, PALBUF);
+    pal_path(name, path); if (!path[0]) return;
+    fs_name(path); w32(FS + 8, PALBUF); w32(FS + 12, 0);
     if (fs_cmd(9)) { error("palette: no such file"); return; }
     len = r32(FS + 0x0C);
     while (off < len) {
@@ -1539,7 +1545,7 @@ static void pal_save(const char *name)
 {
     char path[NAMEMAX]; uint32_t o = 0; uint8_t i, c;
     const char *hdr = "# K4510 palette -- index rr gg bb, hex\n";
-    pal_path(name, path);
+    pal_path(name, path); if (!path[0]) return;
     while (*hdr) far_poke(PALBUF + o++, (uint8_t)*hdr++);
     for (i = 0; i < 16; i++) {
         far_poke(PALBUF + o++, (uint8_t)pal_dig(i));
@@ -1605,13 +1611,14 @@ static uint8_t asame(const char *a, const char *b)
 }
 #define ANEXT(q) do { while (*(q)) (q)++; (q)++; } while (0)
 static char *alias_end(void) { char *q = ALIAS_TAB; while (*q) { ANEXT(q); ANEXT(q); } return q; }
+#define ALIAS_WANT  ((char *) 0xBF00u)      /* getname's 96-byte scratch for the two callers below: it wrote 95 into want[24] on the stack */
 
 /* the shell has run out of other ideas: is the first word an alias? if so the
  * expanded line replaces `line' and the caller runs it again */
 static void alias_expand(const char *p0)          /* sw_call takes void(*)(const char*): the answer
                                                    * comes back in alias_hit, which is resident */
 {
-    char want[24]; const char *args = p0; char *q, *n, *e, *w; uint8_t i;
+    char *want = ALIAS_WANT; const char *args = p0; char *q, *n, *e, *w; uint8_t i;
     alias_hit = 0;
     if (!getname(&args, want)) return;
     skipsp(&args);
@@ -1639,7 +1646,7 @@ static void alias_kill(const char *want)                  /* tombstone every def
 
 static void cmd_alias(const char *p)
 {
-    char want[24]; char *q, *n, *e, *w; const char *s; uint8_t col;
+    char *want = ALIAS_WANT; char *q, *n, *e, *w; const char *s; uint8_t col;
     if (!getname(&p, want)) {                             /* ALIAS on its own: list them */
         uint8_t any = 0;
         for (q = ALIAS_TAB; *q; ) {
@@ -1734,7 +1741,7 @@ static void dir_long(const char *name)
     uint8_t k = (uint8_t)((REG(SYS + SYS_CLOCKFMT) >> 1) & 3), j, n = 1;
     if (k > 2) k = 0;
     if (sz == 0xFFFFFFFFUL) { pad(3); puts_("<DIR>"); }
-    else { for (v = sz; v >= 10; v /= 10) n++; pad((uint8_t)(8 - n)); putdec(sz); }
+    else { for (v = sz; v >= 10; v /= 10) n++; if (n < 8) pad((uint8_t)(8 - n)); putdec(sz); }
     if (dt) {
         pad(10);
         for (j = 0; j < 3; j++) {
@@ -1852,8 +1859,8 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CPM"))   { cmd_cpm(p); return; }
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
-      if (getname(&q, name)) {
-          uint8_t st = do_load(name, USER, 0);
+      if (getname(&q, name)) {                              /* only a .prg as typed: TRACE.TXT typed alone loaded 5 MB over the machine (review 2026-09-12) */
+          uint8_t st = is_prg(name) ? do_load(name, USER, 0) : 1;
           if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
           if (!st && last_run) { args_tail = q; run_at(last_run); args_tail = 0; return; }
       } }
@@ -2034,11 +2041,14 @@ static void cmd_bbcbasic(uint8_t prog)
             if (prog == 3 && k >= 0x80 && k <= 0x83 && (REG(KBDST) & 0x40)) {   /* the arrows -> WordStar diamond */
                 static const uint8_t ws[4] = { 0x05, 0x18, 0x13, 0x04 };
                 REG(TUBE + 2) = ws[k - 0x80];
-            } else { REG(TERM + 3) = k; tube_keys(); }
+            } else if (k >= 0x80 && !(REG(KBDST) & 0x40)) REG(TUBE + 2) = k;   /* an accented letter, not a key: raw, or JIM made é a cursor key */
+            else { REG(TERM + 3) = k; tube_keys(); }
         }
         if (st & 0x80) {
             c = REG(TUBE + 1);
+            if (esc == 3) { esc = 2; if (c == '\\') c = 7; else if (oi < sizeof line - 1) line[oi++] = 0x1B; }   /* ESC \ ends an OSC as BEL does (tmux, zsh titles) */
             if (esc == 2) {                              /* an OSC string: ESC ] ... BEL (into the shell line buffer) */
+                if (c == 0x1B) { esc = 3; continue; }
                 if (c == 7) {
                     esc = 0; line[oi] = 0;
                     if (oi > 6 && !memcmp(line, "K4510;", 6)) {  /* a star command, handed over */

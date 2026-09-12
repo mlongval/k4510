@@ -188,9 +188,10 @@ static void u32dec(uint32_t v, char *out)
 
 /* ---- paths ------------------------------------------------------------- */
 /* join dir and name into out, without doubling the slash at the root */
-static void join(char *out, const char *dir, const char *nm)
+static void join(char *out, const char *dir, const char *nm)  /* out is 160 bytes everywhere it is called */
 {
     uint8_t l;
+    if (strlen(dir) + strlen(nm) + 2 > 160) { out[0] = 0; return; }   /* a deep cwd: refuse rather than overrun */
     strcpy(out, dir); l = (uint8_t)strlen(out);
     if (l && out[l - 1] != '/') { out[l] = '/'; out[l + 1] = 0; }
     strcat(out, nm);
@@ -572,6 +573,7 @@ static void go_in(void)
 {
     if (!count || !is_dir_sz(sizes[cur])) return;
     join(tbuf, path, names[cur]);
+    if (!tbuf[0]) return;                        /* too deep for the buffers */
     strcpy(path, tbuf);
     cur = 0; top = 0;
     refresh(); draw_all();

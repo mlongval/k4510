@@ -124,9 +124,18 @@ status:
 }
 
 /* ---- files -------------------------------------------------------------- */
+static uint8_t too_big;
+static uint8_t file_fits(void)             /* FS_LOAD ignores LEN: a file bigger than BUF landed on this program */
+{
+    REG(0xD304) = (uint8_t)(uint16_t)name; REG(0xD305) = (uint8_t)((uint16_t)name >> 8); REG(0xD306) = 0; REG(0xD307) = 0;
+    REG(0xD300) = 8;                       /* STAT */
+    if (REG(0xD301)) return 1;             /* absent: a new file */
+    return REG(0xD312) == 0 && REG(0xD313) == 0 && ((uint16_t)REG(0xD310) | (uint16_t)REG(0xD311) << 8) <= BUFMAX;
+}
 static void load_file(void)
 {
     uint8_t st;
+    if (!file_fits()) { too_big = 1; len = 0; return; }
     zp16(0xF0, (uint16_t)name); zp32(0xF2, (uint32_t)(uint16_t)BUF);
     st = rom_load();
     len = st ? 0 : (unsigned)zpr32(0xF6);
@@ -166,6 +175,7 @@ void main(void)
     if (!cols) cols = 80;
     if (!rows) rows = 30;
     load_file();
+    if (too_big) { say("edit: file bigger than the buffer (22 KB); not a file, or use VI\n"); return; }
     REG(TERM + 4) = 2;                                /* JIM: clear and home */
     REG(TERM + 0x0E) = 1;                             /* its cursor */
     while (running) {

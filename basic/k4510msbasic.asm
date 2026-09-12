@@ -356,6 +356,20 @@ k4510_star:
         ldy     #>QT_STARHELP
         jsr     STROUT                   ; ours first, then the shell's own list
 @toshell:
+        ; Through SWAP -k: a *program (say.prg at $6000) lands inside BASIC's
+        ; $0800-$6FFF and the crt0 rule hands back its zero page; SWAP saves
+        ; and restores all 64 KB around the command and -k keeps its output.
+        ; (*SAY HI blanked the screen and never came back, review 2026-09-12.)
+        ldy     k4510_lp                 ; shift the line (with its NUL) up by 8
+@shift: lda     k4510_line,y
+        sta     k4510_line+8,y
+        dey
+        bpl     @shift
+        ldy     #7
+@pre:   lda     k4510_swap,y
+        sta     k4510_line,y
+        dey
+        bpl     @pre
         lda     #<k4510_line
         ldx     #>k4510_line
         jsr     ROM_SHELL
@@ -406,7 +420,8 @@ WORD_BYE      = 0
 WORD_HELP     = 4
 WORD_QUIT     = 9
 k4510_words:  .byte "BYE", 0, "HELP", 0, "QUIT", 0
-k4510_line:   .res  K4510_LINEMAX + 1
+k4510_line:   .res  K4510_LINEMAX + 9      ; room for the "SWAP -k " prefix
+k4510_swap:   .byte "SWAP -k "
 
 QT_STARHELP:
         .byte   "* HANDS THE LINE TO K:OS.  *BYE LEAVES.", K_CR, K_LF, 0

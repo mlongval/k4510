@@ -508,6 +508,7 @@ parted -s "$OUT" mklabel gpt \
     mkpart live  ext4  514MiB "${LIVE_END}MiB" \
     mkpart save  ext4  "${LIVE_END}MiB" 100%
 LOOP=$(losetup --show -f -P "$OUT")
+udevadm settle 2>/dev/null || sleep 1     # the p1..p4 nodes appear asynchronously
 mkfs.vfat -F32 -n K4510-EFI "${LOOP}p2" >/dev/null
 mkfs.ext4 -q -L k4510-live "${LOOP}p3"
 mkfs.ext4 -q -L persistence  "${LOOP}p4"

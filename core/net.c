@@ -178,7 +178,9 @@ static int tnfs_fetch(const url_t *u, uint8_t **buf, uint32_t *len)
         if (rep[0] == 0x21) break;                                        /* EOF */
         if (rep[0] || n < 3) { free(b); return 2; }
         { int k = rep[1] | (rep[2] << 8); if (k > n - 3) k = n - 3;
-          if (got + (uint32_t) k > cap) { uint8_t *nb; cap *= 2; if (!(nb = realloc(b, cap))) { free(b); return 2; } b = nb; }
+          if (got + (uint32_t) k > cap) { uint8_t *nb;
+              if (cap >= K4510_PHYS_SIZE) { free(b); return 2; }        /* the guest has 256 MB; cap*2 wrapped at 2 GiB */
+              cap *= 2; if (!(nb = realloc(b, cap))) { free(b); return 2; } b = nb; }
           memcpy(b + got, rep + 3, (size_t) k); got += (uint32_t) k;
           if (k == 0) break; }
     }
@@ -339,6 +341,7 @@ static void net_run(uint8_t cmd)
 {
     struct chan *c = &ch[net_reg[2] & 3]; int st = 0;
     uint32_t addr = rd32r(8) & K4510_PHYS_MASK, len = rd32r(12);
+    if (len > K4510_PHYS_SIZE) len = K4510_PHYS_SIZE;
     char url[512]; uint8_t tmp[512];
     if (!plat_net_ready()) { net_reg[1] = 6; return; }
     switch (cmd) {

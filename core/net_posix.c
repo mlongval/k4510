@@ -84,7 +84,9 @@ int plat_tcp_send(int h, const void *buf, int n)
     int done = 0;
     while (done < n) {
         ssize_t w = send(h, (const char *) buf + done, (size_t)(n - done), MSG_NOSIGNAL);
-        if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) { struct pollfd pf = { h, POLLOUT, 0 }; poll(&pf, 1, 1000); continue; }
+        if (w < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)) {   /* a peer that stops reading: 10 s, window alive, then "closed" */
+            if (poll_sliced(h, POLLOUT, 10000) <= 0) return -1;
+            continue; }
         if (w <= 0) return -1;
         done += (int) w;
     }
@@ -130,7 +132,9 @@ int plat_http_fetch(const char *url, uint8_t **buf, uint32_t *len)
     if (!(b = malloc(cap))) { close(p[0]); waitpid(pid, &st, 0); return 2; }
     for (;;) {
         ssize_t r;
-        if (n == cap) { uint8_t *nb; cap *= 2; if (!(nb = realloc(b, cap))) { free(b); close(p[0]); waitpid(pid, &st, 0); return 2; } b = nb; }
+        if (n == cap) { uint8_t *nb;
+            if (cap >= (256u << 20)) { kill(pid, SIGKILL); free(b); close(p[0]); waitpid(pid, &st, 0); return 2; }   /* the guest has 256 MB; cap*2 wrapped at 2 GiB */
+            cap *= 2; if (!(nb = realloc(b, cap))) { free(b); close(p[0]); waitpid(pid, &st, 0); return 2; } b = nb; }
         if (poll_sliced(p[0], POLLIN, 130000) <= 0) { kill(pid, SIGKILL); break; }   /* curl's own --max-time is 120 */
         r = read(p[0], b + n, cap - n);
         if (r <= 0) break;

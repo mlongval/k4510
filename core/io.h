@@ -219,7 +219,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 /* --- storage ($D300): the host filesystem, sandboxed to one directory --- */
 /* Names are NUL-terminated, at NAMEPTR. Transfers go straight to RAM. */
 #define IO_FS_CMD      (IO_STORAGE + 0x00) /* write: command; read: 0 idle */
-#define IO_FS_STATUS   (IO_STORAGE + 0x01) /* 0 ok, 1 not found, 2 io error / not a dir / not empty, 3 bad cmd, 4 end of dir, 5 name too long */
+#define IO_FS_STATUS   (IO_STORAGE + 0x01) /* 0 ok, 1 not found, 2 io error / not a dir / not empty, 3 bad cmd, 4 end of dir, 5 name too long, 6 LOAD: file longer than LEN (LEN bytes loaded) */
 #define IO_FS_NAMEPTR  (IO_STORAGE + 0x04) /* 28-bit */
 #define IO_FS_ADDR     (IO_STORAGE + 0x08) /* 28-bit RAM address for READ/WRITE/DIRNEXT */
 #define IO_FS_LEN      (IO_STORAGE + 0x0C) /* 32-bit: bytes requested; updated to bytes done */

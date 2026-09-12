@@ -255,6 +255,7 @@ static void blit(void)
 {
     uint32_t src = rd32(&reg[VR_BLTSRC]), dst = rd32(&reg[VR_BLTDST]);
     int w = rd16(&reg[VR_BLTW]), h = rd16(&reg[VR_BLTH]);
+    if ((uint64_t)w * (uint64_t)h > K4510_PHYS_SIZE) return;   /* nothing legitimate blits more than RAM */
     int ss = rd16(&reg[VR_BLTSS]), ds = rd16(&reg[VR_BLTDS]);
     int op = reg[VR_BLTOP], hf = reg[VR_BLTFLG] & 1, vf = reg[VR_BLTFLG] & 2;
     uint8_t fill = reg[VR_BLTSRC];
@@ -291,7 +292,11 @@ static void blit(void)
             if (xl > xr) continue;
             if (xl < 0) xl = 0;
             if (xr >= w) xr = w - 1;
-            if (xl <= xr) memset(&ram_ptr(dst + (uint32_t)y * ds + xl), fill, xr - xl + 1);
+            if (xl <= xr) {                      /* ram_ptr masks the start only; the span must not leave RAM */
+                uint32_t a = (dst + (uint32_t)y * ds + (uint32_t)xl) & K4510_PHYS_MASK, n = (uint32_t)(xr - xl + 1);
+                if (a + n <= K4510_PHYS_SIZE) memset(k4510_ram + a, fill, n);
+                else for (uint32_t i = 0; i < n; i++) ram_ptr(a + i) = fill;
+            }
         }
         return;
     }

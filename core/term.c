@@ -503,6 +503,9 @@ static uint8_t cp437_for(uint32_t u)                            /* 0: CP437 has 
     for (i = 1; i < 32; i++)  if (cp437_lo[i] == u) return (uint8_t) i;
     if (u == cp437_lo[0]) return 0x7F;
     for (i = 0; i < sizeof cp437_near / sizeof cp437_near[0]; i++) if (cp437_near[i].u == u) return cp437_near[i].c;
+    if ((u >= 0xE000 && u <= 0xF8FF) || u >= 0xF0000 || (u >= 0x23F4 && u <= 0x23F7))
+        return ' ';                                             /* icons: Nerd Font private-use glyphs, the play/pause
+                                                                 * triangles -- a blank reads better than '?' (Doc, 2026-09-12) */
     if (u >= 0x2800 && u <= 0x28FF) {                           /* braille (btop's graphs): by how many dots */
         int d = 0; for (unsigned b = u & 0xFF; b; b >>= 1) d += b & 1;
         return d == 0 ? ' ' : d < 3 ? 0xB0 : d < 6 ? 0xB1 : 0xB2;

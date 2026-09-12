@@ -7032,3 +7032,15 @@ either way, so still no door from the network), and the unit moved into
 `config/includes.chroot` so the change rides the 5 MB layer -- it had
 been written by the full build alone, which an installed machine never
 gets.
+
+**First look through the Dell, and what it showed.**  Claude Code under
+tmux over `!ssh` reads now -- bullets, `└`, spinners, dashes -- with two
+faults left.  Nerd Font icons (private-use U+E000-F8FF, U+F0000 up) and
+the `⏵` triangles drew as `?`; Doc chose blanks, one cell each (termtest
+leg 8).  And stray characters stay at the left edge across redraws
+("On", a "w" where a tool line's bullet belongs): a sequence JIM
+mishandles, or a width JIM and tmux disagree on -- not yet known.  To
+find it, `profile.d/k4510.sh` gains a switch: while
+`~/k4510/DIAG/TERMLOG` exists, the emulator starts with `K4510_TERMLOG`
+pointed at `~/k4510/DIAG/termlog-<time>.bin` (persistent, so it survives
+the reboot that brings a build; delete the file to stop).

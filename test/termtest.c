@@ -99,6 +99,9 @@ int main(void)
     CHECK(cell(20, 1)[0] == '?' && R(9) == 21, "C4 B3 decodes as one character, not a line and a bar (%02X, cursor %d)", cell(20, 1)[0], R(9));
     send("\r\n\xE4\xB8\xADx\xCC\x81y\xF0\x9F\x98\x80z");      /* 中 (wide) x + combining acute, y, 😀 (wide), z */
     row(r, 2); CHECK(!strcmp(r, "? xy? z"), "wide = '?' + space, combining = nothing ('%s')", r);
+    W(9, 10); send("<\xEE\x82\xA0\xE2\x8F\xB5\xF3\xB0\x80\x80>");   /* U+E0A0 (a Nerd Font icon), U+23F5, U+F0000: blanks */
+    CHECK(cell(10, 2)[0] == '<' && cell(11, 2)[0] == ' ' && cell(12, 2)[0] == ' ' && cell(13, 2)[0] == ' ' && cell(14, 2)[0] == '>',
+          "icons draw as blanks, one cell each (%02X %02X %02X)", cell(11, 2)[0], cell(12, 2)[0], cell(13, 2)[0]);
     send("\r\n\xE2\x94\033[1mA");                               /* ESC mid-sequence: the half-read bytes spill, the ESC still acts */
     CHECK(cell(0, 3)[0] == 0xE2 && cell(1, 3)[0] == 0x94 && cell(2, 3)[0] == 'A', "ESC mid-sequence (%02X %02X %c)", cell(0, 3)[0], cell(1, 3)[0], cell(2, 3)[0]);
     send("\033[0m\033%@\r\n\xE2\x94\x80");                      /* off: three CP437 glyphs */

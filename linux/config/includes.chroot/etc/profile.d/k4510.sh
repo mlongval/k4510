@@ -15,5 +15,10 @@ case ":$PATH:" in *":$HOME/k4510/tools:"*) ;; *) export PATH="$HOME/k4510/tools:
 if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
     export SDL_VIDEODRIVER=kmsdrm
     export SDL_AUDIODRIVER=alsa
+    # A switch for chasing a terminal fault: while ~/k4510/DIAG/TERMLOG exists,
+    # JIM logs every byte it is sent (K4510_TERMLOG) beside it -- persistent,
+    # unlike /etc, so it survives the reboot that brings a new build.  Remove the
+    # file to stop.  Doc, 2026-09-12 (stray characters under tmux + Claude Code).
+    [ -f "$HOME/k4510/DIAG/TERMLOG" ] && export K4510_TERMLOG="$HOME/k4510/DIAG/termlog-$(date +%Y%m%d-%H%M%S).bin"
     cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510
 fi

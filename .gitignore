@@ -97,6 +97,8 @@ demo/bomber.h
 # PERF.TXT by the io profiler, BENCH-NN.TXT by SETUP/BENCH.  Results, not source.
 fs/SYSTEM/LOG/*
 !fs/SYSTEM/LOG/README.TXT
+# Screenshots: PrtSc in the emulator, or tools/k4510-shot.  Results, not source.
+/shots/
 # /MNT is other disks: whatever is mounted there is not the repository's
 fs/MNT/*
 !fs/MNT/README.TXT

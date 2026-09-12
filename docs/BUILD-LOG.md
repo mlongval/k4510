@@ -6946,3 +6946,17 @@ Shipping it found a hole in the fast path: a REBUILD copied
 layer, so a settings change never reached an installed machine without a
 750 MB base pull.  The layer now carries every file of the overlay
 (`/etc` settings, the font), and both build paths copy the whole overlay.
+
+## 2026-09-12 — screenshots of a running machine
+
+Doc asked how to get screenshots of the K4510 on the Dell.  From outside
+there was no way: KMSDRM bypasses `/dev/fb0` (it reads back black) and
+i915 scans out an X-tiled buffer.  So the emulator takes its own:
+**SIGUSR1 or PrtSc** writes `shots/shot-YYYYMMDD-HHMMSS-mmm.png` beside
+`dumps/` -- the machine's picture built from the frame and palette, one
+row per line, the F7 menu over it when open, scanlines left out so the
+text reads.  `tools/k4510-shot` sends the signal and prints the path, so
+`ssh k4510@<machine> k4510-shot` is the loop that was missing.  The PNG
+writer is thirty lines of stored deflate blocks (no zlib to link; 900 KB
+a frame); the file is renamed into place when whole.  `K4510_SHOT` (the
+guide's one-shot figure at frame N) is unchanged.

@@ -36,6 +36,75 @@
 #include "../core/state.h"
 #include <sys/stat.h>
 #include <time.h>
+#include <signal.h>
+#include <sys/time.h>
+
+/* A screenshot on request -- SIGUSR1 (tools/k4510-shot) or PrtSc -- of the
+ * machine's own picture: one row per line of the machine, the menu over it
+ * when it is open, no scanlines, so text reads.  Written as PNG with stored
+ * (uncompressed) deflate blocks: no zlib to link, and 900 KB a frame is
+ * nothing.  Doc, 2026-09-12: the Dell's KMSDRM screen could not be grabbed
+ * from outside (fbdev is bypassed, the scanout is tiled). */
+static volatile sig_atomic_t shot_req;
+#ifndef __EMSCRIPTEN__
+static void shot_signal(int sig) { (void) sig; shot_req = 1; }
+#endif
+static uint32_t png_crc(uint32_t c, const uint8_t *p, size_t n) {
+    static uint32_t t[256];
+    if (!t[1]) for (uint32_t i = 0; i < 256; i++) { uint32_t v = i; for (int k = 0; k < 8; k++) v = (v & 1) ? 0xEDB88320u ^ (v >> 1) : v >> 1; t[i] = v; }
+    for (size_t i = 0; i < n; i++) c = t[(c ^ p[i]) & 255] ^ (c >> 8);
+    return c;
+}
+static void png_be32(uint8_t *p, uint32_t v) { p[0] = (uint8_t)(v >> 24); p[1] = (uint8_t)(v >> 16); p[2] = (uint8_t)(v >> 8); p[3] = (uint8_t) v; }
+static void png_chunk(FILE *f, const char *type, const uint8_t *data, uint32_t len) {
+    uint8_t b[4];
+    png_be32(b, len); fwrite(b, 1, 4, f); fwrite(type, 1, 4, f); if (len) fwrite(data, 1, len, f);
+    uint32_t c = png_crc(0xFFFFFFFFu, (const uint8_t *) type, 4);
+    if (len) c = png_crc(c, data, len);
+    png_be32(b, c ^ 0xFFFFFFFFu); fwrite(b, 1, 4, f);
+}
+static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal, const uint32_t *upal) {
+    enum { W = VICKY_WIDTH, H = VICKY_HEIGHT, ROW = 1 + W * 3, BLK = 65535 };
+    static uint8_t raw[H * ROW];
+    for (int y = 0; y < H; y++) {
+        uint8_t *d = raw + y * ROW; *d++ = 0;                      /* filter: none */
+        for (int x = 0; x < W; x++) {
+            int o = ov ? ov[y * UI_W + x] : 0;
+            uint32_t p = o ? upal[o] : pal[src[y * W + x]];
+            *d++ = (uint8_t)(p >> 16); *d++ = (uint8_t)(p >> 8); *d++ = (uint8_t) p;
+        }
+    }
+    size_t nblk = (sizeof raw + BLK - 1) / BLK;
+    uint8_t *z = malloc(2 + sizeof raw + nblk * 5 + 4), *q = z;
+    if (!z) return;
+    *q++ = 0x78; *q++ = 0x01;                                      /* zlib: deflate, no dictionary */
+    uint32_t a = 1, b = 0;
+    for (size_t off = 0; off < sizeof raw; off += BLK) {
+        size_t n = sizeof raw - off < BLK ? sizeof raw - off : BLK;
+        *q++ = (uint8_t)(off + n == sizeof raw);                  /* a stored block; the last one says so */
+        *q++ = (uint8_t) n; *q++ = (uint8_t)(n >> 8); *q++ = (uint8_t) ~n; *q++ = (uint8_t)(~n >> 8);
+        memcpy(q, raw + off, n); q += n;
+        for (size_t i = 0; i < n; i++) { a = (a + raw[off + i]) % 65521; b = (b + a) % 65521; }
+    }
+    png_be32(q, b << 16 | a); q += 4;                              /* Adler-32 of the rows */
+    char path[64], tmp[72]; struct timeval tv; struct tm tm;
+    gettimeofday(&tv, NULL); localtime_r(&tv.tv_sec, &tm);
+    mkdir("shots", 0755);
+    size_t l = strftime(path, sizeof path, "shots/shot-%Y%m%d-%H%M%S", &tm);
+    snprintf(path + l, sizeof path - l, "-%03ld.png", (long)(tv.tv_usec / 1000));
+    snprintf(tmp, sizeof tmp, "%s.tmp", path);                    /* renamed when whole: k4510-shot waits for the .png */
+    FILE *f = fopen(tmp, "wb");
+    if (f) {
+        static const uint8_t sig[8] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n' };
+        uint8_t ihdr[13] = { 0 };
+        png_be32(ihdr, W); png_be32(ihdr + 4, H); ihdr[8] = 8; ihdr[9] = 2;   /* 8-bit RGB */
+        fwrite(sig, 1, 8, f);
+        png_chunk(f, "IHDR", ihdr, 13); png_chunk(f, "IDAT", z, (uint32_t)(q - z)); png_chunk(f, "IEND", NULL, 0);
+        if (fclose(f) == 0 && rename(tmp, path) == 0) fprintf(stderr, "k4510: screenshot %s\n", path);
+        else remove(tmp);
+    }
+    free(z);
+}
 
 #define SCALE 2
 #define AUDIO_RATE 48000
@@ -583,6 +652,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
     static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
+#ifndef __EMSCRIPTEN__
+    signal(SIGUSR1, shot_signal);                  /* tools/k4510-shot: a screenshot, from outside */
+#endif
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
     int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
@@ -755,6 +827,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
                 if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; }
+                if (k == SDLK_PRINTSCREEN) { shot_req = 1; break; }   /* shots/shot-*.png, paused or not */
                 /* Paused, the keyboard is the debugger's (the legend is on the
                  * side panel; it works without the panel too).  Space steps one
                  * instruction, L one scanline, F one frame, D writes a dump
@@ -1173,6 +1246,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           } }
         SDL_UnlockTexture(tex);
 tex_done:
+        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); }   /* what the texture holds, without the scanlines */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);

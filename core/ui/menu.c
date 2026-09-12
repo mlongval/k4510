@@ -52,8 +52,8 @@ static const item_t save_items[] = {
 static const item_t load_items[] = {
     { "Slot 1", MI_LOADSLOT, 0 }, { "Slot 2", MI_LOADSLOT, 1 }, { "Slot 3", MI_LOADSLOT, 2 }, { "Slot 4", MI_LOADSLOT, 3 },
 };
-static const menu_t save_menu = { "Save state", save_items, 4 };
-static const menu_t load_menu = { "Load state", load_items, 4 };
+static const menu_t save_menu = { "Save state", save_items, (int)(sizeof save_items / sizeof save_items[0]) };
+static const menu_t load_menu = { "Load state", load_items, (int)(sizeof load_items / sizeof load_items[0]) };
 static const item_t machine_items[] = {
     { "Save state",        MI_SUBMENU, 0, &save_menu },
     { "Load state",        MI_SUBMENU, 0, &load_menu },
@@ -84,6 +84,7 @@ static const item_t shell_items[] = {
 };
 static const item_t info_items[] = {
     { "Version", MI_INFO, INFO_VERSION }, { "Build", MI_INFO, INFO_BUILD }, { "ROM", MI_INFO, INFO_ROM }, { "Files", MI_INFO, INFO_FS }, { "Host", MI_INFO, INFO_HOST },
+    { "Battery", MI_INFO, INFO_BATT },
 };
 /* The Host category: the K4510 Linux's and nobody else's (menu_set_host), so
  * it is the LAST category and simply off the end of main_items elsewhere --
@@ -106,8 +107,8 @@ static const menu_t input_menu   = { "Input",   input_items,   (int)(sizeof inpu
  * off the end until a host says it can honour them.  (Was a hard 8 once, and
  * the CPU clock entry never drew.) */
 static menu_t machine_menu = { "Machine", machine_items, MACHINE_N - 2 };
-static const menu_t shell_menu   = { "Shell",   shell_items,   2 };
-static const menu_t info_menu    = { "Info",    info_items,    5 };
+static const menu_t shell_menu   = { "Shell",   shell_items,   (int)(sizeof shell_items / sizeof shell_items[0]) };
+static const menu_t info_menu    = { "Info",    info_items,    (int)(sizeof info_items / sizeof info_items[0]) };
 static const item_t main_items[] = {
     { "Video",   MI_SUBMENU, 0, &video_menu },
     { "Terminal",MI_SUBMENU, 0, &term_menu },

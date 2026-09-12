@@ -2060,6 +2060,7 @@ static void cmd_bbcbasic(uint8_t prog)
          * even read from the machine, let alone forwarded.  Now a key goes down
          * as soon as it is pressed, mid-flood, and Ctrl-C breaks the program as
          * it does on real CP/M (Doc, 2026-09-10). */
+        if (bband && !claimed()) bat_refresh();         /* the band's battery keeps up during a session too (2026-09-12) */
         if (REG(KBDST) & 0x80) {
             uint8_t k = caps(REG(KBD));
             if (prog == 3 && k >= 0x80 && k <= 0x83 && (REG(KBDST) & 0x40)) {   /* the arrows -> WordStar diamond */

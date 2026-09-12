@@ -151,5 +151,13 @@ int main(void)
     send("\033[>c"); drain(rep); CHECK(!strcmp(rep, "\033[>1;10;0c"), "DA2 answer '%s'", rep + 1);
     send("\033[c");  drain(rep); CHECK(!strncmp(rep, "\033[?62", 5), "DA1 still answers DA1");
     printf("10. host colours, 256/truecolour, DA2: ok\n");
+
+    /* 11. The other way: a CP437 byte the machine typed, as UTF-8 for a Unix host
+     * (the ! session's accented letters reached ubuntu-s1 as raw $82, 2026-09-12). */
+    { char u[4]; int n;
+      n = term_cp437_utf8(0x82, u); CHECK(n == 2 && (uint8_t)u[0] == 0xC3 && (uint8_t)u[1] == 0xA9, "CP437 82 -> U+00E9 e-acute (%d bytes %02X %02X)", n, (uint8_t)u[0], (uint8_t)u[1]);
+      n = term_cp437_utf8('a', u);  CHECK(n == 1 && u[0] == 'a', "ASCII passes as one byte");
+      n = term_cp437_utf8(0xC4, u); CHECK(n == 3 && (uint8_t)u[0] == 0xE2 && (uint8_t)u[1] == 0x94 && (uint8_t)u[2] == 0x80, "CP437 C4 -> U+2500 (%d bytes)", n); }
+    printf("11. CP437 -> UTF-8 for the host: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

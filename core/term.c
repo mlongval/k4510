@@ -567,6 +567,17 @@ static int uwidth(uint32_t u)                                   /* cells the far
     return 1;
 }
 static void utf8_mode(int on) { T.utf8 = (uint8_t)(on != 0); T.u_need = T.u_nraw = 0; }
+/* The other direction: a CP437 byte the machine typed, as UTF-8 for a Unix
+ * host.  In a `!` session the ROM sends an accented letter raw (é = $82), and
+ * Linux, ssh and ubuntu-s1 took that for broken UTF-8 and dropped it -- dead
+ * keys "did nothing" (the Dell, 2026-09-12).  Returns the length (1-3). */
+int term_cp437_utf8(uint8_t b, char *out)
+{
+    uint32_t u = b < 0x80 ? b : cp437_hi[b - 0x80];
+    if (u < 0x80)  { out[0] = (char) u; return 1; }
+    if (u < 0x800) { out[0] = (char)(0xC0 | (u >> 6)); out[1] = (char)(0x80 | (u & 0x3F)); return 2; }
+    out[0] = (char)(0xE0 | (u >> 12)); out[1] = (char)(0x80 | ((u >> 6) & 0x3F)); out[2] = (char)(0x80 | (u & 0x3F)); return 3;
+}
 static void utf8_spill(void)                                    /* not UTF-8 after all: the bytes were CP437 */
 {
     uint8_t n = T.u_nraw, i;

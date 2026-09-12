@@ -53,6 +53,7 @@
  * from outside (fbdev is bypassed, the scanout is tiled). */
 static volatile sig_atomic_t shot_req;
 static int caps_ctrl_down;          /* F7 -> Input -> Caps Lock is Ctrl: the key is held now */
+static int shot_flash;              /* frames left of the screenshot's screen invert */
 /* Why the machine stopped, on stderr with the wall clock (the K4510 Linux keeps
  * it in ~/k4510/DIAG/emulator-*.log while the log switch is on): every way out,
  * and a heartbeat every ten seconds, so a freeze shows as the beats stopping.
@@ -555,13 +556,20 @@ static pid_t host_child;
  * /sys/class/power_supply -- any Linux laptop, the K4510 Linux or a desktop.
  * % in bits 0-6, bit 7 on AC or charging, $FF with no battery.  K4510_BATTERY
  * ("52", "52+") stands in for one, for a headless test.  Doc, 2026-09-12. */
+static void battery_info(void)                   /* F7 -> Info -> Battery, from the same byte as the band */
+{
+    char t[40];
+    if (io_battery == 0xFF) snprintf(t, sizeof t, "none");
+    else snprintf(t, sizeof t, "%d%%, %s", io_battery & 0x7F, (io_battery & 0x80) ? "on AC / charging" : "on battery");
+    menu_info(INFO_BATT, t);
+}
 static void host_battery_poll(void)
 {
     static Uint32 at; static int first = 1;
     if (!first && SDL_GetTicks() - at < 10000) return;
     first = 0; at = SDL_GetTicks();
     const char *fake = getenv("K4510_BATTERY");
-    if (fake) { int p = atoi(fake); io_battery = (uint8_t)((p < 0 ? 0 : p > 100 ? 100 : p) | (strchr(fake, '+') ? 0x80 : 0)); return; }
+    if (fake) { int p = atoi(fake); io_battery = (uint8_t)((p < 0 ? 0 : p > 100 ? 100 : p) | (strchr(fake, '+') ? 0x80 : 0)); battery_info(); return; }
     int pct = -1, ac = 0; char path[300], buf[32];
     DIR *d = opendir("/sys/class/power_supply");
     if (d) {
@@ -584,6 +592,7 @@ static void host_battery_poll(void)
         closedir(d);
     }
     io_battery = pct < 0 ? 0xFF : (uint8_t)((pct > 100 ? 100 : pct) | (ac ? 0x80 : 0));
+    battery_info();
 }
 /* F7 -> Host -> Keyboard layout and F7 -> Input -> Caps Lock is Ctrl, for the
  * Linux beside the machine: its consoles at once (k4510-keymap --set writes
@@ -1463,7 +1472,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           } }
         SDL_UnlockTexture(tex);
 tex_done:
-        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); }   /* what the texture holds, without the scanlines */
+        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); shot_flash = 4; }   /* what the texture holds, without the scanlines */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
@@ -1657,6 +1666,19 @@ tex_done:
                 if (f) fclose(f);
                 free(gp);
                 running = 0; } } }
+        if (shot_flash > 0) {                /* a screenshot was taken: the screen inverts for four frames (Doc's idea) */
+            static int invert_ok = -1; static SDL_BlendMode inv;
+            if (invert_ok < 0) {             /* dst = 1 - dst: white drawn with this blend inverts what is under it */
+                inv = SDL_ComposeCustomBlendMode(SDL_BLENDFACTOR_ONE_MINUS_DST_COLOR, SDL_BLENDFACTOR_ZERO, SDL_BLENDOPERATION_ADD,
+                                                 SDL_BLENDFACTOR_ZERO, SDL_BLENDFACTOR_ONE, SDL_BLENDOPERATION_ADD);
+                invert_ok = SDL_SetRenderDrawBlendMode(ren, inv) == 0;
+            }
+            if (invert_ok) { SDL_SetRenderDrawBlendMode(ren, inv); SDL_SetRenderDrawColor(ren, 255, 255, 255, 255); }
+            else { SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND); SDL_SetRenderDrawColor(ren, 255, 255, 255, 160); }   /* a white flash instead */
+            SDL_RenderFillRect(ren, NULL);
+            SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_NONE);
+            shot_flash--;
+        }
         SDL_RenderPresent(ren);
         p_pres += SDL_GetPerformanceCounter() - p_a;
         /* The hand pacer runs whether or not vsync is on, and the two cannot

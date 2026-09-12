@@ -1345,7 +1345,16 @@ static void tube_stop(void)
 }
 static uint8_t tube_status(void) { tube_pump(); tube_utf8_done(); return (tube_pid ? 1 : 0) | 4 | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0); }
 static uint8_t tube_read(void) { tube_pump(); if (tube_w != tube_r) return tube_ring[tube_r++ & 4095]; tube_utf8_done(); return 0; }
-static void tube_write(uint8_t v) { if (tube_fd >= 0) { ssize_t n = write (tube_fd, &v, 1); (void) n; } }
+static void tube_write(uint8_t v)
+{
+    if (tube_fd < 0) return;
+    if (tube_utf8 && v >= 0x80) {                 /* a `!` session: the ROM's raw accented letter is CP437, the host wants UTF-8 */
+        char u[4]; int n = term_cp437_utf8(v, u);
+        ssize_t w = write (tube_fd, u, (size_t) n); (void) w;
+        return;
+    }
+    { ssize_t n = write (tube_fd, &v, 1); (void) n; }
+}
 #else
 static uint8_t tube_status(void) { return 0; }
 static uint8_t tube_read(void) { return 0; }

@@ -7269,3 +7269,30 @@ running machine brought the beats straight back to 60 a second (1330,
 buffered (64 KB) and flushed once a second from `term_tick`, and
 `profile.d` remounts a persistence partition on a non-removable disk
 `async` at login -- a stick keeps its `sync`.
+
+## 2026-09-12 — after the reboot: "much faster", and a new list
+
+- **The battery "did not update" while plugged in.**  It was right --
+  Linux reported the AC offline and the battery at 3 %, the charger was
+  not being taken -- but it was also stale: the band refreshed only in
+  the key poll at the K/OS prompt, and a `!` session runs its own loop.
+  That loop now calls `bat_refresh()` each pass.
+- **Accents and dead keys did nothing over `!ssh`.**  The machine's own
+  layout composed é correctly; the ROM then sends an accented letter to
+  the Tube raw, as CP437 (`$82`), and Linux, ssh and ubuntu-s1 took it for
+  broken UTF-8.  In a UTF-8 `!` session the Tube now writes such a byte
+  as UTF-8 (`term_cp437_utf8()`); only accented letters take that road --
+  cursor and function keys are ASCII sequences out of JIM.
+- **PrtSc says so:** the screen inverts for four frames (a custom SDL
+  blend, 1 - dst; a white flash where the renderer cannot).
+- **F7 -> Info -> Battery**, from the same byte as the band.  The Info
+  page, like Input, gave its row count as a literal (5); every page now
+  counts its array, so a new row cannot vanish again.
+- **Boot, measured** (the kernel clock here counts from power-on, so
+  `systemd-analyze`'s 21 s "kernel" is mostly firmware and GRUB): tty1's
+  getty starts 24.8 s after power-on, of which ~22 s is before the
+  kernel -- Dell POST ~14 s, GRUB ~6 s (the 3 s menu, then a 45 MB
+  initrd and the kernel read by GRUB).  Kernel, live-boot's 830 MB copy
+  to RAM and early userspace take ~2.7 s.  The failures in the journal
+  (i915 DMC firmware, regulatory.db, alsactl restore, user@1000 for want
+  of pam_systemd) cost no time; they are packages for the next full build.

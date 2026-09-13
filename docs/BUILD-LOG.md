@@ -7820,4 +7820,23 @@ on an installed K4510 partition.  Doc: "ok delete live-prev" -- gone
 Fedora is up, and until then fails harmlessly if chosen.
 Measured the same boot: i5-8365U; the emulator 90 MB resident, about
 half of one core at 60 MHz at the prompt; 2.5 GB used in all (with the
-double copy).
+double copy).  After the next boot, without live-prev: 0.9 GB held by
+toram, 1.7 GB used in all, kernel 6.0 s + userspace 3.0 s.
+
+## 2026-09-13 — GRUB boots at once; Esc for the menu; no "Booting" line
+
+Doc: "get rid of the grub timeout, just auto boot, ESC gets the menu",
+and suppress the "Booting `K4510 Fantasy Computer'" line.  On the Dell
+(from Fedora): GRUB_TIMEOUT_STYLE=hidden, GRUB_TIMEOUT=1 -- the default
+boots straight away, Esc or Shift inside that second shows the menu.
+Not 0: at 0 GRUB may not look for the key at all, and with savedefault
+that could leave the Dell in one OS with no way to the other.  Fedora's
+own menu_auto_hide block uses the same hidden+1.  The dead "K4510
+(previous)" entry went in the same edit.
+
+The "Booting" line is GRUB's (grub-core/normal/menu.c, notify_booting)
+and printed on every automatic boot, hidden menu or not; Fedora's signed
+GRUB has no switch for it.  It can be wiped: `clear` (in that GRUB --
+"Clear the screen.") is now the first command of the quiet K4510 entry,
+here and in install-k4510.sh, so the line is gone before the kernel
+starts and the splash takes the screen.  The text-boot entry keeps it.

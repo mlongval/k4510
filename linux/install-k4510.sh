@@ -129,6 +129,7 @@ cat > /etc/grub.d/42_k4510 <<EOF
 # looking at (Doc, 2026-09-12: a startup logo).
 cat <<'MENU'
 menuentry "K4510 Fantasy Computer" --class k4510 {
+    clear
     savedefault
     insmod part_gpt
     insmod ext2

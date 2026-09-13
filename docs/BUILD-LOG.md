@@ -7898,3 +7898,51 @@ and typetest OK, and the handbook's mon and msbasic shots retaken.
 Noted in passing: on p15 montest and msbasictest fail with or without
 these changes -- the output there comes out with bare CRs, so the tests'
 "^OK" greps never match.  The programs are right; p15's harness is not.
+
+## 2026-09-13 — the handbook on the machine: Gemini pages and BOOK
+
+Doc: a format "that can be read on the k4510 itself WITHOUT A BROWSER",
+then "ok gemini", then "go ahead with the files then the reader".
+
+**The pages.**  doc/guide/mkgem.py makes a third edition of the chapters,
+beside the PDF and the Read the Docs site: fs/SYSTEM/DOC, one Gemini page
+(gemtext) a chapter plus INDEX.GMI.  There is no TeX-to-Gemini tool; the
+route is the one the web site already takes, mkweb.prep() -> pandoc ->
+Markdown, then md2gemini (links="copy": the link text stays in the
+sentence, the link lines follow the paragraph).  Fixes on top:
+
+- CP437, the machine's character set: typographic dashes and quotes to
+  typewriter forms, thin spaces to spaces, an accented letter CP437 lacks
+  to its base letter (a Polish name in the thanks); § to "section" (CP437
+  has it, at $15, which is a control code to Python and to JIM alike).
+- Wrapped at 78, after those swaps ("--" is wider than a dash).
+- md2gemini ends some lines CR LF; a CR is a whole newline on this
+  console, so TYPE would double-space.  LF only.
+- Tables laid out as text by mkgem, not md2gemini: it boxes them and
+  never wraps a cell, and a chapter 2 row came out 300 wide.
+- Each picture link is labelled from its caption; every page ends with
+  Contents / Previous / Next.
+
+md2gemini is not packaged and the system Python refuses pip (PEP 668), so
+make-guide.sh keeps a venv in doc/guide/.venv (--system-site-packages for
+PIL), made on first use.
+
+**Pictures.**  The screenshots become IMG/*.PIC: "K4PC", w, h, colours,
+format, version (3), the palette, then runs of (count 1-255, index) --
+one DMA fill a run -- or raw pixels, whichever is smaller.  PMANDEL came
+to 691 KB as 16-bit runs (its colour changes almost every pixel); raw it
+is 300 KB, and the rest are 10-70 KB: 842 KB in all.  **Colour 0 is
+transparent on VICKY's layers**: the first LOGO picture drew its white
+lines green, because white had landed at index 0 and showed what was
+behind the bitmap.  Index 0 is now a black nobody uses.
+
+**BOOK** (demo/book.c, 9.3 KB): BOOK, BOOK 2, BOOK SHELL.  The page, its
+line index and a picture sit in far memory ($0C000000 up); names for the
+ROM go through page 3 (the ROM cannot see above $A000).  Arrows, PgUp/PgDn,
+Space, Home/End; Tab / Shift+Tab choose a link, Enter follows, Backspace or
+Left comes back (eight deep); / finds, n again; Q or Esc leaves.  A .PIC
+link shows the screenshot full screen on layer 1 with the text layer off
+(LOGO's setup); any key, and VIDEO ($FF92) puts the ROM's screen back.
+test/booktest.sh: contents, BOOK 2, BOOK SHELL, a link and back, /, a
+picture shown and put away, Q.  HELP's last line points at BOOK; chapter
+2 has a section on it; mkref.py describes it.

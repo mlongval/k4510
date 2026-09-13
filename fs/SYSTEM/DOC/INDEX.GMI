@@ -1,0 +1,43 @@
+# The K4510 User's and Programmer's Guide
+
+The handbook, on the machine it describes. The same book is a PDF and a web
+site, made from the same source at the same time; this is the edition that
+needs neither a printer nor a browser.
+
+> This is alpha documentation. It describes a machine that is still being
+> built. Where the book and the machine disagree, the machine is right;
+> Appendix B says how to tell us.
+
+
+## User's Guide
+=> 01-MACHINE.GMI 1. The Machine
+=> 02-SHELL.GMI 2. The Shell
+=> 03-COMMANDS.GMI 3. Every Command
+=> 04-EHBASIC.GMI 4. EhBASIC
+=> 05-MSBASIC.GMI 5. Microsoft BASIC, 1977
+=> 06-TUBE.GMI 6. The Tube: BBC BASIC
+=> 07-FORTH.GMI 7. Forth
+=> 08-LOGO.GMI 8. LOGO
+=> 09-CPM.GMI 9. CP/M: the Z80 Second Processor
+=> 10-PASCAL.GMI 10. Pascal
+=> 11-EDITORS.GMI 11. The Editors
+=> 12-RX.GMI 12. RX: the Machine's REXX
+=> 13-LINUX.GMI 13. The Linux Underneath
+
+## Programmer's Guide
+=> 20-MEMORY.GMI 14. Memory
+=> 21-IO.GMI 15. The I/O Page
+
+## Appendices
+=> A1-REGISTERS.GMI A. The Registers
+=> A2-ISSUES.GMI B. Filing an Issue
+=> A3-SOUND.GMI C. The Sound, and What It Took
+
+## About the Book
+=> Z1-DISCLAIMER.GMI Disclaimer
+=> Z2-THANKS.GMI Thank You
+=> Z3-LICENCES.GMI Licences
+
+## Elsewhere
+=> https://k4510.readthedocs.io The same book on the web
+=> https://github.com/mlongval/k4510 The machine's source

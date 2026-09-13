@@ -178,6 +178,9 @@ A program writing to the bottom status band.
 **`BENCH`** — */SYSTEM/BIN*  
 About 25 s: frames per second and sound gaps at every clock step, to `/SYSTEM/LOG/BENCH-NN.TXT`.
 
+**`BOOK [n | word | page]`** — */SYSTEM/BIN*  
+This handbook, on the machine: the contents, chapter n, or the chapter whose title holds the word. Tab chooses a link, Enter follows it, Backspace comes back.
+
 **`BUG`** — */SYSTEM/BIN*  
 Asks seven questions about a fault and writes the report (Appendix B).
 

@@ -136,3 +136,5 @@ test/bench
 # MkDocs builds the handbook site here when run by hand; Read the Docs
 # builds its own.  The pages in doc/site/docs are generated but committed.
 /doc/site/site/
+# the handbook build's own Python, for md2gemini (doc/guide/make-guide.sh)
+/doc/guide/.venv/

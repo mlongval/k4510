@@ -1,0 +1,182 @@
+# Chapter 10. Pascal
+
+The machine has two Pascals, and they share nothing but the language. Keep
+them apart in your head from the start:
+
+```
+                   Turbo Pascal 3                       Mad Pascal
+What it is         a program of 1985                    a cross-compiler of
+                                                        today
+Where it runs      on the machine: the Z80, under CP/M  on your desktop
+What it makes      a CP/M .COM, for the Z80             a K/OS .prg, for the
+                                                        45GS10
+What it can touch  CP/M's world only                    every chip in the
+                                                        machine
+How you get it     you supply it; it is Borland's       in the repository,
+                                                        free
+```
+
+Nothing carries over between them -- not the source, not the toolchain, not
+the programs they produce. The first section is one, the second is the other.
+
+## Turbo Pascal 3, on CP/M
+
+Borland's Turbo Pascal 3 is a CP/M program, so it runs where CP/M runs: on the
+Tube's Z80 (Chapter 9, CP/M: the Z80 Second Processor), in its own world,
+exactly as it did on a Kaypro. You write, compile and run without leaving it,
+and what it produces is a CP/M program that runs under CP/M on the Z80 -- it
+cannot see VICKY, the OPL2 or anything else on the K4510 side of the Tube, any
+more than a Kaypro could.
+
+=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
+
+It is not shipped, because it is Borland's. Put TURBO.COM and TURBO.MSG into
+fs/CPM/H/3 -- the folder that CP/M's drive P: is a shortcut to -- and install
+it for a "VT100" or "ANSI" terminal, which is what JIM is. Then, from the K/OS
+prompt:
+
+```
+TURBO
+```
+
+TURBO is an alias that /SYSTEM/ETC/STARTUP.SAMPLE defines, for CPM K-TURBO:
+boot CP/M, go to P:, start Turbo, and -- because the submit ends in EXIT --
+come all the way back to the K/OS prompt when you leave it. Chapter 9, CP/M:
+the Z80 Second Processor explains that arrangement.
+
+=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
+
+=> IMG/TURBO.PIC Turbo Pascal 3 starting on the Z80, its terminal drawn by JIM
+
+Turbo Pascal 3 starting on the Z80, its terminal drawn by JIM.
+
+Inside, it is 1985. The editor is WordStar's: Ctrl-E, S, D and X move (the
+arrow keys are sent as those, so they work too; Home, End, PgUp and PgDn are
+not, and do not), and Ctrl-K then D leaves the editor for the menu. R runs the
+program in memory; O then C makes it compile to a .COM you can run from the
+CP/M prompt by name.
+
+## Mad Pascal, the cross-compiler
+
+Mad Pascal is the other kind entirely -- a cross-compiler, like the cc65 this
+machine's ROM is built with. You write on the desktop, mp compiles to 6502
+assembly, MADS assembles it, and the result is a .prg beside the source in
+/LANG/PASCAL that the shell's RUN loads like any other program -- and, since
+2026-09-08, one the machine can make for itself: PAS HELLO compiles HELLO.PAS
+in the directory you are standing in (Chapter 13, The Linux Underneath). It is
+Tomasz Biela's compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16-
+and 32-bit integers, fixed and floating point, strings, records, pointers,
+units and inline assembly, made for the Atari and since taught the C64, the
+X16 and the Neo6502. The K4510 is its newest target.
+
+=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+
+```
+PMANDEL
+```
+
+=> IMG/PMANDEL.PIC PMANDEL
+
+PMANDEL: the Mandelbrot set in text, sixteen colours through JIM, in 250
+frames.
+
+That is demo/pas/pmandel.pas: the Mandelbrot set, 78 by 28 cells in the
+machine's sixteen colours, in a little over four seconds at the desktop's 40.5
+MHz -- fixed point, 32-bit integers, forty lines of Pascal. PSIEVE is the
+classic sieve, ten passes timed by the frame counter; HELLO prints, shows the
+colours, and echoes what you typed after its name. All of them are already
+compiled and sitting beside their sources in /LANG/PASCAL, so you can run them
+without installing anything.
+
+### Building
+
+On the desktop, with FPC and a Mad-Pascal checkout (the installer patches its
+target table and rebuilds mp). It looks for the checkout in
+/Projects/neo6502_dev/Mad-Pascal unless MP_DIR says otherwise:
+
+```
+make pascal-install    # once; MP_DIR=... to point elsewhere
+make pascal            # fs/LANG/PASCAL/*.PAS -> *.prg beside them
+```
+
+A new program is a file in fs/LANG/PASCAL; make finds it, and so does PAS on
+the machine itself. The compiled .prg files are committed, so a machine
+without the toolchain still runs them, and the test suite (test/pastest.sh)
+runs HELLO and PSIEVE through the ROM.
+
+### The target
+
+Everything a Pascal program needs from the machine is in pascal/ of the
+repository, laid out as it lives inside a Mad-Pascal checkout: the runtime
+base (base/rtl6502_k4510.asm and base/k4510/), where @putchar writes to JIM,
+the terminal (Chapter 6, The Tube: BBC BASIC); the SYSTEM and CRT units'
+machine halves (lib/*_k4510.inc); and a k4510 unit. The consequences for the
+programmer:
+
+=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+
+*
+
+ Write and WriteLn go through JIM, so the CRT unit is the real thing: GotoXY,
+TextColor and TextBackground (the palette's constants: BLUE, YELLOW,
+LIGHT_GREEN...), ClrScr, ClrEol, InsLine/DelLine, WhereX/WhereY,
+CursorOn/CursorOff, ReadKey and KeyPressed on the keyboard device, Delay and
+Pause on the frame counter, and Sound on the machine's sound sequencer --
+which changed its contract when the OPL2 became the machine's chip: Sound
+takes a channel and a pitch in quarter-semitones and holds the note until
+NoSound. TextMode(0) puts the ROM's screen back.
+*
+
+ ParamCount and ParamStr come from the shell line (RUN HELLO one two, or just
+HELLO one two); ParamStr(0) is the whole tail.
+*
+
+ uses k4510 gives every chip as a typed variable at its address -- VICKY[reg],
+DMA_SRC, FS_CMD, SYS_FRAMES, MATH_F[], TERM_CX and the rest -- plus
+FarPeek/FarPoke into the 256 MB through the 45GS02's flat addressing,
+DmaCopy/DmaFill, Shell('DIR'), LoadFile/SaveFile through the ROM, WaitVBlank,
+and TermWrite for raw escape sequences.
+*
+
+ Memory: code from $0800, the program's own; zero page $22-$3F for the
+compiler's registers and $64-$A3 for its expression stack (the ROM keeps
+$02-$21 and $F0-$F9); $0300 the string buffer. Programs return to the shell
+with the ROM's state intact.
+
+### Floating point on the MATH unit
+
+single (IEEE-754, 32-bit) does not run in software here. The runtime's add,
+subtract, multiply, divide, compare, Trunc, Round and Frac are the MATH unit
+at $D700 (Chapter 15, The I/O Page): each is a few register moves and one
+write to FOP, and the unit answers in the next cycle. PFLOAT times five
+thousand rounds of multiply, divide, add and subtract: 5 frames on the unit,
+24 with the software library (assemble with mads -d:SOFTFLOAT=1 to get it back
+for comparison). The transcendentals are in the k4510 unit -- MathSqrt,
+MathSin, MathCos, MathTan, MathAtan, MathAtan2, MathExp, MathLn, MathPow,
+MathFloor -- one register write each. SYSTEM's own Sqrt/Sin/Cos/ArcTan/Exp/Ln
+on single run on the unit too: the installer patches system.pas under {$ifdef
+k4510}.
+
+=> 21-IO.GMI Chapter 15, The I/O Page
+
+### Graphics on VICKY
+
+uses graph draws on VICKY's layer 1: a 640x480 8-bit bitmap at $200000 -- the
+one BBC BASIC's ULA uses too -- over the console, which stays visible wherever
+the picture is transparent (colour 0), as in a BBC MODE. InitGraph(0) switches
+the video to 480 lines and clears the bitmap; CloseGraph puts the console's
+mode back. PutPixel and GetPixel go through the 45GS02's flat addressing (the
+MEGA65 multiplier does the row arithmetic); Line, LineTo and the K4510
+additions DrawLine, FillBar and FillTriangle are the blitter's LINE, FILL and
+TRIANGLE operations -- one register write each; Circle, Ellipse, Rectangle and
+the rest of Mad Pascal's generic GRAPH build on those; OutTextXY writes with
+the console's font. PGRAPH is the demonstration.
+
+=> IMG/PGRAPH.PIC PGRAPH
+
+PGRAPH: bars, a star and triangles by the blitter, circles by pixel, text from
+the ROM's font -- and the console's own line still on top.
+
+=> INDEX.GMI Contents
+=> 09-CPM.GMI Previous: 9. CP/M: the Z80 Second Processor
+=> 11-EDITORS.GMI Next: 11. The Editors

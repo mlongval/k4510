@@ -111,3 +111,12 @@ echo "-> $HERE/k4510-guide.pdf"
 # The same book as a web site (doc/site, for Read the Docs): made from the
 # same chapters now, so the PDF and the pages never say different things.
 python3 "$HERE/mkweb.py"
+
+# ...and as the machine's own pages (fs/SYSTEM/DOC, Gemini text, for BOOK),
+# from the same chapters again.  md2gemini is not packaged by the distro and
+# the system Python refuses pip (PEP 668), so it lives in a venv of its own
+# here, made the first time; --system-site-packages keeps PIL visible.
+if [ ! -x "$HERE/.venv/bin/python" ]; then
+    python3 -m venv --system-site-packages "$HERE/.venv" && "$HERE/.venv/bin/pip" install -q md2gemini
+fi
+"$HERE/.venv/bin/python" "$HERE/mkgem.py"

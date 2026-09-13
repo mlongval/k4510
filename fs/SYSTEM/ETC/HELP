@@ -80,5 +80,6 @@ host:    F7 the settings menu   F8 the debugger
 boot:    /STARTUP.BAT runs at power-on.  If it
          wedges the machine, turn it off in
          F7 > Shell, or start --no-startup.bat
-the whole list, a line each: the handbook,
-chapter 3
+the handbook, on this machine: BOOK
+         (BOOK 3 is every command, a line each;
+         BOOK SHELL the chapter about the shell)

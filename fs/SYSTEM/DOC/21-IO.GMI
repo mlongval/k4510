@@ -1,0 +1,32 @@
+# Chapter 15. The I/O Page
+
+One page, $D000-$DFFF, always visible. The authoritative register-level
+reference is the machine's own headers, and Appendix A, The Registers is
+generated from them at build time -- the way the Neo6502 handbook generates
+its keyword reference from the firmware source. This chapter is the map of
+what lives where:
+
+=> A1-REGISTERS.GMI Appendix A, The Registers
+
+```
+$D000  VICKY     video: layers, palette, blitter, sprites, SHEILA
+$D100  input     keyboard FIFO and its status, the held keys, the mouse,
+                 break-pending
+$D200  DMA       copy / fill / swap / line / triangle
+$D300  storage   the host filesystem: open, read, dir, chdir...
+$D480  OPL2      the YM3812: address, data, status -- the AdLib's arrangement
+$D500  system    clock, RTC, frame counter, DUMP, the settings the ROM reads,
+                 the sound sequencer at $D5E0
+$D600  banks     the eight bank registers, masks at $D620
+$D700  MATH      IEEE floats, transcendentals, math lists, mul/div
+$D800  Tube      the co-processor: status, byte in, byte out, start/stop
+$D900  N:        the network: four channels, tcp://, http(s):// and tnfs://
+                 (see core/net.h)
+$DA00  JIM       the terminal: a VT100/ANSI in hardware, drawing on the
+                 console's screen (see core/term.h)
+$DF00  far gate  call slots, descriptor table pointer, depth
+```
+
+=> INDEX.GMI Contents
+=> 20-MEMORY.GMI Previous: 14. Memory
+=> A1-REGISTERS.GMI Next: A. The Registers

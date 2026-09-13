@@ -115,7 +115,11 @@ def fix_tabular(tex):
     return re.sub(r"\\begin\{tabular\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", sub, tex)
 
 
-def convert(stem, table):
+def prep(stem, table, link, img):
+    """A chapter's LaTeX with the book's own macros made plain, ready for
+    pandoc.  link(page, anchor) and img(name) say what a cross-reference and
+    a screenshot point at: the web wants 02-shell.md#swap and img/dir.png,
+    the machine's Gemini pages 02-SHELL.GMI and IMG/DIR.PIC (mkgem.py)."""
     tex = (HERE / "chapters" / (stem + ".tex")).read_text()
     tex = inline_inputs(tex)
     tex = re.sub(r"\\markboth\{[^}]*\}\{[^}]*\}|\\setcounter\{[^}]*\}\{[^}]*\}", "", tex)
@@ -127,10 +131,10 @@ def convert(stem, table):
         page, anchor, num, title = table[lab]
         # "Chapter 13, The Linux Underneath"; a section is linked by its own title
         text = f"{word} {num}, {title}" if word and num else title
-        return r"\href{" + page + anchor + "}{" + text + "}"
+        return r"\href{" + link(page, anchor) + "}{" + text + "}"
     tex = re.sub(r"(Chapter|Appendix|Section|Chapters)?~?\\ref\{([^}]+)\}", ref, tex)
     tex = re.sub(r"page~?\\pageref\{([^}]+)\}",
-                 lambda m: r"\href{" + table[m.group(1)][0] + table[m.group(1)][1] + "}{" + table[m.group(1)][3] + "}", tex)
+                 lambda m: r"\href{" + link(table[m.group(1)][0], table[m.group(1)][1]) + "}{" + table[m.group(1)][3] + "}", tex)
     # verbatim-built environments
     tex = re.sub(r"\\begin\{(type|form)\}", r"\\begin{verbatim}", tex)
     tex = re.sub(r"\\end\{(type|form)\}", r"\\end{verbatim}", tex)
@@ -142,7 +146,7 @@ def convert(stem, table):
     # screenshots
     def shot(m):
         src, cap = m.group(2), m.group(3)
-        return r"\begin{figure}\includegraphics{" + "img/" + pathlib.Path(src).name + r"}\caption{" + cap + r"}\end{figure}"
+        return r"\begin{figure}\includegraphics{" + img(pathlib.Path(src).name) + r"}\caption{" + cap + r"}\end{figure}"
     tex = re.sub(r"\\(screen|screeninline)\{([^}]+)\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", shot, tex, flags=re.S)
     tex = fix_tabular(tex)
     tex = re.sub(r"\\begin\{description\}\[[^\]]*\]", r"\\begin{description}", tex)
@@ -156,6 +160,11 @@ def convert(stem, table):
         return re.sub(r"\\[a-zA-Z]+|[{}]", "", s).strip()
     tex = re.sub(r"(?<!\\)\$(.+?)(?<!\\)\$", math, tex)
     tex = re.sub(r"\\\((.+?)\\\)", math, tex)
+    return tex
+
+
+def convert(stem, table):
+    tex = prep(stem, table, lambda page, anchor: page + anchor, lambda name: "img/" + name)
     # -pipe_tables: the book's tables mostly have no header row, and a pipe
     # table must have one (pandoc gives it an empty one); HTML tables do not.
     r = subprocess.run(["pandoc", "-f", "latex", "-t", "gfm-pipe_tables", "--wrap=none"],

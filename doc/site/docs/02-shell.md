@@ -2,6 +2,18 @@
 
 The shell is what the machine boots into. It is a file manager, a program launcher and the front door to everything else, and every command here also works from a BASIC with a `*` in front. Type `HELP` for a summary on the screen — the text it prints is itself a file on disk, `/SYSTEM/ETC/HELP` — and see [Chapter 3, Every Command](03-commands.md) for every command with a line about each. This chapter is how the shell behaves.
 
+## This book, on the machine
+
+`BOOK` is this handbook, on the machine it describes — no browser, no printer:
+
+    BOOK              the contents
+    BOOK 3            chapter 3, every command
+    BOOK SHELL        the chapter whose title says SHELL
+
+The arrows, PgUp and PgDn (or Space) and Home and End move through a page. Tab chooses the next link and Shift+Tab the one before; Enter follows it and Backspace comes back, as far as eight pages. `/` finds a word further down, and `n` finds it again. Q or Escape leaves. A link marked *\[picture\]* is one of this book’s screenshots: Enter shows it full screen, drawn by the machine as the machine drew it, and any key comes back to the page.
+
+The pages are made from the same source as this book and its web edition, at the same time, so the three never disagree. They live in `/SYSTEM/DOC`, one to a chapter, in Gemini text — a small, open format where a line’s first characters say what it is: `#` a heading, `=>` a link, `*` an item in a list. So `TYPE` reads them too, and so does any Gemini reader on another computer.
+
 ## The disk
 
 Files live on the host: the `fs/` directory beside the emulator. The machine sees that directory as `/` and nothing above it. The root has six folders and one file in it, and that is fixed — everything else lives one level down:

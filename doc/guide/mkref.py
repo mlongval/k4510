@@ -85,6 +85,7 @@ DESC = {
     "CC":      (6, "CC name", "Compile name.C here with cc65 into name.prg."),
     # programs
     "BANDS":     (7, "BANDS", "A program writing to the bottom status band."),
+    "BOOK":      (7, "BOOK [n | word | page]", "This handbook, on the machine: the contents, chapter n, or the chapter whose title holds the word. Tab chooses a link, Enter follows it, Backspace comes back."),
     "BENCH":     (7, "BENCH", "About 25 s: frames per second and sound gaps at every clock step, to /SYSTEM/LOG/BENCH-NN.TXT."),
     "BUG":       (7, "BUG", "Asks seven questions about a fault and writes the report (Appendix B)."),
     "CHROUT":    (7, "CHROUT", "How fast the ROM's console prints."),

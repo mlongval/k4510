@@ -7,6 +7,31 @@ summary on the screen --- the text it prints is itself a file on disk,
 \pth{/SYSTEM/ETC/HELP} --- and see Chapter~\ref{cha:commands} for every
 command with a line about each. This chapter is how the shell behaves.
 
+\section{This book, on the machine}\label{sec:book}
+\verb|BOOK| is this handbook, on the machine it describes --- no browser,
+no printer:
+
+\begin{type}
+BOOK              the contents
+BOOK 3            chapter 3, every command
+BOOK SHELL        the chapter whose title says SHELL
+\end{type}
+
+\noindent The arrows, PgUp and PgDn (or Space) and Home and End move
+through a page. Tab chooses the next link and Shift+Tab the one before;
+Enter follows it and Backspace comes back, as far as eight pages. \verb|/|
+finds a word further down, and \verb|n| finds it again. Q or Escape
+leaves. A link marked \emph{[picture]} is one of this book's screenshots:
+Enter shows it full screen, drawn by the machine as the machine drew it,
+and any key comes back to the page.
+
+The pages are made from the same source as this book and its web edition,
+at the same time, so the three never disagree. They live in
+\pth{/SYSTEM/DOC}, one to a chapter, in Gemini text --- a small, open
+format where a line's first characters say what it is: \verb|#| a
+heading, \verb|=>| a link, \verb|*| an item in a list. So \verb|TYPE|
+reads them too, and so does any Gemini reader on another computer.
+
 \section{The disk}
 Files live on the host: the \texttt{fs/} directory beside the emulator.
 The machine sees that directory as \texttt{/} and nothing above it. The

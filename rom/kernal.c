@@ -2170,10 +2170,11 @@ uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_copy(p); shell_line(line); 
 
 /* the logo: an hourglass of colour blocks, left-aligned, five rows; the
  * machine's name, speed and memory on its right. Everything else is INFO. */
-/* The machine's face.  Five colour bars tapering to a point on the right --
- * the taper is a glyph in the bar's own colour rather than a block, which is
- * what makes the edge look cut rather than stepped -- and the machine's
- * description beside them.  BANNER reprints it; the shell calls it at boot.
+/* The machine's face.  Five colour bars, 4:3:2:3:4 wide, with square ends
+ * (they once tapered to a point through a glyph in the bar's colour; the
+ * glyph is gone, and tools/mkbootlogo.py draws the boot logo square to
+ * match), and the machine's description beside them.  BANNER reprints it;
+ * the shell calls it at boot.
  * Lives in the sideways window (SWCODE0), not the resident ROM. */
 static void banner(void)
 {

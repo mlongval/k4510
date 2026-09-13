@@ -124,8 +124,19 @@ cat > /etc/grub.d/42_k4510 <<EOF
 # /etc/default/grub, the OS booted last is the next default -- so the host's
 # own update restarts come back to the host (the Dell, Doc, 2026-09-12).
 # Without GRUB_SAVEDEFAULT it records the choice and changes nothing else.
+# The first entry boots quietly -- no kernel text, no blinking cursor, straight
+# to the machine; the second shows Linux starting, for when something needs
+# looking at (Doc, 2026-09-12: a startup logo).
 cat <<'MENU'
 menuentry "K4510 Fantasy Computer" --class k4510 {
+    savedefault
+    insmod part_gpt
+    insmod ext2
+    search --no-floppy --set=root --label $DST_LABEL
+    linux  /live/vmlinuz $CMDLINE quiet loglevel=3 vt.global_cursor_default=0
+    initrd /live/initrd.img
+}
+menuentry "K4510 (text boot)" --class k4510 {
     savedefault
     insmod part_gpt
     insmod ext2

@@ -7499,3 +7499,33 @@ stack like the star test), a byte of $7D or more is dropped unechoed and
 the next key read.  GET, which calls MONRDKEY itself, still receives
 them.  msbasictest types PR, three arrows, INT 7: the echo must be
 exactly PRINT 7, and it must run.
+
+## 2026-09-12 — a boot logo, and a quiet boot on the Dell
+
+Doc: "can you make a cool startup logo and/or replace the DELL image at
+boot?"  The Dell logo is the firmware's (ACPI BGRT, drawn at 744,196 on
+the 1920x1080 panel); replacing it means modifying and flashing the
+BIOS, and that is not worth a bricked laptop.  What the OS side can do:
+
+- tools/mkbootlogo.py -> data/bootlogo.png, 1920x1080, made of the
+  machine's parts: the banner's five bars (4:3:2:3:4, VIC-II 2 8 7 5 14),
+  K4510 in font8 scaled to the bars' height, FANTASY COMPUTER in the
+  console yellow on the console blue.  A first draft cut the bars to
+  points after banner()'s comment about a taper glyph; Doc: "the bars are
+  not pointy on the real screen, please keep it uniform" -- banner() draws
+  plain blocks (the comment is stale), so square ends.
+- The Dell's GRUB (Fedora's, from Fedora): GRUB_TERMINAL_OUTPUT=gfxterm,
+  GRUB_GFXMODE=1920x1080,auto, GRUB_BACKGROUND=/boot/grub2/k4510-
+  bootlogo.png -- so the 3-second menu is the logo.  Old /etc/default/grub,
+  42_k4510 and grub.cfg kept (/root/*.before-logo.*, grub.cfg.before-logo.*).
+- The K4510 entry boots with quiet loglevel=3 vt.global_cursor_default=0,
+  and a second entry, "K4510 (text boot)", keeps the old verbose one.
+  install-k4510.sh writes both.  It does not touch the host's own GRUB
+  look (terminal, background): that stays the host's business.
+
+Slip, caught before the reboot: the first rewrite of 42_k4510 lifted the
+old linux line without its "/live/vmlinuz", so both entries said
+"/live/vmlinuz /live/vmlinuz boot=live ..."; fixed and grub.cfg rebuilt.
+What the screen shows between GRUB and the machine (the logo held, or
+black) depends on how i915 takes the framebuffer over; a splash that is
+certain is Plymouth, which wants the full rebuild.

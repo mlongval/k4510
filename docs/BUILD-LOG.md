@@ -7794,3 +7794,15 @@ system-db:gdm, plus GDM's greeter defaults) with the same key in
 gsettings write (no ~/.config), and without the profile the greeter
 would have raced a suspend against the poweroff.  Fedora only; the K4510
 side already powers off from its own menu.
+
+Doc: "k4510 splash is great".  Checked on the Dell the same boot: the new
+base and layer are the ones running (sha256), `splash` on the line,
+plymouth-start at 7.9 s; no kbl_dmc or regulatory.db failure in dmesg;
+pam_systemd.so where PAM looks (/usr/lib/x86_64-linux-gnu/security), and
+empty /proc and /sys in the base; no failed units.  (A first count of
+"pam_systemd" and "mount point does not exist" in the journal found two
+each -- tailscaled's audit log of the very ssh command that searched for
+them.  Grep the journal for a message, not for your own command line.)
+Boot: firmware 13.2 s + GRUB 11.5 s (a choice was made) + kernel 6.6 s
++ userspace 3.5 s.  K4510 (previous) keeps this morning's system, in
+/live-prev, one menu line away.

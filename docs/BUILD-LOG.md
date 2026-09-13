@@ -7539,6 +7539,19 @@ no chroma subsampling, so the flat colours stay flat):
 /boot/grub2/k4510-bootlogo.jpg.  Anyone putting a GRUB background on a
 Fedora host: JPEG, not PNG.
 
+It still showed nothing, and the menu now came up on its own (the png
+error had been the pause).  At GRUB's own prompt, with Doc typing:
+`videoinfo` -- no such command; `ls (hd0,gpt2)/grub2/` found the logo;
+`background_image` -- "can't find command".  The command lives in
+gfxterm_background, which Fedora does not build into its signed GRUB,
+and with Secure Boot the signed GRUB loads no module from disk.  So on
+this host GRUB cannot draw a picture at all.  Reverted: /etc/default/grub
+is byte for byte the pre-logo backup (console output), grub.cfg has no
+gfxterm or background line, the logo files are gone from /boot.  The
+two K4510 entries -- quiet and text -- stay.  The logo stays in the repo
+(data/bootlogo.png) for a splash that does not depend on the host's
+GRUB: Plymouth in the K4510's own initramfs, at the full rebuild.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

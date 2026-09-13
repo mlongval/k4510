@@ -24,13 +24,21 @@ start:  lda #<(__PRG_START__ + __PRG_SIZE__)
         jsr zerobss
         jsr initlib
         jsr _main
-_exit:  lda #0                  ; MAP everything off
+_exit:
+.ifndef NOMAP
+        lda #0                  ; MAP everything off
         tax
         tay
         .byte $A3, $00          ; LDZ #0
         .byte $5C               ; MAP
         .byte $EA               ; EOM
+.endif
         rts                     ; back to the ROM shell
+; NOMAP (demo/prg0-nomap.o): for a program that lives in the RAM under the
+; ROM -- MONITOR at $E000.  There MAP-all-off shows the ROM again at the very
+; address of the RTS after it, the RTS is fetched from ROM, and the machine
+; restarts (2026-09-13: every MON ended in "exec: name?" from the boot
+; path).  Such a program must not use map_window, and has nothing to undo.
 
 ; void __fastcall__ map_window(unsigned long phys)
 ; MAP CPU $2000-$5FFF (blocks 1-2, 16 KB) onto phys. phys: multiple of 256,

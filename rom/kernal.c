@@ -522,16 +522,10 @@ static uint8_t peek(uint32_t a)
     if (a < 0x10000UL) return *(uint8_t *)(uint16_t)a;              /* CPU view: I/O and ROM as the CPU sees them */
     dma_copy(a, (uint16_t)dmabuf, 1); return dmabuf[0];
 }
-static void poke(uint32_t a, uint8_t v)
-{
-    if (a < 0x10000UL) { *(uint8_t *)(uint16_t)a = v; return; }
-    dmabuf[0] = v; dma_copy((uint16_t)dmabuf, a, 1);
-}
 
 /* ---- shell ------------------------------------------------------------- */
 static char line[96];
-static uint32_t xam;          /* last opened address */
-static uint8_t mode;          /* 0 xam, 1 store, 2 block */
+static uint32_t xam;          /* the last LOAD address: RUN's fallback (the monitor keeps its own, demo/monitor.c) */
 #define NAMEMAX 96    /* a name or a URL (the Meatloaf rule): as long as the shell line itself */
 static char last_name[NAMEMAX]; static uint32_t last_addr, last_len; static uint16_t last_run; static uint8_t last_segs, last_bmask;   /* last LOAD; bmask = blocks claimed by K4SG segments */
 
@@ -562,17 +556,7 @@ static uint8_t is_cmd(const char **p, const char *cmd)
     return 1;
 }
 
-static void dump(uint32_t from, uint32_t to)
-{
-    uint8_t n = 0;
-    for (; from <= to; from++) {
-        if (n == 0) { puthex28(from); puts_(": "); }
-        puthex(peek(from)); k_chrout(' ');
-        if (++n == 16) { n = 0; newline(); }
-        if (from == 0x0FFFFFFFUL) break;
-    }
-    if (n) newline();
-}
+/* dump() -- the monitor's examine -- went with the monitor, demo/monitor.c. */
 
 /* $03FF is the shell's result byte: error() sets it, the SHELL system call
  * ($FF8F) clears it before the line and returns it after, so a program (RX)
@@ -946,25 +930,7 @@ hex:
 
 #pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
 #pragma rodata-name (push, "SWRODATA1")
-static void cmd_fill(const char *p)
-{
-    uint8_t d; uint32_t from, to, v;
-    from = parsehex(&p, &d); if (!d || *p != '.') { error("fill: from.to value"); return; }
-    p++; to = parsehex(&p, &d); if (!d || to < from) { error("fill: from.to value"); return; }
-    skipsp(&p); v = parsehex(&p, &d); if (!d) { error("fill: from.to value"); return; }
-    dma_fill((uint8_t)v, from, to - from + 1);
-    putdec(to - from + 1); puts_(" bytes filled"); newline();
-}
-
-static void cmd_copy(const char *p)
-{
-    uint8_t d; uint32_t from, to, dst;
-    from = parsehex(&p, &d); if (!d || *p != '.') { error("copy: from.to dest"); return; }
-    p++; to = parsehex(&p, &d); if (!d || to < from) { error("copy: from.to dest"); return; }
-    skipsp(&p); dst = parsehex(&p, &d); if (!d) { error("copy: from.to dest"); return; }
-    dma_copy(from, dst, to - from + 1);
-    putdec(to - from + 1); puts_(" bytes copied to "); puthex28(dst); newline();
-}
+/* FILL and COPY are MONITOR's now (demo/monitor.c, 2026-09-13). */
 
 static void video_init(void);
 static const char *modename(uint8_t m)
@@ -1170,7 +1136,6 @@ static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p)
 uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
 static void banner(void);                 /* the logo: sideways window, not resident */
-static void cmd_mon(const char *p);
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
 static void cmd_compile(const char *tool, const char *p);
@@ -1834,6 +1799,23 @@ static void nav(const char *p)
  * name pointer read letters (the first build: every command was "?"). */
 typedef struct { const char *name; uint8_t bank; void (*fn)(const char *); } shcmd_t;
 static void shell_copy(const char *p);      /* resident, below k_shell: HELP uses it */
+/* MON WOZ FILL COPY: "MONITOR <word> <args>", run as a line of the shell's own
+ * (line[], so the program can read its ARGS -- see HELP).  p points into
+ * line[] itself, hence the copy through b. */
+static void mon_prg(const char *word, const char *p)
+{
+    char b[NAMEMAX]; uint8_t i = 0;
+    const char *m = "MONITOR ";
+    while (*m) b[i++] = *m++;
+    while (*word) b[i++] = *word++;
+    b[i++] = ' ';
+    while (*p && i < NAMEMAX - 1) b[i++] = *p++;
+    b[i] = 0;
+    shell_copy(b); shell_line(line);
+}
+static void mon_mon(const char *p)  { mon_prg("MON", p); }
+static void mon_fill(const char *p) { mon_prg("FILL", p); }
+static void mon_copy(const char *p) { mon_prg("COPY", p); }
 #pragma rodata-name (push, "CODE2")
 #define N(x) static const char n_##x[] = #x;
 N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
@@ -1848,19 +1830,19 @@ static const shcmd_t shcmds[] = {
     { n_LOAD, 0, cmd_load },     { n_SAVE, 1, cmd_save },
     { n_XD, 1, cmd_xd },         { n_HEX, 1, cmd_xd },
     { n_EXEC, 0, cmd_exec },     { n_HUSH, 1, cmd_hush },    { n_RUN, 0, cmd_run },
-    { n_FILL, 1, cmd_fill },     { n_COPY, 1, cmd_copy },    { n_DUMP, 1, cmd_dump },
+    { n_FILL, 0, mon_fill },     { n_COPY, 0, mon_copy },    { n_DUMP, 1, cmd_dump },
     { n_INFO, 1, cmd_info },     { n_TIME, 1, cmd_time },
     { n_COLOR, 1, cmd_color },   { n_COLOUR, 1, cmd_color },
     { n_PALETTE, 2, cmd_palette }, { n_MODE, 1, cmd_mode },
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
-    { n_MON, 0, cmd_mon },       { n_WOZ, 0, cmd_mon },      { n_CPM, 0, cmd_cpm },
+    { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)
 static void shell_line(const char *p)
 {
-    uint8_t d; uint32_t v; const char *p0;
+    const char *p0;
     skipsp(&p);
     if (!*p || *p == '#') return;                        /* blank, or a comment: EXEC scripts want them */
     p0 = p;
@@ -1904,41 +1886,11 @@ static void shell_line(const char *p)
 /* the Wozmon grammar: addr  addr.addr  addr:b b b  addrR */
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
-static void mon_line(const char *p)
-{
-    uint8_t d; uint32_t v;
-    mode = 0;
-    for (;;) {
-        skipsp(&p);
-        if (!*p) return;
-        if (*p == ':') { mode = 1; p++; continue; }
-        if (*p == '.') { mode = 2; p++; continue; }
-        if (*p == 'R' || *p == 'r') { if (xam < 0x10000UL) run_at((uint16_t)xam); else error("run: 16-bit address"); return; }
-        v = parsehex(&p, &d);
-        if (!d) { error("?"); return; }
-        if (mode == 1) { poke(xam++, (uint8_t)v); continue; }
-        if (mode == 2) { dump(xam, v); xam = v + 1; mode = 0; continue; }
-        xam = v; dump(v, v);
-    }
-}
 
 /* MON: the machine monitor, Wozmon's grammar at a * prompt; X leaves (back to
  * the shell, or to BASIC when entered with @MON). Shell commands work too. */
-static void cmd_mon(const char *p)
-{
-
-    if (*p) { mon_line(p); return; }                     /* MON E000.E00F : one line, no prompt */
-    { uint8_t o = fg; fg = C_DIM; puts_("monitor: addr  addr.addr  addr:b b b  addrR  (28-bit hex)   X leaves"); newline(); fg = o; }
-    for (;;) {
-        const char *q;
-        puts_("*");
-        sw_call(3, readline_sw, line);   /* the shell line buffer: its previous contents were consumed above */
-        q = line; skipsp(&q);
-        if (!*q) continue;
-        if (is_cmd(&q, "X") || is_cmd(&q, "EXIT") || is_cmd(&q, "Q")) return;
-        if (ishex(*q) || *q == ':' || *q == '.') mon_line(q); else shell_line(q);
-    }
-}
+/* MON, WOZ, FILL and COPY are MONITOR.prg now, at $E000 (demo/monitor.c,
+ * 2026-09-13): the shell words run it through mon_prg(), above shcmds. */
 
 #pragma code-name (pop)
 #pragma rodata-name (pop)

@@ -35,8 +35,12 @@ int main(void)
     char r[81]; row(0, r); printf("banner: %s\n", r);
     CHECK(findsub("K4510") >= 0, "banner");
     CHECK(findsub("/]") >= 0, "prompt");
-    type("mon E000.E00F\n");
-    CHECK(find("0000E000: 78 D8 A2 FF 9A") >= 0, "examine ROM (cc65 crt0: SEI CLD LDX TXS)");
+    /* The monitor is a program at $E000 now (demo/monitor.c, 2026-09-13), and
+     * a program sees the RAM under the ROM there -- itself.  The stub page is
+     * ROM for programs too: that is how they make system calls.  $FF80 is the
+     * jump table, JMP s_chrout. */
+    type("mon FF80.FF82\n");
+    CHECK(find("0000FF80: 4C") >= 0, "examine ROM (the jump table at $FF80: JMP)");
     type("load hello.txt 6000\n");
     CHECK(find("loaded 31 bytes at 00006000") >= 0, "LOAD message");
     CHECK(memcmp(&k4510_ram[0x6000], "hello from", 10) == 0, "file landed in RAM");

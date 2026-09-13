@@ -31,7 +31,7 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # make expands prerequisite lists at once, so a later definition left both
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
-BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type
+BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor
 APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
 C_EX_NAMES = hello sieve
@@ -176,6 +176,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/opltest.sh
 	./test/palettetest.sh
 	./test/typetest.sh
+	./test/montest.sh
 	./test/romtest
 	./test/mathtest
 	./test/rangertest.sh
@@ -241,6 +242,15 @@ fs/SYSTEM/BIN/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
+# MONITOR lives at $E000 (demo/monitor.cfg), clear of the memory it is there to
+# inspect -- the one /SYSTEM/BIN program not at $6000 (2026-09-13).
+fs/SYSTEM/BIN/monitor.prg: demo/monitor.c demo/k4510.h demo/far.h demo/prg0-nomap.o demo/romcalls.o demo/monitor.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/monitor.s demo/monitor.c
+	ca65 --cpu 65c02 -o demo/monitor.o demo/monitor.s
+	ld65 -C demo/monitor.cfg -o $@ demo/prg0-nomap.o demo/romcalls.o demo/monitor.o none.lib -m demo/monitor.map
+# ...and its startup has no MAP at exit (see NOMAP in demo/prg0.s)
+demo/prg0-nomap.o: demo/prg0.s
+	ca65 --cpu 65c02 -D NOMAP -o $@ $<
 define APP_C_RULE
 fs/APPS/$(call uc,$1)/$1.prg: demo/$1.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$1.s demo/$1.c

@@ -7639,6 +7639,45 @@ and the console makes a whole new line of CR -- so it is backspace,
 blank, backspace now, as MS BASIC's rubout does it.  ROM after: ROM1C
 155 free, ROM2 626, bank 1 701 -> 970.
 
+Doc: "type and help work fine".
+
+## 2026-09-13 — MONITOR.prg: MON, WOZ, FILL and COPY leave the ROM
+
+Doc: "do the monitor program that consolidates stuff".  One program,
+demo/monitor.c -> /SYSTEM/BIN/monitor.prg: the * prompt and one-line
+Wozmon grammar (MON/WOZ), FILL and COPY (DMA, 28-bit).  The ROM keeps
+four tiny resident helpers in the command table that run "MONITOR
+<word> <args>" through line[] (mon_prg).  DUMP stays: it is not a
+memory tool but the emulator's state dump (SYS $F0-$F2).
+
+Where it lives is the point: $E000-$FEFF (demo/monitor.cfg), the RAM
+under the ROM that programs own, not $6000 -- so $0800-$CFFF, what a
+monitor is for looking at, is left alone.  What followed from that:
+- Anything handed to the ROM must be below $A000 (a system call banks
+  the ROM back over $A000-$FFFF), so SHELL's line is built at $0300.
+- Addresses below $10000 read as a program sees them: $A000-$FEFF is
+  RAM (the monitor itself), not ROM.  romtest's "examine ROM" looked at
+  $E000 and now looks at the jump table, $FF80 -- the stub page is ROM
+  for programs too.
+- Other lines at the * prompt go to the shell through SWAP -k, so a
+  program loading into $E000 cannot take the monitor with it.  Which
+  lines: by the whole first word now (hex, '.', ':', a final R), not
+  its first character -- the ROM's rule sent ECHO, DIR, CD, ALIAS to the
+  monitor as addresses (montest's ECHO examined $EC).
+- The crash: every MON ended with "exec: name?" -- the boot path's
+  STARTUP.BAT check, i.e. a restart.  prg0.s's _exit does MAP-all-off
+  before its RTS; at $E000 that shows the ROM at the RTS's own address,
+  and the RTS came from ROM.  prg0.s now has NOMAP, and the monitor
+  links demo/prg0-nomap.o (ca65 -D NOMAP); nothing else changes.
+- Line input: there is no system call for it (the jump table's eight
+  slots are taken), so the prompt has its own -- typing, Backspace,
+  Enter; no history, no cursor keys.
+
+Out of the ROM: mon_line, cmd_mon, dump, cmd_fill, cmd_copy, the
+monitor's `mode`, and the dead poke() and shell_line locals the
+compiler then pointed at.  test/montest.sh.  ROM1C 154 free, ROM2 475
+(the helpers cost ~150), bank 0 829, bank 1 1619.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

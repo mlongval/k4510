@@ -107,3 +107,7 @@ awk '
 }
 rm -f "$HERE/.overfull"
 echo "-> $HERE/k4510-guide.pdf"
+
+# The same book as a web site (doc/site, for Read the Docs): made from the
+# same chapters now, so the PDF and the pages never say different things.
+python3 "$HERE/mkweb.py"

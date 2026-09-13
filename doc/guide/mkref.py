@@ -124,7 +124,7 @@ def esc(s):
 def prose(s):
     """esc(), but a path or URL in the text is set with \\pth, which may break
     at / and . -- an A5 line cannot hold /SYSTEM/ETC/PALETTES unbroken."""
-    parts = re.split(r"((?:[a-z]+://)?/[A-Za-z0-9_./-]*[A-Za-z0-9_/])", s)
+    parts = re.split(r"([a-z]+://[A-Za-z0-9_./-]*|/[A-Za-z0-9_][A-Za-z0-9_./-]*[A-Za-z0-9_/])", s)
     return "".join(f"\\pth{{{p}}}" if i % 2 else esc(p) for i, p in enumerate(parts))
 
 

@@ -1,0 +1,28 @@
+# Disclaimer
+
+The K4510 is a hobby project: a computer that does not exist, built for the pleasure of building it. It is offered to you as a gift, and it comes with exactly the guarantees a gift comes with — none.
+
+In the words of the licence it is distributed under ([Licences](z3-licences.md)), and meaning every one of them:
+
+!!! note ""
+    **THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.** EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM “AS IS” WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+    
+    **IN NO EVENT** WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MAY MODIFY AND/OR REDISTRIBUTE THE PROGRAM AS PERMITTED ABOVE, BE LIABLE TO YOU FOR DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM.
+
+In plainer words: nobody promises this machine works, that it will keep working, or that anything it writes to your disk is safe. Keep backups. Do not fly aeroplanes with it, run hospitals on it, or trust it with money. It is a toy, and it is allowed to be wrong.
+
+The same goes for this book: where it and the machine disagree, the machine is right. Nothing here is endorsed by or affiliated with Acorn, Commodore, Microsoft, Digital Research, the MEGA65 project, the Raspberry Pi Foundation, or anyone else gratefully named in these pages. The mistakes are the author’s alone.
+
+<div class="center">
+
+------------------------------------------------------------------------
+
+  
+**Constructive comments can be left at the repository’s issues page:**  
+<https://github.com/mlongval/k4510/issues>  
+**All complaints, criticisms and negativity can be addressed to**  
+`/dev/null`  
+
+------------------------------------------------------------------------
+
+</div>

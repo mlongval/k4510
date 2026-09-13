@@ -1,0 +1,25 @@
+/* The K4510 handbook on the web: the machine's own colours, as in the PDF
+ * (doc/guide/style/k4510.sty) -- what you type, yellow on blue; asides on a
+ * pale yellow with an orange rule. */
+.rst-content pre, .rst-content pre code, pre code {
+  background: #0000AA;
+  color: #EEEE77;
+  border: none;
+}
+.wy-side-nav-search, .wy-nav-top { background: #0000AA; }
+.wy-side-nav-search > a, .wy-nav-top a { color: #EEEE77; }
+.admonition.note {
+  background: #fbfbe6;
+  border-left: 4px solid #DD8855;
+}
+.admonition.note .admonition-title { background: #DD8855; }
+/* screenshots: the machine's pixels kept hard, a caption under each */
+.rst-content img[src*="img/"] { border: 1px solid #777; image-rendering: pixelated; max-width: 100%; }
+.rst-content p.caption { font-size: 90%; color: #444; margin-top: -.6em; }
+/* The theme keeps table cells on one line; the book's tables are prose. */
+.rst-content table td, .rst-content table th,
+.wy-table-responsive table td, .wy-table-responsive table th {
+  white-space: normal !important;
+  vertical-align: top;
+}
+.wy-table-responsive { overflow: visible; }

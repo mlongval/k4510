@@ -1,0 +1,230 @@
+# Every Command
+
+This chapter is the whole vocabulary of the prompt, one line each, and it is not written by hand: `doc/guide/mkref.py` reads the shell’s own command table out of the ROM’s source, the programs out of `/SYSTEM/BIN` and the languages out of `/LANG` at the moment this book is built. A command the machine has and this list does not describe stops the build, and so does a description of a command that has gone — so what is below is what the machine you are reading about answers to. [Chapter 2, The Shell](02-shell.md) is how the shell behaves; this is what you can say to it.
+
+Each entry says where the word lives, which matters more than it looks:
+
+ROM  
+in the resident part of the operating system, always there.
+
+ROM, bank *n*  
+in one of the sideways banks ([Chapter 14, Memory](20-memory.md)), paged in for the moment it runs.
+
+runs MONITOR, runs TYPE  
+a word the ROM still answers to, which hands its line to a program on the disk. The work moved out of the ROM in September 2026 to make room; the word did not change.
+
+/SYSTEM/BIN  
+a program. Programs run by name from anywhere, and take their arguments the same way the ROM’s words do.
+
+/LANG/*name*  
+a language: its folder, with its examples.
+
+ROM, on the Linux  
+a word the ROM answers to by starting something on the Linux the machine runs on ([Chapter 13, The Linux Underneath](13-linux.md)).
+
+Every word below also works from a BASIC, Forth or the monitor with a `*` in front, and a bare name that is not here is tried as a program, then as a CP/M program if F7 allows it, then as an alias, then as an RX script — in that order, so an alias never hides a command. Capitals are the convention; the shell does not mind either way.
+
+## Files and directories
+
+**`CD [dir | .. | - | url]`** — *ROM, bank 3*  
+Change directory; the rest of the line is the name, spaces and all. Alone, to /. A `tnfs://` or `sftp://` URL goes there; - comes home. Also CHDIR.
+
+**`CP [-f] from to`** — *ROM*  
+Copy a file (a URL may be the source). Refuses to overwrite without -f. Not COPY, which is memory.
+
+**`DIR [-a] [-l] [dir | pattern]`** — *ROM*  
+List a directory. -a shows the hidden (dot) names, -l one to a line; a pattern matches here, \* any run and ? any one character. Also LS.
+
+**`LOAD name [addr]`** — *ROM*  
+Load a file into memory, at addr or at the address in its header.
+
+**`MKDIR dir`** — *ROM, bank 1*  
+Make a directory.
+
+**`MOUNT [url path]`** — *ROM, bank 3*  
+Alone, list the mounts; otherwise show a `tnfs://`, `http://` or `https://` URL at a path of the disk.
+
+**`RENAME [-f] old new`** — *ROM*  
+Rename or move a file. Refuses to overwrite without -f. Also REN, MV.
+
+**`RM [-f] name`** — *ROM*  
+Move a file to /.TRASH, where DELETE -r gets it back. -f really removes it. Also ERASE, DEL.
+
+**`RMDIR dir`** — *ROM, bank 1*  
+Remove an empty directory.
+
+**`SAVE name from.to`** — *ROM, bank 1*  
+Write memory from.to to a file.
+
+**`UMOUNT path`** — *ROM, bank 3*  
+Take a mount away. Also UNMOUNT.
+
+**`XD name`** — *ROM, bank 1*  
+A file as a hex dump. Esc stops it. Also HEX.
+
+## Running things
+
+**`ALIAS [name [text]]`** — *ROM, bank 2*  
+List, define, or (name alone) remove an alias. Aliases are tried last, so none can hide a real command.
+
+**`ECHO text`** — *ROM*  
+Print the text.
+
+**`EXEC name`** — *ROM*  
+Run a text file as shell commands, one a line; \# starts a comment. `/STARTUP.BAT` is run this way at power-on.
+
+**`HELP`** — *runs TYPE*  
+The command summary: TYPE `/SYSTEM/ETC/HELP`.
+
+**`RUN [name | addr]`** — *ROM*  
+Run a program; a bare name does the same. RUN addr jumps there.
+
+**`SWAP [-k] command`** — *ROM*  
+Put the whole 64 KB and the screen away, run the command on a clean machine, and give them back. -k keeps the screen the command left.
+
+## The screen
+
+**`BANNER`** — *ROM*  
+Clear the screen and print the power-on banner again.
+
+**`CAPSLOCK [ON | OFF]`** — *ROM, bank 1*  
+Toggle the caps lock: letters come up uppercase. Suspended while a program runs. Also CAPS.
+
+**`CLG`** — *ROM, bank 1*  
+Clear the bitmap over the text, whoever drew it.
+
+**`CLS`** — *ROM*  
+Clear the text screen.
+
+**`COLOR fg [bg]`** — *ROM, bank 1*  
+The text colours, as palette indices in hex. Also COLOUR.
+
+**`MODE [n [margin]]`** — *ROM, bank 1*  
+Alone, say the mode; 0 640x480, 1 640x240, 2 320x240. The margin: 1 keeps a one-cell gap, 0 uses every cell.
+
+**`PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]`** — *ROM, bank 2*  
+The 256 colours: list them, set one, load a .PAL from `/SYSTEM/ETC/PALETTES`, save them, or put the machine’s own back.
+
+## The machine
+
+**`DUMP [note | ON | OFF]`** — *ROM, bank 1*  
+Write the machine’s whole state to dumps/ on the host. ON writes one every fifteen seconds.
+
+**`HUSH`** — *ROM, bank 1*  
+Silence the OPL2 and the sound sequencer.
+
+**`INFO [-v]`** — *ROM, bank 1*  
+The machine’s self-description, the clock in force included. -v names the exact build.
+
+**`RESET`** — *ROM*  
+Cold-start the machine, as the reset chord does.
+
+**`TIME`** — *ROM, bank 1*  
+The date and the time.
+
+## Memory
+
+**`COPY from.to dest`** — *runs MONITOR*  
+Copy memory, by DMA. Not files: that is CP.
+
+**`FILL from.to value`** — *runs MONITOR*  
+Fill memory with a byte, by DMA.
+
+**`MON [line]`** — *runs MONITOR*  
+The machine monitor, Wozmon’s grammar with 28-bit addresses. With a line, runs it and returns. Also WOZ.
+
+## Languages
+
+**`BBC`** — *ROM*  
+BBC BASIC on the Tube (Chapter 6). Also BBC.
+
+**`CPM [command]`** — *ROM*  
+CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot.
+
+**`EHBASIC`** — */LANG/EHBASIC*  
+Enhanced BASIC with the machine’s graphics (Chapter 4).
+
+**`FORTH`** — */LANG/FORTH*  
+Tali Forth 2 (Chapter 7).
+
+**`LOGO`** — */LANG/LOGO*  
+Turtle graphics (Chapter 8).
+
+**`MSBASIC`** — */LANG/MSBASIC*  
+Microsoft’s 6502 BASIC of 1977 (Chapter 5).
+
+**`RX name`** — */LANG/RX*  
+Run a REXX script (Chapter 12); a bare HELLO runs HELLO.RX.
+
+## The Linux beneath
+
+**`!command or !`** — *ROM, on the Linux*  
+Run a command on the Linux beneath, or (alone) open a shell there. Can be locked off.
+
+**`CC name`** — *ROM, on the Linux*  
+Compile name.C here with cc65 into name.prg.
+
+**`PAS name`** — *ROM, on the Linux*  
+Compile name.PAS here with Mad Pascal into name.prg.
+
+**`SSH [user@]host`** — *ROM, on the Linux*  
+An ssh session, through the Linux’s ssh. Locked off with !.
+
+## Programs in /SYSTEM/BIN
+
+**`BANDS`** — */SYSTEM/BIN*  
+A program writing to the bottom status band.
+
+**`BENCH`** — */SYSTEM/BIN*  
+About 25 s: frames per second and sound gaps at every clock step, to `/SYSTEM/LOG/BENCH-NN.TXT`.
+
+**`BUG`** — */SYSTEM/BIN*  
+Asks seven questions about a fault and writes the report (Appendix B).
+
+**`CHROUT`** — */SYSTEM/BIN*  
+How fast the ROM’s console prints.
+
+**`DELETE [-l | -r name | -e | name]`** — */SYSTEM/BIN*  
+The trash: list it, put a file back, empty it, or send a file there.
+
+**`EDIT [name]`** — */SYSTEM/BIN*  
+The modeless editor (Chapter 11).
+
+**`KEYTEST`** — */SYSTEM/BIN*  
+Asks for every key and checks what arrives.
+
+**`KOMMANDER`** — */SYSTEM/BIN*  
+The two-panel file manager.
+
+**`MONITOR`** — */SYSTEM/BIN*  
+The monitor as a program: MON, WOZ, FILL and COPY run it.
+
+**`MOUSETEST`** — */SYSTEM/BIN*  
+The mouse registers, live, with a sprite pointer.
+
+**`PADTEST`** — */SYSTEM/BIN*  
+The held-keys register, live: a gamepad’s first test.
+
+**`PETSCII`** — */SYSTEM/BIN*  
+JIM, the terminal, speaking PETSCII.
+
+**`RANGER`** — */SYSTEM/BIN*  
+The miller-column file manager.
+
+**`SAY text`** — */SYSTEM/BIN*  
+Prints its arguments: the smallest program there is.
+
+**`SETUP`** — */SYSTEM/BIN*  
+Measures this host thoroughly and keeps the clock it settles on.
+
+**`SUPERMON`** — */SYSTEM/BIN*  
+Jim Butterfield’s monitor, grown up: an assembler and a 45GS02 disassembler.
+
+**`TELNET host [port]`** — */SYSTEM/BIN*  
+A terminal on a TCP connection. F12 hangs up.
+
+**`TYPE name`** — */SYSTEM/BIN*  
+A file, a screenful at a time; Esc or Q stops. A URL works.
+
+**`VI [name]`** — */SYSTEM/BIN*  
+The modal editor (Chapter 11).

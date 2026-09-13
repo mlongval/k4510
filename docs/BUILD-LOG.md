@@ -7464,3 +7464,19 @@ left, ROM2 26.
 msbasictest adds: SAVE/NEW/LOAD/RUN, the .BAS byte for byte (no sign
 space, no OK), a missing file keeping the program, and *VI end to end
 (:s/OLD/NEW/, :wq, RUN prints NEW).
+
+## 2026-09-12 — MS BASIC: the first *BYE after a RUN
+
+Doc: "very often the first time I type *BYE in msbasic, I get ?SYNTAX
+ERROR, I type it again and it works".  Reproduced: RUN a program, then
+*ECHO -- ?SYNTAX ERROR; the second works.  The star test asked
+CURLIN+1 = $FF, MS BASIC's direct-mode marker -- but RESTART sets it
+only AFTER INLIN returns, so at the first prompt after a program CURLIN
+still held its last line, and the "*" went to BASIC as a multiply.
+
+Now the test reads the stack instead: the prompt's line comes from
+RESTART's single JSR INLIN at L2351 (every way back to the prompt jumps
+there), through INLIN's JSR GETLN and GETLN's JSR MONRDKEY, so the third
+return address above k4510_in's two pushes is L2351+2.  INPUT calls
+INLIN from elsewhere and GET calls MONRDKEY directly, so a "*" there is
+still data.  msbasictest: a star command straight after a RUN.

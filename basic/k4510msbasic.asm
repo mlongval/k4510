@@ -349,15 +349,28 @@ k4510_in:
 @live:
         jsr     ROM_CHRIN
 ; A star command, if this is the first character of a line AND BASIC is at
-; the direct prompt.  CURLIN+1 = $FF is how MS BASIC itself says "direct
-; mode", so a "*" typed at an INPUT prompt inside a running program is just
-; a character, which is what INPUT's caller is entitled to expect.
+; its OK prompt, so a "*" typed at an INPUT prompt inside a running program
+; is just a character, which is what INPUT's caller is entitled to expect.
+;
+; "At the prompt" is read off the stack: the prompt's line comes from
+; RESTART's one JSR INLIN (at L2351; every way back to the prompt goes
+; there), INLIN's JSR GETLN, and GETLN's JSR MONRDKEY -- so above the two
+; bytes pushed here sit three return addresses, the third L2351+2.  INPUT
+; calls INLIN from elsewhere, GET calls MONRDKEY directly.  This used to
+; ask CURLIN+1 = $FF, MS BASIC's "direct mode", but RESTART sets that only
+; AFTER the line is read: after a RUN, CURLIN still held the program's
+; last line, and the first *BYE was a ?SYNTAX ERROR (Doc, 2026-09-12:
+; "the first time I type *BYE ... I type it again and it works").
         cmp     #$2A            ; '*'
         bne     @nostar
         ldx     k4510_col0
         beq     @star_no
-        ldx     CURLIN+1
-        inx                     ; $FF -> 0
+        tsx
+        lda     $0107,x         ; low byte of the third return address
+        cmp     #<(L2351+2)
+        bne     @star_no
+        lda     $0108,x
+        cmp     #>(L2351+2)
         bne     @star_no
         jsr     k4510_star
         lda     #K_CR           ; BASIC gets an empty line and re-prompts

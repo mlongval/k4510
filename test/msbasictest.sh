@@ -100,6 +100,19 @@ RUN
 ' 16000 2>&1) || fail "MS BASIC did not run (INPUT test)"
 echo "$out" | grep -q "GOT \*ZZ" || fail "a star at an INPUT prompt was eaten as a command"
 
+# ...and the first star command after a RUN.  The direct-mode test used to be
+# CURLIN+1 = $FF, which RESTART sets only after reading the line, so straight
+# after a program CURLIN still held its last line and *BYE was a ?SYNTAX
+# ERROR -- the second try worked (Doc, 2026-09-12).
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
+RUN msbasic
+10 PRINT "RAN"
+RUN
+*ECHO AFTERRUN
+' 16000 2>&1) || fail "MS BASIC did not run (star-after-RUN test)"
+echo "$out" | grep -q "^AFTERRUN"      || fail "the first star command after a RUN did not reach the shell"
+echo "$out" | grep -q "SYNTAX ERROR"  && fail "the first star command after a RUN was a ?SYNTAX ERROR"
+
 # ---- SAVE / LOAD / *VI ------------------------------------------------------
 # A program is kept as its LIST, in text.  Worth guarding: SAVE's steering of
 # LIST (program lines to the file, WITHOUT FOUT's leading sign space, and the

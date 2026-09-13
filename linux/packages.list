@@ -72,6 +72,7 @@ openssh-client
 # 620); the AMD blob stays so the same image still boots the t520.
 firmware-iwlwifi
 firmware-misc-nonfree
+firmware-intel-graphics   # trixie moved i915's firmware here: kbl_dmc (the Dell's display power states, 2026-09-12)
 firmware-linux-free
 firmware-amd-graphics
 

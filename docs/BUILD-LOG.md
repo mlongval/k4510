@@ -7296,3 +7296,31 @@ buffered (64 KB) and flushed once a second from `term_tick`, and
   to RAM and early userspace take ~2.7 s.  The failures in the journal
   (i915 DMC firmware, regulatory.db, alsactl restore, user@1000 for want
   of pam_systemd) cost no time; they are packages for the next full build.
+
+## 2026-09-12 — the boot, trimmed of what a K4510 never uses
+
+Doc asked for a look at the boot log -- "some stuff seems to be useless"
+-- then: "remove useless stuff", and add kbl_dmc.  Looked at first, one
+by one, and confirmed on the Dell before anything went:
+
+- `inetutils-inetd`: /etc/inetd.conf has no active line -- it serves
+  nothing -- and it is the only unit that wants network-online, so it
+  alone dragged in `NetworkManager-wait-online` (5.5 s).
+- `ldconfig` (2.7 s) + `systemd-update-done`: ConditionNeedsUpdate is
+  true at every boot on the live system; the cache in the image is right.
+- `systemd-binfmt` + its mount/automount (2.4 s): no foreign binaries.
+- `networking` + `ifupdown-pre`: /etc/network/interfaces holds only lo,
+  which systemd brings up itself and NetworkManager watches.
+- e2scrub (reap, timer, service) and `cron`, whose only job was e2scrub:
+  there is no LVM.  apt-daily/-upgrade, dpkg-db-backup, logrotate: they
+  would download or tidy what lives in RAM.  `alsa-restore`: no saved
+  state, failed every boot.  `user@.service`: failed every login
+  (pam_systemd absent), and nothing uses a user manager.
+
+All MASKED -- linked to /dev/null in `config/includes.chroot/etc/systemd/
+system/` -- so they ride the 5 MB layer: the layer cannot delete what the
+base enables, but a mask in a higher layer wins, and a masked unit's
+dependencies are not pulled in.  The overlay list now carries symlinks.
+`console-setup` (5.8 s this boot) and `keyboard-setup` stay for a closer
+look.  kbl_dmc (i915 DMC firmware) needs the next full build: i915 loads
+from the initramfs, before the layer exists.

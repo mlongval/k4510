@@ -126,7 +126,10 @@ trap cleanup EXIT
 # the layer too: a REBUILD copied them into the rootfs but squashed only the
 # layer, so a settings change never reached an installed machine without a
 # full base pull.  Found 2026-09-12 shipping the console font.
-OVERLAY_FILES=$(cd "$HERE/config/includes.chroot" && find . -type f ! -path './usr/local/bin/*' | sed 's|^\./||' | sort)
+# Symlinks too: a unit linked to /dev/null in etc/systemd/system is MASKED, the
+# way the layer switches off what the base enables (2026-09-12: inetd, the
+# network wait, ldconfig at every boot, binfmt, e2scrub, apt's timers...).
+OVERLAY_FILES=$(cd "$HERE/config/includes.chroot" && find . \( -type f -o -type l \) ! -path './usr/local/bin/*' | sed 's|^\./||' | sort)
 LAYER_DIRS="home/k4510/k4510 usr/local/bin var/lib/tailscale $OVERLAY_FILES"
 squash_base() {
     echo "== squashfs: the base =="

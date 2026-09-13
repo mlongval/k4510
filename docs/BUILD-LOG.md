@@ -7596,6 +7596,49 @@ overlapped.
 ROM1C: 5 -> 160 bytes free (RODATA -204, CODE +5 for the indirect
 call).  ROM2: 26 -> 614.  Nothing removed.
 
+The first build of it knew no command at all: under --local-strings
+cc65 emits a string literal where it is used, so the literals in the
+initializer landed INSIDE shcmds -- the table began "DIR\0" and every
+name pointer read letters.  The names are named arrays now (a macro,
+N(DIR) -> n_DIR[]), emitted before the table.
+
+## 2026-09-13 — TYPE leaves the ROM (HELP follows); PALETTE stays
+
+Doc: move PALETTE, COPY, DUMP, HELP and TYPE to .prg -- and, when I
+counted "loads from disk every time" against it: "loading from DISK is
+just loading from RAM" (the host fs, toram).  What is actually in the
+way is ROM state:
+
+- TYPE -> demo/type.c, /SYSTEM/BIN/type.prg.  Its own paging (the ROM
+  pages only when a command turns `paging` on, never a program's output):
+  "-- more --" at the console's rows (JIM, $DA06), Esc/Q stops.  Not
+  under a script: exec_busy now sits at a fixed $022E (rom/k4510.cfg
+  SHARED, the two bytes after DATA and before EhBASIC's $0230 loan;
+  RAM shrunk to the $2E DATA uses, so the linker holds the line), which
+  programs read as K_SCRIPT (demo/k4510.h); crt0 does not clear SHARED,
+  main() does.  URLs still work -- the $D300 device fetches them.  A
+  failure sets SHELL_RC ($03FF), as error() did.
+- HELP copies "TYPE /SYSTEM/ETC/HELP" into line[] and runs it: a
+  program reads ARGS through a pointer, and a tail left in ROM reads as
+  the RAM under it.
+- PALETTE stays.  Its command part is tangled with the ROM's own colour
+  state: the palette is snapshotted before every program and restored
+  after (a palette.prg would be undone as it exits); a .PAL's COLOR line
+  sets the console's fg/bg, ROM variables; and a changed background
+  makes run_at clear the screen when the program ends, wiping the
+  "N entries from" line.  Each could be worked round; together they
+  would make it more fragile than it is.
+- COPY/DUMP (memory tools; a .prg at $6000 sits on what they would
+  look at) stay, for a monitor.prg with WOZ and FILL later.
+
+test/typetest.sh (in `make test`): a file; a missing file; EXEC of a
+script that TYPEs the long help file must show no "-- more --" and get
+past it; HELP pages, Q stops, the shell answers; and the prompt is taken
+back off the screen.  That last one failed first: the erase was "\r",
+and the console makes a whole new line of CR -- so it is backspace,
+blank, backspace now, as MS BASIC's rubout does it.  ROM after: ROM1C
+155 free, ROM2 626, bank 1 701 -> 970.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

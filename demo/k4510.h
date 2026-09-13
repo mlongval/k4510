@@ -79,6 +79,10 @@ static uint8_t key_get(void) { return (REG(KBDST) & 0x80) ? REG(KBD) : 0; }
 /* The keys held right now (core/io.h $D104): a joystick for games.  The
  * queue above says a key was PRESSED; this says it is still DOWN, which is
  * what "stop when I let go" needs. */
+/* ROM state a program may read (rom/k4510.cfg, SHARED): nonzero while a
+ * script -- EXEC, STARTUP.BAT -- is running this program, so there is nobody
+ * at the keyboard.  TYPE.prg does not page then. */
+#define K_SCRIPT (*(volatile uint8_t *)0x022E)
 #define KBDHELD 0xD104u
 #define HELD_UP 1
 #define HELD_DOWN 2

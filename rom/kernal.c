@@ -808,7 +808,13 @@ static void cmd_save(const char *p)
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 
-static uint8_t exec_busy;                    /* a script is running: nobody to press a key */
+/* A script is running: nobody to press a key.  At a fixed address ($022E,
+ * rom/k4510.cfg SHARED) because programs read it too -- TYPE.prg, since TYPE
+ * left the ROM (2026-09-13), must not page under STARTUP.BAT either.  crt0
+ * does not clear SHARED; main() does. */
+#pragma bss-name (push, "SHARED")
+static uint8_t exec_busy;
+#pragma bss-name (pop)
 static uint8_t typed;                        /* lines since the last "-- more --" */
 /* One screenful at a time.  Never while a script is running the command: there
  * is nobody to press the key, and the wait would hang STARTUP.BAT at power-on.
@@ -833,33 +839,9 @@ static uint8_t page_break(void)
     return (uint8_t)(k == 27 || k == 'q' || k == 'Q');
 }
 #pragma code-name (pop)
-#pragma code-name (push, "SWCODE1")   /* bank 1: cold, called through sw_call() */
-#pragma rodata-name (push, "SWRODATA1")
-static void cmd_type(const char *p)
-{
-    char name[NAMEMAX]; uint32_t n; uint16_t i;
-    typed = 0;
-    if (!getname(&p, name)) { error("type: name?"); return; }
-    fs_name(name);
-    if (fs_cmd(1)) { error("type: not found"); return; }
-    for (;;) {
-        w32(FS + 8, (uint16_t)line); w32(FS + 12, sizeof line);
-        if (fs_cmd(3)) break;
-        n = r32(FS + 12); if (!n) break;
-        for (i = 0; i < n; i++) {
-            k_chrout(line[i]);
-            /* A screen at a time, so HELP does not scroll past.  Never when a
-             * script is running it: there is nobody to press the key, and the
-             * wait would hang STARTUP.BAT. */
-            if (line[i] == '\n' && page_break()) { fs_cmd(5); return; }
-        }
-    }
-    fs_cmd(5);
-    typed = 0;
-    if (cx) newline();
-}
-#pragma code-name (pop)
-#pragma rodata-name (pop)
+/* TYPE is a program now, demo/type.c -> /SYSTEM/BIN/type.prg (2026-09-13): the
+ * same paging, and the same silence under a script, which it reads from
+ * exec_busy at $022E.  page_break and typed stay for INFO. */
 
 typedef void (*fn_t)(void);
 #pragma code-name (pop)
@@ -1851,9 +1833,10 @@ static void nav(const char *p)
  * used -- INSIDE the table, so shcmds began with the bytes "DIR\0" and every
  * name pointer read letters (the first build: every command was "?"). */
 typedef struct { const char *name; uint8_t bank; void (*fn)(const char *); } shcmd_t;
+static void shell_copy(const char *p);      /* resident, below k_shell: HELP uses it */
 #pragma rodata-name (push, "CODE2")
 #define N(x) static const char n_##x[] = #x;
-N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE) N(TYPE)
+N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
 N(XD) N(HEX) N(EXEC) N(HUSH) N(RUN) N(FILL) N(COPY) N(DUMP) N(INFO) N(TIME)
 N(COLOR) N(COLOUR) N(PALETTE) N(MODE) N(SWAP) N(ALIAS) N(CLG) N(CAPSLOCK)
 N(CAPS) N(MON) N(WOZ) N(CPM)
@@ -1863,7 +1846,7 @@ static const shcmd_t shcmds[] = {
     { n_MKDIR, 1, cmd_mkdir },   { n_RMDIR, 1, cmd_rmdir },
     { n_RM, 0, cmd_rm },         { n_ERASE, 0, cmd_rm },     { n_DEL, 0, cmd_rm },
     { n_LOAD, 0, cmd_load },     { n_SAVE, 1, cmd_save },
-    { n_TYPE, 1, cmd_type },     { n_XD, 1, cmd_xd },        { n_HEX, 1, cmd_xd },
+    { n_XD, 1, cmd_xd },         { n_HEX, 1, cmd_xd },
     { n_EXEC, 0, cmd_exec },     { n_HUSH, 1, cmd_hush },    { n_RUN, 0, cmd_run },
     { n_FILL, 1, cmd_fill },     { n_COPY, 1, cmd_copy },    { n_DUMP, 1, cmd_dump },
     { n_INFO, 1, cmd_info },     { n_TIME, 1, cmd_time },
@@ -1896,7 +1879,10 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CLS"))   { cls(); return; }
     if (is_cmd(&p, "BANNER")) { banner(); return; }   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
-    if (is_cmd(&p, "HELP"))  { sw_call(1, cmd_type, "/SYSTEM/ETC/HELP"); return; }   /* the help text lives on disk */
+    /* HELP is TYPE.prg on the help file -- the line copied into line[] first:
+     * a program reads its ARGS through a pointer, and while it runs the ROM's
+     * addresses hold RAM, so a tail left in ROM would read as garbage. */
+    if (is_cmd(&p, "HELP"))  { shell_copy("TYPE /SYSTEM/ETC/HELP"); shell_line(line); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
@@ -2230,6 +2216,7 @@ static void banner(void)
 #pragma rodata-name (pop)
 int main(void)
 {
+    exec_busy = 0;                               /* SHARED is not zeroed by crt0 (rom/k4510.cfg) */
     /* The host publishes the saved video mode in $D521 bits 5-7 (mode+1;
      * 0 = a host that does not) from power-on, so the machine boots straight
      * into it -- there is no late mode request to perform, and nothing to

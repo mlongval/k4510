@@ -24,11 +24,15 @@ LAYOUTS = [
     ("US", "us", ""), ("US-intl", "us", "intl"), ("Canada-FR", "ca", ""), ("France", "fr", ""),
     ("Germany", "de", ""), ("Spain", "es", ""), ("UK", "gb", ""), ("Italy", "it", ""),
 ]
-# dead keysym -> (the spacing accent it types alone, the combining mark)
+# dead keysym -> (the character it types alone, the combining mark).  Alone
+# means twice, then space, or before a letter it does not combine with.  Where
+# code page 437 has no spacing accent -- no ´ ¨ ¸ ˚ -- the machine could not
+# show it and the key typed NOTHING (Doc, 2026-09-12: "the \" and ' keys do
+# not work"), so it types what US-intl types on a PC: ' " , and °.
 DEAD = {
-    "dead_grave": (0x60, 0x300), "dead_acute": (0xB4, 0x301), "dead_circumflex": (0x5E, 0x302),
-    "dead_tilde": (0x7E, 0x303), "dead_diaeresis": (0xA8, 0x308), "dead_cedilla": (0xB8, 0x327),
-    "dead_abovering": (0x2DA, 0x30A),
+    "dead_grave": (0x60, 0x300), "dead_acute": (0x27, 0x301), "dead_circumflex": (0x5E, 0x302),
+    "dead_tilde": (0x7E, 0x303), "dead_diaeresis": (0x22, 0x308), "dead_cedilla": (0x2C, 0x327),
+    "dead_abovering": (0xB0, 0x30A),
 }
 KBD_DEAD, KBD_CAPS = 0x80000000, 0x40000000
 
@@ -72,7 +76,10 @@ def compositions():
         rows.append((spacing, 0x20, spacing))                  # accent, then space: the accent itself
         for b in bases:
             c = unicodedata.normalize("NFC", chr(b) + chr(mark))
-            if len(c) == 1:
+            # only what code page 437 can show: Unicode also composes ḧ ẗ ẅ ẍ ...,
+            # which the machine drops -- so " then h typed nothing at all, and
+            # 10 PRINT"HELLO" lost its quote.  Without a row: the accent, then h.
+            if len(c) == 1 and c.encode("cp437", "ignore"):
                 rows.append((spacing, b, ord(c)))
     return rows
 

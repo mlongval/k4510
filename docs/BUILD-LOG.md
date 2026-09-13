@@ -7347,3 +7347,22 @@ regenerated, old copies kept) and in install-k4510.sh.  The stick build
 never passed the timeout.  Left alone: `toram` (3 s, and it is what lets
 the layer file be replaced under a running system) and the ~5 s before
 i915 comes up (864 modules, MODULES=most -- for the full build).
+
+Result on the Dell: kernel phase 38.4 s -> 22.0 s, 0 failed units.
+
+## 2026-09-12 — accented keys die after the Linux login
+
+Doc: US-intl works in the machine and at the Ctrl+Alt+F2 login prompt,
+but not once logged in.  The keyboard was right (console in Unicode
+mode, the layout loaded); the shell was not.  The image generates no
+locales -- `locale -a` is C, C.utf8, POSIX -- and /etc/default/locale is
+empty, so a console login runs bash in C, and readline throws away the
+two-byte UTF-8 a dead key produces.  getty's prompt does not use
+readline, hence the difference.  Over ssh the client's LANG=en_US.UTF-8
+arrives (SendEnv) and, not existing here, lands in C all the same.
+
+Two parts, both in the layer: /etc/default/locale says LANG=C.UTF-8
+(pam_env reads it for console logins), and profile.d/k4510.sh swaps any
+LANG that `locale` complains about for C.UTF-8.  Tested on the Dell with
+en_US.UTF-8, C.UTF-8 and none: all three end in C.UTF-8, and bash reads
+`é` as one character.  (The Tube already set C.UTF-8 for `!`.)

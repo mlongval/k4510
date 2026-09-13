@@ -7416,3 +7416,51 @@ entry 1 up instead: it is the brightest shade, and the COLOR line moves
 text to E so the highlight still stands out.  Nothing draws with a ramp
 but the test, which now checks AMBER's entry 1 is bright.  All three
 copied to the Dell's persistent fs.
+
+## 2026-09-12 — MS BASIC: SAVE, LOAD and *VI; VI in capitals; SHELL copies its line
+
+Doc was in MS BASIC, typed *VI, and could not get out: ":Q does not
+exit".  What he wanted was "type *VI and have it load the current
+program so I could edit it" -- and this BASIC had no LOAD or SAVE at
+all.  Three changes, and a ROM bug found on the way.
+
+VI (demo/vi.c): the : command word is read in either case, and only the
+word -- the scan used to run over the whole line, so ":w quiz" quit on
+the q in the NAME.  keytest checks :WQ.
+
+MS BASIC (basic/k4510msbasic.asm), nothing under msbasic/ touched:
+- A program is kept as TEXT, its LIST: readable, editable in VI or on the
+  host, typed back in by LOAD as if at the keyboard.
+- SAVE "NAME" opens NAME.BAS on the $D300 device and jumps into LIST
+  with k4510_out steering by how a line begins: LIST prints a program
+  line as FOUT's sign space and the number, so " 1".." 9" is the file's
+  (written without the space, ended by LF) and the rest -- QT_OK's CR LF
+  "OK" -- the screen's.  LIST never returns (jmp RESTART), so the file is
+  closed by the next k4510_in, which RESTART always reaches.
+- LOAD "NAME" opens first and only then NEWs (a tail jump into SCRTCH,
+  whose STKINI keeps the caller's return, as NEW's own does), then feeds
+  the file through k4510_in a 255-byte buffer at a time, unechoed: LF
+  ends a line, CR and controls drop, lower case folds up.  A missing file
+  says ?FILE NOT FOUND and costs nothing.
+- Alone, SAVE / LOAD use the last name (PROGRAM.BAS until there is one);
+  ".BAS" is added to a name with no dot.
+- *VI alone feeds SAVE"name" as if typed; when BASIC next asks for a
+  key, k4510_in runs SWAP -k VI name through the shell, then feeds
+  LOAD"name".  A failed SAVE cancels the rest, so an older file is never
+  loaded over the program.  *VI NAME stays the shell's.
+- The 255-byte buffer is at $9800, free RAM above the image (which now
+  ends at $9734) and below $A000.
+
+The ROM bug: the first *VI edited a file named with VI's own code.  The
+star line lives at $917E, inside BASIC's image; VI loads at $6000-$9F4D,
+over it, and reads its ARGS after the load.  (SAY is 793 bytes, which is
+why *SAY HI never showed it; RANGER, 11 KB, stops just short.)  So
+k_shell -- the SHELL system call, $FF8F -- now copies the caller's line
+into the shell's own line[] (ROM BSS, which no load touches) before
+running it.  Resident, in ROM1C: a sideways bank mapped for the copy
+would hide a line kept at $A000-$BFFF.  It cost 70 bytes: ROM1C has 5
+left, ROM2 26.
+
+msbasictest adds: SAVE/NEW/LOAD/RUN, the .BAS byte for byte (no sign
+space, no OK), a missing file keeping the program, and *VI end to end
+(:s/OLD/NEW/, :wq, RUN prints NEW).

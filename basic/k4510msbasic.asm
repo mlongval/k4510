@@ -46,7 +46,8 @@
 ; deliberately: 1977 Microsoft BASIC has no vendor words at all, and the
 ; alternative -- adding tokens -- means editing the vendored interpreter.
 ; A star command is caught in MONRDKEY, one level below BASIC, so not a
-; byte of msbasic/ knows it happened.
+; byte of msbasic/ knows it happened.  *VI on its own is the port's: it
+; SAVEs the program, edits it in VI, and LOADs it back (see LOAD / SAVE).
 ;
 ; Leaving, in detail.  MS BASIC has no BYE and COLD_START resets the
 ; stack pointer before BASIC is up, so by the time anything of ours runs
@@ -120,6 +121,24 @@ KBD_BREAK       = $D103          ; Ctrl-C / RUN-STOP seen anywhere in the queue
 K_CR            = $0D
 K_LF            = $0A
 
+; the host filesystem (core/io.h, IO_STORAGE): a command is done by the
+; time the write that gives it is, so the status can be read straight after
+FS_CMD          = $D300
+FS_STATUS       = $D301          ; 0 = ok
+FS_NAME         = $D304          ; 28-bit pointer to a NUL-terminated name
+FS_ADDR         = $D308          ; 28-bit RAM address for READ / WRITE
+FS_LEN          = $D30C          ; 32-bit: bytes asked for, then bytes done
+FS_OPEN_READ    = 1
+FS_OPEN_WRITE   = 2
+FS_READ         = 3
+FS_WRITE        = 4
+FS_CLOSE        = 5
+K4510_IOBUF     = $9800          ; LOAD's and SAVE's one buffer (never both at once), 255
+                                 ; bytes of the free RAM above the image -- below $A000,
+                                 ; so no bank is mapped over it, and SWAP keeps it
+K4510_IOMAX     = 255
+K4510_NAMEMAX   = 40             ; the file name, NUL and ".BAS" included
+
 ; ---- the .prg header ------------------------------------------------------
 ; K:OS loads the image and JSRs to the run address.
         .segment "PRGHDR"
@@ -182,6 +201,13 @@ k4510_banner:
 ; Out: A = character.  The ROM's k_chrout makes a full newline of CR *and*
 ; of LF, so the LF of BASIC's CR/LF pair has to be dropped here or every
 ; line would be double spaced.  (EhBASIC's glue does the same thing.)
+;
+; While SAVE is listing (k4510_tofile), a line is steered by how it begins:
+; LIST prints a program line as a space (FOUT's sign column) and the line
+; number, so " 1".." 9" makes it the file's -- written without that space,
+; ended by LF -- and anything else (the CR/LF/"OK" of RESTART) the
+; screen's.  k4510_ostate: 0 at a line's start, 1 the file's, 2 the
+; screen's, 3 a leading space held until the next character decides.
 k4510_out:
         cmp     #K_LF
         beq     @done
@@ -190,8 +216,11 @@ k4510_out:
         pha
         tya
         pha
+        lda     k4510_tofile
+        bne     @file
         lda     k4510_ch
         jsr     ROM_CHROUT
+@back:
         pla
         tay
         pla
@@ -199,6 +228,61 @@ k4510_out:
         lda     k4510_ch
 @done:
         rts
+@file:
+        lda     k4510_ch
+        ldx     k4510_ostate
+        beq     @start
+        cpx     #3
+        bne     @have
+        ldx     #1                       ; space, digit: a program line
+        cmp     #'0'
+        bcc     @notnum
+        cmp     #'9'+1
+        bcc     @setst
+@notnum:
+        lda     #' '                     ; only a space: the screen's after all
+        jsr     ROM_CHROUT
+        lda     k4510_ch
+        ldx     #2
+        bne     @setst
+@start:
+        cmp     #K_CR
+        beq     @back                    ; an empty line goes nowhere
+        cmp     #' '
+        bne     @first
+        ldx     #3
+        stx     k4510_ostate
+        jmp     @back
+@first:
+        ldx     #1
+        cmp     #'0'
+        bcc     @toscr
+        cmp     #'9'+1
+        bcc     @setst
+@toscr:
+        ldx     #2
+@setst:
+        stx     k4510_ostate
+@have:
+        cpx     #1
+        bne     @scr
+        cmp     #K_CR
+        bne     @put
+        lda     #K_LF                    ; a line of the file ends in LF
+        jsr     k4510_put
+        jmp     @eol
+@put:
+        jsr     k4510_put
+        jmp     @back
+@scr:
+        jsr     ROM_CHROUT
+        lda     k4510_ch
+        cmp     #K_CR
+        bne     @back
+@eol:
+        lda     #0
+        sta     k4510_ostate
+        jmp     @back
 
 k4510_ch:     .byte 0           ; the character in flight (A across the call)
 
@@ -227,13 +311,20 @@ k4510_ch:     .byte 0           ; the character in flight (A across the call)
 ; would march straight through this image.  Feeding it the number is the
 ; documented way to say where memory ends, and it is one line of canned
 ; input rather than a fork of init.s.
+;
+; k4510_feed 1 is that canned line (or a SAVE"..."/LOAD"..." fed by *VI);
+; 2 is a file being LOADed, which is not echoed -- a LOAD is quiet.
 k4510_in:
         txa
         pha
         tya
         pha
+        jsr     k4510_endsave            ; a SAVE's LIST ends by coming back here
+@again:
         lda     k4510_feed
         beq     @live
+        cmp     #2
+        beq     @file
         ldx     k4510_feedx
         lda     k4510_answer,x
         beq     @feed_done
@@ -242,6 +333,19 @@ k4510_in:
 @feed_done:
         lda     #0
         sta     k4510_feed
+        lda     k4510_after              ; *VI: the SAVE it fed has run
+        beq     @live
+        jsr     k4510_vi                 ; so edit, and feed the LOAD
+        jmp     @again
+@file:
+        jsr     k4510_fget
+        bcs     @again                   ; the file has ended: the keyboard again
+        cmp     #'a'
+        bcc     @out
+        cmp     #'z'+1
+        bcs     @out
+        and     #$DF                     ; folded up, as typing is
+        jmp     @out
 @live:
         jsr     ROM_CHRIN
 ; A star command, if this is the first character of a line AND BASIC is at
@@ -349,6 +453,15 @@ k4510_star:
 @bye:
         jmp     k4510_leave
 @notbye:
+        ldx     #WORD_VI                 ; *VI alone: this program, in VI.  SAVE is
+        jsr     k4510_match              ; typed for BASIC as if by hand; the rest
+        bne     @notvi                   ; happens when BASIC next asks for a key
+        ldx     #FEED_SAVE               ; (k4510_in, @feed_done).  *VI NAME is the
+        jsr     k4510_feedcmd            ; shell's, and edits a file.
+        lda     #1
+        sta     k4510_after
+        rts
+@notvi:
         ldx     #WORD_HELP
         jsr     k4510_match
         bne     @toshell
@@ -419,12 +532,14 @@ k4510_lp:     .byte 0                    ; how much of k4510_line is filled
 WORD_BYE      = 0
 WORD_HELP     = 4
 WORD_QUIT     = 9
-k4510_words:  .byte "BYE", 0, "HELP", 0, "QUIT", 0
+WORD_VI       = 14
+k4510_words:  .byte "BYE", 0, "HELP", 0, "QUIT", 0, "VI", 0
 k4510_line:   .res  K4510_LINEMAX + 9      ; room for the "SWAP -k " prefix
 k4510_swap:   .byte "SWAP -k "
 
 QT_STARHELP:
-        .byte   "* HANDS THE LINE TO K:OS.  *BYE LEAVES.", K_CR, K_LF, 0
+        .byte   "* HANDS THE LINE TO K:OS.  *VI EDITS THIS PROGRAM.", K_CR, K_LF
+        .byte   "SAVE ", $22, "NAME", $22, " / LOAD ", $22, "NAME", $22, " KEEP IT.  *BYE LEAVES.", K_CR, K_LF, 0
 
 ; ---- *BYE -----------------------------------------------------------------
 ; Put the shell's stack frame back and return through it.  The ROM's
@@ -467,6 +582,7 @@ k4510_feedx:  .byte 0
 ;                   with MEMTOP above)
 ;   TERMINAL WIDTH? 80, the K4510 console
 k4510_answer: .byte "28672", K_CR, "80", K_CR, 0
+              .res  K4510_NAMEMAX + 8    ; room for a fed SAVE"NAME" / LOAD"NAME" (k4510_feedcmd)
 
 ; ---- Ctrl-C ---------------------------------------------------------------
 ; Called once per statement.  No break: return with A non-zero (Z clear),
@@ -483,16 +599,300 @@ ISCNTC:
         jmp     STOP
 
 ; ---- LOAD / SAVE ----------------------------------------------------------
-; Not this stage.  The ROM has both ($FF89 / $FF8C, name pointer in $F0/$F1,
-; a 28-bit address in $F2..$F5, the length in $F6..$F9), so wiring them is
-; a contained job -- but it is the job after this one.  Say so rather than
-; raise a misleading ?SYNTAX ERROR.
-LOAD:
+; A program is kept as TEXT -- its LIST -- so a .BAS reads like the listing,
+; edits in VI or on the host, and comes back in by being typed, exactly as
+; at the keyboard.  Tokens would be smaller and faster to load, and useless
+; to every other program on the machine.  Doc, 2026-09-12: "type *VI and
+; have it load the current program so I could edit it".
+;
+;   SAVE "NAME"   LIST, with k4510_out steering the program's lines into
+;                 NAME.BAS and the rest (RESTART's OK) onto the screen.
+;                 LIST never returns -- it ends in RESTART -- so the file is
+;                 closed by the next k4510_in, which RESTART always reaches.
+;                 In a running program SAVE ends it, as LIST does.
+;   LOAD "NAME"   NEW, then NAME.BAS fed to BASIC through k4510_in, quietly,
+;                 a buffer at a time: LF ends a line, CR and the other
+;                 controls are dropped, lower case folds up as it does when
+;                 typed.  A line BASIC would refuse from the keyboard it
+;                 refuses from the file.  Nothing is lost if the file is not
+;                 there: the NEW comes only after it has opened.
+;
+; Alone, SAVE and LOAD use the last name (PROGRAM.BAS until there is one),
+; which is also the one *VI edits.  A name with no dot gets ".BAS".
 SAVE:
-        lda     #<QT_NO_LOADSAVE
-        ldy     #>QT_NO_LOADSAVE
-        jsr     STROUT
+        jsr     k4510_getname
+        lda     #FS_OPEN_WRITE
+        sta     FS_CMD
+        lda     FS_STATUS
+        beq     @ok
+        lda     #0
+        sta     k4510_after              ; *VI must not go on to LOAD an older file
+        lda     #<QT_NOSAVE
+        ldy     #>QT_NOSAVE
+        jmp     STROUT
+@ok:
+        lda     #0
+        sta     k4510_ostate
+        sta     k4510_opos
+        lda     #1
+        sta     k4510_tofile
+        jsr     CHRGOT                   ; LIST's flags: the statement's end, so all of it
+        jmp     LIST                     ; ... which drops our caller's return, as it drops its own
+
+LOAD:
+        jsr     k4510_getname
+        lda     #FS_OPEN_READ
+        sta     FS_CMD
+        lda     FS_STATUS
+        beq     @ok
+        lda     #<QT_NOLOAD
+        ldy     #>QT_NOLOAD
+        jmp     STROUT
+@ok:
+        lda     #0
+        sta     k4510_fpos
+        sta     k4510_flen
+        lda     #1
+        sta     k4510_fcr                ; so an empty file adds no empty line
+        lda     #2
+        sta     k4510_feed
+        jmp     SCRTCH                   ; NEW, the way NEW does it: STKINI keeps our caller's return
+
+QT_NOSAVE:    .byte   "?CANNOT WRITE THAT FILE", K_CR, K_LF, 0
+QT_NOLOAD:    .byte   "?FILE NOT FOUND", K_CR, K_LF, 0
+
+; The statement's argument, a string, into k4510_name (".BAS" added when it
+; has no dot), and the device pointed at it.  Entered with CHRGET's flags:
+; Z set means nothing follows, so the last name stands.
+k4510_getname:
+        beq     @point
+        jsr     FRMEVL
+        jsr     FRESTR                   ; A = length, (INDEX) = the characters
+        tax
+        beq     @point                   ; "" is nothing too
+        cmp     #K4510_NAMEMAX - 5       ; room for ".BAS" and the NUL
+        bcc     @len
+        lda     #K4510_NAMEMAX - 5
+@len:
+        sta     k4510_nlen
+        ldy     #0
+        sty     k4510_dot
+@copy:
+        lda     (INDEX),y
+        cmp     #'.'
+        bne     @nodot
+        sta     k4510_dot
+@nodot:
+        sta     k4510_name,y
+        iny
+        cpy     k4510_nlen
+        bne     @copy
+        ldx     #0
+        lda     k4510_dot
+        beq     @ext
+        ldx     #4                       ; it has a dot: only the NUL
+@ext:
+        lda     k4510_bas,x
+        sta     k4510_name,y
+        beq     @point
+        inx
+        iny
+        bne     @ext
+@point:
+        lda     #<k4510_name
+        sta     FS_NAME
+        lda     #>k4510_name
+        sta     FS_NAME+1
+        lda     #0
+        sta     FS_NAME+2
+        sta     FS_NAME+3
         rts
 
-QT_NO_LOADSAVE:
-        .byte   "NOT YET ON THIS BASIC -- USE EHBASIC", K_CR, K_LF, 0
+; A byte into SAVE's buffer, written out when it fills.  (X is used.)
+k4510_put:
+        ldx     k4510_opos
+        sta     K4510_IOBUF,x
+        inx
+        stx     k4510_opos
+        cpx     #K4510_IOMAX
+        bne     @r
+        jsr     k4510_flush
+@r:
+        rts
+
+k4510_flush:
+        lda     k4510_opos
+        beq     @r
+        sta     FS_LEN
+        lda     #0
+        sta     FS_LEN+1
+        sta     FS_LEN+2
+        sta     FS_LEN+3
+        sta     k4510_opos
+        jsr     k4510_bufaddr
+        lda     #FS_WRITE
+        sta     FS_CMD
+@r:
+        rts
+
+k4510_bufaddr:
+        lda     #<K4510_IOBUF
+        sta     FS_ADDR
+        lda     #>K4510_IOBUF
+        sta     FS_ADDR+1
+        lda     #0
+        sta     FS_ADDR+2
+        sta     FS_ADDR+3
+        rts
+
+; The end of a SAVE: what is left in the buffer, and close.
+k4510_endsave:
+        lda     k4510_tofile
+        beq     @r
+        jsr     k4510_flush
+        lda     #FS_CLOSE
+        sta     FS_CMD
+        lda     #0
+        sta     k4510_tofile
+        sta     k4510_ostate
+@r:
+        rts
+
+; LOAD's next character, C clear; or C set at the end, the file closed and
+; the feed off.  A last line with no LF still gets its CR.
+k4510_fget:
+@next:
+        ldx     k4510_fpos
+        cpx     k4510_flen
+        bne     @have
+        jsr     k4510_bufaddr            ; the buffer is used up: read more
+        lda     #K4510_IOMAX
+        sta     FS_LEN
+        lda     #0
+        sta     FS_LEN+1
+        sta     FS_LEN+2
+        sta     FS_LEN+3
+        sta     k4510_fpos
+        lda     #FS_READ
+        sta     FS_CMD
+        lda     FS_LEN                   ; bytes read: 0 at the end (or on an error)
+        sta     k4510_flen
+        bne     @next
+        lda     #FS_CLOSE
+        sta     FS_CMD
+        lda     #0
+        sta     k4510_feed
+        lda     k4510_fcr
+        bne     @end
+        inc     k4510_fcr
+        lda     #K_CR
+        clc
+        rts
+@end:
+        sec
+        rts
+@have:
+        lda     K4510_IOBUF,x
+        inc     k4510_fpos
+        cmp     #K_LF
+        beq     @cr
+        cmp     #$09                     ; a tab is a space
+        bne     @notab
+        lda     #' '
+@notab:
+        cmp     #' '
+        bcc     @next                    ; CR and the other controls: nothing
+        ldx     #0
+        stx     k4510_fcr
+        clc
+        rts
+@cr:
+        lda     #1
+        sta     k4510_fcr
+        lda     #K_CR
+        clc
+        rts
+
+; *VI, second half.  BASIC has run the SAVE the star command fed it, so the
+; program is in k4510_name: edit it through the shell, then feed LOAD so
+; it comes back.  (If that SAVE failed it cleared k4510_after, and this
+; never runs.)
+k4510_vi:
+        lda     #0
+        sta     k4510_after
+        ldy     #0
+@pre:
+        lda     k4510_vicmd,y
+        beq     @name
+        sta     k4510_line,y
+        iny
+        bne     @pre
+@name:
+        ldx     #0
+@cp:
+        lda     k4510_name,x
+        sta     k4510_line,y
+        beq     @run
+        inx
+        iny
+        bne     @cp
+@run:
+        lda     #<k4510_line
+        ldx     #>k4510_line
+        jsr     ROM_SHELL
+        ldx     #FEED_LOAD
+        ; fall into k4510_feedcmd
+
+; Feed BASIC  WORD"NAME"<CR>  as if typed (echoed, so it can be seen):
+; X = the word's offset in k4510_feedw.
+k4510_feedcmd:
+        ldy     #0
+@w:
+        lda     k4510_feedw,x
+        beq     @q1
+        sta     k4510_answer,y
+        inx
+        iny
+        bne     @w
+@q1:
+        lda     #$22
+        sta     k4510_answer,y
+        iny
+        ldx     #0
+@n:
+        lda     k4510_name,x
+        beq     @q2
+        sta     k4510_answer,y
+        inx
+        iny
+        bne     @n
+@q2:
+        lda     #$22
+        sta     k4510_answer,y
+        iny
+        lda     #K_CR
+        sta     k4510_answer,y
+        iny
+        lda     #0
+        sta     k4510_answer,y
+        sta     k4510_feedx
+        lda     #1
+        sta     k4510_feed
+        rts
+
+FEED_SAVE     = 0
+FEED_LOAD     = 5
+k4510_feedw:  .byte "SAVE", 0, "LOAD", 0
+k4510_vicmd:  .byte "SWAP -k VI ", 0
+k4510_bas:    .byte ".BAS", 0
+k4510_name:   .byte "PROGRAM.BAS", 0
+              .res  K4510_NAMEMAX - 12
+k4510_nlen:   .byte 0
+k4510_dot:    .byte 0
+k4510_tofile: .byte 0                    ; SAVE is listing into the file
+k4510_ostate: .byte 0                    ; k4510_out's line state, see there
+k4510_opos:   .byte 0
+k4510_fpos:   .byte 0
+k4510_flen:   .byte 0
+k4510_fcr:    .byte 0                    ; the last character LOAD gave was a CR
+k4510_after:  .byte 0                    ; *VI: edit and LOAD once the fed SAVE has run

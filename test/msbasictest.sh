@@ -2,9 +2,9 @@
 # Microsoft BASIC (basic/msbasic/ + basic/k4510msbasic.asm), driven from the
 # shell exactly as a user would: RUN msbasic, then type at it.
 #
-# Unlike basictest.sh there is no self-checking .BAS to load -- this BASIC
-# has no LOAD yet -- so the program is typed in and the answers are read off
-# the screen.  Every check is something a port gets wrong: the cold-start
+# Unlike basictest.sh there is no self-checking .BAS to load -- LOAD came
+# later, and is tested on its own at the end -- so the program is typed in
+# and the answers are read off the screen.  Every check is something a port gets wrong: the cold-start
 # prompts being answered from the canned input (a port that gets this wrong
 # hangs at "MEMORY SIZE?"), the 9-digit floating point, the CR/LF pairing
 # through k_chrout, upper-case folding of typed lower case, and Ctrl-C
@@ -100,4 +100,40 @@ RUN
 ' 16000 2>&1) || fail "MS BASIC did not run (INPUT test)"
 echo "$out" | grep -q "GOT \*ZZ" || fail "a star at an INPUT prompt was eaten as a command"
 
-echo "msbasictest: OK (cold start answered, echo, FOR/NEXT, 9-digit FP, strings, case folding, Ctrl-C break, star commands, *BYE)"
+# ---- SAVE / LOAD / *VI ------------------------------------------------------
+# A program is kept as its LIST, in text.  Worth guarding: SAVE's steering of
+# LIST (program lines to the file, WITHOUT FOUT's leading sign space, and the
+# OK to the screen, not the file); LOAD typing it back in, quietly, after a
+# NEW; a missing file costing nothing; and *VI's round trip, which chains a
+# fed SAVE, VI through the shell, and a fed LOAD (Doc, 2026-09-12).
+rm -f fs/HOME/MSTEST.BAS fs/LANG/MSBASIC/PROGRAM.BAS
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
+RUN msbasic
+10 PRINT "SAVED";6*7
+20 END
+SAVE "/HOME/MSTEST"
+NEW
+LOAD "/HOME/MSTEST"
+RUN
+LOAD "/HOME/NOSUCHFILE"
+LIST
+' 16000 2>&1) || fail "MS BASIC did not run (SAVE/LOAD test)"
+cleanup() { rm -f fs/HOME/MSTEST.BAS fs/LANG/MSBASIC/PROGRAM.BAS; }
+[ -f fs/HOME/MSTEST.BAS ] || { cleanup; fail "SAVE wrote no /HOME/MSTEST.BAS"; }
+want=$(printf '10 PRINT "SAVED";6*7\n20 END\n')
+[ "$(cat fs/HOME/MSTEST.BAS)" = "$want" ] || { od -c fs/HOME/MSTEST.BAS | head; cleanup; fail "the .BAS is not the listing (a sign space, an OK, or a lost line?)"; }
+echo "$out" | grep -q "^SAVED 42"        || { cleanup; fail "LOAD did not bring the program back (RUN)"; }
+echo "$out" | grep -q "?FILE NOT FOUND"  || { cleanup; fail "LOAD of a missing file said nothing"; }
+echo "$out" | grep -q '^ 10 PRINT "SAVED"' || { cleanup; fail "a missing file cost the program (NEW before the open?)"; }
+
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
+RUN msbasic
+10 PRINT "OLD"
+*VI
+~~:s/OLD/NEW/'"$(printf '\r')"':wq'"$(printf '\r')"'~~RUN
+' 30000 2>&1) || { cleanup; fail "MS BASIC did not run (*VI test)"; }
+echo "$out" | grep -q '^NEW'  || { echo "$out" | tail -20; cleanup; fail "*VI did not bring the edited program back"; }
+grep -q 'PRINT "NEW"' fs/LANG/MSBASIC/PROGRAM.BAS 2>/dev/null || { cleanup; fail "*VI did not edit PROGRAM.BAS"; }
+cleanup
+
+echo "msbasictest: OK (cold start answered, echo, FOR/NEXT, 9-digit FP, strings, case folding, Ctrl-C break, star commands, *BYE, SAVE/LOAD as text, *VI)"

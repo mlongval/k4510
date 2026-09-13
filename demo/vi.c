@@ -638,7 +638,15 @@ static void do_cmd(void)
     if (cmd[0] == 's' || (cmd[0] == '%' && cmd[1] == 's')) { do_sub(cmd); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (cmd[0] == 'm' && cmd[1] == 'a' && cmd[2] == 'p') { do_map(cmd + 3, 0); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (cmd[0] == 'i' && cmd[1] == 'm' && cmd[2] == 'a' && cmd[3] == 'p') { do_map(cmd + 4, 1); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
-    while (cmd[i]) { if (cmd[i] == 'w') w = 1; if (cmd[i] == 'q') q = 1; if (cmd[i] == 'x') { w = 1; q = 1; } i++; }
+    /* The command word only, and either case: ":w quiz" used to quit (the q
+     * in the NAME), and with caps lock on ":Q" did nothing at all -- a way
+     * into the editor with no way out (Doc, 2026-09-12, from MS BASIC). */
+    while (cmd[i] && cmd[i] != ' ') {
+        char c = cmd[i];
+        if (c >= 'A' && c <= 'Z') c += 32;
+        if (c == 'w') w = 1; if (c == 'q') q = 1; if (c == 'x') { w = 1; q = 1; }
+        i++;
+    }
     if (w) { if (cmd[1] == ' ' && cmd[2]) { for (i = 0; cmd[i + 2] && i < NAMEMAX - 1; i++) name[i] = cmd[i + 2]; name[i] = 0; } save_file(); }
     if (q) { if (dirty && !w && cmd[i - 1] != '!') note = "unsaved -- :q! or :wq"; else running = 0; }
     mode = 0; cmdlen = 0; cmd[0] = 0;

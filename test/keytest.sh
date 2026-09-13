@@ -84,4 +84,13 @@ out=$(run "VI VITEST.TXT
 echo "$out" | grep -q BACK || { echo "$out"; rm -f fs/HOME/VITEST.TXT; echo "keytest: FAILED: VI did not hand the shell back"; exit 1; }
 [ "$(od -An -c fs/HOME/VITEST.TXT | tr -d ' \n')" = 'x202y\n' ] || { od -c fs/HOME/VITEST.TXT; rm -f fs/HOME/VITEST.TXT; echo "keytest: FAILED: VI did not insert the accented letter (or took the Left as one)"; exit 1; }
 rm -f fs/HOME/VITEST.TXT
-echo "keytest: OK (history Up/Down, VI takes an accented letter, insert at the cursor, Home/End, Delete, Backspace, Esc, Up/Down silent and glyph-free, é is a character, editing across the wrap)"
+
+# VI's commands in capitals: with caps lock on, :WQ used to do nothing, a
+# way into the editor with no way out (Doc, 2026-09-12, from MS BASIC)
+out=$(run "VI VITEST.TXT
+~~iab$(printf '\033'):WQ$(printf '\r')~~ECHO BACK
+~" 900)
+echo "$out" | grep -q BACK || { echo "$out"; rm -f fs/HOME/VITEST.TXT; echo "keytest: FAILED: VI did not take :WQ in capitals"; exit 1; }
+[ "$(cat fs/HOME/VITEST.TXT)" = "ab" ] || { rm -f fs/HOME/VITEST.TXT; echo "keytest: FAILED: :WQ did not write the file"; exit 1; }
+rm -f fs/HOME/VITEST.TXT
+echo "keytest: OK (history Up/Down, VI takes an accented letter, :WQ in capitals, insert at the cursor, Home/End, Delete, Backspace, Esc, Up/Down silent and glyph-free, é is a character, editing across the wrap)"

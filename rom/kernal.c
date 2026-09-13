@@ -2139,7 +2139,22 @@ static void cmd_compile(const char *tool, const char *p)
 /* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
 #pragma code-name (pop)
 #pragma rodata-name (pop)
-uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_line(p); if (cx) newline(); return SHELL_RC; }
+/* SHELL from a program: the line is copied into the shell's own buffer first.
+ * It lives in the program's memory, and the command may load a program over
+ * it before anything reads the arguments: MS BASIC's *VI handed the shell
+ * "SWAP -k VI PROGRAM.BAS" at $917E, VI loaded at $6000-$9F4D over it, and
+ * VI's ARGS read its own code -- the edit went to a file named with it (Doc,
+ * 2026-09-12).  line[] is in the ROM's BSS, which no load touches.  Resident
+ * (ROM1C), not a bank: a mapped bank would hide a line kept at $A000-$BFFF. */
+#pragma code-name (push, "CODE")
+static void shell_copy(const char *p)
+{
+    uint8_t i = 0;
+    while (i < sizeof line - 1 && (line[i] = p[i]) != 0) i++;
+    line[i] = 0;
+}
+#pragma code-name (pop)
+uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_copy(p); shell_line(line); if (cx) newline(); return SHELL_RC; }
 
 /* box-drawing glyphs of the CP437 font */
 #define B_H 0xC4

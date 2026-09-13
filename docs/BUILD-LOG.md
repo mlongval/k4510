@@ -7806,3 +7806,18 @@ them.  Grep the journal for a message, not for your own command line.)
 Boot: firmware 13.2 s + GRUB 11.5 s (a choice was made) + kernel 6.6 s
 + userspace 3.5 s.  K4510 (previous) keeps this morning's system, in
 /live-prev, one menu line away.
+
+## 2026-09-13 — toram copies the whole partition: live-prev removed
+
+Measuring for the minimum requirements: /run/live/medium, the toram copy
+in RAM, held 1.7 GB -- live/ (885 MB), live-prev/ (808 MB) and home/.
+live-boot's toram takes EVERYTHING on the live medium's partition, not
+just live-media-path, so a spare copy there costs its size in RAM at
+every boot (and the copy's time).  On the Dell's 31 GB that is nothing;
+on a 2 GB machine it is the difference.  Rule: nothing big beside live/
+on an installed K4510 partition.  Doc: "ok delete live-prev" -- gone
+(27 GB free); the "K4510 (previous)" GRUB entry goes the next time
+Fedora is up, and until then fails harmlessly if chosen.
+Measured the same boot: i5-8365U; the emulator 90 MB resident, about
+half of one core at 60 MHz at the prompt; 2.5 GB used in all (with the
+double copy).

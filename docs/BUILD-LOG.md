@@ -7718,6 +7718,39 @@ test/headless takes K4510_LOCK_LINUX (as "linux = locked"), and
 bangtest checks that a locked `!` says so, runs nothing, and gives the
 prompt back.
 
+Doc: "the menu file works".
+
+## 2026-09-13 — the full rebuild: the splash, and what only a new base could fix
+
+Everything since 2026-09-11 went out in the 5 MB layer; these needed the
+750 MB base (Doc: "go ahead with the rebuild"):
+- The boot splash.  Fedora's GRUB could not draw the logo (no
+  gfxterm_background, Secure Boot), so it is the K4510's own: Plymouth
+  with a script theme, usr/share/plymouth/themes/k4510, drawing
+  data/bootlogo.png on the console blue, scaled to fit with its shape
+  kept.  plymouthd.conf picks it (no delay); FRAMEBUFFER=y puts it in the
+  initramfs, where i915 already is (MODULES=most).  getty@tty1 waits for
+  plymouth-quit-wait, so the emulator still gets the screen after it.
+  `splash` on the stick's line (still no quiet there) and on the
+  installed quiet entry.
+- firmware-intel-graphics (kbl_dmc, added 2026-09-12), wireless-regdb
+  (regulatory.db, asked for at every boot), libpam-systemd (the
+  pam_systemd dlopen error at every login; user@.service stays masked).
+- The base squashfs keeps empty proc/ and sys/ (mksquashfs -p pseudo
+  entries; -e must stay the last option), the root cause of the two
+  "mount point does not exist" lines the layer had been papering over.
+Left for later, on purpose: a smaller initramfs (the stick must still
+boot anything; measure first), and a pre-compiled console setup (half a
+second).
+
+The first full build stopped at "Setting up plymouth": the overlay
+(includes.chroot) is copied BEFORE the packages, so our plymouthd.conf
+was already there when the package brought its own, and dpkg asked
+"keep yours or the maintainer's?" -- with nobody to answer: "end of
+file on stdin at conffile prompt".  plymouth-themes and plymouth-label
+fell with it.  apt-get now passes --force-confdef --force-confold: a
+file the overlay puts in /etc is the machine's setting, and it stays.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

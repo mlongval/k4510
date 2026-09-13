@@ -256,6 +256,7 @@ $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -q
 apt-get install -y -q --no-install-recommends \
+    -o Dpkg::Options::=--force-confdef -o Dpkg::Options::=--force-confold \
     linux-image-amd64 systemd-sysv grub-efi-amd64 grub-pc-bin efibootmgr \
     live-boot live-boot-initramfs-tools \
     locales sudo $PKGS

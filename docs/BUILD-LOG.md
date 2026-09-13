@@ -7769,6 +7769,18 @@ grub-install puts its modules and all its translations there, beside
 the filesystem's journal: the old "+128" had been paying for those all
 along.  Slack is 192 MiB, and says what it is for.
 
+Onto the Dell, with a way back.  From the running K4510 (toram: the
+files on disk are not in use): live/ copied to live-prev/, all four
+files checked identical; the four new files sent as dot-files, checked
+against the build's sha256, and only then moved into live/.  Then, from
+Fedora, 42_k4510 rewritten with three entries -- "K4510 Fantasy
+Computer" (quiet splash), "K4510 (text boot)", and "K4510 (previous)",
+which boots /live-prev/vmlinuz with live-media-path=/live-prev (quiet,
+no splash: the old initrd has no theme).  The shared part of the boot
+line written out, not lifted from the old file by sed (the doubled
+/live/vmlinuz of 2026-09-12); grub.cfg checked for it.  Old 42_k4510 and
+grub.cfg kept (*.before-rebuild.*).
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

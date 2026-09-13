@@ -7405,3 +7405,14 @@ n/15 of it), with COLOR F 0.  `PALETTE LOAD GREEN`.  Copied straight into
 the Dell's ~/k4510/fs (persistent), so it works before any reboot.
 CAPABILITIES.md's list said four palettes in fs/SYSTEM/PALETTES; now
 five, in fs/SYSTEM/ETC/PALETTES, where they are.
+
+Then Doc, one after the other: AMBER, GREEN, GREY -- "dir shows text in
+black on black".  The shell's highlight C_HI is a fixed index, 1 (white
+on the VIC-II): DIR's header and directory names, labels, the banner.
+On a ramp entry 1 is the darkest step above black.  (C_ERR A and C_DIM C
+land bright on a ramp; only 1 was wrong.)  Making the highlight a
+setting costs a byte of BSS and the ROM has none, so the ramps give
+entry 1 up instead: it is the brightest shade, and the COLOR line moves
+text to E so the highlight still stands out.  Nothing draws with a ramp
+but the test, which now checks AMBER's entry 1 is bright.  All three
+copied to the Dell's persistent fs.

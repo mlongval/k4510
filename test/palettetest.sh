@@ -24,6 +24,9 @@ PALETTE
 ' 1500 2>&1) || fail "PALETTE LOAD did not run"
 echo "$out" | grep -q "entries from /SYSTEM/ETC/PALETTES/AMBER.PAL" || fail "AMBER.PAL was not found"
 echo "$out" | grep -q "F FFB000" || fail "the amber ramp did not reach entry F"
+# entry 1 is the shell's highlight (C_HI: DIR's header, directories): on a
+# ramp it must be bright, or they print black on black (Doc, 2026-09-12)
+echo "$out" | grep -q "1 FFB000" || fail "AMBER entry 1 (the highlight) is not bright"
 
 # ...and survives a mode change, which is the whole point
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD GREY

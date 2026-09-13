@@ -1,14 +1,19 @@
 # GREYSCALE -- sixteen even steps, black to white.
 # A ramp, not a theme: entry n is n/15 of full white, so anything
 # drawn by index gets a shade rather than a hue.  The COLOR line
-# below picks white on black, because on a ramp the shell's usual
+# below picks near-white on black, because on a ramp the shell's usual
 # 7 on 6 is two neighbouring greys and cannot be read.
+#
+# One exception: entry 1 is the shell's highlight (DIR's header and
+# directories, labels, the banner) -- white on the VIC-II -- so it is
+# white here too, or those print black on black.  Text is E, one step
+# down, so the highlight still stands out.
 #
 # index rr gg bb, all hex.  A file only changes the entries it names.
 #
-COLOR F 0
+COLOR E 0
 0 00 00 00
-1 11 11 11
+1 FF FF FF
 2 22 22 22
 3 33 33 33
 4 44 44 44

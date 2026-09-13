@@ -142,6 +142,11 @@ squash_layer() {
     echo "== squashfs: the machine layer =="
     [ -d "$ROOT/var/lib/tailscale" ] || install -d -m 700 "$ROOT/var/lib/tailscale"   # see LAYER_DIRS
     rm -rf "$WORK/layer"; for d in $LAYER_DIRS; do mkdir -p "$WORK/layer/$(dirname "$d")"; cp -a "$ROOT/$d" "$WORK/layer/$d"; done
+    # Empty /proc and /sys: squash_base's "-e proc sys" drops the directories
+    # themselves, so the live root had no mount points, and initramfs-tools'
+    # "mount -o move /sys ${rootmnt}/sys" printed "mount point does not exist"
+    # twice on every boot, quiet or not (Doc's photos, 2026-09-13).
+    install -d -m 555 "$WORK/layer/proc" "$WORK/layer/sys"
     mksquashfs "$WORK/layer" "$STAGE/live/k4510.squashfs" \
         -comp zstd -Xcompression-level 19 -noappend -no-progress
     rm -rf "$WORK/layer"

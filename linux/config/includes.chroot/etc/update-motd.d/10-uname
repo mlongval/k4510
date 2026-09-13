@@ -1,0 +1,4 @@
+#!/bin/sh
+# K4510: the login says nothing.  Debian's 10-uname printed "Linux k4510
+# 6.12..." on tty1 just before the machine took the screen (Doc,
+# 2026-09-13, photos); /etc/motd is empty for the same reason.

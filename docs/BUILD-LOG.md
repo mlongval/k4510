@@ -7552,6 +7552,29 @@ two K4510 entries -- quiet and text -- stay.  The logo stays in the repo
 (data/bootlogo.png) for a splash that does not depend on the host's
 GRUB: Plymouth in the K4510's own initramfs, at the full rebuild.
 
+## 2026-09-13 — the quiet boot, made quiet
+
+Even with quiet loglevel=3, Doc saw text, and photographed it (six
+iPhone HEICs, read after converting to JPEG).  Two sources:
+
+- In the initramfs: "mount: /root/sys: mount point does not exist" and
+  the same for /root/proc, each with its dmesg(1) hint.  initramfs-tools'
+  init moves /sys and /proc into the new root (init:335-336), and the
+  root has no such directories: the full build squashes the base with
+  `-e proc sys`, which drops the directories themselves, not just what
+  is in them.  Harmless (systemd mounts both), but wrong, and loud: it is
+  mount's own stderr, which quiet does not touch.  The layer now carries
+  an empty proc/ and sys/, so the merged root has its mount points.  (The
+  next full build should exclude their contents, not the directories.)
+- On tty1 before the machine took the screen: agetty's /etc/issue banner
+  and "k4510 login: k4510 (automatic login)", Debian's motd (10-uname's
+  "Linux k4510 6.12..." and the licence text in /etc/motd), and the
+  emulator's own stderr, "CPU[65CE02]: RESET, PC=FF70".  Now: agetty
+  --skip-login --noissue --nonewline; an empty /etc/motd and a silent
+  /etc/update-motd.d/10-uname in the overlay; and the emulator's stderr
+  to /tmp/k4510-emulator.log (RAM) outside the DIAG switch.  ssh logins
+  lose the motd too, which is no loss on this machine.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

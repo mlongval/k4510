@@ -48,5 +48,8 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
         ulimit -c unlimited 2>/dev/null
         cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510 2>>"$HOME/k4510/DIAG/emulator-$TS.log"
     fi
-    cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510
+    # Its stderr (the CPU's "RESET, PC=FF70" and the like) goes to a log in
+    # RAM, not onto tty1, where it was the last line of text before the
+    # machine appeared (Doc, 2026-09-13, photos).
+    cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510 2>>/tmp/k4510-emulator.log
 fi

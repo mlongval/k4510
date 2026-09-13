@@ -7480,3 +7480,12 @@ there), through INLIN's JSR GETLN and GETLN's JSR MONRDKEY, so the third
 return address above k4510_in's two pushes is L2351+2.  INPUT calls
 INLIN from elsewhere and GET calls MONRDKEY directly, so a "*" there is
 still data.  msbasictest: a star command straight after a RUN.
+
+Then: "cursor does not come back after return from *vi".  k4510_start
+turns the console cursor on ($DA0E bit 0) because the ROM hides it for
+every program -- and when a program ends the ROM switches it off again
+for the shell (kernal.c, TERM+$0E = 0).  SWAP restores RAM, not that
+register, so after any *command that ran a program the BASIC prompt had
+none.  k4510_cursor puts it back after every ROM_SHELL call (the star
+path and *VI's).  Not in msbasictest: headless sees RAM, and the flag
+lives in the terminal device (T.shown); checked on the Dell.

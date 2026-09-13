@@ -499,7 +499,18 @@ k4510_star:
         lda     #<k4510_line
         ldx     #>k4510_line
         jsr     ROM_SHELL
+        jsr     k4510_cursor
 @done:
+        rts
+
+; The console cursor back on.  The ROM hides it for every program and, when
+; one ends, hands the shell a console with it off -- so after a *command that
+; ran a program (*VI, *SAY) BASIC's prompt had no cursor (Doc, 2026-09-12).
+; SWAP puts RAM back, not this register.
+k4510_cursor:
+        lda     $DA0E
+        ora     #1
+        sta     $DA0E
         rts
 
 ; Does k4510_line say exactly the word at k4510_words+X?  The comparison
@@ -853,6 +864,7 @@ k4510_vi:
         lda     #<k4510_line
         ldx     #>k4510_line
         jsr     ROM_SHELL
+        jsr     k4510_cursor             ; VI's end left the cursor off
         ldx     #FEED_LOAD
         ; fall into k4510_feedcmd
 

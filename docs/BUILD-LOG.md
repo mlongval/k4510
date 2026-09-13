@@ -7761,6 +7761,14 @@ What that build did make was right: base squashfs with /proc and /sys,
 kbl_dmc, regulatory.db, pam_systemd.so and the logo; the initrd with
 plymouthd, the script plugin, i915 and the whole k4510 theme.
 
+Then two more: a Debian mirror mid-sync (binutils "File has unexpected
+size", nothing of ours -- the build now retries a fetch failure three
+times, five minutes apart), and grub-install out of space in the live
+partition.  The measured size had only 64 MiB of slack, and the BIOS
+grub-install puts its modules and all its translations there, beside
+the filesystem's journal: the old "+128" had been paying for those all
+along.  Slack is 192 MiB, and says what it is for.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

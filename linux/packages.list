@@ -90,3 +90,7 @@ wireless-regdb
 # pam_systemd: its absence was "PAM unable to dlopen(pam_systemd.so)" at every
 # login (user@.service stays masked in the layer; nothing needs a user manager)
 libpam-systemd
+# initramfs-tools is set to COMPRESS=zstd, and without the tool it quietly
+# falls back: the 2026-09-13 rebuild's initrd came out 90 MB, twice the last,
+# and no longer fit the image.  Named here, not left to a dependency.
+zstd

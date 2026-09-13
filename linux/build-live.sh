@@ -467,7 +467,11 @@ echo "== image =="
 # Sized to fit, not to a round number: this gets written to a USB stick that
 # measured about 4 MB/s, so every gigabyte of empty image is four wasted
 # minutes.  ESP 512 MiB + squashfs + kernel + 512 MiB of slack.
-LIVE_MB=$(( (SQ / 1048576) + 128 ))                       # squashfs + kernel + initrd
+# Measured, not guessed: "+128 for the kernel and initrd" held until the
+# initrd was 90 MB (no zstd in the rootfs, 2026-09-13), and the copy into the
+# image ran out of space.  The files as they are, plus room for the filesystem.
+KI=$(( $(stat -c %s "$STAGE/live/vmlinuz") + $(stat -c %s "$STAGE/live/initrd.img") ))
+LIVE_MB=$(( (SQ + KI) / 1048576 + 64 ))                   # squashfs (both) + kernel + initrd + slack
 LIVE_END=$(( 514 + LIVE_MB ))
 MIB=$(( LIVE_END + PERSIST_MB + 8 ))
 rm -f "$OUT"; truncate -s "${MIB}M" "$OUT"

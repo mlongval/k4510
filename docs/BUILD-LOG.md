@@ -7751,6 +7751,16 @@ file on stdin at conffile prompt".  plymouth-themes and plymouth-label
 fell with it.  apt-get now passes --force-confdef --force-confold: a
 file the overlay puts in /etc is the machine's setting, and it stays.
 
+The second got to the last step and ran out of room writing the image:
+the live partition was "squashfs + 128 MB" for the kernel and initrd,
+and the initrd was 90 MB -- twice the last one, because zstd was not in
+the rootfs (initramfs.conf says COMPRESS=zstd; nothing pulled the tool
+in this time).  zstd is in packages.list now, and LIVE_MB is measured:
+both squashfs files, the kernel and the initrd as they are, + 64 MiB.
+What that build did make was right: base squashfs with /proc and /sys,
+kbl_dmc, regulatory.db, pam_systemd.so and the logo; the initrd with
+plymouthd, the script plugin, i915 and the whole k4510 theme.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

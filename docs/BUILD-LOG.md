@@ -7529,3 +7529,26 @@ old linux line without its "/live/vmlinuz", so both entries said
 What the screen shows between GRUB and the machine (the logo held, or
 black) depends on how i915 takes the framebuffer over; a splash that is
 certain is Plymouth, which wants the full rebuild.
+
+First boot of it: a black screen until Esc, then the menu with no
+picture.  Fedora's signed grubx64.efi has gfxterm, all_video, efi_gop
+and jpeg built in -- and no png, so `insmod png` failed and the
+background never loaded (the error, drawn on the black gfxterm, is the
+likely pause).  The Dell now uses a JPEG of the same logo (quality 95,
+no chroma subsampling, so the flat colours stay flat):
+/boot/grub2/k4510-bootlogo.jpg.  Anyone putting a GRUB background on a
+Fedora host: JPEG, not PNG.
+
+## 2026-09-13 — the Dell's power button shuts Fedora down
+
+Doc: "make power button in fedora cause shutdown".  GNOME holds logind's
+power-key inhibitor and was set to suspend.  Now: logind
+/etc/systemd/logind.conf.d/k4510-power.conf (HandlePowerKey=poweroff,
+PowerKeyIgnoreInhibited=yes, reloaded with HUP, no session lost);
+GNOME's power-button-action 'nothing' for doc; and for the login screen
+a GDM dconf profile (/etc/dconf/profile/gdm: user-db:user,
+system-db:gdm, plus GDM's greeter defaults) with the same key in
+/etc/dconf/db/gdm.d/90-k4510-power -- the gdm account cannot take a
+gsettings write (no ~/.config), and without the profile the greeter
+would have raced a suspend against the poweroff.  Fedora only; the K4510
+side already powers off from its own menu.

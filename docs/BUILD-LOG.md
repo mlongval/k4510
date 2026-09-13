@@ -7361,8 +7361,20 @@ two-byte UTF-8 a dead key produces.  getty's prompt does not use
 readline, hence the difference.  Over ssh the client's LANG=en_US.UTF-8
 arrives (SendEnv) and, not existing here, lands in C all the same.
 
-Two parts, both in the layer: /etc/default/locale says LANG=C.UTF-8
+Two parts, both in the layer: /etc/locale.conf says LANG=C.UTF-8
 (pam_env reads it for console logins), and profile.d/k4510.sh swaps any
 LANG that `locale` complains about for C.UTF-8.  Tested on the Dell with
 en_US.UTF-8, C.UTF-8 and none: all three end in C.UTF-8, and bash reads
 `é` as one character.  (The Tube already set C.UTF-8 for `!`.)
+
+First shipped as etc/default/locale -- and it never arrived.  On Debian
+13 that path is a symlink to ../locale.conf: `cp -a` of the overlay
+wrote the file THROUGH the link at build time, and the layer, which
+copies the listed paths, took the bare link.  Logins still got C.UTF-8,
+but only from the profile.d fallback.  Moved to etc/locale.conf.  A rule
+for the overlay: never ship a file at a path the base has as a symlink.
+
+That reboot (K4510 to K4510) came in at 20.9 s from power-on to
+graphical: kernel phase 5.6 s, i915 up at 3.7 s instead of 13.8 s, the
+earlier 5 s gap before it gone.  Why this boot and not the one before
+(Fedora to K4510) is not known yet; one boot is not a measurement.

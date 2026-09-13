@@ -54,7 +54,11 @@ DSTDEV=$(readlink -f "$DST")
 # live-boot finds a removable stick on its own, but on a FIXED disk it must be
 # pointed at the partition, or it dies with "Unable to find a medium containing
 # a live file system" (the 2026-09-11 first-boot crash on the Dell). Pin it.
-CMDLINE="boot=live components live-media-path=/live live-media=$DSTDEV live-media-timeout=10 toram union=overlay persistence persistence-label=$DST_LABEL persistence-storage=filesystem"
+# No live-media-timeout: despite the name it is a MINIMUM wait (live-boot will
+# not look before N one-second loops), 10 s lost every boot.  quickusbmodules
+# skips the up-to-5 s sleep for USB disks before the persistence search -- an
+# internal install never boots from one.  Together ~15 s (2026-09-12).
+CMDLINE="boot=live components live-media-path=/live live-media=$DSTDEV toram union=overlay quickusbmodules persistence persistence-label=$DST_LABEL persistence-storage=filesystem"
 DSTDISK=$(lsblk -no PKNAME "$DSTDEV" | head -1)
 [ "$DSTDISK" = "$SRCDISK" ] && die "the '$DST_LABEL' partition is on the stick itself -- refusing. Make the internal partition first."
 TRAN=$(lsblk -no TRAN "/dev/$DSTDISK" | head -1)

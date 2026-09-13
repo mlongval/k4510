@@ -7324,3 +7324,26 @@ dependencies are not pulled in.  The overlay list now carries symlinks.
 `console-setup` (5.8 s this boot) and `keyboard-setup` stay for a closer
 look.  kbl_dmc (i915 DMC firmware) needs the next full build: i915 loads
 from the initramfs, before the layer exists.
+
+Result on the Dell: 23 of 23 masked, 0 failed units (user@1000 gone),
+userspace 19.4 s -> 13.2 s.
+
+## 2026-09-12 — the 38 s "kernel": two deliberate waits in live-boot
+
+systemd-analyze calls it kernel time, but the kernel ran /init at 4.0 s;
+the rest is live-boot in the initramfs.  dmesg gaps plus the unpacked
+initrd's scripts (lib/live/boot/) named two of them:
+
+- 13.9 -> 25.2 s, silence: `live-media-timeout=10` is a MINIMUM, not a
+  limit -- find_livefs() returns "not yet" until the 1-second loop in
+  9990-main.sh reaches N, even though live-media= names the partition.
+- 29.4 -> 36.2 s: before the persistence search 9990-overlay.sh loads the
+  USB modules and sleeps up to 5 s for new block devices.  On an internal
+  install none ever come, so it is always the full 5 s.  The
+  `quickusbmodules` parameter skips it.
+
+Both changed on the Dell's /etc/grub.d/42_k4510 (from Fedora; grub.cfg
+regenerated, old copies kept) and in install-k4510.sh.  The stick build
+never passed the timeout.  Left alone: `toram` (3 s, and it is what lets
+the layer file be replaced under a running system) and the ~5 s before
+i915 comes up (864 modules, MODULES=most -- for the full build).

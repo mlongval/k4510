@@ -260,6 +260,10 @@ Prints its arguments: the smallest program there is.
 SETUP -- /SYSTEM/BIN
 Measures this host thoroughly and keeps the clock it settles on.
 
+SPLIT -- /SYSTEM/BIN
+A split screen held by SHEILA: blitter lines above, four rows of text below,
+and how many lines a second.
+
 SUPERMON -- /SYSTEM/BIN
 Jim Butterfield's monitor, grown up: an assembler and a 45GS02 disassembler.
 

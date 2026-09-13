@@ -7946,3 +7946,41 @@ link shows the screenshot full screen on layer 1 with the text layer off
 test/booktest.sh: contents, BOOK 2, BOOK SHELL, a link and back, /, a
 picture shown and put away, Q.  HELP's last line points at BOOK; chapter
 2 has a section on it; mkref.py describes it.
+
+## 2026-09-13 — SPLIT: a split screen held by SHEILA, in C and both BASICs
+
+Doc: "does vicky support split screen (ala c64 or apple ii with graphics
+at top and 4 bottom lines text?" -- then "yes please and also if possible a
+demo in ehbasic and msbasic just to see if they are fast enough".
+
+It does, three ways: the layers (text over a bitmap, colour 0 transparent,
+which is how LOGO works), SHEILA, and a raster IRQ.  SHEILA is the one that
+costs nothing: six instructions a frame -- MOVE layer 0 off and layer 1
+on at line 0, WAIT 416 (26 rows of 16 glass lines), MOVE them back, END.
+Nothing else on the machine used SHEILA (balls.c aside), and nothing turns
+it off after a program, so each demo does.
+
+- demo/split.c -> /SYSTEM/BIN/split.prg: the list in far memory, a
+  ribbon of blitter LINEs in the top 208 bitmap rows (the console's
+  640x240), the band on console rows 26-29.  7400 lines a second.
+- /LANG/EHBASIC/EX/SPLIT.BAS: GRAPHICS 2 forces MODE 0 (640x480, 80x60),
+  so the split is at 448; the list at $BF00 (free: the tail stops short
+  of it).  LINE is one blitter op.  329 lines a second.
+- /LANG/MSBASIC/SPLIT.BAS: no graphics words, so the layer, a DMA clear
+  and the blitter are all POKEs -- ten a line through a GOSUB; the list
+  at $9900, above the image.  143 lines a second.
+
+Three things cost a run each, worth remembering:
+- $D50D, the frame counter, is 54541 -- not 53517 ($D10D, the keyboard
+  page).  Both BASICs timed themselves against a register that never
+  moved, and so never printed.
+- MS BASIC reads 72 characters of a typed (or LOADed) line and drops the
+  rest: a long POKE line lost its tail and became ?SYNTAX ERROR.
+- "$(printf 'SPLIT\n')" loses its trailing newline to the shell, so the
+  capture typed the command and never pressed Enter.  End with \r.
+And one of the machine's: GRAPHICS 2 clears the screen, so EhBASIC's
+cursor starts at the top, where SHEILA hides the text; sixty empty PRINTs
+take it down to the band.
+
+Handbook: chapter 21 has "A split screen: SHEILA" with the list, the
+three speeds and shots/split.png; SPLIT is in the command list.

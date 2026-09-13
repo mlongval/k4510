@@ -37,6 +37,8 @@ shot invaders 1400 "run ehbasic
 
 RUN \"INVADER2.BAS\"
 "
+shot split 300 "SPLIT
+"
 shot msbasic 500 "msbasic
 10 FOR I=1 TO 6
 20 PRINT I, I*I, SQR(I)

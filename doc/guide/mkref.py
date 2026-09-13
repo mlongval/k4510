@@ -100,6 +100,7 @@ DESC = {
     "RANGER":    (7, "RANGER", "The miller-column file manager."),
     "SAY":       (7, "SAY text", "Prints its arguments: the smallest program there is."),
     "SETUP":     (7, "SETUP", "Measures this host thoroughly and keeps the clock it settles on."),
+    "SPLIT":     (7, "SPLIT", "A split screen held by SHEILA: blitter lines above, four rows of text below, and how many lines a second."),
     "SUPERMON":  (7, "SUPERMON", "Jim Butterfield's monitor, grown up: an assembler and a 45GS02 disassembler."),
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),

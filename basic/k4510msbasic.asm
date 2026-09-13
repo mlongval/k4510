@@ -407,7 +407,15 @@ k4510_in:
         cmp     #'z'+1
         bcs     @echo
         and     #$DF            ; fold to upper case
+; Enter is not echoed.  BASIC ends every line it reads by printing CR LF
+; itself (INLIN -> L2453 -> L29B9 falls into CRDO, msbasic/print.s), and
+; a CR is a whole newline on this console -- so echoing it too left a
+; blank line under everything typed (seen in the handbook's screenshot,
+; 2026-09-13).  Checked here, not above: the canned MEMORY SIZE? answer
+; jumps straight to @echo.
 @echo:
+        cmp     #K_CR
+        beq     @out
         jsr     k4510_out       ; BASIC will not; see above
 @out:
         sta     k4510_ch

@@ -108,7 +108,11 @@ static void mon_line(const char *p)
         if (!d) { err("?"); return; }
         if (mode == 1) { poke(xam++, (uint8_t)v); continue; }
         if (mode == 2) { dump(xam, v); xam = v + 1; mode = 0; continue; }
-        xam = v; dump(v, v);
+        /* An address alone is examined -- unless a "." follows, when it is
+         * the start of a range and the range prints it.  Examining it first
+         * printed "FF80: 4C" and then the range again from FF80. */
+        xam = v; skipsp(&p);
+        if (*p != '.') dump(v, v);
     }
 }
 

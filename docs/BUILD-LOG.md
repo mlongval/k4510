@@ -7875,3 +7875,26 @@ file per chapter); what changed:
 Seen while taking the shots, not fixed: MONITOR prints a stray
 "0000FF80: 4C" before the range for ff80.ff8f; MS BASIC leaves a blank
 line after every line typed in.
+
+## 2026-09-13 — the two faults the handbook's screenshots showed, fixed
+
+Doc: "fix both bugs".
+
+- **MONITOR printed an address twice.** `ff80.ff8f` gave "0000FF80: 4C"
+  and then the range from FF80 again: mon_line() examined an address the
+  moment it was parsed, before seeing the "." that made it the start of
+  a range.  An address alone is still examined; one followed by "." is
+  left for the range to print (demo/monitor.c).
+- **MS BASIC left a blank line under every line typed.**  k4510_in
+  echoed Enter, and BASIC ends every line it reads with CR LF of its own
+  (INLIN -> L2453 -> L29B9 falls into CRDO, msbasic/print.s); a CR is a
+  whole newline on this console, so two.  Enter is no longer echoed.
+  The check sits at @echo, which the canned MEMORY SIZE? and TERMINAL
+  WIDTH? answers jump to directly -- put one label earlier, the first
+  build fixed typed lines and left those two double-spaced.
+
+Built on p15 (ubuntu-s1 has no cc65), tested here: montest, msbasictest
+and typetest OK, and the handbook's mon and msbasic shots retaken.
+Noted in passing: on p15 montest and msbasictest fail with or without
+these changes -- the output there comes out with bare CRs, so the tests'
+"^OK" greps never match.  The programs are right; p15's harness is not.

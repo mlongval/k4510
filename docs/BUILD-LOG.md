@@ -7678,6 +7678,46 @@ monitor's `mode`, and the dead poke() and shell_line locals the
 compiler then pointed at.  test/montest.sh.  ROM1C 154 free, ROM2 475
 (the helpers cost ~150), bank 0 829, bank 1 1619.
 
+## 2026-09-13 — the F7 menu as a text file, with locks
+
+Doc's question from the day before -- "Could the F7 menu be an editable
+text file ... if this thing is ever given to kids" -- answered: hidden
+rows disappear, no PIN, and locks for ! and Ctrl+Alt+F2.
+
+k4510-menu.cfg, beside k4510.cfg in the emulator's directory -- outside
+the machine's own disk, so nobody at the machine can edit it.  Written
+in full when missing (every category and row by its label, "show"), so
+it says what can be changed:
+    [K4510]   Audio = hide          the categories
+    [Video]   Border width = hide   a category's rows
+    [Locks]   linux = locked        consoles = locked
+A hidden setting keeps its k4510.cfg value.  Names match in either
+case; # is a comment; what the file does not name is shown.
+
+core/ui/menu.c: the menus drawn are a copy of the tables, made by
+rebuild() -- hidden rows and categories out, no separator first, last
+or twice, a category with nothing left gone, and the rows only the
+K4510 Linux offers (the shutdown row, the Host category) out until it
+says so.  That replaced the count trick (machine_menu.n, main_menu.n
+one short), and uitest's walks see the same rows as before.
+
+The locks: linux refuses the Tube's host shell (core/io.c tube_start,
+program 4) -- `!`, `!cmd`, SSH -- with a line saying so, and hides the
+"Telnet into the host" row; PAS and CC (k4510-pas/k4510-cc through the
+same door) still compile.  consoles makes Ctrl+Alt+F2..F6 do nothing.
+Not locked, because it need not be: the Dell's telnet port runs login
+for k4510, whose password is set.  To edit the file once it is locked:
+ssh from another computer.  uitest leg 11.
+
+The refusal first went unseen: the ROM's cmd_bbcbasic waits for the
+Tube to say "alive" before it reads a byte, and a refused start never
+was, so the line sat in the ring until tube_stop emptied it.  Now a
+refusal is a session of one line -- tube_status reports alive while its
+text is unread, then the session ends as any other does.  No ROM change.
+test/headless takes K4510_LOCK_LINUX (as "linux = locked"), and
+bangtest checks that a locked `!` says so, runs nothing, and gives the
+prompt back.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

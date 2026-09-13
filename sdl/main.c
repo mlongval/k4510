@@ -716,6 +716,13 @@ int k4510_frontend_main(int argc, char **argv)
     if (load_file("data/fonts/unscii/font16-unscii.bin", font_panel, sizeof font_panel) == sizeof font_panel) font_panel_rows = 16;
     else for (int i = 0; i < 2048; i++) { font_panel[i * 2] = font_panel[i * 2 + 1] = font_menu[i]; font_panel_rows = 16; }
     settings_load(cfg);
+    /* The F7 menu file, beside k4510.cfg and outside the machine's own disk, so
+     * nobody at the machine can edit it: which rows show, and the locks.
+     * Written in full when missing, so it lists what can be changed (Doc,
+     * 2026-09-13: "include all options in the F7 menu file as text"). */
+    { extern int io_lock_linux;                             /* core/io.c: `!` and SSH refused */
+      if (menu_file_load("k4510-menu.cfg") < 0) menu_file_write("k4510-menu.cfg");
+      io_lock_linux = menu_lock(MENU_LOCK_LINUX); }
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
     settings_label(SET_VIDEO_FONT, FONT_CHARGEN, chargen_present() ? "C64 chargen" : "C64 chargen (none)");
     int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKY at $010000 */
@@ -1031,7 +1038,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (appliance < 0) appliance = access("/etc/k4510-linux", F_OK) == 0;
                   if (appliance && (m & KMOD_CTRL) && (m & KMOD_ALT) && k >= SDLK_F1 && k <= SDLK_F6) {
                       int vt = 1 + (int)(k - SDLK_F1), fd;
-                      if (vt > 1 && (fd = open("/dev/tty", O_RDWR)) >= 0) {   /* our own tty: no privilege needed */
+                      if (vt > 1 && !menu_lock(MENU_LOCK_CONSOLES)             /* k4510-menu.cfg: consoles = locked */
+                          && (fd = open("/dev/tty", O_RDWR)) >= 0) {           /* our own tty: no privilege needed */
                           if (ioctl(fd, VT_ACTIVATE, vt) < 0) perror("k4510: VT_ACTIVATE");
                           close(fd);
                       }
@@ -1253,7 +1261,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_QUIT: mlog("quit: F7 -> Quit"); running = 0; break;
         case ACT_SHUTDOWN: mlog("quit: F7 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
         case ACT_NETSETUP: host_net_setup(); break;
-        case ACT_TELNET: { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
+        case ACT_TELNET: if (menu_lock(MENU_LOCK_LINUX)) break;   /* the row is hidden then; this is belt and braces */
+                         { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }
         if (open && clock_at_open < 0) clock_at_open = settings_get(SET_CPU_CLOCK);
         { static int host_open_was; static Uint32 host_read_at;   /* the Host page: read at open, then every 2 s while open */

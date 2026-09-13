@@ -69,6 +69,7 @@ fs/STARTUP.BAT
 # and your own VI startup file (see /SYSTEM/ETC/VI.SAMPLE)
 # the F7 menu's settings, written wherever the emulator was run from
 /k4510.cfg
+/k4510-menu.cfg
 
 # the temp file *VI / *EDIT save the BASIC program through
 fs/EDITTMP.BAS

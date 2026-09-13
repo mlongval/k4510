@@ -197,5 +197,25 @@ int main(void)
       printf("10. the Host category stays off the menu until the host says so\n"); }
 
     remove(cfg);
+    /* 11. The menu file, k4510-menu.cfg (Doc, 2026-09-13): hidden rows and
+     * categories go, a separator left alone goes with them, names match in
+     * either case, the locks read, and the written file lists every row. */
+    { const char *mf = "test/uitest-menu.cfg", *mf2 = "test/uitest-menu2.cfg"; char buf[4096] = { 0 };
+      f = fopen(mf, "w");
+      fputs("# a parent's choices\n[K4510]\nAudio = hide\n[Video]\nBorder width = hide\nfull screen = HIDE   # either case\n"
+            "[Terminal]\n24-hour clock = hide\nDate format = hide\n[Nowhere]\nX = hide\n[Locks]\nlinux = locked\n", f); fclose(f);
+      CHECK(menu_file_load(mf) == 0, "the menu file loads");
+      CHECK(!menu_row_shown("Audio", 0) && menu_row_shown("Video", 0), "a hidden category is gone, the others stay");
+      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Full screen") && menu_row_shown("Video", "Scanlines"), "hidden rows are gone, either case");
+      CHECK(!menu_row_shown("Terminal", "Date format") && menu_row_shown("Terminal", "Status bands"), "the Terminal rows it names are gone");
+      CHECK(menu_lock(MENU_LOCK_LINUX) && !menu_lock(MENU_LOCK_CONSOLES), "the locks read");
+      CHECK(menu_file_write(mf2) == 0, "the menu file is written");
+      f = fopen(mf2, "r"); if (f) { fread(buf, 1, sizeof buf - 1, f); fclose(f); }
+      CHECK(strstr(buf, "[Video]") && strstr(buf, "Border width") && strstr(buf, "Scanlines") && strstr(buf, "[Machine]")
+            && strstr(buf, "Shut down the computer") && strstr(buf, "linux    = locked") && strstr(buf, "consoles = open"), "...listing every row and the locks");
+      f = fopen(mf, "w"); fclose(f);
+      CHECK(menu_file_load(mf) == 0 && menu_row_shown("Audio", 0) && menu_row_shown("Video", "Border width") && !menu_lock(MENU_LOCK_LINUX), "an empty file shows everything again");
+      remove(mf); remove(mf2);
+      printf("11. the menu file: hidden rows and categories, either case, the locks, the full list written\n"); }
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

@@ -4,6 +4,7 @@
 #include "ui_draw.h"
 #include "../io.h"
 #include <string.h>
+#include <strings.h>
 #include <stdio.h>
 
 typedef enum { MI_SUBMENU, MI_SETTING, MI_ACTION, MI_INFO, MI_SEP, MI_SAVESLOT, MI_LOADSLOT } item_kind;
@@ -103,10 +104,10 @@ static const menu_t audio_menu   = { "Audio",   audio_items,   (int)(sizeof audi
 static const menu_t term_menu    = { "Terminal", term_items,   (int)(sizeof term_items / sizeof term_items[0]) };
 static const menu_t input_menu   = { "Input",   input_items,   (int)(sizeof input_items / sizeof input_items[0]) };   /* was a literal 4: the
                                                                   * fifth row, Caps Lock is Ctrl, never showed (the Dell, 2026-09-12) */
-/* NOT const, and not the full count: the shutdown row and its separator are
- * off the end until a host says it can honour them.  (Was a hard 8 once, and
- * the CPU clock entry never drew.) */
-static menu_t machine_menu = { "Machine", machine_items, MACHINE_N - 2 };
+/* The full list: the shutdown row and its separator are left out by rebuild()
+ * until a host says it can honour them.  (Was a hard 8 once, and the CPU
+ * clock entry never drew.) */
+static const menu_t machine_menu = { "Machine", machine_items, MACHINE_N };
 static const menu_t shell_menu   = { "Shell",   shell_items,   (int)(sizeof shell_items / sizeof shell_items[0]) };
 static const menu_t info_menu    = { "Info",    info_items,    (int)(sizeof info_items / sizeof info_items[0]) };
 static const item_t main_items[] = {
@@ -120,7 +121,11 @@ static const item_t main_items[] = {
     { "Host",    MI_SUBMENU, 0, &host_menu },     /* last, and off the end until menu_set_host */
 };
 #define MAIN_N ((int)(sizeof main_items / sizeof main_items[0]))
-static menu_t main_menu = { "K4510", main_items, MAIN_N - 1 };
+/* What the menu shows is a copy of the tables above, made by rebuild(): the
+ * rows the menu file hides are left out, and so are the rows only the K4510
+ * Linux may offer (the shutdown row, the Host category) until it says so. */
+static item_t vmain[MAIN_N];
+static menu_t main_menu = { "K4510", vmain, 0 };
 
 /* ---- state ----------------------------------------------------------------
  * Two panes: the categories on the left, the chosen one's settings on the
@@ -133,6 +138,41 @@ static int popup, popup_cur, popup_was;      /* an ENUM's option list, over the 
 static char info[INFO_COUNT][40];
 static char slot[MENU_SLOTS][24];
 
+/* ---- the menu file and the shown copy (Doc, 2026-09-13) ---------------------
+ * "Could the F7 menu be an editable text file ... if this thing is ever given
+ * to kids": hidden rows disappear, no PIN, and locks for the Linux shell and
+ * the consoles.  hide_* index the FULL tables, so the file's names are the
+ * tables' labels; rebuild() makes the copy the rest of this file draws. */
+#define ROWMAX 16
+static unsigned char hide_cat[MAIN_N], hide_row[MAIN_N][ROWMAX], locks[MENU_LOCK_COUNT];
+static int have_shutdown, have_host;
+static item_t vrows[MAIN_N][ROWMAX];
+static menu_t vmenu[MAIN_N];
+static void rebuild(void)
+{
+    int k = 0;
+    for (int c = 0; c < MAIN_N; c++) {
+        const menu_t *full = main_items[c].sub; int n = 0;
+        if (hide_cat[c] || (full == &host_menu && !have_host)) continue;
+        for (int i = 0; i < full->n && i < ROWMAX; i++) {
+            const item_t *it = &full->items[i];
+            if (hide_row[c][i]) continue;
+            if (full == &machine_menu && !have_shutdown && i >= MACHINE_N - 2) continue;
+            if (it->kind == MI_ACTION && it->arg == ACT_TELNET && locks[MENU_LOCK_LINUX]) continue;
+            if (it->kind == MI_SEP && (n == 0 || vrows[k][n - 1].kind == MI_SEP)) continue;   /* no separator first, none twice */
+            vrows[k][n++] = *it;
+        }
+        while (n && vrows[k][n - 1].kind == MI_SEP) n--;                                   /* nor last */
+        if (!n) continue;                                                                  /* nothing left: the category goes */
+        vmenu[k].title = full->title; vmenu[k].items = vrows[k]; vmenu[k].n = n;
+        vmain[k] = main_items[c]; vmain[k].sub = &vmenu[k];
+        k++;
+    }
+    main_menu.n = k;
+    if (cat >= k) cat = k ? k - 1 : 0;
+    dirty = 1;
+}
+
 static const menu_t *top(void) { return stack[depth].m; }
 static void move_cur(int d)
 {
@@ -142,11 +182,12 @@ static void move_cur(int d)
 }
 static void set_cat(int c)
 {
+    if (!main_menu.n) return;                        /* the file hid everything */
     cat = (c + main_menu.n) % main_menu.n;
-    depth = 0; stack[0].m = main_items[cat].sub; stack[0].cur = 0;
+    depth = 0; stack[0].m = main_menu.items[cat].sub; stack[0].cur = 0;
     if (stack[0].m->items[0].kind == MI_SEP) move_cur(+1);
 }
-void menu_open(void) { open_ = 1; pane = 0; popup = 0; set_cat(0); dirty = 1; }
+void menu_open(void) { rebuild(); if (!main_menu.n) return; open_ = 1; pane = 0; popup = 0; set_cat(0); dirty = 1; }
 void menu_close(void) { if (open_) { open_ = 0; closed = 1; dirty = 1; } }
 int  menu_is_open(void) { return open_; }
 void menu_dirty(void) { dirty = 1; }
@@ -154,8 +195,8 @@ int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
 /* The host tells us whether shutting the computer down is a thing it can do.
  * Only the K4510 Linux says yes (sdl/main.c looks for /etc/k4510-linux): on a desktop this
  * would offer to power off Doc's workstation from inside a toy computer. */
-void menu_set_shutdown(int available) { machine_menu.n = available ? MACHINE_N : MACHINE_N - 2; dirty = 1; }
-void menu_set_host(int available)     { main_menu.n = available ? MAIN_N : MAIN_N - 1; dirty = 1; }
+void menu_set_shutdown(int available) { have_shutdown = available; rebuild(); }
+void menu_set_host(int available)     { have_host = available; rebuild(); }
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }
 void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { snprintf(info[row], sizeof info[row], "%s", text); dirty = 1; } }
 void menu_slot(int n, const char *text) { if (n >= 0 && n < MENU_SLOTS) { snprintf(slot[n], sizeof slot[n], "%s", text); dirty = 1; } }
@@ -316,7 +357,7 @@ int menu_draw(uint8_t *ov)
         uint8_t fg = sel ? (pane ? UIC_TITLE : UIC_BARTEXT) : UIC_TEXT;
         uint8_t bg = (sel && !pane) ? UIC_BAR : UIC_PANEL;
         ui_fill(ov, LX, TOPY + i, LW - 1, 1, bg);
-        ui_text(ov, LX + 1, TOPY + i, fg, bg, main_items[i].label);
+        ui_text(ov, LX + 1, TOPY + i, fg, bg, main_menu.items[i].label);
     }
     { const menu_t *m = top(); char b[32];
       ui_text(ov, RX, 3, UIC_TITLE, UIC_PANEL, m->title);
@@ -354,4 +395,90 @@ int menu_draw(uint8_t *ov)
     }
     draw_pointer(ov);
     return 1;
+}
+
+/* ---- the menu file: k4510-menu.cfg ------------------------------------------
+ *   [K4510]              the categories         Audio = hide
+ *   [Video] ...          a category's rows      Border width = hide
+ *   [Locks]              linux = locked         consoles = locked
+ * Names are the menu's own labels, either case; # starts a comment; anything
+ * the file does not name is shown, and a line it cannot place is ignored. */
+static void mtrim(char *s)
+{
+    char *a = s, *e; while (*a == ' ' || *a == '\t') a++;
+    memmove(s, a, strlen(a) + 1);
+    e = s + strlen(s); while (e > s && (e[-1] == ' ' || e[-1] == '\t' || e[-1] == '\n' || e[-1] == '\r')) *--e = 0;
+}
+static int cat_named(const char *name) { for (int c = 0; c < MAIN_N; c++) if (!strcasecmp(main_items[c].label, name)) return c; return -1; }
+static int row_named(int c, const char *name)
+{
+    const menu_t *m = main_items[c].sub;
+    for (int i = 0; i < m->n && i < ROWMAX; i++) if (m->items[i].kind != MI_SEP && !strcasecmp(m->items[i].label, name)) return i;
+    return -1;
+}
+int menu_file_load(const char *path)
+{
+    FILE *f = fopen(path, "r"); char line[160]; int sec = -1;   /* -1 nowhere, -2 [K4510], -3 [Locks], >= 0 a category */
+    memset(hide_cat, 0, sizeof hide_cat); memset(hide_row, 0, sizeof hide_row); memset(locks, 0, sizeof locks);
+    if (!f) { rebuild(); return -1; }
+    while (fgets(line, sizeof line, f)) {
+        char *h = strchr(line, '#'), *eq; if (h) *h = 0;
+        mtrim(line); if (!line[0]) continue;
+        if (line[0] == '[') {
+            char *r = strchr(line, ']'); if (r) *r = 0;
+            memmove(line, line + 1, strlen(line)); mtrim(line);
+            sec = !strcasecmp(line, "K4510") ? -2 : !strcasecmp(line, "Locks") ? -3 : cat_named(line);
+            continue;
+        }
+        if (!(eq = strchr(line, '='))) continue;
+        *eq = 0; { char *key = line, *val = eq + 1; mtrim(key); mtrim(val);
+          int hide = !strcasecmp(val, "hide"), locked = !strcasecmp(val, "locked");
+          if (sec == -2) { int c = cat_named(key); if (c >= 0) hide_cat[c] = (unsigned char) hide; }
+          else if (sec == -3) { if (!strcasecmp(key, "linux")) locks[MENU_LOCK_LINUX] = (unsigned char) locked;
+                                else if (!strcasecmp(key, "consoles")) locks[MENU_LOCK_CONSOLES] = (unsigned char) locked; }
+          else if (sec >= 0) { int r = row_named(sec, key); if (r >= 0) hide_row[sec][r] = (unsigned char) hide; } }
+    }
+    fclose(f);
+    rebuild();
+    return 0;
+}
+int menu_file_write(const char *path)
+{
+    FILE *f = fopen(path, "w");
+    if (!f) return -1;
+    fputs("# K4510 -- what the F7 menu shows.  Written in full the first time the machine\n"
+          "# starts; edit it, and it takes effect at the next start (or reboot).\n"
+          "#   show   the row is there, as always\n"
+          "#   hide   the row is gone -- and a menu with nothing left goes too\n"
+          "# A hidden setting keeps the value it has in k4510.cfg; nobody can change it\n"
+          "# from the menu.  Names are the menu's own, in either case.  The Host menu and\n"
+          "# \"Shut down the computer\" appear only on the K4510 Linux.\n\n[K4510]\n", f);
+    for (int c = 0; c < MAIN_N; c++) fprintf(f, "%-24s = %s\n", main_items[c].label, hide_cat[c] ? "hide" : "show");
+    for (int c = 0; c < MAIN_N; c++) {
+        const menu_t *m = main_items[c].sub;
+        fprintf(f, "\n[%s]\n", m->title);
+        for (int i = 0; i < m->n && i < ROWMAX; i++)
+            if (m->items[i].kind != MI_SEP) fprintf(f, "%-24s = %s\n", m->items[i].label, hide_row[c][i] ? "hide" : "show");
+    }
+    fprintf(f, "\n[Locks]\n"
+               "# locked: no ! shell, no SSH, no \"Telnet into the host\" -- the ways into Linux.\n"
+               "# PAS and CC still compile.  Edit this file over ssh once it is locked.\n"
+               "linux    = %s\n"
+               "# locked: Ctrl+Alt+F2..F6 do nothing (the Linux consoles)\n"
+               "consoles = %s\n",
+            locks[MENU_LOCK_LINUX] ? "locked" : "open", locks[MENU_LOCK_CONSOLES] ? "locked" : "open");
+    fclose(f);
+    return 0;
+}
+int menu_lock(int which) { return which >= 0 && which < MENU_LOCK_COUNT ? locks[which] : 0; }
+int menu_row_shown(const char *catname, const char *row)
+{
+    for (int k = 0; k < main_menu.n; k++) {
+        const menu_t *m = main_menu.items[k].sub;
+        if (strcasecmp(main_menu.items[k].label, catname)) continue;
+        if (!row) return 1;
+        for (int i = 0; i < m->n; i++) if (m->items[i].kind != MI_SEP && !strcasecmp(m->items[i].label, row)) return 1;
+        return 0;
+    }
+    return 0;
 }

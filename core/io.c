@@ -894,6 +894,13 @@ static void tube_log(const char *fmt, ...);   /* defined with tube_start; the re
 static pid_t tube_pid; static int tube_fd = -1;
 #endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
+/* k4510-menu.cfg "linux = locked", set by the frontend: the Tube's host shell
+ * (`!`, and SSH through it) is refused, the machine's compilers are not. */
+int io_lock_linux;
+/* A refused start is a session of one line: the ROM waits for "alive" before
+ * it reads anything (cmd_bbcbasic), so tube_status says alive until the
+ * refusal has been read, then the session is over like any other. */
+static int tube_refused;
 /* The host shell (program 4, `!` at the prompt) is fitted everywhere: the
  * Linux beside the machine is the user's, on a desktop as on the appliance
  * (Doc, 2026-09-08: "drop restrictions on host access"). */
@@ -1257,6 +1264,15 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd);
         if (tube_rows) ws.ws_row = tube_rows;          /* the console window as the ROM has it, bands and margin taken out */
         if (tube_cols) ws.ws_col = tube_cols;
+        /* Locked (k4510-menu.cfg): no way into Linux -- `!`, `!cmd`, SSH.  PAS and
+         * CC come through here too, as k4510-pas/k4510-cc, and may pass.  The
+         * reason goes out as the session's only output, and no session starts. */
+        if (io_lock_linux && strncmp(cmd, "k4510-pas", 9) && strncmp(cmd, "k4510-cc", 8)) {
+            const char *m = "Linux is locked on this machine (k4510-menu.cfg)\r\n";
+            while (*m) ring_put((uint8_t) *m++);
+            tube_refused = 1;
+            return;
+        }
     }
     tube_pid = forkpty (&tube_fd, NULL, NULL, &ws);
     if (tube_pid == 0) {
@@ -1339,11 +1355,16 @@ static void tube_stop(void)
     if (tube_pid) { tube_log("stop: killing pid %d", (int) tube_pid);
                     kill (-tube_pid, SIGKILL); kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }   /* the session: a `!nohup x &` too */
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
-    tube_w = tube_r = 0;
+    tube_w = tube_r = 0; tube_refused = 0;
     tula_close();
     if (tube_utf8) { term_host_session(0); tube_utf8 = 0; }
 }
-static uint8_t tube_status(void) { tube_pump(); tube_utf8_done(); return (tube_pid ? 1 : 0) | 4 | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0); }
+static uint8_t tube_status(void)
+{
+    tube_pump(); tube_utf8_done();
+    if (tube_refused && tube_w == tube_r) tube_refused = 0;          /* its line has been read: over */
+    return (tube_pid || tube_refused ? 1 : 0) | 4 | (uci_path() ? 8 : 0) | (tube_w != tube_r ? 0x80 : 0);
+}
 static uint8_t tube_read(void) { tube_pump(); if (tube_w != tube_r) return tube_ring[tube_r++ & 4095]; tube_utf8_done(); return 0; }
 static void tube_write(uint8_t v)
 {

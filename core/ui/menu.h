@@ -32,6 +32,17 @@ void menu_dirty(void);                        /* redraw next time: the cell grid
 int  menu_key_code(void);                     /* the K4510 key code that opens the menu (from the setting) */
 void menu_set_shutdown(int available);        /* the K4510 Linux only: reveal "Shut down the computer" (see menu.c) */
 void menu_set_host(int available);            /* the K4510 Linux only: reveal the Host category (name, addresses, Wi-Fi setup, telnet) */
+/* The menu file, k4510-menu.cfg beside k4510.cfg (Doc, 2026-09-13): every row
+ * by name, "show" or "hide" -- hidden rows are gone, and a category with
+ * nothing left goes too -- and two locks.  Read at start; written in full
+ * (every row, "show") when missing, so it says what can be changed. */
+enum { MENU_LOCK_LINUX,                       /* no `!`, no SSH, no "Telnet into the host" (PAS and CC still compile) */
+       MENU_LOCK_CONSOLES,                    /* Ctrl+Alt+F2..F6 do nothing */
+       MENU_LOCK_COUNT };
+int  menu_file_load(const char *path);        /* 0, or -1 if there is no such file (all shown, no locks) */
+int  menu_file_write(const char *path);       /* the full list, as things stand */
+int  menu_lock(int which);                    /* MENU_LOCK_*: 1 = locked */
+int  menu_row_shown(const char *cat, const char *row);   /* is it on the menu now?  row NULL: the category */
 #ifdef __cplusplus
 }
 #endif

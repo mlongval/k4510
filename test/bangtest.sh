@@ -10,6 +10,13 @@ out=$(./test/headless rom/kernal.bin '!echo BANG$((6*7)) && pwd
 ' 600 'file(s)' 2>&1) || { echo "$out"; echo "bangtest: FAILED: no prompt back after !"; exit 1; }
 echo "$out" | grep -q 'BANG42' || { echo "$out"; echo "bangtest: FAILED: the command's output did not reach the screen"; exit 1; }
 echo "$out" | grep -q '/fs/HOME$' || { echo "$out"; echo "bangtest: FAILED: the shell did not start in the machine's directory"; exit 1; }
+# Locked (k4510-menu.cfg "linux = locked"; here K4510_LOCK_LINUX, 2026-09-13):
+# `!` is refused with a line that says so, runs nothing, and the prompt comes back.
+out=$(K4510_LOCK_LINUX=1 ./test/headless rom/kernal.bin '!echo BANG$((6*7))
+~ECHO AFTER-LOCK
+' 600 'AFTER-LOCK' 2>&1) || { echo "$out"; echo "bangtest: FAILED: no prompt back after a locked !"; exit 1; }
+echo "$out" | grep -q 'Linux is locked' || { echo "$out"; echo "bangtest: FAILED: a locked ! did not say so"; exit 1; }
+echo "$out" | grep -q 'BANG42' && { echo "$out"; echo "bangtest: FAILED: a locked ! ran anyway"; exit 1; }
 # PAS / CC: the compilers beside the machine (tools/k4510-pas, tools/k4510-cc)
 # compile a source in the machine's directory into a .prg that then RUNs.
 # Only where the toolchain is: mp+mads at the Makefile's defaults, cc65 on PATH.

@@ -7575,6 +7575,27 @@ iPhone HEICs, read after converting to JPEG).  Two sources:
   to /tmp/k4510-emulator.log (RAM) outside the DIAG switch.  ssh logins
   lose the motd too, which is no loss on this machine.
 
+Doc confirmed: "boot was clean".
+
+## 2026-09-13 — ROM: the shell's commands as a table
+
+With ROM1C at 5 bytes after SHELL's line copy, Doc asked to talk about
+the ROM, and to move PALETTE, COPY, DUMP, HELP and TYPE out to .prg.
+First, the cheaper win that removes nothing: shell_line dispatched with
+a chain of `if (is_cmd(&p, NAME)) { sw_call(bank, fn, p); return; }` --
+about 20 bytes of CODE2 a line, and every NAME in ROM1C's RODATA.  Now
+shcmds[] is a table of {name, bank, handler} (bank 0: resident, called
+directly), two rows for two names, read by one loop; table and names
+are in CODE2 beside the code (a rodata-name pragma).  The commands that
+do not simply take (p) -- ! PAS CC SSH, CD & co. in bank 3, RENAME/MV
+and CP (cmd_two), ECHO CLS BANNER RESET HELP BBC -- stay written out.
+is_cmd matches whole words and leaves p alone on a miss, so order does
+not matter; DIR moved behind the bank-3 CD check, which it never
+overlapped.
+
+ROM1C: 5 -> 160 bytes free (RODATA -204, CODE +5 for the indirect
+call).  ROM2: 26 -> 614.  Nothing removed.
+
 ## 2026-09-13 — the Dell's power button shuts Fedora down
 
 Doc: "make power button in fedora cause shutdown".  GNOME holds logind's

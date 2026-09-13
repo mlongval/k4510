@@ -1836,6 +1836,45 @@ static void nav(const char *p)
 }
 #pragma code-name (pop)
 #pragma rodata-name (pop)
+/* The shell's commands, as a table: a name, the sideways bank its code lives
+ * in (0: resident, called directly), and the handler.  It replaced a chain of
+ * "if (is_cmd(&p, NAME)) { sw_call(...); return; }" lines -- some 20 bytes of
+ * resident code each, with the names in ROM1C's RODATA -- when ROM1C was down
+ * to 5 bytes (Doc, 2026-09-13).  Table and names live in CODE2 with the code
+ * that reads them.  Two names for one command are two rows.  Commands that do
+ * not take (p) and go -- ! PAS CC SSH CD RENAME CP ECHO CLS BANNER RESET HELP
+ * BBC -- stay written out in shell_line.  is_cmd matches whole words, so the
+ * order here is only the order of the search.
+ *
+ * The names are named arrays, not string literals in the initializer: this
+ * file is compiled --local-strings, and cc65 then emits a literal where it is
+ * used -- INSIDE the table, so shcmds began with the bytes "DIR\0" and every
+ * name pointer read letters (the first build: every command was "?"). */
+typedef struct { const char *name; uint8_t bank; void (*fn)(const char *); } shcmd_t;
+#pragma rodata-name (push, "CODE2")
+#define N(x) static const char n_##x[] = #x;
+N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE) N(TYPE)
+N(XD) N(HEX) N(EXEC) N(HUSH) N(RUN) N(FILL) N(COPY) N(DUMP) N(INFO) N(TIME)
+N(COLOR) N(COLOUR) N(PALETTE) N(MODE) N(SWAP) N(ALIAS) N(CLG) N(CAPSLOCK)
+N(CAPS) N(MON) N(WOZ) N(CPM)
+#undef N
+static const shcmd_t shcmds[] = {
+    { n_DIR, 0, cmd_dir },       { n_LS, 0, cmd_dir },
+    { n_MKDIR, 1, cmd_mkdir },   { n_RMDIR, 1, cmd_rmdir },
+    { n_RM, 0, cmd_rm },         { n_ERASE, 0, cmd_rm },     { n_DEL, 0, cmd_rm },
+    { n_LOAD, 0, cmd_load },     { n_SAVE, 1, cmd_save },
+    { n_TYPE, 1, cmd_type },     { n_XD, 1, cmd_xd },        { n_HEX, 1, cmd_xd },
+    { n_EXEC, 0, cmd_exec },     { n_HUSH, 1, cmd_hush },    { n_RUN, 0, cmd_run },
+    { n_FILL, 1, cmd_fill },     { n_COPY, 1, cmd_copy },    { n_DUMP, 1, cmd_dump },
+    { n_INFO, 1, cmd_info },     { n_TIME, 1, cmd_time },
+    { n_COLOR, 1, cmd_color },   { n_COLOUR, 1, cmd_color },
+    { n_PALETTE, 2, cmd_palette }, { n_MODE, 1, cmd_mode },
+    { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
+    { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
+    { n_MON, 0, cmd_mon },       { n_WOZ, 0, cmd_mon },      { n_CPM, 0, cmd_cpm },
+    { 0, 0, 0 }
+};
+#pragma rodata-name (pop)
 static void shell_line(const char *p)
 {
     uint8_t d; uint32_t v; const char *p0;
@@ -1847,40 +1886,18 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "PAS")) { cmd_compile("k4510-pas", p); return; }   /* PAS HELLO: HELLO.PAS -> hello.prg, here */
     if (is_cmd(&p, "CC"))  { cmd_compile("k4510-cc", p); return; }
     if (is_cmd(&p, "SSH")) { cmd_compile("ssh", p); return; }        /* SSH [user@]host -- an interactive session on the Linux's ssh */
-    if (is_cmd(&p, "DIR") || is_cmd(&p, "LS")) { cmd_dir(p); return; }
     alias_hit = 0; sw_call(3, nav, p); if (alias_hit) return;   /* CD/CHDIR/MOUNT/UMOUNT, bank 3 */
-    if (is_cmd(&p, "MKDIR")) { sw_call(1, cmd_mkdir, p); return; }
-    if (is_cmd(&p, "RM") || is_cmd(&p, "ERASE") || is_cmd(&p, "DEL")) { cmd_rm(p); return; }
-    if (is_cmd(&p, "RMDIR")) { sw_call(1, cmd_rmdir, p); return; }
-    if (is_cmd(&p, "LOAD"))  { cmd_load(p); return; }
-    if (is_cmd(&p, "SAVE"))  { sw_call(1, cmd_save, p); return; }
-    if (is_cmd(&p, "TYPE"))  { sw_call(1, cmd_type, p); return; }
-    if (is_cmd(&p, "XD") || is_cmd(&p, "HEX")) { sw_call(1, cmd_xd, p); return; }
+    { const shcmd_t *c;                                   /* DIR, TYPE, RUN, ... (shcmds, above) */
+      for (c = shcmds; c->name; c++)
+          if (is_cmd(&p, c->name)) { if (c->bank) sw_call(c->bank, c->fn, p); else c->fn(p); return; } }
     if (is_cmd(&p, "RENAME") || is_cmd(&p, "REN") || is_cmd(&p, "MV")) { cmd_two(16, p); return; }
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
-    if (is_cmd(&p, "EXEC"))  { cmd_exec(p); return; }
-    if (is_cmd(&p, "HUSH"))  { sw_call(1, cmd_hush, p); return; }
-    if (is_cmd(&p, "RUN"))   { cmd_run(p); return; }
-    if (is_cmd(&p, "FILL"))  { sw_call(1, cmd_fill, p); return; }
-    if (is_cmd(&p, "COPY"))  { sw_call(1, cmd_copy, p); return; }
-    if (is_cmd(&p, "INFO"))  { sw_call(1, cmd_info, p); return; }
-    if (is_cmd(&p, "TIME"))  { sw_call(1, cmd_time, p); return; }
-    if (is_cmd(&p, "COLOR") || is_cmd(&p, "COLOUR")) { sw_call(1, cmd_color, p); return; }
-    if (is_cmd(&p, "PALETTE")) { sw_call(2, cmd_palette, p); return; }
-    if (is_cmd(&p, "MODE"))  { sw_call(1, cmd_mode, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
     if (is_cmd(&p, "BANNER")) { banner(); return; }   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
-    if (is_cmd(&p, "SWAP"))    { cmd_swap(p); return; }
-    if (is_cmd(&p, "ALIAS"))   { sw_call(ALIAS_BANK, cmd_alias, p); return; }
-    if (is_cmd(&p, "CLG"))   { sw_call(1, cmd_clg, p); return; }
-    if (is_cmd(&p, "CAPSLOCK") || is_cmd(&p, "CAPS")) { sw_call(1, cmd_caps, p); return; }
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     if (is_cmd(&p, "HELP"))  { sw_call(1, cmd_type, "/SYSTEM/ETC/HELP"); return; }   /* the help text lives on disk */
-    if (is_cmd(&p, "DUMP"))  { sw_call(1, cmd_dump, p); return; }
-    if (is_cmd(&p, "MON") || is_cmd(&p, "WOZ")) { cmd_mon(p); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
-    if (is_cmd(&p, "CPM"))   { cmd_cpm(p); return; }
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {                              /* only a .prg as typed: TRACE.TXT typed alone loaded 5 MB over the machine (review 2026-09-12) */

@@ -1,0 +1,2 @@
+# K4510: the boot splash draws from the initramfs, before the root is up.
+FRAMEBUFFER=y

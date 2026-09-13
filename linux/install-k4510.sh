@@ -133,7 +133,7 @@ menuentry "K4510 Fantasy Computer" --class k4510 {
     insmod part_gpt
     insmod ext2
     search --no-floppy --set=root --label $DST_LABEL
-    linux  /live/vmlinuz $CMDLINE quiet loglevel=3 vt.global_cursor_default=0
+    linux  /live/vmlinuz $CMDLINE quiet splash loglevel=3 vt.global_cursor_default=0
     initrd /live/initrd.img
 }
 menuentry "K4510 (text boot)" --class k4510 {

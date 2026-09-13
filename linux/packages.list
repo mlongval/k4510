@@ -78,3 +78,15 @@ firmware-amd-graphics
 
 # CHESS.PRG's engine, on the Tube (program 5)
 stockfish
+
+# The boot splash: the K4510 logo while the machine starts (Plymouth, with the
+# theme in config/includes.chroot/usr/share/plymouth/themes/k4510; Doc,
+# 2026-09-12: "a cool splash logo")
+plymouth
+plymouth-themes
+# Wi-Fi's regulatory database: the kernel asked for regulatory.db at every
+# boot, and without it the radio keeps to the world-safe channels
+wireless-regdb
+# pam_systemd: its absence was "PAM unable to dlopen(pam_systemd.so)" at every
+# login (user@.service stays masked in the layer; nothing needs a user manager)
+libpam-systemd

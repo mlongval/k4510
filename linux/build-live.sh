@@ -69,12 +69,15 @@ NODISK=${NODISK-nvme,nvme_core,ahci,libahci,ata_piix,ata_generic,pata_acpi}
 
 # No `quiet`.  This is a first bring-up on hardware that has never run it; if
 # KMS or live-boot fails, Doc needs to see which one, not a silent black screen.
+# `splash` (2026-09-13): the K4510 logo (Plymouth) covers the boot where KMS
+# works; the text is still written behind it, and shows wherever the splash
+# cannot draw.  The installed Dell boots quiet as well (install-k4510.sh).
 #
 # `persistence` turns on the fourth partition (see PERSIST_MB).  Note what it
 # costs: the system still lives in RAM, but SAVING now needs the stick, so
 # "pull it out once the banner is up" and "keep my changes" are no longer both
 # true at once.  Leave it in, and use F7 -> Shut down.
-CMDLINE="boot=live components toram union=overlay persistence"
+CMDLINE="boot=live components toram union=overlay persistence splash"
 [ -n "$NODISK" ] && CMDLINE="$CMDLINE modprobe.blacklist=$NODISK"
 
 # The persistence partition.  100 MB is Doc's number and it is a good one: an
@@ -136,7 +139,12 @@ squash_base() {
     # zstd: decompresses fast, and the whole thing is read into RAM once at boot.
     mksquashfs "$ROOT" "$STAGE/live/filesystem.squashfs" \
         -comp zstd -Xcompression-level 19 -noappend -no-progress \
+        -p 'proc d 555 0 0' -p 'sys d 555 0 0' \
         -e proc sys dev/pts mnt tmp var/cache/apt/archives $LAYER_DIRS
+    # -e drops proc and sys whole, directories and all; the -p pseudo entries put
+    # them back empty, as mount points (initramfs-tools moves /sys and /proc
+    # into the new root; without them it printed "mount point does not exist"
+    # twice every boot -- Doc's photos, 2026-09-13).  -e must stay last.
 }
 squash_layer() {
     echo "== squashfs: the machine layer =="
@@ -221,6 +229,9 @@ EOF
 # tek40xx BINARY but not the usr/local/bin wrapper that sets KMSDRM and full
 # screen (Doc, the Dell, 2026-09-11).  It also carries usr/share/consolefonts.
 cp -a "$HERE/config/includes.chroot/." "$ROOT/"
+# The boot splash's picture (Plymouth, usr/share/plymouth/themes/k4510, above):
+# the logo tools/mkbootlogo.py draws, kept once, in data/, not twice.
+install -m 644 "$REPO/data/bootlogo.png" "$ROOT/usr/share/plymouth/themes/k4510/logo.png"
 
 # Second layer under the kernel command line: even if someone boots without the
 # modprobe.blacklist=, these keep the drivers out.  `install ... /bin/false` is

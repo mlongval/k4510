@@ -1,0 +1,17 @@
+# K4510: the boot splash, shown while the machine starts (Doc, 2026-09-12:
+# "a cool splash logo").  logo.png is data/bootlogo.png, which
+# tools/mkbootlogo.py draws from the machine's own parts; linux/build-live.sh
+# copies it here.  It is drawn on the console's blue, scaled to fit the
+# screen with its shape kept, and centred -- the Dell's 1920x1080 exactly,
+# a 4:3 panel with blue above and below.
+Window.SetBackgroundTopColor(0.0, 0.0, 0.667);
+Window.SetBackgroundBottomColor(0.0, 0.0, 0.667);
+
+logo.image = Image("logo.png");
+w = Window.GetWidth();
+h = Window.GetHeight();
+s = Math.Min(w / logo.image.GetWidth(), h / logo.image.GetHeight());
+logo.scaled = logo.image.Scale(logo.image.GetWidth() * s, logo.image.GetHeight() * s);
+logo.sprite = Sprite(logo.scaled);
+logo.sprite.SetX(Window.GetX() + (w - logo.scaled.GetWidth()) / 2);
+logo.sprite.SetY(Window.GetY() + (h - logo.scaled.GetHeight()) / 2);

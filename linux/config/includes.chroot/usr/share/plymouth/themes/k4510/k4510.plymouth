@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=K4510
+Description=The K4510 Fantasy Computer's boot logo (tools/mkbootlogo.py)
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/k4510
+ScriptFile=/usr/share/plymouth/themes/k4510/k4510.script

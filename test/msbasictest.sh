@@ -113,6 +113,17 @@ RUN
 echo "$out" | grep -q "^AFTERRUN"      || fail "the first star command after a RUN did not reach the shell"
 echo "$out" | grep -q "SYNTAX ERROR"  && fail "the first star command after a RUN was a ?SYNTAX ERROR"
 
+# Arrow keys at the prompt: $80-$83, which INLIN refuses.  They used to be
+# echoed first, drawing C-cedilla, u-umlaut, e-acute, a-circumflex on the
+# glass for keys BASIC then threw away.  Now a line drops them unseen, so the
+# echo is exactly what BASIC got (Doc, 2026-09-12).
+out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
+RUN msbasic
+PR'"$(printf '\202\203\200')"'INT 7
+' 3000 2>&1) || fail "MS BASIC did not run (arrow-key test)"
+echo "$out" | grep -q "^PRINT 7$" || fail "an arrow key at the prompt was echoed (or not dropped)"
+echo "$out" | grep -q "^ 7"       || fail "the line with arrow keys in it did not run as PRINT 7"
+
 # ---- SAVE / LOAD / *VI ------------------------------------------------------
 # A program is kept as its LIST, in text.  Worth guarding: SAVE's steering of
 # LIST (program lines to the file, WITHOUT FOUT's leading sign space, and the

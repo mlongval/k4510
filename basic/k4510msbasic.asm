@@ -348,6 +348,24 @@ k4510_in:
         jmp     @out
 @live:
         jsr     ROM_CHRIN
+; What a line cannot hold is not echoed.  INLIN refuses $7D and up, and the
+; arrows and function keys are $80-$9B -- echoed, they drew Ç ü é â on the
+; glass and BASIC silently threw them away (Doc, 2026-09-12, screenshot).
+; Only when a LINE is being read (the call came from GETLN, whose JSR
+; MONRDKEY returns to GETLN+2): GET takes them, and a game may want them.
+        cmp     #$7D
+        bcc     @typed
+        sta     k4510_ch
+        tsx
+        lda     $0103,x          ; our caller's return address, low byte
+        cmp     #<(GETLN+2)
+        bne     @keepkey
+        lda     $0104,x
+        cmp     #>(GETLN+2)
+        beq     @live            ; a line: drop it, and wait for the next key
+@keepkey:
+        lda     k4510_ch
+@typed:
 ; A star command, if this is the first character of a line AND BASIC is at
 ; its OK prompt, so a "*" typed at an INPUT prompt inside a running program
 ; is just a character, which is what INPUT's caller is entitled to expect.

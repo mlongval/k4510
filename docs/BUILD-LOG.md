@@ -7489,3 +7489,13 @@ register, so after any *command that ran a program the BASIC prompt had
 none.  k4510_cursor puts it back after every ROM_SHELL call (the star
 path and *VI's).  Not in msbasictest: headless sees RAM, and the flag
 lives in the terminal device (T.shown); checked on the Dell.
+
+And, with a screenshot: "arrow keys make accented characters" --
+ÇÇÇâââééé üüü after OK.  The arrows are KEY_UP..KEY_RIGHT, $80-$83,
+which code page 437 draws as Ç ü é â; k4510_in echoed every byte before
+BASIC saw it, and INLIN then refused them ($7D and up).  Now, when the
+call came from GETLN (its JSR MONRDKEY returns to GETLN+2, read off the
+stack like the star test), a byte of $7D or more is dropped unechoed and
+the next key read.  GET, which calls MONRDKEY itself, still receives
+them.  msbasictest types PR, three arrows, INT 7: the echo must be
+exactly PRINT 7, and it must run.

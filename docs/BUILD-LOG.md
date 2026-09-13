@@ -7378,3 +7378,21 @@ That reboot (K4510 to K4510) came in at 20.9 s from power-on to
 graphical: kernel phase 5.6 s, i915 up at 3.7 s instead of 13.8 s, the
 earlier 5 s gap before it gone.  Why this boot and not the one before
 (Fedora to K4510) is not known yet; one boot is not a measurement.
+
+## 2026-09-12 — US-intl: the ' and " keys typed nothing
+
+Doc: on US-intl "the \" and ' keys do not work", and in MS BASIC
+`10 PRINT"HELLO"` lost its quote.  Both are dead keys there, as on any
+PC; the fault was what they typed when they did NOT combine.  The
+generator gave a lone dead acute U+00B4, diaeresis U+00A8, cedilla
+U+00B8, ring U+02DA -- none in code page 437, so push_unicode dropped
+them: `'`+space, `'`+t, `"`+h typed nothing or lost the accent.  And
+Unicode composes more than the font holds (" + h = U+1E27 ḧ), so those
+vanished whole.
+
+tools/mkkbdmaps.py now types ' " , ° for those four (what US-intl types
+on a PC), and keeps only compositions CP437 can show (146 rows -> 38;
+the 108 gone typed nothing before, now they type accent then letter).
+"+e is still ë, as on a PC -- for programming, the US layout.  All tests
+green; main.c:581's misleading-indentation warning is older (the battery
+poll) and untouched.

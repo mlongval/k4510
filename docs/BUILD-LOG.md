@@ -7396,3 +7396,12 @@ the 108 gone typed nothing before, now they type accent then letter).
 "+e is still ë, as on a PC -- for programming, the US layout.  All tests
 green; main.c:581's misleading-indentation warning is older (the battery
 poll) and untouched.
+
+## 2026-09-12 — GREEN.PAL
+
+Doc: "an old fashion phosphore green palette".  A ramp like AMBER.PAL:
+black, then fifteen even steps to P1 phosphor green 33 FF 33 (entry n is
+n/15 of it), with COLOR F 0.  `PALETTE LOAD GREEN`.  Copied straight into
+the Dell's ~/k4510/fs (persistent), so it works before any reboot.
+CAPABILITIES.md's list said four palettes in fs/SYSTEM/PALETTES; now
+five, in fs/SYSTEM/ETC/PALETTES, where they are.

@@ -128,7 +128,7 @@ WORK  MS BASIC        /MSBASIC/msbasic.prg at $7000.  2026-09-01: star commands 
 ?  Blitter: copy / fill / logic / line / triangle
 ?  SHEILA display-list coprocessor (copper-style)
 ?  256 colours from 24-bit; 16 per sprite/tile, all 256 for text32 and 8bpp
-?  Four predefined palettes: C64, PEPTO, GREY, AMBER (fs/SYSTEM/PALETTES)
+?  Five predefined palettes: C64, PEPTO, GREY, AMBER, GREEN (fs/SYSTEM/ETC/PALETTES)
 ?  Scanline effect, borders included (fixed 2026-09-01)
 ?  Chargen loading    a 4096-byte C64 chargen is permuted to ASCII/CP437 order.
                       A 2048-byte PET chargen is NOT supported (renders wrong)

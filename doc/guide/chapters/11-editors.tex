@@ -36,7 +36,8 @@ Ctrl-X & leave --- twice on a changed file, to throw the changes away \\
 \end{tabular}
 \end{center}
 
-The bar along the bottom carries the name, a \verb|*| while there are
+Accented letters type as themselves. The bar along the bottom carries
+the name, a \verb|*| while there are
 unsaved changes, where the cursor is, and those last two keys, so there is
 nothing to remember. Long lines slide sideways rather than wrap.
 
@@ -44,7 +45,10 @@ nothing to remember. Long lines slide sideways rather than wrap.
 \verb|VI name| is modal in the old way. In \emph{normal} mode the keys
 are commands; a handful of them put you into \emph{insert} mode, where
 what you type goes into the file; and Escape brings you back. The
-\verb|:| line at the bottom is the third place, for the ex commands.
+\verb|:| line at the bottom is the third place, for the ex commands. The
+cursor says which of the three you are in: a block in normal mode, a bar
+while inserting, an underline on the \verb|:| line. Accented letters go
+in like any other, in insert mode and after \verb|r|.
 
 \subsection*{Modes}
 \begin{center}
@@ -148,6 +152,10 @@ deliberate, and so is the plain-substring search: \verb|/foo| finds
 \end{tabular}
 \end{center}
 
+\noindent The command word is read in either case, so \verb|:Q| and
+\verb|:WQ| work with the caps lock on --- which is how most people
+arrive in VI from a BASIC.
+
 \subsection*{Making \texttt{jk} leave insert mode}
 The usual mapping is the one most people want first, and it is typed at
 the \verb|:| line exactly like this, with the Escape spelt out in angle
@@ -196,7 +204,9 @@ There are two cases, and they look alike, so here is the rule.
 file, runs the editor on it, and loads it back when you leave --- so what
 you type in the editor is what you \verb|LIST| afterwards. Variables do
 not survive the round trip, exactly as with \verb|LOAD|.
-Section~\ref{sec:basicvi} has the details.
+Section~\ref{sec:basicvi} has the details for EhBASIC; Microsoft BASIC
+does the same with \verb|*VI| (Chapter~\ref{cha:msbasic}), and LOGO with
+\verb|EDIT "name| (Chapter~\ref{cha:logo}).
 
 \textbf{To edit any other file}, put \verb|SWAP| in front:
 

@@ -1,7 +1,8 @@
 \chapter{Forth}\label{cha:forth}
 
 The machine's third language is native: no Tube, no co-processor, just
-45GS10 machine code loaded at \texttt{\$4000}. It is Tali Forth 2 ---
+45GS10 machine code loaded at \texttt{\$8C00}, with the dictionary
+below it. It is Tali Forth 2 ---
 a public-domain, ANS-flavoured Forth written for the 65C02, which this
 CPU speaks as a strict superset.
 
@@ -34,7 +35,7 @@ Tali brings an interactive 65C02 assembler and a disassembler, kept in
 because on this machine they are the point:
 
 \begin{type}
-4000 10 disasm       disassemble the Forth kernel itself
+' dup 10 disasm      disassemble a word of the kernel
 assembler-wordlist >order
 here  2 lda.#  0 sta.z  drop
 \end{type}

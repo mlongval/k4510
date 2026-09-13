@@ -1,0 +1,125 @@
+\chapter{Memory}\label{cha:memory}
+
+\section{The 64\,KB view and the 256\,MB behind it}
+The 45GS10's program counter is 16 bits: code executes inside a 64\,KB
+window. The 256\,MB of physical memory is reached three ways:
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Flat pointers}: \verb|LDA [ptr],Z| and the Q forms read and
+  write any byte of the 256\,MB directly. Data never needs banking.
+\item \textbf{Bank registers} (\verb|$D600|, one per 8\,KB block): write a
+  28-bit base and that block of the window shows that memory. Bytes 0--2 set
+  the base; byte 3 switches (bit 7 = off).
+\item \textbf{DMA} (\verb|$D200|): copy, fill, swap, line, triangle ---
+  instant, physical addresses.
+\end{itemize}
+
+\section{The CPU view, unmapped}
+\begin{center}
+\small
+\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.48\linewidth}@{}}
+\toprule
+\texttt{\$0000-\$01FF} & system & zero page and stack\\
+\texttt{\$0200-\$07FF} & system & the ROM's data and C stack, and two bytes worth knowing (below)\\
+\texttt{\$0800-\$CFFF} & user   & 50\,KB for programs, ROM-free at launch\\
+\texttt{\$A000-\$BFFF} & ROM    & \emph{the sideways window; RAM underneath}\\
+\texttt{\$C000-\$CFFF} & ROM    & \emph{RAM underneath, bankable}\\
+\texttt{\$D000-\$DFFF} & I/O    & always I/O, whatever is banked\\
+\texttt{\$E000-\$FEFF} & ROM    & \emph{RAM underneath, bankable}\\
+\texttt{\$FF00-\$FFFF} & stub   & always ROM: system-call stub and vectors\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Two bytes of system state are fixed, so that programs can
+rely on them:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[\texttt{\$022E} --- a script is running] non-zero while \verb|EXEC|
+  (and so \pth{/STARTUP.BAT}) is feeding the shell. A program that would
+  wait for a key --- \verb|TYPE|'s ``more'', say --- should not, because
+  there is nobody there to press it.
+\item[\texttt{\$03FF} --- the result] the shell's result code: 0 for
+  success. A program sets it to say it failed, which is what an RX
+  script reads as \verb|RC|.
+\end{description}
+
+\section{Programs}
+A \texttt{.prg} begins with two addresses, where it loads and where it
+starts, and the shell honours both. The C programs of \pth{/SYSTEM/BIN}
+load at \texttt{\$6000}, Mad Pascal's at \texttt{\$0800}, the two
+BASICs at \texttt{\$7000}, and \verb|MONITOR| at \texttt{\$E000}, in the
+RAM under the ROM --- so that the memory a monitor is there to look at,
+\texttt{\$0800} to \texttt{\$CFFF}, is left exactly as it was.
+
+\section{System calls}
+The page \texttt{\$FF00} is always the ROM, whatever is banked, and its
+jump table is the whole of the interface a program needs:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.56\linewidth}@{}}
+\toprule
+\texttt{\$FF80} & CHROUT & print the character in A \\
+\texttt{\$FF83} & CHRIN  & wait for a key; it comes back in A \\
+\texttt{\$FF86} & GETIN  & a key in A, or 0 if none is waiting \\
+\texttt{\$FF89} & LOAD   & name at (\texttt{\$F0}), to \texttt{\$F2--\$F5}; status in A, size in \texttt{\$F6--\$F9} \\
+\texttt{\$FF8C} & SAVE   & name at (\texttt{\$F0}), from \texttt{\$F2--\$F5}, length \texttt{\$F6--\$F9} \\
+\texttt{\$FF8F} & SHELL  & run the line A/X points at, as if it were typed \\
+\texttt{\$FF92} & VIDEO  & put the ROM's video mode and palette back after a program drew \\
+\texttt{\$FF95} & ARGS   & what followed the program's name: (\texttt{\$F0}), length in A \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent Anything handed to a system call must lie below
+\texttt{\$A000}: during the call the ROM is banked in over
+\texttt{\$A000--\$FFFF}, and a line kept up there would read as the ROM's
+bytes. \verb|SHELL| copies the line into the shell's own buffer before
+running it, so the program's copy is left alone.
+
+\section{RAM under the ROM}
+\verb|rom_out()| (or three pokes to the bank registers) banks blocks 5--7
+onto the RAM beneath the ROM: a program then owns
+\texttt{\$0800-\$CFFF} + \texttt{\$E000-\$FEFF} = 57\,KB. Every system call
+still works, because the calls go through the \texttt{\$FF00} stub page,
+which banks the ROM in and out around them.
+
+\section{Sideways ROM}
+The operating system is bigger than its half of the 64\,KB --- so, like
+the BBC Micro before it, the machine grew \emph{sideways}. The ROM file
+is a 24\,KB base image plus appended 8\,KB banks paged into the
+\texttt{\$A000-\$BFFF} window: bank~0 is the base image itself, banks~1
+and~2 hold the colder commands, and bank~3 has the line editor, its
+history and the directory commands. Chapter~\ref{cha:commands} says which
+bank every command lives in. The shell pages the right bank in around
+each call, and up to sixteen banks --- 128\,KB of operating system ---
+fit in the scheme.
+
+The ROM is full, and it is kept that way on purpose: a command whose
+work can be a program on the disk becomes one --- \verb|TYPE| and the
+monitor did in September~2026 --- because a program costs nothing to
+load (the disk is the host's, and on the K4510's own Linux it is in RAM)
+and can be replaced without touching the ROM.
+
+The calls go one way, and this is the rule to hold on to if you write
+code of your own for a bank: code in a bank may call resident code as
+freely as it likes, but resident code must never call into a bank. At
+that address a different bank holds something else entirely, and the
+dispatch is the only thing that knows which bank is in. A routine that
+everything uses belongs in the base image, whatever it costs there.
+
+\section{RAM under the I/O page}
+A \texttt{MAP} of block 6 hides \texttt{\$D000-\$DFFF} and exposes RAM:
+with the ROM also banked away a program owns a contiguous field from
+\texttt{\$0800} to \texttt{\$FEFF} --- 61.75\,KB of the 64. The trick
+that makes it safe is that \texttt{MAP} is an \emph{instruction}, not a
+register: the program that hid the I/O can always ask for it back, so
+there is no way to lock yourself out. (The far-call gate is unreachable
+while block 6 is mapped; unmap before far calls.)
+
+\section{Programs bigger than the window}
+The \texttt{K4SG} executable format loads segments to any physical address
+and the far-call gate (\verb|$DF00|) calls between them: a plain \verb|JSR|
+into slot $n$ banks descriptor $n$'s code in, and the callee's \verb|RTS|
+banks it back out. \verb|SEGDEMO| shows two overlays sharing one
+address.

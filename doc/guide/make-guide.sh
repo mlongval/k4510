@@ -42,6 +42,11 @@ cd "$HERE"
 # The register appendix comes out of the machine's own headers every build.
 python3 "$HERE/mkregs.py"
 
+# ...the command list and the F7 menu's rows out of the ROM and the frontend,
+# which fails the build if a command has no description or a described one is
+# gone (the descriptions are in mkref.py)...
+python3 "$HERE/mkref.py"
+
 # ...and the repository's issue template out of the Filing an Issue page, so
 # that the page and the template cannot say different things.
 python3 "$HERE/mkissue.py"

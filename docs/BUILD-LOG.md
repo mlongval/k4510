@@ -7840,3 +7840,38 @@ GRUB has no switch for it.  It can be wiped: `clear` (in that GRUB --
 "Clear the screen.") is now the first command of the quiet K4510 entry,
 here and in install-k4510.sh, so the line is gone before the kernel
 starts and the splash takes the screen.  The text-boot entry keeps it.
+
+## 2026-09-13 — the handbook brought up to date, and two of its lists generated
+
+Doc: "update and redo the handbook, removing things no longer pertinent
+and adding new pertinent things" -- and asked whether splitting it into
+chapter files would help.  It already was (a master .tex \input-ing one
+file per chapter); what changed:
+
+- Renumbered so `ls` is the book's order: 01-13 user's guide, 20-21
+  programmer's, a1-a3 appendices, z1-z3 end matter (two files were both
+  09-).  mkissue.py follows a2-issues.tex.
+- MS BASIC has its own chapter (05) with SAVE/LOAD/*VI/*BYE; LOGO has
+  one (08).  EhBASIC's chapter is EhBASIC's.
+- New chapter 03, Every Command, and the F7 menu's every row in chapter
+  01, both generated at build time by doc/guide/mkref.py: names from
+  shcmds[]/shell_line()/nav(), fs/SYSTEM/BIN, fs/LANG; menu rows, keys,
+  choices and defaults from core/ui/menu.c and settings.c.  A command
+  without a line in mkref.py's DESC, or a DESC line for a command that
+  is gone, fails the build.
+- Brought up to date: SETUP measures (the first boot does not -- ch 1
+  said it did), MELODY, the dual-boot install and GRUB, what the machine
+  needs, keyboard layouts and dead keys, the menu file and its locks,
+  SSH, MOUNT, ftp/sftp, DIR -a/-l, TYPE and MONITOR as programs, palettes,
+  VI's :Q and cursor shapes, the jump table and $022E/$03FF, BANNER.
+- Forth loads at $8C00, not $4000: the book's disassembly example (and
+  its screenshot) showed empty memory.  Fixed, and the stale comments in
+  the Makefile and forth/platform.asm.
+- fs/SYSTEM/ETC/HELP rewritten (it still offered LOGO as the banner);
+  STARTUP.SAMPLE no longer says the layout cannot be set.
+- New shots msbasic and logo; mon now shows the jump table at $FF80
+  (at $E000 it would show MONITOR itself).  126 pages.
+
+Seen while taking the shots, not fixed: MONITOR prints a stray
+"0000FF80: 4C" before the range for ff80.ff8f; MS BASIC leaves a blank
+line after every line typed in.

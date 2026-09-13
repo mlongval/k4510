@@ -44,7 +44,7 @@ TALI_OPTION_MAX_COLS := 80      ; 80x60 text mode
 TALI_OPTION_HISTORY := 1
 TALI_OPTION_TERSE := 0
 
-; .prg header: K/OS loads the image at $4000 and JSRs to kernel_init
+; .prg header: K/OS loads the image at $8C00 and JSRs to kernel_init
         * = $8BFC
         .word $8C00             ; load address
         .word kernel_init       ; run address

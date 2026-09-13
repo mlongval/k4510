@@ -15,7 +15,7 @@ Run by make-guide.sh. Output: .github/ISSUE_TEMPLATE/report.md (never edit).
 """
 import re, sys, pathlib
 
-CHAPTER = "chapters/93-issues.tex"
+CHAPTER = "chapters/a2-issues.tex"
 FORM = "issue-form.txt"        # the hand-filled block; BUG asks the same
 OUT = ".github/ISSUE_TEMPLATE/report.md"
 PROGRAM = "demo/bug.c"      # BUG asks the same questions; see check_labels()

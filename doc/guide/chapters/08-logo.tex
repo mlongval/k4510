@@ -1,0 +1,80 @@
+\chapter{LOGO}\label{cha:logo}
+
+LOGO is the language that taught a generation of children that a
+computer does what it is told, and it did it with a turtle: a small
+arrow on the screen that walks forward, turns, and leaves a line behind
+it. The K4510's is new, written for this machine in September~2026, and
+native --- 45GS10 code, no co-processor.
+
+\begin{type}
+LOGO
+FD 100 RT 90
+REPEAT 4 [FD 100 RT 90]
+\end{type}
+
+\screen{shots/logo.png}{LOGO: a square repeated round a circle, drawn
+by the blitter under the console's text.}
+
+The picture is VICKY's 640$\times$480 bitmap \emph{under} the console,
+which is the classic LOGO screen: the turtle draws below and the prompt
+lives above, so you can see what you asked for and what you are asking
+next at once. The turtle itself is a hardware sprite. Every line is the
+blitter's, and every number is a real one --- IEEE floating point, done
+by the MATH unit, so a heading is an angle and \verb|SQRT 2| is what it
+should be.
+
+\section{The words}
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.42\linewidth} >{\raggedright\arraybackslash}p{0.52\linewidth}@{}}
+\toprule
+\texttt{FD n}, \texttt{BK n} & forward, back \\
+\texttt{RT n}, \texttt{LT n} & right, left, in degrees \\
+\texttt{PU}, \texttt{PD} & pen up, pen down \\
+\texttt{HT}, \texttt{ST} & hide, show the turtle \\
+\texttt{HOME}, \texttt{CS} & to the centre; clear the screen as well \\
+\texttt{SETXY x y} & put it somewhere \\
+\texttt{SETX}, \texttt{SETY}, \texttt{SETH} & one coordinate, or the heading \\
+\texttt{SETPC n} & the pen's colour \\
+\texttt{FILL} & paint the area under the turtle \\
+\texttt{XCOR}, \texttt{YCOR}, \texttt{HEADING} & where it is \\
+\texttt{REPEAT n [\ldots]} & do it n times; \texttt{REPCOUNT} says which time this is \\
+\texttt{IF c [\ldots]} & decide \\
+\texttt{IFELSE c [\ldots] [\ldots]} & decide between two \\
+\texttt{MAKE "x expr}, \texttt{:x} & a variable, and its value \\
+\texttt{PRINT}, \texttt{SHOW} & print a value \\
+\texttt{RANDOM}, \texttt{SQRT}, \texttt{SIN}, \texttt{COS}, \texttt{INT}, \texttt{ABS} & numbers \\
+\texttt{TO name :a \ldots{} END} & a procedure; \texttt{STOP} and \texttt{OUTPUT} leave it \\
+\texttt{LOAD "name} & run a \texttt{.LGO} file \\
+\texttt{EDIT "name} & edit one in VI, then run it \\
+\texttt{HELP}, \texttt{BYE} & the words; back to K/OS \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Procedures}
+A procedure is a new word, and it may call itself:
+
+\begin{type}
+TO TREE :N
+  IF :N < 5 [STOP]
+  FD :N LT 30 TREE :N * 0.7
+  RT 60 TREE :N * 0.7
+  LT 30 BK :N
+END
+TREE 80
+\end{type}
+
+\noindent A procedure's inputs are its own; \verb|MAKE| writes the
+nearest variable of that name, or makes a global one. Recursion is real
+and goes deep --- deep enough for any tree --- and a procedure that
+recurses for ever says so rather than taking the machine with it.
+
+\section{Files}
+\verb|LOAD "TREE| runs \texttt{TREE.LGO} from the directory you are in,
+or from the examples in \pth{/LANG/LOGO/EX}: \texttt{SQUARE},
+\texttt{SPIRAL}, \texttt{TREE} and \texttt{SNOW}. \verb|EDIT "MINE|
+opens \texttt{MINE.LGO} in VI (Chapter~\ref{cha:editors}) and runs it
+when you leave the editor, which is the way to write anything longer
+than a line. A \texttt{.LGO} file is plain text, one line as you would
+type it after another.

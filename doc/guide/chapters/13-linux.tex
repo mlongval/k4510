@@ -1,0 +1,220 @@
+\chapter{The Linux Underneath}\label{cha:linux}
+
+Every emulated machine sits on a real one. On most of them that fact is
+carefully hidden; here it is a feature, because the real machine has
+compilers on it and the fantasy one is being used to write programs.
+
+This chapter is about the seam --- the one character that crosses it and
+the words that use it --- and then about the Linux itself: what is on
+it, how it gets onto a stick or beside another system, and how it boots.
+
+\section{\texttt{!} --- the Linux prompt, from the machine's prompt}
+A line beginning with \verb|!| is not the machine's:
+
+\begin{type}
+!ls -l
+!git status
+!nvim notes.txt
+\end{type}
+
+\noindent runs that command on the Linux the machine is standing on, with
+its output drawn on the machine's screen. A bare \verb|!| with nothing
+after it gives you an interactive shell there; leave it the way you leave
+any shell.
+
+It is carried on the Tube (Chapter~\ref{cha:tube}), which is the part of
+this machine already built to have another processor's console on the
+glass: the host's shell is started on the same pty the co-processors use,
+JIM renders it, and the ROM's own key loop feeds it. So the colours stay
+the machine's, full-screen programs work --- \verb|nvim|, \verb|htop| and
+\verb|tmux| run in the window --- and \verb|ls --color| lands in the
+machine's palette. The shell is told its terminal is
+\textbf{xterm-color}, and it speaks UTF-8: JIM draws what it can in the
+machine's character set and a near likeness of the rest, and an accented
+letter you type arrives as one.
+
+\verb|SSH [user@]host| is the same thing for a computer across the
+network: an ssh session, drawn by JIM, through the Linux's own ssh.
+
+\begin{aside}
+\textbf{Locking the door.} On a machine a child uses, the way into Linux
+may be a way into trouble. \verb|linux = locked| in the menu file
+(Section~\ref{sec:menufile}) turns \verb|!|, \verb|SSH| and the menu's
+telnet row away with a message, and \verb|consoles = locked| makes the
+Linux consoles unreachable from the keyboard. \verb|PAS| and \verb|CC|
+still compile.
+\end{aside}
+
+\begin{aside}
+\textbf{What this means for the container.} The sandboxed flavour
+(\pth{linux/podman.sh}) is a wall on purpose: it is handed the display,
+the sound, the game controllers and one folder, which the machine sees
+as \pth{/MNT/SHARE}, and nothing else. \verb|!| inside it is real, and
+reaches the container --- which is a small Debian with the compilers on
+it, and not your computer.
+\end{aside}
+
+\section{\texttt{PAS} and \texttt{CC}: compiling on the machine}
+The compilers live on the Linux side, so the machine reaches them the
+same way you would --- but without you having to remember four options:
+
+\begin{type}
+VI HELLO.PAS
+PAS HELLO
+HELLO
+\end{type}
+
+\verb|PAS name| compiles \texttt{name.PAS} \emph{in the directory you are
+standing in} with Mad Pascal, and leaves \texttt{name.prg} beside it.
+\verb|CC name| does the same for \texttt{name.C} with cc65, using exactly
+the rule the machine's own Makefile uses for its programs. Intermediates
+go to a scratch directory and never appear on your disk; the compiler's
+own errors appear on the screen, and its exit status comes back as the
+result code, so a script can test it.
+
+That is the loop the machine owns: \emph{edit the source on the machine,
+compile it from the machine's prompt, run it on the machine.} The
+compiler itself still runs on the Linux beside it, which is why
+``self-hosted'' has an ``almost'' in front of it --- but the part that
+matters when you are writing a program is all on this side of the seam.
+
+\section{What is on the other side}
+On a desktop, the other side is your own computer and has whatever you
+have put on it. On the K4510's own Linux it is a Debian built for the
+purpose, and the list is short because everything on it is there for a
+reason:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.58\linewidth}@{}}
+\toprule
+cc65, 64tass, nasm & the machine's own toolchain --- it can rebuild itself \\
+FPC + Mad Pascal & what \verb|PAS| runs \\
+git, neovim & so that work done here is work \\
+curl, ssh & what \texttt{ftp://}, \texttt{sftp://} and \verb|SSH| go through \\
+\texttt{tek40xx} & a Tektronix 4010 terminal, below \\
+telnetd & bound to the machine itself and nothing else \\
+NetworkManager, Tailscale & the network: F7 $\rightarrow$ Host \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{The consoles.} Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are
+Linux text consoles, 80 by 25 in the IBM PC's own font, where the
+Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are
+media keys, add Fn.) Quitting the emulator (Shift+Esc, or F7
+$\rightarrow$ Quit) drops you to a Linux shell on the machine's own
+console rather than to nothing, and F7 has a \emph{Shut down the
+computer} row because there is no desktop to go back to. The power
+button performs a clean shutdown. The consoles speak UTF-8 and follow
+the keyboard layout chosen in F7.
+
+\textbf{The network.} F7 $\rightarrow$ Host shows the computer's name
+and address, and \emph{Wi-Fi / network setup} opens NetworkManager's
+own screen on a spare console to join a network; the machine is back
+when you leave it. A network joined once is remembered.
+
+\textbf{Telnet, both directions.} \verb|TELNET 127.0.0.1 23| from the
+machine's prompt --- or F7 $\rightarrow$ Host $\rightarrow$ \emph{Telnet
+into the host} --- logs in to the Linux underneath through the front
+door rather than through \verb|!|, which is useful when you want a
+session that survives what the machine is doing. The daemon listens on
+the machine itself only, so there is no network path to it at all.
+Outbound, the network is real: \verb|TELNET| reaches a BBS, and URLs
+work as Chapter~\ref{cha:shell} describes.
+
+\section{On a stick}
+\begin{type}
+sudo ./linux/build-live.sh
+\end{type}
+
+\noindent makes the image, and \texttt{dd} puts it on a USB stick. At
+boot a menu offers the keyboard layout, and then the whole system is
+copied into RAM, so the stick is not being read while you work. A
+persistence partition on the same stick keeps what should survive a
+restart: the machine's home directory --- \texttt{k4510.cfg}, the menu
+file, your saved states and the machine's disk with your files on it
+--- the networks you have joined, and Tailscale's identity. Leave the
+stick in.
+
+\textbf{The laptop's own drive is not there.} The stick's kernel command
+line blacklists the storage drivers absolutely, so the laptop's disk is
+not mounted, not visible, and not writable by anything on the stick.
+That is not a policy setting you could turn off by accident; the machine
+cannot see it.
+
+\section{Beside another system}\label{sec:install}
+A computer that already runs Linux can have the machine as a second
+choice at power-on. Make an empty partition of 2\,GB or more on its
+internal disk and label it \texttt{K4510}; boot the computer's usual
+Linux with the stick plugged in; and from the stick run
+
+\begin{type}
+sudo ./install-k4510.sh
+\end{type}
+
+\noindent It formats that partition the first time (and never again),
+copies the system onto it, arranges for your settings and files to be
+kept in the rest of the partition, and adds two entries to the
+computer's boot menu:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[K4510 Fantasy Computer] the machine, quietly: the machine's logo
+  while Linux starts and nothing else, then the prompt.
+\item[K4510 (text boot)] the same system, showing Linux's messages as
+  it starts --- the one to choose when something needs looking at.
+\end{description}
+
+\noindent It refuses a partition on a USB disk, and one on the stick
+itself, and it touches nothing of the other system but its boot menu.
+Run it again from a newer stick to update: the system is replaced and
+your settings and files are kept. The stick is only needed for the
+install.
+
+\textbf{The boot menu.} The computer boots whichever of the two systems
+was used last, so the other system's own updates, which restart it,
+come back to it. With the menu set to stay hidden, as it is on the
+computer this book was checked on, the computer starts at once; Esc as
+it starts shows the menu. That is the other system's GRUB setting
+(\texttt{GRUB\_TIMEOUT\_STYLE=hidden}, \texttt{GRUB\_SAVEDEFAULT=true}
+in \pth{/etc/default/grub}), and the installer leaves it as it finds it.
+
+The whole system is read into RAM at boot here too --- everything on the
+\texttt{K4510} partition, which is why nothing large should be kept on it
+beside the system itself.
+
+\section{A Tektronix beside the machine}
+\texttt{tek40xx} (Ian Schofield's, GPL-3) is a Tektronix 4010/4014
+storage-tube terminal that is also a telnet client. It is on the K4510's
+Linux and in the container because of what a storage tube is
+\emph{for}: a PiDP-11 answers on telnet ports, and a machine of that
+vintage deserves a screen of that vintage to draw on.
+
+\begin{type}
+tek HOST [PORT]
+\end{type}
+
+\noindent on the second console --- full screen on a bare console, in a
+window under a desktop. And without any PDP-11 at all:
+
+\begin{type}
+tekplay NAME|FILE...
+\end{type}
+
+\noindent plays Tektronix plot files at a 9600-baud pace, which is the
+right speed to watch one being drawn. With no argument it plays every
+plot that ships; \texttt{HOME} clears the screen and \texttt{END} quits.
+Nothing in the emulator changed for any of this: it is a second program
+on the same computer, which is exactly what a second terminal was in
+1975.
+
+\section{From another computer}
+The machine's Linux answers ssh (as the user \texttt{k4510}), which is
+how the menu file is edited once the machine is locked, and how a
+screenshot is taken from across the room:
+
+\begin{type}
+ssh k4510@machine k4510-shot
+\end{type}
+
+\noindent writes one, as PrtSc would, into \pth{shots/}.

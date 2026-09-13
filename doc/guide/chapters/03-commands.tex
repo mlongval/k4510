@@ -1,0 +1,35 @@
+\chapter{Every Command}\label{cha:commands}
+
+This chapter is the whole vocabulary of the prompt, one line each, and it
+is not written by hand: \pth{doc/guide/mkref.py} reads the shell's own
+command table out of the ROM's source, the programs out of
+\pth{/SYSTEM/BIN} and the languages out of \pth{/LANG} at the moment
+this book is built. A command the machine has and this list does not
+describe stops the build, and so does a description of a command that has
+gone --- so what is below is what the machine you are reading about
+answers to. Chapter~\ref{cha:shell} is how the shell behaves; this is what
+you can say to it.
+
+Each entry says where the word lives, which matters more than it looks:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[ROM] in the resident part of the operating system, always there.
+\item[ROM, bank \emph{n}] in one of the sideways banks
+  (Chapter~\ref{cha:memory}), paged in for the moment it runs.
+\item[runs MONITOR, runs TYPE] a word the ROM still answers to, which
+  hands its line to a program on the disk. The work moved out of the ROM
+  in September~2026 to make room; the word did not change.
+\item[/SYSTEM/BIN] a program. Programs run by name from anywhere, and
+  take their arguments the same way the ROM's words do.
+\item[/LANG/\emph{name}] a language: its folder, with its examples.
+\item[ROM, on the Linux] a word the ROM answers to by starting something
+  on the Linux the machine runs on (Chapter~\ref{cha:linux}).
+\end{description}
+
+\noindent Every word below also works from a BASIC, Forth or the monitor
+with a \verb|*| in front, and a bare name that is not here is tried as a
+program, then as a CP/M program if F7 allows it, then as an alias, then as
+an RX script --- in that order, so an alias never hides a command.
+Capitals are the convention; the shell does not mind either way.
+
+\input{generated/commands}

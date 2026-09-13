@@ -13,21 +13,15 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   machine's own memory management: bank registers, a far-call gate, and RAM
   under the ROM. Its clock is whatever the host it runs on can hold at
   sixty frames a second with no gaps in the sound: the machine is a
-  fantasy and its timings are suggestions. A desktop of the last ten
-  years holds a hundred megahertz or more. The clock is a setting (F7,
-  under Machine --- ten steps from 202.5\,MHz down to 10, and a fresh
-  host starts at 40.5, the MEGA65's number); the first time the machine
-  boots on a host it measures it and picks the highest step that fits
-  with room to spare, keeps the answer so later boots pay nothing, and
-  never second-guesses a clock you chose yourself. While a program runs
-  the machine watches how much of each frame it is taking and steps the
-  clock down if it is losing. What a clock costs depends on what the
-  program does with it --- an arithmetic loop and a loop polling the
-  raster differ by three to one --- so the measurement is a fair guess
-  rather than a promise, and \verb|BENCH| is there for when you want the
-  whole picture. \verb|INFO| reports the clock in force, read live,
-  which is the only honest number --- and the banner names none, because
-  the machine no longer has one speed.
+  fantasy and its timings are suggestions. The clock is a setting (F7,
+  under Machine --- ten steps from 202.5\,MHz down to 10). A host nobody
+  has measured runs at 40.5, the MEGA65's number; \verb|SETUP| measures
+  it properly, with the sound and the picture really running, and the
+  machine keeps the answer for that host so later boots pay nothing. It
+  never second-guesses a clock you chose yourself. A desktop of the last
+  ten years holds a hundred megahertz or more. \verb|INFO| reports the
+  clock in force, read live, and \verb|BENCH| is there when you want the
+  whole picture.
 \item \textbf{Memory: 256\,MB}, flat, 28-bit. The CPU sees 64\,KB at a time;
   everything else is one instruction away.
 \item \textbf{Video: VICKY} --- 640$\times$480, 256 colours from a 24-bit
@@ -36,38 +30,45 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   (640$\times$240, 320$\times$240, 320$\times$200, 160$\times$200) are
   drawn into the same glass, doubled and centred, so the raster is always
   480 lines however few of them the picture uses.
-\item \textbf{Sound: an OPL2} --- a Yamaha YM3812 at \texttt{\$D480},
-  nine FM voices wired the AdLib's way: an address port, a data port and
-  a status register you poll. Any AdLib register list or instrument
-  patch therefore means what it says on this machine. A four-channel
-  sound sequencer at \texttt{\$D5E0} plays through it, in the BBC
-  Micro's idiom, which is what BBC BASIC's \verb|SOUND| and Mad Pascal's
-  \verb|Sound| use. A floating-point MATH unit sits beside it, which the
-  BASICs lean on. (The machine had four SID chips until September 2026.
-  Appendix~\ref{cha:sound} is the whole story, and it is worth reading
-  before concluding that it was a performance decision.)
-\item \textbf{A system ROM}: a shell with directories, a Wozmon-style
-  monitor, and EhBASIC~2.22 extended with graphics and sound --- with
-  five more languages one word away: BBC BASIC on the Tube, Forth,
-  Microsoft BASIC, CP/M, and RX, the machine's REXX
-  (Chapter~\ref{cha:rx}). Two compilers are one word away as well:
-  \verb|PAS| and \verb|CC| turn a Pascal or C source in the directory
-  you are standing in into a program beside it (Chapter~\ref{cha:linux}).
+\item \textbf{Sound: MELODY} --- an OPL2, the Yamaha YM3812, at
+  \texttt{\$D480}: nine FM voices wired the AdLib's way, an address port,
+  a data port and a status register you poll. Any AdLib register list or
+  instrument patch therefore means what it says on this machine. A
+  four-channel sound sequencer at \texttt{\$D5E0} plays through it, in the
+  BBC Micro's idiom, which is what BBC BASIC's \verb|SOUND| and Mad
+  Pascal's \verb|Sound| use. A floating-point MATH unit sits beside it,
+  which the BASICs and LOGO lean on. (The machine had four SID chips
+  until September 2026. Appendix~\ref{cha:sound} is the whole story.)
+\item \textbf{K/OS}: a shell with directories, in ROM --- and on the disk,
+  one word away each, seven languages: EhBASIC with graphics and sprites,
+  Microsoft's own BASIC of 1977, BBC BASIC on the Tube, Forth, LOGO, CP/M
+  on a Z80, and RX, the machine's REXX. Two compilers are one word away
+  as well: \verb|PAS| and \verb|CC| turn a Pascal or C source in the
+  directory you are standing in into a program beside it
+  (Chapter~\ref{cha:linux}).
 \end{itemize}
 
-\section{One machine, two ways to run it}\label{sec:names}
-The computer is the \textbf{K4510}: the 45GS10, VICKY, SHEILA, the OPL2
+\section{One machine, three ways to run it}\label{sec:names}
+The computer is the \textbf{K4510}: the 45GS10, VICKY, SHEILA, MELODY
 and K/OS. There is one of it. What changes is what it is standing on.
 
-\textbf{As a whole computer.} Write the image
+\textbf{As a whole computer, from a stick.} Write the image
 (\pth{linux/build-live.sh}) to a USB stick, boot a spare laptop from it,
 and the machine is the machine: a minimal Debian that exists only to
 hold it up, loaded into RAM, keeping its settings and your files on the
-stick and never touching the laptop's own drive. That Linux is not
-hidden --- the cross-compilers, git, an editor and a second terminal are
-on it, and the machine can reach them (Chapter~\ref{cha:linux}) --- but
-it is furniture. Switch the laptop on and you are at the \verb|/HOME]|
-prompt.
+stick and never touching the laptop's own drive.
+
+\textbf{As a whole computer, installed beside another system.}
+\pth{linux/install-k4510.sh} copies the same system from the stick onto a
+partition of a computer's internal disk and adds it to that computer's
+boot menu, so the machine is one choice of two when it starts. The other
+system is not changed, and the computer boots whichever of the two was
+used last (Chapter~\ref{cha:linux}).
+
+Either way, the Linux underneath is not hidden. The cross-compilers,
+git, an editor and a second terminal are on it, and the machine can
+reach them (Chapter~\ref{cha:linux}); but it is furniture. Switch on and
+you are at the \verb|/HOME]| prompt.
 
 \textbf{As a window.} Run the same program on a Linux desktop and you
 get the same machine in a window, which is how it is developed and
@@ -76,22 +77,13 @@ also a sandboxed container flavour (\pth{linux/podman.sh}) that is shown
 nothing of your computer but the display, the sound, the game
 controllers and one shared folder.
 
-Same ROM bytes, same software, either way. Everything in this book is
-the K4510 unless it says otherwise; where the desktop window and the
-laptop differ, the book says ``on a desktop''.
-
-\begin{aside}
-\textbf{The Raspberry Pi, honestly.} Until September~2026 there was a
-third way: the machine on bare metal on a Raspberry~Pi~3B+, with no
-operating system underneath it, called the \emph{BMC-K4510} after Randy
-Rossi's BMC64. It worked. It was retired on 2026-09-07 because every
-feature was being built twice --- once for the machine and once for the
-board --- to buy a boot three seconds faster, and one shape is worth
-more than that. A Pi still runs the K4510 perfectly well; it runs it
-under Linux, the same way the laptop does. Earlier printings of this
-book describe the bare-metal edition, and the tag \texttt{alpha-0.5} is
-the last tree that contains it.
-\end{aside}
+Same ROM bytes, same software, every way. Where the desktop window and
+the whole computer differ, the book says ``on a desktop'' or ``on the
+K4510's own Linux''. (Until 2026-09-07 there was also a bare-metal
+edition for the Raspberry~Pi~3B+; it was retired so that every feature
+is built once. A Pi still runs the machine under Linux like any other
+computer; the tag \texttt{alpha-0.5} is the last tree with the bare-metal
+edition in it.)
 
 \section{Building the machine}
 On a \textbf{Linux desktop}, three lines build the whole machine:
@@ -103,32 +95,51 @@ cd k4510 && ./setup.sh
 \verb|setup.sh| installs the compilers and SDL2, builds everything, and
 runs the machine's test suites.
 
-\subsection*{Or: the whole computer, on a stick}
+\subsection*{Or: the whole computer}
 \begin{type}
 sudo ./linux/build-live.sh
 \end{type}
-\noindent makes the bootable image: a small Debian and a few
+\noindent makes the bootable image: a small Debian, the machine and its
 compilers, about half an hour the first time. Write it to a USB stick
-with \texttt{dd} and boot a laptop from it. It loads itself to RAM, so the stick is not being read
-while you work; a persistence partition on the same stick keeps
-\texttt{k4510.cfg}, your saved states and your files, so the stick has
-to stay in. \pth{docs/LINUX.md} has the details, and
-Chapter~\ref{cha:linux} is what you can do with it once it is running.
+with \texttt{dd} and boot from it; to put it on a computer's own disk
+instead, boot that computer's usual Linux with the stick in and run
+\verb|sudo ./install-k4510.sh| from it. Chapter~\ref{cha:linux} has both.
+
+\subsection*{What it needs}
+The machine asks little of a computer, and most of what it asks is for
+the Linux under it:
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.66\linewidth}@{}}
+\toprule
+Processor & 64-bit x86, two cores; a Core~2 is enough to run it, and what the processor decides is only the clock \verb|SETUP| settles on \\
+Memory & 2\,GB; 4 is comfortable. The whole system is loaded into RAM at boot (about 0.9\,GB), and a running machine uses 1.7\,GB in all, the emulator itself 90\,MB of it \\
+Graphics & any Intel or AMD chip Linux drives natively (KMS); no desktop is used \\
+Screen & 640$\times$480 or more \\
+Firmware & UEFI or BIOS, either \\
+Storage & a 2\,GB USB stick, or a 2\,GB partition \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent In a window on a desktop it needs only what the desktop has
+already: SDL2 and a few hundred megabytes of memory.
 
 \section{First boot}
-Switch it on (on a desktop: \verb|./k4510|; on the stick: plug it in and
-power up). The machine greets you in yellow on blue:
+Switch it on (on a desktop: \verb|./k4510|; otherwise, power up). The
+machine's logo is on the screen while Linux starts, and then the machine
+greets you in yellow on blue:
 
 \screen{shots/boot.png}{The boot screen: five stepped colour bars, then
 the machine, its CPU, its memory and its chips --- and no clock, because
 the machine no longer has one speed. Everything else, the clock in force
-included, is one \texttt{INFO} away, and \texttt{LOGO} prints this again.}
+included, is one \texttt{INFO} away, and \texttt{BANNER} prints this again.}
 
 The \verb|/HOME]| at the bottom is the shell prompt --- the part before
 the \verb|]| is the directory you are in, and the machine starts you in
 \pth{/HOME}, which is yours. Type \verb|HELP| for the commands,
 \verb|INFO| for the machine's full self-description, and \verb|DIR| to
-see your files.
+see your files. The first time on a new computer, type \verb|SETUP| and
+let the machine measure it.
 
 \begin{aside}
 \textbf{Keys:} Escape is RUN/STOP (stops a BASIC program), Ctrl-C is
@@ -136,7 +147,28 @@ STOP, Shift+Escape quits the emulator. Reset is a chord, the way it was
 Commodore+Restore on the C64: Super+PageUp (the Windows or Command key
 and PageUp) --- one key cannot do it by accident. F7 opens the settings
 menu; F8 pauses the machine and turns the keyboard into a debugger's.
+PrtSc takes a screenshot --- the screen flashes, and the picture is in
+\pth{shots/} beside the emulator.
 \end{aside}
+
+\section{The keyboard}
+The keyboard is the one in front of you, and F7~$\rightarrow$~Input
+$\rightarrow$~\emph{Keyboard layout} says what its keys mean: US,
+US-International, Canadian French, French, German, Spanish, UK or
+Italian --- or \emph{Host}, the first choice, which leaves the question
+to the desktop or Linux the machine is running on. A layout chosen here
+takes effect at once, with its AltGr and its dead keys: on US-intl,
+\verb|'| then \verb|e| is \'e, the dead key twice or before a space
+gives the mark itself, and a \verb|'| or \verb|"| before a letter that
+takes no accent types itself. On the K4510's own Linux the Linux consoles
+follow the same choice. A letter the machine's character set (the IBM
+PC's) cannot draw is not offered. For programming, plain US has no dead
+keys to step round.
+
+\emph{Caps Lock is Ctrl}, beside it, makes the Caps Lock key a second
+Ctrl, where the old Unix keyboards had it; the shell's own
+\verb|CAPSLOCK| command (Chapter~\ref{cha:shell}) is how you get capitals
+without it.
 
 \section{The F7 menu}
 F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and
@@ -144,10 +176,8 @@ takes the whole screen, in the manner of the C64~Ultimate's: the
 categories down the left, the settings of the chosen one on the right,
 and a line at the foot saying what the keys do in whichever pane holds
 the cursor. Sound stops, and closing the menu resumes exactly where it
-froze --- the machine is not disturbed, only hidden. The menu draws with
-its own font and never touches the machine's memory, so it opens even
-when a program has wrecked the screen, and being opaque it reads the same
-whatever was there.
+froze. The menu draws with its own font and never touches the machine's
+memory, so it opens even when a program has wrecked the screen.
 
 Up and Down move; Enter or Right crosses from the categories to the
 settings; Left and Right step a value; Escape goes back a pane, and
@@ -161,85 +191,107 @@ was there when the list opened.
 page on the right, the screen-font list open over them.}
 
 \begin{description}
-\item[Video] border width and colour around the picture; the screen font
-  (a live swap of the chargen at \texttt{\$010000} --- \emph{kernel8},
-  \emph{unscii}, \emph{open-roms} and \emph{PXLfont}, the two PETSCII
-  fonts rearranged into ASCII order, twelve of Damien Guard's ZX~Origins
-  faces, and \emph{C64 chargen} if you have put a Commodore character
-  ROM in \pth{/SYSTEM/ETC/chargen.bin} --- the entry says so when you
-  have not); \emph{resolution} and \emph{left/top margin}, which are the
+\item[Video] the border; the screen font (a live swap of the character
+  set --- \emph{kernel8}, \emph{unscii}, \emph{open-roms} and
+  \emph{PXLfont}, twelve of Damien Guard's ZX~Origins faces, and
+  \emph{C64 chargen} if you have put a converted Commodore character ROM
+  in \pth{/SYSTEM/ETC/chargen.bin}, which \pth{/SYSTEM/ETC/README.TXT}
+  explains); \emph{resolution} and \emph{left/top margin}, which are the
   \verb|MODE| command's two knobs; \emph{scanlines}, a dark line between
-  each of the machine's, in three strengths --- the picture is drawn at
-  twice the height and every second row dimmed, so it is exact rather
-  than an overlay; \emph{scaling}: \emph{sharp} (hard pixels, any window
-  size --- so at a size that is not a whole multiple some pixel rows are
-  wider than others), \emph{soft} (smoothed), or \emph{sharp-fit} (hard
-  pixels \emph{and} a whole-number multiple, so every pixel of the
-  machine is the same size on the glass and what does not divide becomes
-  a black border); full screen; \emph{vertical sync}, off to begin with
-  --- see the aside below; and \emph{placement} and \emph{side panel},
-  which are the next section.
-
-  The figures in this book are taken with the effects off, whatever the
-  settings say, so that what you see here is the machine's own output.
-\item[Terminal] \emph{status bands} and how many rows each takes: two
-  static bands framing a console that scrolls between them
-  (Section~\ref{sec:bands}), plus the clock and date format they print.
-\item[Audio] volume. There is one row here, because there is one sound
-  chip and it is always fitted.
-\item[Input] the reset chord (Super, Ctrl or Alt + PageUp, or
-  Ctrl+Alt+Del); which key opens the menu (F7, F8, F11 or Pause);
-  whether a click captures the mouse pointer (the menu always releases
-  it).
-\item[Machine] \emph{save state} and \emph{load state}, four slots
-  each (the whole machine --- CPU, every used page of the 256~MB, the
-  banks and MAP, VICKY, the devices, JIM --- to \texttt{k4510-slotN.k4s}
-  beside the settings file; the row shows when the slot was written;
+  each of the machine's, drawn exactly rather than overlaid;
+  \emph{scaling}: \emph{sharp}, \emph{soft}, or \emph{sharp-fit} (hard
+  pixels \emph{and} a whole-number multiple, so every pixel is the same
+  size on the glass); full screen; \emph{vertical sync}, off to begin
+  with --- see the aside below; and \emph{placement} and \emph{side
+  panel}, which are the section after next. The figures in this book are
+  taken with the effects off.
+\item[Terminal] \emph{status bands} and how many rows each takes
+  (Section~\ref{sec:bands}), and the clock and date format they print.
+\item[Audio] volume.
+\item[Input] the reset chord; which key opens the menu; whether a click
+  captures the mouse pointer, and whether the host's pointer shows over
+  the picture; and the keyboard, above.
+\item[Machine] \emph{save state} and \emph{load state}, four slots each
+  (the whole machine --- CPU, every used page of the 256~MB, VICKY, the
+  devices, JIM --- to \texttt{k4510-slotN.k4s} beside the settings file;
   the Tube co-processor is not in the file and is stopped by a load);
-  reset; power cycle (memory cleared, ROM reloaded, back at the prompt
-  with \texttt{STARTUP.BAT} run again); stop the Tube co-processor;
-  quit; \emph{CPU clock} --- the ten steps, live (202.5, 162, 121.5, 81,
-  60, 40.5, 30, 20, 15, 10); choosing one here switches \emph{Auto
-  clock} off, because a clock chosen by hand is not to be second-guessed.
-  \emph{Auto clock} --- on, the machine measures the host at first boot
-  and steps down if the sound starves; off, the clock is whatever the
-  row above says. On the stick there is a last row, \emph{shut down the
-  computer}, because there the emulator quitting would leave you at a
-  bare console. A clock is right for a host when it holds 60 frames a
-  second with no gaps in the sound; above that the programs run faster
-  than the host keeps up with, the frame rate falls and the music slows
-  with it. \verb|BENCH| measures every step (Chapter~\ref{cha:shell}).
+  reset; power cycle; stop the Tube; quit; \emph{CPU clock} --- the ten
+  steps, live; choosing one switches \emph{Auto clock} off, because a
+  clock chosen by hand is not to be second-guessed. \emph{Auto clock} on
+  uses what \verb|SETUP| measured on this host. On the K4510's own Linux
+  there is a last row, \emph{Shut down the computer}.
 \item[Shell] whether an unknown word at the prompt may run a CP/M
-  \texttt{.COM} from drive~A: (Chapter~\ref{cha:cpm}). Off to begin
-  with, on purpose: \verb|D| typed for \verb|DIR| should not start a Z80
-  program. It changes only the guess --- a command that names \verb|CPM|
-  outright, an alias among them, works either way. And whether
-  \texttt{/STARTUP.BAT} runs at power-on, which is the way out of a bad
-  one (Section~\ref{sec:badstartup}). This is the first setting the
-  machine itself reads: the host puts the menu's switches in
-  \texttt{\$D521} and the ROM looks there.
-\item[Info] version, ROM, files, and host --- the last of which says
-  whether the machine is running on its own Linux or in a window on
-  yours.
+  \texttt{.COM} (Chapter~\ref{cha:cpm}) --- off to begin with, on
+  purpose: \verb|D| typed for \verb|DIR| should not start a Z80 program;
+  and whether \texttt{/STARTUP.BAT} runs at power-on, which is the way
+  out of a bad one (Section~\ref{sec:badstartup}).
+\item[Info] the version and the exact build, the ROM, the files, the
+  host --- the K4510's own Linux, or a window on a desktop --- and the
+  battery, where there is one.
+\item[Host] on the K4510's own Linux only: the computer's name, its
+  network address and Tailscale's, a \emph{Wi-Fi / network setup} row
+  that opens the network settings on a spare console, and a row that
+  telnets into the Linux for you.
 \end{description}
 
 Leaving the menu writes the settings to \texttt{k4510.cfg} beside
 \texttt{fs/} --- a plain \texttt{key = value} file you may edit;
 comments and keys it does not know are kept, which is how a settings
-file survives the machine changing under it. Adding a setting is one row
-in \texttt{core/ui/settings.c}, one row in the menu tree in
-\texttt{core/ui/menu.c}, and the place that reads it.
+file survives the machine changing under it.
 
 \begin{aside}
 \textbf{Vertical sync is off, and that is deliberate.} With it off the
 machine keeps its own 60\,Hz and presents a frame when it is ready; the
 cost is tearing. With it on, the pacing belongs to your display, and on
 a host whose refresh is not exactly 60 that costs frames --- and frames
-are sound here. A machine running at 51.8 frames a second makes 51.8
-frames of sound where the device wants 60, and you can hear the
-difference (Appendix~\ref{cha:sound}). Neither answer is right for every
-host, which is why it is a row and not a decision.
+are sound here (Appendix~\ref{cha:sound}). Neither answer is right for
+every host, which is why it is a row and not a decision.
 \end{aside}
+
+\section{The menu file: what the menu shows}\label{sec:menufile}
+Beside \texttt{k4510.cfg} is a second file, \texttt{k4510-menu.cfg}, and
+it decides not what the settings \emph{are} but which of them the menu
+\emph{offers}. The machine writes it out in full the first time it
+starts --- every category and every row, each marked \verb|show| --- so
+the file is itself the list of what can be changed:
+
+\begin{form}
+[K4510]
+Audio                    = show
+...
+[Video]
+Border width             = hide
+...
+[Locks]
+linux    = open
+consoles = open
+\end{form}
+
+\begin{itemize}[leftmargin=1.4em]
+\item \verb|hide| on a row takes it out of the menu, and a category with
+  nothing left in it goes too; \verb|hide| under \verb|[K4510]| takes a
+  whole category away. A hidden setting keeps the value it has in
+  \texttt{k4510.cfg}: it is not reset, only out of reach.
+\item \verb|linux = locked| shuts every door into the Linux
+  underneath: \verb|!|, \verb|SSH|, and the telnet row of the Host
+  menu. \verb|PAS|
+  and \verb|CC| still compile. \verb|consoles = locked| makes
+  Ctrl+Alt+F2 to F6 do nothing.
+\item Names are the menu's own, in either case; \verb|#| starts a
+  comment; a row the file does not name is shown. The file is read when
+  the machine starts, so a change takes effect at the next start.
+\end{itemize}
+
+\noindent The file lives outside the machine's disk, so nothing running
+on the machine can undo it. On the K4510's own Linux it is in
+\pth{/home/k4510/k4510/}; once Linux is locked, edit it over ssh from
+another computer.
+
+\subsection*{Every row}
+The list below is generated from the menu's own source, with the name
+each setting has in \texttt{k4510.cfg}, its choices and where it starts.
+
+\input{generated/menu}
 
 \section{Placement, the side panel, and F8}
 A 4:3 picture on a 16:9 screen leaves a third of the glass empty.
@@ -250,14 +302,13 @@ with a centred picture makes no sense, so turning the panel on forces
 the picture left.
 
 The panel is a strip twenty-six columns wide taking the whole height of
-the window, one fact to a line, and its glyphs are sized from the space
-it has: the program counter, A~X~Y~Z, the stack pointer, the B register,
-the flags, the next few instructions disassembled, VICKY's mode and the
-raster line it is on, the eight bank registers with the engaged ones
-lit, the audio gaps, the frame counter and the frame rate. It reads the
-CPU's view for the disassembly but never through the I/O page --- a read
-of \texttt{\$D100} would pop a key off the keyboard, and an instrument
-that changes what it measures is not one.
+the window, one fact to a line: the program counter, A~X~Y~Z, the stack
+pointer, the B register, the flags, the next few instructions
+disassembled, VICKY's mode and the raster line it is on, the eight bank
+registers with the engaged ones lit, the audio gaps, the frame counter
+and the frame rate. It never reads through the I/O page --- a read of
+\texttt{\$D100} would pop a key off the keyboard, and an instrument that
+changes what it measures is not one.
 
 \textbf{F8 pauses the machine, and then the keyboard is the debugger's:}
 
@@ -277,7 +328,6 @@ Space & one instruction \\
 \end{tabular}
 \end{center}
 
-\noindent Every other key is swallowed while the machine is paused ---
-it is stopped, and would only queue them. The panel shows the legend and
-the state: which scanline is next, whether the trace is running and how
-long it is, and the number of the last dump.
+\noindent Every other key is swallowed while the machine is paused. The
+panel shows the legend and the state: which scanline is next, whether the
+trace is running and how long it is, and the number of the last dump.

@@ -1,10 +1,11 @@
 \chapter{The Shell}\label{cha:shell}
 
 The shell is what the machine boots into. It is a file manager, a program
-launcher and a front door to the monitor, and every command here also works
-from BASIC with a \verb|*| in front. Type \verb|HELP| for the whole command
-set on one screen --- the text it prints is itself a file on disk,
-\pth{/SYSTEM/ETC/HELP}.
+launcher and the front door to everything else, and every command here
+also works from a BASIC with a \verb|*| in front. Type \verb|HELP| for a
+summary on the screen --- the text it prints is itself a file on disk,
+\pth{/SYSTEM/ETC/HELP} --- and see Chapter~\ref{cha:commands} for every
+command with a line about each. This chapter is how the shell behaves.
 
 \section{The disk}
 Files live on the host: the \texttt{fs/} directory beside the emulator.
@@ -16,12 +17,12 @@ else lives one level down:
 \small
 \begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.68\linewidth}@{}}
 \toprule
-\texttt{/SYSTEM} & the machine's own, in three parts: \texttt{BIN} the tools (\texttt{VI}, \texttt{RANGER}, \texttt{DELETE}, \texttt{SUPERMON}, \texttt{BENCH}, \texttt{BUG}\ldots), \texttt{ETC} what it reads (\texttt{HELP}, \texttt{VI.SAMPLE}, \texttt{STARTUP.SAMPLE}, \texttt{PALETTES/}, a \texttt{chargen.bin} if you add one), \texttt{LOG} what it writes (\texttt{BENCH-*}, \texttt{TRACE.TXT}, \texttt{BUGREPORTS/}) \\
+\texttt{/SYSTEM} & the machine's own, in three parts: \texttt{BIN} the tools (\texttt{VI}, \texttt{TYPE}, \texttt{MONITOR}, \texttt{RANGER}, \texttt{SETUP}, \texttt{BUG}\ldots), \texttt{ETC} what it reads (\texttt{HELP}, \texttt{VI.SAMPLE}, \texttt{STARTUP.SAMPLE}, \texttt{PALETTES/}, a \texttt{chargen.bin} if you add one), \texttt{LOG} what it writes (\texttt{BENCH-*}, \texttt{TRACE.TXT}, \texttt{BUGREPORTS/}) \\
 \texttt{/LANG/}\emph{name} & one folder per language: its runtime, a \texttt{README} and an \texttt{EX/} of examples. \texttt{PASCAL} and \texttt{C} keep the sources \emph{beside} the programs they compile to \\
 \texttt{/APPS/}\emph{name} & one folder per program, with its data beside it --- \texttt{LODE}'s levels, \texttt{CHESS}'s openings, \texttt{OPLPLAY}'s tunes \\
 \texttt{/HOME} & yours. The prompt starts here \\
 \texttt{/CPM} & the Z80's drives, \texttt{A} to \texttt{P}, one folder each (Chapter~\ref{cha:cpm}) \\
-\texttt{/MNT} & things from outside: \texttt{SHARE}, the folder the container flavour is given \\
+\texttt{/MNT} & things from outside: \texttt{SHARE}, the folder the container flavour is given, and anything you \verb|MOUNT| \\
 \texttt{/STARTUP.BAT} & yours; run at power-on (Section~\ref{sec:badstartup}) \\
 \bottomrule
 \end{tabular}
@@ -42,23 +43,17 @@ name is matched regardless of case when the exact one is absent, and
 \texttt{..} never climbs above \texttt{/}.
 
 \begin{type}
-DIR [A] [dir | pattern]     LS is the same
-CD dir       CD ..          CHDIR is the same
-MKDIR dir    RMDIR dir
-RM name      RM -f name     DEL and ERASE are the same
-RENAME old new              REN and MV are the same
-CP from to                  a file (COPY is memory: see Housekeeping)
-TYPE name                   a screenful at a time; q stops
-XD name                     a hex dump (HEX is the same); Esc stops it
-LOAD name [addr]            SAVE name from.to
-EDIT name    VI name        the editors, Chapter 8
+DIR -a *.BAS        LS is the same; -a shows the hidden names
+CD /LANG/LOGO       the rest of the line is the name, spaces and all
+TYPE README.TXT     a screenful at a time; Esc or Q stops
+CP README.TXT /HOME
 \end{type}
 
-Names that begin with a dot are hidden; \verb|DIR A| shows them.
-\verb|DIR| also takes a directory to look in, or a pattern to match:
-\verb|DIR APPS| lists that folder without going there, \verb|DIR *.PAS| and
-\verb|DIR ?.TXT| match here (\verb|*| any run of characters, \verb|?| any
-one), and \verb|DIR A *.BAS| means both at once.
+Names that begin with a dot are hidden; \verb|DIR -a| shows them, and
+\verb|DIR -l| lists one name to a line. \verb|DIR| also takes a
+directory to look in, or a pattern to match: \verb|DIR APPS| lists that
+folder without going there, \verb|DIR *.PAS| and \verb|DIR ?.TXT| match
+here (\verb|*| any run of characters, \verb|?| any one).
 
 \screen{shots/dir.png}{\texttt{DIR} at the root: the disk's whole shape
 in six folders and one file. Directories come first, in white; files
@@ -87,14 +82,20 @@ SAY HELLO FROM THE DISK
 prints \texttt{HELLO FROM THE DISK} --- there is no \texttt{SAY} command,
 only a \texttt{say.prg} in \pth{/SYSTEM/BIN}. The same rule takes an
 \texttt{.RX} script (Chapter~\ref{cha:rx}), so a REXX program is a
-command too.
+command too. Only a program is run this way: typing the name of a text
+file at the prompt does not load it over the machine.
 
-\verb|EDIT| and \verb|VI| are the editors (Chapter~\ref{cha:editors}), and
-six words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
-\verb|MSBASIC| (Section~\ref{sec:msbasic}), \verb|BBC|
+Several of the machine's commands are programs in exactly this sense ---
+\verb|TYPE|, \verb|VI|, \verb|SETUP| and the monitor among them --- and
+you cannot tell from the prompt which is which, which is the point. The
+disk is the host's (and on the K4510's own Linux, in RAM), so a program
+starts as quickly as a word in the ROM.
+
+Seven words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
+\verb|MSBASIC| (Chapter~\ref{cha:msbasic}), \verb|BBC|
 (Chapter~\ref{cha:tube}), \verb|FORTH| (Chapter~\ref{cha:forth}),
-\verb|CPM| (Chapter~\ref{cha:cpm}) and \verb|RX|
-(Chapter~\ref{cha:rx}).
+\verb|LOGO| (Chapter~\ref{cha:logo}), \verb|CPM| (Chapter~\ref{cha:cpm})
+and \verb|RX| (Chapter~\ref{cha:rx}).
 
 \subsection*{What is on the disk}
 \pth{/APPS} holds the programs the machine ships with, one folder each,
@@ -165,13 +166,15 @@ out of reach of anything running here.
 \verb|SWAP -k| is the same but \emph{keeps} the screen the program left,
 instead of restoring the caller's. A file manager wants its display
 back; a script that ran a program to read what it printed wants the
-other thing, which is why RX uses this form.
+other thing, which is why RX uses this form --- and why Microsoft BASIC
+runs every \verb|*| command through it.
 
 \section{At the prompt}
 The line you are typing is editable: Left and Right move through it,
 Home and End go to its ends, Delete takes the character under the cursor
 and Backspace the one before it, characters insert where the cursor is,
-and Escape clears the line. It works across a line that has wrapped.
+and Escape clears the line. It works across a line that has wrapped, and
+it takes accented letters.
 
 \textbf{Up and Down walk the last eight lines you typed}, and Down past
 the newest gives you the empty line again. A line that repeats the one
@@ -184,7 +187,7 @@ is what \pth{/STARTUP.BAT} is for.
 
 \begin{type}
 ALIAS                    list them
-ALIAS LL DIR A           define one
+ALIAS LL DIR -l          define one
 ALIAS LL                 nothing after the name: remove it
 \end{type}
 
@@ -203,12 +206,14 @@ setting, and either may be nothing.
 
 They are shared, and the split is worth knowing. \textbf{The top band is
 yours} --- the machine draws the clock and the date in it, in whichever
-formats the Terminal page is set to. \textbf{The bottom band is the
-running program's}, and a program that wants it writes there through
-JIM; \verb|BANDS| in \pth{/SYSTEM/BIN} is the demonstration.
-Programs that take the whole screen --- the games, the editors --- get
-the whole screen anyway: the bands are part of the console, and the
-console is what a program leaves behind when it asks for the glass.
+formats the Terminal page is set to, and on a laptop the battery: its
+charge, with an arrow up while it charges and down while it does not.
+\textbf{The bottom band is the running program's}, and a program that
+wants it writes there through JIM; \verb|BANDS| in \pth{/SYSTEM/BIN} is
+the demonstration. Programs that take the whole screen --- the games, the
+editors --- get the whole screen anyway: the bands are part of the
+console, and the console is what a program leaves behind when it asks
+for the glass.
 
 \section{The network}
 A URL is a file name. Anything the shell reads --- \verb|TYPE|, \verb|LOAD|,
@@ -228,22 +233,37 @@ be an address on the internet; here it costs the ROM nothing, because the
 ROM never looks at a name --- the host does the fetching. A typed line is 95
 characters, and so is the longest URL.
 
-A \texttt{tnfs://} URL is more than a file: it is a place. TNFS is the
-little UDP file protocol the FujiNet and Meatloaf servers speak, and the
-machine's current directory can be on one of them:
+Some URLs are more than a file: they are a place. TNFS is the little
+file protocol the FujiNet and Meatloaf servers speak, and \texttt{ftp://}
+and \texttt{sftp://} are what the rest of the world does; the machine's
+current directory can be on any of them:
 
 \begin{type}
 CD tnfs://fujinet.online/
 DIR
 CD CBM
-DIR
 CD -
 \end{type}
 
 \verb|DIR| lists the server, a bare name loads from it (so \verb|RUN|, and
 the bare-word rule, run programs straight off the internet), \verb|CD ..|
-climbs, \verb|CD -| comes home. The prompt shows where you are. The server
-is read-only from here.
+climbs, \verb|CD -| comes home. The prompt shows where you are. A name
+and password go in the URL the ordinary way
+(\texttt{sftp://me:secret@host/dir}), and the FujiNet spelling ---
+\texttt{N:TNFS://\ldots} --- is understood too.
+
+Or give the place a name on the disk, and it stays there:
+
+\begin{type}
+MOUNT tnfs://fujinet.online/ /MNT/FUJI
+DIR /MNT/FUJI
+MOUNT                     list what is mounted
+UMOUNT /MNT/FUJI
+\end{type}
+
+\noindent Everything that reads a directory --- \verb|DIR|, \verb|CD|,
+\verb|TYPE|, \verb|RANGER|, a program started by name --- then works
+there as on the machine's own disk. A mounted place is read-only.
 
 For programs that want a live connection there is the \emph{N: device}
 at \texttt{\$D900} (FujiNet's name for it): four channels, each a URL
@@ -253,41 +273,40 @@ demonstration, a \texttt{telnet.prg} in \pth{/SYSTEM/BIN}: what you type
 goes out, what arrives is drawn by JIM, the terminal
 (Chapter~\ref{cha:tube}), so a BBS gets its ANSI colours and CP437 art
 and the cursor and function keys go out as VT sequences; F12 hangs up
-(Escape belongs to the far end). It turns the screen black while it is
-connected, because that is what BBS art is drawn for, and puts your
-colours back when it hangs up. The register map is in
-Chapter~\ref{cha:io} and \texttt{core/net.h}.
+(Escape belongs to the far end). It offers the far end the terminal
+types \emph{xterm-color}, \emph{VT220}, \emph{VT100} and \emph{ANSI}, and
+a Unix host that takes the first gets UTF-8 as well. The register map is
+in Chapter~\ref{cha:io} and \texttt{core/net.h}.
 
 So that there is no guessing, this is the whole list of what the machine
 speaks:
 
 \begin{center}
 \small
-\begin{tabular}{@{}l l@{}}
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.66\linewidth}@{}}
 \toprule
 \textbf{Scheme} & \textbf{What} \\
 \midrule
-\texttt{http://} & fetch a file; a name anywhere a name goes \\
-\texttt{https://} & the same, over TLS \\
-\texttt{tnfs://} & a directory on a TNFS server, read-only \\
+\texttt{http://}, \texttt{https://} & fetch a file; a name anywhere a name goes; \verb|MOUNT| shows one as a folder \\
+\texttt{tnfs://} & a directory on a TNFS server \\
+\texttt{ftp://}, \texttt{sftp://} & a directory on a server; sftp does not check the server's key \\
 \texttt{tcp://} & a raw connection, through the N: device only \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-\noindent There is no FTP and no SSH.
+\noindent An ssh \emph{session} is \verb|SSH| (Chapter~\ref{cha:linux}).
 
 \section{CAPSLOCK}
 \verb|CAPSLOCK| toggles a caps-lock: while it is on, letters read from the
 keyboard come up uppercase, so a language whose keywords are uppercase ---
 BBC BASIC, EhBASIC --- needs no Shift held. Digits and symbols are
 untouched, so it is a caps lock and not a shift lock, and Shift gives you
-the \emph{other} case while it is on, the way a caps lock has always
-worked. It is also suspended while a program is running, so a program
-that wants lower case --- \verb|:q| in VI, say --- gets it, and the lock
-comes back when the program does. \verb|CAPSLOCK ON|
-and \verb|CAPSLOCK OFF| set it explicitly. It works from inside a BASIC
-through the \texttt{*} escape: \verb|*CAPSLOCK| in BBC BASIC or EhBASIC.
+the \emph{other} case while it is on. It is also suspended while a
+program is running, so a program that wants lower case gets it, and the
+lock comes back when the program does. \verb|CAPSLOCK ON| and
+\verb|CAPSLOCK OFF| set it explicitly; \verb|*CAPSLOCK| works from inside
+a BASIC.
 
 \section{Scripts and the boot file}
 \verb|EXEC name| runs a text file as shell commands, one per line. A line
@@ -308,55 +327,74 @@ not try to compete.
 \verb|*| prompt; its grammar is Wozmon's, with 28-bit addresses:
 
 \begin{type}
-*E000.E00F           examine a range
+*FF80.FF8F           examine a range
 *0300:A9 41 60       store bytes
 *0300R               run from $0300
-*X                   leave
+*X                   leave (or Q, or EXIT)
 \end{type}
 
-\screen{shots/mon.png}{The monitor examining the ROM. \texttt{MON E000.E00F}
-runs one line without entering the prompt.}
+\screen{shots/mon.png}{The monitor examining the system-call jump table.
+\texttt{MON FF80.FF8F} runs one line without entering the prompt.}
+
+\noindent Anything else typed at the \verb|*| prompt is a shell command,
+run on a clean machine and returned from. \verb|FILL from.to value| and
+\verb|COPY from.to dest| work on memory, by DMA, anywhere in the 256\,MB.
+
+The monitor is a program, \texttt{MONITOR}, and it loads at
+\texttt{\$E000}, in the RAM under the ROM, so that the memory it is there
+to look at --- \texttt{\$0800} to \texttt{\$CFFF} --- is exactly as the
+last program left it. Addresses below \texttt{\$10000} read as a program
+sees them: \texttt{\$A000} to \texttt{\$FEFF} is that RAM, not the ROM,
+and the ROM shows only in its always-there page at \texttt{\$FF00}.
 
 \verb|SUPERMON| in \pth{/SYSTEM/BIN} is the larger tool, in the tradition
 of Jim Butterfield's: \verb|M| memory, \verb|D| a disassembly that speaks
 the whole 45GS02, \verb|A| an assembler, registers, hunting and filling
 --- and \verb|@| escapes to the shell without leaving it.
 
+\section{Colours and palettes}
+\verb|COLOR fg bg| sets the text colours (palette indices, in hex), and
+\verb|PALETTE| the 256 colours behind them. The machine's own is the
+C64's sixteen, yellow on blue; \pth{/SYSTEM/ETC/PALETTES} holds others:
+
+\begin{type}
+PALETTE LOAD GREEN        a phosphor-green tube
+PALETTE LOAD AMBER        an amber one
+PALETTE RESET             the machine's own back
+\end{type}
+
+\noindent \texttt{AMBER}, \texttt{GREEN} and \texttt{GREY} are ramps ---
+black and fifteen shades of one colour --- so each carries a
+\verb|COLOR| line that sets the text to a bright shade on black. Colour~1
+in each is the brightest shade, because the shell draws its highlights
+in colour~1 (directories in \verb|DIR|, the banner) and they must stay
+brighter than the text. \texttt{C64} is the machine's own sixteen, as
+it boots them, and \texttt{PEPTO} is the same sixteen as Philip
+Timmermann measured them off a real C64 --- duller, warmer, and what one
+looked like on a television. A palette file is
+plain text --- an index and three hex bytes to a line, \verb|#| for a
+comment --- and names only the entries it changes;
+\verb|PALETTE SAVE name| writes one of yours. \verb|PALETTE LOAD| in \pth{/STARTUP.BAT}
+makes it the machine's.
+
 \section{Housekeeping}
 \verb|INFO| is the machine's self-description; \verb|TIME| the clock;
-\verb|MODE| and \verb|COLOR| set the text screen --- \verb|CLS| clears it and
-\verb|CLG| clears the bitmap over it, whoever drew it --- both reach a
-BASIC through the \texttt{*} escape, which is how you tidy up after a demo
-that left its picture behind; \verb|PALETTE| lists, sets, loads and saves
-the 256 colours (\verb|PALETTE LOAD name| takes one from
-\pth{/SYSTEM/ETC/PALETTES}, \verb|PALETTE RESET| puts the machine's own
-back); \verb|FILL| and \verb|COPY| work on memory; \verb|HUSH| silences
-the sound, whichever part of the machine is making it --- the nine FM
-voices and the sequencer both; \verb|LS| is \verb|DIR| for fingers that
-have used Unix too long. \verb|LOGO| clears the screen and prints the
-startup banner again --- the colour bars and the machine's own
-description --- which is a tidy way to end a session or start a
-screenshot. \verb|RESET| restarts the machine from the shell, the same
+\verb|MODE| sets the text screen --- \verb|CLS| clears it and \verb|CLG|
+clears the bitmap over it, whoever drew it --- and both reach a BASIC
+through the \texttt{*} escape, which is how you tidy up after a demo that
+left its picture behind. \verb|HUSH| silences the sound, whichever part
+of the machine is making it. \verb|BANNER| clears the screen and prints
+the power-on banner again, which is a tidy way to end a session or start
+a screenshot. \verb|RESET| restarts the machine from the shell, the same
 cold start the reset chord performs.
 
-\verb|BENCH| measures the machine: how many frames a second this host
-manages at the clock in force, then each clock of the menu's ladder for
-two seconds with a note sounding, reporting frames, gaps in the sound and
-how many samples the machine did not make for each --- and the clock is
-put back afterwards. About 25 seconds; the report goes to
-\pth{/SYSTEM/LOG/BENCH-NN.TXT}. A clock is right for this host when it
-holds 60 frames a second with no gaps and nothing filled in. A recent
-desktop holds a hundred megahertz or more, and that figure, not the
-setting, is the one to quote when a program seems slow.
-
-Several commands answer to more than one name, so that habits from
-another machine mostly work: \verb|CD| is also \verb|CHDIR|, \verb|RM|
-is \verb|DEL| and \verb|ERASE|, \verb|REN| is \verb|RENAME| and
-\verb|MV|, \verb|DIR| is \verb|LS|, \verb|COLOR| is \verb|COLOUR|,
-\verb|XD| is \verb|HEX|, \verb|BBCBASIC| is \verb|BBC|, and
-\verb|CAPSLOCK| is \verb|CAPS|. \verb|CP| and \verb|COPY| are
-\emph{not} the same command: \verb|CP| copies a file, \verb|COPY|
-copies memory.
+\verb|SETUP| measures the computer the machine is running on, with the
+sound and the picture really running, and keeps the fastest clock it
+holds without a gap --- for that computer, so a later boot there pays
+nothing. \verb|BENCH| measures it again whenever you like: frames a
+second and gaps in the sound at every clock of the menu's ladder, about
+25 seconds, the report in \pth{/SYSTEM/LOG/BENCH-NN.TXT}. A clock is
+right for a host when it holds 60 frames a second with no gaps.
 
 \verb|MODE| on its own says where you are; \verb|MODE n| moves. The second
 number is the margin: 1 (the default) keeps a one-cell gap at the top and
@@ -372,13 +410,10 @@ the left, 0 uses every cell.
 The F7 menu, under Video, has the same two knobs: \emph{Resolution} shows
 what the machine is actually in --- it follows a \verb|MODE| you type ---
 and choosing another asks the ROM to perform it, because the console's
-geometry belongs to the ROM and not to the host. \emph{Left/top margin}
-is the second parameter.
-
-The menu offers the same three, and what it saves is never smaller than
-320$\times$240. VICKY can draw smaller fields than these, but they are for
-a program that wants the pixels, not for a shell; a program asks for them
-through the video registers (Chapter~\ref{cha:io}).
+geometry belongs to the ROM and not to the host. VICKY can draw smaller
+fields than these, but they are for a program that wants the pixels, not
+for a shell; a program asks for them through the video registers
+(Chapter~\ref{cha:io}).
 
 The picture is always painted into 640$\times$480: a 240-line mode has
 each line drawn twice, and a 320-wide one has its pixels doubled
@@ -406,9 +441,7 @@ There is a second way, for one boot only:
 \noindent (\verb|--no-startup| does the same, as does
 \verb|K4510_NO_STARTUP=1| in the environment). It skips
 \texttt{/STARTUP.BAT} for that run and touches nothing: the F7 setting
-and \texttt{k4510.cfg} are left exactly as they were. That is the one to
-reach for in a script, or when a startup file has wedged the machine and
-you want a single clean boot to go and fix it.
+and \texttt{k4510.cfg} are left exactly as they were.
 
 \section{When something goes wrong}
 Type \verb|DUMP ON|, make it go wrong again, then type \verb|BUG| and

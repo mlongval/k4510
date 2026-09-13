@@ -332,7 +332,7 @@ fs/LANG/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510
 	ca65 -g --cpu 65c02 --feature labels_without_colons -o basic/k4510basic.o basic/k4510basic.asm
 	ld65 -C basic/basic.cfg -o $@ basic/k4510basic.o
 # Tali Forth 2 (public domain, vendored unmodified in forth/tali/) as a .prg
-# loaded at $4000; forth/platform.asm is the whole port (I/O + memory map)
+# loaded at $8C00; forth/platform.asm is the whole port (I/O + memory map)
 fs/LANG/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/definitions.asm forth/tali/stringtable.asm forth/tali/forth_words.asc $(wildcard forth/tali/words/*.asm)
 	64tass --nostart -q forth/platform.asm -o $@
 

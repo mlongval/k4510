@@ -26,8 +26,8 @@ shot boot 40 ""
 shot dir 90 "cd /
 dir
 "
-shot mon 80 "mon
-e000.e00f
+shot mon 120 "mon
+ff80.ff8f
 "
 shot demos 900 "run ehbasic
 
@@ -37,11 +37,20 @@ shot invaders 1400 "run ehbasic
 
 RUN \"INVADER2.BAS\"
 "
+shot msbasic 500 "msbasic
+10 FOR I=1 TO 6
+20 PRINT I, I*I, SQR(I)
+30 NEXT
+RUN
+"
+shot logo 1500 "logo
+REPEAT 36 [RT 10 REPEAT 4 [FD 90 RT 90]]
+"
 shot forth 240 "forth
 2 3 + .
 : cube dup dup * * ;
 7 cube .
-hex 4000 10 disasm
+' dup 10 disasm
 "
 shot bbc 800 "cd /LANG/BBCBASIC
 bbc

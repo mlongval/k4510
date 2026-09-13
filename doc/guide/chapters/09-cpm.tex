@@ -23,7 +23,8 @@ through \pth{fs/CPM/P}; CP/M's user areas 0--15 are numbered subfolders.
 Drop any \texttt{.COM} file into \pth{fs/CPM/A/0} and run it by name.
 \verb|DIR|, \verb|TYPE|, \verb|ERA|, \verb|REN|, \verb|SAVE| and
 \verb|USER| are built into the CCP; \verb|EXIT| hands the console back to
-the K/OS shell.
+the K/OS shell. Ctrl-C stops a running CP/M program that is listening
+for it, as it did in 1978 --- an \verb|MBASIC| loop, say.
 
 Three of the drives are shortcuts rather than folders of their own:
 \verb|K:| is the machine's own filesystem, so CP/M and K/OS can hand files

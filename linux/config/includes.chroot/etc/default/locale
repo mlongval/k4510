@@ -1,0 +1,4 @@
+#  K4510: the image generates no locales, and C.UTF-8 is built into glibc.
+#  Without a UTF-8 LANG, bash's readline drops accented characters typed on
+#  the Linux consoles (Ctrl+Alt+F2) -- Doc, 2026-09-12.  pam_env reads this.
+LANG=C.UTF-8

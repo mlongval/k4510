@@ -12,6 +12,13 @@
 # prompt run through `!` -- on every tty, so they are the same command in a
 # Linux shell as at the machine's prompt.
 case ":$PATH:" in *":$HOME/k4510/tools:"*) ;; *) export PATH="$HOME/k4510/tools:$PATH" ;; esac
+# A UTF-8 locale on every login, or bash drops accented keys.  The only one
+# this image has is C.UTF-8; ssh brings the client's LANG (en_US.UTF-8, say),
+# which does not exist here and falls back to plain C.  Keep a LANG that
+# works, replace one that does not.
+if [ -n "$(LC_ALL= LANG="${LANG:-x}" locale 2>&1 >/dev/null)" ]; then
+    export LANG=C.UTF-8; unset LC_ALL LC_CTYPE LC_MESSAGES LC_COLLATE
+fi
 if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
     export SDL_VIDEODRIVER=kmsdrm
     export SDL_AUDIODRIVER=alsa

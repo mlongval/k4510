@@ -8043,3 +8043,31 @@ the default, so nothing changes until it is chosen.  The k4510 user was
 refused the lock ("Access denied": no polkit on the K4510 Linux), so it is
 sudo -n systemd-inhibit, as k4510-keymap is; the lock is held around a loop
 that ends with the emulator, so a crash cannot leave the lid locked.
+
+## 2026-09-14 — the key pipe, its echo, and the clock held at 60 MHz
+
+**The key pipe** (Doc: "can you run the K4510 from here? ... i mean injecting
+keystrokes", then "with an optional on screen echo (configured in F7)").
+The emulator reads a FIFO every frame and types what arrives into the
+machine's keyboard queue, by the rules K4510_KEYS already had (one key a
+frame, ~ waits 30 frames, $80+ a key code, $1F an escaped character): KEYS
+in its directory on the K4510 Linux (0600, a stale plain file of the name
+removed), or K4510_KEYPIPE's path anywhere.  tools/k4510-type writes it:
+text with \n for Enter, or --key up/down/.../f1..f12.  With k4510-shot,
+the machine is driven from another computer over ssh.  The F7 menu opens
+on the key code too, so the whole machine is reachable -- tested: F7,
+Machine, CPU clock, the popup, all through the pipe.
+
+F7 > Input > Key pipe: off (read and dropped, so a writer never hangs) /
+on / on, shown -- the default -- where each key typed that way is echoed
+in a bar at the foot of the window for four seconds after the last: the
+panel's CP437 font, drawn over the picture, never into it, so the machine
+and its screenshots are untouched.  (First build: the bar showed only
+AFTER it had expired -- SDL_TICKS_PASSED negated.)
+
+**60 MHz** (Doc: "artificially (by hiding the higher options) limit the cpu
+speed to 60mhz for now").  settings.h CPUCLK_FASTEST = CPUCLK_60, one line
+to lift.  settings_first() is where the menu's list and stepping start;
+a saved or measured clock above it is clamped down; and the machine sees
+a ladder that starts there -- SYS+$27 is 6, SYS+$23 counts from 60 --
+so SETUP and BENCH cannot choose above it either.  mkref.py follows it.

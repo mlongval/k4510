@@ -853,10 +853,11 @@ static uint8_t sys_read(uint8_t r)
      * happens (BENCH did, 2026-08-27).  Write past the end to learn the
      * highest index -- the write clamps -- and read SYS+0/1/0x26 to see what
      * a step actually became. */
-    if (r == 0x23) return (uint8_t)settings_get(SET_CPU_CLOCK);
+    if (r == 0x23) { int v = settings_get(SET_CPU_CLOCK), f = settings_first(SET_CPU_CLOCK);   /* the ladder as the machine sees it starts at the cap; */
+                     return (uint8_t)(v > f ? v - f : 0); }                                    /* a value never loaded (headless) reads as its top, not -4 */
     if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks that found the ring empty, since last cleared */
     if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
-    if (r == 0x27) return (uint8_t)settings_choices(SET_CPU_CLOCK);
+    if (r == 0x27) return (uint8_t)(settings_choices(SET_CPU_CLOCK) - settings_first(SET_CPU_CLOCK));
     if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */
     if (r == 0x29) return (uint8_t)measuring;
     if (r == 0x2A) return (uint8_t)(io_audio_fill & 0xFF);       /* filled samples since last cleared, saturating */
@@ -1590,7 +1591,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF0) { dbg_rec = 1; dbg_dump("DUMP register"); }
         if ((addr & 0xFF) == 0xF1) dbg_logc(v);
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
-        if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v);   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
+        if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v + settings_first(SET_CPU_CLOCK));   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
         if ((addr & 0xFF) == 0x24) { io_audio_gaps = 0; io_audio_fill = 0; }   /* any write clears both audio counts */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
         if ((addr & 0xFF) == 0x29) measuring = v ? 1 : 0;              /* SETUP: hold the governor off while the ladder is swept */

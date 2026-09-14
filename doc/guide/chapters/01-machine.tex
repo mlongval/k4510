@@ -14,7 +14,8 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   under the ROM. Its clock is whatever the host it runs on can hold at
   sixty frames a second with no gaps in the sound: the machine is a
   fantasy and its timings are suggestions. The clock is a setting (F7,
-  under Machine --- ten steps from 202.5\,MHz down to 10). A host nobody
+  under Machine --- six steps from 60\,MHz down to 10; the ladder goes on
+  to 202.5, and those faster steps are held back for now). A host nobody
   has measured runs at 40.5, the MEGA65's number; \verb|SETUP| measures
   it properly, with the sound and the picture really running, and the
   machine keeps the answer for that host so later boots pay nothing. It
@@ -210,13 +211,17 @@ page on the right, the screen-font list open over them.}
 \item[Audio] volume.
 \item[Input] the reset chord; which key opens the menu; whether a click
   captures the mouse pointer, and whether the host's pointer shows over
-  the picture; and the keyboard, above.
+  the picture; the keyboard, above; and the \emph{key pipe}, typing from
+  another computer (Chapter~\ref{cha:linux}): \emph{off}, \emph{on}, or
+  \emph{on, shown} --- the one it starts at --- where every key typed
+  that way is echoed in a bar at the foot of the window for a few
+  seconds, so nobody types into the machine unseen.
 \item[Machine] \emph{save state} and \emph{load state}, four slots each
   (the whole machine --- CPU, every used page of the 256~MB, VICKY, the
   devices, JIM --- to \texttt{k4510-slotN.k4s} beside the settings file;
   the Tube co-processor is not in the file and is stopped by a load);
-  reset; power cycle; stop the Tube; quit; \emph{CPU clock} --- the ten
-  steps, live; choosing one switches \emph{Auto clock} off, because a
+  reset; power cycle; stop the Tube; quit; \emph{CPU clock} --- the
+  steps, live, 60\,MHz at the most for now; choosing one switches \emph{Auto clock} off, because a
   clock chosen by hand is not to be second-guessed. \emph{Auto clock} on
   uses what \verb|SETUP| measured on this host. On the K4510's own Linux
   there is a last row, \emph{Shut down the computer}.

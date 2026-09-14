@@ -54,6 +54,28 @@
 static volatile sig_atomic_t shot_req;
 static int caps_ctrl_down;          /* F7 -> Input -> Caps Lock is Ctrl: the key is held now */
 static int shot_flash;              /* frames left of the screenshot's screen invert */
+/* F7 -> Input -> Key pipe, "on, shown": keys typed from outside (the KEYS
+ * pipe, tools/k4510-type) are echoed in a bar at the foot of the window --
+ * the last few dozen, gone four seconds after the last -- so nobody types
+ * into the machine unseen (Doc, 2026-09-14).  Drawn by the frontend over
+ * the picture, never into it: the machine and its screenshots are untouched. */
+static char echo_txt[48]; static int echo_len; static Uint32 echo_until;
+static void echo_key(int k)
+{
+    char s[4] = { 0 };
+    if (k >= 0x20 && k < 0x7F) s[0] = (char) k;
+    else if (k == 0x0D || k == '\n') s[0] = 0x14;               /* CP437: a pilcrow for Enter */
+    else if (k == 0x09) s[0] = 0x1A;                             /* an arrow for Tab */
+    else if (k == 0x08) s[0] = 0x11;                             /* a left-pointing triangle for Backspace */
+    else if (k == 0x1B) strcpy(s, "Esc");
+    else if (k >= 0x80 && k <= 0x83) s[0] = "\x18\x19\x1B\x1A"[k - 0x80];   /* the arrow keys */
+    else if (k >= 0x90 && k <= 0x9B) snprintf(s, sizeof s, "F%d", k - 0x8F);
+    else s[0] = (char) 0xFE;                                    /* a key with no mark: a small square */
+    int l = (int) strlen(s);
+    if (echo_len + l > 40) { int drop = echo_len + l - 40; memmove(echo_txt, echo_txt + drop, (size_t)(echo_len - drop)); echo_len -= drop; }
+    memcpy(echo_txt + echo_len, s, (size_t) l); echo_len += l;
+    echo_until = SDL_GetTicks() + 4000;
+}
 /* Why the machine stopped, on stderr with the wall clock (the K4510 Linux keeps
  * it in ~/k4510/DIAG/emulator-*.log while the log switch is on): every way out,
  * and a heartbeat every ten seconds, so a freeze shows as the beats stopping.
@@ -633,6 +655,7 @@ static void host_keymap_apply(void)
  * cannot leave the lid locked.  Called before the frame loop and at each
  * menu close; atexit lets it go on a clean quit. */
 #include <signal.h>
+#include <errno.h>                                             /* the key pipe's mkfifo, below */
 static pid_t lid_child;
 static void host_lid_release(void)
 {
@@ -1169,10 +1192,49 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             mouse_set(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, (uint8_t) mouse_btn, wheel_acc, dx_acc, dy_acc);   /* $D108-$D10F */
             wheel_acc = dx_acc = dy_acc = 0;
         }
-        { static const char *feed; static int feed_init, feed_wait, feed_fr;   /* K4510_KEYS: keys typed one per frame, ~ waits 30 */
-          if (!feed_init) { feed_init = 1; feed = getenv("K4510_KEYS"); }
-          /* a byte of $80 or more is a KEY_* code; $1F says "the next byte is a character whatever its value" (an accented letter) */
-          if (feed && *feed && ++feed_fr >= feed_wait) { uint8_t k = (uint8_t)*feed++; if (k == '~') feed_wait = feed_fr + 30; else if (k == 0x1F && *feed) kbd_push((uint8_t)*feed++); else if (k >= 0x80) kbd_push_key(k); else kbd_push(k == '\n' ? 0x0D : k); } }
+        /* Keys from outside, typed one per frame; ~ waits 30 frames; a byte of
+         * $80 or more is a KEY_* code; $1F says "the next byte is a character
+         * whatever its value" (an accented letter).  Two sources, the same rules:
+         *   K4510_KEYS   a script, once, at start (the screenshots use it)
+         *   the key pipe a FIFO, read every frame while the machine runs:
+         *                KEYS in this directory on the K4510 Linux, or the path
+         *                K4510_KEYPIPE names anywhere.  tools/k4510-type writes
+         *                it, so the machine can be driven from another computer
+         *                over ssh, a screenshot (k4510-shot) at a time (Doc,
+         *                2026-09-14: "can you run the K4510 from here? ... i mean
+         *                injecting keystrokes").  0600: only its owner types.
+         * The keys reach the machine's keyboard queue, as typing would; the
+         * menu key's code there opens F7's menu too (tested 2026-09-14), so
+         * the whole machine, settings included, can be driven this way. */
+        { static const char *feed; static int feed_init, feed_wait, feed_fr;
+          static int kfd = -1, klen, kpos; static char kbuf[4096];
+          if (!feed_init) {
+              const char *pipe = getenv("K4510_KEYPIPE");
+              feed_init = 1; feed = getenv("K4510_KEYS");
+              if (!pipe && access("/etc/k4510-linux", F_OK) == 0) pipe = "KEYS";
+              if (pipe && *pipe) {
+                  struct stat ps;
+                  if (lstat(pipe, &ps) == 0 && !S_ISFIFO(ps.st_mode)) unlink(pipe);   /* a stale plain file of the name */
+                  if (mkfifo(pipe, 0600) == 0 || errno == EEXIST) kfd = open(pipe, O_RDONLY | O_NONBLOCK);
+              }
+          }
+          if (kfd >= 0 && kpos >= klen) {
+              ssize_t n = read(kfd, kbuf, sizeof kbuf);
+              if (n > 0) {
+                  if (settings_get(SET_INPUT_KEYPIPE) == 0) klen = kpos = 0;   /* F7 says off: read, and dropped -- a writer never hangs */
+                  else { klen = (int) n; kpos = 0; }
+              }
+          }
+          if (++feed_fr >= feed_wait) {
+              int k = -1, next = -1, piped = 0;
+              if (feed && *feed) { k = (uint8_t)*feed++; if (*feed) next = (uint8_t)*feed; }
+              else if (kpos < klen) { k = (uint8_t)kbuf[kpos++]; if (kpos < klen) next = (uint8_t)kbuf[kpos]; piped = 1; }
+              int shown = piped && settings_get(SET_INPUT_KEYPIPE) == 2;
+              if (k == '~') feed_wait = feed_fr + 30;
+              else if (k == 0x1F && next >= 0) { kbd_push((uint8_t) next); if (shown) echo_key(next); if (feed && *feed) feed++; else kpos++; }
+              else if (k >= 0x80) { kbd_push_key((uint8_t) k); if (shown) echo_key(k); }
+              else if (k >= 0) { kbd_push(k == '\n' ? 0x0D : (uint8_t) k); if (shown) echo_key(k); }
+          } }
         /* The machine's video mode.  Only the ROM can change it -- the console's
          * PCOLS/PROWS/stride are its -- so the menu asks through $D521 bits 5-7
          * and the ROM acts on its next key poll.  Which means the machine has to
@@ -1685,6 +1747,37 @@ tex_done:
                     SDL_RenderCopy(ren, ptex, NULL, &pd);
                 }
             } }
+          /* the key pipe's echo: a bar at the foot of the window, in device
+           * pixels (out of the logical mapping, as the glass capture below
+           * steps), the panel's CP437 font at 1-3x for the window's height */
+          if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel) {   /* until four seconds after the last key */
+              static SDL_Texture *etex; static int etw, eth;
+              char eline[64]; int en = snprintf(eline, sizeof eline, " remote: %.*s ", echo_len, echo_txt);
+              int tw = en * 8, th = font_panel_rows;
+              if (!etex || etw != tw || eth != th) {
+                  if (etex) SDL_DestroyTexture(etex);
+                  etex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, tw, th);
+                  etw = tw; eth = th;
+                  if (etex) SDL_SetTextureScaleMode(etex, SDL_ScaleModeNearest);
+              }
+              void *ep; int epitch;
+              if (etex && SDL_LockTexture(etex, NULL, &ep, &epitch) == 0) {
+                  uint32_t *px = (uint32_t *) ep; int pp = epitch / 4;
+                  for (int y = 0; y < th; y++) for (int x = 0; x < tw; x++) px[y * pp + x] = 0xFF202020u;
+                  for (int c = 0; c < en; c++) {
+                      const uint8_t *gl = font_panel + (uint8_t) eline[c] * font_panel_rows;
+                      for (int y = 0; y < th; y++) for (int x = 0; x < 8; x++) if (gl[y] & (0x80 >> x)) px[y * pp + c * 8 + x] = 0xFFF0C040u;
+                  }
+                  SDL_UnlockTexture(etex);
+                  int gw = 0, gh = 0;
+                  if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                  SDL_GetRendererOutputSize(ren, &gw, &gh);
+                  int sc = gh >= 960 ? 3 : gh >= 480 ? 2 : 1;
+                  SDL_Rect d = { 8, gh - th * sc - 8, tw * sc, th * sc };
+                  SDL_RenderCopy(ren, etex, NULL, &d);
+                  if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+              }
+          }
           /* the fps the panel shows: frames presented per wall-clock second */
           { static Uint64 t0; static unsigned n; Uint64 now = SDL_GetPerformanceCounter(); n++;
             if (!t0) t0 = now;

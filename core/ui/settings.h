@@ -54,6 +54,9 @@ typedef enum {
                               * the consoles are set to match (k4510-keymap, also at every boot).  Doc, 2026-09-12 */
     SET_HOST_LID,            /* ENUM F7 -> Host -> Lid closed: keep running (the default: an emulator holds logind's
                               * lid lock) or suspend (it lets go, and logind suspends).  K4510 Linux only.  Doc, 2026-09-14 */
+    SET_INPUT_KEYPIPE,       /* ENUM F7 -> Input -> Key pipe: off / on / on, shown -- keys typed from outside through the
+                              * emulator's KEYS pipe (tools/k4510-type), and whether each is echoed on the glass for a
+                              * few seconds so nobody types into the machine unseen.  Doc, 2026-09-14 */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
@@ -64,6 +67,14 @@ typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
 enum { DATEFMT_DMY, DATEFMT_ISO, DATEFMT_MDY, DATEFMT_COUNT };
 enum { CPUCLK_202_5, CPUCLK_162, CPUCLK_121_5, CPUCLK_81, CPUCLK_60,
        CPUCLK_40_5, CPUCLK_30, CPUCLK_20, CPUCLK_15, CPUCLK_10, CPUCLK_COUNT };
+/* The fastest clock the machine is allowed, for now (Doc, 2026-09-14: "lets
+ * artificially (by hiding the higher options) limit the cpu speed to 60mhz
+ * for now").  The steps above it stay in the ladder and in k4510.cfg's
+ * vocabulary; the menu does not offer them, a saved or measured clock above
+ * is brought down to it, and the machine sees a ladder that starts here
+ * (SYS+$23/$27: SETUP and BENCH sweep from it).  CPUCLK_202_5 lifts it. */
+#define CPUCLK_FASTEST CPUCLK_60
+int settings_first(set_id id);                 /* the first choice the menu offers: 0, or CPUCLK_FASTEST for the clock */
 unsigned settings_cpu_hz(void);                /* the emulated clock, from SET_CPU_CLOCK */
 unsigned settings_cpu_hz_of(int step);         /* the ladder by index, fastest first */
 #define SF_LIVE     1        /* takes effect at once */

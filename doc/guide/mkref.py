@@ -247,6 +247,9 @@ def menu():
     # an ENUM the menu offers only the front of (settings_choices)
     offered = {sid: enums.get(lim, 0) + 1
                for sid, lim in re.findall(r"if \(id == (SET_\w+)\) return (\w+) \+ 1;", set_c)}
+    # the clock's cap (settings.h CPUCLK_FASTEST): the menu offers the ladder from there
+    capm = re.search(r"#define\s+CPUCLK_FASTEST\s+(\w+)", set_h)
+    first_clock = enums.get(capm.group(1), 0) if capm else 0
     rows = re.findall(r'\{\s*"([\w.]+)",\s*"([^"]+)",\s*(ST_\w+),\s*(\w+),\s*(-?\w+),\s*(-?\w+),\s*\w+,\s*(\w+),', set_c)
     if len(rows) != len(ids):
         die(f"settings.c has {len(rows)} rows, settings.h {len(ids)} ids")
@@ -265,9 +268,12 @@ def menu():
         if typ == "ST_INT":
             return f"{lo} to {hi}", key, str(d)
         names = arrays.get(labels, [])
-        if sid in offered:
-            names = names[:offered[sid]]
-        return ", ".join(names), key, (names[d] if d is not None and d < len(names) else "")
+        dname = names[d] if d is not None and d < len(names) else ""   # the default by its index in the WHOLE list,
+        if sid in offered:                                             # before any of it is trimmed (the cap made
+            names = names[:offered[sid]]                               # 40.5 read as 10 MHz, four places along)
+        if sid in ("SET_CPU_CLOCK", "SET_CPU_MEASURED") and first_clock:   # the steps above the cap are not offered
+            names = names[first_clock:]
+        return ", ".join(names), key, dname
 
     items = {n: re.findall(r'\{\s*"([^"]*)",\s*(MI_\w+)(?:,\s*([&\w]+))?(?:,\s*&?(\w+))?\s*\}', body)
              for n, body in re.findall(r"static const item_t (\w+)\[\]\s*=\s*\{(.*?)\n?\};", menu_c, re.S)}

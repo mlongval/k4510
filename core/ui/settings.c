@@ -18,6 +18,7 @@ static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const lid_names[]   = { "keep running", "suspend" };
+static const char *const pipe_names[]  = { "off", "on", "on, shown" };
 static const char *const kbd_names[]   = { "Host", "US", "US-intl", "Canada-FR", "France", "Germany", "Spain", "UK", "Italy" };   /* after "Host", kbdmaps.h's order;
                                                                                                                                        * k4510-keymap reads these names */
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
@@ -85,6 +86,7 @@ static const set_desc desc[SET_COUNT] = {
     { "input.caps_ctrl",     "Caps Lock is Ctrl", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* the old Unix keyboard's Ctrl, where Caps Lock sits (Doc, 2026-09-12) */
     { "input.kbd_layout",    "Keyboard layout", ST_ENUM, 0, 0, 0, 0, kbd_names, 9, SF_LIVE },   /* the machine's; the K4510 Linux follows it */
     { "host.lid",            "Lid closed",     ST_ENUM, 0, 0, 0, 0, lid_names, 2, SF_LIVE },   /* keep running (Doc's rule of 2026-09-11), or suspend */
+    { "input.keypipe",       "Key pipe",       ST_ENUM, 2, 0, 0, 0, pipe_names, 3, SF_LIVE },  /* remote typing: off / on / on, shown (the default) */
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
                                                      40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
@@ -103,10 +105,15 @@ int settings_choices(set_id id)
     return desc[id].nlabels;
 }
 int settings_get(set_id id) { return value[id]; }
+int settings_first(set_id id) { return (id == SET_CPU_CLOCK || id == SET_CPU_MEASURED) ? CPUCLK_FASTEST : 0; }
 static int clampv(set_id id, int v)
 {
     const set_desc *d = &desc[id];
-    if (d->type == ST_ENUM || d->type == ST_CHORD) { if (v < 0) v = 0; if (v >= d->nlabels) v = d->nlabels - 1; return v; }
+    if (d->type == ST_ENUM || d->type == ST_CHORD) {
+        if (v < settings_first(id)) v = settings_first(id);   /* a clock above the cap comes down to it */
+        if (v >= d->nlabels) v = d->nlabels - 1;
+        return v;
+    }
     if (v < d->min) v = d->min;
     if (v > d->max) v = d->max;
     return v;
@@ -120,7 +127,7 @@ void settings_label(set_id id, int idx, const char *text)
 void settings_step(set_id id, int dir)
 {
     const set_desc *d = &desc[id]; int v = value[id];
-    if (d->type == ST_ENUM || d->type == ST_CHORD) { int n = settings_choices(id); v += dir; if (v < 0) v = n - 1; if (v >= n) v = 0; }
+    if (d->type == ST_ENUM || d->type == ST_CHORD) { int n = settings_choices(id), f = settings_first(id); v += dir; if (v < f) v = n - 1; if (v >= n) v = f; }
     else if (d->type == ST_BOOL) v = !v;
     else v += dir * d->step;
     settings_set(id, v);

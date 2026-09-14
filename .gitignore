@@ -138,3 +138,5 @@ test/bench
 /doc/site/site/
 # the handbook build's own Python, for md2gemini (doc/guide/make-guide.sh)
 /doc/guide/.venv/
+# the emulator's key pipe (tools/k4510-type), made where it runs
+/KEYS

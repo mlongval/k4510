@@ -220,4 +220,18 @@ screenshot is taken from across the room:
 ssh k4510@machine k4510-shot
 \end{type}
 
-\noindent writes one, as PrtSc would, into \pth{shots/}.
+\noindent writes one, as PrtSc would, into \pth{shots/}. And the
+machine can be typed into from there, as if at its keyboard:
+
+\begin{type}
+ssh k4510@machine "k4510-type 'BOOK\n'"
+ssh k4510@machine k4510-type --key down down enter
+\end{type}
+
+\noindent \verb|\n| is Enter and \verb|~| a half-second pause; keys
+without a letter go by name (\verb|up|, \verb|pgdn|, \verb|esc|,
+\verb|f1|\ldots). Typing and a screenshot at a time is the machine
+driven from another room --- F7's menu included, with
+\verb|--key f7|. F7 $\rightarrow$ Input $\rightarrow$ \emph{Key pipe}
+can turn it off, or --- as it starts --- show every key so typed at the
+foot of the screen.

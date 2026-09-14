@@ -4,7 +4,7 @@ The K4510 is a fantasy computer: a machine that never existed, built the way 198
 
 ## What is the K4510?
 
-- **CPU: the 45GS10** — the MEGA65’s 45GS02 instruction set (a 4510 with the Q pseudo-register and 32-bit flat addressing) plus this machine’s own memory management: bank registers, a far-call gate, and RAM under the ROM. Its clock is whatever the host it runs on can hold at sixty frames a second with no gaps in the sound: the machine is a fantasy and its timings are suggestions. The clock is a setting (F7, under Machine — ten steps from 202.5 MHz down to 10). A host nobody has measured runs at 40.5, the MEGA65’s number; `SETUP` measures it properly, with the sound and the picture really running, and the machine keeps the answer for that host so later boots pay nothing. It never second-guesses a clock you chose yourself. A desktop of the last ten years holds a hundred megahertz or more. `INFO` reports the clock in force, read live, and `BENCH` is there when you want the whole picture.
+- **CPU: the 45GS10** — the MEGA65’s 45GS02 instruction set (a 4510 with the Q pseudo-register and 32-bit flat addressing) plus this machine’s own memory management: bank registers, a far-call gate, and RAM under the ROM. Its clock is whatever the host it runs on can hold at sixty frames a second with no gaps in the sound: the machine is a fantasy and its timings are suggestions. The clock is a setting (F7, under Machine — six steps from 60 MHz down to 10; the ladder goes on to 202.5, and those faster steps are held back for now). A host nobody has measured runs at 40.5, the MEGA65’s number; `SETUP` measures it properly, with the sound and the picture really running, and the machine keeps the answer for that host so later boots pay nothing. It never second-guesses a clock you chose yourself. A desktop of the last ten years holds a hundred megahertz or more. `INFO` reports the clock in force, read live, and `BENCH` is there when you want the whole picture.
 
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time; everything else is one instruction away.
 
@@ -124,10 +124,10 @@ Audio
 volume.
 
 Input  
-the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture; and the keyboard, above.
+the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture; the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 13, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.
 
 Machine  
-*save state* and *load state*, four slots each (the whole machine — CPU, every used page of the 256 MB, VICKY, the devices, JIM — to `k4510-slotN.k4s` beside the settings file; the Tube co-processor is not in the file and is stopped by a load); reset; power cycle; stop the Tube; quit; *CPU clock* — the ten steps, live; choosing one switches *Auto clock* off, because a clock chosen by hand is not to be second-guessed. *Auto clock* on uses what `SETUP` measured on this host. On the K4510’s own Linux there is a last row, *Shut down the computer*.
+*save state* and *load state*, four slots each (the whole machine — CPU, every used page of the 256 MB, VICKY, the devices, JIM — to `k4510-slotN.k4s` beside the settings file; the Tube co-processor is not in the file and is stopped by a load); reset; power cycle; stop the Tube; quit; *CPU clock* — the steps, live, 60 MHz at the most for now; choosing one switches *Auto clock* off, because a clock chosen by hand is not to be second-guessed. *Auto clock* on uses what `SETUP` measured on this host. On the K4510’s own Linux there is a last row, *Shut down the computer*.
 
 Shell  
 whether an unknown word at the prompt may run a CP/M `.COM` ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)) — off to begin with, on purpose: `D` typed for `DIR` should not start a Z80 program; and whether `/STARTUP.BAT` runs at power-on, which is the way out of a bad one ([When STARTUP.BAT is the problem](02-shell.md#when-startupbat-is-the-problem)).
@@ -181,7 +181,7 @@ The list below is generated from the menu’s own source, with the name each set
 kernel8, unscii, open-roms, PXLfont, C64 chargen, Bauhaus, Broadway, Computer, Cyberwire, NLQ, Benguiat, Chicago, Courier, Eurostile, OCR-A, Pristine, Anvil; to begin with, kernel8
 
 **`Resolution`** — *video.mode*  
-640x480
+640x480; to begin with, 640x240
 
 **`Left/top margin`** — *video.margin*  
 on, off; to begin with, off
@@ -246,6 +246,9 @@ on, off; to begin with, off
 **`Keyboard layout`** — *input.kbd_layout*  
 Host, US, US-intl, Canada-FR, France, Germany, Spain, UK, Italy; to begin with, Host
 
+**`Key pipe`** — *input.keypipe*  
+off, on, on, shown; to begin with, on, shown
+
 ### Machine
 
 **`Save state`** —   
@@ -267,7 +270,7 @@ does it
 does it
 
 **`CPU clock`** — *cpu.clock*  
-202.5 MHz, 162 MHz, 121.5 MHz, 81 MHz, 60 MHz, 40.5 MHz, 30 MHz, 20 MHz, 15 MHz, 10 MHz; to begin with, 40.5 MHz
+60 MHz, 40.5 MHz, 30 MHz, 20 MHz, 15 MHz, 10 MHz; to begin with, 40.5 MHz
 
 **`Auto clock`** — *cpu.auto*  
 on, off; to begin with, on

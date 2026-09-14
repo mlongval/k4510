@@ -210,7 +210,19 @@ across the room:
 ssh k4510@machine k4510-shot
 ```
 
-writes one, as PrtSc would, into shots/.
+writes one, as PrtSc would, into shots/. And the machine can be typed into
+from there, as if at its keyboard:
+
+```
+ssh k4510@machine "k4510-type 'BOOK\n'"
+ssh k4510@machine k4510-type --key down down enter
+```
+
+\n is Enter and ~ a half-second pause; keys without a letter go by name (up,
+pgdn, esc, f1...). Typing and a screenshot at a time is the machine driven
+from another room -- F7's menu included, with --key f7. F7 -> Input -> Key
+pipe can turn it off, or -- as it starts -- show every key so typed at the
+foot of the screen.
 
 => INDEX.GMI Contents
 => 12-RX.GMI Previous: 12. RX: the Machine's REXX

@@ -26,28 +26,6 @@
 
 #define MINIMUM_RAM PAGE_OFFSET+0x20000  // Minimum amount of RAM to allocate
 
-// [K4510] Built with -DK4510_TUBE the interpreter is the in-process Tube
-// co-processor (a core of the Pi, or a thread in the desktop test build):
-// its console is the Tube's ring, not stdio, and its files live inside the
-// machine's filesystem behind its own current directory. See core/tube_cp.h.
-#ifdef K4510_TUBE
-#include "tube_cp.h"
-#define printf tube_cp_printf
-#define fflush(f) tube_cp_flush(f)
-#define isatty(fd) 1
-#define fopen tube_cp_fopen
-#define opendir tube_cp_opendir
-#define remove tube_cp_remove
-#define rename tube_cp_rename
-#define mkdir tube_cp_mkdir
-#define rmdir tube_cp_rmdir
-#define chdir tube_cp_chdir
-#define getcwd tube_cp_getcwd
-#define chmod tube_cp_chmod
-#define usleep(us) tube_cp_usleep(us)
-#define sleep(s) tube_cp_usleep((s) * 1000000u)
-#endif
-
 #if UINTPTR_MAX == UINT32_MAX
 #define MAXIMUM_RAM 0x10000000           // Maximum amount of RAM to allocate
 #else

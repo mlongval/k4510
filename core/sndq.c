@@ -3,10 +3,9 @@
  * mutable state and each is written by one side only. */
 #include "sndq.h"
 
-/* GCC's builtins rather than <stdatomic.h>, for the same reason core/tube_cp.c
- * gives: the Pi kernel compiles freestanding against Circle's newlib, which
- * has no <stdatomic.h>, and the desktop and the Pi share this file.  (Written
- * with stdatomic first, and the Pi build said so at once.) */
+/* GCC's builtins rather than <stdatomic.h>: written that way for the
+ * bare-metal Pi kernel, whose newlib had no <stdatomic.h>.  The Pi port is
+ * gone (2026-09-07); the builtins are as good on Linux, so they stay. */
 #define A_LOAD(p)        __atomic_load_n((p), __ATOMIC_ACQUIRE)
 #define A_STORE(p, v)    __atomic_store_n((p), (v), __ATOMIC_RELEASE)
 #define A_ADD(p, v)      __atomic_fetch_add((p), (v), __ATOMIC_RELEASE)

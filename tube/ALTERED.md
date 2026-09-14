@@ -53,24 +53,18 @@ Alterations, all marked with [K4510] comments:
 
 Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.
 
-- Build flag `K4510_TUBE` (the Pi kernel and the desktop `make tubetest`
-  build; the pty `tube/bbcbasic` build does not set it): the interpreter
-  becomes the in-process Tube co-processor of core/tube_cp.c.
-  include/bbccon.h then maps printf/fflush/isatty and the file calls
-  (fopen, opendir, remove, rename, mkdir, rmdir, chdir, getcwd) to the
-  Tube's ring and to the machine's filesystem; src/bbccon.c under that
-  flag drops the reader thread, the signal timer, termios, mmap and
-  dlsym, polls the Tube in kbchk() (where the 250 ms timer also ticks),
-  honours the machine's kill in trap(), and adds tube_bbc_main() -- a
-  re-entrant main() without the process around it. The Linux paths are
-  untouched.
+- The `K4510_TUBE` build flag, and with it the in-process Tube build (the
+  interpreter compiled into the emulator, on a core of the bare-metal Pi
+  or a thread of the desktop `make tubetest`), was removed on 2026-09-14:
+  the Pi port was retired on 2026-09-07 and the test build was all that
+  used it. BBC BASIC runs as its own process on a pty (`tube/bbcbasic`),
+  the only way it runs.
 
 - src/bbccos.c: BBC BASIC's file view is sandboxed to the machine's
   filesystem. When the emulator sets K4510_ROOT (the absolute path of
   fs/), *DIR and *CD show paths relative to it (the fs root as "/", the
   host tree above it hidden), and *CD cannot climb above the root. With
-  K4510_ROOT unset (the in-process Tube, already sandboxed, or a bare
-  bbcbasic) nothing changes. The emulator also starts the co-processor
+  K4510_ROOT unset (a bare bbcbasic, run by hand) nothing changes. The emulator also starts the co-processor
   in the machine's current directory, so LOAD needs no directory prefix.
 
 - src/bbccos.c + src/bbccon.c (both builds): `*VI` or `*EDIT` with nothing

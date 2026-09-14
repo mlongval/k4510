@@ -35,16 +35,6 @@ typedef int timer_t ;
 #define DISABLE_NEWLINE_AUTO_RETURN 0x8
 #define ENABLE_VIRTUAL_TERMINAL_INPUT 0x200
 BOOL WINAPI K32EnumProcessModules (HANDLE, HMODULE*, DWORD, LPDWORD) ;
-#elif defined(K4510_TUBE)
-// [K4510] the in-process Tube co-processor: no terminal, no signals,
-// no threads -- the Tube rings (core/tube_cp.c) are the whole platform.
-#include <sys/stat.h>
-#define myftell ftell
-#define myfseek fseek
-#define PLATFORM "K4510"
-#define WM_TIMER 275
-#define RTLD_DEFAULT NULL
-static void *dlsym (void *handle, const char *symbol) { return NULL ; }
 #else
 #include <termios.h>
 #include <signal.h>
@@ -201,7 +191,7 @@ static DWORD WINAPI myThread (void *parm)
 	return 0 ;
 }
 
-#elif !defined(K4510_TUBE)
+#else
 
 void *myThread (void *parm)
 {
@@ -222,7 +212,7 @@ void *myThread (void *parm)
 }
 #endif
 
-#if defined(__linux__) && !defined(K4510_TUBE)
+#if defined(__linux__)
 static void *mymap (uintptr_t size)
 {
 	FILE *fp ;
@@ -318,8 +308,6 @@ unsigned int GetTicks (void)
 {
 #ifdef _WIN32
 	return timeGetTime () ;
-#elif defined(K4510_TUBE)
-	return tube_cp_ticks () ;	// [K4510] the platform's clock (SDL_GetTicks on the Pi)
 #else
 	struct timespec ts ;
 	if (clock_gettime (CLOCK_MONOTONIC, &ts))
@@ -328,31 +316,10 @@ unsigned int GetTicks (void)
 #endif
 }
 
-#ifdef K4510_TUBE
-// [K4510] The keyboard arrives over the Tube instead of a reader
-// thread, and the 250 ms timer that Linux delivered as a signal ticks
-// here, synchronously, whenever the interpreter looks at the keyboard
-// (which it does at every trap).
-static unsigned int tube_timer_due ;
-static void UserTimerProc (void) ;
-static int kbchk (void)
-{
-	int c ;
-	while ((((inpqw + 1) % QSIZE) != inpqr) && ((c = tube_cp_getc ()) >= 0))
-		putinp ((unsigned char) c) ;
-	if ((int)(tube_cp_ticks () - tube_timer_due) >= 0)
-	    {
-		tube_timer_due = tube_cp_ticks () + 250 ;
-		UserTimerProc () ;
-	    }
-	return (inpqr != inpqw) ;
-}
-#else
 static int kbchk (void)
 {
 	return (inpqr != inpqw) ;
 }
-#endif
 
 static unsigned char kbget (void)
 {
@@ -648,10 +615,6 @@ size_t guicall (void *func, PARM *parm)
 // Check for Escape (if enabled) and kill:
 void trap (void)
 {
-#ifdef K4510_TUBE
-	if (tube_cp_killed ())
-		flags |= KILL ;		// [K4510] the machine wrote 2 to $D803
-#endif
 	stdin_handler (NULL, NULL) ;
 
 	if (flags & KILL)
@@ -1516,7 +1479,7 @@ long long getext (void *chan)
 		COMSTAT cs = {0} ;
 		ClearCommError ((HANDLE) _get_osfhandle (fileno (file)), NULL, &cs) ;
 		return cs.cbInQue ;
-#elif (defined(__linux__) || defined(__APPLE__)) && !defined(K4510_TUBE)
+#elif (defined(__linux__) || defined(__APPLE__))
 		int waiting = 0 ;
 		ioctl (fileno (file), FIONREAD, &waiting) ;
 		return waiting ;
@@ -1637,30 +1600,8 @@ void SystemIO (int flag)
 }
 #endif
 
-#ifdef K4510_TUBE
-static void UserTimerProc (void)
-{
-	if (timtrp)
-		putevt (timtrp, WM_TIMER, 0, 0) ;
-	flags |= ALERT ; // Always, for periodic ESCape detection
-}
 
-timer_t StartTimer (int period)
-{
-	tube_timer_due = tube_cp_ticks () + period ;
-	return (timer_t) 0 ;
-}
-
-void StopTimer (timer_t timerid)
-{
-}
-
-void SystemIO (int flag)
-{
-}
-#endif
-
-#if defined(__linux__) && !defined(K4510_TUBE)
+#if defined(__linux__)
 static void UserTimerProc (int sig, siginfo_t *si, void *uc)
 {
 	if (timtrp)
@@ -1763,47 +1704,6 @@ void SystemIO (int flag)
 }
 #endif
 
-#ifdef K4510_TUBE
-// [K4510] The co-processor's main: what main() below does, minus the
-// terminal, the environment and the process. Called by tube_cp_run() on
-// every start (*QUIT returns here, and the next BBCBASIC calls again), so
-// everything main() set once is set again.
-int tube_bbc_main (void)
-{
-	size_t bytes ;
-	platform = 1 ;
-#if defined __x86_64__ || defined __aarch64__
-	platform |= 0x40 ;
-#endif
-	userRAM = tube_cp_ram (&bytes) ;
-	if (userRAM == NULL)
-		return 9 ;
-	MaximumRAM = bytes ;
-	if (MaximumRAM > DEFAULT_RAM)
-		userTOP = userRAM + DEFAULT_RAM ;
-	else
-		userTOP = userRAM + MaximumRAM ;
-	progRAM = userRAM + PAGE_OFFSET ;
-	szCmdLine = progRAM - 0x100 ;
-	szTempDir = szCmdLine - 0x100 ;
-	szUserDir = szTempDir - 0x100 ;
-	szLibrary = szUserDir - 0x100 ;
-	szLoadDir = szLibrary - 0x100 ;
-	*szCmdLine = 0 ;
-	strcpy (szTempDir, "/LANG/BBCBASIC/") ;
-	strcpy (szUserDir, "/LANG/BBCBASIC/") ;
-	strcpy (szLibrary, "/LANG/BBCBASIC/LIB/") ;
-	tube_cp_chdir ("/") ;
-	tube_cp_getcwd (szLoadDir, 255) ;
-	if (szLoadDir[strlen (szLoadDir) - 1] != '/')
-		strcat (szLoadDir, "/") ;
-	inpqr = inpqw = 0 ;
-	keyptr = NULL ;
-	UserTimerID = StartTimer (250) ;
-	flags = 0 ;
-	return entry ((void *) 1) ;
-}
-#else
 
 static void SetLoadDir (char *path)
 {
@@ -2109,4 +2009,3 @@ pthread_t hThread = NULL ;
 
 	exit (exitcode) ;
 }
-#endif // K4510_TUBE

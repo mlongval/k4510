@@ -1,0 +1,13 @@
+# test/remote/cpm.k4r -- CP/M on the Tube: RunCPM as a process on a pty
+# (the only way since the in-process build went, 2026-09-14), its prompt,
+# a DIR, and EXIT back to the shell.
+#     tools/k4510-remote run test/remote/cpm.k4r
+key esc
+type CD /HOME\n
+type CPM\n
+expect "A0>" 20
+type DIR\n
+wait 2
+shot cpm-dir
+type EXIT\n
+expect "/HOME]" 15

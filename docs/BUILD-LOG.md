@@ -8451,3 +8451,21 @@ Doc: "drop 1, 3 and 4, drop the WASM version for now. I was too early."
 - The README's opening no longer calls this release 'Timbre' with a Pi
   image and a SID engine beside reSID, and its clock paragraph says what
   is true now: a setting, capped at 60 MHz, measured on first boot.
+
+## 2026-09-14 — the in-process Tube, and the web build's code, removed
+
+Doc: "drop 1" -- the in-process Tube, the bare-metal Pi's way of running
+BBC BASIC and RunCPM compiled into the emulator, kept since 2026-09-07
+only as `make tubetest`. Gone: core/tube_cp.c/.h, test/tubetest.sh, the
+Makefile's in-process section, cpm/src/abstraction_k4510.h and its
+generator cpm/patch_cpm.py. The #if chains were cut with unifdef 2.12
+(-UK4510_TUBE_INPROC -UK4510_NOPROC on core/io.c; -U__EMSCRIPTEN__
+-UK4510_WASM -UK4510_NOPROC on sdl/main.c; -UK4510_TUBE on BBC BASIC's
+bbccon.c, bbccos.c, bbccon.h and RunCPM's main.c): some 200 lines, cut
+by the tool rather than by hand. Five conditions it could not decide
+(`defined(__linux__) && !defined(K4510_TUBE)` and the like) were reduced
+by hand to their __linux__ part; BBC BASIC's own upstream __EMSCRIPTEN__
+lines stay. The comments that described the gone code were rewritten.
+Checked: everything builds without a new warning, the six core tests
+pass, the rebuilt tube/bbcbasic runs a program through a pipe;
+test/remote/cpm.k4r added for CP/M on the Dell.

@@ -49,9 +49,9 @@ Fixed the same day except these:
 - [ ] `tekplay`/`tekmenu` break on plot paths with spaces; `tek40xx/build.sh`
       clones an unpinned upstream; `git archive | tar` masks a git failure
       (POSIX sh, no pipefail) in build-live/podman.
-- [ ] `patch_cpm.py` is not re-runnable; the in-process Tube is test-only
-      since the Pi went and `io.c`/`tube_cp.h`/`io.h`/`net.h`/`sndq.c`
-      comments still describe core 3.
+- [x] `patch_cpm.py` is not re-runnable; the in-process Tube is test-only
+      -- resolved 2026-09-14: the in-process Tube, `tube_cp.*`,
+      `patch_cpm.py` and the K4510_TUBE code are removed.
 - [ ] Tests worth adding are listed at the end of the review note.
 
 ## Small, known

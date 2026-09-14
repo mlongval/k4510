@@ -20,16 +20,12 @@ extern int dirlen;
 #else
 #include <dirent.h>
 #include <sys/stat.h>
-#ifdef K4510_TUBE
-#define k4_stat tube_cp_stat	// [K4510] through the co-processor's path layer
-#else
 #define k4_stat stat
-#endif
 
 // [K4510] show a host path as the machine sees it: the fs root (passed
 // in K4510_ROOT by the emulator) shown as "/", the tree above it hidden.
-// When K4510_ROOT is unset (the in-process Tube, already sandboxed, or a
-// bare bbcbasic) the path is returned untouched.
+// When K4510_ROOT is unset (a bare bbcbasic, run by hand) the path is
+// returned untouched.
 static const char *k4_rel (const char *abs)
 {
 	const char *root = getenv ("K4510_ROOT") ;

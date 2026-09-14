@@ -4,20 +4,15 @@
  * cycles, feed keys into the keyboard register, let VICKY render screen
  * RAM. The ROM (Wozmon) does everything else.
  */
-#ifdef __EMSCRIPTEN__
-#include <emscripten.h>
-#endif
 #include <SDL.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>   /* access(): is this the K4510 Linux? */
-#ifndef __EMSCRIPTEN__
 #include <sys/wait.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
-#endif
 #include "../core/xemu/emutools_basicdefs.h"
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
@@ -39,7 +34,7 @@
 #include <signal.h>
 #include <sys/time.h>
 #include <dirent.h>        /* /sys/class/power_supply: the battery */
-#if defined(__linux__) && !defined(__EMSCRIPTEN__)
+#if defined(__linux__)
 #include <fcntl.h>
 #include <sys/ioctl.h>
 #include <linux/vt.h>      /* VT_ACTIVATE: Ctrl+Alt+F2..F6 on the K4510 Linux */
@@ -86,7 +81,6 @@ static void mlog(const char *what)
     clock_gettime(CLOCK_REALTIME, &ts); localtime_r(&ts.tv_sec, &tm);
     fprintf(stderr, "%02d:%02d:%02d.%03ld %s\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000, what); fflush(stderr);
 }
-#ifndef __EMSCRIPTEN__
 static void shot_signal(int sig) { (void) sig; shot_req = 1; }
 /* The machine's text screen, as text -- SIGUSR2 (tools/k4510-screen), for
  * reading the machine from another computer without a picture (Doc,
@@ -123,7 +117,6 @@ static void screen_save(void)
     fclose(f);
     rename("shots/.screen.tmp", "shots/screen.txt");
 }
-#endif
 static uint32_t png_crc(uint32_t c, const uint8_t *p, size_t n) {
     static uint32_t t[256];
     if (!t[1]) for (uint32_t i = 0; i < 256; i++) { uint32_t v = i; for (int k = 0; k < 8; k++) v = (v & 1) ? 0xEDB88320u ^ (v >> 1) : v >> 1; t[i] = v; }
@@ -483,13 +476,9 @@ static void touchpad_event(const SDL_Event *e, SDL_Window *win)
 static SDL_Window *grab_win; static int grabbed, grab_wanted;
 static void grab(int on)
 {
-#ifndef __EMSCRIPTEN__
     if (!grab_win || on == grabbed) return;
     SDL_SetWindowMouseGrab(grab_win, on ? SDL_TRUE : SDL_FALSE);
     grabbed = on;
-#else
-    (void) on;
-#endif
 }
 /* ---- the machine, one scanline at a time ------------------------------
  * The frame used to be one loop; it is now a state machine that can stop
@@ -687,7 +676,6 @@ static uint8_t pad_held(void)
  * the emulator keeps running and holds the picture, the VT switches away and
  * comes back when nmtui exits (openvt -s -w); the child is reaped each frame
  * so the machine never blocks. */
-#ifndef __EMSCRIPTEN__
 static pid_t host_child;
 /* The host's battery, for the status band ($D53A): every ten seconds, from
  * /sys/class/power_supply -- any Linux laptop, the K4510 Linux or a desktop.
@@ -839,11 +827,6 @@ static void host_reap(void)                          /* once a frame */
 {
     if (host_child > 0 && waitpid(host_child, NULL, WNOHANG) == host_child) { host_child = 0; host_info_refresh(); }
 }
-#else
-static void host_info_refresh(void) { }
-static void host_net_setup(void) { }
-static void host_reap(void) { }
-#endif
 
 /* While the machine waits on the network (core/net_posix.c), keep the window
  * answering: the compositor greys out a window that stops pumping events.
@@ -912,9 +895,6 @@ int k4510_frontend_main(int argc, char **argv)
     io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
     cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
     audio_init((double)cpu_hz_now, AUDIO_RATE);
-#ifdef __EMSCRIPTEN__
-    SDL_SetHint(SDL_HINT_EMSCRIPTEN_KEYBOARD_ELEMENT, "#canvas");   /* the keys are the canvas's once it is clicked, F-keys included */
-#endif
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     main_tid = SDL_ThreadID(); plat_net_wait_hook = net_wait_alive;
     /* the touchpad as a pointer on the bare console (see touchpad_event); K4510_TOUCHPAD=0|1 overrides */
@@ -991,10 +971,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
     static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
-#ifndef __EMSCRIPTEN__
     signal(SIGUSR1, shot_signal);                  /* tools/k4510-shot: a screenshot, from outside */
     signal(SIGUSR2, screen_signal);                /* tools/k4510-screen: the text screen, as text */
-#endif
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
     int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
@@ -1054,10 +1032,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static unsigned p_runs;                       /* windows written this run: the first truncates, the rest append */
 #define PCLK_HZ() SDL_GetPerformanceFrequency()
 #define PERF_FRAMES 300
-#ifndef __EMSCRIPTEN__
     host_keymap_apply();                          /* the first look: note the layout the boot already applied */
     host_lid_apply();                             /* the lid: keep running holds logind's lock from the start */
-#endif
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
           /* the window opens 20 s after start, so it measures the machine at
@@ -1205,7 +1181,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                  * makes that SDLK_SYSREQ; SDLK_PRINTSCREEN is X11/Wayland's (and
                  * evdev's KEY_PRINT).  Found on the Dell with a key logger, 2026-09-12. */
                 if (k == SDLK_PRINTSCREEN || k == SDLK_SYSREQ) { shot_req = 1; break; }
-#if defined(__linux__) && !defined(__EMSCRIPTEN__)
+#if defined(__linux__)
                 /* Ctrl+Alt+F1..F6 on the K4510 Linux: the other consoles.  SDL
                  * puts tty1's keyboard in K_OFF so no key leaks into the text
                  * console under us -- and that switches off the kernel's own
@@ -1485,9 +1461,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { static int host_open_was; static Uint32 host_read_at;   /* the Host page: read at open, then every 2 s while open */
           if (open && (!host_open_was || SDL_GetTicks() - host_read_at >= 2000)) { host_info_refresh(); host_read_at = SDL_GetTicks(); }
           host_open_was = open; host_reap(); }
-#ifndef __EMSCRIPTEN__
         host_battery_poll();                                          /* $D53A, every ten seconds */
-#endif
         { static Uint32 beat_at; static unsigned long loops; loops++;  /* the heartbeat: a freeze is the beats stopping */
           if (SDL_GetTicks() - beat_at >= 10000) { char b[96]; beat_at = SDL_GetTicks();
               snprintf(b, sizeof b, "alive: %lu loops, Tube %s, menu %s", loops, (io_read(IO_TUBE) & 1) ? "running" : "idle", open ? "open" : "shut");
@@ -1514,10 +1488,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 settings_set(SET_CPU_AUTO, 0);     /* a clock chosen by hand is not to be second-guessed at the next boot */
             clock_at_open = -1;
             if (settings_changed()) settings_save(cfg);
-#ifndef __EMSCRIPTEN__
             host_keymap_apply();                  /* layout / Caps-as-Ctrl changed: the Linux side too (K4510 Linux only) */
             host_lid_apply();                     /* Lid closed: take or let go of logind's lid lock */
-#endif
         }
         /* ---- the governor -------------------------------------------------
          * The measurement is a guess about programs it has not seen, so the
@@ -1986,9 +1958,6 @@ tex_done:
           if (!next || now > next + 4 * per) next = now;
           next += per;
           if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / SDL_GetPerformanceFrequency()));
-#ifdef __EMSCRIPTEN__
-          else emscripten_sleep(0);                    /* a page must hand the browser its turn every frame, early or late */
-#endif
         }
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }

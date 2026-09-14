@@ -951,15 +951,10 @@ static uint8_t sys_read(uint8_t r)
 }
 
 /* ---- the Tube ($D800) ---------------------------------------------------
- * Two transports carry the co-processor: on the desktop it is a child
- * process on a pty (BBC BASIC or RunCPM, below); with K4510_TUBE_INPROC --
- * the Pi, and the desktop test build -- it is the interpreter compiled in
- * and running on a core (or thread) of its own, through core/tube_cp.c.
- * The Tube ULA between them is the same code either way. */
-#if defined(K4510_TUBE_INPROC)
-#include "tube_cp.h"
-static int tube_was_alive;
-#elif !defined(K4510_NOPROC)
+ * The co-processor is a child process on a pty: BBC BASIC, RunCPM, the
+ * host's shell for `!`, or the chess engine.  (Until 2026-09-14 there was
+ * a second transport, the interpreter compiled in and run on a core of the
+ * bare-metal Pi or a thread of a test build; it went with the Pi port.) */
 #include <pty.h>
 #include <termios.h>
 #ifdef __linux__
@@ -970,7 +965,6 @@ static void tube_log(const char *fmt, ...);   /* defined with tube_start; the re
 #include <signal.h>
 #include <fcntl.h>
 static pid_t tube_pid; static int tube_fd = -1;
-#endif
 static uint8_t tube_ring[4096]; static unsigned tube_w, tube_r;
 /* k4510-menu.cfg "linux = locked", set by the frontend: the Tube's host shell
  * (`!`, and SSH through it) is refused, the machine's compilers are not. */
@@ -1265,26 +1259,6 @@ static void tula_in(uint8_t b)                   /* every byte from the co-proce
         return;
     }
 }
-#if defined(K4510_TUBE_INPROC)
-static void tube_pump(void)
-{
-    uint8_t buf[256]; int n, alive = tube_cp_alive();
-    while (tube_w - tube_r < sizeof tube_ring - 600 && (n = tube_cp_read(buf, sizeof buf)) > 0)
-        for (int i = 0; i < n; i++) tula_in(buf[i]);
-    if (alive) tube_was_alive = 1;
-    else if (tube_was_alive) { tube_was_alive = 0; tula_close(); }   /* the co-processor ended (*QUIT) */
-}
-static void tube_start(int prog) { tube_cp_start(prog); }             /* 1 = BBC BASIC, 3 = CP/M, both in-process */
-static void tube_stop(void)
-{
-    tube_cp_stop();
-    tube_w = tube_r = 0; tube_was_alive = 0;
-    tula_close();
-}
-static uint8_t tube_status(void) { tube_pump(); return (tube_cp_alive() ? 1 : 0) | (tube_w != tube_r ? 0x80 : 0); }
-static uint8_t tube_read(void) { tube_pump(); return tube_w != tube_r ? tube_ring[tube_r++ & 4095] : 0; }
-static void tube_write(uint8_t v) { tube_cp_write(v); }
-#elif !defined(K4510_NOPROC)
 static void tube_pump(void)
 {
     uint8_t buf[256]; ssize_t n; int full = 0;
@@ -1458,13 +1432,6 @@ static void tube_write(uint8_t v)
     }
     { ssize_t n = write (tube_fd, &v, 1); (void) n; }
 }
-#else
-static uint8_t tube_status(void) { return 0; }
-static uint8_t tube_read(void) { return 0; }
-static void tube_write(uint8_t v) { (void) v; }
-static void tube_start(int prog) { (void) prog; }
-static void tube_stop(void) {}
-#endif
 
 /* ---- WATCH: a write watchpoint on physical RAM (core/io.h) -------------- */
 uint32_t dbg_watch_addr;

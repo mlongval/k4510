@@ -314,10 +314,10 @@ void    io_reset(void);
  *   $D802 W: a byte to the co-processor (its keyboard)
  *   $D803 W: 1 start (spawn), 2 stop (kill)
  * The co-processor has its own flat 256 MB; PAGE/HIMEM live there, far
- * beyond the 64 KB view. On the Pi the co-processor is the same
- * interpreter (or RunCPM's Z80, program 3) running on core 3
- * (core/tube_cp.c); an unfitted program leaves status reading 0. The
- * console it talks to is JIM, the terminal at $DA00 (core/term.h). */
+ * beyond the 64 KB view. The co-processor is a process on the host
+ * (BBC BASIC, RunCPM's Z80 as program 3); where none can be started,
+ * status reads 0. The console it talks to is JIM, the terminal at $DA00
+ * (core/term.h). */
 void    kbd_push(uint8_t code);
 void    kbd_push_key(uint8_t code);      /* the host: a KEY_* code (arrows, Home, F-keys) -- never a typed character */
 void    dbg_pc(uint16_t pc);                 /* mem.c calls this on every opcode fetch */

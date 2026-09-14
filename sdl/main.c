@@ -88,6 +88,41 @@ static void mlog(const char *what)
 }
 #ifndef __EMSCRIPTEN__
 static void shot_signal(int sig) { (void) sig; shot_req = 1; }
+/* The machine's text screen, as text -- SIGUSR2 (tools/k4510-screen), for
+ * reading the machine from another computer without a picture (Doc,
+ * 2026-09-14: the remote harness, "standardize it ... for testing and
+ * remote debugging").  The text layer's own map (layer 0's MAP and STRIDE, a
+ * text32 cell is four bytes, the glyph first), every row of the glass --
+ * 60, 30 or 25 by VICKY's mode -- the status bands included, as CP437
+ * bytes, trailing blanks trimmed, blank rows kept so a row is always the
+ * same line.  Written beside and renamed, so a reader never sees half of
+ * one.  The F7 menu draws over the picture, not into this map: a first line
+ * says when it is open. */
+static volatile sig_atomic_t screen_req;
+static void screen_signal(int sig) { (void) sig; screen_req = 1; }
+static void screen_save(void)
+{
+    uint32_t map = (uint32_t) vicky_read(0x1C) | ((uint32_t) vicky_read(0x1D) << 8) | ((uint32_t) vicky_read(0x1E) << 16) | ((uint32_t) vicky_read(0x1F) << 24);
+    int stride = vicky_read(0x16) | (vicky_read(0x17) << 8), ctrl = vicky_read(0);
+    /* bit 3 a 200-line field (25 rows); bit 2 lines halved and bit 1 320 wide --
+     * which halves the lines too (MODE 2) -- 30; neither, the whole 480: 60 */
+    int rows = (ctrl & 8) ? 25 : (ctrl & 6) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
+    mkdir("shots", 0755);
+    FILE *f = fopen("shots/.screen.tmp", "wb");
+    if (!f) return;
+    if (menu_is_open()) fputs("# the F7 menu is open over this screen\n", f);
+    for (int r = 0; r < rows; r++) {
+        char line[168]; int n = 0;
+        for (int c = 0; c < cols; c++) {
+            uint8_t ch = mem_peek((map + (uint32_t)(r * stride + c) * 4) & 0x0FFFFFFFu);
+            line[n++] = (ch < 0x20 || ch == 0x7F) ? ' ' : (char) ch;
+        }
+        while (n && line[n - 1] == ' ') n--;
+        fwrite(line, 1, (size_t) n, f); fputc('\n', f);
+    }
+    fclose(f);
+    rename("shots/.screen.tmp", "shots/screen.txt");
+}
 #endif
 static uint32_t png_crc(uint32_t c, const uint8_t *p, size_t n) {
     static uint32_t t[256];
@@ -899,6 +934,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
 #ifndef __EMSCRIPTEN__
     signal(SIGUSR1, shot_signal);                  /* tools/k4510-shot: a screenshot, from outside */
+    signal(SIGUSR2, screen_signal);                /* tools/k4510-screen: the text screen, as text */
 #endif
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
@@ -1605,6 +1641,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         SDL_UnlockTexture(tex);
 tex_done:
         if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); shot_flash = 4; }   /* what the texture holds, without the scanlines */
+        if (screen_req) { screen_req = 0; screen_save(); }                                                         /* the text screen, as text: no flash, it is not a picture */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
         { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);

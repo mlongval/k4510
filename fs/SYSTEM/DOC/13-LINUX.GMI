@@ -222,7 +222,16 @@ ssh k4510@machine k4510-type --key down down enter
 pgdn, esc, f1...). Typing and a screenshot at a time is the machine driven
 from another room -- F7's menu included, with --key f7. F7 -> Input -> Key
 pipe can turn it off, or -- as it starts -- show every key so typed at the
-foot of the screen.
+foot of the screen. k4510-screen is the third tool beside them: the machine's
+text screen, as text, so another computer can read what the machine says
+without looking at a picture.
+
+On the computer doing the driving, tools/k4510-remote puts the three together
+behind one command -- status, type, key, screen, expect (wait until a text
+appears), shot, run (a script of those, one a line), logs and reboot -- and
+k4510-remote tui is all of it from a menu, with the machine's screen live
+above it and a pass-through mode in which what you type goes straight to the
+machine (Ctrl-] leaves).
 
 => INDEX.GMI Contents
 => 12-RX.GMI Previous: 12. RX: the Machine's REXX

@@ -1,0 +1,327 @@
+#!/usr/bin/env python3
+"""k4510-remote -- drive and read a K4510 on another computer, over ssh.
+
+    k4510-remote status             the machine: uptime, layer, emulator, key pipe
+    k4510-remote type 'BOOK 8\\n'    text: \\n is Enter, \\t Tab, ~ a half-second pause
+    k4510-remote key f7 down enter  keys by name (up down left right home end pgup
+                                    pgdn ins del esc enter tab bs f1..f12)
+    k4510-remote screen             the text screen, as text
+    k4510-remote expect 'Ready' 10  wait up to 10 s (default 10) for the text; exit 1,
+                                    and the screen, if it never came
+    k4510-remote shot [name]        a screenshot, copied to ~/k4510-remote/shots/;
+                                    --show draws it in the terminal (chafa)
+    k4510-remote run script.k4r     a script: one command a line, as above, plus
+                                    "wait S"; # a comment; stops at a failed expect
+    k4510-remote logs               the emulator's log, the menu file, the last dumps
+    k4510-remote reboot [-y]        reboot the machine and wait for it
+    k4510-remote tui                all of it from a menu, with the screen live above
+
+The machine is K4510_REMOTE, or k4510@100.76.140.12 (the Dell).  One ssh
+connection is kept open between calls (ControlPersist), so a command costs a
+few milliseconds, not a handshake.  Every command is appended, with the time,
+to ~/k4510-remote/session.log: a session is its own record.
+
+On the machine it uses tools/k4510-type (the key pipe), tools/k4510-shot
+(SIGUSR1: a picture) and tools/k4510-screen (SIGUSR2: the text), all three
+in the K4510's checkout.  F7 > Input > Key pipe there can turn typing off,
+or -- as it starts -- show every key typed this way at the foot of the
+screen.  Doc, 2026-09-14: "standardize it to better use it for testing and
+remote debugging ... perhaps a small tui on top of k4510-remote".
+"""
+import os, sys, time, shlex, shutil, subprocess, pathlib, datetime
+
+HOST = os.environ.get("K4510_REMOTE", "k4510@100.76.140.12")
+TOOLS = "~/k4510/tools"
+HOME = pathlib.Path.home() / "k4510-remote"
+SHOTS = HOME / "shots"
+SSH = ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5",
+       "-o", "ControlMaster=auto", "-o", "ControlPath=~/.ssh/cm-k4510-%r@%h:%p", "-o", "ControlPersist=120"]
+KEYS = ["up", "down", "left", "right", "home", "end", "pgup", "pgdn", "ins", "del",
+        "esc", "enter", "tab", "bs"] + [f"f{i}" for i in range(1, 13)]
+
+
+class Fail(Exception):
+    pass
+
+
+def log(what):
+    HOME.mkdir(exist_ok=True)
+    with open(HOME / "session.log", "a") as f:
+        f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}  {HOST}  {what}\n")
+
+
+def remote(cmd, timeout=30, binary=False):
+    """run a shell command on the machine; its stdout (bytes if binary)"""
+    try:
+        r = subprocess.run(SSH + [HOST, cmd], capture_output=True, timeout=timeout)
+    except subprocess.TimeoutExpired:
+        raise Fail(f"{HOST} did not answer within {timeout} s")
+    if r.returncode:
+        err = r.stderr.decode(errors="replace").strip() or f"exit {r.returncode}"
+        raise Fail(err.splitlines()[-1])
+    return r.stdout if binary else r.stdout.decode(errors="replace")
+
+
+def c_status():
+    return remote("uptime -p; echo \"layer:  $(sha256sum /run/live/persistence/nvme0n1p4/live/k4510.squashfs 2>/dev/null | cut -c1-16)\"; "
+                  "p=$(pgrep -nx k4510) && echo \"emulator: pid $p, in $(readlink /proc/$p/cwd)\" || echo 'emulator: not running'; "
+                  "[ -p ~/k4510/KEYS ] && echo 'key pipe: ready' || echo 'key pipe: none'").rstrip()
+
+
+def c_type(text):
+    log(f"type {text!r}")
+    remote(f"{TOOLS}/k4510-type {shlex.quote(text)}")
+
+
+def c_key(names):
+    bad = [n for n in names if n not in KEYS]
+    if bad:
+        raise Fail("no key called " + ", ".join(bad) + "  (keys: " + " ".join(KEYS) + ")")
+    log("key " + " ".join(names))
+    remote(f"{TOOLS}/k4510-type --key " + " ".join(names))
+
+
+def c_screen():
+    return remote(f"{TOOLS}/k4510-screen", binary=True).decode("cp437").rstrip("\n")
+
+
+def c_expect(text, secs=10.0):
+    log(f"expect {text!r} {secs}")
+    end = time.time() + secs
+    while True:
+        s = c_screen()
+        if text in s:
+            return s
+        if time.time() > end:
+            raise Fail(f"{text!r} did not appear within {secs:g} s; the screen:\n{s}")
+        time.sleep(0.5)
+
+
+def c_shot(name="", show=False):
+    path = remote(f"{TOOLS}/k4510-shot").strip()
+    SHOTS.mkdir(parents=True, exist_ok=True)
+    stamp = f"{datetime.datetime.now():%Y%m%d-%H%M%S}"
+    local = SHOTS / (f"{stamp}-{name}.png" if name else f"{stamp}.png")
+    local.write_bytes(remote(f"cat {shlex.quote(path)}", binary=True))
+    log(f"shot {local}")
+    if show and shutil.which("chafa"):
+        subprocess.run(["chafa", "--size", f"{min(shutil.get_terminal_size().columns, 100)}x40", str(local)])
+    return str(local)
+
+
+def c_logs():
+    return remote("echo '--- the emulator (last 40 lines of /tmp/k4510-emulator.log)'; tail -n 40 /tmp/k4510-emulator.log 2>/dev/null; "
+                  "echo; echo '--- the menu file (hidden rows and locks)'; grep -v '^#' ~/k4510/k4510-menu.cfg 2>/dev/null | grep -i 'hide\\|locked' || echo '(nothing hidden, nothing locked)'; "
+                  "echo; echo '--- the last dumps'; ls -t ~/k4510/dumps 2>/dev/null | head -3").rstrip()
+
+
+def c_reboot(ask=True):
+    if ask and input(f"reboot {HOST}? [y/N] ").strip().lower() != "y":
+        return "not rebooted"
+    log("reboot")
+    subprocess.run(SSH + [HOST, "sudo -n systemctl reboot"], capture_output=True, timeout=20)
+    subprocess.run(["ssh", "-O", "exit", "-o", "ControlPath=~/.ssh/cm-k4510-%r@%h:%p", HOST], capture_output=True)
+    t0 = time.time()
+    time.sleep(10)
+    while time.time() - t0 < 600:
+        if subprocess.run(SSH + [HOST, "true"], capture_output=True).returncode == 0:
+            return f"back after {int(time.time() - t0)} s\n" + c_status()
+        time.sleep(5)
+    raise Fail("not back within ten minutes")
+
+
+def c_run(path):
+    """a script: type / key / expect / wait / shot / screen, one a line"""
+    for n, line in enumerate(pathlib.Path(path).read_text().splitlines(), 1):
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        word, _, rest = line.partition(" ")
+        rest = rest.strip()
+        print(f"{n:3}  {line}")
+        if word == "type":
+            c_type(rest.encode().decode("unicode_escape"))
+        elif word == "key":
+            c_key(rest.split())
+        elif word == "expect":
+            parts = shlex.split(rest)
+            c_expect(parts[0], float(parts[1]) if len(parts) > 1 else 10.0)
+        elif word == "wait":
+            time.sleep(float(rest or 1))
+        elif word == "shot":
+            print("     ->", c_shot(rest))
+        elif word == "screen":
+            print(c_screen())
+        else:
+            raise Fail(f"{path}:{n}: no command {word!r} (type key expect wait shot screen)")
+    return "script done"
+
+
+# ---- the TUI -------------------------------------------------------------
+ACTIONS = [("Type text", "t"), ("Keys", "k"), ("Pass-through typing", "p"), ("Expect text", "e"),
+           ("Screenshot", "s"), ("Run a script", "r"), ("Logs", "l"), ("Status", "i"), ("Reboot", "b"), ("Quit", "q")]
+PASS_KEYS = {  # curses key -> (text or --key name)
+    10: ("t", "\n"), 13: ("t", "\n"), 9: ("t", "\t"), 127: ("k", "bs"), 8: ("k", "bs"),
+}
+
+
+def tui():
+    import curses
+
+    def ask(scr, prompt):
+        h, w = scr.getmaxyx()
+        curses.echo(); curses.curs_set(1)
+        scr.move(h - 1, 0); scr.clrtoeol(); scr.addstr(h - 1, 0, prompt[:w - 1]); scr.refresh()
+        s = scr.getstr(h - 1, min(len(prompt), w - 2), 200).decode(errors="replace")
+        curses.noecho(); curses.curs_set(0)
+        return s
+
+    def main(scr):
+        curses.curs_set(0); scr.timeout(250)
+        sel, msg, last, text, passing = 0, "Arrows choose, Enter does it; the letters work too.", 0.0, "", False
+        keymap = {curses.KEY_UP: "up", curses.KEY_DOWN: "down", curses.KEY_LEFT: "left", curses.KEY_RIGHT: "right",
+                  curses.KEY_HOME: "home", curses.KEY_END: "end", curses.KEY_PPAGE: "pgup", curses.KEY_NPAGE: "pgdn",
+                  curses.KEY_DC: "del", curses.KEY_IC: "ins", curses.KEY_BACKSPACE: "bs"}
+        keymap.update({curses.KEY_F0 + i: f"f{i}" for i in range(1, 13)})
+        while True:
+            now = time.time()
+            if now - last > (0.7 if passing else 2.0):              # the screen, live
+                try:
+                    text = c_screen()
+                except Fail as e:
+                    text = f"(the screen could not be read: {e})"
+                last = now
+            scr.erase()
+            h, w = scr.getmaxyx()
+            title = f" K4510 at {HOST} " + (" -- PASS-THROUGH: your keys go to the machine; Ctrl-] leaves " if passing else "")
+            scr.addstr(0, 0, title[:w - 1], curses.A_REVERSE)
+            rows = text.split("\n")
+            pane = max(3, h - 4 - (0 if passing else 2))
+            for i, line in enumerate(rows[-pane:] if len(rows) > pane else rows):
+                scr.addstr(1 + i, 0, line[:w - 1])
+            if not passing:
+                y = h - 3
+                x = 0
+                for i, (label, hot) in enumerate(ACTIONS):
+                    item = f" {label} [{hot}] "
+                    if x + len(item) >= w:
+                        break
+                    scr.addstr(y, x, item, curses.A_REVERSE if i == sel else curses.A_NORMAL); x += len(item) + 1
+            scr.addstr(h - 1, 0, msg[:w - 1])
+            scr.refresh()
+            ch = scr.getch()
+            if ch == -1:
+                continue
+            try:
+                if passing:
+                    if ch == 29:                                     # Ctrl-]
+                        passing = False; msg = "Pass-through ended."
+                    elif ch in keymap:
+                        c_key([keymap[ch]])
+                    elif ch == 27:
+                        c_key(["esc"])
+                    elif ch in PASS_KEYS:
+                        kind, v = PASS_KEYS[ch]
+                        c_type(v) if kind == "t" else c_key([v])
+                    elif 32 <= ch < 127:
+                        c_type(chr(ch))
+                    last = 0
+                    continue
+                hot = {h_: i for i, (_, h_) in enumerate(ACTIONS)}
+                if ch in (curses.KEY_LEFT, curses.KEY_UP):
+                    sel = (sel - 1) % len(ACTIONS); continue
+                if ch in (curses.KEY_RIGHT, curses.KEY_DOWN):
+                    sel = (sel + 1) % len(ACTIONS); continue
+                if ch in (10, 13):
+                    act = ACTIONS[sel][1]
+                elif 0 < ch < 256 and chr(ch) in hot:
+                    act = chr(ch); sel = hot[act]
+                else:
+                    continue
+                if act == "q":
+                    return
+                if act == "t":
+                    s = ask(scr, "Type (\\n is Enter): ")
+                    if s:
+                        c_type(s.encode().decode("unicode_escape")); msg = f"typed {s!r}"
+                elif act == "k":
+                    s = ask(scr, "Keys (" + " ".join(KEYS[:14]) + " f1..f12): ")
+                    if s:
+                        c_key(s.split()); msg = f"keys {s}"
+                elif act == "p":
+                    passing = True; msg = "Pass-through: type as if at the K4510.  Ctrl-] leaves."
+                elif act == "e":
+                    s = ask(scr, "Expect text: ")
+                    if s:
+                        c_expect(s, float(ask(scr, "Seconds [10]: ") or 10)); msg = f"{s!r} is on the screen"
+                elif act == "s":
+                    name = ask(scr, "Name for it (optional): ")
+                    path = c_shot(name)
+                    if shutil.which("chafa"):
+                        curses.endwin()
+                        subprocess.run(["chafa", "--size", f"{min(w, 100)}x{max(10, h - 3)}", path])
+                        input(f"\n{path}  -- Enter to go back ")
+                    msg = f"shot: {path}"
+                elif act == "r":
+                    s = ask(scr, "Script file: ")
+                    if s:
+                        curses.endwin(); print(c_run(s)); input("Enter to go back ")
+                        msg = f"ran {s}"
+                elif act in ("l", "i"):
+                    out = c_logs() if act == "l" else c_status()
+                    curses.endwin(); print(out); input("\nEnter to go back ")
+                    msg = "logs shown" if act == "l" else "status shown"
+                elif act == "b":
+                    if ask(scr, f"Reboot {HOST}? [y/N] ").strip().lower() == "y":
+                        curses.endwin(); print("rebooting ..."); print(c_reboot(ask=False)); input("Enter to go back ")
+                        msg = "rebooted"
+                last = 0
+            except Fail as e:
+                msg = f"failed: {str(e).splitlines()[0]}"
+
+    curses.wrapper(main)
+    return ""
+
+
+def main(argv):
+    if len(argv) < 2 or argv[1] in ("-h", "--help", "help"):
+        print(__doc__)
+        return 0
+    cmd, args = argv[1], argv[2:]
+    try:
+        if cmd == "status":
+            out = c_status()
+        elif cmd == "type":
+            c_type(" ".join(args).encode().decode("unicode_escape")); out = ""
+        elif cmd == "key":
+            c_key(args); out = ""
+        elif cmd == "screen":
+            out = c_screen()
+        elif cmd == "expect":
+            if not args:
+                raise Fail("expect what?")
+            c_expect(args[0], float(args[1]) if len(args) > 1 else 10.0); out = f"{args[0]!r}: there"
+        elif cmd == "shot":
+            show = "--show" in args
+            names = [a for a in args if a != "--show"]
+            out = c_shot(names[0] if names else "", show)
+        elif cmd == "run":
+            out = c_run(args[0])
+        elif cmd == "logs":
+            out = c_logs()
+        elif cmd == "reboot":
+            out = c_reboot(ask="-y" not in args)
+        elif cmd == "tui":
+            out = tui()
+        else:
+            raise Fail(f"no command {cmd!r} -- k4510-remote help")
+    except Fail as e:
+        print(f"k4510-remote: {e}", file=sys.stderr)
+        return 1
+    if out:
+        print(out)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

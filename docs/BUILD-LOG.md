@@ -8102,3 +8102,26 @@ side panel only when there is one, and following the placement -- but it
 STARTED in the top-left corner, outside the picture: the clamp acted only on
 motion.  Now, whenever the area is set or changes and the pointer is outside
 it, it is warped to the area's middle.
+
+## 2026-09-14 — the remote harness, standardized: k4510-screen, k4510-remote, its TUI
+
+Doc: "explain ... how the remote harness works and how we can 'standardize
+it' to better use it for testing and remote debugging", then "go ahead with
+1 and 2 but perhaps a small tui on top of k4510-remote".
+
+1. **The text screen, as text.**  SIGUSR2 has the emulator write
+   shots/screen.txt: layer 0's own map (MAP, STRIDE; a text32 cell is four
+   bytes, the glyph first), every row of the glass -- 25/30/60 by VICKY's
+   mode (the first count took bit 2 alone; MODE 2's 320x240 is bit 1, and
+   halves the lines too), the status bands included -- CP437, trailing
+   blanks trimmed, blank rows kept; written beside and renamed, and a first
+   line when the F7 menu is over it.  tools/k4510-screen signals and waits
+   for the new inode, and prints it (--utf8 for a terminal).
+2. **tools/k4510-remote**, on the computer doing the driving: status, type,
+   key, screen, expect TEXT [S], shot [NAME] [--show], run SCRIPT (type /
+   key / expect / wait / shot / screen, one a line), logs, reboot -- and
+   tui: the machine's text screen live above an action menu, pass-through
+   typing (Ctrl-] leaves), screenshots drawn in the terminal by chafa.  One
+   ssh connection held open between calls (ControlPersist); every command
+   written to ~/k4510-remote/session.log; screenshots to ~/k4510-remote/shots.
+   The machine is K4510_REMOTE, or the Dell.

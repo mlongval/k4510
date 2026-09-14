@@ -657,6 +657,45 @@ static int wild (char *ebx, char *edx)
 	return 0 ;
 }
 
+// [K4510] *VI / *EDIT with nothing after them edit the program in memory,
+// as they do in EhBASIC and MS BASIC: LIST it as text to EDITTMP.BBC, have
+// the machine run the editor on it (K4510W; -- the console answers with an
+// ACK when the editor is done), then type LOAD "EDITTMP.BBC", which reads
+// the text back and tokenises it. Doc, 2026-09-14: "the *VI command does
+// not work on the program in memory".
+void *osopen (int, char *) ;
+void osshut (void *) ;
+void k4_ack_then (const char *) ;
+extern unsigned int vpage ;
+extern unsigned char lstopt ;
+static void k4_editprog (const char *ed)
+{
+	char where[MAX_PATH] ;
+	signed char *line ;
+	unsigned char lst = lstopt ;
+	int b = 0 ;
+	void *chan ;
+	if (getcwd (where, MAX_PATH - 16) == NULL)
+		error (254, "Bad command") ;
+	strcat (where, "/EDITTMP.BBC") ;
+	chan = osopen (1, where) ;
+	if ((chan == NULL) || ((size_t) chan > 15))
+		error (189, "Couldn't create file") ;
+	lstopt = 1 ;	// LISTO 1: a space after the number, no indentation
+	optval = (optval & 0xF0) | (unsigned char)(size_t) chan ;
+	for (line = (signed char *)(zero + vpage) ; *line ; line += *(unsigned char *) line)
+	    {
+		listline (line + 1, &b) ;
+		oswrch (10) ;
+	    }
+	optval &= 0xF0 ;
+	lstopt = lst ;
+	osshut (chan) ;
+	printf ("\033]K4510W;%s %s\007", ed, k4_rel (where)) ;
+	fflush (stdout) ;
+	k4_ack_then ("LOAD \"EDITTMP.BBC\"\r") ;
+}
+
 void oscli (char *cmd)
 {
 	int b = 0, h = POWR2, n ;
@@ -1094,6 +1133,12 @@ void oscli (char *cmd)
 			strncpy (path, p, MAX_PATH - 1) ;
 			q = memchr (path, 0x0D, MAX_PATH) ;
 			if (q != NULL) *q = 0 ;
+			for (q = path + strlen (path) ; (q > path) && (q[-1] == ' ') ; ) *--q = 0 ;
+			if ((strcasecmp (path, "vi") == 0) || (strcasecmp (path, "edit") == 0))
+			    {
+				k4_editprog (tolower (path[0]) == 'v' ? "VI" : "EDIT") ;
+				return ;
+			    }
 			printf ("\033]K4510;%s\007", path) ;
 			fflush (stdout) ;
 			return ;

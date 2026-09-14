@@ -370,6 +370,26 @@ static int kwait (unsigned int timeout)
 	return ready ;
 }
 
+// [K4510] After a K4510W; star command: wait for the console's ACK (it comes
+// when the machine has finished the command -- the editor, for a bare *VI),
+// then type s as if from the keyboard. Escape gives up the wait.
+void trap (void) ;
+void k4_ack_then (const char *s)
+{
+	do
+	    {
+		while (!kbchk ())
+		    {
+			if (flags & (ESCFLG | KILL))
+				trap () ;
+			usleep (5000) ;
+		    }
+	    }
+	while (kbget () != 6) ;
+	while (*s)
+		putinp ((unsigned char) *s++) ;
+}
+
 // Returns 1 if the cursor position was read successfully or 0 if it was aborted
 // (in which case *px and *py will be unchanged) or if px and py are both NULL.
 int stdin_handler (int *px, int *py)

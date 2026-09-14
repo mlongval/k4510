@@ -72,3 +72,12 @@ Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.
   K4510_ROOT unset (the in-process Tube, already sandboxed, or a bare
   bbcbasic) nothing changes. The emulator also starts the co-processor
   in the machine's current directory, so LOAD needs no directory prefix.
+
+- src/bbccos.c + src/bbccon.c (both builds): `*VI` or `*EDIT` with nothing
+  after it edits the program in memory. k4_editprog() LISTs it as plain
+  text (LISTO 1, LF endings, through the optval redirection) to
+  EDITTMP.BBC in the current directory, sends `ESC ] K4510W ; VI path BEL`,
+  and k4_ack_then() waits for the console's ACK (0x06, sent once the
+  machine's command has finished -- the W is the request for it) before
+  typing `LOAD "EDITTMP.BBC"` into the input queue; LOAD reads text and
+  tokenises it. Escape abandons the wait.

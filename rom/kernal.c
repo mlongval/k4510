@@ -2033,10 +2033,12 @@ static void cmd_bbcbasic(uint8_t prog)
                 if (c == 0x1B) { esc = 3; continue; }
                 if (c == 7) {
                     esc = 0; line[oi] = 0;
-                    if (oi > 6 && !memcmp(line, "K4510;", 6)) {  /* a star command, handed over */
+                    if (oi > 6 && !memcmp(line, "K4510", 5) && (line[5] == ';' || line[5] == 'W')) {  /* a star command, handed over */
+                        uint8_t w = line[5] == 'W';          /* K4510W; -- BBC waits for an ACK: its bare *VI loads the file back */
                         cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0;
-                        newline(); shell_line(line + 6);
+                        newline(); shell_line(line + 6 + w);
                         REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 0x0E) = 1;
+                        if (w) REG(TUBE + 2) = 6;
                     } else if (oi > 7 && !memcmp(line, "K4G;22,", 7)) {     /* MODE, forwarded by the ULA */
                         uint8_t m22 = 0; const char *q = line + 7;
                         while (*q >= '0' && *q <= '9') m22 = m22 * 10 + (uint8_t)(*q++ - '0');

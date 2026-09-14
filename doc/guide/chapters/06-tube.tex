@@ -122,6 +122,13 @@ filesystem is the co-processor's whole world --- \texttt{fs/} is shown as
 \texttt{/}, the host tree above it hidden, and \verb|*CD ..| stops at the
 root.
 
+\verb|*VI| or \verb|*EDIT| with nothing after it edits the program in
+memory, as in the other BASICs: BBC BASIC lists it as text to
+\texttt{EDITTMP.BBC} in the current directory, the editor opens on it,
+and when you leave, \verb|LOAD "EDITTMP.BBC"| types itself and reads it
+back. Variables go the way they go with any \verb|LOAD|. With a name
+(\verb|*VI NOTES.TXT|) it is the ordinary star command.
+
 \begin{aside}
 \textbf{Edges, honestly:} \texttt{POINT(} and \texttt{TINT} are not
 implemented; \texttt{GCOL} modes 1--4 draw plain; \texttt{VDU 5} text

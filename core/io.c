@@ -352,6 +352,15 @@ static void title_cmd(uint8_t c)
     else if (c == 3) { title_stack[title_depth - 1].prog[0] = 0; title_stack[title_depth - 1].file[0] = 0; }
     else if (c == 4) { title_depth = 1; strcpy(title_stack[0].prog, "K/OS"); title_stack[0].file[0] = 0; title_next[0] = 0; }
 }
+/* SYS+$44: a program names the file it has in front -- PROG's tabs switch
+ * without loading anything, so title_file() never hears of it.  0 clears
+ * the top entry's file, any other byte adds a character. */
+static void title_file_char(uint8_t c)
+{
+    char *f = title_stack[title_depth - 1].file; size_t n = strlen(f);
+    if (!c) f[0] = 0;
+    else if (c >= 0x20 && n < sizeof title_stack[0].file - 1) { f[n] = (char) c; f[n + 1] = 0; }
+}
 static void title_char(uint8_t c)
 {
     char *p = title_stack[title_depth - 1].prog; size_t n = strlen(p);
@@ -1741,6 +1750,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0x24) { io_audio_gaps = 0; io_audio_fill = 0; }   /* any write clears both audio counts */
         if ((addr & 0xFF) == 0x40) title_char(v);                     /* the title: a character for the top entry's name */
         if ((addr & 0xFF) == 0x41) title_cmd(v);                      /* the title: 1 push, 2 pop, 3 empty the top, 4 K/OS */
+        if ((addr & 0xFF) == 0x44) title_file_char(v);                /* the title: the top entry's file -- 0 clears, a character adds */
         if ((addr & 0xFF) == 0x42) idea_add(v);                       /* IDEA: a character of the idea */
         if ((addr & 0xFF) == 0x43) idea_write(v);                     /* IDEA: 1 write it, 2 an empty one for VI */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */

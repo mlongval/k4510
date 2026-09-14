@@ -291,7 +291,7 @@ static void err_list(void)                           /* :cl -- the whole list, a
         if (i == ecur) sgr("7");
         num(i + 1); say(ebuf[3] == 'W' ? "  warning  " : "  error    ");
         l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8);
-        if (ebuf[4] && l) { say("line "); num(l); say(": "); }
+        { char w[40]; ent_where(w); say(w); }         /* "line 12: " here, "UNIT.PAS:12: " elsewhere */
         { uint8_t j; for (j = 0; j < ebuf[5]; j++) put((char)ebuf[6 + j]); }
         if (i == ecur) sgr("0");
         clip = 0; eeol();

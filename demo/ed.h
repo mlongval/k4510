@@ -521,9 +521,6 @@ static void err_add(const uint8_t *l)               /* one line of MAKE.ERR, l[0
     ebuf[2] = (uint8_t)digits(l, f[1] + 1, f[2]);
     ebuf[3] = l[f[2] + 1] == 'W' ? 'W' : l[f[2] + 1] == 'F' ? 'F' : 'E';   /* F: found (PROG's find in files) */
     ebuf[4] = (uint8_t)(l[1] != '-' && is_this_file(l + 1, f[0] - 1));
-    if (!ebuf[4] && l[1] != '-')                     /* another file: say which */
-        for (i = 1; i < f[1] && t < 60; i++) ebuf[6 + t++] = (i == f[0]) ? ':' : l[i];
-    if (!ebuf[4] && l[1] != '-') { ebuf[6 + t++] = ':'; ebuf[6 + t++] = ' '; }
     for (i = f[3] + 1; i <= l[0] && t < 94; i++) ebuf[6 + t++] = l[i];
     ebuf[5] = (uint8_t)t;
     k = (uint8_t)(l[1] == '-' ? 0 : f[0] - 1);       /* [102] the file's name length, [103..127] the name: */
@@ -533,6 +530,29 @@ static void err_add(const uint8_t *l)               /* one line of MAKE.ERR, l[0
     if (ebuf[3] == 'W') nwarn++;
     far_put(ebuf, ERRTAB + ((uint32_t)nerr << 7), 128);
     nerr++;
+}
+/* the entry in ebuf is about the file in front -- asked when it is shown,
+ * not when MAKE.ERR was read: in PROG the file in front changes (Doc,
+ * 2026-09-14: the header's own messages still said PGH.H:1:) */
+static uint8_t ent_same(void)
+{
+    const char *b = base_of(name); uint8_t k = ebuf[102], i;
+    if (!k || !b[0]) return 0;
+    for (i = 0; i < k; i++) if (!b[i] || rn_up((uint8_t)b[i]) != rn_up(ebuf[103 + i])) return 0;
+    return (uint8_t)(b[k] == 0);
+}
+/* where the entry is, as it is shown: "line 12: " here, "UNIT.PAS:12: " in
+ * another file, nothing for a message that names no file */
+static void ent_where(char *o)
+{
+    unsigned l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8); uint8_t k = ebuf[102], i, n = 0, m = 0; char d[6];
+    o[0] = 0;
+    if (!l && !k) return;
+    if (!k || ent_same()) { const char *s = "line "; while (*s) o[n++] = *s++; }
+    else { for (i = 0; i < k && i < 25; i++) o[n++] = (char)ebuf[103 + i]; o[n++] = ':'; }
+    if (l) { do { d[m++] = (char)('0' + l % 10); l /= 10; } while (l); while (m) o[n++] = d[--m]; }
+    else if (n && o[n - 1] == ':') n--;
+    o[n++] = ':'; o[n++] = ' '; o[n] = 0;
 }
 static void err_load(void)
 {
@@ -559,12 +579,13 @@ static void err_go(unsigned i)                       /* to entry i: its line and
     far_get(ERRTAB + ((uint32_t)i << 7), ebuf, 128);
     ecur = i;
     l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8);
-    if (ebuf[4] && l) {
+    if (ent_same() && l) {
         goline(l - 1);
         cx = ebuf[2] ? (uint8_t)(ebuf[2] - 1) : 0;
         if (cx >= ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
     }
-    nb_reset(); nb_s(ebuf[3] == 'W' ? "warning " : "error "); nb_n(i + 1); nb_s(" of "); nb_n(nerr); nb_s(": ");
+    nb_reset(); nb_s(ebuf[3] == 'W' ? "warning " : ebuf[3] == 'F' ? "found " : "error "); nb_n(i + 1); nb_s(" of "); nb_n(nerr); nb_s(": ");
+    { char w[40]; ent_where(w); nb_s(w); }
     nb_t(ebuf + 6, ebuf[5]);
     note = nbuf;
 }

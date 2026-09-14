@@ -16,6 +16,7 @@ expect "PGA.C" 5
 type #include "PGH.H"\nvoid main(void)\n{\n    h(1);\n}\n
 key f9
 expect "error 1 of" 30
+expect ": line 1: " 5
 shot prog2-header-error
 type \x18int h(int x) { return x + 1; }\n
 type \x13

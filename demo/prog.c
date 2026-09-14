@@ -50,6 +50,7 @@ static uint8_t hoff, lasthoff = 0xFF;
 static unsigned lasttop = 0xFFFF, lastcy = 0xFFFF, mtop;
 static char ibuf[NAMEMAX];               /* what a prompt is editing */
 static char gline[140];                  /* find in files' command line: BSS, where the ROM can read it */
+static uint8_t nameeq(const char *a, const char *b);
 
 /* ---- keys --------------------------------------------------------------- */
 static uint8_t key(void)
@@ -147,7 +148,7 @@ static void msgpane(void)
             if (i == ecur) { clip = 0; sgr("7"); clip = 1; }
             say(ebuf[3] == 'W' ? " warning  " : ebuf[3] == 'F' ? " found    " : " error    ");
             l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8);
-            if (ebuf[4] && l) { say("line "); num(l); say(": "); }
+            { char w[40]; ent_where(w); say(w); }     /* "line 12: " here, "UNIT.PAS:12: " elsewhere: asked now, not at F9 */
             for (j = 0; j < ebuf[5]; j++) put((char)ebuf[6 + j]);
             if (i == ecur) { pad(); clip = 0; sgr("0"); }   /* clip off first: at the edge it ate the escape, and JIM printed "[K" */
         } else if (!r && !nerr) {
@@ -165,9 +166,23 @@ static void status(void)
     say(*note ? note : (const char *)"F1 help  F2 save  F9 make  ^F9 run  F6 next file  F10 menu");   /* cc65: a literal is char *, note const */
     clip = 0; eeol(); sgr("0");
 }
+/* The top band names the file in front (core/io.c's title stack, SYS+$44:
+ * 0 clears it, a character adds one).  The emulator learns a file's name
+ * when a program loads it, and switching tabs loads nothing -- the band
+ * said PGA.C with PGH.H in front (Doc, 2026-09-14). */
+static char bandnm[NAMEMAX];
+static void band_file(void)
+{
+    const char *b = base_of(name); uint8_t i;
+    REG(0xD544) = 0;
+    for (i = 0; b[i]; i++) REG(0xD544) = (uint8_t)b[i];
+    for (i = 0; name[i] && i < NAMEMAX - 1; i++) bandnm[i] = name[i];
+    bandnm[i] = 0;
+}
 static void draw(void)
 {
     uint8_t r, want;
+    if (full || !nameeq(bandnm, name)) band_file();
     layout();
     if (cy < top) top = cy;
     while (cy >= top + eh) top++;
@@ -478,6 +493,7 @@ static void goto_msg(unsigned i)
     }
     nb_reset(); nb_s(ebuf[3] == 'W' ? "warning " : ebuf[3] == 'F' ? "found " : "error ");
     nb_n(i + 1); nb_s(" of "); nb_n(nerr); nb_s(": ");
+    { char w[40]; ent_where(w); nb_s(w); }
     nb_t(ebuf + 6, ebuf[5]);
     note = nbuf;
 }

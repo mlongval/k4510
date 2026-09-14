@@ -8383,3 +8383,23 @@ kind F ("found"), so the message pane and F4 serve it unchanged.
 VI grew with the engine (the buffer code is compiled in though VI never
 calls it): its code now ends at $CADA, 1.3 KB above a 1 KB stack. Room
 enough, but the next VI growth should move it to load lower, as PROG does.
+
+## 2026-09-14 — the three things stage 2 left, fixed
+
+Doc: "fix those three first, then stage 3".
+
+1. **A message says where it is when it is shown.** MAKE.ERR used to be
+   labelled when it was read: "this file" meant the file F9 was pressed in,
+   and the text had "PGH.H:1: " baked into it. With the header in front its
+   own errors still said PGH.H:1:. Now the entry keeps its file's name
+   (bytes 102-127) and plain text; ent_same() and ent_where() ask at the
+   moment of showing, in VI and in PROG: "line 1: " for the file in front,
+   "PGH.H:1: " for another. Moving to an error asks the same question.
+2. **The top band names PROG's file in front.** The emulator learns a file
+   from a load or a save, and switching tabs does neither -- the band said
+   PGA.C with PGH.H in front. SYS+$44 (core/io.c title_file_char): 0 clears
+   the top entry's file, a character adds one; PROG sends the name on each
+   full redraw and whenever it changes.
+3. **VI loads at $2000**, PROG's layout (demo/vi.cfg): the engine's buffer
+   code had left 1.3 KB above the stack; now the image ends at $8C95. VI is
+   only started by the shell or by SWAP, so the move is invisible.

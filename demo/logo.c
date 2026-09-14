@@ -35,8 +35,9 @@
 #define GFX_BASE 0x200000UL
 #define GW 640
 #define GH 480
-#define SPR_DATA (GFX_BASE + (unsigned long) GW * GH)   /* the turtle's 16x16 8-bpp glyph, right after the bitmap */
-#define SPR_TAB  (SPR_DATA + 0x100UL)                  /* the sprite attribute table (128 x 16 B); entry 0 is the turtle */
+#define SPR_DATA (GFX_BASE + (unsigned long) GW * GH)   /* the turtle: 16 frames of 32x32 8-bpp (TURTLE.SPR), right after the bitmap */
+#define SPR_TAB  (SPR_DATA + 0x4000UL)                 /* the sprite attribute table (128 x 16 B); entry 0 is the turtle */
+#define TURTLE_SPR "/LANG/LOGO/TURTLE.SPR"             /* tools/mkturtle.py: frame k faces k x 22.5 degrees, clockwise from up */
 #define CMDLINE ((char *) 0x0300)                      /* SWAP's command line: below our image (see demo/ranger.c) */
 
 typedef unsigned long fbits;                       /* an IEEE single, as bits */
@@ -62,6 +63,7 @@ static int fcmp(fbits a, fbits b)                  /* -1, 0, 1 */
 static char numbuf[24];
 static const char *ftoa(fbits a) { w32r(FREG(0), a); w32r(0xD730u, (unsigned long)(uint16_t) numbuf); FOP(MATH_FTOAR, 0, 0); return numbuf; }
 static fbits F0, F1, F10, F180, F360, FDEG;        /* constants, made once */
+static fbits FHALF, FSTEP;                         /* 11.25 and 22.5: half a turtle frame, and a whole one */
 
 /* ---- the console -------------------------------------------------------- */
 static void put(char c) { REG(TERM) = (uint8_t) c; }
@@ -70,19 +72,44 @@ static void nl(void) { put('\n'); }
 static uint8_t getin(void) { return REG(KBD); }   /* 0 when nothing is waiting */
 
 /* ---- the screen: a 640x480 8-bit bitmap under the text ------------------- */
-static uint8_t gfx_ctrl, pencol = 1, pendown = 1;
-static void gfx_open(void)
+/* The console goes to MODE 0 through the ROM for the whole session, and back
+ * to the mode it was in at BYE.  LOGO used to clear VICKY's line-doubling
+ * bits itself and leave the console as it was: the picture became 480 lines
+ * but the console stayed a 30-row window, so its rows -- the status bands
+ * among them -- sat in the top half, and the bottom half showed whatever
+ * screen memory lay past row 30, earlier programs' leftovers (Doc,
+ * 2026-09-14, a screenshot with a status band across the middle).  The ROM's
+ * MODE lays the console, bands and all, out for 640x480 and clears it, as
+ * EhBASIC's GRAPHICS 2 does. */
+static uint8_t mode_was, pencol = 1, pendown = 1;
+static void mode_run(char digit)
+{
+    strcpy(CMDLINE, "MODE 0"); CMDLINE[5] = digit;       /* page 3: the ROM cannot read our image during the call */
+    rom_shell(CMDLINE);
+}
+static void mode_enter(void)
+{
+    /* VICKY CTRL -> the console's MODE digit (rom/kernal.c ctrlmode[]) */
+    switch (REG(VICKY) & 0x1E) {
+    case 0x00: mode_was = '0'; break;
+    case 0x02: mode_was = '2'; break;
+    case 0x0A: mode_was = '3'; break;
+    case 0x1A: mode_was = '4'; break;
+    default:   mode_was = '1'; break;
+    }
+    if (mode_was != '0') mode_run('0');
+}
+static void mode_leave(void) { if (mode_was != '0') mode_run((char) mode_was); }
+static void gfx_show(void)                                                     /* the bitmap on, and the turtle's sprite table */
 {
     uint8_t i;
     for (i = 0x21; i <= 0x25; i++) REG(VICKY + i) = 0;
     w32r(VICKY + 0x0A, SPR_TAB); REG(VICKY + 0x0E) = 1;                       /* the turtle is sprite 0 (turtle_show) */
     REG(VICKY + 0x26) = (uint8_t)(GW & 255); REG(VICKY + 0x27) = (uint8_t)(GW >> 8);
     REG(VICKY + 0x28) = 0; REG(VICKY + 0x29) = 0; REG(VICKY + 0x2A) = 0x20; REG(VICKY + 0x2B) = 0;
-    gfx_ctrl = REG(VICKY);
-    REG(VICKY) = (uint8_t)(gfx_ctrl & 0xF9);                                   /* 640x480, no line doubling */
     REG(VICKY + 0x20) = 0x19;                                                  /* enable | bitmap | 8 bpp */
 }
-static void gfx_close(void) { REG(VICKY + 0x20) = 0; REG(VICKY + 0x0E) = 0; REG(VICKY) = gfx_ctrl; }
+static void gfx_hide(void) { REG(VICKY + 0x20) = 0; REG(VICKY + 0x0E) = 0; }
 static void gfx_clear(void) { w32r(DMA, 0); w32r(DMA + 4, GFX_BASE); w32r(DMA + 8, (unsigned long) GW * GH); REG(DMA + 0x0C) = 2; }
 static void blt_target(uint8_t colour, unsigned long dst, unsigned w, unsigned h)   /* colour source, a surface of stride w */
 {
@@ -105,17 +132,39 @@ static void    px_set(int x, int y) { far_poke(GFX_BASE + (unsigned long) y * GW
 /* ---- the turtle --------------------------------------------------------- */
 static fbits tx, ty, th;                           /* position (origin the centre, y up) and heading (degrees, 0 = up, clockwise) */
 static int clampi(long v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : (int) v; }
-static uint8_t turtle_vis = 1;
+static uint8_t turtle_vis = 1, turtle_frames;       /* turtle_frames: TURTLE.SPR is loaded */
 static int turtle_px(void) { return clampi(ftoi(fadd(tx, fint(GW / 2))), 0, GW - 1); }
 static int turtle_py(void) { return clampi(ftoi(fsub(fint(GH / 2), ty)), 0, GH - 1); }
 /* The turtle is VICKY sprite 0: a 16x16 8-bpp arrow the blitter draws into
  * the sprite's own surface (TRIANGLE, op 7) each time it moves or turns --
  * tip forward, colour 15 -- so the glyph never touches the picture and HT/ST
  * are the enable bit.  Z = 3: over the bitmap and the text alike. */
+/* The turtle proper (Doc, 2026-09-14: "logo needs a cute turtle sprite"):
+ * TURTLE.SPR is sixteen 32x32 frames, one every 22.5 degrees, drawn and turned
+ * by tools/mkturtle.py at eight times the size -- so turning the turtle is
+ * pointing the sprite at the nearest frame, and nothing is drawn at all.
+ * Loaded once into far memory beside the bitmap; without it, the arrow below. */
+static void turtle_load(void)
+{
+    static const char name[] = TURTLE_SPR;
+    w32r(FSR + 4, (unsigned long)(uint16_t) name);
+    w32r(FSR + 8, SPR_DATA);
+    w32r(FSR + 12, 0x4000UL);                      /* no more than the sixteen frames' room */
+    REG(FSR) = 9;                                  /* LOAD */
+    turtle_frames = !REG(FSR + 1) && r32r(FSR + 12) == 0x4000UL;
+}
 static void turtle_show(void)
 {
     fbits r, sn, cs; int tipx, tipy, lx, ly, rx, ry;
     if (!turtle_vis) { far_poke(SPR_TAB + 8, 0x32); return; }
+    if (turtle_frames) {
+        unsigned long a = SPR_DATA + ((unsigned long)((uint8_t) ftoi(fdiv(fadd(th, FHALF), FSTEP)) & 15) << 10);
+        far_poke16(SPR_TAB, (unsigned)(turtle_px() - 16)); far_poke16(SPR_TAB + 2, (unsigned)(turtle_py() - 16));
+        far_poke(SPR_TAB + 4, (uint8_t) a); far_poke(SPR_TAB + 5, (uint8_t)(a >> 8)); far_poke(SPR_TAB + 6, (uint8_t)(a >> 16)); far_poke(SPR_TAB + 7, (uint8_t)(a >> 24));
+        far_poke(SPR_TAB + 9, 0x0A); far_poke(SPR_TAB + 10, 0);                 /* 32 x 32, palette offset 0 */
+        far_poke(SPR_TAB + 8, 0x33);                                            /* enable | 8 bpp | Z 3 */
+        return;
+    }
     r = fmul(th, FDEG); sn = f1(MATH_SIN, r); cs = f1(MATH_COS, r);
     tipx = 8 + (int) ftoi(fmul(fint(7), sn));  tipy = 8 - (int) ftoi(fmul(fint(7), cs));
     lx = 8 - (int) ftoi(fmul(fint(5), sn)) + (int) ftoi(fmul(fint(4), cs));  ly = 8 + (int) ftoi(fmul(fint(5), cs)) + (int) ftoi(fmul(fint(4), sn));
@@ -495,10 +544,10 @@ void do_edit(void)
 {
     if (!lgo_name("EDIT needs a \"name")) return;
     lgo_load(ptop);                                      /* only to learn where it lives; not run */
-    gfx_close();
+    gfx_hide();                                          /* VI in the same 80x60 console: no MODE either way */
     strcpy(CMDLINE, "SWAP VI "); strcat(CMDLINE, fn);
     rom_shell(CMDLINE);
-    gfx_open(); REG(TERM + 0x0E) |= 1; turtle_show();
+    gfx_show(); REG(TERM + 0x0E) |= 1; turtle_show();
     if (!lgo_load(ptop)) { error("nothing saved as", fn); return; }
     run_file();
 }
@@ -507,7 +556,10 @@ int main(void)
 {
     F0 = fint(0); F1 = fint(1); F10 = fint(10); F180 = fint(180); F360 = fint(360);
     FDEG = fdiv(fint(314159L), fint(18000000L));           /* pi / 180 */
-    gfx_open(); gfx_clear();
+    FHALF = fdiv(fint(45), fint(4)); FSTEP = fdiv(fint(45), fint(2));
+    mode_enter();                                          /* 640x480, the console laid out for it (and cleared) */
+    gfx_show(); gfx_clear();
+    turtle_load();                                         /* the sixteen frames, beside the bitmap */
     REG(TERM + 0x0E) |= 1;                                 /* the console cursor: the ROM hides it for programs */
     turtle_home(); pendown = 1; pencol = 1;
     w32r(DMA, 0); w32r(DMA + 4, SPR_TAB); w32r(DMA + 8, 2048); REG(DMA + 0x0C) = 2;   /* an empty sprite table */
@@ -521,6 +573,7 @@ int main(void)
           else feed(line, (uint16_t) strlen(line)); }
         if (flow == 4) break;
     }
-    gfx_close();
+    gfx_hide();
+    mode_leave();                                          /* the mode LOGO found */
     return 0;
 }

@@ -623,6 +623,40 @@ static void host_keymap_apply(void)
     }
     if (pid > 0) kbd_child = pid;
 }
+/* F7 -> Host -> Lid closed.  logind's own rule (k4510-lid.conf) is to suspend
+ * on the lid; "keep running", the default -- Doc's rule of 2026-09-11, when a
+ * closed lid suspending the machine was the complaint -- holds logind's
+ * handle-lid-switch lock for as long as this emulator lives, and "suspend"
+ * lets it go.  The lock needs root (there is no polkit on the K4510 Linux),
+ * so it is systemd-inhibit under sudo -n, as k4510-keymap is; what it holds
+ * the lock around is a loop that ends when this process does, so a crash
+ * cannot leave the lid locked.  Called before the frame loop and at each
+ * menu close; atexit lets it go on a clean quit. */
+#include <signal.h>
+static pid_t lid_child;
+static void host_lid_release(void)
+{
+    if (lid_child > 0) { kill(lid_child, SIGTERM); waitpid(lid_child, NULL, 0); lid_child = 0; }
+}
+static void host_lid_apply(void)
+{
+    static int registered;
+    int hold = settings_get(SET_HOST_LID) == 0;                 /* 0 keep running, 1 suspend */
+    if (lid_child > 0 && waitpid(lid_child, NULL, WNOHANG) == lid_child) lid_child = 0;   /* it died: take it again */
+    if (access("/etc/k4510-linux", F_OK) != 0) return;          /* a desktop's lid is the desktop's */
+    if (!hold) { host_lid_release(); return; }
+    if (lid_child > 0) return;
+    char loop[96];
+    snprintf(loop, sizeof loop, "while kill -0 %d 2>/dev/null; do sleep 5; done", (int) getpid());
+    pid_t pid = fork();
+    if (pid == 0) {
+        int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
+        execlp("sudo", "sudo", "-n", "systemd-inhibit", "--what=handle-lid-switch", "--mode=block",
+               "--who=K4510", "--why=F7 > Host > Lid closed: keep running", "sh", "-c", loop, (char *) NULL);
+        _exit(127);
+    }
+    if (pid > 0) { lid_child = pid; if (!registered) { atexit(host_lid_release); registered = 1; } }
+}
 static void host_info_refresh(void)
 {
     char name[64] = "?", addr[40] = "none", ts[40] = "none";
@@ -883,6 +917,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 #define PERF_FRAMES 300
 #ifndef __EMSCRIPTEN__
     host_keymap_apply();                          /* the first look: note the layout the boot already applied */
+    host_lid_apply();                             /* the lid: keep running holds logind's lock from the start */
 #endif
     while (running) {
         { Uint64 c = SDL_GetPerformanceCounter();
@@ -1299,6 +1334,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (settings_changed()) settings_save(cfg);
 #ifndef __EMSCRIPTEN__
             host_keymap_apply();                  /* layout / Caps-as-Ctrl changed: the Linux side too (K4510 Linux only) */
+            host_lid_apply();                     /* Lid closed: take or let go of logind's lid lock */
 #endif
         }
         /* ---- the governor -------------------------------------------------

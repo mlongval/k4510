@@ -8007,3 +8007,39 @@ is 60/40.5.  Three things to mend:
 - **reSID out of the thanks** (Doc: "we dont use it anymore").  The
   licences keep their line recording it as gone, which is deliberate:
   a vendored component that quietly disappears is worse than one recorded.
+
+## 2026-09-14 — LOGO: a proper 640x480 console, a turtle; F7 > Host > Lid closed
+
+**LOGO's screen** (Doc, a screenshot: a status band across the middle of the
+screen, "remnants of previous programs' screen" below it).  LOGO cleared
+VICKY's line-doubling bits itself and left the console alone: the picture
+went to 480 lines, the console stayed a 30-row window -- bands and all -- in
+the top half, and the bottom half showed text-layer memory past row 30.  Now
+mode_enter() runs MODE 0 through the ROM (the console, its bands, cleared),
+as EhBASIC's GRAPHICS 2 does, and mode_leave() puts back the mode it found
+(from VICKY CTRL, as k_ctrl2digit does) at BYE.  EDIT's trip to VI changes
+no mode: the drawing is hidden and shown again.
+
+Seen on the way, not LOGO's and not fixed yet: in MODE 0 with the bands up,
+a second copy of the clock's digits lands inside a console line (at the
+shell too: MODE 0, then wait for the minute).  The IRQ's painter writes
+fixed cells ($030100); MODE 0's layout is the one that disagrees.
+
+**The turtle** (Doc: "logo needs a cute turtle sprite -- 22.5 degree variants
+or a rotation algorithm").  tools/mkturtle.py draws a small green turtle --
+brown-rimmed shell, a lighter centre plate, head, eyes, four flippers, tail
+-- in the machine's own sixteen colours, eight times the size, turns it to
+each of sixteen headings there and only then brings it down to 32x32 by
+vote (eyes and rim win their pixel on a smaller share, or they vanish):
+fs/LANG/LOGO/TURTLE.SPR, 16 KB.  LOGO loads it beside the bitmap
+(the sprite table moves up to make room) and turning is pointing sprite 0
+at the nearest frame; without the file it draws the old arrow.
+
+**Lid closed** (Doc: "need the laptop to suspend on close cover" ... "the
+option ... via f7 menu").  k4510-lid.conf said ignore, on Doc's word of
+2026-09-11.  Now logind's rule is suspend, and the emulator holds logind's
+handle-lid-switch lock while F7 > Host > Lid closed says "keep running" --
+the default, so nothing changes until it is chosen.  The k4510 user was
+refused the lock ("Access denied": no polkit on the K4510 Linux), so it is
+sudo -n systemd-inhibit, as k4510-keymap is; the lock is held around a loop
+that ends with the emulator, so a crash cannot leave the lid locked.

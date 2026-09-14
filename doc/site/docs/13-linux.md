@@ -77,7 +77,7 @@ On a desktop, the other side is your own computer and has whatever you have put 
 
 </div>
 
-**The consoles.** Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are Linux text consoles, 80 by 25 in the IBM PC’s own font, where the Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc, or F7 → Quit) drops you to a Linux shell on the machine’s own console rather than to nothing, and F7 has a *Shut down the computer* row because there is no desktop to go back to. The power button performs a clean shutdown. The consoles speak UTF-8 and follow the keyboard layout chosen in F7.
+**The consoles.** Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are Linux text consoles, 80 by 25 in the IBM PC’s own font, where the Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc, or F7 → Quit) drops you to a Linux shell on the machine’s own console rather than to nothing, and F7 has a *Shut down the computer* row because there is no desktop to go back to. The power button performs a clean shutdown. Closing the lid does what F7 → Host → *Lid closed* says: *keep running*, to begin with, or *suspend*. (Quit to the Linux shell and nothing is keeping the machine awake: there the lid suspends.) The consoles speak UTF-8 and follow the keyboard layout chosen in F7.
 
 **The network.** F7 → Host shows the computer’s name and address, and *Wi-Fi / network setup* opens NetworkManager’s own screen on a spare console to join a network; the machine is back when you leave it. A network joined once is remembered.
 

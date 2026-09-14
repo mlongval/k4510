@@ -95,6 +95,7 @@ static const item_t info_items[] = {
 static const item_t host_items[] = {
     { "Name",      MI_INFO, INFO_NAME }, { "Address", MI_INFO, INFO_ADDR }, { "Tailscale", MI_INFO, INFO_TS },
     { "",          MI_SEP },
+    { "Lid closed",            MI_SETTING, SET_HOST_LID },   /* keep running / suspend: sdl/main.c host_lid_apply */
     { "Wi-Fi / network setup", MI_ACTION, ACT_NETSETUP },
     { "Telnet into the host",  MI_ACTION, ACT_TELNET },
 };

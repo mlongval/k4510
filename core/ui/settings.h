@@ -52,6 +52,8 @@ typedef enum {
     SET_INPUT_KBD_LAYOUT,    /* ENUM the machine's keyboard layout (F7 -> Input): "Host" follows the desktop / kernel keymap;
                               * any other is the emulator's own table (core/kbdmaps.h), at once, and on the K4510 Linux
                               * the consoles are set to match (k4510-keymap, also at every boot).  Doc, 2026-09-12 */
+    SET_HOST_LID,            /* ENUM F7 -> Host -> Lid closed: keep running (the default: an emulator holds logind's
+                              * lid lock) or suspend (it lets go, and logind suspends).  K4510 Linux only.  Doc, 2026-09-14 */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;

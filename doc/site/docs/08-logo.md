@@ -11,7 +11,7 @@ LOGO is the language that taught a generation of children that a computer does w
 <p class="caption">LOGO: a square repeated round a circle, drawn by the blitter under the console’s text.</p>
 
 
-The picture is VICKY’s 640×480 bitmap *under* the console, which is the classic LOGO screen: the turtle draws below and the prompt lives above, so you can see what you asked for and what you are asking next at once. The turtle itself is a hardware sprite. Every line is the blitter’s, and every number is a real one — IEEE floating point, done by the MATH unit, so a heading is an angle and `SQRT 2` is what it should be.
+The picture is VICKY’s 640×480 bitmap *under* the console, which is the classic LOGO screen: the turtle draws below and the prompt lives above, so you can see what you asked for and what you are asking next at once. The turtle itself is a small green turtle, a hardware sprite in sixteen headings — one every 22.5 degrees, drawn once and turned by `tools/mkturtle.py` when the machine is built, so turning it is a matter of pointing the sprite at the right picture. LOGO puts the console into 640×480 for the session, as EhBASIC’s `GRAPHICS 2` does, and back into the mode it found at `BYE`. Every line is the blitter’s, and every number is a real one — IEEE floating point, done by the MATH unit, so a heading is an angle and `SQRT 2` is what it should be.
 
 ## The words
 

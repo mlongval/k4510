@@ -20,8 +20,8 @@
  * own at $04000000 + n * 8 MB: its lines in the first 4 MB (16384 of them),
  * its undo from +6 MB.  $04000000-$07FFFFFF is used by nothing else on the
  * machine (checked 2026-09-14: BOOK is at $0C, SPLIT $0D, VI $0E-$0F).
- * Stage 2 of four (BUILD-LOG 2026-09-14); projects (PROJECT.K4P), the mouse
- * and selection come after. */
+ * Stage 4 of four (BUILD-LOG 2026-09-14): projects (PROJECT.K4P) were
+ * stage 3; the mouse and the selection are stage 4 (their sections below). */
 #include "k4510.h"
 #include "ed.h"
 
@@ -39,10 +39,17 @@
 #define KF(n)   (0x8F + (n))            /* F1 = $90 ... F12 = $9B; F7 and F8 are the host's (menu, pause) */
 #define MSGH    4                       /* message rows */
 #define TEXT0   2                       /* the first row of text: under the menu bar and the files */
+#define MOUSEX  0xD108u                 /* the mouse, in the mode's pixels (core/io.c) */
+#define MOUSEY  0xD10Au
+#define MOUSEB  0xD10Cu                 /* bit0 left, bit1 right, bit2 middle */
+#define MOUSEW  0xD10Du                 /* the wheel's turn in the last frame, signed: + is away from you */
+#define SPRTAB  0x123000UL              /* the pointer: sprite 0, drawn as MOUSETEST draws it */
+#define SPRDATA 0x123100UL
+#define KMOUSE  0xFF                    /* event()'s answer for the mouse: kcode 2, what happened in mev */
 
 enum { C_NONE, C_OPEN, C_SAVE, C_SAVEAS, C_QUIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_FIND, C_NEXT, C_REPL, C_GOTO, C_MAKE, C_RUN, C_MNEXT, C_MPREV, C_RENUM, C_HELP, C_ABOUT,
-       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ };
+       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL };
 
 static uint8_t running = 1, eh, over, msgs_due = 1, kmod, kcode, wantx;
 static unsigned tgline = 0xFFFFu;        /* the line a run of typing is on: one undo for all of it */
@@ -51,6 +58,11 @@ static unsigned lasttop = 0xFFFF, lastcy = 0xFFFF, mtop;
 static char ibuf[NAMEMAX];               /* what a prompt is editing */
 static char gline[140];                  /* find in files' command line: BSS, where the ROM can read it */
 static uint8_t nameeq(const char *a, const char *b);
+static uint8_t mev, mrow, mcol, mheld, dragging, chh = 8;   /* the mouse: mev 1 press, 2 drag, 3 release, 4 wheel */
+static int8_t mwheel;
+static uint8_t selon, selshown;          /* a selection is up; one was, when last drawn */
+static unsigned sely, qy1, qy2;          /* its anchor (the cursor is the other end); both ends in order */
+static uint8_t selx, qx1, qx2;
 
 /* ---- the project -----------------------------------------------------------
  * PROG's stage 3 (Doc, 2026-09-14): a PROJECT.K4P beside the sources,
@@ -150,21 +162,82 @@ static uint8_t key(void)
     return k;
 }
 
+/* ---- the mouse -------------------------------------------------------------
+ * The machine draws no pointer, so PROG draws one: sprite 0, MOUSETEST's
+ * arrow.  event() waits for a key or for the mouse to do something, looking
+ * once a frame -- the wheel register holds one frame's turn, and reading it
+ * faster would count a notch twice. */
+static const uint8_t arrow[12] = { 0x80, 0xC0, 0xE0, 0xF0, 0xF8, 0xFC, 0xFE, 0xF0, 0xD8, 0x98, 0x0C, 0x0C };
+static uint8_t arrow_at(int8_t x, int8_t y) { return (uint8_t)(x >= 0 && x < 8 && y >= 0 && y < 12 && ((arrow[y] << x) & 0x80)); }
+static void ptr_on(void)
+{
+    uint32_t d = SPRDATA; int8_t x, y, dx, dy; uint8_t v[2], k, edge;
+    for (y = 0; y < 16; y++) for (x = 0; x < 16; x += 2) {
+        for (k = 0; k < 2; k++) {
+            if (arrow_at((int8_t)(x + k), y)) { v[k] = 1; continue; }
+            edge = 0;
+            for (dy = -1; dy <= 1; dy++) for (dx = -1; dx <= 1; dx++) if (arrow_at((int8_t)(x + k + dx), (int8_t)(y + dy))) edge = 1;
+            v[k] = edge ? 2 : 0;
+        }
+        far_poke(d++, (uint8_t)((v[0] << 4) | v[1]));
+    }
+    pal(17, 255, 255, 255); pal(18, 0, 0, 0);            /* PALOFS 1: 16 + pixel */
+    far_poke(SPRTAB + 4, (uint8_t)SPRDATA); far_poke(SPRTAB + 5, (uint8_t)(SPRDATA >> 8)); far_poke(SPRTAB + 6, (uint8_t)(SPRDATA >> 16)); far_poke(SPRTAB + 7, 0);
+    far_poke(SPRTAB + 8, 0x31);                           /* enable, 4 bpp, over the text */
+    far_poke(SPRTAB + 9, 0x05);                           /* 16 x 16 */
+    far_poke(SPRTAB + 10, 1);
+    w32(V_SPRTAB, SPRTAB); REG(V_SPRCTL) = 1;
+    chh = (uint8_t)((REG(0xD010) & 0x60) ? 16 : 8);     /* a text row in the mode's pixels: 16 at 640x480 */
+}
+static void ptr_off(void) { REG(V_SPRCTL) = 0; }
+static uint8_t event(void)
+{
+    uint8_t k, b, r, c; unsigned x, y; int8_t w;
+    for (;;) {
+        k = rom_getin();
+        if (k) { kmod = REG(KSTAT); kcode = (uint8_t)((kmod & 0x40) ? 1 : 0); return k; }
+        wait_vblank();
+        x = REG(MOUSEX) | ((unsigned)REG(MOUSEX + 1) << 8); y = REG(MOUSEY) | ((unsigned)REG(MOUSEY + 1) << 8);
+        far_poke(SPRTAB + 0, (uint8_t)x); far_poke(SPRTAB + 1, (uint8_t)(x >> 8));
+        far_poke(SPRTAB + 2, (uint8_t)y); far_poke(SPRTAB + 3, (uint8_t)(y >> 8));
+        b = (uint8_t)(REG(MOUSEB) & 1); w = (int8_t)REG(MOUSEW);
+        r = (uint8_t)(y / chh); c = (uint8_t)(x >> 3);
+        kmod = REG(KSTAT); kcode = 2;
+        if (w) { mwheel = w; mev = 4; return KMOUSE; }
+        if (b && !mheld) { mheld = 1; mrow = r; mcol = c; mev = 1; return KMOUSE; }
+        if (b && (r != mrow || c != mcol)) { mrow = r; mcol = c; mev = 2; return KMOUSE; }
+        if (!b && mheld) { mheld = 0; mrow = r; mcol = c; mev = 3; return KMOUSE; }
+    }
+}
+
 /* ---- drawing ------------------------------------------------------------ */
 static void layout(void) { eh = (uint8_t)(rows - 4 - MSGH); }
 static void pad(void) { while (sx < (uint8_t)(cols - 1)) put(' '); }
-static void row_text(const uint8_t *l)
+static void sel_order(void)                           /* the selection's ends in file order: qy1,qx1 .. qy2,qx2 */
 {
-    uint8_t c, w = l[0];
-    for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put((char)l[1 + c + hoff]);
+    if (sely < cy || (sely == cy && selx <= cx)) { qy1 = sely; qx1 = selx; qy2 = cy; qx2 = cx; }
+    else { qy1 = cy; qx1 = cx; qy2 = sely; qx2 = selx; }
+}
+static void row_text(const uint8_t *l, unsigned y)    /* line y; what of it is selected, reversed */
+{
+    uint8_t c, p, w = l[0], a = 255, b = 255, on = 0;
+    if (selon && y >= qy1 && y <= qy2) { a = y == qy1 ? qx1 : 0; b = y == qy2 ? qx2 : 255; }
+    for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) {
+        p = (uint8_t)(c + hoff);
+        if (!on && p >= a && p < b) { sgr("7"); on = 1; }
+        else if (on && p >= b) { sgr("0"); on = 0; }
+        put((char)l[1 + p]);
+    }
+    if (b == 255 && a != 255) { if (!on) sgr("7"); if (c < cols) put(' '); sgr("0"); }   /* the line's end is selected too */
+    else if (on) sgr("0");
 }
 static void text_row(uint8_t r)
 {
     unsigned l = top + r;
     at((uint8_t)(TEXT0 + r), 0);
     if (l < nlines) {
-        if (l == cy) row_text(ln);
-        else { far_get(SLOT(l), tmp, 256); row_text(tmp); }
+        if (l == cy) row_text(ln, l);
+        else { far_get(SLOT(l), tmp, 256); row_text(tmp, l); }
     }
     eeol();
 }
@@ -173,7 +246,7 @@ static const char *const mtitle[] = { "File", "Edit", "Search", "Build", "Help" 
 struct item { const char *label, *keys; uint8_t cmd; };
 static const struct item m_file[]   = { { "New", "^N", C_NEW }, { "New project...", "", C_NEWPROJ }, { "Open...", "^O", C_OPEN }, { "Save", "^S F2", C_SAVE }, { "Save as...", "", C_SAVEAS },
                                         { "Close", "^W", C_CLOSE }, { "Next file", "F6", C_NEXTF }, { "Previous file", "sh-F6", C_PREVF }, { "Quit", "^Q", C_QUIT }, { 0, 0, 0 } };
-static const struct item m_edit[]   = { { "Undo", "^Z", C_UNDO }, { "Redo", "^Y", C_REDO }, { "Cut line", "^X", C_CUT }, { "Copy line", "^C", C_COPY }, { "Paste", "^V", C_PASTE }, { 0, 0, 0 } };
+static const struct item m_edit[]   = { { "Undo", "^Z", C_UNDO }, { "Redo", "^Y", C_REDO }, { "Cut", "^X", C_CUT }, { "Copy", "^C", C_COPY }, { "Paste", "^V", C_PASTE }, { "Select all", "^A", C_SELALL }, { 0, 0, 0 } };
 static const struct item m_search[] = { { "Find...", "^F", C_FIND }, { "Find next", "F3", C_NEXT }, { "Find in files...", "sh-^F", C_FINDF },
                                         { "Replace...", "^R", C_REPL }, { "Go to line...", "^G", C_GOTO }, { 0, 0, 0 } };
 static const struct item m_build[]  = { { "Compile", "F9", C_MAKE }, { "Compile and run", "^F9", C_RUN }, { "Next message", "F4", C_MNEXT }, { "Previous message", "sh-F4", C_MPREV }, { "Renumber BASIC", "", C_RENUM }, { 0, 0, 0 } };
@@ -283,6 +356,8 @@ static void draw(void)
     while (cy >= top + eh) top++;
     hoff = (cx >= cols) ? (uint8_t)(cx - cols + 1) : 0;
     if (top != lasttop || hoff != lasthoff) full = 1;
+    if (selon || selshown) { full = 1; if (selon) sel_order(); }   /* a selection redraws every row it may have touched */
+    selshown = selon;
     if (full) { menubar(-1); for (r = 0; r < eh; r++) text_row(r); msgs_due = 1; full = 0; }
     else {
         if (lastcy != cy && lastcy >= top && lastcy < top + eh) text_row((uint8_t)(lastcy - top));
@@ -407,6 +482,116 @@ static void cut_line(void)
     line_in(cy); cx = 0; dirty = 1; full = 1;
     note = "line cut -- ^V puts it back";
 }
+
+/* ---- the selection ---------------------------------------------------------
+ * Stage 4 (Doc, 2026-09-14).  Characters, not lines: from the anchor
+ * (sely, selx) to the cursor, either way round.  Shift with a movement key,
+ * a drag of the mouse or a Shift-click makes one, ^A takes the whole file.
+ * Typing, Enter, Backspace and Delete replace it; ^C and ^X take it into
+ * the register as characters and ^V puts them in at the cursor; Tab and
+ * Shift-Tab indent the lines it covers.  Any other command drops it. */
+static void sel_clear(void) { if (selon) { selon = 0; full = 1; } }
+static void sel_start(void) { if (!selon) { selon = 1; sely = cy; selx = cx; } }
+static uint8_t sel_delete(void)                       /* the selection out, the cursor where it began; 0 if it would not fit */
+{
+    unsigned i; uint8_t n, j;
+    sel_order(); selon = 0; full = 1;
+    t_end(); line_out(cy);
+    far_get(SLOT(qy2), tmp, 256);
+    if (qx2 > tmp[0]) qx2 = tmp[0];
+    n = (uint8_t)(tmp[0] - qx2);                      /* what is left of the last line */
+    if ((unsigned)qx1 + n > 255) { note = "the lines would not fit on one"; return 0; }
+    u_begin();
+    u_line(qy1);
+    for (i = qy2; i > qy1; i--) u_del(i);
+    far_get(SLOT(qy2), tmp, 256);
+    far_get(SLOT(qy1), ln, 256);
+    for (j = 0; j < n; j++) ln[qx1 + 1 + j] = tmp[qx2 + 1 + j];
+    ln[0] = (uint8_t)(qx1 + n);
+    far_put(ln, SLOT(qy1), 256);
+    for (i = qy2; i > qy1; i--) close_at(i);
+    u_end();
+    cy = qy1; cx = qx1; line_in(cy); dirty = 1; wantx = cx;
+    return 1;
+}
+static uint8_t sel_copy(void)                         /* into the register, as characters: 0 if too much */
+{
+    unsigned i, n; uint8_t a, b, j;
+    sel_order(); line_out(cy);
+    n = qy2 - qy1 + 1;
+    if (n >= REGMAX) { note = "too much to copy"; return 0; }   /* >=: put_chars parks a line after it */
+    for (i = 0; i < n; i++) {
+        far_get(SLOT(qy1 + i), tmp, 256);
+        a = i ? 0 : qx1; b = (qy1 + i == qy2) ? qx2 : tmp[0];
+        if (b > tmp[0]) b = tmp[0];
+        if (a > b) a = b;
+        for (j = 0; j < (uint8_t)(b - a); j++) tmp[1 + j] = tmp[1 + a + j];
+        tmp[0] = (uint8_t)(b - a);
+        far_put(tmp, RSLOT(i), 256);
+    }
+    reglines = n; reglinewise = 0;
+    return 1;
+}
+static void put_chars(void)                           /* ^V of characters: in at the cursor, the cursor after them */
+{
+    unsigned i, n = reglines; uint8_t j, x;
+    t_end(); line_out(cy);
+    far_get(RSLOT(0), tmp, 256);
+    if (n == 1) {
+        if ((unsigned)ln[0] + tmp[0] > 255) { note = "the line would be too long"; return; }
+        u_begin(); u_line(cy);
+        far_get(RSLOT(0), tmp, 256);                  /* u_line used tmp */
+        for (j = 0; j < tmp[0]; j++) ins_ch(tmp[1 + j]);
+        line_out(cy); u_end(); wantx = cx; full = 1;
+        return;
+    }
+    if ((unsigned)cx + tmp[0] > 255) { note = "the line would be too long"; return; }
+    far_get(RSLOT(n - 1), tmp, 256);
+    if ((unsigned)tmp[0] + (ln[0] - cx) > 255) { note = "the line would be too long"; return; }
+    u_begin(); u_line(cy);
+    tmp[0] = (uint8_t)(ln[0] - cx);                   /* the rest of this line, parked after the register's lines */
+    for (j = 0; j < tmp[0]; j++) tmp[1 + j] = ln[cx + 1 + j];
+    far_put(tmp, RSLOT(n), 256);
+    far_get(RSLOT(0), tmp, 256);
+    for (j = 0; j < tmp[0]; j++) ln[cx + 1 + j] = tmp[1 + j];
+    ln[0] = (uint8_t)(cx + tmp[0]);
+    line_out(cy);
+    for (i = 1; i < n; i++) { u_ins(cy + i); open_at(cy + i); dma_copy(RSLOT(i), SLOT(cy + i), 256); }
+    cy += n - 1; line_in(cy); x = ln[0];
+    far_get(RSLOT(n), tmp, 256);
+    for (j = 0; j < tmp[0]; j++) ln[x + 1 + j] = tmp[1 + j];
+    ln[0] = (uint8_t)(x + tmp[0]);
+    line_out(cy);
+    u_end(); cx = x; wantx = cx; dirty = 1; full = 1;
+}
+static void indent(uint8_t out)                       /* Tab over lines, Shift-Tab: the lines the selection covers, or this one */
+{
+    unsigned y, ya = cy, yb = cy; uint8_t j, k, w = ed_tabw;
+    if (selon) { sel_order(); ya = qy1; yb = qy2; if (yb > ya && !qx2) yb--; }
+    t_end(); line_out(cy);
+    u_begin();
+    for (y = ya; y <= yb; y++) {
+        u_line(y);                                    /* tmp: the line as it was */
+        if (out) {
+            for (k = 0; k < w && k < tmp[0] && tmp[1 + k] == ' '; k++) ;
+            if (!k) continue;
+            for (j = 0; (uint8_t)(j + k) < tmp[0]; j++) tmp[1 + j] = tmp[1 + j + k];
+            tmp[0] = (uint8_t)(tmp[0] - k);
+        } else {
+            if (!tmp[0] || (unsigned)tmp[0] + w > 255) continue;
+            for (j = tmp[0]; j; j--) tmp[j + w] = tmp[j];
+            for (j = 1; j <= w; j++) tmp[j] = ' ';
+            tmp[0] = (uint8_t)(tmp[0] + w);
+        }
+        far_put(tmp, SLOT(y), 256);
+    }
+    u_end(); dirty = 1; full = 1;
+    line_in(cy);
+    if (selon) { sely = ya; selx = 0; goline(yb); cx = ln[0]; }   /* the lines, whole */
+    else if (cx > ln[0]) cx = ln[0];
+    wantx = cx;
+}
+static void select_all(void) { t_end(); sely = 0; selx = 0; go(nlines - 1); cx = ln[0]; wantx = cx; selon = 1; full = 1; }
 
 /* ---- the files -------------------------------------------------------------
  * One file is the engine's current one; the rest wait in ed_bufs.  Each has
@@ -742,15 +927,17 @@ static const char *const helptext[] = {
     "  Ctrl-S  F2   save            Ctrl-O   open (a tab)   Ctrl-N   a new file",
     "  F6  Shift-F6 the next / previous file    Ctrl-W close one    Ctrl-Q quit",
     "  Ctrl-Z       undo            Ctrl-Y   redo",
-    "  Ctrl-X  Ctrl-C  Ctrl-V       cut, copy, paste the line",
+    "  Ctrl-X  Ctrl-C  Ctrl-V       cut, copy, paste: the selection, or the line",
+    "  Shift+move, a drag or Ctrl-A select; typing replaces; Tab Shift-Tab indent",
     "  Ctrl-F  F3   find, again     Ctrl-R   replace        Ctrl-G   go to line",
     "  Shift-Ctrl-F find in files: every source file in this file's directory",
     "  A PROJECT.K4P beside the file: F9 builds the project (File > New project)",
     "",
-    "  F9           save what changed, compile this .C (CC) or .PAS (PAS); a .RX is only saved",
+    "  F9           save what changed, compile .C (CC) or .PAS (PAS); a .RX: saved",
     "  Ctrl-F9      compile, then run it (a .RX: RX runs it); a key comes back",
     "  F4  Shift-F4 the next / previous message -- another file's opens in a tab",
     "  F10          the menu (arrows, Enter, Esc)        F1  this page",
+    "  Mouse: click the text, a menu, a tab, a message; drag selects; wheel scrolls",
     "",
     "  F7 and F8 are the machine's own (its menu, pause): PROG leaves them alone.",
     0 };
@@ -767,6 +954,7 @@ static void help(void)
 /* ---- the commands ------------------------------------------------------- */
 static void run_cmd(uint8_t c)
 {
+    if (c != C_CUT && c != C_COPY && c != C_PASTE && c != C_NONE) sel_clear();   /* any other command drops the selection */
     switch (c) {
     case C_NEW:    open_in_tab(""); break;
     case C_NEWPROJ: new_project(); break;
@@ -779,9 +967,15 @@ static void run_cmd(uint8_t c)
     case C_QUIT:   quit_all(); break;
     case C_UNDO:   t_end(); u_apply(0); break;
     case C_REDO:   t_end(); u_apply(1); break;
-    case C_CUT:    cut_line(); break;
-    case C_COPY:   t_end(); line_out(cy); reg_take(cy, 1, 1); note = "line copied -- ^V puts it in"; break;
-    case C_PASTE:  t_end(); do_put(0); break;
+    case C_CUT:    if (!selon) { cut_line(); break; }
+                   if (sel_copy() && sel_delete()) note = "cut -- ^V puts it back";
+                   break;
+    case C_COPY:   if (selon) { if (sel_copy()) note = "copied -- ^V puts it in"; break; }
+                   t_end(); line_out(cy); reg_take(cy, 1, 1); note = "line copied -- ^V puts it in"; break;
+    case C_PASTE:  if (selon && !sel_delete()) break;
+                   t_end(); if (reglinewise || !reglines) do_put(0); else put_chars();
+                   break;
+    case C_SELALL: select_all(); break;
     case C_FIND:   find_one(); break;
     case C_NEXT:   t_end(); search(1); break;
     case C_FINDF:  find_files(); break;
@@ -790,7 +984,7 @@ static void run_cmd(uint8_t c)
     case C_MAKE:   if (!save_all()) { note = "a file would not save -- nothing compiled"; break; }
                    pj_arm(); do_make(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
     case C_RUN:    if (!save_all()) { note = "a file would not save -- nothing run"; break; }
-                   pj_arm(); do_run(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
+                   pj_arm(); ptr_off(); do_run(); ptr_on(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
     case C_MNEXT:  t_end(); if (!nerr) note = "no messages -- F9 compiles";
                    else if (ecur + 1 < nerr || ecur == 0xFFFFu) goto_msg(ecur + 1); else note = "no more messages";
                    break;
@@ -798,7 +992,7 @@ static void run_cmd(uint8_t c)
                    break;
     case C_RENUM:  t_end(); do_renum(""); break;
     case C_HELP:   help(); break;
-    case C_ABOUT:  note = "PROG, the K4510's programmer's front end -- stage 3: projects"; break;
+    case C_ABOUT:  note = "PROG, the K4510's programmer's front end -- stage 4: the mouse and selection"; break;
     }
     wantx = cx;
 }
@@ -837,13 +1031,35 @@ static void menu_draw(uint8_t m, uint8_t sel)
     }
     at((uint8_t)(1 + sel), (uint8_t)(x + 1));
 }
-static uint8_t menu(void)                             /* the command chosen, or C_NONE */
+static uint8_t title_at(uint8_t c)                    /* the menu whose title is at column c, or NMENU */
 {
-    uint8_t m = 0, sel = 0, n, k, r;
+    uint8_t i, x;
+    for (i = 0; i < NMENU; i++) { x = mx(i); if (c >= x && c < (uint8_t)(x + slen(mtitle[i]) + 2)) return i; }
+    return NMENU;
+}
+static uint8_t menu(uint8_t m)                        /* menu m open; the command chosen, or C_NONE */
+{
+    uint8_t sel = 0, n, k, r, w, x;
     for (;;) {
-        mwidth(menus[m], &n);
+        w = mwidth(menus[m], &n); x = mx(m);
         menu_draw(m, sel);
-        k = key();
+        k = event();
+        if (kcode == 2) {                             /* the mouse: a title opens its menu, an entry runs, elsewhere closes */
+            if (mev == 4) continue;
+            if (!mrow) {
+                if (mev == 3) continue;
+                r = title_at(mcol);
+                if (r < NMENU && r != m) { m = r; sel = 0; tabrow(); for (r = 0; r < eh; r++) text_row(r); }
+                continue;
+            }
+            if (mrow <= n && mcol > x && mcol <= (uint8_t)(x + w)) {
+                sel = (uint8_t)(mrow - 1);
+                if (mev != 2) { full = 1; return menus[m][sel].cmd; }   /* a press, or a drag let go over it */
+                continue;
+            }
+            if (mev == 1) break;
+            continue;
+        }
         if (k == 0x1B || (k == KF(10) && kcode)) break;
         if (k == 0x0D) { full = 1; return menus[m][sel].cmd; }
         if (!kcode) continue;
@@ -859,16 +1075,75 @@ static uint8_t menu(void)                             /* the command chosen, or 
     return C_NONE;
 }
 
+/* ---- the mouse's clicks ---------------------------------------------------- */
+static uint8_t tab_at(uint8_t c)                      /* the open file whose tab is at column c, or 0xFF: tabrow's arithmetic */
+{
+    uint8_t i, x = 0, w; const char *nm;
+    if (pj_name[0]) x = (uint8_t)(slen(pj_name) + 3);
+    for (i = 0; i < ed_nbuf; i++) {
+        nm = i == ed_cur ? name : ed_bufs[i].name;
+        w = (uint8_t)((nm[0] ? slen(base_of(nm)) : 10) + ((i == ed_cur ? dirty : ed_bufs[i].dirty) ? 1 : 0) + 2);
+        if (c >= x && c < (uint8_t)(x + w)) return i;
+        x = (uint8_t)(x + w + 1);
+    }
+    return 0xFF;
+}
+static void place(uint8_t r, uint8_t c)               /* the cursor to a text row and column of the screen */
+{
+    go(top + (r - TEXT0));
+    cx = (uint8_t)(hoff + c); if (cx > ln[0]) cx = ln[0];
+    wantx = cx;
+}
+static void do_mouse(void)
+{
+    uint8_t r = mrow, i; unsigned d;
+    if (mev == 4) {                                   /* the wheel: three lines a notch, the cursor kept on the screen */
+        d = (unsigned)(mwheel < 0 ? -mwheel : mwheel) * 3;
+        t_end();
+        if (mwheel > 0) top = top > d ? top - d : 0;
+        else { top += d; if (top + eh > nlines) top = nlines > eh ? nlines - eh : 0; }
+        if (cy < top) go(top); else if (cy >= top + eh) go(top + eh - 1);
+        if (cx > ln[0]) cx = ln[0];
+        full = 1; return;
+    }
+    if (mev == 3) { dragging = 0; return; }
+    if (mev == 2) {                                   /* a drag: the selection follows it, and pulls the text past the edges */
+        if (!dragging) return;
+        if (r < TEXT0) go(top ? top - 1 : 0);
+        else if (r >= TEXT0 + eh) go(top + eh);
+        else place(r, mcol);
+        selon = (uint8_t)(cy != sely || cx != selx);
+        full = 1; return;
+    }
+    if (!r) { i = title_at(mcol); if (i < NMENU) run_cmd(menu(i)); return; }
+    if (r == 1) { i = tab_at(mcol); if (i != 0xFF && i != ed_cur) { sel_clear(); t_end(); switch_to(i); } return; }
+    if (r >= TEXT0 && r < TEXT0 + eh) {
+        t_end();
+        if (kmod & 1) { sel_start(); place(r, mcol); }        /* Shift-click: from where the cursor was */
+        else { sel_clear(); place(r, mcol); sely = cy; selx = cx; }
+        dragging = 1; return;
+    }
+    if (r > TEXT0 + eh && r <= TEXT0 + eh + MSGH) {       /* a message: to it */
+        d = mtop + (r - TEXT0 - eh - 1);
+        if (d < nerr) { sel_clear(); goto_msg(d); msgs_due = 1; }
+    }
+}
+
 /* ---- the keys ------------------------------------------------------------ */
 static void do_key(uint8_t k)
 {
     uint8_t ctrl = (uint8_t)(kmod & 2), shift = (uint8_t)(kmod & 1);
+    if (kcode == 2) { do_mouse(); return; }
     if (!kcode) {
         switch (k) {
-        case 0x0D: enter(); return;
-        case 0x08: backspace(); return;
-        case 0x09: t_begin(); ed_tab(); wantx = cx; return;       /* spaces to the next stop: set ts= in VI.RC */
-        case 0x1B: return;
+        case 0x0D: if (selon && !sel_delete()) return; enter(); return;
+        case 0x08: if (selon) { sel_delete(); return; } backspace(); return;
+        case 0x09:                                    /* Tab: spaces to the next stop (set ts= in VI.RC); over lines, indent */
+            if (shift) { indent(1); return; }
+            if (selon) { sel_order(); if (qy2 > qy1) { indent(0); return; } if (!sel_delete()) return; }
+            t_begin(); ed_tab(); wantx = cx; return;
+        case 0x1B: sel_clear(); return;
+        case 0x01: run_cmd(C_SELALL); return;        /* ^A */
         case 0x0E: run_cmd(C_NEW); return;           /* ^N */
         case 0x0F: run_cmd(C_OPEN); return;          /* ^O */
         case 0x13: run_cmd(C_SAVE); return;          /* ^S */
@@ -883,9 +1158,10 @@ static void do_key(uint8_t k)
         case 0x12: run_cmd(C_REPL); return;          /* ^R */
         case 0x07: run_cmd(C_GOTO); return;          /* ^G */
         }
-        if ((k >= 0x20 && k < 0x7F) || k >= 0x80) type_ch(k);   /* an accented letter comes as a character, not a key */
+        if ((k >= 0x20 && k < 0x7F) || k >= 0x80) { if (selon && !sel_delete()) return; type_ch(k); }   /* an accented letter comes as a character, not a key */
         return;
     }
+    if (k >= KUP && k <= KPGDN) { if (shift) sel_start(); else sel_clear(); }   /* Shift and a movement key: select */
     switch (k) {
     case KLEFT:  if (ctrl) word_left(); else if (cx) cx--; else if (cy) { go(cy - 1); cx = ln[0]; } wantx = cx; break;
     case KRIGHT: if (ctrl) word_right(); else if (cx < ln[0]) cx++; else if (cy + 1 < nlines) { go(cy + 1); cx = 0; } wantx = cx; break;
@@ -896,14 +1172,14 @@ static void do_key(uint8_t k)
     case KPGUP:  go(cy > (unsigned)(eh - 1) ? cy - (eh - 1) : 0); cx = wantx < ln[0] ? wantx : ln[0]; break;
     case KPGDN:  go(cy + eh - 1); cx = wantx < ln[0] ? wantx : ln[0]; break;
     case KINS:   over = (uint8_t)!over; break;
-    case KDEL:   delete_fwd(); break;
+    case KDEL:   if (selon) sel_delete(); else delete_fwd(); break;
     case KF(1):  run_cmd(C_HELP); break;
     case KF(2):  run_cmd(C_SAVE); break;
     case KF(3):  run_cmd(C_NEXT); break;
     case KF(4):  run_cmd(shift ? C_MPREV : C_MNEXT); break;
     case KF(6):  run_cmd(shift ? C_PREVF : C_NEXTF); break;
     case KF(9):  run_cmd(ctrl ? C_RUN : C_MAKE); break;
-    case KF(10): run_cmd(menu()); break;
+    case KF(10): run_cmd(menu(0)); break;
     }
 }
 
@@ -937,12 +1213,14 @@ void main(void)
     }
     if (!name[0]) note = "no file yet -- type, then ^S names it; ^O opens one, ^N a new one";
     REG(TERM + 4) = 1; REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
+    ptr_on();
     while (running) {
         draw();
-        k = key();
-        note = "";
+        k = event();
+        if (kcode != 2 || mev == 1) note = "";
         do_key(k);
     }
+    ptr_off();
     put(27); put('['); put('2'); put(' '); put('q');     /* the block back for the shell */
     REG(TERM + 0x0E) = 0; REG(TERM + 4) = 1; REG(TERM + 4) = 2;
     rom_video();

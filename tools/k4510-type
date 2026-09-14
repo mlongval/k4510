@@ -4,7 +4,13 @@
 #     k4510-type 'DIR\n'                  text: \n is Enter, \t Tab, \\ a backslash;
 #                                         a ~ waits half a second before going on
 #     k4510-type --key up up enter        keys by name: up down left right home end
-#                                         pgup pgdn ins del esc enter tab bs f1..f12
+#                                         pgup pgdn ins del esc enter tab bs f1..f12,
+#                                         a-z; shift- ctrl- alt- in front hold them
+#                                         for that key (shift-down, ctrl-f9, ctrl-a)
+#     k4510-type --click X Y [MODS]       the mouse: press, half a second, release,
+#     k4510-type --drag X1 Y1 X2 Y2       on the glass (640x480; MODS 1 Shift 2 Ctrl)
+#     k4510-type --wheel N                notches, + away from you
+#     k4510-type --mouse X Y [B [W [M]]]  the raw form: buttons 1 left 2 right 4 middle
 #
 # Writes the emulator's key pipe (KEYS in its directory, made 0600 at its
 # start on the K4510 Linux); the emulator types one key a frame.  With
@@ -26,15 +32,29 @@ pipe=$(readlink "/proc/$pid/cwd")/KEYS
 if [ "$1" = "--key" ]; then
     shift
     for k; do
+        m=0                                     # shift- ctrl- alt-: the key is sent with them held ($1E n)
+        while :; do
+            case $k in shift-*) m=$((m | 1)); k=${k#shift-} ;; ctrl-*) m=$((m | 2)); k=${k#ctrl-} ;; alt-*) m=$((m | 4)); k=${k#alt-} ;; *) break ;; esac
+        done
+        [ $m -gt 0 ] && printf '\036%d' $m
         case $k in
             up) printf '\200' ;; down) printf '\201' ;; left) printf '\202' ;; right) printf '\203' ;;
             home) printf '\204' ;; end) printf '\205' ;; pgup) printf '\206' ;; pgdn) printf '\207' ;;
             ins) printf '\210' ;; del) printf '\211' ;;
             esc) printf '\033' ;; enter) printf '\r' ;; tab) printf '\t' ;; bs) printf '\010' ;;
             f[1-9]|f1[0-2]) n=${k#f}; printf "\\$(printf %o $((0x8F + n)))" ;;   # F1..F12 are $90..$9B
+            [a-z]) if [ $((m & 2)) -ne 0 ]; then printf "\\$(printf %o $(( $(printf %d "'$k") - 96 )))"; else printf %s "$k"; fi ;;
             *) echo "k4510-type: no key called $k" >&2; exit 2 ;;
         esac
     done > "$pipe"
+elif [ "$1" = "--mouse" ]; then
+    shift; printf '\035%s,%s,%s,%s,%s;' "$1" "$2" "${3:-0}" "${4:-0}" "${5:-0}" > "$pipe"
+elif [ "$1" = "--click" ]; then                 # released with no modifiers, so later keys are plain
+    shift; printf '\035%s,%s,1,0,%s;~\035%s,%s,0,0,0;' "$1" "$2" "${3:-0}" "$1" "$2" > "$pipe"
+elif [ "$1" = "--drag" ]; then
+    shift; printf '\035%s,%s,1,0,0;~\035%s,%s,1,0,0;~\035%s,%s,0,0,0;' "$1" "$2" "$3" "$4" "$3" "$4" > "$pipe"
+elif [ "$1" = "--wheel" ]; then
+    shift; printf '\035-1,-1,0,%s,0;' "$1" > "$pipe"
 else
     printf '%b' "$*" > "$pipe"
 fi

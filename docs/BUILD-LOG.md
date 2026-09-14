@@ -8469,3 +8469,49 @@ lines stay. The comments that described the gone code were rewritten.
 Checked: everything builds without a new warning, the six core tests
 pass, the rebuilt tube/bbcbasic runs a program through a pipe;
 test/remote/cpm.k4r added for CP/M on the Dell.
+
+## 2026-09-14 — no margin; the status bands are one row each
+
+Doc: the one-cell top/left margin was "too prone to 1 off errors" -- gone
+everywhere: OX is 0 in the ROM, MODE takes one argument, the F7 row and
+video.margin went, $D521 bit 1 (SYSOPT_MARGIN) is retired. The user's
+status bands are on or off, a row at the top and a row at the bottom; the
+two height settings went and the host's overlay follows the switch. A
+program that claims the console can still ask for its own heights.
+
+## 2026-09-14 — REXX in PROG; how a language plugs in
+
+Doc: "I forgot to add REXX to PROG capabilities." The engine (ed.h) knows
+.RX: F9 only saves it, Ctrl-F9 runs SWAP -k RX file. RX's die() writes
+its error to MAKE.ERR in the compilers' form and empties the file when a
+run starts, so PROG lands on the line after the key -- checked on the
+Dell (test/remote/rexx.k4r: "RX: line 2: expression expected", PROG on
+line 2). Doc then asked for the cycle to be written down for the next
+language: docs/PROG-LANGUAGES.md.
+
+## 2026-09-14 — one font; 640x480 is 80x30; scaling is Integer or Fit
+
+Doc: "pick one font and jettison all the rest". unscii only: 8x8 at
+$010000 for the 240-line modes, 8x16 at $010800 for MODE 0, which is now
+80x30 in 8x16 cells (layer 0's cell bit) and the default mode. Gone:
+kernel8, open-roms and PXLfont, BESCII, the ZX Origins faces, the C64
+chargen import and their tools, and the Screen font setting. The host's
+row guesses and SPLIT read the cell size from LCTRL now, since 640x480
+and 640x240 both have 30 rows. Scaling, Doc: "only 2 modes, 1: Integer
+or 2: Fit to display" -- both hard pixels, Integer the default; soft is
+gone and the old names still load. The margin commit had left
+test/uitest.c naming the removed settings: it did not compile, and the
+"ALL OK" I trusted then was an old binary; fixed here, and every test is
+now built before it is run. On the Dell all seven remote tests pass; its
+k4510.cfg names 640x240, so it stays there until F7 says otherwise.
+
+## 2026-09-14 — PROG, stage 4: the mouse and selection
+
+A pointer (sprite 0, MOUSETEST's arrow), the mouse read once a frame (the
+wheel register is one frame's turn). Clicks place the cursor, open a menu
+and run an entry, switch tabs, go to a message; a drag selects; the wheel
+scrolls. Selection is by characters: Shift and a movement key, a drag, a
+Shift-click, ^A; typing, Enter, Backspace, Delete replace it; ^X ^C ^V
+work on it; Tab and Shift-Tab indent its lines. The key pipe learned
+modifiers ($1E n, bound to the key in the queue so a busy program still
+sees Shift) and the mouse ($1D x,y,b,w,m;), for test/remote/sel.k4r.

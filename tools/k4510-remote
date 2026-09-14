@@ -76,12 +76,35 @@ def c_type(text):
     remote(f"{TOOLS}/k4510-type {shlex.quote(text)}")
 
 
+def key_base(n):
+    """a key name without its shift- ctrl- alt- in front, and whether it had any"""
+    mods = False
+    while True:
+        for p in ("shift-", "ctrl-", "alt-"):
+            if n.startswith(p):
+                n, mods = n[len(p):], True
+                break
+        else:
+            return n, mods
+
+
 def c_key(names):
-    bad = [n for n in names if n not in KEYS]
+    bad = [n for n in names if not (key_base(n)[0] in KEYS or (key_base(n)[1] and len(key_base(n)[0]) == 1 and key_base(n)[0].isalpha()))]
     if bad:
-        raise Fail("no key called " + ", ".join(bad) + "  (keys: " + " ".join(KEYS) + ")")
+        raise Fail("no key called " + ", ".join(bad) + "  (keys: " + " ".join(KEYS) + "; shift- ctrl- alt- in front, ctrl-a..z)")
     log("key " + " ".join(names))
     remote(f"{TOOLS}/k4510-type --key " + " ".join(names))
+
+
+def c_mouse(*args):
+    """the mouse through the key pipe: k4510-type --click / --drag / --wheel"""
+    log("mouse " + " ".join(args))
+    remote(f"{TOOLS}/k4510-type " + " ".join(shlex.quote(a) for a in args))
+
+
+def cell(col, row):
+    """the glass point in the middle of a text cell of an 80-column screen (8x16 on the glass)"""
+    return str(int(col) * 8 + 4), str(int(row) * 16 + 8)
 
 
 def c_screen():
@@ -167,7 +190,7 @@ def c_reboot(ask=True):
 
 
 def c_run(path):
-    """a script: type / key / expect / wait / shot / screen, one a line"""
+    """a script: type / key / expect / wait / shot / screen / click / drag / wheel, one a line"""
     for n, line in enumerate(pathlib.Path(path).read_text().splitlines(), 1):
         line = line.strip()
         if not line or line.startswith("#"):
@@ -188,8 +211,16 @@ def c_run(path):
             print("     ->", c_shot(rest))
         elif word == "screen":
             print(c_screen())
+        elif word == "click":                   # click COL ROW [MODS]: a text cell; MODS 1 Shift, 2 Ctrl
+            p = rest.split()
+            c_mouse("--click", *cell(p[0], p[1]), *p[2:3])
+        elif word == "drag":                    # drag COL1 ROW1 COL2 ROW2
+            p = rest.split()
+            c_mouse("--drag", *cell(p[0], p[1]), *cell(p[2], p[3]))
+        elif word == "wheel":                   # wheel N: notches, + away from you
+            c_mouse("--wheel", rest.split()[0])
         else:
-            raise Fail(f"{path}:{n}: no command {word!r} (type key expect absent wait shot screen)")
+            raise Fail(f"{path}:{n}: no command {word!r} (type key expect absent wait shot screen click drag wheel)")
     return "script done"
 
 

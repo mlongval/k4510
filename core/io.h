@@ -321,6 +321,8 @@ void    io_reset(void);
  * (core/term.h). */
 void    kbd_push(uint8_t code);
 void    kbd_push_key(uint8_t code);      /* the host: a KEY_* code (arrows, Home, F-keys) -- never a typed character */
+void    kbd_push_mods(uint8_t ascii, uint8_t mods);     /* the key pipe's: a key sent with Shift/Ctrl/Alt (bits 0-2) bound to it */
+void    kbd_push_key_mods(uint8_t code, uint8_t mods);
 void    dbg_pc(uint16_t pc);                 /* mem.c calls this on every opcode fetch */
 int     dbg_dump(const char *why);           /* write a dump; returns its number, -1 on failure */
 void    kbd_modifiers(uint8_t shift, uint8_t ctrl, uint8_t alt);

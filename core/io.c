@@ -33,6 +33,8 @@ static uint16_t kbd_fifo[64];
 static int      kbd_head, kbd_tail;
 static uint8_t  kbd_last, kbd_mods, kbd_last_key;   /* kbd_last_key: the byte last read was a key code */
 #define KBD_KEY 0x100
+#define KBD_LATCH 0x1000     /* the key pipe's: this key carries its own modifiers, in bits 9-11 */
+static uint8_t kbd_latched;   /* bit 7 set: KBDST reports these modifiers (bits 0-2), the ones the key last read was sent with */
 
 /* Every key passes here, from the frontend's SDL loop. The F7 menu (core/ui) takes them first: its own key
  * opens it (unshifted only -- Shift+F7 still reaches BBC BASIC) and,
@@ -54,7 +56,13 @@ static void kbd_in(uint16_t ent)
 }
 void kbd_push(uint8_t ascii)   { kbd_in(ascii); }                    /* a character */
 void kbd_push_key(uint8_t code) { kbd_in((uint16_t)code | KBD_KEY); }  /* a KEY_* code */
-void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); }
+void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); kbd_latched = 0; }
+/* A key with its modifiers bound to it, for the key pipe: Shift held live
+ * would be gone by the time a busy program reads a queued key, so the
+ * modifiers ride in the queue and KBDST reports them once the key is read
+ * (2026-09-14, for testing PROG's selection from outside). */
+void kbd_push_mods(uint8_t ascii, uint8_t mods)    { kbd_in((uint16_t)ascii | KBD_LATCH | ((uint16_t)(mods & 7) << 9)); }
+void kbd_push_key_mods(uint8_t code, uint8_t mods) { kbd_in((uint16_t)code | KBD_KEY | KBD_LATCH | ((uint16_t)(mods & 7) << 9)); }
 static uint8_t kbd_held_mask;
 void kbd_held(uint8_t mask) { kbd_held_mask = mask; }
 static int mouse_x, mouse_y; static uint8_t mouse_btn; static int8_t mouse_wheel, mouse_dx, mouse_dy;
@@ -69,6 +77,7 @@ static uint8_t kbd_read(void)
 {
     if (!kbd_ready()) return 0;
     kbd_last = (uint8_t)kbd_fifo[kbd_head]; kbd_last_key = (kbd_fifo[kbd_head] & KBD_KEY) ? 1 : 0;
+    kbd_latched = (kbd_fifo[kbd_head] & KBD_LATCH) ? (uint8_t)(0x80 | ((kbd_fifo[kbd_head] >> 9) & 7)) : 0;
     kbd_head = (kbd_head + 1) & 63;
     return kbd_last;
 }
@@ -1627,7 +1636,7 @@ static uint8_t io_read_inner(uint16_t addr)
     case IO_INPUT:
         if (addr == IO_KBD)   return kbd_read();
         if (addr == IO_KBDST) return (kbd_ready() ? 0x80 : 0x00) | (kbd_last_key ? 0x40 : 0x00)
-                                   | (kbd_ready() && (kbd_fifo[kbd_head] & KBD_KEY) ? 0x20 : 0x00) | kbd_mods;
+                                   | (kbd_ready() && (kbd_fifo[kbd_head] & KBD_KEY) ? 0x20 : 0x00) | (kbd_latched ? (kbd_latched & 7) : kbd_mods);
         if (addr == IO_KBDST + 1) return kbd_ready() ? (uint8_t)kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
         if (addr == IO_KBDHELD) return menu_is_open() ? 0 : kbd_held_mask;     /* the keys down now; none while the menu has them */
         if (addr >= IO_MOUSEX && addr <= IO_MOUSEDY) {                        /* the mouse; the menu keeps its clicks */

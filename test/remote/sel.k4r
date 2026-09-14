@@ -1,0 +1,52 @@
+# test/remote/sel.k4r -- PROG's stage 4: selection by Shift and the keys,
+# copy and paste of characters, typing over a selection, Tab and Shift-Tab
+# over lines, and the mouse: a click on the text, a drag, the wheel, a click
+# on the menu bar and on a tab.  The key pipe's shift-/ctrl- names and its
+# mouse (tools/k4510-type) make it drivable from outside.
+#     tools/k4510-remote run test/remote/sel.k4r
+key esc
+type CD /HOME\n
+type RM -f SELTEST.C\n
+wait 1
+type PROG SELTEST.C\n
+expect "SELTEST.C" 10
+type alpha beta\ngamma delta\nthree\n
+# "alpha" selected with Shift-Right, copied, pasted at the end of the line
+key ctrl-home
+key shift-right shift-right shift-right shift-right shift-right
+wait 1
+shot sel-keys
+key ctrl-c
+key end
+key ctrl-v
+expect "alpha betaalpha" 5
+# over two lines: from the "m" of gamma to the end of "three", replaced by typing
+key down home right right
+key shift-down shift-end
+type X
+expect "gaX" 5
+absent "three" 3
+# Tab and Shift-Tab over the first two lines
+key ctrl-home shift-down shift-down
+key tab
+wait 1
+shot sel-indent
+key shift-tab
+# the mouse: a click on "beta" (row 2, text starts at row 2), a drag over it
+click 8 2
+wait 1
+drag 6 2 10 2
+wait 1
+shot sel-drag
+key ctrl-x
+absent "beta" 5
+# the menu bar by the mouse: Edit (column 7 of row 0), then Esc
+click 8 0
+expect "Select all" 5
+shot sel-menu
+key esc
+wait 1
+type \x11
+expect "Save" 5
+type n
+expect "/HOME]" 10

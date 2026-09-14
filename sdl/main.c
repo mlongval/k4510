@@ -1291,10 +1291,31 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               if (feed && *feed) { k = (uint8_t)*feed++; if (*feed) next = (uint8_t)*feed; }
               else if (kpos < klen) { k = (uint8_t)kbuf[kpos++]; if (kpos < klen) next = (uint8_t)kbuf[kpos]; piped = 1; }
               int shown = piped && settings_get(SET_INPUT_KEYPIPE) == 2;
+              /* Two more for testing PROG from outside (2026-09-14): $1E n sends
+               * the next key with modifiers n held (1 Shift, 2 Ctrl, 4 Alt), and
+               * $1D x,y,buttons,wheel,mods; sets the mouse on the glass (640x480;
+               * -1 keeps a coordinate) -- tools/k4510-type --key shift-down, --click. */
+              static int pmods = -1;
               if (k == '~') feed_wait = feed_fr + 30;
-              else if (k == 0x1F && next >= 0) { kbd_push((uint8_t) next); if (shown) echo_key(next); if (feed && *feed) feed++; else kpos++; }
-              else if (k >= 0x80) { kbd_push_key((uint8_t) k); if (shown) echo_key(k); }
-              else if (k >= 0) { kbd_push(k == '\n' ? 0x0D : (uint8_t) k); if (shown) echo_key(k); }
+              else if (k == 0x1E && next >= 0) { pmods = (next - '0') & 7; if (feed && *feed) feed++; else kpos++; }
+              else if (k == 0x1D) {
+                  char m[48]; int mi = 0, c, v[5] = { -1, -1, 0, 0, 0 };
+                  for (;;) {
+                      c = (feed && *feed) ? (uint8_t)*feed++ : kpos < klen ? (uint8_t)kbuf[kpos++] : -1;
+                      if (c < 0 || c == ';' || mi >= 47) break;
+                      m[mi++] = (char) c;
+                  }
+                  m[mi] = 0;
+                  if (sscanf(m, "%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4]) >= 2) {
+                      if (v[0] >= 0) mouse_x = v[0];
+                      if (v[1] >= 0) mouse_y = v[1];
+                      mouse_btn = v[2]; wheel_acc += v[3];
+                      kbd_modifiers(v[4] & 1, v[4] & 2, v[4] & 4);
+                  }
+              }
+              else if (k == 0x1F && next >= 0) { if (pmods >= 0) kbd_push_mods((uint8_t) next, (uint8_t) pmods); else kbd_push((uint8_t) next); pmods = -1; if (shown) echo_key(next); if (feed && *feed) feed++; else kpos++; }
+              else if (k >= 0x80) { if (pmods >= 0) kbd_push_key_mods((uint8_t) k, (uint8_t) pmods); else kbd_push_key((uint8_t) k); pmods = -1; if (shown) echo_key(k); }
+              else if (k >= 0) { uint8_t ch = k == '\n' ? 0x0D : (uint8_t) k; if (pmods >= 0) kbd_push_mods(ch, (uint8_t) pmods); else kbd_push(ch); pmods = -1; if (shown) echo_key(k); }
           } }
         /* The machine's video mode.  Only the ROM can change it -- the console's
          * PCOLS/PROWS/stride are its -- so the menu asks through $D521 bits 5-7

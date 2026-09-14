@@ -87,5 +87,7 @@ For CP/M this settles the question every program asks at install time: tell Word
 
 A line starting with `*` goes to the machine: `*DIR`, `*CD`, any shell command — and BBC BASIC’s own file words (`LOAD`, `SAVE`) read and write the machine’s filesystem directly, because the co-processor lives inside `fs/` too. The Tube starts in the shell’s current directory, so `CD /LANG/BBCBASIC` then `BBC` lets `LOAD "EX/KALEID.BBC"` work without spelling the whole path; the machine’s filesystem is the co-processor’s whole world — `fs/` is shown as `/`, the host tree above it hidden, and `*CD ..` stops at the root.
 
+`*VI` or `*EDIT` with nothing after it edits the program in memory, as in the other BASICs: BBC BASIC lists it as text to `EDITTMP.BBC` in the current directory, the editor opens on it, and when you leave, `LOAD "EDITTMP.BBC"` types itself and reads it back. Variables go the way they go with any `LOAD`. With a name (`*VI NOTES.TXT`) it is the ordinary star command.
+
 !!! note ""
     **Edges, honestly:** `POINT(` and `TINT` are not implemented; `GCOL` modes 1–4 draw plain; `VDU 5` text prints as text.

@@ -173,11 +173,13 @@ BASIC saves the program to a temporary file, runs the editor on it, and loads
 it back when you leave -- so what you type in the editor is what you LIST
 afterwards. Variables do not survive the round trip, exactly as with LOAD.
 Editing the program in VI has the details for EhBASIC; Microsoft BASIC does
-the same with *VI (Chapter 5, Microsoft BASIC, 1977), and LOGO with EDIT "name
-(Chapter 8, LOGO).
+the same with *VI (Chapter 5, Microsoft BASIC, 1977), BBC BASIC with *VI and
+*EDIT (Chapter 6, The Tube: BBC BASIC), and LOGO with EDIT "name (Chapter 8,
+LOGO).
 
 => 04-EHBASIC.GMI Editing the program in VI
 => 05-MSBASIC.GMI Chapter 5, Microsoft BASIC, 1977
+=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
 => 08-LOGO.GMI Chapter 8, LOGO
 
 To edit any other file, put SWAP in front:

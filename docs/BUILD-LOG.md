@@ -8156,3 +8156,23 @@ EhBASIC INVADER2.BAS" over the banner, "remote: EHBASIC¶LOAD
 
 Smoke scripts for k4510-remote: test/remote/split.k4r, logo.k4r,
 menu.k4r (the last with the new "absent": wait until a text has gone).
+
+## 2026-09-14 — BBC BASIC's *VI edits the program in memory
+
+Doc: "the *VI command does not work on the program in memory". In BBC
+BASIC a bare `*VI` went to the shell as any star command does, and VI
+opened on nothing ("[no name] new file"). EhBASIC, MS BASIC and LOGO each
+had their own round trip; the Tube's BASIC had none.
+
+Now `*VI` and `*EDIT` alone list the program as text to EDITTMP.BBC
+(LISTO 1, through BBC's own output redirection), and ask the console with
+`ESC ] K4510W ; VI /path BEL` -- the W asks for an ACK. The ROM runs the
+command as before and then sends 0x06 up the Tube; BBC, waiting for it,
+types `LOAD "EDITTMP.BBC"` into its own input queue, and LOAD reads the
+text and tokenises it. The ACK is what was missing: the console runs a
+star command synchronously, but BBC never knew when it had finished.
+Plain `K4510;` is unchanged, so CP/M never sees a stray ^F.
+
+Tested off the machine first: the pty bbcbasic, fed `*VI`, a line
+appended to EDITTMP.BBC and a 0x06 through a pipe, LISTs and RUNs the
+edited program.

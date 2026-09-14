@@ -342,7 +342,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 
 There are two cases, and they look alike, so here is the rule.
 
-**To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; Microsoft BASIC does the same with `*VI` ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)), and LOGO with `EDIT "name` ([Chapter 8, LOGO](08-logo.md)).
+**To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; Microsoft BASIC does the same with `*VI` ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)), BBC BASIC with `*VI` and `*EDIT` ([Chapter 6, The Tube: BBC BASIC](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 8, LOGO](08-logo.md)).
 
 **To edit any other file**, put `SWAP` in front:
 

@@ -109,7 +109,7 @@ K_AT_go
 	ADC	#0
 	TAX
 	TYA
-	JSR	ROM_SHELL		; run it (prints through the ROM)
+	JSR	k_shell_cur		; run it (prints through the ROM), then the cursor back on
 K_AT_skip
 	JSR	LAB_IGBY		; advance to the [EOL]
 	BNE	K_AT_skip

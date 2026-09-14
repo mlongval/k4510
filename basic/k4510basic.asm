@@ -72,7 +72,7 @@ k4510_msg
 	INY
 	BNE	k4510_msg
 k4510_go
-	JMP	LAB_COLD
+	JMP	k_cold_cur		; cold start, with the cursor on (in the tail: this slice is full)
 
 ; non-halting input: A = char, carry set if one was there
 k4510_in
@@ -255,6 +255,7 @@ k_ae_skip
 	LDA	#<Ibuffs		; ($BE00 is in the sideways window: when the stub hands
 	LDX	#>Ibuffs		;  control to the ROM, block 5 is the ROM's, not ours)
 	JSR	ROM_SHELL		; SWAP VI EDITTMP.BAS
+	JSR	k_curon			; VI's end left the cursor off
 	JSR	k_ed_setname		; and LOAD it back (never returns: ends at Ready)
 	JSR	k_setname
 	STZ	chain
@@ -287,6 +288,25 @@ k_ed_sn
 	BRA	k_ed_sn
 k_ed_sn_done
 	RTS
+; The console cursor on.  The ROM turns it off for a program -- EhBASIC is one
+; -- and again when anything the shell ran for us ends, and EhBASIC reads its
+; keys through GETIN, which never shows it: so Ready had no cursor at all
+; (Doc, 2026-09-14).  MS BASIC's k4510_cursor is the same three instructions.
+; All three live here in the tail: the $C000 slice is full to the byte, so its
+; two callers (k4510_go, the @/* shell escape) swap a jump target for one of
+; these and grow not at all.
+k_curon
+	LDA	$DA0E
+	ORA	#1
+	STA	$DA0E
+	RTS
+k_cold_cur				; k4510_go: the cursor on, then EhBASIC's cold start
+	JSR	k_curon
+	JMP	LAB_COLD
+k_shell_cur				; A/X = a line: run it through the shell, cursor back on
+	JSR	ROM_SHELL
+	JMP	k_curon
+
 ; SPROFF n : disable  (lives in the tail: the $C000 slice is full)
 K_SPROFF
 	LDX	#1
@@ -317,7 +337,8 @@ k_gm_cp	LDA	k_gmstr,X
 	STA	gargs+5
 	LDA	#<gargs
 	LDX	#>gargs
-	JMP	ROM_SHELL
+	JSR	ROM_SHELL
+	JMP	k_curon			; MODE through the shell: the cursor back on after it
 
 ; VICKY CTRL resolution bits (already masked with $1E) -> the console MODE
 ; digit that matches

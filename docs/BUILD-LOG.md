@@ -7984,3 +7984,26 @@ take it down to the band.
 
 Handbook: chapter 21 has "A split screen: SHEILA" with the list, the
 three speeds and shots/split.png; SPLIT is in the command list.
+
+## 2026-09-14 — the Dell's first look at SPLIT and BOOK: three fixes
+
+Doc, on the Dell at 60 MHz: SPLIT and BOOK "work great"; EhBASIC's SPLIT.BAS
+488 lines a second and MS BASIC's 212 -- 1.48 x the 40.5 MHz figures, which
+is 60/40.5.  Three things to mend:
+
+- **No cursor in EhBASIC.**  EhBASIC reads keys through GETIN, which never
+  shows the console cursor, and the ROM turns it off for every program --
+  so Ready never had one.  k_curon ($DA0E |= 1, MS BASIC's k4510_cursor
+  again) at the cold start and after each trip through the shell (the @/*
+  escape, *VI, GRAPHICS's MODE).  The $C000 slice is full to the byte (the
+  first build: "slice overflows into the I/O page"), so the routines live
+  in the tail and the two callers there swap a jump target for one of them:
+  the slice grows by nothing, the tail by 27 bytes (still below $BF00,
+  where SPLIT.BAS keeps its list).  PEEK($DA0E) at Ready: 1.
+- **BOOK 21 said "no chapter".**  21-IO.GMI is chapter 15 -- the
+  programmer's guide goes on counting -- and BOOK n matched only the
+  chapter's number.  A second pass matches the page's file number, so
+  BOOK 15 and BOOK 21 both open it.
+- **reSID out of the thanks** (Doc: "we dont use it anymore").  The
+  licences keep their line recording it as gone, which is deliberate:
+  a vendored component that quietly disappears is worse than one recorded.

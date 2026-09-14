@@ -15,14 +15,6 @@ without it.
 
 => https://github.com/lgblgblgb/xemu Xemu
 
-Dag Lem wrote reSID, the SID emulation that has been the reference for thirty
-years. It was this machine's voice for its whole first summer -- four 6581s,
-as shipped in VICE 3.3 -- and it is not here any more (Appendix C, The Sound,
-and What It Took says why, and the reason is not that anything was wrong with
-it). The thanks stands as it was.
-
-=> A3-SOUND.GMI Appendix C, The Sound, and What It Took
-
 Jarek Burczynski and Tatsuyuki Satoh wrote fmopl, the OPL2 emulation in MAME
 that this machine's YM3812 is -- by way of VICE, vendored unaltered. Nine
 voices of FM that any AdLib register list from 1987 can drive is their work,

@@ -409,19 +409,26 @@ static void search(uint8_t again)
 static void choose(const char *a)
 {
     uint16_t i, l = (uint16_t)strlen(a);
+    uint8_t pass;
     char *lab, *tgt;
     char t[NAMELEN];
     if (strchr(a, '.')) { push(); if (open_page(a)) { back(); strcpy(msg, "no such page"); } return; }
-    for (i = 0; i < nlinks; i++) {
-        fetch(links[i]);
-        tgt = link_target(&lab);
-        if ((!strncmp(lab, a, l) && lab[l] == '.') || (a[0] > '9' && has(lab, a))) {
-            strncpy(t, tgt, NAMELEN - 1); t[NAMELEN - 1] = 0;
-            push();
-            if (open_page(t)) back();
-            return;
+    /* twice: first by the chapter's number or a word of its title; then, for
+     * a number, by the page's own file number -- the programmer's guide goes
+     * on counting (chapter 15 is 21-IO.GMI), and BOOK 21 should not be "no
+     * chapter" to someone looking at the file (Doc, 2026-09-14) */
+    for (pass = 0; pass < 2; pass++)
+        for (i = 0; i < nlinks; i++) {
+            fetch(links[i]);
+            tgt = link_target(&lab);
+            if (pass == 0 ? ((!strncmp(lab, a, l) && lab[l] == '.') || (a[0] > '9' && has(lab, a)))
+                          : (a[0] <= '9' && l <= 2 && !strncmp(tgt + (l == 1), a, l) && tgt[2] == '-' && (l == 2 || tgt[0] == '0'))) {
+                strncpy(t, tgt, NAMELEN - 1); t[NAMELEN - 1] = 0;
+                push();
+                if (open_page(t)) back();
+                return;
+            }
         }
-    }
     strcpy(msg, "no chapter called "); strncat(msg, a, 30);
 }
 

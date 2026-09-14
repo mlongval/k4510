@@ -6,8 +6,6 @@ The K4510 is a machine that never existed. Almost everything in it that *does* e
 
 **Gábor Lénárt** (LGB) wrote the 45GS02 CPU core in [Xemu](https://github.com/lgblgblgb/xemu), the MEGA65 emulator. It runs here unchanged — not a line altered, not a bug fixed — and every instruction this book describes is his code executing. There would be no K4510 without it.
 
-**Dag Lem** wrote reSID, the SID emulation that has been the reference for thirty years. It was this machine’s voice for its whole first summer — four 6581s, as shipped in VICE 3.3 — and it is not here any more ([Appendix C, The Sound, and What It Took](a3-sound.md) says why, and the reason is not that anything was wrong with it). The thanks stands as it was.
-
 **Jarek Burczyński** and **Tatsuyuki Satoh** wrote `fmopl`, the OPL2 emulation in MAME that this machine’s YM3812 is — by way of VICE, vendored unaltered. Nine voices of FM that any AdLib register list from 1987 can drive is their work, not ours.
 
 **The VICE team**, whose decades of emulation scholarship — documentation, test programs, arguments settled in code — this project consulted at nearly every turn.

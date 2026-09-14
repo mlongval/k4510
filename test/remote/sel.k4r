@@ -47,6 +47,6 @@ shot sel-menu
 key esc
 wait 1
 type \x11
-expect "Save" 5
-type n
+expect "S save" 5
+type d
 expect "/HOME]" 10

@@ -1,9 +1,10 @@
 # K4510
 
-**This is release alpha-0.5, titled 'Timbre'.** The release carries the
-Raspberry Pi SD-card image and the handbook. It is named for what it
-adds: the same notes, and a choice of what they sound like — a second
-SID engine beside reSID, and nine voices of FM beside both.
+**Alpha, September 2026.** The machine boots from a USB stick (or a
+second partition) as the K4510x appliance, or runs in a window on a
+Linux desktop; the handbook is `doc/guide/k4510-guide.pdf`, and on the
+web at Read the Docs. The last release with the bare-metal Raspberry Pi
+image was alpha-0.5 ('Timbre'); that port is retired (below).
 
 A fantasy 8/16-bit computer, built from scratch in August 2026. Project
 orchestrator: Michael Longval. It is not an emulation of any real
@@ -59,10 +60,10 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   a far-call gate, RAM under the ROM. The machine is a fantasy and its
   timings are suggestions, so the clock is whatever the host can hold at
   60 fps with clean sound. A recent desktop holds 100+ (the sweep is in
-  `docs/CPU-CLOCK-POLICY.md`); a Pi 3B+ holds 15. Today it
-  is a setting (F7 → Machine, desktop starting at 40.5, Pi at 15) and
-  the first boot on a host measures it and picks the highest step that
-  fits with margin (`core/calib.c`); `BENCH` shows the whole ladder. The
+  `docs/CPU-CLOCK-POLICY.md`). It is a setting (F7 → Machine), capped
+  at 60 MHz for now, and the first boot on a host measures it and picks
+  the highest step that fits with margin (`core/calib.c`); `BENCH`
+  shows the whole ladder. The
   instruction core is Xemu's, byte for byte; everything around it is ours.
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time and
   everything else is one instruction away. Byte-pokeable **bank

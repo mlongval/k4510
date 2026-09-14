@@ -8435,3 +8435,19 @@ not "1 compiled, 1 kept". do_make saved the file in front every time,
 changed or not, so PJT.C came out newer than its object and was compiled
 again -- every F9 would have rebuilt the file you were in. It saves only
 a changed file now (VI's :make too).
+
+## 2026-09-14 — pruning: the web build, retired/, the BMC names
+
+Doc: "drop 1, 3 and 4, drop the WASM version for now. I was too early."
+
+- The WASM build is gone: wasm/ (build.sh, shell.html) and
+  core/net_wasm.c. On ubuntu-s1 the k4510web container is stopped and
+  archived (~/containers/k4510web-archive-2026-09-14.tar.gz) and the
+  dashboard entry removed; the tailscale serve on 8687 needs root to
+  remove. The K4510_NOPROC guards in core/io.c go with the in-process
+  Tube, next, where the same lines branch.
+- retired/ (romout.c and its README) is gone; git keeps it.
+- The BMC-K4510 and BMC64k4502 links in ~/Projects are gone.
+- The README's opening no longer calls this release 'Timbre' with a Pi
+  image and a SID engine beside reSID, and its clock paragraph says what
+  is true now: a setting, capped at 60 MHz, measured on first boot.

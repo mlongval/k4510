@@ -338,6 +338,7 @@ static int title_depth = 1;
 static char title_next[24];
 static int tube_prog_now;                             /* the Tube program started last, while it lives (io_title) */
 static int tube_prog_at = 1;                          /* the stack depth it started at: its name goes after that entry */
+static uint8_t tube_exit;                             /* the last Tube child's exit status ($D80A): `!`'s result code */
 static void title_cmd(uint8_t c)
 {
     if (c == 1) {                                     /* a program starts: its name, as the file device saw it load */
@@ -1298,6 +1299,7 @@ static void tube_pump(void)
     { int st = 0;
       if (!full && tube_pid && waitpid (tube_pid, &st, WNOHANG) == tube_pid) {
           tube_log("pid %d ended: %s %d", (int) tube_pid, WIFSIGNALED (st) ? "signal" : "exit", WIFSIGNALED (st) ? WTERMSIG (st) : WEXITSTATUS (st));
+          tube_exit = WIFSIGNALED (st) ? (uint8_t) (128 + WTERMSIG (st)) : (uint8_t) WEXITSTATUS (st);
           tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); } }
 }
 /* The `!` shell talks UTF-8 (a Linux host's programs do) and JIM draws CP437, so
@@ -1384,6 +1386,8 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
                                                    * 2026-09-11).  K4510_TERM overrides. */
             const char *term = getenv ("K4510_TERM"), *sh = getenv ("SHELL");
             char dir[800]; snprintf (dir, sizeof dir, "%.511s%s%.255s", fs_root, fs_cwd[0] ? "/" : "", fs_cwd);
+            char *rroot = realpath (fs_root, NULL);          /* the compilers find /PATH names, and MAKE.ERR, under it */
+            if (rroot) setenv ("K4510_ROOT", rroot, 1);
             setenv ("TERM", term && *term ? term : "xterm-color", 1);
             if (!getenv ("LANG") && !getenv ("LC_ALL")) setenv ("LANG", "C.UTF-8", 1);   /* JIM decodes UTF-8 for this session */
             /* $SHELL as the host has it, if it exists HERE: a distrobox hands the
@@ -1411,6 +1415,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         }
         _exit (127);
     }
+    tube_exit = 0;
     if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
     fcntl (tube_fd, F_SETFL, O_NONBLOCK);
     if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* the ROM's JIM reset (tube_term) follows, and leaves it */
@@ -1585,6 +1590,7 @@ static uint8_t io_read_inner(uint16_t addr)
     case IO_TUBE:
         if ((addr & 0xFF) == 0) return tube_status();
         if ((addr & 0xFF) == 1) return tube_read();
+        if ((addr & 0xFF) == 10) return tube_exit;      /* the last child's exit status: the ROM makes it `!`'s RC */
         return 0xFF;
     case IO_FAR: {
         uint8_t r = addr & 0xFF;

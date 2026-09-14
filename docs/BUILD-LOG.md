@@ -8208,3 +8208,45 @@ below $D000.
 
 An LSP server on the Linux side was Doc's other thought; none knows these
 dialects, and the editors run on the machine, not on Linux.
+
+## 2026-09-14 — :make: VI compiles, and says where
+
+Doc: "I just don't want to build some half baked idea that does not scale
+or is ill thought out. I like your :make idea."
+
+**One message form.** tools/k4510-errfmt turns what cc65, ca65, ld65, Mad
+Pascal and MADS print into `FILE:LINE:COL:KIND:TEXT`, one message a line;
+k4510-cc and k4510-pas write that to /SYSTEM/LOG/MAKE.ERR (cleared first)
+and print it readably. VI reads only that file, so a language added later
+is a script, not a VI change. Mad Pascal wraps its own messages at 80
+columns -- PAS used to show half of each one -- and they are joined again.
+test/errfmttest.sh (in `make test`) feeds it the compilers' real output.
+
+**VI.** `:make` saves, runs CC or PAS on the file (the extension decides)
+through rom_shell, reads MAKE.ERR into a list in far memory and goes to
+the first error -- line, and column when Mad Pascal gives one. `:cn` `:cp`
+`:cc N` `:cl`. `:run` is :make, then the program under SWAP -k, a key,
+and the file read back: SWAP keeps VI's 64 KB but not the far memory the
+text lives in. The command line goes to rom_shell from the C stack ($D000
+down): VI's variables are in $A000-$BFFF now, the ROM's bank window.
+
+**Found on the way, fixed:**
+- A `!` command's exit status never reached the machine: the emulator
+  logged it and dropped it, so the handbook's "the exit status comes back
+  as the result code" was not true. It is now: $D80A holds the last Tube
+  child's status and the ROM makes it SHELL_RC.
+- `!` commands had no K4510_ROOT (only BBC BASIC got it). They do now,
+  and CC / PAS take machine paths (/LANG/C/SIEVE), so VI can compile the
+  file it has open from anywhere.
+- Mad Pascal on Linux looks for `uses myunit` as myunit.pas; the machine
+  writes MYUNIT.PAS, and a unit beside the program was never found. PAS
+  now compiles from a scratch directory of lower-case links.
+
+Next, by agreement: an IDE for the C / Pascal cycle, many files at once,
+built on this.
+
+VI's BSS, pushed up by :renum and :make, ended at $CF2C -- 212 bytes from
+where the C stack starts ($D000, growing down). demo/vi.cfg puts VI's
+variables at $0800, which a program owns and VI never used: BSS
+$0800-$1065, code to $C6C6, 2.3 KB of stack. Caught in the map before it
+shipped.

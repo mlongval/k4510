@@ -324,12 +324,41 @@ Operators take any motion — `d2w` deletes two words, `y$` yanks to the end of 
 <td style="text-align: left;"><code>:renum</code> [<em>start</em> [<em>step</em>]]</td>
 <td style="text-align: left;">renumber a BASIC program (10 and 10 unless told), and every <code>GOTO</code> with it; <code>u</code> puts it back</td>
 </tr>
+<tr class="odd">
+<td style="text-align: left;"><code>:make</code></td>
+<td style="text-align: left;">save, compile a <code>.C</code> or <code>.PAS</code>, and go to the first error</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>:run</code></td>
+<td style="text-align: left;"><code>:make</code>, and if it compiled, run it; a key comes back</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>:cn</code>, <code>:cp</code></td>
+<td style="text-align: left;">the next, the previous compiler message</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>:cc</code> <em>n</em>, <code>:cl</code></td>
+<td style="text-align: left;">message <em>n</em>; the whole list</td>
+</tr>
 </tbody>
 </table>
 
 </div>
 
 The command word is read in either case, so `:Q` and `:WQ` work with the caps lock on — which is how most people arrive in VI from a BASIC.
+
+### Compiling from VI
+
+`:make` is the edit–compile loop without leaving the editor. It saves the file, compiles it with the machine’s own `CC` or `PAS` ([Chapter 13, The Linux Underneath](13-linux.md)) — which one, the name decides — and puts the cursor on the first error, with the message on the status line:
+
+    VI HELLO.C
+    :make
+
+`error 1 of 3: ’;’ expected` — and `:cn` is the next, `:cp` the one before, `:cl` all of them on one screen, `:cc 3` the third. Mad Pascal gives the column as well as the line, and the cursor goes to it. An error in another file — a unit, or `k4510.h` — is shown with that file’s name and does not move the cursor. A clean compile says what it made, `hello.prg: 2140 bytes`, and counts the warnings, which `:cn` walks through the same way.
+
+`:run` is `:make` and then the program, as if typed at the prompt. It runs over VI by way of `SWAP`, so VI is there again when it ends; the program’s last screen stays up until you press a key. VI reads the file back afterwards, because a program may use the far memory VI keeps the text in — which is why `:run` saves first, and why the undo history starts again. From a VI that was itself started by `SWAP` (from a BASIC’s `*VI`, or RANGER), `:run` cannot nest and says so: leave VI and type the program’s name.
+
+The compilers write what they said to `/SYSTEM/LOG/MAKE.ERR`, one message a line in one form for every language (`FILE:LINE:COL:KIND:TEXT`), and that file is all VI reads — so a compiler added later needs a script, not a new VI.
 
 ### Making `jk` leave insert mode
 

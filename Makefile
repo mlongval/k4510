@@ -162,6 +162,7 @@ check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.pr
 test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
+	sh ./test/errfmttest.sh
 	./test/woztest
 	./test/maptest
 	./test/banktest
@@ -243,6 +244,12 @@ demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s
 	ca65 --cpu 65c02 -o $@ $<
+# VI's variables live at $0800 (demo/vi.cfg): at $6000+ they had grown into its C stack
+fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/vi.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/vi.s demo/vi.c
+	ca65 --cpu 65c02 -o demo/vi.o demo/vi.s
+	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
+fs/SYSTEM/BIN/edit.prg: demo/renum.h
 fs/SYSTEM/BIN/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s

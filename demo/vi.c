@@ -27,6 +27,8 @@
  *            :s/old/new/[g]  :%s/old/new/[g]
  *            :map lhs rhs    :imap lhs rhs      (:imap jk <Esc>)
  *            :renum [start [step]]   a BASIC file: its lines and GOTOs (u undoes)
+ *            :make  :run     compile the .C / .PAS (CC, PAS) and go to the first error; then run it
+ *            :cn :cp :cc N :cl       next, previous, Nth error; the list
  *   insert  Esc leaves; Backspace, Enter, printable
  */
 #include "k4510.h"
@@ -67,6 +69,7 @@ static uint8_t cprompt = ':';               /* which line the : line is: : / or 
 static uint8_t op;                          /* the operator waiting for a motion: d c y */
 static unsigned reglines;                   /* what the register holds */
 static uint8_t reglinewise;
+static uint8_t curshape;                    /* the cursor shape JIM has; 0 after a command drew over us */
 
 /* ---- screen ------------------------------------------------------------- */
 static uint8_t clip, sx;         /* while clip is set, drop anything past the right edge:
@@ -267,8 +270,8 @@ static void draw(void)
 
     /* the cursor's shape says the mode, as vim's does: a block in normal
      * mode, a bar inserting, an underline on the : line (DECSCUSR to JIM) */
-    { static uint8_t shape; uint8_t want = mode == 1 ? '6' : mode == 2 ? '4' : '2';
-      if (want != shape) { shape = want; put(27); put('['); put((char)want); put(' '); put('q'); } }
+    { uint8_t want = mode == 1 ? '6' : mode == 2 ? '4' : '2';
+      if (want != curshape) { curshape = want; put(27); put('['); put((char)want); put(' '); put('q'); } }
     at((uint8_t)(rows - 1), 0);
     if (mode == 2) { put((char)cprompt); say(cmd); eeol(); at((uint8_t)(rows - 1), (uint8_t)(cmdlen + 1)); return; }
     sgr("7");
@@ -671,6 +674,194 @@ static void do_renum(const char *c)
     note = rn_report();
 }
 
+/* ---- make ------------------------------------------------------------------
+ * :make compiles the file with the machine's own CC or PAS -- the compilers
+ * on the Linux beside it, reached through the ROM's SHELL call -- and reads
+ * what they said from /SYSTEM/LOG/MAKE.ERR, where tools/k4510-errfmt has put
+ * every compiler's messages into one form, FILE:LINE:COL:KIND:TEXT.  So VI
+ * knows no compiler's dialect: a new language is a script, not a new VI.
+ * The list lives in far memory, 128 bytes an entry:
+ *   [0,1] line  [2] column (0: none)  [3] E or W  [4] 1 if it is this file
+ *   [5] text length  [6..] text ("FILE:LINE: " in front when not this file)
+ * :run is :make and then the program, under SWAP -k.  The file is read back
+ * afterwards: SWAP keeps VI's 64 KB, not the far memory the text lives in,
+ * and a program is free to use that. */
+#define ERRRAW 0x0EB00000UL                 /* MAKE.ERR as loaded */
+#define ERRTAB 0x0EC00000UL                 /* the list */
+#define ERRMAX 200u
+static const char errfile[] = "/SYSTEM/LOG/MAKE.ERR";
+static unsigned nerr, nwarn, ecur = 0xFFFFu; /* ecur + 1 is where :cn goes */
+static uint8_t ebuf[128];
+static char nbuf[96], info[64];
+static uint8_t nbn;
+/* rom_shell (k4510.h, $FF8F) runs the line.  The line must not be in
+ * $A000-$BFFF, where the ROM maps its own banks during the call, and VI's
+ * variables are up there now: callers pass a buffer on the C stack, which
+ * starts at $D000 and grows down. */
+
+static void nb_reset(void) { nbn = 0; nbuf[0] = 0; }
+static void nb_s(const char *s) { while (*s && nbn < sizeof nbuf - 1) nbuf[nbn++] = *s++; nbuf[nbn] = 0; }
+static void nb_t(const uint8_t *t, uint8_t n) { uint8_t i; for (i = 0; i < n && nbn < sizeof nbuf - 1; i++) nbuf[nbn++] = (char)t[i]; nbuf[nbn] = 0; }
+static void nb_n(unsigned v) { char b[6]; uint8_t k = 0; do { b[k++] = (char)('0' + v % 10); v /= 10; } while (v); while (k && nbn < sizeof nbuf - 1) nbuf[nbn++] = b[--k]; nbuf[nbn] = 0; }
+
+static const char *base_of(const char *p) { const char *b = p; for (; *p; p++) if (*p == '/') b = p + 1; return b; }
+static uint8_t is_this_file(const uint8_t *f, unsigned fl)
+{
+    const char *b = base_of(name); unsigned i;
+    for (i = 0; i < fl; i++) if (!b[i] || rn_up((uint8_t)b[i]) != rn_up(f[i])) return 0;
+    return (uint8_t)(b[fl] == 0);
+}
+static unsigned digits(const uint8_t *l, unsigned a, unsigned b) { unsigned v = 0; for (; a < b; a++) if (l[a] >= '0' && l[a] <= '9') v = v * 10 + (l[a] - '0'); return v; }
+
+static void err_add(const uint8_t *l)               /* one line of MAKE.ERR, l[0] its length */
+{
+    unsigned f[4], i, k = 0, v, t = 0;
+    for (i = 1; i <= l[0] && k < 4; i++) if (l[i] == ':') f[k++] = i;
+    if (k < 4) return;
+    if (l[f[2] + 1] == 'I') {                        /* information: what was made */
+        for (i = f[3] + 1; i <= l[0] && t < sizeof info - 1; i++) info[t++] = (char)l[i];
+        info[t] = 0; return;
+    }
+    v = digits(l, f[0] + 1, f[1]);
+    ebuf[0] = (uint8_t)v; ebuf[1] = (uint8_t)(v >> 8);
+    ebuf[2] = (uint8_t)digits(l, f[1] + 1, f[2]);
+    ebuf[3] = l[f[2] + 1] == 'W' ? 'W' : 'E';
+    ebuf[4] = (uint8_t)(l[1] != '-' && is_this_file(l + 1, f[0] - 1));
+    if (!ebuf[4] && l[1] != '-')                     /* another file: say which */
+        for (i = 1; i < f[1] && t < 100; i++) ebuf[6 + t++] = (i == f[0]) ? ':' : l[i];
+    if (!ebuf[4] && l[1] != '-') { ebuf[6 + t++] = ':'; ebuf[6 + t++] = ' '; }
+    for (i = f[3] + 1; i <= l[0] && t < 122; i++) ebuf[6 + t++] = l[i];
+    ebuf[5] = (uint8_t)t;
+    if (ebuf[3] == 'W') nwarn++;
+    far_put(ebuf, ERRTAB + ((uint32_t)nerr << 7), 128);
+    nerr++;
+}
+static void err_load(void)
+{
+    uint32_t l, off = 0; unsigned chunk, i;
+    nerr = 0; nwarn = 0; info[0] = 0; ecur = 0xFFFFu;
+    zp16(0xF0, (uint16_t)errfile); zp32(0xF2, ERRRAW);
+    if (rom_load()) return;
+    l = zpr32(0xF6);
+    rbuf[0] = 0;
+    while (off < l) {
+        chunk = (l - off) > 128 ? 128 : (unsigned)(l - off);
+        far_get(ERRRAW + off, tmp, chunk);
+        for (i = 0; i < chunk; i++) {
+            if (tmp[i] == '\n') { if (rbuf[0]) err_add(rbuf); rbuf[0] = 0; if (nerr >= ERRMAX) return; }
+            else if (tmp[i] != '\r' && rbuf[0] < 255) { rbuf[0]++; rbuf[rbuf[0]] = tmp[i]; }
+        }
+        off += chunk;
+    }
+    if (rbuf[0] && nerr < ERRMAX) err_add(rbuf);
+}
+static void err_go(unsigned i)                       /* to entry i: its line and column, its text below */
+{
+    unsigned l;
+    far_get(ERRTAB + ((uint32_t)i << 7), ebuf, 128);
+    ecur = i;
+    l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8);
+    if (ebuf[4] && l) {
+        goline(l - 1);
+        cx = ebuf[2] ? (uint8_t)(ebuf[2] - 1) : 0;
+        if (cx >= ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
+    }
+    nb_reset(); nb_s(ebuf[3] == 'W' ? "warning " : "error "); nb_n(i + 1); nb_s(" of "); nb_n(nerr); nb_s(": ");
+    nb_t(ebuf + 6, ebuf[5]);
+    note = nbuf;
+}
+static void screen_back(void)                        /* after a command has drawn over us */
+{
+    REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
+    curshape = 0; full = 1; lasttop = 0xFFFF; lastcy = 0xFFFF;
+}
+static const char *compiler(void)                    /* the machine's word for this file's language */
+{
+    const char *d = 0, *s;
+    for (s = name; *s; s++) if (*s == '.') d = s;
+    if (!d) return 0;
+    if (rn_up((uint8_t)d[1]) == 'C' && !d[2]) return "CC";
+    if (rn_up((uint8_t)d[1]) == 'P' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "PAS";
+    return 0;
+}
+static uint8_t do_make(void)                         /* 1 if it compiled without an error */
+{
+    char c[NAMEMAX + 8]; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
+    if (!name[0]) { note = "make: the file has no name -- :w NAME first"; return 0; }
+    if (!tool)    { note = "make: no compiler for this file (.C, .PAS)"; return 0; }
+    save_file();
+    if (note[0] != 'w') return 0;
+    for (s = tool; *s; ) c[i++] = *s++;
+    c[i++] = ' ';
+    for (s = name; *s && i < sizeof c - 1; ) c[i++] = *s++;
+    c[i] = 0;
+    rc = rom_shell(c);
+    screen_back();
+    err_load();
+    if (!rc && nerr == nwarn) {
+        nb_reset(); nb_s(info[0] ? info : "compiled");
+        if (nwarn) { nb_s(", "); nb_n(nwarn); nb_s(nwarn == 1 ? " warning (:cn)" : " warnings (:cn)"); }
+        note = nbuf;
+        return 1;
+    }
+    for (e = 0; e < nerr; e++) { far_get(ERRTAB + ((uint32_t)e << 7) + 3, &i, 1); if (i == 'E') break; }
+    if (e < nerr) err_go(e);
+    else if (nerr) err_go(0);
+    else { nb_reset(); nb_s("make: failed, rc "); nb_n(rc); nb_s(" -- nothing in MAKE.ERR"); note = nbuf; }
+    return 0;
+}
+static void do_run(void)
+{
+    char c[NAMEMAX + 12]; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
+    if (!do_make()) return;
+    for (s = name; *s; s++) if (*s == '.') dot = s;
+    for (s = "SWAP -k "; *s; ) c[i++] = *s++;
+    for (s = name; *s && s != dot && i < sizeof c - 1; ) c[i++] = *s++;
+    c[i] = 0;
+    rc = rom_shell(c);
+    at((uint8_t)(rows - 1), 0); sgr("7"); say(" -- a key returns to VI -- "); sgr("0");
+    while (!rom_getin()) ;
+    rom_video();
+    cols = REG(TERM + 5); rows = REG(TERM + 6);
+    if (!cols) cols = 80;
+    if (!rows) rows = 30;
+    screen_back();
+    load_file();                                     /* the program may have used the far memory the text was in */
+    ujp = ujn = 0; reglines = 0;
+    goline(keepy); cx = keepx;
+    if (cx >= ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
+    dirty = 0;
+    if (rc) { nb_reset(); nb_s("run: rc "); nb_n(rc); nb_s(" (from inside a SWAP? leave VI and run it)"); note = nbuf; }
+    else note = "ran it; the file is as saved";
+}
+static void err_list(void)                           /* :cl -- the whole list, a screenful */
+{
+    unsigned i, l; uint8_t r = 0;
+    if (!nerr) { note = info[0] ? info : "no messages"; return; }
+    REG(TERM + 4) = 2;
+    for (i = 0; i < nerr && r < (uint8_t)(rows - 1); i++, r++) {
+        far_get(ERRTAB + ((uint32_t)i << 7), ebuf, 128);
+        at(r, 0); clip = 1; sx = 0;
+        if (i == ecur) sgr("7");
+        num(i + 1); say(ebuf[3] == 'W' ? "  warning  " : "  error    ");
+        l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8);
+        if (ebuf[4] && l) { say("line "); num(l); say(": "); }
+        { uint8_t j; for (j = 0; j < ebuf[5]; j++) put((char)ebuf[6 + j]); }
+        if (i == ecur) sgr("0");
+        clip = 0; eeol();
+    }
+    at((uint8_t)(rows - 1), 0); sgr("7"); say(" :cc N goes to one -- a key returns "); sgr("0");
+    while (!rom_getin()) ;
+    screen_back();
+    note = "";
+}
+static uint8_t excmd(const char *w)                  /* cmd is the word w (upper case here), alone or before a space */
+{
+    uint8_t i = 0;
+    while (w[i]) { if (rn_up((uint8_t)cmd[i]) != (uint8_t)w[i]) return 0; i++; }
+    return (uint8_t)(cmd[i] == 0 || cmd[i] == ' ');
+}
+
 static void do_cmd(void)
 {
     uint8_t i = 0, w = 0, q = 0;
@@ -686,6 +877,19 @@ static void do_cmd(void)
     if (cmd[0] == 'i' && cmd[1] == 'm' && cmd[2] == 'a' && cmd[3] == 'p') { do_map(cmd + 4, 1); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (rn_up((uint8_t)cmd[0]) == 'R' && rn_up((uint8_t)cmd[1]) == 'E' && rn_up((uint8_t)cmd[2]) == 'N' && rn_up((uint8_t)cmd[3]) == 'U' && rn_up((uint8_t)cmd[4]) == 'M') {
         do_renum(cmd + 5); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
+    if (excmd("MAKE") || excmd("RUN") || excmd("CN") || excmd("CP") || excmd("CC") || excmd("CL")) {
+        mode = 0;
+        if (excmd("MAKE")) do_make();
+        else if (excmd("RUN")) do_run();
+        else if (excmd("CL")) err_list();
+        else if (!nerr) note = "no messages -- :make first";
+        else if (excmd("CN")) { if (ecur + 1 < nerr || ecur == 0xFFFFu) err_go(ecur + 1); else note = "no more messages"; }
+        else if (excmd("CP")) { if (ecur != 0xFFFFu && ecur > 0) err_go(ecur - 1); else note = "no earlier message"; }
+        else { unsigned n = 0; const char *p = cmd + 2; while (*p == ' ') p++;
+               while (*p >= '0' && *p <= '9') n = n * 10 + (unsigned)(*p++ - '0');
+               if (n >= 1 && n <= nerr) err_go(n - 1); else note = "no such message"; }
+        cmdlen = 0; cmd[0] = 0; return;
+    }
     /* The command word only, and either case: ":w quiz" used to quit (the q
      * in the NAME), and with caps lock on ":Q" did nothing at all -- a way
      * into the editor with no way out (Doc, 2026-09-12, from MS BASIC). */

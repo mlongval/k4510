@@ -2069,7 +2069,7 @@ static void cmd_bbcbasic(uint8_t prog)
     if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
     else { cx = REG(TERM + 9); cy = REG(TERM + 10); }
     fg = ofg; bg = obg;
-    if (prog == 4) { if (cx) newline(); return; }        /* a host command: back to the prompt, no ceremony */
+    if (prog == 4) { if (cx) newline(); if (REG(TUBE + 10)) SHELL_RC = REG(TUBE + 10); return; }   /* a host command: back to the prompt, no ceremony; its exit status is the RC */
     newline(); puts_("the Tube co-processor has left."); newline();
 }
 /* `!cmd` / `!`: the host's shell on the Tube (program 4), in the machine's own

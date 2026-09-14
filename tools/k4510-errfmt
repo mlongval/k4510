@@ -1,0 +1,58 @@
+#!/bin/sh
+# k4510-errfmt < LOG   the compilers' messages in the one form VI reads
+#
+# Every compiler the machine can call writes its errors its own way.  This
+# puts them all into one line each, which is what /SYSTEM/LOG/MAKE.ERR holds
+# and what VI's :make reads -- so a new language needs a script that pipes
+# its log through here, and VI never changes:
+#
+#     FILE:LINE:COL:KIND:TEXT       KIND  E error, W warning, I information
+#                                   FILE  - when the message names no file of
+#                                         yours (the linker, the assembler);
+#                                         LINE and COL 0 when unknown
+#
+# Understood: cc65 and ca65   NAME.C(5): Error: ';' expected
+#             ld65            ld65: Error: ...   Unresolved external '_f' referenced in:
+#             Mad Pascal      NAME.PAS (line 5, column 3): Error: E40 - SyntaxError: ...
+#                             (it wraps its own lines at 80 columns: joined again here)
+#             MADS            anything with ERROR in it, as a message
+# Plain POSIX awk: Debian's mawk has no gawk extensions.
+exec awk '
+function emit(f, l, c, k, t) {
+    sub(/.*\//, "", f)
+    if (f == "") f = "-"
+    sub(/[ \t\r]+$/, "", t)
+    print f ":" l ":" c ":" k ":" t
+}
+function flush() { if (pend) emit(pf, pl, pc, pk, pt); pend = 0 }
+function kindof(w) { return w == "Error" || w == "Fatal" ? "E" : (w == "Warning" || w == "Note" || w == "Hint") ? "W" : "E" }
+{
+    line = $0; sub(/\r$/, "", line)
+    # a Mad Pascal message runs on while the line before it filled 80 columns
+    if (pend && plen == 80 && line !~ /^[0-9]+ lines compiled/ && line !~ /^Program ended/ && line !~ / \(line [0-9]+, column [0-9]+\): /) {
+        pt = pt line; plen = length(line); next
+    }
+    flush()
+    if (line ~ / \(line [0-9]+, column [0-9]+\): [A-Za-z]+: /) {          # Mad Pascal
+        p = index(line, " (line "); pf = substr(line, 1, p - 1); r = substr(line, p + 7)
+        c = index(r, ", column "); pl = substr(r, 1, c - 1); r = substr(r, c + 9)
+        q = index(r, "): "); pc = substr(r, 1, q - 1); r = substr(r, q + 3)
+        c = index(r, ": "); pk = kindof(substr(r, 1, c - 1)); pt = substr(r, c + 2)
+        if (pt ~ /^E[0-9]+ - [A-Za-z]+: /) sub(/^E[0-9]+ - [A-Za-z]+: /, "", pt)
+        pend = 1; plen = length(line); next
+    }
+    if (line ~ /^[^ ]+\([0-9]+\): [A-Za-z]+: /) {                       # cc65, ca65
+        p = index(line, "("); f = substr(line, 1, p - 1); r = substr(line, p + 1)
+        q = index(r, "): "); l = substr(r, 1, q - 1); r = substr(r, q + 3)
+        c = index(r, ": "); emit(f, l, 0, kindof(substr(r, 1, c - 1)), substr(r, c + 2)); next
+    }
+    if (line ~ /^ld65: [A-Za-z]+: /) {                                    # ld65
+        r = substr(line, 7); c = index(r, ": "); emit("-", 0, 0, kindof(substr(r, 1, c - 1)), substr(r, c + 2)); next
+    }
+    if (line ~ /^Unresolved external .* referenced in:/) {
+        sub(/ referenced in:.*/, "", line); emit("-", 0, 0, "E", line); next
+    }
+    if (line ~ /ERROR/) { sub(/^[ \t]+/, "", line); emit("-", 0, 0, "E", line); next }  # MADS
+}
+END { flush() }
+'

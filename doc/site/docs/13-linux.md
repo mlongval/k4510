@@ -32,7 +32,7 @@ The compilers live on the Linux side, so the machine reaches them the same way y
     PAS HELLO
     HELLO
 
-`PAS name` compiles `name.PAS` *in the directory you are standing in* with Mad Pascal, and leaves `name.prg` beside it. `CC name` does the same for `name.C` with cc65, using exactly the rule the machine’s own Makefile uses for its programs. Intermediates go to a scratch directory and never appear on your disk; the compiler’s own errors appear on the screen, and its exit status comes back as the result code, so a script can test it.
+`PAS name` compiles `name.PAS` with Mad Pascal, and leaves `name.prg` beside it; the name is looked for in the directory you are standing in, or give a path, `PAS /LANG/PASCAL/PMANDEL`. `CC name` does the same for `name.C` with cc65, using exactly the rule the machine’s own Makefile uses for its programs. A Pascal unit beside the program is found whatever case its name was saved in (Mad Pascal on Linux looks for `myunit.pas`; the machine writes `MYUNIT.PAS`). Intermediates go to a scratch directory and never appear on your disk. The compiler’s errors appear on the screen, one to a line as `FILE:LINE: Error: ...`, and in `/SYSTEM/LOG/MAKE.ERR`, which is what VI’s `:make` reads ([Chapter 11, The Editors](11-editors.md)); the exit status comes back as the result code, so a script can test it — as any `!` command’s does.
 
 That is the loop the machine owns: *edit the source on the machine, compile it from the machine’s prompt, run it on the machine.* The compiler itself still runs on the Linux beside it, which is why “self-hosted” has an “almost” in front of it — but the part that matters when you are writing a program is all on this side of the seam.
 

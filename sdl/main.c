@@ -42,7 +42,7 @@
 
 /* A screenshot on request -- SIGUSR1 (tools/k4510-shot) or PrtSc -- of the
  * machine's own picture: one row per line of the machine, the menu over it
- * when it is open, no scanlines, so text reads.  Written as PNG with stored
+ * when it is open.  Written as PNG with stored
  * (uncompressed) deflate blocks: no zlib to link, and 900 KB a frame is
  * nothing.  Doc, 2026-09-12: the Dell's KMSDRM screen could not be grabbed
  * from outside (fbdev is bypassed, the scanout is tiled). */
@@ -372,12 +372,12 @@ static uint8_t cp437_of(unsigned long cp)
 }
 
 /* The mouse.  SDL hands us logical coordinates (the renderer's logical size
- * is the machine's picture, x2 with scanlines), so machine pixels are one
- * division and the border's shrink away.  geo_k/geo_b are copied from the
+ * is the machine's picture), so machine pixels are one
+ * division and the border's shrink away.  geo_b and the rest are copied from the
  * frame code each frame; the picture cannot move between them. */
-static int geo_k = 1, geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1.0;   /* Placement: the picture's device offset and scale (1, 0, 0 when SDL maps) */
+static int geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1.0;   /* Placement: the picture's device offset and scale (1, 0, 0 when SDL maps) */
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
-static int to_machine(int v, int full) { int m = (v / geo_k - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
+static int to_machine(int v, int full) { int m = (v - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
 /* The pointer stays on the machine (Doc, 2026-09-14: "limit mouse to k4510
  * screen only ... it doesnt go into sidebars, or above or below active screen
@@ -916,26 +916,19 @@ int k4510_frontend_main(int argc, char **argv)
 SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
     SDL_RenderSetLogicalSize(ren, VICKY_WIDTH, VICKY_HEIGHT);
-    /* Two rows of texture per line of the machine, so scanlines cost a second
-     * store rather than a second surface: with them off only the top half is
-     * written and copied, so it costs nothing at all. */
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                         VICKY_WIDTH, VICKY_HEIGHT * 2);
-    int scan_applied = -1, smooth_applied = -1, logical_tall = -1, vsync_applied = -1;
+                                         VICKY_WIDTH, VICKY_HEIGHT);
+    int smooth_applied = -1, logical_set = 0, vsync_applied = -1;
     int logical_custom = 0; SDL_Texture *ptex = NULL; int ptex_w = 0, ptex_h = 0; double panel_fps = 0;   /* Placement and the side panel */
-    /* The border, striped like the screen: one column of pixels, one texture
-     * row per logical row, stretched across.  A single RenderCopy rather than
-     * a few hundred RenderDrawLines, and it is rebuilt only when the colour or
-     * the scanline setting changes. */
-    uint32_t border_lit = 0, border_dim = 0;
-    SDL_Texture *btex = NULL; int btex_scan = -1, btex_col = -1, btex_smooth = -1;
-    const int shooting = getenv("K4510_SHOT") != NULL && getenv("K4510_SHOT_FX") == NULL;
-                                     /* the guide's figures want a clean picture; K4510_SHOT_FX asks for one with the effects */
+    /* The border: one column of pixels stretched across, a single RenderCopy
+     * that reaches the letterbox too; rebuilt only when the colour changes. */
+    uint32_t border_lit = 0;
+    SDL_Texture *btex = NULL; int btex_col = -1, btex_smooth = -1;
 
     static uint8_t ov[UI_W * UI_H];
-    static uint32_t pal[256], dpal[256];          /* the machine's colours, full and scanline-dimmed */
-    static uint32_t mpal[256], mdpal[256];        /* the same, half-lit: the picture behind the menu */
-    static uint32_t upal[UIC_COUNT], udpal[UIC_COUNT];   /* the menu's own colours */
+    static uint32_t pal[256];                     /* the machine's colours */
+    static uint32_t mpal[256];                    /* the same, half-lit: the picture behind the menu */
+    static uint32_t upal[UIC_COUNT];              /* the menu's own colours */
     signal(SIGUSR1, shot_signal);                  /* tools/k4510-shot: a screenshot, from outside */
     signal(SIGUSR2, screen_signal);                /* tools/k4510-screen: the text screen, as text */
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
@@ -1063,7 +1056,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     if (confine_clamp(&wx, &wy)) { SDL_WarpMouseInWindow(win, wx, wy); break; }
                 }
                 mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), VICKY_WIDTH); mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), VICKY_HEIGHT);
-                dx_acc += (int)(e.motion.xrel / (geo_k * geo_s)); dy_acc += (int)(e.motion.yrel / (geo_k * geo_s));
+                dx_acc += (int)(e.motion.xrel / geo_s); dy_acc += (int)(e.motion.yrel / geo_s);
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
                 int bit = e.button.button == SDL_BUTTON_LEFT ? 1 : e.button.button == SDL_BUTTON_RIGHT ? 2 : e.button.button == SDL_BUTTON_MIDDLE ? 4 : 0;
@@ -1564,57 +1557,19 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
             SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_INTEGER ? SDL_TRUE : SDL_FALSE);
         }
-        /* Scanlines are never a figure's -- but they ARE the menu's: the point
-         * of choosing them there is seeing them, so the overlay is drawn
-         * through the same path the machine's picture is. */
-        scan_applied = shooting ? SCAN_OFF : settings_get(SET_VIDEO_SCANLINES);
-
-        /* the palettes, once a frame instead of once a pixel: the inner loop
-         * then reads two tables and stores twice.  Four of them -- the
-         * machine's colours and the menu's, each at full and at scanline
-         * brightness -- so the menu dims and darkens without a branch. */
-        /* Scanlines without the picture going dark.  Dimming every other line
-         * costs (1 + n/4)/2 of the mean -- measured 68 -> 60 -> 52 -> 44 across
-         * the four settings, which is the arithmetic exactly -- so the lit line
-         * is given back what the dark line loses, and the average stays put.
-         * Saturated colours clip, which is what a real tube does too. */
-        { static const int num[SCAN_COUNT] = { 4, 3, 2, 1 };            /* quarters of full brightness */
-          int n = num[scan_applied];
-          int gain = 8 * 256 / (4 + n);                                 /* 8/(4+n) in 8.8 fixed point */
-#define LIT(v)  (uint32_t)(((v) * gain >> 8) > 255 ? 255 : ((v) * gain >> 8))
-#define DIM(v)  (uint32_t)((((v) * n / 4) * gain >> 8) > 255 ? 255 : (((v) * n / 4) * gain >> 8))
-#define SCANDIM(c) (0xFF000000u | ((((c) >> 16 & 255) * n / 4) << 16) \
-                                | ((((c) >>  8 & 255) * n / 4) <<  8) \
-                                |  (((c)       & 255) * n / 4))
-#define BUILD(dst, ddst, c) do { \
-              int r_ = ((c) >> 16) & 255, g_ = ((c) >> 8) & 255, b_ = (c) & 255; \
-              (dst)  = 0xFF000000u | (LIT(r_) << 16) | (LIT(g_) << 8) | LIT(b_); \
-              (ddst) = 0xFF000000u | (DIM(r_) << 16) | (DIM(g_) << 8) | DIM(b_); \
-          } while (0)
-          /* the 256-entry tables only when VICKY's palette or the scanlines
-           * changed (review 2026-09-05, 9); the menu's dozen and the border
-           * are cheap enough to do every frame */
-          { static uint32_t gen_done = 0xFFFFFFFFu; static int scan_done = -1;
-            if (vicky_palette_gen() != gen_done || scan_applied != scan_done) {
-                gen_done = vicky_palette_gen(); scan_done = scan_applied; tex_stale = 1;
-                for (int i = 0; i < 256; i++) {
-                    uint32_t c = vicky_palette_rgb(i), h = (c >> 1) & 0x7F7F7F;   /* h: half-lit, behind the menu */
-                    BUILD(pal[i], dpal[i], c);
-                    BUILD(mpal[i], mdpal[i], h);
-                }
-            } }
-          for (int i = 0; i < UIC_COUNT; i++) { uint32_t o = upal[i]; BUILD(upal[i], udpal[i], ui_palette_rgb(i)); if (upal[i] != o) tex_stale = 1; }
-          /* The border is part of the picture, so it is scanlined and gained
-           * with it.  It used to be a flat SDL_RenderClear at full palette
-           * brightness, which left it both unstriped and brighter than the
-           * average of the tube it was framing -- Doc, 2026-09-01: "scanline
-           * effects do not seem to carry over to borders, looks a little
-           * weird".  It was two things at once. */
-          { uint32_t c = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
-            BUILD(border_lit, border_dim, c); }
-#undef BUILD
-#undef LIT
-#undef DIM
+        /* the palettes, once a frame instead of once a pixel: the machine's
+         * colours, the same half-lit behind the menu, and the menu's own; the
+         * 256-entry tables only when VICKY's palette changed (review 2026-09-05, 9) */
+        { static uint32_t gen_done = 0xFFFFFFFFu;
+          if (vicky_palette_gen() != gen_done) {
+              gen_done = vicky_palette_gen(); tex_stale = 1;
+              for (int i = 0; i < 256; i++) {
+                  uint32_t c = vicky_palette_rgb(i) & 0xFFFFFF;
+                  pal[i] = 0xFF000000u | c; mpal[i] = 0xFF000000u | ((c >> 1) & 0x7F7F7F);
+              }
+          }
+          for (int i = 0; i < UIC_COUNT; i++) { uint32_t o = upal[i]; upal[i] = 0xFF000000u | (ui_palette_rgb(i) & 0xFFFFFF); if (upal[i] != o) tex_stale = 1; }
+          border_lit = 0xFF000000u | (vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR)) & 0xFFFFFF);
         }
 
         void *pixels; int pitch;
@@ -1622,40 +1577,28 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         /* Nothing new to show -- same picture, same overlay, same tables --
          * and the texture already holds it: skip the 307,200 lookups (review
          * 2026-09-05, 9).  A still screen at the prompt is most frames. */
-        { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1, last_scan = -1;
-          if (!tex_stale && open == last_open && scan_applied == last_scan
+        { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1;
+          if (!tex_stale && open == last_open
               && !memcmp(fb, last_fb, sizeof fb) && (!open || !memcmp(ov, last_ov, sizeof ov))) goto tex_done;
-          tex_stale = 0; last_open = open; last_scan = scan_applied;
+          tex_stale = 0; last_open = open;
           memcpy(last_fb, fb, sizeof fb); if (open) memcpy(last_ov, ov, sizeof ov); }
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
-        { int tall = scan_applied != SCAN_OFF;         /* two texture rows per line of the machine */
-          for (int y = 0; y < VICKY_HEIGHT; y++) {
-              const uint8_t *src = fb + y * VICKY_WIDTH, *o = ov + y * UI_W;
-              uint32_t *d0 = (uint32_t *)((uint8_t *)pixels + (tall ? 2 * y : y) * pitch);
-              uint32_t *d1 = tall ? (uint32_t *)((uint8_t *)pixels + (2 * y + 1) * pitch) : NULL;
-              if (!open) {
-                  if (tall) for (int x = 0; x < VICKY_WIDTH; x++) { uint8_t c = src[x]; d0[x] = pal[c]; d1[x] = dpal[c]; }
-                  else      for (int x = 0; x < VICKY_WIDTH; x++) d0[x] = pal[src[x]];
-              } else if (tall) {
-                  for (int x = 0; x < VICKY_WIDTH; x++)
-                      if (o[x]) { d0[x] = upal[o[x]]; d1[x] = udpal[o[x]]; }
-                      else      { d0[x] = mpal[src[x]]; d1[x] = mdpal[src[x]]; }
-              } else {
-                  for (int x = 0; x < VICKY_WIDTH; x++) d0[x] = o[x] ? upal[o[x]] : mpal[src[x]];
-              }
-          } }
+        for (int y = 0; y < VICKY_HEIGHT; y++) {
+            const uint8_t *src = fb + y * VICKY_WIDTH, *o = ov + y * UI_W;
+            uint32_t *d = (uint32_t *)((uint8_t *)pixels + y * pitch);
+            if (!open) for (int x = 0; x < VICKY_WIDTH; x++) d[x] = pal[src[x]];
+            else       for (int x = 0; x < VICKY_WIDTH; x++) d[x] = o[x] ? upal[o[x]] : mpal[src[x]];
+        }
         SDL_UnlockTexture(tex);
 tex_done:
-        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); shot_flash = 4; }   /* what the texture holds, without the scanlines */
+        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); shot_flash = 4; }   /* what the texture holds */
         if (screen_req) { screen_req = 0; screen_save(); }                                                         /* the text screen, as text: no flash, it is not a picture */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
-        { int tall = (scan_applied != SCAN_OFF), b = settings_get(SET_VIDEO_BORDER);
+        { int b = settings_get(SET_VIDEO_BORDER);
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
-          int k = tall ? 2 : 1;                                  /* logical units per pixel of the machine */
-          geo_k = k; geo_b = b;                                  /* for the mouse */
-          SDL_Rect half = { 0, 0, VICKY_WIDTH, VICKY_HEIGHT };
-          SDL_Rect dr = { b * k, b * k, (VICKY_WIDTH - 2 * b) * k, (VICKY_HEIGHT - 2 * b) * k };
+          geo_b = b;                                             /* for the mouse */
+          SDL_Rect dr = { b, b, VICKY_WIDTH - 2 * b, VICKY_HEIGHT - 2 * b };
           /* Placement and the side panel (Doc, 2026-09-09).  Centred, the
            * picture is SDL's logical canvas and SDL scales and centres it, as
            * always.  Placed left or right, SDL's mapping is switched OFF and
@@ -1696,27 +1639,25 @@ tex_done:
                                 setenv("K4510_WINRECT", now, 1); setenv("SDL_VIDEO_WINDOW_POS", pos, 1); }
                   else        { unsetenv("K4510_WINRECT"); unsetenv("SDL_VIDEO_WINDOW_POS"); }
               } } }
-          int lw = VICKY_WIDTH * k, canvas_h = VICKY_HEIGHT * k, cow = 0, coh = 0;
+          int lw = VICKY_WIDTH, canvas_h = VICKY_HEIGHT, cow = 0, coh = 0;
           SDL_GetRendererOutputSize(ren, &cow, &coh);
           int custom = place != PLACE_CENTRE && cow > 0 && coh > 0;
           double sc = 1.0; int pic_x = 0, pic_y = 0, pic_w = lw, pic_h = canvas_h;
           if (custom) {
               sc = (double)cow / lw; if ((double)coh / canvas_h < sc) sc = (double)coh / canvas_h;
-              /* Sharp-fit floors the MACHINE's scale, k * sc: with scanlines
-               * the texture is already 2x, and flooring sc alone took a 3.33x
-               * picture down to 2x when 3x fitted.  The panel never shrinks
-               * the picture (Doc, 2026-09-09: "the emulator screen does not
-               * need to be reduced in size"); it takes what is left. */
-              if (smooth_applied == SMOOTH_INTEGER) sc = (double)(int)(sc * k) / k;
+              /* Integer floors the scale.  The panel never shrinks the
+               * picture (Doc, 2026-09-09: "the emulator screen does not need
+               * to be reduced in size"); it takes what is left. */
+              if (smooth_applied == SMOOTH_INTEGER) sc = (double)(int)sc;
               if (sc < 1.0) sc = 1.0;
               pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
               pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
-              dr.x = pic_x + (int)(b * k * sc); dr.y = pic_y + (int)(b * k * sc);
-              dr.w = (int)((VICKY_WIDTH - 2 * b) * k * sc); dr.h = (int)((VICKY_HEIGHT - 2 * b) * k * sc);
+              dr.x = pic_x + (int)(b * sc); dr.y = pic_y + (int)(b * sc);
+              dr.w = (int)((VICKY_WIDTH - 2 * b) * sc); dr.h = (int)((VICKY_HEIGHT - 2 * b) * sc);
           }
           geo_s = custom ? sc : 1.0; geo_xd = custom ? pic_x : 0; geo_yd = custom ? pic_y : 0;
-          if (custom != logical_custom || (!custom && tall != logical_tall)) {
-              logical_custom = custom; logical_tall = tall;
+          if (custom != logical_custom || !logical_set) {
+              logical_custom = custom; logical_set = 1;
               SDL_RenderSetLogicalSize(ren, custom ? 0 : lw, custom ? 0 : canvas_h);
           }
           /* where the pointer may go, full screen (confine_clamp, above): the
@@ -1750,17 +1691,16 @@ tex_done:
                           SDL_WarpMouseInWindow(win, wr.x + wr.w / 2, wr.y + wr.h / 2); }
               } } }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
-          if (!btex || btex_scan != scan_applied || btex_col != bcol || btex_smooth != smooth_applied) {
+          if (!btex || btex_col != bcol || btex_smooth != smooth_applied) {
               if (btex) SDL_DestroyTexture(btex);
               btex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                       1, VICKY_HEIGHT * 2);
-              btex_scan = scan_applied; btex_col = bcol; btex_smooth = smooth_applied;
+                                       1, VICKY_HEIGHT);
+              btex_col = bcol; btex_smooth = smooth_applied;
               if (btex) { void *bp; int bpitch;
                   SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);   /* the picture's filter: hard pixels */
                   if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
-                      for (int y = 0; y < VICKY_HEIGHT * 2; y++)
-                          *(uint32_t *)((uint8_t *)bp + y * bpitch) =
-                              (tall && (y & 1)) ? border_dim : border_lit;
+                      for (int y = 0; y < VICKY_HEIGHT; y++)
+                          *(uint32_t *)((uint8_t *)bp + y * bpitch) = border_lit;
                       SDL_UnlockTexture(btex);
                   } }
           }
@@ -1785,8 +1725,8 @@ tex_done:
            * and phase across the seam instead of restarting them at the window
            * edge.  Then put the mapping back for the picture itself. */
           if (btex) {
-              SDL_Rect bsrc = { 0, 0, 1, tall ? VICKY_HEIGHT * 2 : VICKY_HEIGHT };
-              int ow = 0, oh = 0, lh = VICKY_HEIGHT * k;
+              SDL_Rect bsrc = { 0, 0, 1, VICKY_HEIGHT };
+              int ow = 0, oh = 0, lh = VICKY_HEIGHT;
               SDL_GetRendererOutputSize(ren, &ow, &oh);
               if (ow > 0 && oh > 0) {
                   /* ASK SDL where the picture lands rather than working it out
@@ -1812,7 +1752,7 @@ tex_done:
                   } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
               } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
           }
-          SDL_RenderCopy(ren, tex, tall ? NULL : &half, &dr);
+          SDL_RenderCopy(ren, tex, NULL, &dr);
           /* the side panel: the device pixels beside the picture, at the picture's rows */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {
@@ -1930,7 +1870,7 @@ tex_done:
           if (shot && --shot_fr == 0) {
               char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
               FILE *f = fopen(path, "wb");
-              int sh = (scan_applied != SCAN_OFF) ? VICKY_HEIGHT * 2 : VICKY_HEIGHT;   /* the tall texture is two rows a line */
+              int sh = VICKY_HEIGHT;
               if (f) { fprintf(f, "P6 %d %d 255\n", VICKY_WIDTH, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
                        for (int y = 0; y < sh; y++) for (int x = 0; x < VICKY_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
                        SDL_UnlockTexture(tex); fclose(f); }

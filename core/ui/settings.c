@@ -9,7 +9,6 @@
 #define SETTINGS_VERSION_STR "2"
 
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
-static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
@@ -28,7 +27,6 @@ static const set_desc desc[SET_COUNT] = {
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x480, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
-    { "video.scanlines",     "Scanlines",      ST_ENUM,  SCAN_OFF, 0, 0, 0, scan_names, SCAN_COUNT, SF_LIVE },
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     /* Vertical sync, off by default -- which is the machine keeping its own

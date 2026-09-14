@@ -49,7 +49,8 @@ int main(void)
     kbd_push_key(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
     kbd_push_key(KEY_LEFT); kbd_push_key(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
     kbd_push(KEY_ESC); kbd_push_key(KEY_UP); kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
-    for (int k = 0; k < 4; k++) kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);  /* Scaling: a popup */
+    for (int k = 0; k < 3; k++) kbd_push_key(KEY_DOWN);                      /* Scaling: a popup */
+    kbd_push(KEY_ENTER);
     kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);
     CHECK(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, "popup chose fit to display (%d)", settings_get(SET_VIDEO_SMOOTH));
     kbd_push(KEY_ESC); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
@@ -205,12 +206,12 @@ int main(void)
             "[Terminal]\n24-hour clock = hide\nDate format = hide\n[Nowhere]\nX = hide\n[Locks]\nlinux = locked\n", f); fclose(f);
       CHECK(menu_file_load(mf) == 0, "the menu file loads");
       CHECK(!menu_row_shown("Audio", 0) && menu_row_shown("Video", 0), "a hidden category is gone, the others stay");
-      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Full screen") && menu_row_shown("Video", "Scanlines"), "hidden rows are gone, either case");
+      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Full screen") && menu_row_shown("Video", "Scaling"), "hidden rows are gone, either case");
       CHECK(!menu_row_shown("Terminal", "Date format") && menu_row_shown("Terminal", "Status bands"), "the Terminal rows it names are gone");
       CHECK(menu_lock(MENU_LOCK_LINUX) && !menu_lock(MENU_LOCK_CONSOLES), "the locks read");
       CHECK(menu_file_write(mf2) == 0, "the menu file is written");
       f = fopen(mf2, "r"); if (f) { fread(buf, 1, sizeof buf - 1, f); fclose(f); }
-      CHECK(strstr(buf, "[Video]") && strstr(buf, "Border width") && strstr(buf, "Scanlines") && strstr(buf, "[Machine]")
+      CHECK(strstr(buf, "[Video]") && strstr(buf, "Border width") && strstr(buf, "Scaling") && strstr(buf, "[Machine]")
             && strstr(buf, "Shut down the computer") && strstr(buf, "linux    = locked") && strstr(buf, "consoles = open"), "...listing every row and the locks");
       f = fopen(mf, "w"); fclose(f);
       CHECK(menu_file_load(mf) == 0 && menu_row_shown("Audio", 0) && menu_row_shown("Video", "Border width") && !menu_lock(MENU_LOCK_LINUX), "an empty file shows everything again");

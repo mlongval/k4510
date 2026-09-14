@@ -129,7 +129,7 @@ WORK  MS BASIC        /MSBASIC/msbasic.prg at $7000.  2026-09-01: star commands 
 ?  SHEILA display-list coprocessor (copper-style)
 ?  256 colours from 24-bit; 16 per sprite/tile, all 256 for text32 and 8bpp
 ?  Five predefined palettes: C64, PEPTO, GREY, AMBER, GREEN (fs/SYSTEM/ETC/PALETTES)
-?  Scanline effect, borders included (fixed 2026-09-01)
+CUT  Scanline effect  2026-09-14 (Doc: "a nice idea that has limited only nostalgic use")
 KEEP  Screen font      one: unscii (PD) -- 8x8 for the 240-line modes, 8x16
                       for 640x480 (80x30).  Doc, 2026-09-14: "pick one font
                       and jettison all the rest".  CUT: kernel8, open-roms,
@@ -246,7 +246,7 @@ CUT   ROMOUT      retired/ too, and **it was BROKEN before today.**  Found by th
 ?  test/ battery      ~20 tests; `make test`
 ?  tools/romfree.py   the ROM budget.  Run before touching the ROM
 ?  headless harness   BLIND SPOTS: prints only non-blank rows; K4510_SHOT
-                      disables scanlines and grabs the texture not the window;
+                      grabs the texture, not the window;
                       sprite demos are invisible to it
 ?  Xvfb + xdotool + import   screenshot capture
 ?  The handbook build (ubuntu-s1 only)

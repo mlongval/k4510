@@ -18,7 +18,6 @@ typedef enum {
     SET_VIDEO_STATUSBAR,     /* BOOL the status bands; keyed term.bands, and its row lives in the Terminal menu.
                               * The console becomes a scroll region between two bands the ROM draws.
                               * (Key renamed from video.statusbar 2026-09-02; the old name still loads.) */
-    SET_VIDEO_SCANLINES,     /* ENUM a dark line between each of the machine's */
     SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
     SET_VIDEO_VSYNC,         /* BOOL desktop only: present on the vertical blank instead of pacing by hand.
@@ -92,8 +91,8 @@ enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200
                                         * and the menu still SHOWS them when the guest is in one, but
                                         * you cannot steer the machine into one from the menu. */
 #define VMODE_SAVE_MAX VMODE_320x240   /* and nothing smaller is ever written to k4510.cfg */
-/* scanline strengths, in the ENUM's order */
-enum { SCAN_OFF, SCAN_LIGHT, SCAN_MEDIUM, SCAN_HEAVY, SCAN_COUNT };
+/* (scanlines, a dark line between each of the machine's, went 2026-09-14 --
+ * Doc: "a nice idea that has limited only nostalgic use") */
 /* scaling, in the ENUM's order, hard pixels both (Doc, 2026-09-14: "only 2
  * modes, 1: Integer or 2: Fit to display"): a whole-number multiple, every
  * machine pixel the same size on the glass; or as large as the window takes.

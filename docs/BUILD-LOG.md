@@ -8515,3 +8515,13 @@ Shift-click, ^A; typing, Enter, Backspace, Delete replace it; ^X ^C ^V
 work on it; Tab and Shift-Tab indent its lines. The key pipe learned
 modifiers ($1E n, bound to the key in the queue so a busy program still
 sees Shift) and the mouse ($1D x,y,b,w,m;), for test/remote/sel.k4r.
+
+## 2026-09-14 — scanlines removed
+
+Doc: "remove the scan lines completely. It was a nice idea that has
+limited only nostalgic use." Gone: the setting and its F7 row, the
+texture two rows tall per machine line, the dimmed palettes and the gain
+that kept the average brightness, the striped border and letterbox, and
+the 2x logical scale the placement and mouse arithmetic carried. The
+picture is one texture row per line now; an old video.scanlines line in
+k4510.cfg is kept and ignored, as unknown keys are.

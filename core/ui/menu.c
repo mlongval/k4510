@@ -16,7 +16,6 @@ static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
-    { "Scanlines",     MI_SETTING, SET_VIDEO_SCANLINES },
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
     { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },

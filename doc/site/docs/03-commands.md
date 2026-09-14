@@ -113,6 +113,9 @@ Write the machine’s whole state to dumps/ on the host. ON writes one every fif
 **`HUSH`** — *ROM, bank 1*  
 Silence the OPL2 and the sound sequencer.
 
+**`IDEA [text]`** — *ROM, bank 1*  
+A brainshot: the idea, and the machine as it was, to `/BRAINSHOTS`. Alone, it opens VI. \*IDEA from a BASIC.
+
 **`INFO [-v]`** — *ROM, bank 1*  
 The machine’s self-description, the clock in force included. -v names the exact build.
 
@@ -210,6 +213,9 @@ The held-keys register, live: a gamepad’s first test.
 
 **`PETSCII`** — */SYSTEM/BIN*  
 JIM, the terminal, speaking PETSCII.
+
+**`PROG [name]`** — */SYSTEM/BIN*  
+The programmer’s front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler’s messages under the text (Chapter 11).
 
 **`RANGER`** — */SYSTEM/BIN*  
 The miller-column file manager.

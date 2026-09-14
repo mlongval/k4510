@@ -375,6 +375,70 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
     
     A 1.28 MB file of 20000 lines — twenty times the whole address space — opens, edits at the far end and saves back byte for byte.
 
+## PROG
+
+`PROG name` is the front end for writing a program in C or Pascal: the text, a menu bar, and — under the text — what the compiler said about it. It is VI’s engine with modern keys on it, in the spirit of Turbo Pascal: F9 compiles, Ctrl-F9 compiles and runs, and an error puts the cursor on the line it is about.
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Key</strong></th>
+<th style="text-align: left;"><strong>Does</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">arrows, Home, End, PgUp, PgDn</td>
+<td style="text-align: left;">move; with Ctrl, a word at a time and the ends of the file</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Enter, Tab</td>
+<td style="text-align: left;">a new line that keeps the indent; to the next multiple of four</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Insert</td>
+<td style="text-align: left;">insert or overwrite (the cursor is a bar or a block)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ctrl-S <em>or</em> F2, Ctrl-O, Ctrl-Q</td>
+<td style="text-align: left;">save, open, quit — asking first about unsaved changes</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Ctrl-Z, Ctrl-Y</td>
+<td style="text-align: left;">undo, redo, as far back as the session goes</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ctrl-X, Ctrl-C, Ctrl-V</td>
+<td style="text-align: left;">cut, copy, paste the line</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Ctrl-F, F3, Ctrl-R, Ctrl-G</td>
+<td style="text-align: left;">find, find again, replace everywhere, go to a line</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">F9, Ctrl-F9</td>
+<td style="text-align: left;">compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F4, Shift-F4</td>
+<td style="text-align: left;">the next, the previous compiler message</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">F10, F1</td>
+<td style="text-align: left;">the menu; the keys</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.ERR`: an error in the file on screen takes the cursor to its line (and column, from Mad Pascal); one in another file — a unit, a header — is listed with that file’s name. A `}` typed on a line of its own goes back a level. F7 and F8 stay the machine’s (the menu, pause), so PROG leaves them alone; Ctrl-H is Backspace on this keyboard, which is why replace is Ctrl-R.
+
+!!! note ""
+    **Where it is going.** This is PROG’s first stage: one file at a time. Next come tabs — several files open, and a message about another file opening it — then projects (a `PROJECT.K4P` naming the sources, for a C program in several files), the mouse and selection, and last the interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
+
 ## Editing from inside a BASIC
 
 There are two cases, and they look alike, so here is the rule.

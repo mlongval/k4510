@@ -1,0 +1,28 @@
+# test/remote/prog.k4r -- PROG: a broken C file, F9 to the error, the fix,
+# F9 again, then Build > Compile and run from the menu (the key pipe has no
+# Ctrl for Ctrl-F9), and ^Q.
+#     tools/k4510-remote run test/remote/prog.k4r
+key esc
+type CD /HOME\n
+type RM -f PGTEST.C\n
+wait 1
+type PROG PGTEST.C\n
+expect "PGTEST.C" 10
+type void main(void)\n{\n    int x = 1\nx = 2;\n
+key f9
+expect "error 1 of" 30
+shot prog-error
+key up end
+type ;
+key f9
+expect "pgtest.prg:" 30
+key f10
+expect "Open..." 5
+key right right right
+expect "Compile and run" 5
+shot prog-menu
+key down enter
+expect "a key returns" 30
+key enter
+type \x11
+expect "/HOME]" 10

@@ -206,6 +206,47 @@ is that there is no VI.RC on that machine, only the sample.
 > A 1.28 MB file of 20000 lines -- twenty times the whole address space --
 > opens, edits at the far end and saves back byte for byte.
 
+## PROG
+
+PROG name is the front end for writing a program in C or Pascal: the text, a
+menu bar, and -- under the text -- what the compiler said about it. It is VI's
+engine with modern keys on it, in the spirit of Turbo Pascal: F9 compiles,
+Ctrl-F9 compiles and runs, and an error puts the cursor on the line it is
+about.
+
+```
+Key                            Does
+arrows, Home, End, PgUp, PgDn  move; with Ctrl, a word at a time and the ends
+                               of the file
+Enter, Tab                     a new line that keeps the indent; to the next
+                               multiple of four
+Insert                         insert or overwrite (the cursor is a bar or a
+                               block)
+Ctrl-S or F2, Ctrl-O, Ctrl-Q   save, open, quit -- asking first about unsaved
+                               changes
+Ctrl-Z, Ctrl-Y                 undo, redo, as far back as the session goes
+Ctrl-X, Ctrl-C, Ctrl-V         cut, copy, paste the line
+Ctrl-F, F3, Ctrl-R, Ctrl-G     find, find again, replace everywhere, go to a
+                               line
+F9, Ctrl-F9                    compile the .C (CC) or .PAS (PAS); and run it
+F4, Shift-F4                   the next, the previous compiler message
+F10, F1                        the menu; the keys
+```
+
+The messages are the ones :make reads in VI, from the same
+/SYSTEM/LOG/MAKE.ERR: an error in the file on screen takes the cursor to its
+line (and column, from Mad Pascal); one in another file -- a unit, a header --
+is listed with that file's name. A } typed on a line of its own goes back a
+level. F7 and F8 stay the machine's (the menu, pause), so PROG leaves them
+alone; Ctrl-H is Backspace on this keyboard, which is why replace is Ctrl-R.
+
+> Where it is going. This is PROG's first stage: one file at a time. Next come
+> tabs -- several files open, and a message about another file opening it --
+> then projects (a PROJECT.K4P naming the sources, for a C program in several
+> files), the mouse and selection, and last the interpreters: EhBASIC,
+> Microsoft BASIC, LOGO and Forth run on the file in front of you, their
+> errors in the same list.
+
 ## Editing from inside a BASIC
 
 There are two cases, and they look alike, so here is the rule.

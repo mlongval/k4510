@@ -1137,6 +1137,7 @@ static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p)
 
 uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
+static void shell_copy(const char *p);    /* resident (below k_shell): IDEA, in bank 1, hands VI a line through it */
 static void banner(void);                 /* the logo: sideways window, not resident */
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
@@ -1157,6 +1158,26 @@ static void cmd_dump(const char *p)
     n = REG(SYS + 0xF0);
     if (n) { puts_("dump "); putdec(n); puts_(" written (dumps/dump-"); if (n < 100) k_chrout('0'); if (n < 10) k_chrout('0'); putdec(n); puts_(".txt)"); newline(); }
     else error("dump: failed");
+}
+/* IDEA [text]: a brainshot -- Doc, 2026-09-14: "the text equivalent of a
+ * screenshot".  The emulator writes /BRAINSHOTS/IDEA-date-time.TXT with the
+ * idea and the machine as it was (core/io.c idea_write).  IDEA alone opens
+ * VI on the new file.  A ROM word, not a .prg, so *IDEA from a BASIC loads
+ * nothing over the BASIC; VI goes by SWAP, as *VI does. */
+static void cmd_idea(const char *p)
+{
+    char b[NAMEMAX + 10]; uint8_t i = 0, c, had;
+    const char *s = "SWAP VI ";
+    while (*p == ' ') p++;
+    had = (uint8_t)(*p != 0);
+    while (*p) REG(SYS + 0x42) = *p++;
+    REG(SYS + 0x43) = had ? 1 : 2;
+    while (*s) b[i++] = *s++;
+    while (i < sizeof b - 1 && (c = REG(SYS + 0x43)) != 0) b[i++] = c;
+    b[i] = 0;
+    if (i == 8) { error("idea: not written"); return; }
+    if (had) { puts_("idea kept: "); puts_(b + 8); newline(); return; }
+    shell_copy(b); shell_line(line);
 }
 #pragma code-name (pop)
 #pragma rodata-name (pop)
@@ -1823,7 +1844,7 @@ static void mon_copy(const char *p) { mon_prg("COPY", p); }
 N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
 N(XD) N(HEX) N(EXEC) N(HUSH) N(RUN) N(FILL) N(COPY) N(DUMP) N(INFO) N(TIME)
 N(COLOR) N(COLOUR) N(PALETTE) N(MODE) N(SWAP) N(ALIAS) N(CLG) N(CAPSLOCK)
-N(CAPS) N(MON) N(WOZ) N(CPM)
+N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA)
 #undef N
 static const shcmd_t shcmds[] = {
     { n_DIR, 0, cmd_dir },       { n_LS, 0, cmd_dir },
@@ -1839,6 +1860,7 @@ static const shcmd_t shcmds[] = {
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
+    { n_IDEA, 1, cmd_idea },
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)

@@ -23,7 +23,7 @@ key esc
 type :make\n
 expect "mktest.prg:" 30
 type :run\n
-expect "a key returns to VI" 30
+expect "a key returns" 30
 key enter
 expect "ran it" 10
 type :q\n
@@ -40,7 +40,7 @@ shot make-pas-error
 type 3GA;
 key esc
 type :run\n
-expect "a key returns to VI" 40
+expect "a key returns" 40
 expect "TWO" 5
 shot make-pas-run
 key enter

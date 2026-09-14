@@ -31,7 +31,7 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # make expands prerequisite lists at once, so a later definition left both
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
-BIN_NAMES = ranger kommander vi edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split
+BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split
 APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
 C_EX_NAMES = hello sieve
@@ -245,11 +245,16 @@ demo/prg0.o: demo/prg0.s
 demo/romcalls.o: demo/romcalls.s
 	ca65 --cpu 65c02 -o $@ $<
 # VI's variables live at $0800 (demo/vi.cfg): at $6000+ they had grown into its C stack
-fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/vi.cfg
+fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/vi.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/vi.s demo/vi.c
 	ca65 --cpu 65c02 -o demo/vi.o demo/vi.s
 	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
 fs/SYSTEM/BIN/edit.prg: demo/renum.h
+# PROG: VI's engine and a front end -- loaded at $2000, variables at $0800 (demo/prog.cfg)
+fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/prog.s demo/prog.c
+	ca65 --cpu 65c02 -o demo/prog.o demo/prog.s
+	ld65 -C demo/prog.cfg -o $@ demo/prg0.o demo/romcalls.o demo/prog.o none.lib -m demo/prog.map
 fs/SYSTEM/BIN/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s

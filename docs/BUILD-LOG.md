@@ -8287,3 +8287,46 @@ in BSS now, which vi.cfg keeps at $0800. (LOAD and SAVE names are safe
 anywhere: the file device reads physical memory.) Headless, this showed
 as the same "rc 1 -- nothing in MAKE.ERR", which I first put down to the
 capture's speed; the Dell showed that was wrong.
+
+## 2026-09-14 — PROG, stage 1; the engine VI and PROG share; IDEA
+
+Doc: "go" (PROG, modern keys, a PROJECT.K4P per folder later), and --
+while it was being built -- "I would like to add a command to the k4510:
+the IDEA command would be the text equivalent of a screenshot ... make it
+accessible everywhere via *IDEA".
+
+**demo/ed.h.** VI's engine moved out whole: the far-memory lines, the
+register, undo, files, editing, search and substitute, renumber, :make's
+list and :run. It works on "the current buffer" -- SLOTS and UNDO are
+variables now, with VI's old constants as their values -- so PROG can hold
+several files in stage 2 by swapping a small block of state. Split by a
+script at vi.c's own section markers, checked by assertions (the first run
+stopped on one, a line off, before it wrote anything). VI: 238 bytes more
+(the two variables), behaviour unchanged -- renumber and save verified
+headless on the real 6502 code.
+
+**PROG** (demo/prog.c, loaded at $2000, BSS at $0800: demo/prog.cfg).
+Menu bar, the text, a separator, four rows of compiler messages, a status
+line. Modern keys, Turbo's F-keys: ^S/F2 ^O ^Q, ^Z ^Y, ^X ^C ^V (the line),
+^F F3 ^R ^G, F9 compile, ^F9 compile and run, F4 / Shift-F4 the messages,
+F10 the menu, F1 help. Every key and menu entry is one command number
+through one switch. Enter keeps the indent; a } alone goes back a level.
+F7 and F8 are left to the host (menu, pause); Ctrl-H is Backspace here, so
+replace is ^R. The keyboard reports Shift/Ctrl/Alt held in KBDST bits 0-2,
+which is what Shift+arrow selection (stage 4) will use.
+
+A detour worth recording: the reverse bars looked short in screenshots,
+and I chased JIM, the renderer and the capture tool before measuring the
+pixels -- the bars were full width all along; I had misread the images.
+The one real defect found on the way: menubar() counted its highlight
+escapes as columns (clip on), 8 cells short under an open menu. Fixed.
+
+**IDEA [text]** -- a brainshot. A ROM word in bank 1 beside DUMP (so *IDEA
+from a BASIC loads nothing over the BASIC): the text goes to SYS+$42 a
+byte at a time, SYS+$43 = 1 (or 2, empty) makes the emulator write
+/BRAINSHOTS/IDEA-date-time.TXT (-2, -3 on a collision): the idea, then the
+machine as it was -- time, directory, the top band's title, the build, the
+screen -- which only the emulator knows. Reading SYS+$43 gives the name
+back, so IDEA alone runs SWAP VI on it. fs/BRAINSHOTS is gitignored:
+personal, like shots/. `k4510-remote ideas [--all]` fetches the new ones
+to ~/k4510-remote/brainshots/.

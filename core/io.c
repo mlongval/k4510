@@ -339,6 +339,7 @@ static char title_next[24];
 static int tube_prog_now;                             /* the Tube program started last, while it lives (io_title) */
 static int tube_prog_at = 1;                          /* the stack depth it started at: its name goes after that entry */
 static uint8_t tube_exit;                             /* the last Tube child's exit status ($D80A): `!`'s result code */
+static uint8_t idea_next(void);                       /* IDEA's brainshot name, read back at SYS+$43 (below dbg_dump) */
 static void title_cmd(uint8_t c)
 {
     if (c == 1) {                                     /* a program starts: its name, as the file device saw it load */
@@ -934,6 +935,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x34) return dbg_watch_ctl;
     if (r == 0x35) return dbg_watch_hits;
     if (r == 0x3A) return io_battery;        /* the host's battery: % in bits 0-6, bit 7 on AC / charging, $FF none */
+    if (r == 0x43) return idea_next();        /* IDEA: the brainshot's name, a byte at a time, then 0 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
     return 0xFF;
@@ -1524,6 +1526,53 @@ int dbg_dump(const char *why)
     return dbg_num;
 }
 
+/* ---- IDEA: brainshots ----------------------------------------------------
+ * Doc, 2026-09-14: "the text equivalent of a screenshot ... when I use
+ * things I often get a small brain fart to improve it, but you are often
+ * busy ... and then I forget it."  The ROM's IDEA sends the text a byte at a
+ * time to SYS+$42 and writes SYS+$43 (1: that text is the idea, 2: an empty
+ * one, for VI); this writes /BRAINSHOTS/IDEA-date-time.TXT -- the idea, then
+ * the machine as it was, which the ROM could not know: the host's time, the
+ * directory, what was running (the top band's title), the build, the
+ * screen.  Reading SYS+$43 hands the file's name back, a byte at a time, so
+ * IDEA alone can open VI on it. */
+const char *io_title(void);
+static char idea_txt[256], idea_path[64];
+static unsigned idea_n, idea_rd;
+static void idea_add(uint8_t c) { if (c >= 0x20 && idea_n < sizeof idea_txt - 1) idea_txt[idea_n++] = (char) c; }
+static uint8_t idea_next(void) { return idea_path[idea_rd] ? (uint8_t) idea_path[idea_rd++] : 0; }
+static void idea_write(uint8_t how)
+{
+    char host[800]; time_t t = time(NULL); struct tm *m = localtime(&t); FILE *f;
+    idea_txt[idea_n] = 0; idea_n = 0; idea_rd = 0; idea_path[0] = 0;
+    snprintf(host, sizeof host, "%s/BRAINSHOTS", fs_root);
+    mkdir(host, 0777);
+    for (int k = 1; k < 100; k++) {                   /* two in one second: -2, -3 ... */
+        if (k == 1) snprintf(idea_path, sizeof idea_path, "/BRAINSHOTS/IDEA-%04d%02d%02d-%02d%02d%02d.TXT",
+                             m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec);
+        else snprintf(idea_path, sizeof idea_path, "/BRAINSHOTS/IDEA-%04d%02d%02d-%02d%02d%02d-%d.TXT",
+                      m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec, k);
+        snprintf(host, sizeof host, "%s%s", fs_root, idea_path);
+        if (access(host, F_OK) != 0) break;
+    }
+    if (!(f = fopen(host, "w"))) { idea_path[0] = 0; return; }
+    fprintf(f, "%s\n\n", how == 1 ? idea_txt : "");
+    fprintf(f, "-- the machine, as it was --\n");
+    fprintf(f, "when     %04d-%02d-%02d %02d:%02d:%02d\n", m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec);
+    fprintf(f, "where    /%s\n", fs_cwd);
+    fprintf(f, "running  %s\n", io_title());
+    fprintf(f, "build    %.16s\n", sys_version);
+    fprintf(f, "screen\n");
+    for (int y = 0; y < 60; y++) {
+        char r[81]; int last = -1;
+        for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
+        r[last + 1] = 0;
+        if (last >= 0) fprintf(f, "  |%s\n", r);
+    }
+    fclose(f);
+    fprintf(stderr, "K4510: brainshot %s\n", idea_path);
+}
+
 void io_reset(void)
 {
     sys_frames = 0;
@@ -1692,6 +1741,8 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0x24) { io_audio_gaps = 0; io_audio_fill = 0; }   /* any write clears both audio counts */
         if ((addr & 0xFF) == 0x40) title_char(v);                     /* the title: a character for the top entry's name */
         if ((addr & 0xFF) == 0x41) title_cmd(v);                      /* the title: 1 push, 2 pop, 3 empty the top, 4 K/OS */
+        if ((addr & 0xFF) == 0x42) idea_add(v);                       /* IDEA: a character of the idea */
+        if ((addr & 0xFF) == 0x43) idea_write(v);                     /* IDEA: 1 write it, 2 an empty one for VI */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
         if ((addr & 0xFF) == 0x29) measuring = v ? 1 : 0;              /* SETUP: hold the governor off while the ladder is swept */
         if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }

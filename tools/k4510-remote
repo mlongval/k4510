@@ -14,6 +14,8 @@
     k4510-remote run script.k4r     a script: one command a line, as above, plus
                                     "wait S"; # a comment; stops at a failed expect
     k4510-remote logs               the emulator's log, the menu file, the last dumps
+    k4510-remote ideas [--all]      the brainshots IDEA wrote since last asked (--all: every
+                                    one), kept in ~/k4510-remote/brainshots/
     k4510-remote reboot [-y]        reboot the machine and wait for it
     k4510-remote tui                all of it from a menu, with the screen live above
 
@@ -127,6 +129,27 @@ def c_logs():
                   "echo; echo '--- the menu file (hidden rows and locks)'; grep -v '^#' ~/k4510/k4510-menu.cfg 2>/dev/null | grep -i 'hide\\|locked' || echo '(nothing hidden, nothing locked)'; "
                   "echo; echo '--- the last dumps'; ls -t ~/k4510/dumps 2>/dev/null | head -3").rstrip()
 
+
+BRAIN = HOME / "brainshots"
+
+
+def c_ideas(every=False):
+    """IDEA's brainshots (fs/BRAINSHOTS on the machine): the ones not read here yet."""
+    BRAIN.mkdir(parents=True, exist_ok=True)
+    seen_f = BRAIN / ".seen"
+    seen = set(seen_f.read_text().split()) if seen_f.exists() else set()
+    names = sorted(n for n in remote("ls -1 ~/k4510/fs/BRAINSHOTS 2>/dev/null").split() if n.upper().endswith(".TXT"))
+    new = [n for n in names if every or n not in seen]
+    if not new:
+        return f"no new brainshots ({len(names)} in all; --all shows every one)"
+    out = []
+    for n in new:
+        text = remote(f"cat ~/k4510/fs/BRAINSHOTS/{shlex.quote(n)}")
+        (BRAIN / n).write_text(text)
+        out.append(f"=== {n}\n{text.rstrip()}")
+    seen_f.write_text("\n".join(sorted(seen | set(names))) + "\n")
+    log(f"ideas: {len(new)} read")
+    return "\n\n".join(out)
 
 def c_reboot(ask=True):
     if ask and input(f"reboot {HOST}? [y/N] ").strip().lower() != "y":
@@ -326,6 +349,8 @@ def main(argv):
             out = c_run(args[0])
         elif cmd == "logs":
             out = c_logs()
+        elif cmd == "ideas":
+            out = c_ideas("--all" in args)
         elif cmd == "reboot":
             out = c_reboot(ask="-y" not in args)
         elif cmd == "tui":

@@ -1,0 +1,14 @@
+# test/remote/idea.k4r -- IDEA at the prompt and *IDEA from inside a BASIC.
+#     tools/k4510-remote run test/remote/idea.k4r ; tools/k4510-remote ideas
+# Each writes a brainshot to /BRAINSHOTS: the idea, and the machine as it was.
+key esc
+type CD /HOME\n
+type IDEA a brainshot typed at the prompt by the smoke test\n
+expect "idea kept" 10
+type EHBASIC\n
+expect "Ready" 10
+type *IDEA one from inside EhBASIC\n
+expect "idea kept" 10
+shot idea-ehbasic
+type *BYE\n
+expect "/HOME]" 10

@@ -1,0 +1,9 @@
+# test/remote/logo.k4r -- LOGO: the turtle comes up, draws, and BYE comes home.
+#     tools/k4510-remote run test/remote/logo.k4r
+type LOGO\n
+expect "the turtle is home" 10
+type REPEAT 8 [FD 60 RT 45]\n
+wait 3
+shot logo
+type BYE\n
+expect "/HOME]" 10

@@ -529,6 +529,64 @@ static void line_begin(void)
     if (m_line == 0 && !m_in_frame) { vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1; }
     cpu65.irqLevel = vicky_irq() ? 1 : 0;
 }
+/* The status bands carry two things the machine itself does not know (Doc,
+ * 2026-09-14): at the left of the top band, what is running -- the title
+ * stack core/io.c keeps, "K/OS > EhBASIC PROG.BAS > VI EDITTMP.BAS" -- and at
+ * the left of the bottom band, the keys typed through the key pipe.  Drawn
+ * into the finished frame, not into the machine's memory, in the machine's
+ * own font and each band's own colours (read from the band's first cell), so
+ * they look like the band and follow its size, the font and the scaling.
+ * Not when the bands are off, when a program has claimed them (JIM FLAGS bit
+ * 3: they are its to draw), when the console is not the picture, or under
+ * the menu.  echo_banded tells the old echo bar it need not draw. */
+const char *io_title(void);
+static int echo_banded;
+static void band_text(int row, int col, int maxc, const char *s, int stride, int rh, int cw, int y0)
+{
+    uint32_t map = (uint32_t) vicky_read(0x1C) | ((uint32_t) vicky_read(0x1D) << 8) | ((uint32_t) vicky_read(0x1E) << 16) | ((uint32_t) vicky_read(0x1F) << 24);
+    uint32_t font = (uint32_t) vicky_read(0x18) | ((uint32_t) vicky_read(0x19) << 8) | ((uint32_t) vicky_read(0x1A) << 16) | ((uint32_t) vicky_read(0x1B) << 24);
+    uint32_t cell = map + (uint32_t)(row * stride) * 4;
+    uint8_t fg = mem_peek((cell + 2) & 0x0FFFFFFFu), bg = mem_peek((cell + 3) & 0x0FFFFFFFu);
+    int gh = (vicky_read(0x10) & 0x60) ? 16 : 8;                      /* 8x8 or 8x16 glyphs */
+    for (int i = 0; s[i] && i < maxc; i++) {
+        uint8_t g = (uint8_t) s[i];
+        for (int gy = 0; gy < rh; gy++) {
+            int y = y0 + row * rh + gy;
+            if (y < 0 || y >= VICKY_HEIGHT) break;
+            uint8_t bits = mem_peek((font + (uint32_t) g * (uint32_t) gh + (uint32_t)(gy * gh / rh)) & 0x0FFFFFFFu);
+            uint8_t *p = fb + (size_t) y * VICKY_WIDTH + (size_t)(col + i) * (size_t) cw;
+            if ((col + i + 1) * cw > VICKY_WIDTH) break;
+            for (int gx = 0; gx < cw; gx++) p[gx] = (bits & (0x80 >> (gx * 8 / cw))) ? fg : bg;
+        }
+    }
+}
+static void bands_overlay(void)
+{
+    echo_banded = 0;
+    if (menu_is_open() || !settings_get(SET_VIDEO_STATUSBAR)) return;
+    if (io_read(0xDA0E) & 8) return;                                   /* a program has claimed the bands */
+    uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10);
+    if (!(ctrl & 1) || !(l0 & 1) || ((l0 >> 1) & 3) != 3) return;       /* the console (text32) is not the picture */
+    int stride = vicky_read(0x16) | (vicky_read(0x17) << 8);
+    int rows = (ctrl & 8) ? 25 : (ctrl & 6) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
+    int rh = rows == 60 ? 8 : 16, cw = VICKY_WIDTH / cols, y0 = (ctrl & 8) ? 40 : 0;
+    if (settings_get(SET_TERM_BAND_TOP) > 0) {                         /* what is running, left of the clock */
+        const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
+        if (maxc > 4) {
+            char buf[168];
+            if (n > maxc - 1) { snprintf(buf, sizeof buf, " \xAE%s", t + n - (maxc - 2)); }   /* the end is the news: << and the tail */
+            else snprintf(buf, sizeof buf, " %s", t);
+            band_text(0, 0, maxc, buf, stride, rh, cw, y0);
+        }
+    }
+    if (settings_get(SET_TERM_BAND_BOT) > 0) {                         /* the key pipe's echo, left of the MHz */
+        echo_banded = 1;
+        if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
+            char buf[64]; snprintf(buf, sizeof buf, " remote: %.*s", echo_len, echo_txt);
+            band_text(rows - 1, 0, cols - 14, buf, stride, rh, cw, y0);
+        }
+    }
+}
 static void line_end(int vol)                 /* the scanline's picture and sound, then on to the next */
 {
     Uint64 t1 = PCLK();
@@ -546,6 +604,7 @@ static void line_end(int vol)                 /* the scanline's picture and soun
     if (++m_line == VICKY_HEIGHT) {
         m_line = 0; m_in_frame = 0;
         vicky_end_frame();
+        bands_overlay();                          /* what is running, and the keys typed from outside, in the bands */
         cpu65.irqLevel = vicky_irq() ? 1 : 0;
     }
 }
@@ -1842,7 +1901,7 @@ tex_done:
           /* the key pipe's echo: a bar at the foot of the window, in device
            * pixels (out of the logical mapping, as the glass capture below
            * steps), the panel's CP437 font at 1-3x for the window's height */
-          if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel) {   /* until four seconds after the last key */
+          if (echo_len && !echo_banded && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel) {   /* until four seconds after the last key; the bottom band has it when there is one */
               static SDL_Texture *etex; static int etw, eth;
               char eline[64]; int en = snprintf(eline, sizeof eline, " remote: %.*s ", echo_len, echo_txt);
               int tw = en * 8, th = font_panel_rows;

@@ -320,6 +320,69 @@ static void fs_write_span(FILE *f, uint32_t addr, uint32_t len)
         done += n;
     }
 }
+/* ---- the title: what the machine is running, for the top status band ----
+ * Doc, 2026-09-14: the top band's left should say "K/OS for the shell,
+ * EhBasic for Ehbasic ... and also reflect the basic file being edited ...
+ * and if we are in *VI or *EDIT mode".  A stack of entries, a program and
+ * the file it has, drawn by the frontend as "K/OS > EhBASIC PROG.BAS > VI
+ * EDITTMP.BAS" (sdl/main.c bands_overlay).  The ROM says WHEN -- SYS+$41: 1
+ * as it runs a program, 2 when it comes back, 4 at its cold start -- and
+ * this file says WHAT: the .prg the file device loaded last is the name the
+ * next push takes, and a file of a known kind that the program at the top
+ * loads or saves becomes that entry's file.  So no program had to learn
+ * anything.  SYS+$40 appends a character to the top entry's name and SYS+$41
+ * = 3 empties it, for a program that wants to name itself. */
+#define TITLE_DEPTH 8
+static struct { char prog[24]; char file[40]; } title_stack[TITLE_DEPTH] = { { "K/OS", "" } };
+static int title_depth = 1;
+static char title_next[24];
+static int tube_prog_now;                             /* the Tube program started last, while it lives (io_title) */
+static void title_cmd(uint8_t c)
+{
+    if (c == 1) {                                     /* a program starts: its name, as the file device saw it load */
+        if (title_depth < TITLE_DEPTH) {
+            snprintf(title_stack[title_depth].prog, sizeof title_stack[0].prog, "%s", title_next[0] ? title_next : "?");
+            title_stack[title_depth].file[0] = 0; title_depth++;
+        }
+        title_next[0] = 0;
+    } else if (c == 2) { if (title_depth > 1) title_depth--; }   /* it came back */
+    else if (c == 3) { title_stack[title_depth - 1].prog[0] = 0; title_stack[title_depth - 1].file[0] = 0; }
+    else if (c == 4) { title_depth = 1; strcpy(title_stack[0].prog, "K/OS"); title_stack[0].file[0] = 0; title_next[0] = 0; }
+}
+static void title_char(uint8_t c)
+{
+    char *p = title_stack[title_depth - 1].prog; size_t n = strlen(p);
+    if (c >= 0x20 && n < sizeof title_stack[0].prog - 1) { p[n] = (char) c; p[n + 1] = 0; }
+}
+/* the file device opened, loaded or saved HOST path P for the machine */
+static void title_file(const char *p)
+{
+    static const char *const kinds[] = { ".BAS", ".LGO", ".BBC", ".PAS", ".C", ".RX", ".GMI", ".TXT", NULL };
+    static const struct { const char *stem, *name; } names[] = {
+        { "ehbasic", "EhBASIC" }, { "msbasic", "MS BASIC" }, { "logo", "LOGO" }, { "rx", "RX" }, { NULL, NULL } };
+    const char *b = strrchr(p, '/'), *dot;
+    b = b ? b + 1 : p;
+    dot = strrchr(b, '.');
+    if (!dot) return;
+    if (!strcasecmp(dot, ".prg")) {                   /* a program: the next push takes its name */
+        size_t n = (size_t)(dot - b); char stem[24];
+        if (n >= sizeof stem) n = sizeof stem - 1;
+        memcpy(stem, b, n); stem[n] = 0;
+        for (int i = 0; names[i].stem; i++) if (!strcasecmp(stem, names[i].stem)) { snprintf(title_next, sizeof title_next, "%s", names[i].name); return; }
+        for (size_t i = 0; i < n; i++) stem[i] = (char) toupper((unsigned char) stem[i]);
+        snprintf(title_next, sizeof title_next, "%s", stem);
+        return;
+    }
+    if (title_depth < 2) return;                      /* the shell's own files (STARTUP.BAT, EXEC) name nothing */
+    for (int i = 0; kinds[i]; i++)
+        if (!strcasecmp(dot, kinds[i])) {
+            const char *prog = title_stack[title_depth - 1].prog;
+            /* EhBASIC's *VI and *EDIT go by way of EDITTMP.BAS: the program keeps its own name */
+            if (!strcasecmp(b, "EDITTMP.BAS") && strcmp(prog, "VI") && strcmp(prog, "EDIT")) return;
+            snprintf(title_stack[title_depth - 1].file, sizeof title_stack[0].file, "%s", b);
+            return;
+        }
+}
 static void fs_run(uint8_t cmd)
 {
     char path[768]; int st = 0;
@@ -355,6 +418,7 @@ static void fs_run(uint8_t cmd)
         fs_net_drop();
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
         if (!fs_file) { st = 1; break; }
+        title_file(path);                             /* a .prg names the next program; a .BAS, .LGO ... the running one's file */
         if (cmd == FS_OPEN_READ || cmd == FS_LOAD) { fseek(fs_file, 0, SEEK_END); long sz = ftell(fs_file); fseek(fs_file, 0, SEEK_SET); fs_wr32(0x10, (uint32_t)sz); }
         if (cmd == FS_LOAD)  {                /* LEN, when the caller set one, is the buffer: LOAD used to run to EOF over it (review 2026-09-12); 0 = whole file */
             uint32_t got = fs_read_span(fs_file, addr, len ? len : K4510_PHYS_SIZE); fs_wr32(12, got);
@@ -1457,6 +1521,7 @@ int dbg_dump(const char *why)
 void io_reset(void)
 {
     sys_frames = 0;
+    title_cmd(4); tube_prog_now = 0;             /* the title: back to K/OS */
     tube_stop(); fs_cap = 0;                     /* a power cycle left BBC BASIC running and $D800 saying so (review 2026-09-12) */
     net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_mnt_n = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
     /* The prompt starts in /HOME where the disk has one (fs/HOME/README.TXT);
@@ -1573,6 +1638,24 @@ static uint8_t io_read_inner(uint16_t addr)
     }
 }
 
+/* the title as the top band shows it: "K/OS > EhBASIC PROG.BAS > VI ...",
+ * and the Tube's program while it runs -- asked of the Tube, not stacked,
+ * because a `!ls` ends by itself and nothing would pop it */
+const char *io_title(void)
+{
+    static char buf[256];
+    static const char *const tube_names[] = { "", "BBC BASIC", "", "CP/M", "Linux", "chess engine" };
+    size_t n = 0;
+    buf[0] = 0;
+    for (int i = 0; i < title_depth; i++) {
+        n += (size_t) snprintf(buf + n, sizeof buf - n, "%s%s%s%s", i ? " > " : "", title_stack[i].prog,
+                               title_stack[i].file[0] ? " " : "", title_stack[i].file);
+        if (n >= sizeof buf) { n = sizeof buf - 1; break; }
+    }
+    if (tube_prog_now > 0 && tube_prog_now <= 5 && (tube_status() & 1) && n < sizeof buf - 20)
+        snprintf(buf + n, sizeof buf - n, " > %s", tube_names[tube_prog_now]);
+    return buf;
+}
 void io_write(uint16_t addr, uint8_t v)
 {
     switch (addr & 0xFF00) {
@@ -1593,6 +1676,8 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0xF2) { dbg_auto = v ? 1 : 0; dbg_rec = dbg_auto ? 1 : dbg_rec; dbg_auto_next = sys_frames + 900; }
         if ((addr & 0xFF) == 0x23) settings_set(SET_CPU_CLOCK, v + settings_first(SET_CPU_CLOCK));   /* a program asks for a clock; the frontend applies it next frame (BENCH sweeps them) */
         if ((addr & 0xFF) == 0x24) { io_audio_gaps = 0; io_audio_fill = 0; }   /* any write clears both audio counts */
+        if ((addr & 0xFF) == 0x40) title_char(v);                     /* the title: a character for the top entry's name */
+        if ((addr & 0xFF) == 0x41) title_cmd(v);                      /* the title: 1 push, 2 pop, 3 empty the top, 4 K/OS */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */
         if ((addr & 0xFF) == 0x29) measuring = v ? 1 : 0;              /* SETUP: hold the governor off while the ladder is swept */
         if ((addr & 0xFF) == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }
@@ -1610,7 +1695,7 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) tube_start(v); else if (v == 2) tube_stop(); }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) { tube_start(v); tube_prog_now = v; } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
         if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
         if ((addr & 0xFF) == 8) tube_rows = v;
         if ((addr & 0xFF) == 9) tube_cols = v;

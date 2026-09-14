@@ -8125,3 +8125,34 @@ it' to better use it for testing and remote debugging", then "go ahead with
    ssh connection held open between calls (ControlPersist); every command
    written to ~/k4510-remote/session.log; screenshots to ~/k4510-remote/shots.
    The machine is K4510_REMOTE, or the Dell.
+
+## 2026-09-14 — the bands say what is running, and show the remote keys
+
+Doc: the remote echo "should appear in the bottom bar on the left
+(respecting its colors and font size)", and "the top left bar should hold
+the name of the currently executing program ... K/OS for the shell, EhBasic
+... also reflect the basic file being edited ... and if we are in *VI or
+*EDIT mode".
+
+**The title stack** lives in core/io.c.  The ROM says WHEN: SYS+$41 = 1
+as run_at starts a program, 2 when it returns, 4 at its cold start (13
+bytes of ROM2).  The emulator says WHAT: the .prg the file device loaded
+last names the next push (ehbasic -> EhBASIC, msbasic -> MS BASIC ...),
+and a .BAS/.LGO/.BBC/.PAS/.C/.RX/.GMI/.TXT that the program at the top
+opens, loads or saves becomes its file -- so no program had to change,
+and nesting comes free: "K/OS > EhBASIC PROG.BAS > VI EDITTMP.BAS" during
+*VI (EDITTMP.BAS is kept off EhBASIC's own entry).  The Tube's program is
+asked of the Tube while it lives, not stacked: a `!ls` ends by itself.
+SYS+$40 / $41=3 let a program name itself.
+
+**Drawing**: sdl/main.c bands_overlay, after each frame, into the finished
+picture -- the title at the top band's left (the tail, with a <<, when it
+will not fit before the clock), the key pipe's echo at the bottom band's
+left -- in the machine's own font and each band's own colours, read from
+the band's first cell.  Not with the bands off (the old echo bar then),
+under a program that claimed them, or under the menu.  Seen: "K/OS >
+EhBASIC INVADER2.BAS" over the banner, "remote: EHBASIC¶LOAD
+"INVADER2.BAS"¶" at the foot.
+
+Smoke scripts for k4510-remote: test/remote/split.k4r, logo.k4r,
+menu.k4r (the last with the new "absent": wait until a text has gone).

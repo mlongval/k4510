@@ -1,0 +1,8 @@
+# test/remote/split.k4r -- SPLIT on a K4510 elsewhere: the split and its speed.
+#     tools/k4510-remote run test/remote/split.k4r
+type SPLIT\n
+expect "lines a second" 10
+shot split
+screen
+key esc
+expect "/HOME]" 10

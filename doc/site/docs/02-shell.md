@@ -198,7 +198,9 @@ Whatever you type after the alias is added to the end, so a definition takes arg
 
 Turn on *status bands* (F7, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band’s height is a setting, and either may be nothing.
 
-They are shared, and the split is worth knowing. **The top band is yours** — the machine draws the clock and the date in it, in whichever formats the Terminal page is set to, and on a laptop the battery: its charge, with an arrow up while it charges and down while it does not. **The bottom band is the running program’s**, and a program that wants it writes there through JIM; `BANDS` in `/SYSTEM/BIN` is the demonstration. Programs that take the whole screen — the games, the editors — get the whole screen anyway: the bands are part of the console, and the console is what a program leaves behind when it asks for the glass.
+They are shared, and the split is worth knowing. **The top band is yours** — the machine draws the clock and the date in it, in whichever formats the Terminal page is set to, and on a laptop the battery: its charge, with an arrow up while it charges and down while it does not. **The bottom band is the running program’s**, and a program that wants it writes there through JIM; `BANDS` in `/SYSTEM/BIN` is the demonstration.
+
+At its left, the top band says what is running: `K/OS` at the prompt, `EhBASIC INVADER2.BAS` once a program is loaded, and `EhBASIC PROG.BAS > VI EDITTMP.BAS` while `*VI` has it — a trail of who started whom, with the file each one has open, LOGO’s `.LGO`, BOOK’s page and CP/M or the Linux prompt on the Tube included. And while somebody types into the machine from another computer ([Chapter 13, The Linux Underneath](13-linux.md)), the keys they send show at the left of the bottom band. Programs that take the whole screen — the games, the editors — get the whole screen anyway: the bands are part of the console, and the console is what a program leaves behind when it asks for the glass.
 
 ## The network
 

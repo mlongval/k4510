@@ -1,0 +1,8 @@
+# test/remote/menu.k4r -- the F7 menu opens, is photographed, and closes.
+#     tools/k4510-remote run test/remote/menu.k4r
+# (the screen dump's first line says when the menu is over the machine)
+key f7
+expect "the F7 menu is open" 5
+shot menu
+key esc
+absent "the F7 menu is open" 5

@@ -883,7 +883,9 @@ static void run_at(uint16_t a)
                                                  * with caps lock on, VI's :q arrives as :Q and
                                                  * there is no way out of the editor.  The shell
                                                  * gets its caps lock back when the program ends. */
+      REG(SYS + 0x41) = 1;                      /* the title: this program (the host has its name from the load) */
       prog_running = 1; call_prog(TRAMP); prog_running = 0;
+      REG(SYS + 0x41) = 2;                      /* ... and back to whoever ran it */
       capslock = cl; }
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
     if (v0 != REG(VICKY + 0) || bgc != REG(VICKY + 1) || l0 != REG(VICKY + 0x10) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
@@ -2169,6 +2171,7 @@ static void banner(void)
 int main(void)
 {
     exec_busy = 0;                               /* SHARED is not zeroed by crt0 (rom/k4510.cfg) */
+    REG(SYS + 0x41) = 4;                         /* the title: K/OS, whatever a reset interrupted */
     /* The host publishes the saved video mode in $D521 bits 5-7 (mode+1;
      * 0 = a host that does not) from power-on, so the machine boots straight
      * into it -- there is no late mode request to perform, and nothing to

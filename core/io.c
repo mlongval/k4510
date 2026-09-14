@@ -865,7 +865,7 @@ static uint8_t sys_opts;                 /* the menu's switches, readable by the
 uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
 static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
-static uint8_t sys_band_top = 1, sys_band_bot = 2, sys_clockfmt;
+static uint8_t sys_band_top = 1, sys_band_bot = 1, sys_clockfmt;
 void io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt)
 { sys_band_top = top; sys_band_bot = bot; sys_clockfmt = clockfmt; }
 int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }

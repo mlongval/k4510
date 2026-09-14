@@ -37,7 +37,7 @@ monitor: MON or WOZ [line]  then:  addr  addr.addr
          FILL from.to value
          COPY from.to dest   (memory, by DMA)
 system:  INFO [-v]   TIME   HUSH   RESET
-         MODE [0-2] [0|1]
+         MODE [0-2]
          (0 640x480, 1 640x240, 2 320x240)
          COLOR fg [bg]
          PALETTE [LOAD name|SAVE name|RESET]

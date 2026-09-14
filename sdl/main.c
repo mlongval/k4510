@@ -559,7 +559,7 @@ static void bands_overlay(void)
     int stride = vicky_read(0x16) | (vicky_read(0x17) << 8);
     int rows = (ctrl & 8) ? 25 : (ctrl & 6) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
     int rh = rows == 60 ? 8 : 16, cw = VICKY_WIDTH / cols, y0 = (ctrl & 8) ? 40 : 0;
-    if (settings_get(SET_TERM_BAND_TOP) > 0) {                         /* what is running, left of the clock */
+    if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* what is running, left of the clock */
         const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
         if (maxc > 4) {
             char buf[168];
@@ -568,7 +568,7 @@ static void bands_overlay(void)
             band_text(0, 0, maxc, buf, stride, rh, cw, y0);
         }
     }
-    if (settings_get(SET_TERM_BAND_BOT) > 0) {                         /* the key pipe's echo, left of the MHz */
+    if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* the key pipe's echo, left of the MHz */
         echo_banded = 1;
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
             char buf[64]; snprintf(buf, sizeof buf, " remote: %.*s", echo_len, echo_txt);
@@ -976,7 +976,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
     int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
-    int mode_shown = -1, margin_shown = -1, status_shown = -1, mode_req = 0, mode_wait = 0;
+    int mode_shown = -1, status_shown = -1, mode_req = 0, mode_wait = 0;
 #define MODE_REQ_FRAMES 120                        /* two seconds for the guest to notice, then give up */
 
     SDL_AudioSpec want = { 0 }, have;
@@ -1361,7 +1361,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                                                          * A request only if it booted into something else
                                                          * (an old ROM that does not read the bits). */
                   mode_shown   = settings_get(SET_VIDEO_MODE);
-                  margin_shown = settings_get(SET_VIDEO_MARGIN);
                   status_shown = settings_get(SET_VIDEO_STATUSBAR);
                   if (machine != mode_shown) { mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
               }
@@ -1372,9 +1371,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                * ask only whether anything is NET different. */
           } else if (settings_get(SET_VIDEO_MODE) != mode_shown) {     /* the user picked a mode */
               mode_shown = settings_get(SET_VIDEO_MODE);
-              mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
-          } else if (settings_get(SET_VIDEO_MARGIN) != margin_shown) { /* or turned the margin off */
-              margin_shown = settings_get(SET_VIDEO_MARGIN);
               mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES;
           } else if (settings_get(SET_VIDEO_STATUSBAR) != status_shown) { /* or toggled the status bar */
               status_shown = settings_get(SET_VIDEO_STATUSBAR);
@@ -1390,13 +1386,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * -- and for the boot read, a whole power-on too late. */
         io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
                     | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
-                    | ((settings_get(SET_VIDEO_MARGIN) && !settings_get(SET_VIDEO_STATUSBAR)) ? SYSOPT_MARGIN : 0)
                     | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
                     | (uint8_t)((mode_pending ? mode_pending
                                               : settings_get(SET_VIDEO_MODE) + 1) << SYSOPT_MODE_SHIFT)
                     | (mode_pending ? SYSOPT_MODEREQ : 0));
-        io_set_bands((uint8_t)settings_get(SET_TERM_BAND_TOP),
-                     (uint8_t)settings_get(SET_TERM_BAND_BOT),
+        io_set_bands(1, 1,                               /* one row each, when the bands are on (Doc, 2026-09-14) */
                      (uint8_t)((settings_get(SET_TERM_CLOCK24) ? 1 : 0)
                                | (settings_get(SET_TERM_DATEFMT) << 1)));
 

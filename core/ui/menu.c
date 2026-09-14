@@ -17,7 +17,6 @@ static const item_t video_items[] = {
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
     { "Screen font",   MI_SETTING, SET_VIDEO_FONT },
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
-    { "Left/top margin", MI_SETTING, SET_VIDEO_MARGIN },
     { "Scanlines",     MI_SETTING, SET_VIDEO_SCANLINES },
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
@@ -33,8 +32,6 @@ static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME }
  * what the clock in the top one says. */
 static const item_t term_items[] = {
     { "Status bands",     MI_SETTING, SET_VIDEO_STATUSBAR },
-    { "Top band rows",    MI_SETTING, SET_TERM_BAND_TOP },
-    { "Bottom band rows", MI_SETTING, SET_TERM_BAND_BOT },
     { "",                 MI_SEP },
     { "24-hour clock",    MI_SETTING, SET_TERM_CLOCK24 },
     { "Date format",      MI_SETTING, SET_TERM_DATEFMT },

@@ -226,8 +226,8 @@ power cycle, which is what \verb|/STARTUP.BAT| is for.
 \section{The status bands}\label{sec:bands}
 Turn on \emph{status bands} (F7, under Terminal) and the console stops
 being the whole screen: a band at the top and a band at the bottom stay
-still while the text scrolls between them. Each band's height is a
-setting, and either may be nothing.
+still while the text scrolls between them. Each band is one row high:
+the bands are on or off, and that is the only setting.
 
 They are shared, and the split is worth knowing. \textbf{The top band is
 yours} --- the machine draws the clock and the date in it, in whichever
@@ -443,9 +443,8 @@ second and gaps in the sound at every clock of the menu's ladder, about
 25 seconds, the report in \pth{/SYSTEM/LOG/BENCH-NN.TXT}. A clock is
 right for a host when it holds 60 frames a second with no gaps.
 
-\verb|MODE| on its own says where you are; \verb|MODE n| moves. The second
-number is the margin: 1 (the default) keeps a one-cell gap at the top and
-the left, 0 uses every cell.
+\verb|MODE| on its own says where you are; \verb|MODE n| moves. The text
+always starts in the top-left cell: there is no margin.
 
 \begin{tabular}{llll}
 \textbf{MODE} & \textbf{pixels} & \textbf{text} & \\

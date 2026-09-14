@@ -16,7 +16,6 @@ typedef enum {
     SET_VIDEO_BORDER_COLOUR, /* INT  palette index */
     SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
     SET_VIDEO_MODE,          /* ENUM the machine's video mode: shown live, and the ROM performs a change */
-    SET_VIDEO_MARGIN,        /* BOOL the one-cell gap at the top and the left (79 columns, not 80) */
     SET_VIDEO_STATUSBAR,     /* BOOL the status bands; keyed term.bands, and its row lives in the Terminal menu.
                               * The console becomes a scroll region between two bands the ROM draws.
                               * (Key renamed from video.statusbar 2026-09-02; the old name still loads.) */
@@ -39,12 +38,8 @@ typedef enum {
     SET_CPU_AUTO,            /* BOOL measure the host at boot and set the clock from that (an explicit clock turns it off) */
     SET_CPU_MEASURED,        /* ENUM what the last measurement chose (not in the menu) */
     SET_CPU_HOST,            /* INT  the host the measurement was taken on; 0 = never (not in the menu) */
-    /* The status bands.  Heights are INDEPENDENT (Doc, 2026-09-02) and reach
-     * the guest as $D52D/$D52E; the ROM clamps them so the console keeps a
-     * workable minimum whatever is asked for.  0 and 0 is the same thing as
-     * turning the bands off, and the ROM treats it that way. */
-    SET_TERM_BAND_TOP,       /* INT  rows in the top band (default 1) */
-    SET_TERM_BAND_BOT,       /* INT  rows in the bottom band (default 2) */
+    /* the status bands are one row at the top and one at the bottom, or off
+     * (Doc, 2026-09-14): their heights are no longer settings */
     SET_TERM_CLOCK24,        /* BOOL 24-hour clock; off is 12-hour with AM/PM */
     SET_TERM_DATEFMT,        /* ENUM DD.MM.YYYY / YYYY-MM-DD / MM/DD/YYYY -- all ten cells wide, which is
                               * what lets the IRQ's clock painter stay a fixed-width digit poker */

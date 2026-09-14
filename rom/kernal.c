@@ -47,8 +47,8 @@
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
  * banks 1+ are appended 8 KB images called through sw_call(). */
-static uint8_t COLS, ROWS, vmode, margin;            /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
-static uint8_t PCOLS, PROWS;                         /* physical text cells; with margin = 1 the terminal uses (PCOLS-1)x(PROWS-1) from (1,1) */
+static uint8_t COLS, ROWS, vmode;                    /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
+static uint8_t PCOLS, PROWS;                         /* physical text cells: the terminal starts at (0,0) */
 uint8_t OY;                                          /* status mode: top-band height (the console origin).
                                                       * Exported since 2026-09-02: the IRQ reads it, because
                                                       * the clock lives in the TOP band and a bottom height
@@ -56,7 +56,7 @@ uint8_t OY;                                          /* status mode: top-band he
 uint8_t bband;                                       /* bottom-band height.  NOT the "bands are on" flag any
                                                       * more -- the heights are independent, so either may be
                                                       * zero with the other set; ask bands_on() instead. */
-#define OX margin
+#define OX 0                               /* no margin since 2026-09-14 (Doc: "too prone to 1 off errors") */
 #define ROM_VERSION "stage 4"
 
 #define C_BG   0x06   /* VIC-II blue     */
@@ -133,9 +133,8 @@ static void draw_cursor(uint8_t on)
 static void draw_clock(void);         /* the top-right widget.  It lived in ROM2 while ROM1C was full;
                                        * the 2026-09-01/02 savings gave ROM1C the room, and it belongs
                                        * beside bar_str, which is what it draws through. */
-/* Are the bands up?  Not "is either height nonzero": with the bands off, OY
- * carries the one-cell margin instead, so OY alone would say yes to a margin.
- * The host's own switch is the only honest answer, and it costs no state --
+/* Are the bands up?  The host's own switch is the only honest answer, and it
+ * costs no state --
  * which matters, BSSR being 447 of 448 bytes used. */
 static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS == 80); }
 /* A program that has claimed the bands gets them whether or not the user's F7
@@ -356,7 +355,6 @@ static void mode_do(void)
                                             * key poll performs it again, and each cls() wipes whatever
                                             * the machine printed in between. */
     vmode  = (uint8_t)((r >> 5) - 1);           /* bits 5-7 carry mode+1: 0 is "nothing published" */
-    margin = (r & SYSOPT_STATUS) ? 0 : (uint8_t)((r >> 1) & 1);   /* the status bands frame the screen; no margin with them */
     video_init(); cls();
     mode_note = 1;
 }
@@ -943,14 +941,13 @@ static void cmd_mode(const char *p)
 {
     uint8_t d; uint32_t m;
     if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               puts_(modename(vmode)); puts_(" pixels, margin "); putdec(margin); puts_("   (MODE 0-2 [0|1])"); newline(); return; }
+               puts_(modename(vmode)); puts_(" pixels   (MODE 0-2)"); newline(); return; }
     /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
      * way back out, and someone meeting the machine for the first time should
      * not be able to type themselves into a screen they cannot use. VICKY
      * still has them: a program that wants one writes the CTRL bits itself. */
-    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)  [0|1: margin]"); return; }
+    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)"); return; }
     vmode = (uint8_t)m; skipsp(&p);
-    if (*p) { m = parsehex(&p, &d); if (!d || m > 1) { error("mode: second value 0 = full screen, 1 = one-cell margin"); return; } margin = (uint8_t)m; }
     video_init(); cls();
 }
 
@@ -1933,17 +1930,17 @@ static void video_init(void)
      * 2026-09-02): a top height and a bottom height, either of which may be
      * zero.  They used to be PROWS/15 and PROWS/10 -- 4+6 at 640x480 and 2+3
      * at 640x240 -- which spent a sixth of the screen on furniture holding
-     * four strings, two of which were a nameplate.  The default is 1+2 in
-     * both modes.  Clamped so the console always keeps BAND_MIN_ROWS: a
-     * program may ask for anything, and gets the clamp rather than the ask. */
+     * four strings, two of which were a nameplate.  Since 2026-09-14 the
+     * user's bands are one row each, on or off; a program that claims the
+     * console may ask for other heights, and the clamp keeps BAND_MIN_ROWS. */
     if (bands_on()) {
         uint8_t t, b;
         if (claimed()) { t = REG(TERM + T_BANDTOP); b = REG(TERM + T_BANDBOT); }   /* the program's */
-        else           { t = REG(SYS + SYS_BANDTOP); b = REG(SYS + SYS_BANDBOT); } /* the user's */
-        if (t + b > PROWS - BAND_MIN_ROWS) { t = 1; b = 2; }
+        else           { t = 1; b = 1; }                                         /* the user's: one row each (Doc, 2026-09-14) */
+        if (t + b > PROWS - BAND_MIN_ROWS) { t = 1; b = 1; }
         OY = t; bband = b;
-    } else                                                { OY = margin;    bband = 0; }
-    COLS = PCOLS - (bband ? 0 : margin); ROWS = PROWS - OY - bband;
+    } else                                                { OY = 0;         bband = 0; }
+    COLS = PCOLS; ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
     REG(VICKY + 1) = C_BG;
     /* The palette is deliberately NOT reloaded here.  VICKY comes up with the
@@ -1988,17 +1985,17 @@ void k_video(void) { video_init(); }
  * I/O processor did for its co-processors. Only MODE (K4G;22) is passed
  * through as well, because the console must switch its own text geometry
  * under the ULA's 640x480 bitmap. */
-static uint8_t bgon, oldvm, oldmg;
+static uint8_t bgon, oldvm;
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
 static void bbg_mode22(uint8_t n)
 {
     if (n == 3 || n == 6 || n == 7) {                    /* a text mode: the console mode returns */
-        if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
+        if (bgon) { bgon = 0; vmode = oldvm; video_init(); cls(); }
         return;
     }
-    if (!bgon) { oldvm = vmode; oldmg = margin; bgon = 1; }
-    vmode = 0; margin = 0; video_init(); cls();          /* 640x480, 80x60 text under the bitmap */
+    if (!bgon) { oldvm = vmode; bgon = 1; }
+    vmode = 0; video_init(); cls();                      /* 640x480, 80x60 text under the bitmap */
     REG(VICKY + 0x20) = 0x19;                            /* video_init turned the ULA's bitmap layer off; back on */
 }
 /* BBCBASIC / CPM: the console connected to the Tube co-processor, which
@@ -2088,7 +2085,7 @@ static void cmd_bbcbasic(uint8_t prog)
     }
     REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
     REG(TERM + 0x0E) = 0;
-    if (bgon) { bgon = 0; vmode = oldvm; margin = oldmg; video_init(); cls(); }
+    if (bgon) { bgon = 0; vmode = oldvm; video_init(); cls(); }
     else { cx = REG(TERM + 9); cy = REG(TERM + 10); }
     fg = ofg; bg = obg;
     if (prog == 4) { if (cx) newline(); if (REG(TUBE + 10)) SHELL_RC = REG(TUBE + 10); return; }   /* a host command: back to the prompt, no ceremony; its exit status is the RC */
@@ -2199,9 +2196,8 @@ int main(void)
     /* The host publishes the saved video mode in $D521 bits 5-7 (mode+1;
      * 0 = a host that does not) from power-on, so the machine boots straight
      * into it -- there is no late mode request to perform, and nothing to
-     * wipe the banner with.  MODE 1 0 (640x240, the full 80x30) if nothing
+     * wipe the banner with.  MODE 1 (640x240, 80x30) if nothing
      * is published. */
-    margin = (uint8_t)((REG(SYS + 0x21) >> 1) & 1);   /* the host never sets bit 1 with the status bar on */
     vmode = (uint8_t)(REG(SYS + 0x21) >> 5);
     if (vmode) vmode--; else vmode = 1;
     video_init();

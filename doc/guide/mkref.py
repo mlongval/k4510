@@ -55,7 +55,7 @@ DESC = {
     # screen
     "CLS":     (2, "CLS", "Clear the text screen."),
     "CLG":     (2, "CLG", "Clear the bitmap over the text, whoever drew it."),
-    "MODE":    (2, "MODE [n [margin]]", "Alone, say the mode; 0 640x480, 1 640x240, 2 320x240. The margin: 1 keeps a one-cell gap, 0 uses every cell."),
+    "MODE":    (2, "MODE [n]", "Alone, say the mode; 0 640x480, 1 640x240, 2 320x240."),
     "COLOR":   (2, "COLOR fg [bg]", "The text colours, as palette indices in hex."),
     "PALETTE": (2, "PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]", "The 256 colours: list them, set one, load a .PAL from /SYSTEM/ETC/PALETTES, save them, or put the machine's own back."),
     "BANNER":  (2, "BANNER", "Clear the screen and print the power-on banner again."),

@@ -31,7 +31,6 @@ static const set_desc desc[SET_COUNT] = {
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
     { "video.font",          "Screen font",    ST_ENUM,  FONT_KERNEL8, 0, 0, 0, font_names, FONT_COUNT, SF_LIVE },
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x240, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
-    { "video.margin",        "Left/top margin",ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* off: the full 80x30; use the border instead */
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.scanlines",     "Scanlines",      ST_ENUM,  SCAN_OFF, 0, 0, 0, scan_names, SCAN_COUNT, SF_LIVE },
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_SHARP, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
@@ -79,8 +78,6 @@ static const set_desc desc[SET_COUNT] = {
     { "cpu.auto",            "Auto clock",     ST_BOOL,  1, 0, 1, 1, 0, 0, SF_RESTART },
     { "cpu.measured",        "Measured clock", ST_ENUM,  CPUCLK_15, 0, 0, 0, cpu_names, CPUCLK_COUNT, 0 },
     { "cpu.host",            "Measured on",    ST_INT,   0, 0, 0x7FFFFFFF, 1, 0, 0, 0 },
-    { "term.band.top",       "Top band rows",  ST_INT,   1, 0, 10, 1, 0, 0, SF_LIVE },
-    { "term.band.bottom",    "Bottom band rows", ST_INT, 2, 0, 10, 1, 0, 0, SF_LIVE },
     { "term.clock24",        "24-hour clock",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },
     { "term.datefmt",        "Date format",    ST_ENUM,  DATEFMT_DMY, 0, 0, 0, date_names, DATEFMT_COUNT, SF_LIVE },
     { "input.caps_ctrl",     "Caps Lock is Ctrl", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* the old Unix keyboard's Ctrl, where Caps Lock sits (Doc, 2026-09-12) */

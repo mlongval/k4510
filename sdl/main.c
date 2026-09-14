@@ -99,8 +99,9 @@ static void screen_save(void)
     uint32_t map = (uint32_t) vicky_read(0x1C) | ((uint32_t) vicky_read(0x1D) << 8) | ((uint32_t) vicky_read(0x1E) << 16) | ((uint32_t) vicky_read(0x1F) << 24);
     int stride = vicky_read(0x16) | (vicky_read(0x17) << 8), ctrl = vicky_read(0);
     /* bit 3 a 200-line field (25 rows); bit 2 lines halved and bit 1 320 wide --
-     * which halves the lines too (MODE 2) -- 30; neither, the whole 480: 60 */
-    int rows = (ctrl & 8) ? 25 : (ctrl & 6) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
+     * which halves the lines too (MODE 2) -- 30; neither, the whole 480: 30
+     * rows of 8x16 (layer 0's cell bits), or 60 of 8x8 for a program's own */
+    int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (vicky_read(0x10) & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
     mkdir("shots", 0755);
     FILE *f = fopen("shots/.screen.tmp", "wb");
     if (!f) return;
@@ -233,8 +234,8 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
     return (int)n;
 }
 
-static uint8_t font_kernel8[2048], font_menu[2048];
-static uint8_t font_panel[4096]; static int font_panel_rows = 8;   /* unscii-16 for the side panel; the 8x8 doubled if it is missing */
+static uint8_t font_menu[2048];                      /* unscii-8: the machine's 8x8 font, and the menu's */
+static uint8_t font_panel[4096]; static int font_panel_rows = 16;  /* unscii-16: MODE 0's font, and the side panel's */
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -244,46 +245,13 @@ static void slot_refresh(int n)                      /* the slot's row: its file
     if (tm) strftime(b, sizeof b, "%b %d %H:%M", tm); else snprintf(b, sizeof b, "%ld KB", (long)(st.st_size >> 10));
     menu_slot(n, b);
 }
-/* The C64 chargen lives in the machine's own filesystem, not the host's data/:
- * drop a CP437 chargen.bin (2048 bytes) into /SYSTEM/ETC and the menu can wear
- * it.  A raw 4096-byte C64 chargen is refused, not converted at run time:
- * convert it once with tools/mkcp437font.py. */
-static void chargen_path(char *out, int max) { snprintf(out, (size_t) max, "%s/SYSTEM/ETC/chargen.bin", fs_get_root()); }
-static int chargen_present(void)
+/* The screen font: unscii, the one font since 2026-09-14 (Doc: "pick one font
+ * and jettison all the rest").  8x8 at $010000 for the 240-line modes, 8x16
+ * at $010800 for 640x480; the ROM points VICKY at whichever the mode wants. */
+static void load_fonts(void)
 {
-    char p[512]; chargen_path(p, sizeof p);
-    FILE *f = fopen(p, "rb"); if (!f) return 0;
-    fseek(f, 0, SEEK_END); long n = ftell(f); fclose(f);
-    return n >= 2048;
-}
-static void apply_font(int which)
-{
-    static const char *paths[FONT_COUNT] = { "data/font8.bin", "data/fonts/unscii/font8-unscii.bin",
-                                             "data/fonts/openroms/openroms-cp437.bin", "data/fonts/openroms/pxlfont-cp437.bin", 0 /* FONT_CHARGEN: from the guest fs */,
-                                             "data/fonts/zx/bauhaus.bin", "data/fonts/zx/broadway.bin", "data/fonts/zx/computer.bin", "data/fonts/zx/cyberwire.bin",
-                                             "data/fonts/zx/nlq.bin", "data/fonts/zx/benguiat.bin", "data/fonts/zx/chicago.bin", "data/fonts/zx/courier.bin",
-                                             "data/fonts/zx/eurostile.bin", "data/fonts/zx/ocr-a.bin", "data/fonts/zx/pristine.bin", "data/fonts/zx/anvil.bin" };
-    /* Every screen font is a ready 2048-byte CP437 page now (kernel8 and unscii
-     * always were; the open-roms and ZX fonts are baked by tools/mkcp437font.py
-     * at import).  Nothing converts at run time: a font that is not 2048 bytes
-     * is a raw C64 chargen that was never converted -- it is REFUSED, not drawn,
-     * so it can never silently show a pound where a backslash was written
-     * (Doc, 2026-09-10).  The kernel font stands in until a real one loads. */
-    char cg[512]; const char *path = paths[which];
-    if (which == FONT_CHARGEN) { chargen_path(cg, sizeof cg); path = cg; }
-    /* read into a buffer bigger than a CP437 font so a raw 4096-byte chargen
-     * shows its true size instead of being silently truncated to 2048 */
-    uint8_t buf[4096], font[2048]; int n = (which == FONT_KERNEL8) ? 2048 : load_file(path, buf, sizeof buf);
-    if (which == FONT_KERNEL8) memcpy(font, font_kernel8, 2048);
-    else if (n == 2048) memcpy(font, buf, 2048);
-    else {
-        memcpy(font, font_kernel8, 2048);
-        if (n > 0)
-            fprintf(stderr, "font: %s is %d bytes, not a 2048-byte CP437 font%s\n", path, n,
-                    which == FONT_CHARGEN ? " -- convert it: tools/mkcp437font.py <chargen.bin> fs/SYSTEM/ETC/chargen.bin"
-                                          : " (run tools/mkcp437font.py to rebuild it)");
-    }
-    mem_load(K4510_FONT8_PHYS, font, 2048);
+    mem_load(K4510_FONT8_PHYS, font_menu, sizeof font_menu);
+    mem_load(K4510_FONT16_PHYS, font_panel, sizeof font_panel);
 }
 
 /* The keyboard when SDL sends no text.
@@ -557,7 +525,7 @@ static void bands_overlay(void)
     uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10);
     if (!(ctrl & 1) || !(l0 & 1) || ((l0 >> 1) & 3) != 3) return;       /* the console (text32) is not the picture */
     int stride = vicky_read(0x16) | (vicky_read(0x17) << 8);
-    int rows = (ctrl & 8) ? 25 : (ctrl & 6) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
+    int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
     int rh = rows == 60 ? 8 : 16, cw = VICKY_WIDTH / cols, y0 = (ctrl & 8) ? 40 : 0;
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* what is running, left of the clock */
         const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
@@ -862,14 +830,12 @@ int k4510_frontend_main(int argc, char **argv)
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
-    if (load_file("data/font8.bin", font_kernel8, sizeof font_kernel8) != sizeof font_kernel8) {
-        fprintf(stderr, "need data/font8.bin (run from repo root)\n");
+    if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu ||
+        load_file("data/fonts/unscii/font16-unscii.bin", font_panel, sizeof font_panel) != sizeof font_panel) {
+        fprintf(stderr, "need data/fonts/unscii/font8-unscii.bin and font16-unscii.bin (run from repo root)\n");
         return 1;
     }
-    if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu) memcpy(font_menu, font_kernel8, sizeof font_menu);
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
-    if (load_file("data/fonts/unscii/font16-unscii.bin", font_panel, sizeof font_panel) == sizeof font_panel) font_panel_rows = 16;
-    else for (int i = 0; i < 2048; i++) { font_panel[i * 2] = font_panel[i * 2 + 1] = font_menu[i]; font_panel_rows = 16; }
     settings_load(cfg);
     /* The F7 menu file, beside k4510.cfg and outside the machine's own disk, so
      * nobody at the machine can edit it: which rows show, and the locks.
@@ -879,8 +845,7 @@ int k4510_frontend_main(int argc, char **argv)
       if (menu_file_load("k4510-menu.cfg") < 0) menu_file_write("k4510-menu.cfg");
       io_lock_linux = menu_lock(MENU_LOCK_LINUX); }
     if (mem_init() != 0) { fprintf(stderr, "cannot reserve %u MB\n", K4510_PHYS_SIZE >> 20); return 1; }
-    settings_label(SET_VIDEO_FONT, FONT_CHARGEN, chargen_present() ? "C64 chargen" : "C64 chargen (none)");
-    int font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);   /* the ROM points VICKY at $010000 */
+    load_fonts();                                        /* the ROM points VICKY at $010000 or $010800 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "K4510 K/OS"); menu_info(INFO_BUILD, K4510_BUILD); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
     menu_info(INFO_HOST, access("/etc/k4510-linux", F_OK) == 0 ? "the K4510 Linux" : "desktop, SDL2");
@@ -1134,7 +1099,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 /* The host layout has already composed the character -- a dead key
                  * plus a vowel arrives here as one UTF-8 sequence.  ASCII goes
                  * straight through; anything above it is decoded and looked up in
-                 * the machine's upper half, which is code page 437 (data/mkfont.py).
+                 * the machine's upper half, which is code page 437 (unscii).
                  * Dropping the non-ASCII bytes, as this used to, meant no accented
                  * character could ever be typed. */
                 for (const char *c = e.text.text; *c; ) {
@@ -1438,11 +1403,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           if (act >= ACT_SAVE_SLOT && act < ACT_SAVE_SLOT + MENU_SLOTS) { state_save(slot_path(act - ACT_SAVE_SLOT)); slot_refresh(act - ACT_SAVE_SLOT); act = ACT_NONE; }
           if (act >= ACT_LOAD_SLOT && act < ACT_LOAD_SLOT + MENU_SLOTS) {
               io_write(IO_TUBE + 3, 2);                    /* the co-processor is not in the file: stopped before the machine changes under it */
-              if (state_load(slot_path(act - ACT_LOAD_SLOT)) == 0) font_applied = -1;   /* the font lives in RAM: the file's wins, but the setting reapplies on the next frame */
+              if (state_load(slot_path(act - ACT_LOAD_SLOT)) == 0) load_fonts();   /* the font lives in RAM: an old slot may hold another */
               act = ACT_NONE; }
         switch (act) {
         case ACT_RESET: cpu65_reset(); break;
-        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); /* resets the I/O too */ apply_font(font_applied); mem_load_rom(rom); cpu65_reset();
+        case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); /* resets the I/O too */ load_fonts(); mem_load_rom(rom); cpu65_reset();
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: mlog("quit: F7 -> Quit"); running = 0; break;
@@ -1553,14 +1518,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             p_n = 0; p_last = 0;
             gov_t0 = 0;                                  /* and a new machine to judge: the governor's window restarts */
         }
-        if (settings_get(SET_VIDEO_FONT) != font_applied) {
-            font_applied = settings_get(SET_VIDEO_FONT); apply_font(font_applied);
-            if (open) vicky_repaint(fb, VICKY_WIDTH);    /* frozen: nothing else would draw the new chargen */
-        }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
         /* the menu takes the machine's own row grid: 30 rows over a 240-line
-         * mode, 60 over 640x480, so its lines sit on the picture's lines */
-        if (ui_cell_h((vicky_read(VR_CTRL) & 6) ? 16 : 8)) menu_dirty();
+         * mode or 640x480 in 8x16 cells, 60 over 640x480 in 8x8, so its lines
+         * sit on the picture's lines */
+        if (ui_cell_h(((vicky_read(VR_CTRL) & 6) || (vicky_read(0x10) & 0x60)) ? 16 : 8)) menu_dirty();
         menu_draw(ov);
 
         /* Vertical sync, live.  SDL_RenderSetVSync arrived in 2.0.18, so on
@@ -1575,13 +1537,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
             smooth_applied = settings_get(SET_VIDEO_SMOOTH);
-            /* Only "soft" is meant to be soft.  sharp-fit was picking linear
-             * as well, which threw away the point of it: with integer scaling
-             * every pixel of the machine is a whole number of pixels on the
-             * glass, so nearest is exact -- no dropped rows, and no blur to
-             * hide them with. */
-            SDL_SetTextureScaleMode(tex, smooth_applied == SMOOTH_SOFT ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
-            SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_SHARPFIT ? SDL_TRUE : SDL_FALSE);
+            /* Hard pixels always ("soft", the linear filter, went 2026-09-14);
+             * Integer is a whole-number scale, so every pixel of the
+             * machine is the same size on the glass. */
+            SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
+            SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_INTEGER ? SDL_TRUE : SDL_FALSE);
         }
         /* Scanlines are never a figure's -- but they ARE the menu's: the point
          * of choosing them there is seeing them, so the overlay is drawn
@@ -1679,7 +1639,7 @@ tex_done:
            * picture is SDL's logical canvas and SDL scales and centres it, as
            * always.  Placed left or right, SDL's mapping is switched OFF and
            * the geometry is worked out here in device pixels: the scale the
-           * picture would get anyway (floored to an integer for sharp-fit),
+           * picture would get anyway (floored to an integer for Integer),
            * the picture at one edge, the panel in the rest.  Working it out
            * here rather than widening SDL's canvas was forced: the software
            * renderer drew nothing right of the picture on a widened canvas
@@ -1726,7 +1686,7 @@ tex_done:
                * picture down to 2x when 3x fitted.  The panel never shrinks
                * the picture (Doc, 2026-09-09: "the emulator screen does not
                * need to be reduced in size"); it takes what is left. */
-              if (smooth_applied == SMOOTH_SHARPFIT) sc = (double)(int)(sc * k) / k;
+              if (smooth_applied == SMOOTH_INTEGER) sc = (double)(int)(sc * k) / k;
               if (sc < 1.0) sc = 1.0;
               pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
               pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
@@ -1775,16 +1735,7 @@ tex_done:
                                        1, VICKY_HEIGHT * 2);
               btex_scan = scan_applied; btex_col = bcol; btex_smooth = smooth_applied;
               if (btex) { void *bp; int bpitch;
-                  /* The SAME filter as the picture (line ~760), which this used
-                   * to ignore -- it was always Nearest.  With Scaling = soft the
-                   * screen's scanlines are blurred by the linear filter and the
-                   * border's stayed crisp, so the two halves of one picture were
-                   * striped differently: Doc, 2026-09-01, "borders are weird, not
-                   * the same as screen".  Measured on his shot: the screen's blue
-                   * ran through every value from 146 to 191 while the border sat
-                   * on exactly two, 135 and 101. */
-                  SDL_SetTextureScaleMode(btex, smooth_applied == SMOOTH_SOFT ? SDL_ScaleModeLinear
-                                                                             : SDL_ScaleModeNearest);
+                  SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);   /* the picture's filter: hard pixels */
                   if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
                       for (int y = 0; y < VICKY_HEIGHT * 2; y++)
                           *(uint32_t *)((uint8_t *)bp + y * bpitch) =
@@ -1820,7 +1771,7 @@ tex_done:
                   /* ASK SDL where the picture lands rather than working it out
                    * again here.  Reimplementing the rule was tried first and it
                    * was right for two of the three Scaling modes and wrong for
-                   * sharp-fit, where SDL_RenderSetIntegerScale floors the scale
+                   * Integer, where SDL_RenderSetIntegerScale floors the scale
                    * by its own arithmetic -- the bars came out a stripe out of
                    * step with the border, which is the exact fault this is
                    * meant to remove.  LogicalToWindow is SDL's own answer and

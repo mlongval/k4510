@@ -71,19 +71,10 @@ work containing them must be too.
 
 \section{Fonts}
 \begin{itemize}[leftmargin=1.4em]
-\item \textbf{Linux kernel 8x8 console font} --- \pth{data/font8.bin},
-  built by \pth{data/mkfont.py} from \pth{lib/fonts/font_8x8.c}.
-  \emph{GPL-2.0.} This is the default text font.
-\item \textbf{MEGA65 open-roms chargen + PXLfont 2.3} ---
-  \pth{data/fonts/openroms/}. Clean-room C64/C65 character shapes;
-  PXLfont is Retrofan's, included with open-roms' recorded permission.
-  \emph{LGPL-3.0-or-later} --- \pth{8x8font.png} is shipped as the
-  editable source, for LGPL compliance.
-\item \textbf{unscii-8} --- Ville-Matias Heikkilä.
-  \pth{data/fonts/unscii/}; \pth{font8-unscii.bin} is a generated
-  drop-in alternative to \pth{data/font8.bin}. \emph{Public domain.}
-\item \textbf{BESCII v3} (Mono + source) --- Damian Vila.
-  \pth{data/fonts/bescii/}. \emph{CC0-1.0.}
+\item \textbf{unscii-8 and unscii-16} --- Ville-Matias Heikkilä.
+  \pth{data/fonts/unscii/}: the upstream \verb|.hex| files and the
+  \pth{font8-unscii.bin} and \pth{font16-unscii.bin} made from them.
+  The machine's one screen font. \emph{Public domain.}
 \item \textbf{Clear Sans} (Intel, \emph{Apache-2.0}) and
   \textbf{Iosevka} (Belleve Invis, \emph{SIL OFL 1.1}) --- the two
   faces this book is set in. They are not part of the machine.
@@ -93,10 +84,9 @@ work containing them must be too.
 \textbf{No Commodore ROMs here.} Until 2026-08-23 the text font was
 derived from a Commodore~64 character ROM. That file and every
 derivative were removed from the repository \emph{and from its
-history} before it was made public. If you own a C64 and want the real
-thing, drop your own \verb|chargen.bin| into \pth{/SYSTEM/ETC}: the
-machine will use it, and \verb|.gitignore| will keep it out of the
-repository. That copy is yours, not ours to publish.
+history} before it was made public. Since 2026-09-14 the machine has
+one font, unscii, and reads no other: a \verb|chargen.bin| in
+\pth{/SYSTEM/ETC} is ignored.
 \end{aside}
 
 \section{The Linux the machine boots on}
@@ -144,20 +134,13 @@ your own Mad Pascal checkout.
   mixed provenance and this repository is public. The same goes for
   WordStar, Turbo Pascal~3 and MBASIC, which the \verb|K-*.SUB|
   launchers know how to start but which you must supply yourself.
-\item \textbf{ZX Origins fonts.} Damien Guard's faces are free to use
-  and \emph{not} free to re-host, so the machine names them in the F7
-  font menu and does not ship them: \pth{tools/mkzxfonts.py} turns your
-  own download into screen fonts, and without it those entries fall back
-  to the default face.
-\item \textbf{A Commodore character ROM} --- see the note above.
 \item \textbf{Your \texttt{STARTUP.BAT}} --- yours, not the repository's
   (copy \pth{/SYSTEM/ETC/STARTUP.SAMPLE} to start one).
 \end{itemize}
 
 \section{If you redistribute the machine}
 Ship the sources you built from, keep \pth{LICENSES.md} and this
-chapter with them, keep \pth{8x8font.png} beside the open-roms font,
-and remember two things that are easy to forget: EhBASIC is
+chapter with them, and remember two things that are easy to forget: EhBASIC is
 non-commercial-only, and ``BBC BASIC'' is the name of Richard Russell's
 interpreter rather than of anything made here --- describe it as his,
 as this book does, and give whatever you build on it a name of its own.

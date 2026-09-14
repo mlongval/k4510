@@ -85,18 +85,13 @@ Fixed the same day except these:
 ## JIM, the console
 
 - [ ] **PETSCII's *full* graphics set.**  The diagonals, quarter-blocks and
-      card suits have no glyph at any code in an ASCII-ordered font, so they
-      render as spaces.  The real repertoire means loading a chargen a
-      second time, unpermuted, and switching the font with the mode.
-- [ ] **A PET chargen as a screen font.**  VICE's PET chargen is 2048
-      bytes (2x128); `apply_font` only permutes at 4096 and copies anything
-      else in as ASCII-ordered, so a PET chargen renders every letter
-      wrong.  It needs its own permutation and its own menu entry.
+      card suits have no glyph at any code in a CP437-ordered font, so they
+      render as spaces.  The real repertoire means a second glyph page --
+      from unscii, whose .hex has the Symbols for Legacy Computing block,
+      since unscii is the one font (2026-09-14) -- switched with the mode.
 - [ ] **The cursor.**  JIM can blink its own (`FLAGS` bit 0) but the ROM
       still draws one, so `draw_cursor` and the `k_getin` workaround are
       both still there.  Handing it over closes that bug class.
-- [ ] **BESCII as a screen font.**  Vendored (CC0) only as a TTF; rendered
-      to an 8x8 .bin it would be the licence-clean PETSCII chargen.
 - [ ] **The widget table** for the status bands: a table of (cell, source,
       format) the IRQ walks, so a program can put a live readout in a band
       without running to paint it.

@@ -14,7 +14,6 @@ extern "C" {
 typedef enum {
     SET_VIDEO_BORDER,        /* INT  pixels of border around the picture */
     SET_VIDEO_BORDER_COLOUR, /* INT  palette index */
-    SET_VIDEO_FONT,          /* ENUM the text chargen at $010000 */
     SET_VIDEO_MODE,          /* ENUM the machine's video mode: shown live, and the ROM performs a change */
     SET_VIDEO_STATUSBAR,     /* BOOL the status bands; keyed term.bands, and its row lives in the Terminal menu.
                               * The console becomes a scroll region between two bands the ROM draws.
@@ -82,15 +81,9 @@ typedef struct {
     const char *const *labels; int nlabels;   /* ENUM / CHORD */
     unsigned flags;
 } set_desc;
-/* the font choices, in the ENUM's order */
-/* The five built-ins, then the curated ZX Origins C64 chargens in data/fonts/zx/
- * (damieng.com/typography/zx-origins). Order is the menu order and MUST match
- * font_names[] (settings.c) and the paths[] in apply_font (sdl/main.c);
- * the non-native fonts are CP437 .bin baked by tools/mkcp437font.py. */
-enum { FONT_KERNEL8, FONT_UNSCII, FONT_OPENROMS, FONT_PXLFONT, FONT_CHARGEN,
-       FONT_ZX_BAUHAUS, FONT_ZX_BROADWAY, FONT_ZX_COMPUTER, FONT_ZX_CYBERWIRE,
-       FONT_ZX_NLQ, FONT_ZX_BENGUIAT, FONT_ZX_CHICAGO, FONT_ZX_COURIER,
-       FONT_ZX_EUROSTILE, FONT_ZX_OCRA, FONT_ZX_PRISTINE, FONT_ZX_ANVIL, FONT_COUNT };
+/* One screen font since 2026-09-14 (Doc: "pick one font and jettison all the
+ * rest"): unscii, 8x16 at 640x480 and 8x8 in the 240-line modes.  The host
+ * loads both (sdl/main.c); there is no setting. */
 /* video modes, in the ENUM's order -- the shell's MODE 0-4 */
 enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
 #define VMODE_MENU_MAX VMODE_320x240   /* the menu offers no less than this.  320x200 and 160x200 are
@@ -101,8 +94,11 @@ enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200
 #define VMODE_SAVE_MAX VMODE_320x240   /* and nothing smaller is ever written to k4510.cfg */
 /* scanline strengths, in the ENUM's order */
 enum { SCAN_OFF, SCAN_LIGHT, SCAN_MEDIUM, SCAN_HEAVY, SCAN_COUNT };
-/* scaling, in the ENUM's order */
-enum { SMOOTH_SHARP, SMOOTH_SOFT, SMOOTH_SHARPFIT, SMOOTH_COUNT };
+/* scaling, in the ENUM's order, hard pixels both (Doc, 2026-09-14: "only 2
+ * modes, 1: Integer or 2: Fit to display"): a whole-number multiple, every
+ * machine pixel the same size on the glass; or as large as the window takes.
+ * The old names still load: sharp-fit is Integer, sharp and soft are Fit. */
+enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
 enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
@@ -114,7 +110,6 @@ const set_desc *settings_desc(set_id id);
 int         settings_choices(set_id id);          /* how many of an ENUM's labels the menu may offer */
 int         settings_get(set_id id);
 void        settings_set(set_id id, int v);       /* clamped / wrapped to the descriptor */
-void        settings_label(set_id id, int idx, const char *text);  /* rename one ENUM choice: the host says what it actually found */
 void        settings_step(set_id id, int dir);    /* +1 / -1: the next value (ENUMs wrap, INTs stop) */
 const char *settings_text(set_id id, char *buf, int max);   /* the value as the menu prints it */
 /* The key this id names.  desc[] is indexed by set_id, so the enum's order

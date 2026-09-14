@@ -15,7 +15,6 @@ struct menu_s { const char *title; const item_t *items; int n; };
 static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
-    { "Screen font",   MI_SETTING, SET_VIDEO_FONT },
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
     { "Scanlines",     MI_SETTING, SET_VIDEO_SCANLINES },
     { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },

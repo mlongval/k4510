@@ -24,12 +24,13 @@ static void fixture(int make)
 int main(void)
 {
     fixture(1);
-    uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); fread(font, 1, 2048, f); fclose(f);
+    uint8_t font[2048]; FILE *f = fopen("data/fonts/unscii/font8-unscii.bin", "rb"); fread(font, 1, 2048, f); fclose(f);
     /* /STARTUP.BAT is the user's file and is gitignored, so it differs from
      * machine to machine -- one that ends in CLS wipes the banner this test
      * looks for.  Tell the ROM not to run it: the test owns its boot. */
     io_set_opts(SYSOPT_NOBOOT);
     mem_init(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048);
+    { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0 in 8x16 cells */
     CHECK(mem_load_rom("rom/kernal.bin") >= 24576, "rom");   /* base 24 KB + any sideways banks */
     cpu65_reset(); frames(40);      /* boot + the !BOOT grace window */
     char r[81]; row(0, r); printf("banner: %s\n", r);

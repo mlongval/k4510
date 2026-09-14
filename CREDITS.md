@@ -51,21 +51,11 @@ Thank you:
 
 ## Fonts
 
+- **Ville-Matias Heikkilä** ("Viznut") —
+  [unscii](http://viznut.fi/unscii/), placed in the public domain: the
+  machine's one screen font, 8x8 and 8x16.
 - **The Linux kernel** — the 8x8 console font that got the text mode
   on its feet, and the 8x16 VGA font the K4510x consoles wear at 24x43.
-- **Ville-Matias Heikkilä** ("Viznut") —
-  [unscii](http://viznut.fi/unscii/), placed in the public domain.
-- **Paul Gardner-Stephen and Roman Standzikowski** (FeralChild64) —
-  the clean-room chargen from
-  [MEGA65 open-roms](https://github.com/MEGA65/open-roms).
-- **Retrofan** — PXLfont (included via open-roms, with permission).
-- **Damian Vila** — [BESCII](https://codeberg.org/Dmian/font-bescii),
-  the PETSCII spirit with a clean pedigree, CC0.
-- **Damien Guard** — [ZX Origins](https://damieng.com/zx-origins),
-  hundreds of 8×8 faces refined over thirty-five years; a curated dozen
-  are in the F7 font menu. Free to use, *not* free to re-host, so the
-  machine names them and does not ship them — `tools/mkzxfonts.py`
-  builds them from your own download.
 - **Kenney** — [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon),
   the tiles, the map and the little people of the TINY demo, CC0.
 - **devurandom, richtaur (Matt Hackett) and cemkalyoncu** —

@@ -7,7 +7,7 @@ Made of the machine's own parts, so the boot screen and the machine's face
     banner's colours (VIC-II 2, 8, 7, 5, 14), with square ends, as banner()
     draws them on the screen (a first draft cut them to points; Doc: "the
     bars are not pointy on the real screen, please keep it uniform");
-  - "K4510" in the machine's 8x8 font (data/font8.bin), blown up so its
+  - "K4510" in the machine's 8x8 font (unscii-8), blown up so its
     height is the bars' height;
   - FANTASY COMPUTER in the console's yellow, on the console's blue.
 
@@ -45,7 +45,7 @@ def text(draw, font, s, x, y, scale, colour):
 def main():
     out = sys.argv[1] if len(sys.argv) > 1 else "data/bootlogo.png"
     W, H = (int(sys.argv[2]), int(sys.argv[3])) if len(sys.argv) > 3 else (1920, 1080)
-    font = open("data/font8.bin", "rb").read()
+    font = open("data/fonts/unscii/font8-unscii.bin", "rb").read()
     img = Image.new("RGB", (W, H), BLUE)
     d = ImageDraw.Draw(img)
 

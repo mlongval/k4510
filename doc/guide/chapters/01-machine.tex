@@ -177,32 +177,29 @@ takes the whole screen, in the manner of the C64~Ultimate's: the
 categories down the left, the settings of the chosen one on the right,
 and a line at the foot saying what the keys do in whichever pane holds
 the cursor. Sound stops, and closing the menu resumes exactly where it
-froze. The menu draws with its own font and never touches the machine's
+froze. The menu draws with its own copy of the font and never touches the machine's
 memory, so it opens even when a program has wrecked the screen.
 
 Up and Down move; Enter or Right crosses from the categories to the
 settings; Left and Right step a value; Escape goes back a pane, and
 closes at the categories; F7 closes from anywhere. The mouse works too.
 A setting with a list of choices opens that list over the panes, and
-\emph{applies as the cursor passes each one} --- the screen font swaps
+\emph{applies as the cursor passes each one} --- the scaling changes
 under the menu so you can see it --- with Escape putting back whatever
 was there when the list opened.
 
 \screen{shots/menu.png}{The F7 menu: categories on the left, the Video
-page on the right, the screen-font list open over them.}
+page on the right.}
 
 \begin{description}
-\item[Video] the border; the screen font (a live swap of the character
-  set --- \emph{kernel8}, \emph{unscii}, \emph{open-roms} and
-  \emph{PXLfont}, twelve of Damien Guard's ZX~Origins faces, and
-  \emph{C64 chargen} if you have put a converted Commodore character ROM
-  in \pth{/SYSTEM/ETC/chargen.bin}, which \pth{/SYSTEM/ETC/README.TXT}
-  explains); \emph{resolution}, which is the
+\item[Video] the border; \emph{resolution}, which is the
   \verb|MODE| command's knob; \emph{scanlines}, a dark line between
   each of the machine's, drawn exactly rather than overlaid;
-  \emph{scaling}: \emph{sharp}, \emph{soft}, or \emph{sharp-fit} (hard
-  pixels \emph{and} a whole-number multiple, so every pixel is the same
-  size on the glass); full screen; \emph{vertical sync}, off to begin
+  \emph{scaling}: \emph{integer}, to begin with (a whole-number
+  multiple, so every pixel is the same size on the glass, with a border
+  where the window is not an exact multiple), or \emph{fit to display}
+  (as large as the window takes; the pixels may come out uneven) ---
+  both hard pixels, never blurred; full screen; \emph{vertical sync}, off to begin
   with --- see the aside below; and \emph{placement} and \emph{side
   panel}, which are the section after next. The figures in this book are
   taken with the effects off.

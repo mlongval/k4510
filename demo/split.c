@@ -98,7 +98,7 @@ int main(void)
     rows = REG(TERM + 6); oy = REG(TERM + 8);
     if (rows < 8) rows = 30;
     halved = (REG(VIC) & 4) != 0;       /* 640x240: each machine line drawn twice */
-    rh = halved ? 16 : 8;               /* a text row in glass lines */
+    rh = (halved || (REG(VIC + 0x10) & 0x60)) ? 16 : 8;   /* a text row in glass lines: 16 when halved or in 8x16 cells (640x480) */
     split = (unsigned)(oy + rows - 4) * rh;
     toph = halved ? split / 2 : split;  /* bitmap rows above it */
     top = (unsigned)oy * rh;            /* the top band's end, a glass line */

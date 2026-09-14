@@ -24,8 +24,9 @@ int main(int argc, char **argv)
     unsigned cpu_hz = getenv("K4510_CPU_HZ") ? (unsigned)atol(getenv("K4510_CPU_HZ")) : 40500000u;
     int cyc_line = (int)(cpu_hz / 60 / 480);
     audio_init((double)cpu_hz, 48000);     /* samples per cycle come from the CPU clock: keep it honest at any clock */
-    uint8_t font[2048]; FILE *ff = fopen("data/font8.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) return 1; fclose(ff);
+    uint8_t font[2048]; FILE *ff = fopen("data/fonts/unscii/font8-unscii.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) return 1; fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) return 1;
+    { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0 in 8x16 cells */
     io_reset(); cpu65_reset();
     double tc = 0, tv = 0, ts = 0, tp = 0; int measured = 0; uint32_t rgb[640];
     for (int fr = 0; fr < WARMUP + frames; fr++) {

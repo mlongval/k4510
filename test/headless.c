@@ -26,8 +26,9 @@ int main(int argc, char **argv)
     const char *rom = argc > 1 ? argv[1] : "rom/kernal.bin"; const char *keys = argc > 2 ? argv[2] : "";
     int maxf = argc > 3 ? atoi(argv[3]) : 600; const char *marker = argc > 4 ? argv[4] : NULL;
     size_t ki = 0, kn = strlen(keys); int fr, seen = 0, wait_until = 0;
-    uint8_t font[2048]; FILE *ff = fopen("data/font8.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) { fprintf(stderr, "font\n"); return 1; } fclose(ff);
+    uint8_t font[2048]; FILE *ff = fopen("data/fonts/unscii/font8-unscii.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) { fprintf(stderr, "font\n"); return 1; } fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) { fprintf(stderr, "rom\n"); return 1; }
+    { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0 in 8x16 cells */
     { extern void io_set_ms_source(uint32_t (*)(void)); io_set_ms_source(hl_ms); }
     { extern int io_lock_linux; if (getenv("K4510_LOCK_LINUX")) io_lock_linux = 1; }   /* as k4510-menu.cfg "linux = locked" (bangtest) */
     io_reset(); cpu65_reset();

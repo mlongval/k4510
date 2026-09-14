@@ -8,12 +8,9 @@
 #define SETTINGS_VERSION     2
 #define SETTINGS_VERSION_STR "2"
 
-static const char *font_names[]  = { "kernel8", "unscii", "open-roms", "PXLfont", "C64 chargen",   /* "C64 chargen" is renamed by the host if /SYSTEM/ETC/chargen.bin is absent */
-    "Bauhaus", "Broadway", "Computer", "Cyberwire", "NLQ", "Benguiat",   /* ZX Origins, in the FONT_ZX_* order */
-    "Chicago", "Courier", "Eurostile", "OCR-A", "Pristine", "Anvil" };
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
 static const char *const scan_names[]  = { "off", "light", "medium", "heavy" };
-static const char *const smooth_names[]= { "sharp", "soft", "sharp-fit" };
+static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
@@ -29,11 +26,10 @@ static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
 static const set_desc desc[SET_COUNT] = {
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
-    { "video.font",          "Screen font",    ST_ENUM,  FONT_KERNEL8, 0, 0, 0, font_names, FONT_COUNT, SF_LIVE },
-    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x240, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
+    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x480, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.scanlines",     "Scanlines",      ST_ENUM,  SCAN_OFF, 0, 0, 0, scan_names, SCAN_COUNT, SF_LIVE },
-    { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_SHARP, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
+    { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
     /* Vertical sync, off by default -- which is the machine keeping its own
      * 60 Hz and presenting when it is ready, as it does on the Pi.  Turning it
@@ -116,11 +112,6 @@ static int clampv(set_id id, int v)
     return v;
 }
 void settings_set(set_id id, int v) { v = clampv(id, v); if (value[id] != v) { value[id] = v; changed = 1; } }
-void settings_label(set_id id, int idx, const char *text)
-{
-    const set_desc *d = &desc[id];
-    if (d->labels == font_names && idx >= 0 && idx < d->nlabels) font_names[idx] = text;
-}
 void settings_step(set_id id, int dir)
 {
     const set_desc *d = &desc[id]; int v = value[id];
@@ -158,6 +149,10 @@ static int find_key(const char *k) { for (int i = 0; i < SET_COUNT; i++) if (!st
 static int parse_value(set_id id, const char *v)
 {
     const set_desc *d = &desc[id];
+    if (d->labels == smooth_names) {                  /* the names before 2026-09-14 */
+        if (!strcasecmp(v, "sharp-fit")) return SMOOTH_INTEGER;
+        if (!strcasecmp(v, "sharp") || !strcasecmp(v, "soft")) return SMOOTH_FIT;
+    }
     if (d->type == ST_ENUM || d->type == ST_CHORD) { for (int i = 0; i < d->nlabels; i++) if (!strcasecmp(d->labels[i], v)) return i; return clampv(id, atoi(v)); }
     if (d->type == ST_BOOL) return (!strcasecmp(v, "on") || !strcasecmp(v, "true") || !strcasecmp(v, "yes") || atoi(v)) ? 1 : 0;
     return clampv(id, atoi(v));

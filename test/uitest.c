@@ -20,9 +20,9 @@ int main(void)
     for (int i = 0; i < 2048; i++) font[i] = (uint8_t)(i * 37);     /* any font: the test only looks at colours */
     ui_font(font);
     /* 1. the registry and its file */
-    f = fopen(cfg, "w"); fputs("# my notes\nvideo.border = 12\naudio.volume=30\nfuture.thing = keep me\nvideo.font = unscii\n", f); fclose(f);
+    f = fopen(cfg, "w"); fputs("# my notes\nvideo.border = 12\naudio.volume=30\nfuture.thing = keep me\nvideo.smoothing = sharp\n", f); fclose(f);
     CHECK(settings_load(cfg) == 0, "load");
-    CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_FONT) == FONT_UNSCII, "values read (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_FONT));
+    CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, "values read (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_SMOOTH));
     CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F7 && !settings_changed(), "defaults for the rest, not dirty");
     settings_set(SET_VIDEO_BORDER, 999); CHECK(settings_get(SET_VIDEO_BORDER) == 64 && settings_changed(), "clamped, dirty");
     settings_step(SET_INPUT_RESET_CHORD, -1); CHECK(settings_get(SET_INPUT_RESET_CHORD) == CHORD_COUNT - 1, "enum wraps");
@@ -49,9 +49,9 @@ int main(void)
     kbd_push_key(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
     kbd_push_key(KEY_LEFT); kbd_push_key(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
     kbd_push(KEY_ESC); kbd_push_key(KEY_UP); kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
-    kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);  /* Screen font: a popup */
-    kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);
-    CHECK(settings_get(SET_VIDEO_FONT) == FONT_OPENROMS, "popup chose open-roms (%d)", settings_get(SET_VIDEO_FONT));
+    for (int k = 0; k < 4; k++) kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);  /* Scaling: a popup */
+    kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);
+    CHECK(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, "popup chose fit to display (%d)", settings_get(SET_VIDEO_SMOOTH));
     kbd_push(KEY_ESC); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
     kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
@@ -116,13 +116,12 @@ int main(void)
      * boolean, and the machine stayed on the wrong chip whatever the menu
      * said.  Every id the frontend acts on by name is checked here. */
     { static const struct { set_id id; const char *key; } pairs[] = {
-        { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_MARGIN, "video.margin" },
+        { SET_VIDEO_MODE, "video.mode" }, { SET_VIDEO_SMOOTH, "video.smoothing" },
         { SET_VIDEO_STATUSBAR, "term.bands" }, { SET_VIDEO_BORDER, "video.border" },
         { SET_VIDEO_FULLSCREEN, "video.fullscreen" }, { SET_VIDEO_VSYNC, "video.vsync" },
         { SET_AUDIO_VOLUME, "audio.volume" },
         { SET_SHELL_CPMCOM, "shell.cpm_com" }, { SET_SHELL_STARTUP, "shell.startup" },
         { SET_CPU_CLOCK, "cpu.clock" }, { SET_CPU_AUTO, "cpu.auto" },
-        { SET_TERM_BAND_TOP, "term.band.top" }, { SET_TERM_BAND_BOT, "term.band.bottom" },
         { SET_TERM_CLOCK24, "term.clock24" }, { SET_TERM_DATEFMT, "term.datefmt" },
         { SET_INPUT_MENU_KEY, "input.menu_key" }, { SET_INPUT_MOUSE_GRAB, "input.mouse_grab" } };
       for (unsigned i = 0; i < sizeof pairs / sizeof pairs[0]; i++)

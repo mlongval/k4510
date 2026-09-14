@@ -130,10 +130,11 @@ WORK  MS BASIC        /MSBASIC/msbasic.prg at $7000.  2026-09-01: star commands 
 ?  256 colours from 24-bit; 16 per sprite/tile, all 256 for text32 and 8bpp
 ?  Five predefined palettes: C64, PEPTO, GREY, AMBER, GREEN (fs/SYSTEM/ETC/PALETTES)
 ?  Scanline effect, borders included (fixed 2026-09-01)
-?  Chargen loading    a 4096-byte C64 chargen is permuted to ASCII/CP437 order.
-                      A 2048-byte PET chargen is NOT supported (renders wrong)
-?  Screen fonts       openroms (LGPL), unscii (PD).  BESCII is vendored as TTF
-                      only -- not selectable
+KEEP  Screen font      one: unscii (PD) -- 8x8 for the 240-line modes, 8x16
+                      for 640x480 (80x30).  Doc, 2026-09-14: "pick one font
+                      and jettison all the rest".  CUT: kernel8, open-roms,
+                      PXLfont, BESCII, the ZX Origins set, chargen.bin
+                      loading and the F7 Screen font row.
 
 ## 7. JIM, the console terminal ($DA00)
 

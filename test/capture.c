@@ -16,8 +16,9 @@ static void chunk(FILE*f,const char*t,const uint8_t*d,size_t n){be32(f,n);uint8_
 int main(int argc,char**argv){ int kwait=0;
     const char*rom=argc>1?argv[1]:"rom/wozmon.bin"; int frames=argc>2?atoi(argv[2]):60; const char*out=argc>3?argv[3]:"/tmp/k4510.png";
     const char*keys=argc>4?argv[4]:"";
-    uint8_t font[2048]; FILE*ff=fopen("data/font8.bin","rb"); if(!ff||fread(font,1,2048,ff)!=2048){fprintf(stderr,"font\n");return 1;} fclose(ff);
+    uint8_t font[2048]; FILE*ff=fopen("data/fonts/unscii/font8-unscii.bin","rb"); if(!ff||fread(font,1,2048,ff)!=2048){fprintf(stderr,"font\n");return 1;} fclose(ff);
     if(mem_init())return 1; mem_load(K4510_FONT8_PHYS,font,2048); if(mem_load_rom(rom)<=0){fprintf(stderr,"rom\n");return 1;}
+    { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0 in 8x16 cells */
     /* K4510_SYSOPT=0x0C: the switches the frontend publishes at $D521 (bit 2
      * skip STARTUP.BAT, bit 3 status bar, bits 5-7 mode+1), so a shot can be
      * taken of a machine that booted with the status bands up. */

@@ -16,12 +16,9 @@ where each one came from and how to verify it):
 | `core/xemu/cpu65.c`, `cpu65.h`, `cpu65_mega65_timings.h`, `cpu65ce02_disasm_tables.c` | 65xx / 45GS02 CPU core from Xemu, Gábor Lénárt | GPL-2.0-or-later |
 | `core/opl2/` (`fmopl.c`, `fmopl.h`) | fmopl 0.72 — the OPL/OPL2 FM sound generator, Jarek Burczynski and Tatsuyuki Satoh (MAME), adapted for VICE by Marco van den Heuvel. The other headers there are K4510 shims. | GPL-2.0-or-later |
 | `tube/` | BBCSDL console edition ("BBCTTY"), Richard T. Russell (vendored, altered -- see `tube/ALTERED.md`; the name "BBC BASIC" is Richard Russell's interpreter's, and this project holds no licence to it) | zlib |
-| `data/font8.bin`, built by `data/mkfont.py` | the Linux kernel's 8x8 console font (`lib/fonts/font_8x8.c`) | GPL-2.0 |
 | `linux/config/includes.chroot/usr/share/consolefonts/K4510-VGA24x43.psf`, built by `data/mkconsolefont.py` | the Linux kernel's 8x16 VGA console font (`lib/fonts/font_8x16.c`), scaled to 24x43 for the K4510x consoles | GPL-2.0 |
 | `core/kbdmaps.h`, built by `tools/mkkbdmaps.py` | keyboard layouts from xkeyboard-config, compiled by console-setup's `ckbcomp` | MIT/X11 (xkeyboard-config) |
-| `data/fonts/openroms/` | clean-room C64/C65 chargen + PXLfont 2.3 (via open-roms' recorded permission), MEGA65 open-roms project -- `8x8font.png` is the editable source, shipped for LGPL compliance | LGPL-3.0-or-later |
-| `data/fonts/unscii/` | unscii-8, Viznut; `font8-unscii.bin` is a generated drop-in alternative to `data/font8.bin` (not yet wired) | public domain |
-| `data/fonts/bescii/` | BESCII v3 (Mono + source), Damian Vila | CC0-1.0 |
+| `data/fonts/unscii/` | unscii-8 and unscii-16, Viznut -- the machine's one screen font; `font8-unscii.bin` and `font16-unscii.bin` are generated from the `.hex` files | public domain |
 | `data/tinydungeon/` | Tiny Dungeon tile sheet + Tiled sample map, Kenney (`demo/tiny.c` renders them; see `data/tinydungeon/VENDORED-FROM.txt`) | CC0-1.0 |
 | `data/bombparty/` | Bomb Party sprite sheet, devurandom/richtaur/cemkalyoncu (`demo/bomber.c` renders it; see `data/bombparty/VENDORED-FROM.txt`) | CC-BY-3.0 |
 | `basic/basic.asm` | EhBASIC 2.22, Lee Davison (ca65 form via jefftranter/6502) | **free for non-commercial use**; derivatives must carry "Derived from EhBASIC" — see `basic/README-EhBASIC.txt`. It is a separate program (`fs/ehbasic.prg`), not linked with the GPL code. |
@@ -59,19 +56,17 @@ Mad Pascal checkout.
   files have mixed provenance and this repository is public. Same for
   WordStar, Turbo Pascal 3 and MBASIC, which the `K-*.SUB` launchers
   start but which you must supply yourself.
-- **A Commodore character ROM.** Drop your own `chargen.bin` into
-  `/SYSTEM/ETC` and the machine will use it; `.gitignore` keeps it out.
 - **Your `STARTUP.BAT`** — yours, not the repository's (copy
   `/SYSTEM/ETC/STARTUP.SAMPLE`).
 
 ## If you redistribute
 
-Ship the sources you built from, keep this file with them, keep
-`8x8font.png` beside the open-roms font, and remember the two easy
+Ship the sources you built from, keep this file with them, and remember the two easy
 traps: EhBASIC is non-commercial-only, and the "BBC BASIC" name is
 licensed to this project and not to yours — call your fork's BASIC
 something else.
 
 History note: until 2026-08-23 the text font was derived from a
 Commodore 64 character ROM. That file and every derivative were removed
-from the repository and its history before it was made public.
+from the repository and its history before it was made public. Since
+2026-09-14 the machine has one font, unscii, and reads no `chargen.bin`.

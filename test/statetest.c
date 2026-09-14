@@ -26,13 +26,14 @@ static uint32_t screen_sum(void) { uint32_t h = 0; for (int i = 0; i < 80 * 60 *
 int main(void)
 {
     const char *path = "test/statetest.k4s";
-    uint8_t font[2048]; FILE *f = fopen("data/font8.bin", "rb"); if (!f || fread(font, 1, 2048, f) != 2048) { printf("need data/font8.bin\n"); return 1; } fclose(f);
+    uint8_t font[2048]; FILE *f = fopen("data/fonts/unscii/font8-unscii.bin", "rb"); if (!f || fread(font, 1, 2048, f) != 2048) { printf("need data/fonts/unscii/font8-unscii.bin\n"); return 1; } fclose(f);
     /* /STARTUP.BAT is the user's own file and gitignored, so it differs from
      * machine to machine.  One that ends in CAPSLOCK makes the machine echo
      * typed capitals as lower case -- correctly -- and every assertion here
      * about what is on screen then fails.  The test owns its boot. */
     io_set_opts(SYSOPT_NOBOOT);
     mem_init(); io_reset(); fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); mem_load_rom("rom/kernal.bin"); audio_init(40500000.0, 48000); cpu65_reset();
+    { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0 in 8x16 cells */
     frames(120); type("ECHO SAVED HERE\n"); frames(30);
     uint32_t sum1 = screen_sum(); uint16_t pc1 = cpu65.pc; uint8_t cx = io_read(0xDA09), cy = io_read(0xDA0A);
     io_write(0xD702, 0x55);                                   /* a MATH register, a DMA register: device state, not RAM */

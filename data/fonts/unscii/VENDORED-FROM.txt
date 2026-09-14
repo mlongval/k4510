@@ -2,9 +2,10 @@ release not determined -- vendored 2026-08-24 (repo commit f89e34c)
 unscii-8 by Viznut, https://viznut.fi/unscii/ -- public domain.
 
 unscii-8.hex     the upstream hex font, unchanged
-font8-unscii.bin generated from it by data/fonts/tools/hex2chargen.py;
-                 a drop-in alternative to data/font8.bin, and the font
-                 the F7 menu draws itself with
+font8-unscii.bin generated from it by hex2chargen.py (removed
+                 2026-09-14; the .bin is kept as generated); the
+                 machine's 8x8 screen font, at $010000, and the F7
+                 menu's
 
 What is known.  The .hex carries no header or version line -- it is
 bare "codepoint:bitmap" rows -- so the release cannot be read out of the
@@ -24,6 +25,7 @@ unscii-16.hex     added 2026-09-09 from the upstream repo's compiled
                   (or CC-0) except for the files derived from Unifont".
 font16-unscii.bin generated from it by hex2chargen.py with the third
                   argument 16 (4096 bytes, CP437 order, 16 rows a glyph);
-                  the side panel's font.
+                  the 640x480 screen font, at $010800, and the side
+                  panel's and F7 menu's.
 sha256  2642c8b748fa81f24d76772d70c55faa720d98fadfec8133daf89136c5c8bfb1  unscii-16.hex
 sha256  a43c9d7f63b8a565ab4a77b80ad1269478d80499f82cf4155c22a7496c954d39  font16-unscii.bin

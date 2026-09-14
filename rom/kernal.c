@@ -38,7 +38,8 @@
 #define TERM   0xDA00u                /* JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
 
 #define SCREEN   0x030000UL           /* text32 cells, 80x60 x 4 bytes, in far memory: the CPU's 64 KB is for programs */
-#define FONT     0x010000UL           /* placed by the loader */
+#define FONT     0x010000UL           /* unscii-8, placed by the loader: the 240-line modes */
+#define FONT16   0x010800UL           /* unscii-16, placed by the loader: MODE 0, 640x480 in 8x16 cells (2026-09-14) */
 #define USER     0x0800u              /* free RAM for programs: $0800-$9FFF (38 KB); .prg files say where they load */
 #define USER_END 0xA000u
 #define MAXCOLS 80
@@ -47,7 +48,7 @@
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
  * banks 1+ are appended 8 KB images called through sw_call(). */
-static uint8_t COLS, ROWS, vmode;                    /* MODE 0: 80x60 (640x480)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
+static uint8_t COLS, ROWS, vmode;                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
 static uint8_t PCOLS, PROWS;                         /* physical text cells: the terminal starts at (0,0) */
 uint8_t OY;                                          /* status mode: top-band height (the console origin).
                                                       * Exported since 2026-09-02: the IRQ reads it, because
@@ -946,7 +947,7 @@ static void cmd_mode(const char *p)
      * way back out, and someone meeting the machine for the first time should
      * not be able to type themselves into a screen they cannot use. VICKY
      * still has them: a program that wants one writes the CTRL bits itself. */
-    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x60 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)"); return; }
+    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x30 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)"); return; }
     vmode = (uint8_t)m; skipsp(&p);
     video_init(); cls();
 }
@@ -1922,7 +1923,7 @@ static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
 static void video_init(void)
 {
     uint8_t i;
-    PCOLS = vmode == 4 ? 20 : vmode >= 2 ? 40 : 80; PROWS = vmode == 0 ? 60 : vmode >= 3 ? 25 : 30;
+    PCOLS = vmode == 4 ? 20 : vmode >= 2 ? 40 : 80; PROWS = vmode >= 3 ? 25 : 30;   /* MODE 0 is 30 rows of 8x16 since 2026-09-14 */
     /* status mode: two static bands frame the console (the 80-column modes only).
      * The band heights scale with the screen: 640x240 -> 2 top + 3 bottom (25 rows);
      * 640x480 -> 4 + 6 (50 rows).  bband != 0 is the flag the rest of the ROM reads. */
@@ -1950,13 +1951,14 @@ static void video_init(void)
      * every VIDEO call and every BBC BASIC text mode.  The palette belongs to
      * VICKY and to whoever last set it; PALETTE RESET and the reset chord are
      * the ways back.  See docs/notes/design-ideas.md. */
-    /* layer 0: text32, 8x8, map SCREEN, glyphs FONT, 80 cells/row */
+    /* layer 0: text32, map SCREEN, 80 cells/row; 8x16 cells in unscii-16 at
+     * 640x480, 8x8 in unscii-8 in the 240-line modes */
     w16(VICKY + 0x16, PCOLS);
     w32(VICKY + 0x1C, SCREEN);
-    w32(VICKY + 0x18, FONT);
+    w32(VICKY + 0x18, vmode ? FONT : FONT16);
     w16(VICKY + 0x12, 0); w16(VICKY + 0x14, 0);
     REG(VICKY + 0x11) = 0;
-    REG(VICKY + 0x10) = 0x01 | (3 << 1);      /* enable | text32 */
+    REG(VICKY + 0x10) = vmode ? 0x01 | (3 << 1) : 0x01 | (3 << 1) | 0x20;   /* enable | text32 (| 8x16 cells) */
     for (i = 1; i < 4; i++) REG(VICKY + 0x10 + i * 0x10) = 0;
     REG(VICKY + 0x0E) = 0; REG(VICKY + 0x64) = 0;
     REG(VICKY + 5) = 1;                        /* IRQ on vblank */
@@ -1995,7 +1997,7 @@ static void bbg_mode22(uint8_t n)
         return;
     }
     if (!bgon) { oldvm = vmode; bgon = 1; }
-    vmode = 0; video_init(); cls();                      /* 640x480, 80x60 text under the bitmap */
+    vmode = 0; video_init(); cls();                      /* 640x480, 80x30 text under the bitmap */
     REG(VICKY + 0x20) = 0x19;                            /* video_init turned the ULA's bitmap layer off; back on */
 }
 /* BBCBASIC / CPM: the console connected to the Tube co-processor, which
@@ -2196,10 +2198,10 @@ int main(void)
     /* The host publishes the saved video mode in $D521 bits 5-7 (mode+1;
      * 0 = a host that does not) from power-on, so the machine boots straight
      * into it -- there is no late mode request to perform, and nothing to
-     * wipe the banner with.  MODE 1 (640x240, 80x30) if nothing
+     * wipe the banner with.  MODE 0 (640x480, 80x30) if nothing
      * is published. */
     vmode = (uint8_t)(REG(SYS + 0x21) >> 5);
-    if (vmode) vmode--; else vmode = 1;
+    if (vmode) vmode--; else vmode = 0;           /* nothing published: 640x480 (the default since 2026-09-14) */
     video_init();
     sw_call(2, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
     fg = C_FG;

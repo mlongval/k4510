@@ -272,7 +272,8 @@ const char *fs_get_cwd(void);
 #define IO_DMA_STATUS  (IO_DMA + 0x0D)    /* read: last command, or $FF if bad */
 
 /* --- boot-time data the frontend places in RAM (until the system ROM carries it) --- */
-#define K4510_FONT8_PHYS   0x00010000u   /* 256 glyphs x 8 rows, ASCII order, 2 KB at 64 KB */
+#define K4510_FONT8_PHYS   0x00010000u   /* unscii-8: 256 glyphs x 8 rows, CP437 order, 2 KB at 64 KB (the 240-line modes) */
+#define K4510_FONT16_PHYS  0x00010800u   /* unscii-16: 256 glyphs x 16 rows, 4 KB (MODE 0, 640x480: 80x30 in 8x16 cells) */
 #define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
 
 uint8_t io_read(uint16_t addr);

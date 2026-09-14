@@ -189,7 +189,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
     fs/          the machine's filesystem: /SYSTEM /LANG /APPS /HOME /CPM /MNT (fs/HOME/README.TXT)
     test/        tests, headless capture and benchmark tools
     tools/       romfree.py, which measures what is left in each ROM bank
-    data/        fonts (the kernel 8x8, open-roms, unscii, BESCII)
+    data/        the screen font (unscii, 8x8 and 8x16), tiles, sprites
     doc/guide/   the handbook: source, style, generators, and the built PDF
     docs/        design records and the build diary (docs/README.md maps them)
 

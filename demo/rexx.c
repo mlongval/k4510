@@ -143,9 +143,24 @@ static uint16_t line_of(uint16_t at)
     for (i = 0; i < at && i < srclen; i++) if (far_peek(SRC_PHYS + i) == '\n') n++;
     return n;
 }
+/* The error for the editors too: PROG's Ctrl-F9 (and VI's :run) read
+ * /SYSTEM/LOG/MAKE.ERR, one FILE:LINE:COL:KIND:TEXT line, the compilers'
+ * form (tools/k4510-errfmt).  Built in SCRATCH: nothing is compacted now. */
+static const char errfile[] = "/SYSTEM/LOG/MAKE.ERR";
+static char scriptbase[16];                            /* the script's name without its directory */
+static uint32_t ep;
+static void ecat(const char *s) { while (*s) far_poke(SCRATCH + ep++, (uint8_t)*s++); }
+static void err_write(uint16_t line, const char *m)
+{
+    char b[8];
+    ep = 0;
+    if (m) { ecat(scriptbase); ecat(":"); utoa(line, b, 10); ecat(b); ecat(":0:E:"); ecat(m); ecat("\n"); }
+    fs_name(errfile); w32(FS_ADDR, SCRATCH); w32(FS_LEN, ep); fs_do(C_SAVE);
+}
 static void die(const char *m)
 {
     outs("RX: line "); outn(line_of(cstart)); outs(": "); outs(m); nl();
+    err_write(line_of(cstart), m);
     if (CL[0]) { outs("    "); outs(CL); nl(); }
     exit_code = 1;
     longjmp(top, 1);
@@ -1361,7 +1376,12 @@ static uint8_t load_script(const char *name)
         else if (i == 1) { strcpy(nm, name); strcat(nm, ".RX"); }
         else { if (name[0] == '/' || strlen(name) > VMAX - 14) return 0; strcpy(nm, "/LANG/RX/"); strcat(nm, name); strcat(nm, ".RX"); }
         fs_name(nm); w32(FS_ADDR, SRC_PHYS); w32(FS_LEN, 0xFFFEUL);
-        if (!fs_do(C_LOAD)) { srclen = (uint16_t)r32(FS_LEN); return 1; }
+        if (!fs_do(C_LOAD)) {
+            const char *b = nm, *s;
+            for (s = nm; *s; s++) if (*s == '/') b = s + 1;
+            setlen(scriptbase, b, sizeof scriptbase - 1);
+            srclen = (uint16_t)r32(FS_LEN); return 1;
+        }
     }
     return 0;
 }
@@ -1379,6 +1399,7 @@ void main(void)
     far_poke(SRC_PHYS + srclen, 0);
     rnd_seed = r32(SYS + 0x36) | 1;
     for (i = 0; i < ARGN; i++) { if (i) arg_put(0, i, ""); else arg_put(0, 0, a); }
+    err_write(0, 0);                                      /* an empty MAKE.ERR: no old errors after a clean run */
     scan_labels();
     pos = 0; CL[0] = 0;
     switch (setjmp(top)) {

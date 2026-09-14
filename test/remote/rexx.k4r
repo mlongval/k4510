@@ -1,0 +1,25 @@
+# test/remote/rexx.k4r -- REXX in PROG: a .RX with an error on line 2,
+# Build > Compile and run from the menu (the key pipe has no Ctrl for
+# Ctrl-F9), RX's MAKE.ERR line taking PROG to the error, and ^Q.
+#     tools/k4510-remote run test/remote/rexx.k4r
+key esc
+type CD /HOME\n
+type RM -f RXTEST.RX\n
+wait 1
+type PROG RXTEST.RX\n
+expect "RXTEST.RX" 10
+type say "hello from REXX"\nx = 1 +\n
+key f9
+expect "nothing to compile" 10
+key f10
+expect "Open..." 5
+key right right right
+expect "Compile and run" 5
+key down enter
+expect "a key returns" 30
+shot rexx-ran
+key enter
+expect "error 1 of" 10
+shot rexx-error
+type \x11
+expect "/HOME]" 10

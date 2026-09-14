@@ -614,8 +614,10 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
     char *c = shline; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
     if (!name[0]) { note = "make: the file has no name -- :w NAME first"; return 0; }
     if (!tool && !ed_mkline[0]) { note = "make: no compiler for this file (.C, .PAS)"; return 0; }
-    save_file();
-    if (note[0] != 'w') return 0;
+    if (dirty) {                                     /* only a changed file: re-saving an unchanged one made it */
+        save_file();                                 /* newer than its object, and a project recompiled it for */
+        if (note[0] != 'w') return 0;                /* nothing (the Dell: "2 compiled, 0 kept", 2026-09-14) */
+    }
     if (ed_mkline[0]) {                              /* the front end's build: it has set ed_mkdir too */
         for (s = ed_mkline; *s && i < sizeof shline - 1; ) c[i++] = *s++;
         c[i] = 0;

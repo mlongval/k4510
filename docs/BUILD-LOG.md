@@ -8428,3 +8428,10 @@ PROG: the files row starts [NAME]; opening a .K4P (or `PROG GAME/
 PROJECT.K4P`) opens its sources in tabs; File > New project asks a name
 and C or Pascal, makes the folder, the PROJECT.K4P and a first file that
 compiles as it stands (C in HELLO.C's manner).
+
+On the Dell the project test built everything right and still failed its
+last check: after fixing UTIL.C, F9 in PJT.C said "(2 compiled, 0 kept)",
+not "1 compiled, 1 kept". do_make saved the file in front every time,
+changed or not, so PJT.C came out newer than its object and was compiled
+again -- every F9 would have rebuilt the file you were in. It saves only
+a changed file now (VI's :make too).

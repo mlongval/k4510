@@ -1,0 +1,50 @@
+# test/remote/proj.k4r -- PROG's projects: File > New project makes PJT (C),
+# F9 builds it; a second file with an error, added to SRC=, opens in its
+# own tab when F9 is pressed in the main file; the fix builds only the file
+# that changed; Build > Compile and run runs the project's program.
+#     tools/k4510-remote run test/remote/proj.k4r
+key esc
+type CD /HOME\n
+type RM -f PJT/PROJECT.K4P\n
+type RM -f PJT/PJT.C\n
+type RM -f PJT/UTIL.C\n
+type RMDIR PJT\n
+wait 1
+type PROG\n
+expect "no file yet" 10
+key f10 down enter
+expect "New project" 5
+type PJT\n
+expect "C or Pascal" 5
+type c
+expect "a new C project" 10
+shot proj-new
+key f9
+expect "pjt.prg:" 40
+type \x0eint twice(int x) { return x + ; }\n
+type \x13PJT/UTIL.C\n
+expect "UTIL.C" 5
+key f6
+type \x074\n
+key end
+type \x20UTIL.C
+type \x13
+key f6
+key f9
+expect "error 1 of" 40
+expect ": line 1: " 5
+shot proj-util-error
+type \x18int twice(int x) { return x + x; }\n
+type \x13
+key f6 f6
+key f9
+expect "1 compiled, 1 kept" 40
+key f10 right right right
+expect "Compile and run" 5
+key down enter
+expect "Hello from PJT." 40
+expect "a key returns" 10
+shot proj-run
+key enter
+type \x11
+expect "/HOME]" 10

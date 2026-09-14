@@ -414,30 +414,34 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 <td style="text-align: left;">a new file, close this one, the next and the previous file</td>
 </tr>
 <tr class="even">
+<td style="text-align: left;"><em>File</em> → <em>New project</em></td>
+<td style="text-align: left;">a folder with a <code>PROJECT.K4P</code> and a first file that compiles as it stands</td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;">Ctrl-Z, Ctrl-Y</td>
 <td style="text-align: left;">undo, redo, as far back as the session goes</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Ctrl-X, Ctrl-C, Ctrl-V</td>
 <td style="text-align: left;">cut, copy, paste the line</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Ctrl-F, F3, Ctrl-R, Ctrl-G</td>
 <td style="text-align: left;">find, find again, replace everywhere, go to a line</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Shift-Ctrl-F</td>
 <td style="text-align: left;">find in files: every source file in this file’s directory, into the message list</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">F9, Ctrl-F9</td>
 <td style="text-align: left;">save every changed file, compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">F4, Shift-F4</td>
 <td style="text-align: left;">the next, the previous message — one about another file opens it</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">F10, F1</td>
 <td style="text-align: left;">the menu; the keys</td>
 </tr>
@@ -450,8 +454,21 @@ The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.E
 
 Up to eight files are open at once, in the row under the menu bar — the one in front lit, a `*` on each with unsaved changes. F9 saves every changed file before it compiles, because the compilers read the disk: a unit edited in another tab is what `PAS` sees. An error in another file — a unit, a header — opens that file (or brings its tab forward) at the line. Find in files (Shift-Ctrl-F, or *Search*) looks through every source file in the directory of the file in front, and what it finds goes into the message list, where F4 walks it like errors. After Ctrl-F9 the other open files are read back from the disk: a program may use the memory they wait in.
 
+### Projects
+
+A program in several files is a *project*: a folder, and in it a `PROJECT.K4P` that names them, one `KEY=value` to a line:
+
+    # GAME -- a PROG project
+    NAME=GAME
+    LANG=C
+    SRC=GAME.C SPRITES.C SOUND.C
+
+For Pascal it is `MAIN=GAME.PAS` instead of `SRC=` — the units come in by `uses`, from the same folder — and `OUT=` names the program when `NAME` in lower case will not do. With a `PROJECT.K4P` beside the file in front, F9 builds the project, whichever of its files you are in — a header or a unit too — and Ctrl-F9 runs the project’s program; the files row starts with its name in brackets. `PROG GAME/PROJECT.K4P` (or *Open* on it) opens every source in a tab, and *File* → *New project* makes the folder, the project file and a first file that compiles as it stands. `CC -p` and `PAS -p` build a project from the prompt the same way.
+
+A C project compiles each source once and keeps what it made (on the Linux side, never in your folder): the next F9 compiles only the files that changed — all of them if a `.H` beside them did — and says so, `game.prg: 4211 bytes (1 compiled, 2 kept)`.
+
 !!! note ""
-    **Where it is going.** This is PROG’s second stage. Next come projects — a `PROJECT.K4P` naming a program’s sources, so F9 builds the program, not the file in front, and a C program can be several files — then the mouse and selection, and last the interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
+    **Where it is going.** This is PROG’s third stage. Next come the mouse and selection — Shift and the arrows, the mouse to place the cursor, to open a menu, to pick a message — and last the interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
 
 ## Editing from inside a BASIC
 

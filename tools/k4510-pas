@@ -1,5 +1,6 @@
 #!/bin/sh
 # k4510-pas NAME[.pas]   compile a Mad Pascal program into NAME.prg beside it
+# k4510-pas -p PROJECT.K4P   the project's MAIN= (and OUT=)
 #
 # The on-machine half of "self-hosted Pascal": at the machine's prompt
 #   PAS HELLO          (a K/OS word: it runs `!k4510-pas HELLO`)
@@ -32,10 +33,22 @@ fail() { echo "$1" >&2; [ -n "$ERR" ] && echo "-:0:0:E:$1" >> "$ERR"; exit "${2:
 [ -x "$MP_DIR/bin/mp" ] || fail "k4510-pas: no Mad Pascal at $MP_DIR (MP_DIR)" 2
 [ -x "$MADS" ] || fail "k4510-pas: no MADS at $MADS (MADS)" 2
 
+# -p PROJECT.K4P: the project's MAIN= is the program (its units come by
+# `uses`, from beside it), OUT= its .prg -- PROG's F9 in a project folder
+proj=
+if [ "$1" = "-p" ]; then [ $# -ge 2 ] || { echo "usage: k4510-pas -p PROJECT.K4P" >&2; exit 2; }; proj=$2; set -- "$2"; fi
 src=$1
 case "$src" in /*) [ -n "${K4510_ROOT:-}" ] && src=$K4510_ROOT$src ;; esac
 cd "$(dirname "$src")" 2>/dev/null || fail "k4510-pas: $(dirname "$1"): no such directory"
 src=$(basename "$src")
+pout=
+if [ -n "$proj" ]; then
+    pf=$src; [ -f "$pf" ] || pf=$(find . -maxdepth 1 -iname "$src" | head -1)
+    [ -n "$pf" ] && [ -f "$pf" ] || fail "k4510-pas: $src: no such project file"
+    val() { sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//Ip" "$pf" | tr -d '\r' | tail -1; }
+    src=$(val MAIN); pout=$(val OUT)
+    [ -n "$src" ] || fail "k4510-pas: $pf names no MAIN="
+fi
 case "$src" in *.pas|*.PAS|*.Pas) ;; *) src="$src.pas" ;; esac
 # the machine's names are case-fixed on the way in, a shell's are not:
 # take whichever spelling of the file exists
@@ -46,6 +59,7 @@ if [ ! -f "$src" ]; then
 fi
 base=${src%.*}
 out=$(printf %s "$base" | tr A-Z a-z).prg
+[ -n "$pout" ] && out=$pout
 
 tmp=$(mktemp -d "${TMPDIR:-/tmp}/k4510-pas.XXXXXX") || exit 1
 trap 'rm -rf "$tmp"' EXIT

@@ -255,6 +255,7 @@ Enter, Tab & a new line that keeps the indent; spaces to the next tab stop (four
 Insert & insert or overwrite (the cursor is a bar or a block) \\
 Ctrl-S \emph{or} F2, Ctrl-O, Ctrl-Q & save, open (in a tab of its own), quit --- asking first about every file with unsaved changes \\
 Ctrl-N, Ctrl-W, F6, Shift-F6 & a new file, close this one, the next and the previous file \\
+\emph{File} $\rightarrow$ \emph{New project} & a folder with a \texttt{PROJECT.K4P} and a first file that compiles as it stands \\
 Ctrl-Z, Ctrl-Y & undo, redo, as far back as the session goes \\
 Ctrl-X, Ctrl-C, Ctrl-V & cut, copy, paste the line \\
 Ctrl-F, F3, Ctrl-R, Ctrl-G & find, find again, replace everywhere, go to a line \\
@@ -285,13 +286,40 @@ goes into the message list, where F4 walks it like errors. After Ctrl-F9
 the other open files are read back from the disk: a program may use the
 memory they wait in.
 
+\subsection*{Projects}
+A program in several files is a \emph{project}: a folder, and in it a
+\texttt{PROJECT.K4P} that names them, one \texttt{KEY=value} to a line:
+
+\begin{type}
+# GAME -- a PROG project
+NAME=GAME
+LANG=C
+SRC=GAME.C SPRITES.C SOUND.C
+\end{type}
+
+\noindent For Pascal it is \texttt{MAIN=GAME.PAS} instead of
+\texttt{SRC=} --- the units come in by \verb|uses|, from the same folder
+--- and \texttt{OUT=} names the program when \texttt{NAME} in lower case
+will not do. With a \texttt{PROJECT.K4P} beside the file in front, F9
+builds the project, whichever of its files you are in --- a header or a
+unit too --- and Ctrl-F9 runs the project's program; the files row starts
+with its name in brackets. \verb|PROG GAME/PROJECT.K4P| (or
+\emph{Open} on it) opens every source in a tab, and \emph{File}
+$\rightarrow$ \emph{New project} makes the folder, the project file and a
+first file that compiles as it stands. \verb|CC -p| and \verb|PAS -p|
+build a project from the prompt the same way.
+
+A C project compiles each source once and keeps what it made (on the
+Linux side, never in your folder): the next F9 compiles only the files
+that changed --- all of them if a \texttt{.H} beside them did --- and says
+so, \texttt{game.prg: 4211 bytes (1 compiled, 2 kept)}.
+
 \begin{aside}
-\textbf{Where it is going.} This is PROG's second stage. Next come
-projects --- a \texttt{PROJECT.K4P} naming a program's sources, so F9
-builds the program, not the file in front, and a C program can be several
-files --- then the mouse and selection, and last the interpreters:
-EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you,
-their errors in the same list.
+\textbf{Where it is going.} This is PROG's third stage. Next come the mouse
+and selection --- Shift and the arrows, the mouse to place the cursor, to
+open a menu, to pick a message --- and last the interpreters: EhBASIC,
+Microsoft BASIC, LOGO and Forth run on the file in front of you, their
+errors in the same list.
 \end{aside}
 
 \section{Editing from inside a BASIC}\label{sec:editfrombasic}

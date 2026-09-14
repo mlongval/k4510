@@ -42,7 +42,7 @@
 
 enum { C_NONE, C_OPEN, C_SAVE, C_SAVEAS, C_QUIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_FIND, C_NEXT, C_REPL, C_GOTO, C_MAKE, C_RUN, C_MNEXT, C_MPREV, C_RENUM, C_HELP, C_ABOUT,
-       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF };
+       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ };
 
 static uint8_t running = 1, eh, over, msgs_due = 1, kmod, kcode, wantx;
 static unsigned tgline = 0xFFFFu;        /* the line a run of typing is on: one undo for all of it */
@@ -51,6 +51,94 @@ static unsigned lasttop = 0xFFFF, lastcy = 0xFFFF, mtop;
 static char ibuf[NAMEMAX];               /* what a prompt is editing */
 static char gline[140];                  /* find in files' command line: BSS, where the ROM can read it */
 static uint8_t nameeq(const char *a, const char *b);
+
+/* ---- the project -----------------------------------------------------------
+ * PROG's stage 3 (Doc, 2026-09-14): a PROJECT.K4P beside the sources,
+ * KEY=value lines --
+ *     NAME=GAME        LANG=C or PAS        SRC=GAME.C UTIL.C (C: all of them)
+ *     MAIN=GAME.PAS    (Pascal: the program; its units come by `uses`)
+ *     OUT=game.prg     (or the NAME's, in lower case)
+ * When the file in front has one beside it, F9 builds the project, not the
+ * file (CC -p / PAS -p: tools/k4510-cc and k4510-pas), and Ctrl-F9 runs
+ * the project's program -- so F9 works from a header or a unit too. */
+#define PJRAW 0x0ED00000UL                   /* PROJECT.K4P as loaded (far memory nothing else uses) */
+static char pj_file[NAMEMAX], pj_dir[NAMEMAX], pj_for[NAMEMAX];
+static char pj_name[20], pj_lang[4], pj_main[26], pj_out[26], pj_src[90];
+static char pl[100];                         /* one line of it */
+static void pj_set(char *dst, uint8_t max, const char *v)
+{
+    uint8_t n = 0;
+    while (*v && n < max - 1) dst[n++] = *v++;
+    while (n && (dst[n - 1] == ' ' || dst[n - 1] == '\t')) n--;
+    dst[n] = 0;
+}
+static void pj_line(void)
+{
+    char *v = pl, key[8]; uint8_t k = 0;
+    while (*v == ' ' || *v == '\t') v++;
+    if (*v == '#' || !*v) return;
+    while (*v && *v != '=' && *v != ' ' && k < sizeof key - 1) key[k++] = (char)rn_up((uint8_t)*v++);
+    key[k] = 0;
+    while (*v == ' ') v++;
+    if (*v != '=') return;
+    v++;
+    while (*v == ' ' || *v == '\t') v++;
+    if (!memcmp(key, "NAME", 5)) pj_set(pj_name, sizeof pj_name, v);
+    else if (!memcmp(key, "LANG", 5)) pj_set(pj_lang, sizeof pj_lang, v);
+    else if (!memcmp(key, "MAIN", 5)) pj_set(pj_main, sizeof pj_main, v);
+    else if (!memcmp(key, "SRC", 4)) pj_set(pj_src, sizeof pj_src, v);
+    else if (!memcmp(key, "OUT", 4)) pj_set(pj_out, sizeof pj_out, v);
+}
+static uint8_t pj_scan(void)                         /* the project beside the file in front: 1 if there is one */
+{
+    const char *e, *s; uint8_t k = 0, n = 0; uint32_t l, off = 0; unsigned chunk, i;
+    static const char pjn[] = "PROJECT.K4P";
+    pj_name[0] = pj_lang[0] = pj_main[0] = pj_out[0] = pj_src[0] = 0;
+    e = base_of(name);
+    for (s = name; s < e && k < NAMEMAX - 13; ) pj_dir[k++] = *s++;
+    pj_dir[k] = 0;
+    for (i = 0; i < k; i++) pj_file[i] = pj_dir[i];
+    for (s = pjn; *s; ) pj_file[k++] = *s++;
+    pj_file[k] = 0;
+    zp16(0xF0, (uint16_t)pj_file); zp32(0xF2, PJRAW);
+    if (!name[0] || rom_load()) { pj_file[0] = 0; return 0; }
+    l = zpr32(0xF6);
+    while (off < l) {
+        chunk = (l - off) > 128 ? 128 : (unsigned)(l - off);
+        far_get(PJRAW + off, tmp, chunk);
+        for (i = 0; i < chunk; i++) {
+            if (tmp[i] == '\n') { pl[n] = 0; pj_line(); n = 0; }
+            else if (tmp[i] != '\r' && n < sizeof pl - 1) pl[n++] = (char)tmp[i];
+        }
+        off += chunk;
+    }
+    pl[n] = 0; pj_line();
+    if (!pj_name[0]) { e = pj_main[0] ? pj_main : pj_src; for (k = 0; e[k] && e[k] != '.' && e[k] != ' ' && k < sizeof pj_name - 1; k++) pj_name[k] = e[k]; pj_name[k] = 0; }
+    if (!pj_lang[0]) {                                /* from the main file's extension */
+        e = pj_main[0] ? pj_main : pj_src; s = 0;
+        for (; *e && *e != ' '; e++) if (*e == '.') s = e;
+        pj_set(pj_lang, sizeof pj_lang, (s && rn_up((uint8_t)s[1]) == 'P') ? "PAS" : "C");
+    }
+    return 1;
+}
+/* the project's build and run, for the engine's do_make and do_run; nothing
+ * set when there is no project, and the file's own way is used */
+static void pj_arm(void)
+{
+    const char *s; uint8_t i = 0, k;
+    ed_mkline[0] = ed_runname[0] = 0;
+    if (!pj_scan()) return;
+    for (s = rn_up((uint8_t)pj_lang[0]) == 'P' ? "PAS -p " : "CC -p "; *s; ) ed_mkline[i++] = *s++;
+    for (s = pj_file; *s && i < sizeof ed_mkline - 1; ) ed_mkline[i++] = *s++;
+    ed_mkline[i] = 0;
+    for (k = 0; pj_dir[k]; k++) ed_mkdir[k] = pj_dir[k];
+    ed_mkdir[k] = 0;
+    i = 0;
+    for (s = pj_dir; *s && i < sizeof ed_runname - 1; ) ed_runname[i++] = *s++;
+    if (pj_out[0]) { for (s = pj_out; *s && *s != '.' && i < sizeof ed_runname - 1; ) ed_runname[i++] = *s++; }
+    else for (s = pj_name; *s && i < sizeof ed_runname - 1; s++) ed_runname[i++] = (char)((*s >= 'A' && *s <= 'Z') ? *s + 32 : *s);
+    ed_runname[i] = 0;
+}
 
 /* ---- keys --------------------------------------------------------------- */
 static uint8_t key(void)
@@ -83,7 +171,7 @@ static void text_row(uint8_t r)
 
 static const char *const mtitle[] = { "File", "Edit", "Search", "Build", "Help" };
 struct item { const char *label, *keys; uint8_t cmd; };
-static const struct item m_file[]   = { { "New", "^N", C_NEW }, { "Open...", "^O", C_OPEN }, { "Save", "^S F2", C_SAVE }, { "Save as...", "", C_SAVEAS },
+static const struct item m_file[]   = { { "New", "^N", C_NEW }, { "New project...", "", C_NEWPROJ }, { "Open...", "^O", C_OPEN }, { "Save", "^S F2", C_SAVE }, { "Save as...", "", C_SAVEAS },
                                         { "Close", "^W", C_CLOSE }, { "Next file", "F6", C_NEXTF }, { "Previous file", "sh-F6", C_PREVF }, { "Quit", "^Q", C_QUIT }, { 0, 0, 0 } };
 static const struct item m_edit[]   = { { "Undo", "^Z", C_UNDO }, { "Redo", "^Y", C_REDO }, { "Cut line", "^X", C_CUT }, { "Copy line", "^C", C_COPY }, { "Paste", "^V", C_PASTE }, { 0, 0, 0 } };
 static const struct item m_search[] = { { "Find...", "^F", C_FIND }, { "Find next", "F3", C_NEXT }, { "Find in files...", "sh-^F", C_FINDF },
@@ -113,6 +201,7 @@ static void tabrow(void)                              /* the open files: the cur
 {
     uint8_t i, d; const char *nm;
     at(1, 0); clip = 1; sx = 0;
+    if (pj_name[0]) { put('['); say(pj_name); say("] "); }
     for (i = 0; i < ed_nbuf; i++) {
         nm = i == ed_cur ? name : ed_bufs[i].name;
         d = i == ed_cur ? dirty : ed_bufs[i].dirty;
@@ -183,6 +272,12 @@ static void draw(void)
 {
     uint8_t r, want;
     if (full || !nameeq(bandnm, name)) band_file();
+    if (!nameeq(pj_for, name)) {                      /* another file in front: its project, if it has one */
+        uint8_t i;
+        if (!pj_scan()) pj_name[0] = 0;
+        for (i = 0; name[i] && i < NAMEMAX - 1; i++) pj_for[i] = name[i];
+        pj_for[i] = 0;
+    }
     layout();
     if (cy < top) top = cy;
     while (cy >= top + eh) top++;
@@ -401,10 +496,89 @@ static uint8_t may_leave(void)                        /* 1 if the current text m
     if (k == 's') return save();
     return (uint8_t)(k == 'd');
 }
+/* a .K4P opens with its sources, each in a tab; the main one ends in front */
+static uint8_t is_k4p(const char *n)
+{
+    const char *d = 0;
+    for (; *n; n++) if (*n == '.') d = n;
+    return (uint8_t)(d && rn_up((uint8_t)d[1]) == 'K' && d[2] == '4' && rn_up((uint8_t)d[3]) == 'P' && !d[4]);
+}
+static void open_path(const char *nm)
+{
+    char p[NAMEMAX]; const char *s; uint8_t k, j;
+    if (!open_in_tab(nm) || !is_k4p(name) || !pj_scan()) return;
+    for (s = pj_src[0] ? pj_src : pj_main; *s; ) {
+        while (*s == ' ') s++;
+        if (!*s) break;
+        for (k = 0; pj_dir[k] && k < NAMEMAX - 1; k++) p[k] = pj_dir[k];
+        for (j = 0; s[j] && s[j] != ' ' && k < NAMEMAX - 1; j++) p[k++] = s[j];
+        p[k] = 0; s += j;
+        if (!open_in_tab(p)) break;
+    }
+}
 static void open_file(void)
 {
     ibuf[0] = 0;
-    if (prompt("Open: ", ibuf, NAMEMAX) && ibuf[0]) open_in_tab(ibuf);
+    if (prompt("Open: ", ibuf, NAMEMAX) && ibuf[0]) open_path(ibuf);
+    full = 1;
+}
+/* File > New project: a folder with a PROJECT.K4P and a first file that
+ * compiles as it stands -- C in HELLO.C's manner, or a Pascal program */
+static char tbuf[400];
+static unsigned tn;                          /* not a byte: past 255 it wrapped and wrote over the start (cc65 saw it) */
+static void tcat(const char *s) { while (*s && tn < sizeof tbuf - 1) tbuf[tn++] = *s++; tbuf[tn] = 0; }
+static uint8_t wfile(const char *path)              /* tbuf, written to path */
+{
+    far_put(tbuf, FLAT, tn);
+    zp16(0xF0, (uint16_t)path); zp32(0xF2, FLAT); zp32(0xF6, tn);
+    return (uint8_t)!rom_save();
+}
+static void new_project(void)
+{
+    char nm[17], path[NAMEMAX]; uint8_t i, k, pas; const char *s;
+    ibuf[0] = 0;
+    if (!prompt("New project -- its name (letters and digits): ", ibuf, 17) || !ibuf[0]) { full = 1; return; }
+    for (i = 0, k = 0; ibuf[i] && k < 16; i++) {
+        char c = (char)rn_up((uint8_t)ibuf[i]);
+        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_') nm[k++] = c;
+    }
+    nm[k] = 0;
+    if (!k) { note = "a project needs a name of letters and digits"; full = 1; return; }
+    k = ask("C or Pascal? C / P ");
+    if (k != 'c' && k != 'p') { full = 1; return; }
+    pas = (uint8_t)(k == 'p');
+    tn = 0; tcat("MKDIR "); tcat(nm);
+    for (i = 0; i <= tn; i++) gline[i] = tbuf[i];
+    rom_shell(gline);                                 /* an error if it is there already: then it is used as it is */
+    screen_back();
+    tn = 0;
+    tcat("# "); tcat(nm); tcat(" -- a PROG project.  F9 builds it from any of its files.\n");
+    tcat("NAME="); tcat(nm); tcat("\nLANG="); tcat(pas ? "PAS" : "C"); tcat("\n");
+    tcat(pas ? "MAIN=" : "SRC="); tcat(nm); tcat(pas ? ".PAS\n" : ".C\n");
+    k = 0; for (s = nm; *s; ) path[k++] = *s++;
+    for (s = "/PROJECT.K4P"; *s; ) path[k++] = *s++;
+    path[k] = 0;
+    if (!wfile(path)) { note = "the project file would not save"; full = 1; return; }
+    tn = 0;
+    if (pas) {
+        tcat("program "); tcat(nm); tcat(";\nbegin\n  writeln('Hello from "); tcat(nm); tcat(".');\nend.\n");
+    } else {
+        tcat("/* "); tcat(nm); tcat(" -- a C program for the K4510 */\n#include \"k4510.h\"\n\n");
+        tcat("void __fastcall__ rom_chrout(unsigned char c);\n\n");
+        tcat("static void print(const char *s) { while (*s) rom_chrout(*s++); }\n\n");
+        tcat("void main(void)\n{\n    print(\"Hello from "); tcat(nm); tcat(".\\n\");\n}\n");
+    }
+    k = 0; for (s = nm; *s; ) path[k++] = *s++;
+    path[k++] = '/';
+    for (s = nm; *s; ) path[k++] = *s++;
+    for (s = pas ? ".PAS" : ".C"; *s; ) path[k++] = *s++;
+    path[k] = 0;
+    if (!wfile(path)) { note = "the first file would not save"; full = 1; return; }
+    k = 0; for (s = nm; *s; ) path[k++] = *s++;
+    for (s = "/PROJECT.K4P"; *s; ) path[k++] = *s++;
+    path[k] = 0;
+    open_path(path);
+    nb_reset(); nb_s(nm); nb_s(pas ? ": a new Pascal project -- F9 builds it" : ": a new C project -- F9 builds it"); note = nbuf;
     full = 1;
 }
 static void close_tab(void)
@@ -571,6 +745,7 @@ static const char *const helptext[] = {
     "  Ctrl-X  Ctrl-C  Ctrl-V       cut, copy, paste the line",
     "  Ctrl-F  F3   find, again     Ctrl-R   replace        Ctrl-G   go to line",
     "  Shift-Ctrl-F find in files: every source file in this file's directory",
+    "  A PROJECT.K4P beside the file: F9 builds the project (File > New project)",
     "",
     "  F9           save what changed, compile this .C (CC) or .PAS (PAS)",
     "  Ctrl-F9      compile, then run it; a key comes back",
@@ -594,6 +769,7 @@ static void run_cmd(uint8_t c)
 {
     switch (c) {
     case C_NEW:    open_in_tab(""); break;
+    case C_NEWPROJ: new_project(); break;
     case C_OPEN:   open_file(); break;
     case C_SAVE:   save(); break;
     case C_SAVEAS: save_as(); break;
@@ -612,9 +788,9 @@ static void run_cmd(uint8_t c)
     case C_REPL:   replace(); break;
     case C_GOTO:   goto_line(); break;
     case C_MAKE:   if (!save_all()) { note = "a file would not save -- nothing compiled"; break; }
-                   do_make(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
+                   pj_arm(); do_make(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
     case C_RUN:    if (!save_all()) { note = "a file would not save -- nothing run"; break; }
-                   do_run(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
+                   pj_arm(); do_run(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; break;
     case C_MNEXT:  t_end(); if (!nerr) note = "no messages -- F9 compiles";
                    else if (ecur + 1 < nerr || ecur == 0xFFFFu) goto_msg(ecur + 1); else note = "no more messages";
                    break;
@@ -622,7 +798,7 @@ static void run_cmd(uint8_t c)
                    break;
     case C_RENUM:  t_end(); do_renum(""); break;
     case C_HELP:   help(); break;
-    case C_ABOUT:  note = "PROG, the K4510's programmer's front end -- stage 2: eight files, find in files"; break;
+    case C_ABOUT:  note = "PROG, the K4510's programmer's front end -- stage 3: projects"; break;
     }
     wantx = cx;
 }
@@ -752,6 +928,13 @@ void main(void)
     ed_rc_tabw();                                         /* VI's set ts=N, one tab width for both editors */
     load_file();
     fresh();
+    if (is_k4p(name)) {                                   /* PROG GAME/PROJECT.K4P: the project, sources and all */
+        char p[NAMEMAX]; uint8_t i;
+        for (i = 0; name[i]; i++) p[i] = name[i];
+        p[i] = 0;
+        name[0] = 0; nlines = 1; cy = 0; ln[0] = 0; line_out(0); dirty = 0;   /* an empty first tab, which open_path reuses */
+        open_path(p);
+    }
     if (!name[0]) note = "no file yet -- type, then ^S names it; ^O opens one, ^N a new one";
     REG(TERM + 4) = 1; REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
     while (running) {

@@ -8403,3 +8403,28 @@ Doc: "fix those three first, then stage 3".
 3. **VI loads at $2000**, PROG's layout (demo/vi.cfg): the engine's buffer
    code had left 1.3 KB above the stack; now the image ends at $8C95. VI is
    only started by the shell or by SWAP, so the move is invisible.
+
+## 2026-09-14 — PROG, stage 3: projects
+
+A PROJECT.K4P beside the sources, KEY=value lines: NAME, LANG (C, PAS),
+SRC (C: every source), MAIN (Pascal: the program; its units come by
+`uses`), OUT. When the file in front has one beside it, F9 builds the
+project and Ctrl-F9 runs its program -- so F9 works from a header or a
+unit, which no compiler takes alone. The engine grew two hooks for it
+(ed_mkline, ed_runname: "the front end's build, the front end's program";
+empty, the file's own way, as VI always does it); PROG sets them in
+pj_arm from the project it finds.
+
+`CC -p PROJECT.K4P` compiles each source to an object kept on the Linux
+side (~/.cache/k4510-cc/<dir>), again only when it, a .H beside it or
+k4510.h is newer, and links them: on p15, "2 compiled, 0 kept", then "0
+compiled, 2 kept", then after touching UTIL.C "1 compiled, 1 kept". The
+first draft checked the whole build's log for errors, so one bad file
+failed every file after it; each unit is judged on its own log now.
+`PAS -p` compiles MAIN= and names the program OUT= (a unit beside it and
+calc.prg: checked).
+
+PROG: the files row starts [NAME]; opening a .K4P (or `PROG GAME/
+PROJECT.K4P`) opens its sources in tabs; File > New project asks a name
+and C or Pascal, makes the folder, the PROJECT.K4P and a first file that
+compiles as it stands (C in HELLO.C's manner).

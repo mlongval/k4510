@@ -481,7 +481,12 @@ static const char errfile[] = "/SYSTEM/LOG/MAKE.ERR";
 static unsigned nerr, nwarn, ecur = 0xFFFFu; /* ecur + 1 is where :cn goes */
 static uint8_t ebuf[128];
 static char nbuf[96], info[64];
-static char ed_mkdir[NAMEMAX];               /* the directory the last MAKE.ERR's file names are in ("" = here) */
+static char ed_mkdir[NAMEMAX];
+/* A front end may say how to build and what to run, instead of "the
+ * compiler for this file, on this file" and "this file without its
+ * extension": PROG in a project folder -- "CC -p /GAME/PROJECT.K4P" and
+ * "/GAME/game".  Empty: the file's own way, as VI always does it. */
+static char ed_mkline[NAMEMAX + 12], ed_runname[NAMEMAX];               /* the directory the last MAKE.ERR's file names are in ("" = here) */
 static uint8_t nbn;
 /* rom_shell (k4510.h, $FF8F) runs the line, and the ROM copies it through
  * the CPU's view -- in which, during a system call, $A000-$CFFF is the
@@ -608,16 +613,21 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
 {
     char *c = shline; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
     if (!name[0]) { note = "make: the file has no name -- :w NAME first"; return 0; }
-    if (!tool)    { note = "make: no compiler for this file (.C, .PAS)"; return 0; }
+    if (!tool && !ed_mkline[0]) { note = "make: no compiler for this file (.C, .PAS)"; return 0; }
     save_file();
     if (note[0] != 'w') return 0;
-    for (s = tool; *s; ) c[i++] = *s++;
-    c[i++] = ' ';
-    for (s = name; *s && i < sizeof shline - 1; ) c[i++] = *s++;
-    c[i] = 0;
-    { const char *e = base_of(name); uint8_t k = 0;  /* the directory compiled in: MAKE.ERR's names are there */
-      for (s = name; s < e && k < NAMEMAX - 1; ) ed_mkdir[k++] = *s++;
-      ed_mkdir[k] = 0; }
+    if (ed_mkline[0]) {                              /* the front end's build: it has set ed_mkdir too */
+        for (s = ed_mkline; *s && i < sizeof shline - 1; ) c[i++] = *s++;
+        c[i] = 0;
+    } else {
+        for (s = tool; *s; ) c[i++] = *s++;
+        c[i++] = ' ';
+        for (s = name; *s && i < sizeof shline - 1; ) c[i++] = *s++;
+        c[i] = 0;
+        { const char *e = base_of(name); uint8_t k = 0;  /* the directory compiled in: MAKE.ERR's names are there */
+          for (s = name; s < e && k < NAMEMAX - 1; ) ed_mkdir[k++] = *s++;
+          ed_mkdir[k] = 0; }
+    }
     rc = rom_shell(c);
     screen_back();
     err_load();
@@ -637,9 +647,12 @@ static void do_run(void)
 {
     char *c = shline; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
     if (!do_make()) return;
-    for (s = name; *s; s++) if (*s == '.') dot = s;
     for (s = "SWAP -k "; *s; ) c[i++] = *s++;
-    for (s = name; *s && s != dot && i < sizeof shline - 1; ) c[i++] = *s++;
+    if (ed_runname[0]) for (s = ed_runname; *s && i < sizeof shline - 1; ) c[i++] = *s++;   /* the project's program */
+    else {
+        for (s = name; *s; s++) if (*s == '.') dot = s;
+        for (s = name; *s && s != dot && i < sizeof shline - 1; ) c[i++] = *s++;
+    }
     c[i] = 0;
     rc = rom_shell(c);
     at((uint8_t)(rows - 1), 0); sgr("7"); say(" -- a key returns -- "); sgr("0");

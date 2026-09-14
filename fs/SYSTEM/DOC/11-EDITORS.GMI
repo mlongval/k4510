@@ -31,12 +31,14 @@ Backspace         rub out to the left; at the start of a line, join it to the
 Delete            rub out under the cursor
 Ctrl-O or Ctrl-S  save
 Ctrl-X            leave -- twice on a changed file, to throw the changes away
+Ctrl-R            renumber a BASIC program: 10, 20, 30..., and every GOTO with
+                  it
 ```
 
 Accented letters type as themselves. The bar along the bottom carries the
-name, a * while there are unsaved changes, where the cursor is, and those last
-two keys, so there is nothing to remember. Long lines slide sideways rather
-than wrap.
+name, a * while there are unsaved changes, where the cursor is, and the keys
+to save and leave -- and Ctrl-R too, on a BASIC file -- so there is nothing to
+remember. Long lines slide sideways rather than wrap.
 
 ## VI
 
@@ -115,16 +117,18 @@ finds foo, and . * [ mean themselves.
 ### The command line
 
 ```
-Command            Does
-:w                 save
-:w name            save under another name
-:q                 leave -- refuses on a changed file
-:q!                leave anyway, changes lost
-:wq, :x            save and leave
-:s/old/new/        replace the first old on this line (/g: every one)
-:%s/old/new/g      the same on every line of the file
-:map keys result   define a key sequence, in normal mode
-:imap keys result  the same, in insert mode
+Command                    Does
+:w                         save
+:w name                    save under another name
+:q                         leave -- refuses on a changed file
+:q!                        leave anyway, changes lost
+:wq, :x                    save and leave
+:s/old/new/                replace the first old on this line (/g: every one)
+:%s/old/new/g              the same on every line of the file
+:map keys result           define a key sequence, in normal mode
+:imap keys result          the same, in insert mode
+:renum \[start \[step\]\]  renumber a BASIC program (10 and 10 unless told),
+                           and every GOTO with it; u puts it back
 ```
 
 The command word is read in either case, so :Q and :WQ work with the caps lock
@@ -181,6 +185,16 @@ LOGO).
 => 05-MSBASIC.GMI Chapter 5, Microsoft BASIC, 1977
 => 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
 => 08-LOGO.GMI Chapter 8, LOGO
+
+To renumber it, which none of those BASICs could do for itself, use :renum in
+VI or Ctrl-R in EDIT. Both know the language from the file: a .BAS is
+EhBASIC's or Microsoft's, a .BBC is BBC BASIC's, with its ELSE targets and its
+lower-case variables (a goto there is a name, not a jump). The lines' own
+numbers change, and so does every target after GOTO, GOSUB, THEN, RESTORE and
+ON...GOTO; strings, REM and DATA are left alone. A GOTO to a line that does
+not exist is kept as it is and counted in the message, and a program whose
+numbers are out of order is refused, not guessed at. LOGO has no line numbers,
+and says so.
 
 To edit any other file, put SWAP in front:
 

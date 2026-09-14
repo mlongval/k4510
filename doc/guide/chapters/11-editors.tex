@@ -32,14 +32,16 @@ Backspace & rub out to the left; at the start of a line, join it to the one abov
 Delete & rub out under the cursor \\
 Ctrl-O \emph{or} Ctrl-S & save \\
 Ctrl-X & leave --- twice on a changed file, to throw the changes away \\
+Ctrl-R & renumber a BASIC program: 10, 20, 30\ldots, and every \texttt{GOTO} with it \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 Accented letters type as themselves. The bar along the bottom carries
 the name, a \verb|*| while there are
-unsaved changes, where the cursor is, and those last two keys, so there is
-nothing to remember. Long lines slide sideways rather than wrap.
+unsaved changes, where the cursor is, and the keys to save and leave ---
+and Ctrl-R too, on a BASIC file --- so there is nothing to remember. Long
+lines slide sideways rather than wrap.
 
 \section{VI}
 \verb|VI name| is modal in the old way. In \emph{normal} mode the keys
@@ -148,6 +150,7 @@ deliberate, and so is the plain-substring search: \verb|/foo| finds
 \texttt{:\%s/}\emph{old}\texttt{/}\emph{new}\texttt{/g} & the same on every line of the file \\
 \texttt{:map} \emph{keys} \emph{result} & define a key sequence, in normal mode \\
 \texttt{:imap} \emph{keys} \emph{result} & the same, in insert mode \\
+\texttt{:renum} [\emph{start} [\emph{step}]] & renumber a BASIC program (10 and 10 unless told), and every \texttt{GOTO} with it; \texttt{u} puts it back \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -208,6 +211,18 @@ Section~\ref{sec:basicvi} has the details for EhBASIC; Microsoft BASIC
 does the same with \verb|*VI| (Chapter~\ref{cha:msbasic}), BBC BASIC with
 \verb|*VI| and \verb|*EDIT| (Chapter~\ref{cha:tube}), and LOGO with
 \verb|EDIT "name| (Chapter~\ref{cha:logo}).
+
+\textbf{To renumber it}, which none of those BASICs could do for itself,
+use \verb|:renum| in VI or Ctrl-R in EDIT. Both know the language from the
+file: a \texttt{.BAS} is EhBASIC's or Microsoft's, a \texttt{.BBC} is BBC
+BASIC's, with its \verb|ELSE| targets and its lower-case variables (a
+\texttt{goto} there is a name, not a jump). The lines' own numbers change,
+and so does every target after \verb|GOTO|, \verb|GOSUB|, \verb|THEN|,
+\verb|RESTORE| and \verb|ON|\ldots\verb|GOTO|; strings, \verb|REM| and
+\verb|DATA| are left alone. A \verb|GOTO| to a line that does not exist is
+kept as it is and counted in the message, and a program whose numbers are
+out of order is refused, not guessed at. LOGO has no line numbers, and says
+so.
 
 \textbf{To edit any other file}, put \verb|SWAP| in front:
 

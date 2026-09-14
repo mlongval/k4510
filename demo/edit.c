@@ -10,6 +10,7 @@
  *   arrows Home End PgUp PgDn   move        Enter        split the line
  *   Backspace Delete           rub out      printable    insert
  *   Ctrl-O / Ctrl-S            save         Ctrl-X       leave
+ *   Ctrl-R                     renumber a BASIC file (.BAS .BBC): 10, 20, 30 and its GOTOs
  */
 #include "k4510.h"
 
@@ -70,6 +71,16 @@ static void closeup(unsigned at_, unsigned n)
     len -= n;
 }
 
+/* renum's table of old line numbers, out in far memory (demo/renum.h) */
+#define RNTAB  0x0EA00000UL
+#define RNOUT  0x0E800000UL                 /* the renumbered text, streamed out, then copied back */
+static unsigned rn_t;
+static void rn_tab_put(unsigned i, unsigned v) { rn_t = v; dma_copy((uint32_t)(uint16_t)&rn_t, RNTAB + ((uint32_t)i << 1), 2); }
+static unsigned rn_tab_get(unsigned i) { dma_copy(RNTAB + ((uint32_t)i << 1), (uint32_t)(uint16_t)&rn_t, 2); return rn_t; }
+#define RN_TAB_PUT rn_tab_put
+#define RN_TAB_GET rn_tab_get
+#include "renum.h"
+
 /* ---- drawing ------------------------------------------------------------ */
 static unsigned line_no(void)
 {
@@ -114,7 +125,8 @@ status:
     if (dirty) say(" *");
     say("  line "); num(line_no()); say(" col "); num((unsigned)ccol + 1);
     if (*msg) { say("   "); say(msg); }              /* the message earns the room over the hints */
-    else say("   ^O save  ^X exit");
+    else { uint8_t lang = rn_lang_of(name);
+           say(lang == RN_MS || lang == RN_BBC ? "   ^O save  ^X exit  ^R renum" : "   ^O save  ^X exit"); }
     clip = 0;
     eeol();                                          /* fill to the edge and no further: printing cols
                                                         spaces here overran the last line and scrolled
@@ -148,6 +160,48 @@ static void save_file(void)
     st = rom_save();
     if (st) msg = "NOT saved";
     else { msg = "saved"; dirty = 0; }
+}
+
+/* ---- Ctrl-R: renumber a BASIC file -----------------------------------------
+ * 10, 20, 30 and every GOTO with them.  The new text streams out to far
+ * memory a line at a time and comes back in one copy, so a long program
+ * costs one pass, not a shuffle of the whole buffer per line.  Nothing
+ * changes unless all of it fits. */
+static uint8_t rtmp[256], rbuf[256];
+static uint8_t rn_take(unsigned o, unsigned e)          /* the line [o,e) as a length-prefixed copy */
+{
+    unsigned j;
+    if (e - o > 255) return 0;
+    rtmp[0] = (uint8_t)(e - o);
+    for (j = 0; j < e - o; j++) rtmp[j + 1] = (uint8_t)BUF[o + j];
+    return 1;
+}
+static void do_renum(void)
+{
+    unsigned o, e, off = 0, cl, j; uint8_t cc;
+    const char *m;
+    rn_begin();
+    for (o = 0; o < len; o = e < len ? e + 1 : len) {
+        e = eol(o);
+        if (!rn_take(o, e)) { msg = "renum: a line is over 255 characters"; return; }
+        rn_scan(rtmp);
+    }
+    m = rn_check(rn_lang_of(name), 10, 10);
+    if (m) { msg = m; return; }
+    for (o = 0; o < len; o = e < len ? e + 1 : len) {
+        e = eol(o); rn_take(o, e);
+        if (!rn_line(rtmp, rbuf) || off + rbuf[0] + 1 > BUFMAX) { msg = "renum: it would not fit"; return; }
+        if (rbuf[0]) dma_copy((uint32_t)(uint16_t)(rbuf + 1), RNOUT + off, rbuf[0]);
+        off += rbuf[0];
+        if (e < len) { dma_fill('\n', RNOUT + off, 1); off++; }
+    }
+    cl = line_no() - 1; cc = (uint8_t)(cur - bol(cur));  /* the cursor stays on its line */
+    if (off) dma_copy(RNOUT, (uint32_t)(uint16_t)BUF, off);
+    len = off;
+    for (cur = 0, j = 0; j < cl; j++) cur = nextl(cur);
+    e = eol(cur); cur = cur + cc > e ? e : cur + cc;
+    top = 0; full = 1; dirty = 1;
+    msg = rn_report();
 }
 
 /* ---- keys --------------------------------------------------------------- */
@@ -198,6 +252,7 @@ void main(void)
         case 0x08: if (cur) { if (BUF[cur - 1] == '\n') full = 1; cur--; closeup(cur, 1); dirty = 1; } break;
         case 0x89: if (cur < len) { if (BUF[cur] == '\n') full = 1; closeup(cur, 1); dirty = 1; } break;   /* delete */
         case 0x0F: case 0x13: save_file(); break;                  /* Ctrl-O, Ctrl-S */
+        case 0x12: do_renum(); break;                              /* Ctrl-R */
         case 0x18:                                                 /* Ctrl-X */
             if (dirty && !quitp) { quitp = 1; msg = "MODIFIED -- ^X again to discard, ^O to save"; }
             else running = 0;

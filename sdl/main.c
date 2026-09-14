@@ -531,7 +531,7 @@ static void line_begin(void)
 }
 /* The status bands carry two things the machine itself does not know (Doc,
  * 2026-09-14): at the left of the top band, what is running -- the title
- * stack core/io.c keeps, "K/OS > EhBASIC PROG.BAS > VI EDITTMP.BAS" -- and at
+ * stack core/io.c keeps, "EhBASIC PROG.BAS > VI EDITTMP.BAS" -- and at
  * the left of the bottom band, the keys typed through the key pipe.  Drawn
  * into the finished frame, not into the machine's memory, in the machine's
  * own font and each band's own colours (read from the band's first cell), so

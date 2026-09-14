@@ -50,12 +50,16 @@ Both draw through JIM, the VT100 in hardware ([Chapter 6, The Tube: BBC BASIC](0
 <td style="text-align: left;">Ctrl-X</td>
 <td style="text-align: left;">leave — twice on a changed file, to throw the changes away</td>
 </tr>
+<tr class="odd">
+<td style="text-align: left;">Ctrl-R</td>
+<td style="text-align: left;">renumber a BASIC program: 10, 20, 30…, and every <code>GOTO</code> with it</td>
+</tr>
 </tbody>
 </table>
 
 </div>
 
-Accented letters type as themselves. The bar along the bottom carries the name, a `*` while there are unsaved changes, where the cursor is, and those last two keys, so there is nothing to remember. Long lines slide sideways rather than wrap.
+Accented letters type as themselves. The bar along the bottom carries the name, a `*` while there are unsaved changes, where the cursor is, and the keys to save and leave — and Ctrl-R too, on a BASIC file — so there is nothing to remember. Long lines slide sideways rather than wrap.
 
 ## VI
 
@@ -316,6 +320,10 @@ Operators take any motion — `d2w` deletes two words, `y$` yanks to the end of 
 <td style="text-align: left;"><code>:imap</code> <em>keys</em> <em>result</em></td>
 <td style="text-align: left;">the same, in insert mode</td>
 </tr>
+<tr class="even">
+<td style="text-align: left;"><code>:renum</code> [<em>start</em> [<em>step</em>]]</td>
+<td style="text-align: left;">renumber a BASIC program (10 and 10 unless told), and every <code>GOTO</code> with it; <code>u</code> puts it back</td>
+</tr>
 </tbody>
 </table>
 
@@ -343,6 +351,8 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 There are two cases, and they look alike, so here is the rule.
 
 **To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; Microsoft BASIC does the same with `*VI` ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)), BBC BASIC with `*VI` and `*EDIT` ([Chapter 6, The Tube: BBC BASIC](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 8, LOGO](08-logo.md)).
+
+**To renumber it**, which none of those BASICs could do for itself, use `:renum` in VI or Ctrl-R in EDIT. Both know the language from the file: a `.BAS` is EhBASIC’s or Microsoft’s, a `.BBC` is BBC BASIC’s, with its `ELSE` targets and its lower-case variables (a `goto` there is a name, not a jump). The lines’ own numbers change, and so does every target after `GOTO`, `GOSUB`, `THEN`, `RESTORE` and `ON`…`GOTO`; strings, `REM` and `DATA` are left alone. A `GOTO` to a line that does not exist is kept as it is and counted in the message, and a program whose numbers are out of order is refused, not guessed at. LOGO has no line numbers, and says so.
 
 **To edit any other file**, put `SWAP` in front:
 

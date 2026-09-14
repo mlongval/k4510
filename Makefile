@@ -58,6 +58,9 @@ rom/kernal.bin: rom/kernal.c rom/crt0.s rom/k4510.cfg
 
 test/seqtest: test/seqtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
+test/renumtest: test/renumtest.c demo/renum.h    # VI's :renum and EDIT's Ctrl-R, on the host
+	$(CC) $(CFLAGS) -o $@ test/renumtest.c
 test/statetest: test/statetest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -156,8 +159,9 @@ check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.pr
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
+	./test/renumtest
 	./test/woztest
 	./test/maptest
 	./test/banktest

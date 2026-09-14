@@ -8176,3 +8176,35 @@ Plain `K4510;` is unchanged, so CP/M never sees a stray ^F.
 Tested off the machine first: the pty bbcbasic, fed `*VI`, a line
 appended to EDITTMP.BBC and a 0x06 through a pipe, LISTs and RUNs the
 edited program.
+
+## 2026-09-14 — the title starts where the work is, and the editors renumber
+
+Doc: "fix the title order too. Once inside a program like BBCBasic or
+EhBasic should the top band stop showing K/OS and just show BBC Basic > VI
+(to avoid needlessly long lines)" -- and "*VI and *EDIT could use a nice
+renum command for the programming language that launched it (context
+aware)".
+
+**Title.** The Tube's program was appended after the whole stack, so a
+*VI from BBC BASIC read "K/OS > VI EDITTMP.BBC > BBC BASIC". The emulator
+now remembers the stack depth the Tube program started at and puts its
+name there. K/OS is named only when nothing runs on top of it: "BBC BASIC
+> VI EDITTMP.BBC", "EhBASIC PROG.BAS > VI EDITTMP.BAS".
+
+**Renumber.** demo/renum.h, shared by VI (`:renum [start [step]]`, one
+undo group) and EDIT (Ctrl-R, 10 by 10, streamed through far memory and
+copied back in one go), and tested on the host by test/renumtest (part of
+`make test`). The language is the file's: .BAS is EhBASIC or MS BASIC --
+keywords anywhere, either case, as their tokenisers see them -- and .BBC
+is BBC BASIC, with ELSE targets, upper-case keywords only and never inside
+a name (a `goto` there is a variable). Targets after GOTO GOSUB THEN
+RESTORE (ELSE) and ON...GOTO lists; strings, REM and DATA untouched; a
+target naming no line is kept and counted; numbers out of order are
+refused; the new numbers must stay under 63999 (65279 in BBC). A dry run
+first, so nothing changes unless every line fits in 255 characters.
+LOGO has no line numbers and says so. VI and EDIT each grew about 5 KB
+(cc65's long arithmetic comes with the limit check); both still end far
+below $D000.
+
+An LSP server on the Linux side was Doc's other thought; none knows these
+dialects, and the editors run on the machine, not on Linux.

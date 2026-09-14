@@ -324,8 +324,8 @@ static void fs_write_span(FILE *f, uint32_t addr, uint32_t len)
  * Doc, 2026-09-14: the top band's left should say "K/OS for the shell,
  * EhBasic for Ehbasic ... and also reflect the basic file being edited ...
  * and if we are in *VI or *EDIT mode".  A stack of entries, a program and
- * the file it has, drawn by the frontend as "K/OS > EhBASIC PROG.BAS > VI
- * EDITTMP.BAS" (sdl/main.c bands_overlay).  The ROM says WHEN -- SYS+$41: 1
+ * the file it has, drawn by the frontend as "EhBASIC PROG.BAS > VI
+ * EDITTMP.BAS" (sdl/main.c bands_overlay; K/OS only at the prompt).  The ROM says WHEN -- SYS+$41: 1
  * as it runs a program, 2 when it comes back, 4 at its cold start -- and
  * this file says WHAT: the .prg the file device loaded last is the name the
  * next push takes, and a file of a known kind that the program at the top
@@ -337,6 +337,7 @@ static struct { char prog[24]; char file[40]; } title_stack[TITLE_DEPTH] = { { "
 static int title_depth = 1;
 static char title_next[24];
 static int tube_prog_now;                             /* the Tube program started last, while it lives (io_title) */
+static int tube_prog_at = 1;                          /* the stack depth it started at: its name goes after that entry */
 static void title_cmd(uint8_t c)
 {
     if (c == 1) {                                     /* a program starts: its name, as the file device saw it load */
@@ -1638,22 +1639,29 @@ static uint8_t io_read_inner(uint16_t addr)
     }
 }
 
-/* the title as the top band shows it: "K/OS > EhBASIC PROG.BAS > VI ...",
- * and the Tube's program while it runs -- asked of the Tube, not stacked,
- * because a `!ls` ends by itself and nothing would pop it */
+/* the title as the top band shows it: "EhBASIC PROG.BAS > VI ...", and
+ * the Tube's program while it runs -- asked of the Tube, not stacked,
+ * because a `!ls` ends by itself and nothing would pop it -- in the place
+ * it started from, so a *VI from BBC BASIC reads "BBC BASIC > VI ...".
+ * K/OS is named only when nothing runs on top of it: Doc, 2026-09-14,
+ * "once inside a program ... just show BBC Basic > VI (to avoid needlessly
+ * long lines)". */
 const char *io_title(void)
 {
     static char buf[256];
     static const char *const tube_names[] = { "", "BBC BASIC", "", "CP/M", "Linux", "chess engine" };
+    int tube = tube_prog_now > 0 && tube_prog_now <= 5 && (tube_status() & 1);
     size_t n = 0;
     buf[0] = 0;
     for (int i = 0; i < title_depth; i++) {
-        n += (size_t) snprintf(buf + n, sizeof buf - n, "%s%s%s%s", i ? " > " : "", title_stack[i].prog,
-                               title_stack[i].file[0] ? " " : "", title_stack[i].file);
-        if (n >= sizeof buf) { n = sizeof buf - 1; break; }
+        if (i || (title_depth == 1 && !tube)) {
+            n += (size_t) snprintf(buf + n, sizeof buf - n, "%s%s%s%s", n ? " > " : "", title_stack[i].prog,
+                                   title_stack[i].file[0] ? " " : "", title_stack[i].file);
+            if (n >= sizeof buf) { n = sizeof buf - 1; break; }
+        }
+        if (tube && i == tube_prog_at - 1 && n < sizeof buf - 20)
+            n += (size_t) snprintf(buf + n, sizeof buf - n, "%s%s", n ? " > " : "", tube_names[tube_prog_now]);
     }
-    if (tube_prog_now > 0 && tube_prog_now <= 5 && (tube_status() & 1) && n < sizeof buf - 20)
-        snprintf(buf + n, sizeof buf - n, " > %s", tube_names[tube_prog_now]);
     return buf;
 }
 void io_write(uint16_t addr, uint8_t v)
@@ -1695,7 +1703,7 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) { tube_start(v); tube_prog_now = v; } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) { tube_start(v); tube_prog_now = v; tube_prog_at = title_depth; } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
         if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
         if ((addr & 0xFF) == 8) tube_rows = v;
         if ((addr & 0xFF) == 9) tube_cols = v;

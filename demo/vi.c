@@ -26,6 +26,7 @@
  *   ex       :w :q :q! :wq :x
  *            :s/old/new/[g]  :%s/old/new/[g]
  *            :map lhs rhs    :imap lhs rhs      (:imap jk <Esc>)
+ *            :renum [start [step]]   a BASIC file: its lines and GOTOs (u undoes)
  *   insert  Esc leaves; Backspace, Enter, printable
  */
 #include "k4510.h"
@@ -625,6 +626,51 @@ static void do_join(unsigned n)                 /* J: pull the next line onto th
     u_end(); line_in(cy); dirty = 1;
 }
 
+/* ---- renumber ------------------------------------------------------------
+ * :renum [start [step]] -- demo/renum.h does the BASIC; the lines are ours.
+ * The table of old numbers lives in far memory like everything else, and
+ * the change is one undo group, so u puts every number back. */
+#define RNTAB 0x0EA00000UL                  /* renum's table: each numbered line's old number */
+static unsigned rn_t;
+static void rn_tab_put(unsigned i, unsigned v) { rn_t = v; far_put(&rn_t, RNTAB + ((uint32_t)i << 1), 2); }
+static unsigned rn_tab_get(unsigned i) { far_get(RNTAB + ((uint32_t)i << 1), &rn_t, 2); return rn_t; }
+#define RN_TAB_PUT rn_tab_put
+#define RN_TAB_GET rn_tab_get
+#include "renum.h"
+static uint8_t rbuf[256];
+static unsigned rn_arg(const char **c, unsigned dflt)
+{
+    unsigned v = 0; uint8_t any = 0;
+    while (**c == ' ') (*c)++;
+    while (**c >= '0' && **c <= '9') { v = v * 10 + (unsigned)(**c - '0'); (*c)++; any = 1; }
+    return any ? v : dflt;
+}
+static void do_renum(const char *c)
+{
+    unsigned l, j, start, step; uint8_t same;
+    start = rn_arg(&c, 10); step = rn_arg(&c, 10);
+    line_out(cy);
+    rn_begin();
+    for (l = 0; l < nlines; l++) { far_get(SLOT(l), tmp, 256); rn_scan(tmp); }
+    note = rn_check(rn_lang_of(name), start, step);
+    if (note) { line_in(cy); return; }
+    for (l = 0; l < nlines; l++) {                 /* a dry run first: nothing changes unless all of it can */
+        far_get(SLOT(l), tmp, 256);
+        if (!rn_line(tmp, rbuf)) { note = "renum: a line would pass 255 characters"; line_in(cy); return; }
+    }
+    rn_rewind(); u_begin();
+    for (l = 0; l < nlines; l++) {
+        far_get(SLOT(l), tmp, 256); rn_line(tmp, rbuf);
+        same = (uint8_t)(rbuf[0] == tmp[0]);
+        for (j = 1; same && j <= tmp[0]; j++) if (rbuf[j] != tmp[j]) same = 0;
+        if (!same) { u_push(1, l, tmp); far_put(rbuf, SLOT(l), 256); dirty = 1; }
+    }
+    u_end(); line_in(cy);
+    if (cx > ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
+    full = 1;
+    note = rn_report();
+}
+
 static void do_cmd(void)
 {
     uint8_t i = 0, w = 0, q = 0;
@@ -638,6 +684,8 @@ static void do_cmd(void)
     if (cmd[0] == 's' || (cmd[0] == '%' && cmd[1] == 's')) { do_sub(cmd); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (cmd[0] == 'm' && cmd[1] == 'a' && cmd[2] == 'p') { do_map(cmd + 3, 0); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (cmd[0] == 'i' && cmd[1] == 'm' && cmd[2] == 'a' && cmd[3] == 'p') { do_map(cmd + 4, 1); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
+    if (rn_up((uint8_t)cmd[0]) == 'R' && rn_up((uint8_t)cmd[1]) == 'E' && rn_up((uint8_t)cmd[2]) == 'N' && rn_up((uint8_t)cmd[3]) == 'U' && rn_up((uint8_t)cmd[4]) == 'M') {
+        do_renum(cmd + 5); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     /* The command word only, and either case: ":w quiz" used to quit (the q
      * in the NAME), and with caps lock on ":Q" did nothing at all -- a way
      * into the editor with no way out (Doc, 2026-09-12, from MS BASIC). */

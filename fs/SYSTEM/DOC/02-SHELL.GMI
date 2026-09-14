@@ -251,9 +251,11 @@ program's, and a program that wants it writes there through JIM; BANDS in
 
 At its left, the top band says what is running: K/OS at the prompt, EhBASIC
 INVADER2.BAS once a program is loaded, and EhBASIC PROG.BAS > VI EDITTMP.BAS
-while *VI has it -- a trail of who started whom, with the file each one has
-open, LOGO's .LGO, BOOK's page and CP/M or the Linux prompt on the Tube
-included. And while somebody types into the machine from another computer
+while *VI has it, and BBC BASIC > VI EDITTMP.BBC from the Tube -- a trail of
+who started whom, with the file each one has open, LOGO's .LGO, BOOK's page
+and CP/M or the Linux prompt on the Tube included. K/OS is named only at the
+prompt: once something runs on top of it, the trail starts there, and the line
+stays short. And while somebody types into the machine from another computer
 (Chapter 13, The Linux Underneath), the keys they send show at the left of the
 bottom band. Programs that take the whole screen -- the games, the editors --
 get the whole screen anyway: the bands are part of the console, and the

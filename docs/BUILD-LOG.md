@@ -8096,3 +8096,9 @@ it), given to SDL_SetWindowMouseRect, and enforced as well by warping a
 motion that got out back to the edge -- KMSDRM draws its own cursor and
 need not honour the rect.  The touchpad's warp clamps to it too.
 Headless cannot move a pointer: the proof is on the Dell.
+
+The pointer on the Dell (Doc): kept on the picture once inside it, into the
+side panel only when there is one, and following the placement -- but it
+STARTED in the top-left corner, outside the picture: the clamp acted only on
+motion.  Now, whenever the area is set or changes and the pointer is outside
+it, it is warped to the area's middle.

@@ -1698,6 +1698,13 @@ tex_done:
               if (confine_on != last_on || memcmp(&wr, &last, sizeof wr)) {
                   SDL_SetWindowMouseRect(win, confine_on ? &wr : NULL);
                   last = wr; last_on = confine_on;
+                  /* the pointer starts where the video driver put it -- the
+                   * top-left corner, outside the picture (the Dell, 2026-09-14)
+                   * -- and the clamp above only acts on motion: bring it in now,
+                   * to the middle, whenever the area is set or changes */
+                  if (confine_on) { int mx, my; SDL_GetMouseState(&mx, &my);
+                      if (mx < wr.x || my < wr.y || mx >= wr.x + wr.w || my >= wr.y + wr.h)
+                          SDL_WarpMouseInWindow(win, wr.x + wr.w / 2, wr.y + wr.h / 2); }
               } } }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
           if (!btex || btex_scan != scan_applied || btex_col != bcol || btex_smooth != smooth_applied) {

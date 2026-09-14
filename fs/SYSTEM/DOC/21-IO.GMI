@@ -45,14 +45,19 @@ MOVE 10,07     the text on: rows 26-29 are text
 END              and again from the top, next frame
 ```
 
-Each instruction is four bytes -- the operation (1 WAIT, 2 MOVE, 0 END), then
-its operands -- and the list is anywhere in memory, a 28-bit address in
-$D060-$D063, started by 1 in $D064. A MOVE is exactly a write by the CPU, so
-any VICKY register can change mid-frame: the mode, the scroll, a layer, the
-palette. Two rules: line numbers count the glass, 0-479, whatever the mode (in
-a 240-line mode each line is drawn twice, so split on an even one); and
-nothing turns SHEILA off after a program, so a program that turns it on turns
-it off when it leaves.
+With the status bands up, the split has three parts rather than two: the text
+layer stays on at line 0 for the top band, the bitmap takes over at the band's
+end, and the text comes back for the last four rows and the bottom band --
+eight instructions. SPLIT reads where those lines fall from the console itself
+($DA06, its rows, and $DA08, the rows above it), so it is right with the bands
+up or down. Each instruction is four bytes -- the operation (1 WAIT, 2 MOVE, 0
+END), then its operands -- and the list is anywhere in memory, a 28-bit
+address in $D060-$D063, started by 1 in $D064. A MOVE is exactly a write by
+the CPU, so any VICKY register can change mid-frame: the mode, the scroll, a
+layer, the palette. Two rules: line numbers count the glass, 0-479, whatever
+the mode (in a 240-line mode each line is drawn twice, so split on an even
+one); and nothing turns SHEILA off after a program, so a program that turns it
+on turns it off when it leaves.
 
 => IMG/SPLIT.PIC SPLIT
 

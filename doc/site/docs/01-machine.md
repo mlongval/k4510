@@ -124,7 +124,7 @@ Audio
 volume.
 
 Input  
-the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture; the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 13, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.
+the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture (full screen, the pointer stays on the machine’s picture, and goes into the side panel only when there is one); the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 13, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.
 
 Machine  
 *save state* and *load state*, four slots each (the whole machine — CPU, every used page of the 256 MB, VICKY, the devices, JIM — to `k4510-slotN.k4s` beside the settings file; the Tube co-processor is not in the file and is stopped by a load); reset; power cycle; stop the Tube; quit; *CPU clock* — the steps, live, 60 MHz at the most for now; choosing one switches *Auto clock* off, because a clock chosen by hand is not to be second-guessed. *Auto clock* on uses what `SETUP` measured on this host. On the K4510’s own Linux there is a last row, *Shut down the computer*.

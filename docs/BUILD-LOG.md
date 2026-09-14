@@ -8071,3 +8071,28 @@ to lift.  settings_first() is where the menu's list and stepping start;
 a saved or measured clock above it is clamped down; and the machine sees
 a ladder that starts there -- SYS+$27 is 6, SYS+$23 counts from 60 --
 so SETUP and BENCH cannot choose above it either.  mkref.py follows it.
+
+## 2026-09-14 — SPLIT with the status bands up; the pointer kept on the machine
+
+**SPLIT on the Dell** ran with the status bands up, and three of its four
+text lines fell outside the band: the demos assumed the plain 80x30
+console (rows 26-29, the split at glass line 416).  All three now read the
+console's window from JIM ($DA06 rows, $DA08 rows above) and the row height
+from VICKY CTRL (16 glass lines at 640x240, 8 at 640x480), and the list
+became three parts -- text for the top band, the bitmap, text for the last
+four rows and the bottom band, eight instructions -- so the top band's
+clock is not hidden either.  Checked with the bands up and down.  Speeds
+at 40.5 MHz, bands up: C 4205, EhBASIC 332, MS BASIC 122 (bands down:
+7355 / 329 / 143).  Open: why C is slower with the bands up, and why the
+Dell's 6387 at 60 MHz is below 7400 x 60/40.5.
+
+**The pointer** (Doc: "limit mouse to k4510 screen only ... it can however
+go into side bars if the processor info sidebar is present").  Full screen
+only -- a desktop window must never trap it -- which on the K4510 Linux is
+always.  The rectangle is worked out where the picture is placed, in window
+coordinates (the logical canvas through SDL_RenderLogicalToWindow; placed,
+the device rectangle scaled; the whole screen when the side panel shares
+it), given to SDL_SetWindowMouseRect, and enforced as well by warping a
+motion that got out back to the edge -- KMSDRM draws its own cursor and
+need not honour the rect.  The touchpad's warp clamps to it too.
+Headless cannot move a pointer: the proof is on the Dell.

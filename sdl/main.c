@@ -383,6 +383,26 @@ static int geo_k = 1, geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
 static int to_machine(int v, int full) { int m = (v / geo_k - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
+/* The pointer stays on the machine (Doc, 2026-09-14: "limit mouse to k4510
+ * screen only ... it doesnt go into sidebars, or above or below active screen
+ * ... it can however go into side bars if the processor info sidebar is
+ * present").  Full screen only -- a window on a desktop must never trap the
+ * pointer -- which on the K4510 Linux is always.  confine_r is in WINDOW
+ * coordinates (SDL_GetMouseState's), worked out where the picture is placed:
+ * the canvas, or the whole screen when the side panel shares it.  Two
+ * mechanisms, because SDL_SetWindowMouseRect is not honoured by every video
+ * driver (KMSDRM draws its own cursor): SDL's rect where it works, and a warp
+ * back to the edge on any motion that got out anyway. */
+static int confine_on; static SDL_Rect confine_r;
+static int confine_clamp(int *x, int *y)          /* 1 if (x,y) was outside and has been brought to the edge */
+{
+    int cx = *x, cy = *y;
+    if (!confine_on) return 0;
+    if (cx < confine_r.x) cx = confine_r.x; else if (cx >= confine_r.x + confine_r.w) cx = confine_r.x + confine_r.w - 1;
+    if (cy < confine_r.y) cy = confine_r.y; else if (cy >= confine_r.y + confine_r.h) cy = confine_r.y + confine_r.h - 1;
+    if (cx == *x && cy == *y) return 0;
+    *x = cx; *y = cy; return 1;
+}
 /* The touchpad on the bare K4510 Linux (Doc's Dell, 2026-09-11: trackpoint
  * fine, touchpad dead).  With no compositor SDL reads evdev itself, and a
  * touchpad is an absolute multitouch device, so SDL reports FINGERS, not
@@ -404,6 +424,7 @@ static void touchpad_event(const SDL_Event *e, SDL_Window *win)
             int mx, my; SDL_GetMouseState(&mx, &my);
             mx += (int)(dx + (dx < 0 ? -0.5f : 0.5f)); my += (int)(dy + (dy < 0 ? -0.5f : 0.5f));
             if (mx < 0) mx = 0; if (my < 0) my = 0; if (mx >= ww) mx = ww - 1; if (my >= wh) my = wh - 1;
+            confine_clamp(&mx, &my);                                    /* and on the machine's picture, full screen */
             SDL_WarpMouseInWindow(win, mx, my);
         }
         break; }
@@ -1001,6 +1022,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) grab(0);   /* alt-tab always frees the pointer */
                 break;
             case SDL_MOUSEMOTION:
+                if (confine_on && !SDL_GetRelativeMouseMode()) {        /* off the picture: back to its edge; the warp's own event follows */
+                    int wx, wy; SDL_GetMouseState(&wx, &wy);
+                    if (confine_clamp(&wx, &wy)) { SDL_WarpMouseInWindow(win, wx, wy); break; }
+                }
                 mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), VICKY_WIDTH); mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), VICKY_HEIGHT);
                 dx_acc += (int)(e.motion.xrel / (geo_k * geo_s)); dy_acc += (int)(e.motion.yrel / (geo_k * geo_s));
                 mouse_to_menu(); break;
@@ -1651,6 +1676,29 @@ tex_done:
               logical_custom = custom; logical_tall = tall;
               SDL_RenderSetLogicalSize(ren, custom ? 0 : lw, custom ? 0 : canvas_h);
           }
+          /* where the pointer may go, full screen (confine_clamp, above): the
+           * canvas in window coordinates -- or all of it when the side panel
+           * shares the screen, which is the one place off the picture it may go */
+          { SDL_Rect wr = { 0, 0, 0, 0 }; int want = fullscreen_applied || io_host_kind;
+            if (want) {
+                int ww = 0, wh = 0; SDL_GetWindowSize(win, &ww, &wh);
+                if (custom) {
+                    int x0 = pic_x, y0 = pic_y, x1 = pic_x + pic_w, y1 = pic_y + pic_h;
+                    if (panel_kind != PANEL_OFF && cow - pic_w >= 64) { x0 = 0; y0 = 0; x1 = cow; y1 = coh; }
+                    wr.x = x0 * ww / cow; wr.y = y0 * wh / coh; wr.w = (x1 - x0) * ww / cow; wr.h = (y1 - y0) * wh / coh;
+                } else {
+                    int x0, y0, x1, y1;
+                    SDL_RenderLogicalToWindow(ren, 0.0f, 0.0f, &x0, &y0);
+                    SDL_RenderLogicalToWindow(ren, (float) lw, (float) canvas_h, &x1, &y1);
+                    wr.x = x0; wr.y = y0; wr.w = x1 - x0; wr.h = y1 - y0;
+                }
+            }
+            { static SDL_Rect last; static int last_on = -1;
+              confine_on = want && wr.w > 0 && wr.h > 0; confine_r = wr;
+              if (confine_on != last_on || memcmp(&wr, &last, sizeof wr)) {
+                  SDL_SetWindowMouseRect(win, confine_on ? &wr : NULL);
+                  last = wr; last_on = confine_on;
+              } } }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
           if (!btex || btex_scan != scan_applied || btex_col != bcol || btex_smooth != smooth_applied) {
               if (btex) SDL_DestroyTexture(btex);

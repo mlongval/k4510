@@ -300,7 +300,9 @@ zp_out: sta zp_a
         dex
         bpl @b
         lda zp_a
-        rts
+        ldx #0                  ; X = 0: the loop left $FF, and a C program that calls a
+        rts                     ; byte-returning entry through a cast tests A|X -- every
+                                ; VI, EDIT, CHESS, SETUP save read as failed (2026-09-14)
         .bss
 zp_a:   .res 1
 prog_addr: .res 2

@@ -48,9 +48,14 @@
 
 void __fastcall__ rom_chrout(unsigned char c);
 unsigned char rom_getin(void);
-static unsigned char rom_args(void) { return ((unsigned char (*)(void))0xFF95)(); }
-static unsigned char rom_load(void) { return ((unsigned char (*)(void))0xFF89)(); }
-static unsigned char rom_save(void) { return ((unsigned char (*)(void))0xFF8C)(); }
+/* The ROM's calls give a byte in A and leave X as $FF (crt0.s zp_out's loop
+ * ends there).  A C function returning unsigned char through a cast is
+ * tested as A|X by cc65, so every save read as a failure: VI said "not
+ * saved" after each good write and never cleared [+] (found 2026-09-14,
+ * when :make trusted it).  Called as int, and cut to the byte: X is gone. */
+static unsigned char rom_args(void) { return (unsigned char)(((unsigned (*)(void))0xFF95)() & 0xFF); }
+static unsigned char rom_load(void) { return (unsigned char)(((unsigned (*)(void))0xFF89)() & 0xFF); }
+static unsigned char rom_save(void) { return (unsigned char)(((unsigned (*)(void))0xFF8C)() & 0xFF); }
 static void rom_video(void) { ((void (*)(void))0xFF92)(); }
 static void zp16(uint8_t a, uint16_t v) { REG(a) = v; REG(a + 1) = v >> 8; }
 static void zp32(uint8_t a, uint32_t v) { REG(a)=v; REG(a+1)=v>>8; REG(a+2)=v>>16; REG(a+3)=v>>24; }

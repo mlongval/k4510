@@ -8250,3 +8250,16 @@ where the C stack starts ($D000, growing down). demo/vi.cfg puts VI's
 variables at $0800, which a program owns and VI never used: BSS
 $0800-$1065, code to $C6C6, 2.3 KB of stack. Caught in the map before it
 shipped.
+
+**An old bug :make uncovered: every save said "not saved".** On the Dell
+:make stopped at "not saved" -- yet MKTEST.C was on the disk, 46 bytes.
+The VI shipped this morning did the same under this morning's ROM, so it
+was not new. cc65 compiles `rom_save() ? "not saved" : "written"` as
+`jsr _rom_save / stx tmp1 / ora tmp1 / beq`: A|X. The ROM's system calls
+return a byte in A and leave X at $FF (crt0.s zp_out's loop ends there),
+so every good save read as a failure, [+] was never cleared, and :q after
+:w refused. Eighteen programs call the ROM through the same casts -- EDIT,
+CHESS, SETUP, BUG, BENCH, BOOK and LODE test save or load results that
+way. Fixed once, in the ROM: zp_out ends `ldx #0` (rom_pop keeps X). The
+VI of this morning, unchanged, now says "written". VI also masks its own
+calls to the byte, so it does not depend on it.

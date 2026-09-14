@@ -1,0 +1,34 @@
+# test/remote/prog2.k4r -- PROG with two files: an error inside a header
+# takes PROG to the header's tab; find in files (from the Search menu -- the
+# key pipe has no Shift+Ctrl) lists what it found and goes to it; ^Q.
+#     tools/k4510-remote run test/remote/prog2.k4r
+key esc
+type CD /HOME\n
+type RM -f PGA.C\n
+type RM -f PGH.H\n
+wait 1
+type PROG PGH.H\n
+expect "PGH.H" 10
+type int h(int x) { return x + ; }\n
+type \x13
+type \x0fPGA.C\n
+expect "PGA.C" 5
+type #include "PGH.H"\nvoid main(void)\n{\n    h(1);\n}\n
+key f9
+expect "error 1 of" 30
+shot prog2-header-error
+type \x18int h(int x) { return x + 1; }\n
+type \x13
+key f6
+key f9
+expect "pga.prg:" 30
+key f10
+key right right
+expect "Find in files" 5
+key down down enter
+expect "Find in files:" 5
+type return\n
+expect "found 1 of 1" 30
+shot prog2-found
+type \x11
+expect "/HOME]" 10

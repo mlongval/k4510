@@ -8356,3 +8356,30 @@ The test caught one: VI's command handler tests for :s/old/new/ before
 anything else, and "set ts=2" begins with an s -- a substitute with e for
 its delimiter. :set is checked first now. Headless: default Tab gives four
 spaces, :set ts=2 two, VI.RC's set ts=2 two in VI and in PROG.
+
+## 2026-09-14 — PROG, stage 2: eight files, messages across them, find in files
+
+**Buffers** (demo/ed.h): a table of up to eight files; the current one is
+the engine's globals, the rest wait in ed_bufs with their own far memory,
+so switching copies a record, never the text. PROG gives file n 8 MB at
+$04000000 + n * 8 MB -- lines in the first 4 MB (16384; MAXLINES is a
+variable now, VI keeps 32000), undo from +6 MB. Checked first: nothing on
+the machine uses $01000000-$0BFFFFFF (BOOK is at $0C, SPLIT $0D, VI and
+SWAP $0E-$0F; the $01..$02 hits in the source were BBC BASIC's ARM
+assembler opcodes, not addresses).
+
+**PROG**: a row of the open files under the menu bar; ^N ^O (a tab of
+its own, or the one already holding the file) ^W, F6 / Shift-F6; ^Q asks
+about every changed file. F9 saves every changed file before compiling --
+the compilers read the disk. After ^F9 the other files are read back:
+SWAP keeps the 64 KB, not the far memory they wait in.
+
+**Messages name their file** (the list entry's bytes 102-127) and
+do_make remembers the directory it compiled in, so an error in a unit or
+a header opens that file at the line. **Find in files** (Shift-Ctrl-F,
+Search menu): tools/k4510-grep writes MAKE.ERR in the same one-line form,
+kind F ("found"), so the message pane and F4 serve it unchanged.
+
+VI grew with the engine (the buffer code is compiled in though VI never
+calls it): its code now ends at $CADA, 1.3 KB above a 1 KB stack. Room
+enough, but the next VI growth should move it to load lower, as PROG does.

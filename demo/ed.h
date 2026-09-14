@@ -21,10 +21,11 @@
 #define UNDO   ed_undo                    /* the journal: 512 bytes an entry, header + one slot */
 #define USLOT(n) (UNDO + ((uint32_t)(n) << 9))
 #define UNDOMAX 3000u
-#define MAXLINES 32000u
+#define MAXLINES ed_maxlines                /* VI 32000; PROG 16384, a file in 4 MB */
 #define REGMAX  2000u
 #define NAMEMAX 64
 static uint32_t ed_slots = 0x0E000000UL, ed_undo = 0x0F000000UL;   /* VI's places, as they always were */
+static unsigned ed_maxlines = 32000u;
 
 void __fastcall__ rom_chrout(unsigned char c);
 unsigned char rom_getin(void);
@@ -480,6 +481,7 @@ static const char errfile[] = "/SYSTEM/LOG/MAKE.ERR";
 static unsigned nerr, nwarn, ecur = 0xFFFFu; /* ecur + 1 is where :cn goes */
 static uint8_t ebuf[128];
 static char nbuf[96], info[64];
+static char ed_mkdir[NAMEMAX];               /* the directory the last MAKE.ERR's file names are in ("" = here) */
 static uint8_t nbn;
 /* rom_shell (k4510.h, $FF8F) runs the line, and the ROM copies it through
  * the CPU's view -- in which, during a system call, $A000-$CFFF is the
@@ -517,13 +519,17 @@ static void err_add(const uint8_t *l)               /* one line of MAKE.ERR, l[0
     v = digits(l, f[0] + 1, f[1]);
     ebuf[0] = (uint8_t)v; ebuf[1] = (uint8_t)(v >> 8);
     ebuf[2] = (uint8_t)digits(l, f[1] + 1, f[2]);
-    ebuf[3] = l[f[2] + 1] == 'W' ? 'W' : 'E';
+    ebuf[3] = l[f[2] + 1] == 'W' ? 'W' : l[f[2] + 1] == 'F' ? 'F' : 'E';   /* F: found (PROG's find in files) */
     ebuf[4] = (uint8_t)(l[1] != '-' && is_this_file(l + 1, f[0] - 1));
     if (!ebuf[4] && l[1] != '-')                     /* another file: say which */
-        for (i = 1; i < f[1] && t < 100; i++) ebuf[6 + t++] = (i == f[0]) ? ':' : l[i];
+        for (i = 1; i < f[1] && t < 60; i++) ebuf[6 + t++] = (i == f[0]) ? ':' : l[i];
     if (!ebuf[4] && l[1] != '-') { ebuf[6 + t++] = ':'; ebuf[6 + t++] = ' '; }
-    for (i = f[3] + 1; i <= l[0] && t < 122; i++) ebuf[6 + t++] = l[i];
+    for (i = f[3] + 1; i <= l[0] && t < 94; i++) ebuf[6 + t++] = l[i];
     ebuf[5] = (uint8_t)t;
+    k = (uint8_t)(l[1] == '-' ? 0 : f[0] - 1);       /* [102] the file's name length, [103..127] the name: */
+    if (k > 25) k = 0;                                /* where PROG goes for a message about another file */
+    ebuf[102] = (uint8_t)k;
+    for (i = 0; i < k; i++) ebuf[103 + i] = l[1 + i];
     if (ebuf[3] == 'W') nwarn++;
     far_put(ebuf, ERRTAB + ((uint32_t)nerr << 7), 128);
     nerr++;
@@ -588,6 +594,9 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
     c[i++] = ' ';
     for (s = name; *s && i < sizeof shline - 1; ) c[i++] = *s++;
     c[i] = 0;
+    { const char *e = base_of(name); uint8_t k = 0;  /* the directory compiled in: MAKE.ERR's names are there */
+      for (s = name; s < e && k < NAMEMAX - 1; ) ed_mkdir[k++] = *s++;
+      ed_mkdir[k] = 0; }
     rc = rom_shell(c);
     screen_back();
     err_load();
@@ -626,4 +635,32 @@ static void do_run(void)
     dirty = 0;
     if (rc) { nb_reset(); nb_s("run: rc "); nb_n(rc); nb_s(" (from inside a SWAP? leave the editor and run it)"); note = nbuf; }
     else note = "ran it; the file is as saved";
+}
+
+/* ---- buffers ---------------------------------------------------------------
+ * PROG's tabs: up to NBUF files open, one current.  The current file is the
+ * globals above; the others wait in ed_bufs, each with its own far memory
+ * (its lines at .slots, its undo at .undo) -- so switching is a copy of a
+ * few words and a line, not of the text.  VI has one file and never calls
+ * these. */
+#define NBUF 8
+struct edbuf { char name[NAMEMAX]; uint32_t slots, undo; unsigned nlines, cy, top, ujp, ujn; uint8_t cx, dirty, useq; };
+static struct edbuf ed_bufs[NBUF];
+static uint8_t ed_cur, ed_nbuf = 1;
+static void ed_buf_store(void)                        /* the current file into its record */
+{
+    struct edbuf *b = &ed_bufs[ed_cur];
+    line_out(cy); u_end();
+    memcpy(b->name, name, NAMEMAX);
+    b->slots = ed_slots; b->undo = ed_undo; b->nlines = nlines; b->cy = cy; b->top = top;
+    b->ujp = ujp; b->ujn = ujn; b->cx = cx; b->dirty = dirty; b->useq = useq;
+}
+static void ed_buf_fetch(uint8_t i)                   /* file i becomes the current one */
+{
+    struct edbuf *b = &ed_bufs[i];
+    ed_cur = i;
+    memcpy(name, b->name, NAMEMAX);
+    ed_slots = b->slots; ed_undo = b->undo; nlines = b->nlines; cy = b->cy; top = b->top;
+    ujp = b->ujp; ujn = b->ujn; cx = b->cx; dirty = b->dirty; useq = b->useq;
+    line_in(cy); full = 1;
 }

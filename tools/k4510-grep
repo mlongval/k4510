@@ -1,0 +1,32 @@
+#!/bin/sh
+# k4510-grep DIR PATTERN...   find a text in the source files of one directory
+#
+# PROG's "find in files" (Shift-Ctrl-F): it runs `!k4510-grep DIR 'text'`
+# and reads what this finds from /SYSTEM/LOG/MAKE.ERR, in the one form every
+# compiler's messages are put into there (tools/k4510-errfmt):
+#
+#     FILE:LINE:COL:F:the line          F: found, not an error
+#     -:0:0:I:3 found in /LANG/C        the last line: what was searched
+#
+# so PROG's message pane lists them and F4 walks them like errors.  DIR is
+# a machine path (/LANG/C) under K4510_ROOT, or empty for here.  The text is
+# plain, not a pattern, and case matters, as in PROG's own Find.  The files:
+# .C .H .PAS .BAS .BBC .LGO .RX .TXT .S -- any case.
+set -u
+[ $# -ge 2 ] || { echo "usage: k4510-grep DIR TEXT" >&2; exit 2; }
+dir=$1; shift; pat=$*
+ERR=
+[ -n "${K4510_ROOT:-}" ] && [ -d "$K4510_ROOT/SYSTEM/LOG" ] && ERR=$K4510_ROOT/SYSTEM/LOG/MAKE.ERR
+host=$dir
+case "$dir" in /*) [ -n "${K4510_ROOT:-}" ] && host=$K4510_ROOT$dir ;; "") host=. ;; esac
+[ -d "$host" ] || { echo "k4510-grep: $dir: no such directory" >&2; [ -n "$ERR" ] && echo "-:0:0:E:k4510-grep: $dir: no such directory" > "$ERR"; exit 1; }
+out=$(cd "$host" && find . -maxdepth 1 -type f \( -iname '*.c' -o -iname '*.h' -o -iname '*.pas' -o -iname '*.bas' \
+        -o -iname '*.bbc' -o -iname '*.lgo' -o -iname '*.rx' -o -iname '*.txt' -o -iname '*.s' \) -print | sort |
+      while IFS= read -r f; do
+          PAT=$pat awk -v f="${f#./}" '{ c = index($0, ENVIRON["PAT"]); if (c) { t = $0; gsub(/\r/, "", t); sub(/^[ \t]+/, "", t); print f ":" NR ":" c ":F:" substr(t, 1, 100) } }' "$f"
+      done)
+n=$(printf '%s' "$out" | grep -c . )
+[ -n "$ERR" ] && { [ -n "$out" ] && printf '%s\n' "$out"; echo "-:0:0:I:$n found for \"$pat\" in ${dir:-here}"; } > "$ERR"
+printf '%s\n' "$out" | awk -F: 'NF >= 5 { t = $0; sub(/^[^:]*:[^:]*:[^:]*:[^:]*:/, "", t); print $1 ":" $2 ": " t }'
+echo "$n found"
+exit 0

@@ -407,27 +407,35 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Ctrl-S <em>or</em> F2, Ctrl-O, Ctrl-Q</td>
-<td style="text-align: left;">save, open, quit — asking first about unsaved changes</td>
+<td style="text-align: left;">save, open (in a tab of its own), quit — asking first about every file with unsaved changes</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;">Ctrl-N, Ctrl-W, F6, Shift-F6</td>
+<td style="text-align: left;">a new file, close this one, the next and the previous file</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">Ctrl-Z, Ctrl-Y</td>
 <td style="text-align: left;">undo, redo, as far back as the session goes</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">Ctrl-X, Ctrl-C, Ctrl-V</td>
 <td style="text-align: left;">cut, copy, paste the line</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">Ctrl-F, F3, Ctrl-R, Ctrl-G</td>
 <td style="text-align: left;">find, find again, replace everywhere, go to a line</td>
 </tr>
+<tr class="odd">
+<td style="text-align: left;">Shift-Ctrl-F</td>
+<td style="text-align: left;">find in files: every source file in this file’s directory, into the message list</td>
+</tr>
 <tr class="even">
 <td style="text-align: left;">F9, Ctrl-F9</td>
-<td style="text-align: left;">compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it</td>
+<td style="text-align: left;">save every changed file, compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">F4, Shift-F4</td>
-<td style="text-align: left;">the next, the previous compiler message</td>
+<td style="text-align: left;">the next, the previous message — one about another file opens it</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">F10, F1</td>
@@ -440,8 +448,10 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 
 The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.ERR`: an error in the file on screen takes the cursor to its line (and column, from Mad Pascal); one in another file — a unit, a header — is listed with that file’s name. A `}` typed on a line of its own goes back a level. F7 and F8 stay the machine’s (the menu, pause), so PROG leaves them alone; Ctrl-H is Backspace on this keyboard, which is why replace is Ctrl-R.
 
+Up to eight files are open at once, in the row under the menu bar — the one in front lit, a `*` on each with unsaved changes. F9 saves every changed file before it compiles, because the compilers read the disk: a unit edited in another tab is what `PAS` sees. An error in another file — a unit, a header — opens that file (or brings its tab forward) at the line. Find in files (Shift-Ctrl-F, or *Search*) looks through every source file in the directory of the file in front, and what it finds goes into the message list, where F4 walks it like errors. After Ctrl-F9 the other open files are read back from the disk: a program may use the memory they wait in.
+
 !!! note ""
-    **Where it is going.** This is PROG’s first stage: one file at a time. Next come tabs — several files open, and a message about another file opening it — then projects (a `PROJECT.K4P` naming the sources, for a C program in several files), the mouse and selection, and last the interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
+    **Where it is going.** This is PROG’s second stage. Next come projects — a `PROJECT.K4P` naming a program’s sources, so F9 builds the program, not the file in front, and a C program can be several files — then the mouse and selection, and last the interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
 
 ## Editing from inside a BASIC
 

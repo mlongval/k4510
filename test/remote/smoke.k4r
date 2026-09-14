@@ -1,0 +1,10 @@
+# test/remote/smoke.k4r -- a K4510 on another computer, after a deploy:
+#     tools/k4510-remote run test/remote/smoke.k4r
+# The prompt answers, BOOK opens its contents, Esc comes back to the prompt.
+# (k4510-remote: type / key / expect TEXT [secs] / wait S / shot NAME / screen)
+type BOOK\n
+expect "The K4510 User's and Programmer's Guide" 15
+shot book-contents
+key esc
+expect "/HOME]" 10
+screen

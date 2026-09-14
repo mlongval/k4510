@@ -699,10 +699,15 @@ static unsigned nerr, nwarn, ecur = 0xFFFFu; /* ecur + 1 is where :cn goes */
 static uint8_t ebuf[128];
 static char nbuf[96], info[64];
 static uint8_t nbn;
-/* rom_shell (k4510.h, $FF8F) runs the line.  The line must not be in
- * $A000-$BFFF, where the ROM maps its own banks during the call, and VI's
- * variables are up there now: callers pass a buffer on the C stack, which
- * starts at $D000 and grows down. */
+/* rom_shell (k4510.h, $FF8F) runs the line, and the ROM copies it through
+ * the CPU's view -- in which, during a system call, $A000-$CFFF is the
+ * ROM's (blocks 5-7), not ours.  VI's code, constants and C stack are all
+ * up there, so a line built on the stack read as ROM bytes, and the shell
+ * refused it (rc 1, no compile: found on the Dell, 2026-09-14).  The lines
+ * are built in shline, which is BSS, which vi.cfg puts at $0800.  (Names
+ * for LOAD and SAVE may live anywhere: the file device reads physical
+ * memory, not the CPU's view.) */
+static char shline[NAMEMAX + 16];
 
 static void nb_reset(void) { nbn = 0; nbuf[0] = 0; }
 static void nb_s(const char *s) { while (*s && nbn < sizeof nbuf - 1) nbuf[nbn++] = *s++; nbuf[nbn] = 0; }
@@ -777,6 +782,7 @@ static void err_go(unsigned i)                       /* to entry i: its line and
 }
 static void screen_back(void)                        /* after a command has drawn over us */
 {
+    REG(TERM + 4) = 1;                               /* JIM's attributes too: an error in red left all of VI red */
     REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
     curshape = 0; full = 1; lasttop = 0xFFFF; lastcy = 0xFFFF;
 }
@@ -791,14 +797,14 @@ static const char *compiler(void)                    /* the machine's word for t
 }
 static uint8_t do_make(void)                         /* 1 if it compiled without an error */
 {
-    char c[NAMEMAX + 8]; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
+    char *c = shline; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
     if (!name[0]) { note = "make: the file has no name -- :w NAME first"; return 0; }
     if (!tool)    { note = "make: no compiler for this file (.C, .PAS)"; return 0; }
     save_file();
     if (note[0] != 'w') return 0;
     for (s = tool; *s; ) c[i++] = *s++;
     c[i++] = ' ';
-    for (s = name; *s && i < sizeof c - 1; ) c[i++] = *s++;
+    for (s = name; *s && i < sizeof shline - 1; ) c[i++] = *s++;
     c[i] = 0;
     rc = rom_shell(c);
     screen_back();
@@ -817,11 +823,11 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
 }
 static void do_run(void)
 {
-    char c[NAMEMAX + 12]; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
+    char *c = shline; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
     if (!do_make()) return;
     for (s = name; *s; s++) if (*s == '.') dot = s;
     for (s = "SWAP -k "; *s; ) c[i++] = *s++;
-    for (s = name; *s && s != dot && i < sizeof c - 1; ) c[i++] = *s++;
+    for (s = name; *s && s != dot && i < sizeof shline - 1; ) c[i++] = *s++;
     c[i] = 0;
     rc = rom_shell(c);
     at((uint8_t)(rows - 1), 0); sgr("7"); say(" -- a key returns to VI -- "); sgr("0");

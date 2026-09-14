@@ -8263,3 +8263,27 @@ CHESS, SETUP, BUG, BENCH, BOOK and LODE test save or load results that
 way. Fixed once, in the ROM: zp_out ends `ldx #0` (rom_pop keeps X). The
 VI of this morning, unchanged, now says "written". VI also masks its own
 calls to the byte, so it does not depend on it.
+
+## 2026-09-14 — braces, and :make from inside VI
+
+Doc: "we have a curly braces problem on the k4510 the {} are showing on
+screen as lateral T shapes (left and right)". The Dell wears PXLfont. Every
+C64-derived font (open-roms, PXLfont and the twelve local ZX Origins) was
+baked by tools/mkcp437font.py with petscii_to_ascii's old look-alikes: {
+and } were the box tees, ~ the box line, ^ the up-arrow, ` the
+apostrophe. Its own docstring promised those from the reference font; the
+mapping table said otherwise. Now they are, and $7F is CP437's house,
+not a box line. The two shipped fonts were patched in place and checked
+byte for byte against a regeneration from their vendored ROMs. (The ZX
+Origins .bins are not in the repo -- the licence forbids re-hosting -- so
+they were patched here only; regenerating them gives the same.)
+
+**:make from VI refused, rc 1, no compile.** CC typed at the prompt worked
+on the Dell; from VI the Tube never started. rom_shell's line is copied by
+the ROM through the CPU's view, and during a system call $A000-$CFFF is
+the ROM's (blocks 5-7) -- VI had built the line on its C stack, just under
+$D000, so the ROM read its own bytes and rejected them. The line is built
+in BSS now, which vi.cfg keeps at $0800. (LOAD and SAVE names are safe
+anywhere: the file device reads physical memory.) Headless, this showed
+as the same "rc 1 -- nothing in MAKE.ERR", which I first put down to the
+capture's speed; the Dell showed that was wrong.

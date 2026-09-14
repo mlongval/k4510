@@ -30,15 +30,17 @@ def convert(cg, ref, swap=False):
         elif c <= 0x5A: gi = c
         elif c == 0x5B: gi = 0x1B
         elif c == 0x5D: gi = 0x1D
-        elif c == 0x5C: gi = None            # backslash: not in a C64 set -> reference
-        elif c == 0x5E: gi = 0x1E
+        # Not in a C64 set, so from the reference: backslash, and the four
+        # that petscii_to_ascii used to fake with look-alikes -- ^ as the
+        # up-arrow, ` as ', { } as the box tees |- -| and ~ as the box line.
+        # In C and Pascal those are code, not decoration: every brace in a
+        # .C drew as a tee (Doc, 2026-09-14: "the {} are showing on screen
+        # as lateral T shapes").  | stays the box vertical: it is a bar.
+        elif c in (0x5C, 0x5E, 0x60, 0x7B, 0x7D, 0x7E): gi = None
         elif c == 0x5F: gi = 0x64
-        elif c == 0x60: gi = 0x27
         elif c <= 0x7A: gi = c - 0x60
-        elif c == 0x7B: gi = 0x73
         elif c == 0x7C: gi = 0x5D
-        elif c == 0x7D: gi = 0x6B
-        else: gi = 0x40
+        else: gi = None
         if gi is not None: out[c*8:c*8+8] = g(gi)
     box = [(0xC4,0x40),(0xB3,0x5D),(0xDA,0x70),(0xBF,0x6E),(0xC0,0x6D),(0xD9,0x7D),
            (0xC3,0x6B),(0xB4,0x73),(0xC5,0x5B),(0xC1,0x71),(0xC2,0x72),(0xDB,0xE0),

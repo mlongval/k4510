@@ -1,0 +1,27 @@
+# test/remote/bbcvi.k4r -- BBC BASIC's bare *VI: the program goes to VI,
+# a line is added there, and LOAD brings it back.
+#     tools/k4510-remote run test/remote/bbcvi.k4r
+# The letters go in their real case: with Caps Lock on in the machine
+# they arrive inverted and BBC BASIC answers "Mistake".
+key esc
+type CD /LANG/BBCBASIC\n
+type BBC\n
+expect "*QUIT returns" 10
+type NEW\n
+type 10 PRINT "VI ROUND TRIP"\n
+type *VI\n
+expect "EDITTMP.BBC" 10
+shot bbc-vi-in
+type Go20 PRINT "BACK FROM VI"
+key esc
+type :wq\n
+expect "LOAD" 10
+type LIST\n
+expect "BACK FROM VI" 10
+type RUN\n
+expect "ROUND TRIP" 5
+shot bbc-vi-back
+type *QUIT\n
+wait 1
+type CD /HOME\n
+expect "/HOME]" 10

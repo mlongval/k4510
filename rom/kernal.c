@@ -938,8 +938,11 @@ hex:
 static void video_init(void);
 static const char *modename(uint8_t m)
 {
-    static const char *const mn[8] = { "640x480", "640x240", "320x240", "320x200", "160x200", "1440x1080", "720x540", "360x270" };
-    return mn[m & 7];
+    /* A chain, not a table of pointers: with --local-strings the literals stay
+     * beside the code, and a table's pointers pointed where the sideways bank
+     * was not (the Dell, 2026-09-14: MODE printed garbage for 5-7). */
+    return m == 0 ? "640x480" : m == 1 ? "640x240" : m == 2 ? "320x240" : m == 3 ? "320x200" : m == 4 ? "160x200"
+         : m == 5 ? "1440x1080" : m == 6 ? "720x540" : "360x270";
 }
 static void cmd_mode(const char *p)
 {

@@ -1,0 +1,17 @@
+# test/remote/tab.k4r -- Tab in VI puts spaces to the next stop (4 unless
+# VI.RC says set ts=N), never a tab character.
+#     tools/k4510-remote run test/remote/tab.k4r
+key esc
+type CD /HOME\n
+type RM -f TABT.C\n
+wait 1
+type VI TABT.C\n
+expect "TABT.C" 10
+type i
+key tab
+type x
+key esc
+type :wq\n
+expect "/HOME]" 10
+type TYPE TABT.C\n
+expect "    x" 5

@@ -10,3 +10,7 @@ imap kj <Esc>
 " write and quit from the home row
 map ,w :w
 map ,q :q
+
+" Tab puts spaces to the next stop, never a tab character: the width,
+" 1 to 16, for VI and PROG alike (typed in VI it is :set ts=2)
+set ts=4

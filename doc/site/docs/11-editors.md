@@ -340,6 +340,10 @@ Operators take any motion — `d2w` deletes two words, `y$` yanks to the end of 
 <td style="text-align: left;"><code>:cc</code> <em>n</em>, <code>:cl</code></td>
 <td style="text-align: left;">message <em>n</em>; the whole list</td>
 </tr>
+<tr class="odd">
+<td style="text-align: left;"><code>:set ts=</code><em>n</em></td>
+<td style="text-align: left;">Tab’s width: it puts spaces to the next stop, never a tab character (4 unless told; <code>set ts=2</code> in VI.RC keeps it, for PROG too)</td>
+</tr>
 </tbody>
 </table>
 
@@ -395,7 +399,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Enter, Tab</td>
-<td style="text-align: left;">a new line that keeps the indent; to the next multiple of four</td>
+<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <code>set ts=</code> in VI.RC)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Insert</td>

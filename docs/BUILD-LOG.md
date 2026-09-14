@@ -8339,3 +8339,20 @@ edge and then sent its colour-off escape with clip still on, so the clip
 ate most of it and the next erase came out as text, the next row left
 reversed. Clip off before the escape, there and in the open menu.
 k4510-remote ideas now says "none yet" when /BRAINSHOTS does not exist.
+
+## 2026-09-14 — Tab puts spaces, and VI.RC says how many
+
+Doc: "the TAB key does not work in VI, I would like it to insert 2 or 4
+spaces, not TAB characters. (and be configurable ... VI config file or F7
+you tell me which is best)". VI.RC: F7 is the host's (display, keyboard,
+clock); a guest editor's preference belongs to the guest's startup file,
+which VI already runs a line at a time as ex commands. So `set ts=N` (or
+`tabstop=N`), 1-16, default 4, in VI.RC or typed as `:set ts=N`; `:set`
+alone shows it. The width lives in demo/ed.h (ed_tabw, ed_tab), so VI
+and PROG cannot disagree: PROG reads the same line from VI.RC at start.
+Tab in VI's insert mode used to be dropped (0x09 is not printable).
+
+The test caught one: VI's command handler tests for :s/old/new/ before
+anything else, and "set ts=2" begins with an s -- a substitute with e for
+its delimiter. :set is checked first now. Headless: default Tab gives four
+spaces, :set ts=2 two, VI.RC's set ts=2 two in VI and in PROG.

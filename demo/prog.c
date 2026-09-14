@@ -478,7 +478,7 @@ static void do_key(uint8_t k)
         switch (k) {
         case 0x0D: enter(); return;
         case 0x08: backspace(); return;
-        case 0x09: t_begin(); do ins_ch(' '); while (cx & 3); wantx = cx; return;
+        case 0x09: t_begin(); ed_tab(); wantx = cx; return;       /* spaces to the next stop: set ts= in VI.RC */
         case 0x1B: return;
         case 0x0F: run_cmd(C_OPEN); return;          /* ^O */
         case 0x13: run_cmd(C_SAVE); return;          /* ^S */
@@ -524,6 +524,7 @@ void main(void)
     cols = REG(TERM + 5); rows = REG(TERM + 6);
     if (!cols) cols = 80;
     if (!rows) rows = 30;
+    ed_rc_tabw();                                         /* VI's set ts=N, one tab width for both editors */
     load_file();
     fresh();
     if (!name[0]) note = "no file yet -- type, then ^S names it; ^O opens one";

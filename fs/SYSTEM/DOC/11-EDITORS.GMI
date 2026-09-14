@@ -134,6 +134,9 @@ Command                    Does
 :run                       :make, and if it compiled, run it; a key comes back
 :cn, :cp                   the next, the previous compiler message
 :cc n, :cl                 message n; the whole list
+:set ts=n                  Tab's width: it puts spaces to the next stop, never
+                           a tab character (4 unless told; set ts=2 in VI.RC
+                           keeps it, for PROG too)
 ```
 
 The command word is read in either case, so :Q and :WQ work with the caps lock
@@ -218,8 +221,8 @@ about.
 Key                            Does
 arrows, Home, End, PgUp, PgDn  move; with Ctrl, a word at a time and the ends
                                of the file
-Enter, Tab                     a new line that keeps the indent; to the next
-                               multiple of four
+Enter, Tab                     a new line that keeps the indent; spaces to the
+                               next tab stop (four, or set ts= in VI.RC)
 Insert                         insert or overwrite (the cursor is a bar or a
                                block)
 Ctrl-S or F2, Ctrl-O, Ctrl-Q   save, open, quit -- asking first about unsaved

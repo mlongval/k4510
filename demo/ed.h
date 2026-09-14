@@ -258,6 +258,48 @@ static void join_prev(void)
     close_at(cy);
     cy--; cx = plen; line_in(cy); dirty = 1;
 }
+/* Tab: spaces to the next stop, never a tab character.  The width is
+ * VI's `set ts=N` (in /SYSTEM/ETC/VI.RC, or typed as :set ts=N), one value
+ * for both editors: PROG reads the same line with ed_rc_tabw.  Doc,
+ * 2026-09-14: "insert 2 or 4 spaces, not TAB characters". */
+static uint8_t ed_tabw = 4;
+static void ed_tab(void)
+{
+    do { if (ln[0] >= 255) return; ins_ch(' '); } while (cx % ed_tabw);
+}
+static void ed_set_tabw(const char *v)                /* "4", from set ts=4 */
+{
+    uint8_t n = 0;
+    while (*v >= '0' && *v <= '9') n = (uint8_t)(n * 10 + (*v++ - '0'));
+    if (n >= 1 && n <= 16) ed_tabw = n;
+}
+/* the tab width from VI.RC, for a front end that does not run VI.RC itself:
+ * a line "set ts=N" or "set tabstop=N" */
+static const char ed_rcname[] = "/SYSTEM/ETC/VI.RC";
+static char ed_rl[40];
+static void ed_rc_line(void)                          /* one VI.RC line in ed_rl: only "set ts=" matters here */
+{
+    if (memcmp(ed_rl, "set ", 4)) return;
+    if (!memcmp(ed_rl + 4, "ts=", 3)) ed_set_tabw(ed_rl + 7);
+    else if (!memcmp(ed_rl + 4, "tabstop=", 8)) ed_set_tabw(ed_rl + 12);
+}
+static void ed_rc_tabw(void)
+{
+    uint32_t l, off = 0; unsigned chunk, i; uint8_t n = 0;
+    zp16(0xF0, (uint16_t)ed_rcname); zp32(0xF2, FLAT);
+    if (rom_load()) return;                           /* no VI.RC: the default stands */
+    l = zpr32(0xF6);
+    while (off < l) {
+        chunk = (l - off) > 128 ? 128 : (unsigned)(l - off);
+        far_get(FLAT + off, tmp, chunk);
+        for (i = 0; i < chunk; i++) {
+            if (tmp[i] == '\n') { ed_rl[n] = 0; ed_rc_line(); n = 0; }
+            else if (tmp[i] != '\r' && n < sizeof ed_rl - 1) ed_rl[n++] = (char)tmp[i];
+        }
+        off += chunk;
+    }
+    ed_rl[n] = 0; ed_rc_line();                       /* a last line with no newline */
+}
 
 
 /* ---- search --------------------------------------------------------------

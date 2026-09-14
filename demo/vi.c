@@ -318,6 +318,16 @@ static void do_cmd(void)
         if (patlen) search(lastdir ? 1 : -1);
         return;
     }
+    /* :set before :s -- "set ts=2" starts with s, and was taken as a
+     * substitute with e for its delimiter (caught by the Tab test) */
+    if (excmd("SET")) {                              /* :set ts=N / tabstop=N -- VI.RC's way to say it too */
+        const char *v = cmd + 3;
+        while (*v == ' ') v++;
+        if (rn_up((uint8_t)v[0]) == 'T' && rn_up((uint8_t)v[1]) == 'S' && v[2] == '=') ed_set_tabw(v + 3);
+        else if (!memcmp(v, "tabstop=", 8)) ed_set_tabw(v + 8);
+        nb_reset(); nb_s("ts="); nb_n(ed_tabw); note = nbuf;
+        mode = 0; cmdlen = 0; cmd[0] = 0; return;
+    }
     if (cmd[0] == 's' || (cmd[0] == '%' && cmd[1] == 's')) { do_sub(cmd); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (cmd[0] == 'm' && cmd[1] == 'a' && cmd[2] == 'p') { do_map(cmd + 3, 0); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
     if (cmd[0] == 'i' && cmd[1] == 'm' && cmd[2] == 'a' && cmd[3] == 'p') { do_map(cmd + 4, 1); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
@@ -414,6 +424,7 @@ void main(void)
             else if (k == 0x83) { if (cx < ln[0]) cx++; }
             else if (k == 0x80) goline(cy ? cy - 1 : 0);
             else if (k == 0x81) goline(cy + 1);
+            else if (k == 0x09) ed_tab();                  /* spaces to the next stop: :set ts=N */
             else if (k >= 0x20 && k < 0x7F) ins_ch(k);
             continue;
         }

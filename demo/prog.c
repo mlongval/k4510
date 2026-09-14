@@ -124,7 +124,7 @@ static void msgpane(void)
             l = (unsigned)ebuf[0] | ((unsigned)ebuf[1] << 8);
             if (ebuf[4] && l) { say("line "); num(l); say(": "); }
             for (j = 0; j < ebuf[5]; j++) put((char)ebuf[6 + j]);
-            if (i == ecur) { pad(); sgr("0"); }
+            if (i == ecur) { pad(); clip = 0; sgr("0"); }   /* clip off first: at the edge it ate the escape, and JIM printed "[K" */
         } else if (!r && !nerr) {
             say(info[0] ? " " : " F9 compiles, Ctrl-F9 compiles and runs; what the compiler says comes here");
             if (info[0]) say(info);
@@ -437,11 +437,11 @@ static void menu_draw(uint8_t m, uint8_t sel)
         if (r == n) { put((char)0xC0); for (k = 0; k < w; k++) put((char)0xC4); put((char)0xD9); }
         else {
             put((char)0xB3);
-            if (r == sel) sgr("7");
+            if (r == sel) { clip = 0; sgr("7"); clip = 1; }
             put(' '); say(it[r].label);
             for (k = (uint8_t)(slen(it[r].label) + 1); k < (uint8_t)(w - slen(it[r].keys) - 1); k++) put(' ');
             say(it[r].keys); put(' ');
-            if (r == sel) sgr("0");
+            if (r == sel) { clip = 0; sgr("0"); clip = 1; }
             put((char)0xB3);
         }
         clip = 0;

@@ -8,7 +8,7 @@ type RM -f PGTEST.C\n
 wait 1
 type PROG PGTEST.C\n
 expect "PGTEST.C" 10
-type void main(void)\n{\n    int x = 1\nx = 2;\n
+type void main(void)\n{\n    int x = 1\nx = 2;\n}\n
 key f9
 expect "error 1 of" 30
 shot prog-error

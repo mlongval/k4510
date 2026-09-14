@@ -8330,3 +8330,12 @@ screen -- which only the emulator knows. Reading SYS+$43 gives the name
 back, so IDEA alone runs SWAP VI on it. fs/BRAINSHOTS is gitignored:
 personal, like shots/. `k4510-remote ideas [--all]` fetches the new ones
 to ~/k4510-remote/brainshots/.
+
+On the Dell, PROG's first F9 landed right (error 1 of 2, the cursor on
+line 4, the title band "PROG PGTEST.C"). Two faults showed: the smoke
+script had typed no closing brace (the test's bug, fixed), and the
+highlighted message row ended in a printed "[K" -- msgpane padded to the
+edge and then sent its colour-off escape with clip still on, so the clip
+ate most of it and the next erase came out as text, the next row left
+reversed. Clip off before the escape, there and in the open menu.
+k4510-remote ideas now says "none yet" when /BRAINSHOTS does not exist.

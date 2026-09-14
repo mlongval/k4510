@@ -138,7 +138,7 @@ def c_ideas(every=False):
     BRAIN.mkdir(parents=True, exist_ok=True)
     seen_f = BRAIN / ".seen"
     seen = set(seen_f.read_text().split()) if seen_f.exists() else set()
-    names = sorted(n for n in remote("ls -1 ~/k4510/fs/BRAINSHOTS 2>/dev/null").split() if n.upper().endswith(".TXT"))
+    names = sorted(n for n in remote("ls -1 ~/k4510/fs/BRAINSHOTS 2>/dev/null || true").split() if n.upper().endswith(".TXT"))
     new = [n for n in names if every or n not in seen]
     if not new:
         return f"no new brainshots ({len(names)} in all; --all shows every one)"

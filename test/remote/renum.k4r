@@ -1,0 +1,40 @@
+# test/remote/renum.k4r -- the title trail and VI's :renum, from EhBASIC and from BBC BASIC.
+#     tools/k4510-remote run test/remote/renum.k4r
+# Letters in their real case (with Caps Lock on they would arrive inverted).
+key esc
+type CD /HOME\n
+type EHBASIC\n
+expect "Ready" 10
+type 5 GOSUB 30\n
+type 7 END\n
+type 30 PRINT "IN SUB":RETURN\n
+type *VI\n
+expect "EDITTMP.BAS" 10
+shot renum-eh-vi
+type :renum\n
+expect "renumbered 3 lines" 5
+type :wq\n
+wait 2
+type LIST\n
+expect "10 GOSUB 30" 10
+type RUN\n
+expect "IN SUB" 5
+shot renum-eh-back
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "*QUIT returns" 10
+type NEW\n
+type 10 PRINT "BBC"\n
+type 20 GOTO 10\n
+type *VI\n
+expect "EDITTMP.BBC" 10
+shot renum-bbc-vi
+type :renum 100\n
+expect "renumbered 2 lines" 5
+type :wq\n
+expect "LOAD" 10
+type LIST\n
+expect "110 GOTO 100" 10
+type *QUIT\n
+expect "/HOME]" 10

@@ -7,6 +7,7 @@
         .import   incsp4
         .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video, _k_args
         .import   _bband                    ; bottom-band height
+        .import   _PCOLS                    ; the text columns: the clock sits at the right of row 0
         .import   _OY                       ; top-band height: the clock lives there, so this is what
                                             ; decides whether the IRQ paints it (a bottom band of zero
                                             ; must not stop the clock -- the heights are independent)
@@ -143,15 +144,22 @@ clk_paint:
         ; The field is right-anchored and its width depends on the format: 16
         ; cells at 24-hour, 19 with the AM/PM.  Status mode is always 80
         ; columns, so the row-0 byte offset is 64*4 = $0100 or 61*4 = $00F4.
-        lda $D52F
+        lda $D52F               ; hd-modes: the width is PCOLS's, not always 80
         and #$01                ; bit 0: 24-hour
         beq @h12
-        lda #$00                ; 24-hour: start at column 64
+        lda #16                 ; 24-hour: 16 cells
         bra @addr
-@h12:   lda #$F4                ; 12-hour: three cells further left
+@h12:   lda #19                 ; 12-hour: 19
 @addr:  sta $02
-        lda #$01
-        sta $03
+        lda _PCOLS
+        sec
+        sbc $02                 ; the field's first column
+        sta $02
+        stz $03
+        asl $02                 ; four bytes a cell
+        rol $03
+        asl $02
+        rol $03
         lda #$03
         sta $04
         lda #$00

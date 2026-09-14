@@ -69,7 +69,8 @@ static int mouse_x, mouse_y; static uint8_t mouse_btn; static int8_t mouse_wheel
 static int8_t clamp8(int v) { return (int8_t)(v > 127 ? 127 : v < -128 ? -128 : v); }
 void mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy)
 {
-    mouse_x = x < 0 ? 0 : x > 639 ? 639 : x; mouse_y = y < 0 ? 0 : y > 479 ? 479 : y;
+    int gw = vicky_glass_w(), gh = vicky_glass_h();                     /* the glass: 640x480, or an HD mode's own size */
+    mouse_x = x < 0 ? 0 : x > gw - 1 ? gw - 1 : x; mouse_y = y < 0 ? 0 : y > gh - 1 ? gh - 1 : y;
     mouse_btn = buttons; mouse_wheel = clamp8(wheel); mouse_dx = clamp8(dx); mouse_dy = clamp8(dy);
 }
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
@@ -875,6 +876,8 @@ uint16_t io_audio_gaps;                   /* the frontend counts: audio callback
 static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
 static uint8_t sys_band_top = 1, sys_band_bot = 1, sys_clockfmt;
+static uint8_t sys_mode;                   /* $D53C: the mode the host wants, whole (mode+1; 0 none) -- $D521's three bits stop at MODE 6 */
+void io_set_mode(uint8_t m1) { sys_mode = m1; }
 void io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt)
 { sys_band_top = top; sys_band_bot = bot; sys_clockfmt = clockfmt; }
 int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
@@ -931,6 +934,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x2D) return sys_band_top;      /* rows in the top band */
     if (r == 0x2E) return sys_band_bot;      /* rows in the bottom band */
     if (r == 0x2F) return sys_clockfmt;      /* bit0 24-hour; bits1-2 the date order */
+    if (r == 0x3C) return sys_mode;          /* the wanted video mode, mode+1 (hd-modes: MODE 5-7 need it) */
     if (r == 0x22) return (uint8_t)io_host_kind;  /* what is beneath the machine, for BUG and INFO */
     /* The clock's index in the frontend's ladder.  Deliberately NOT documented
      * as a fixed table: the ladder is reordered when steps are added, and a
@@ -1646,6 +1650,7 @@ static uint8_t io_read_inner(uint16_t addr)
             uint8_t ctrl = vicky_read(0); int xs = (ctrl & 16) ? 2 : (ctrl & 2) ? 1 : 0, ys = (ctrl & 4) ? 1 : 0;
             int x = mouse_x >> xs, y = mouse_y - ((ctrl & 8) ? 40 : 0), ymax = ((ctrl & 8) ? 400 : 480) - 1;
             y = (y < 0 ? 0 : y > ymax ? ymax : y) >> ys;
+            if (ctrl & 0x20) { xs = ys = 0; x = mouse_x; y = mouse_y; }        /* the HD family: the glass is the mode's own pixels */
             switch (addr - IO_MOUSEX) {
             case 0: return (uint8_t) x;  case 1: return (uint8_t)(x >> 8);
             case 2: return (uint8_t) y;  case 3: return (uint8_t)(y >> 8);

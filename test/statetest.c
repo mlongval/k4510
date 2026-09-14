@@ -11,13 +11,13 @@
 #include "../core/state.h"
 static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
-#define CYCLES_PER_LINE (40500000 / 60 / VICKY_HEIGHT)
+#define CYCLES_PER_LINE (40500000 / 60 / 480)
 static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT];
 static void frames(int n)
 {
     while (n--) {
         vicky_begin_frame(fb, VICKY_WIDTH);
-        for (int y = 0; y < VICKY_HEIGHT; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(CYCLES_PER_LINE); vicky_line(y); int16_t t[256]; audio_render(CYCLES_PER_LINE, t, 256); }
+        for (int y = 0; y < 480; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(CYCLES_PER_LINE); vicky_line(y); int16_t t[256]; audio_render(CYCLES_PER_LINE, t, 256); }
         vicky_end_frame();
     }
 }

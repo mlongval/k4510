@@ -91,8 +91,8 @@ int main(void)
     /* the menu will not steer into 320x200 / 160x200 -- 40x25 and 20x25 are not a
      * shell -- but it still shows one when the guest (MODE 3, a game) is in it */
     settings_defaults();
-    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_320x240 + 1, "the menu offers three modes, not five");
-    settings_set(SET_VIDEO_MODE, VMODE_320x240);
+    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1, "the menu offers six modes, not eight");
+    settings_set(SET_VIDEO_MODE, VMODE_360x270);
     settings_step(SET_VIDEO_MODE, +1);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_640x480, "stepping past the last offered one wraps, not into 320x200");
     settings_set(SET_VIDEO_MODE, VMODE_160x200);

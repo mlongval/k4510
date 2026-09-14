@@ -43,6 +43,7 @@ void    io_set_opts(uint8_t v);
  * of the video mode).  So these are their own bytes, and there is room after
  * them for whatever the menu grows next. */
 void    io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt);
+void    io_set_mode(uint8_t mode_plus_1);   /* $D53C: the video mode the host wants, whole: mode+1, 0 = none */
 int     io_mode_acked(void);      /* 1 once: the guest performed the video-mode request */
 void    io_set_clock_measured(int yes);  /* the frontend: has this host a measured clock in k4510.cfg? */
 int     io_clock_measured(void);         /* ...and back again */

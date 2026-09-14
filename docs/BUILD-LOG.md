@@ -8525,3 +8525,31 @@ that kept the average brightness, the striped border and letterbox, and
 the 2x logical scale the placement and mouse arithmetic carried. The
 picture is one texture row per line now; an old video.scanlines line in
 k4510.cfg is kept and ignored, as unknown keys are.
+
+## 2026-09-14 — hd-modes (a branch): 1440x1080, 720x540, 360x270
+
+Doc: "if display is HD, then 1440 x 1080 would maintain the 4:3 aspect
+ratio ... 1/2 would be 720x540, 1/4 would be 360x270 ... Can we try an
+experimental branch with those resolutions instead of the current ones,
+which I probably chose only out of nostalgia". On the branch hd-modes,
+the old modes kept for now. Cells 8x16 (Doc: no 8x18 -- "any vertical
+line construction with text will have blank 2 or 4 pixel lines after
+each row"), 8x8 in the low mode:
+
+    MODE 5  1440x1080  180x67  8x16  (8 lines spare)
+    MODE 6   720x540    90x33  8x16  (12)   the branch's default
+    MODE 7   360x270    45x33  8x8   (6)
+
+VICKY CTRL bit 5 is the HD family, drawn at its own size (not doubled
+into a fixed glass), and the frame has as many lines as the mode: the
+CPU's cycles a line and the sound's clock a line follow it, so a frame
+is still 1/60 s. The frontend's buffers are the largest glass; the
+texture, scaling, border, mouse, screenshots and the text dump follow the
+glass; the F7 menu is still drawn at 640x480 and stretched over it. The
+host publishes the whole mode number in $D53C (the three bits in $D521
+stop at MODE 6); the menu offers the modes in the order 0 1 2 5 6 7. The
+ROM's mode tables are tables now; the IRQ clock is placed from PCOLS.
+The headless test tools (capture, romtest, headless, bench) keep a
+640x480 buffer: they must not be put in an HD mode. Checked here: the
+unit tests, and the real emulator (SDL dummy driver) in each mode,
+scrolling, and the menu over MODE 6.

@@ -1,0 +1,49 @@
+# test/remote/make.k4r -- VI's :make and :run, for C and for Pascal.
+#     tools/k4510-remote run test/remote/make.k4r
+# A broken file is typed into VI, :make must land on the error, the fix
+# compiles, :run runs it and comes back.
+key esc
+type CD /HOME\n
+type VI MKTEST.C\n
+expect "MKTEST.C" 10
+# empty it first: an earlier run may have left one
+type ggdG
+type i
+type void main(void)\n{\n    int x = 1\n    x = 2;\n}\n
+key esc
+type :make\n
+expect "error 1 of" 30
+shot make-c-error
+type :cl\n
+expect "expected" 10
+shot make-c-list
+key enter
+type 3GA;
+key esc
+type :make\n
+expect "mktest.prg:" 30
+type :run\n
+expect "a key returns to VI" 30
+key enter
+expect "ran it" 10
+type :q\n
+expect "/HOME]" 10
+type VI MKTEST.PAS\n
+expect "MKTEST.PAS" 10
+type ggdG
+type i
+type program mktest;\nbegin\n  writeln('ONE')\n  writeln('TWO');\nend.\n
+key esc
+type :make\n
+expect "error 1 of" 40
+shot make-pas-error
+type 3GA;
+key esc
+type :run\n
+expect "a key returns to VI" 40
+expect "TWO" 5
+shot make-pas-run
+key enter
+expect "ran it" 10
+type :q\n
+expect "/HOME]" 10

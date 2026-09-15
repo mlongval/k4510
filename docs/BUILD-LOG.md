@@ -8665,3 +8665,13 @@ the baseline); JIM, the keyboard, the keymap generator (dead key + capital:
 38 compositions to 55) and k4510-remote use it. termtest round-trips all
 128 upper bytes through UTF-8. Checked on screen: ECHO of every new letter
 in MODE 6.
+
+## 2026-09-15 — the ant farm sidebar-saver
+
+Doc: "ant farm first". A cross-section behind glass: sky, a mound over the
+entrance, soil in layers. Ants walk out along the tunnels to a tip and dig
+on into soil (long thin tunnels, with a branch now and then), carry each
+grain up by the shortest way, open a queen's chamber with eggs and a store
+they fill with crumbs. When three-tenths is dug, or the colony grows by
+less than 25 cells in 4.5 minutes, the sand fills back in and a new colony
+starts. Traced over simulated hours with -DAF_DEBUG.

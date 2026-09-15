@@ -963,7 +963,7 @@ static void cmd_color(const char *p)
     uint8_t d; uint32_t f, b = bg;
     f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
     skipsp(&p); if (*p) b = parsehex(&p, &d);
-    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bg;
+    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bands_on() ? BAND_BG : bg;   /* the spare lines under the text wear the bands' colour */
     cls();
 }
 #pragma code-name (pop)
@@ -1163,6 +1163,11 @@ static void cmd_dump(const char *p)
     if (n) { puts_("dump "); putdec(n); puts_(" written (dumps/dump-"); if (n < 100) k_chrout('0'); if (n < 10) k_chrout('0'); putdec(n); puts_(".txt)"); newline(); }
     else error("dump: failed");
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+/* In the base image, beside SWAP, since 2026-09-14: from bank 1 it ran SWAP VI and
+ * came back into a window the program had left unmapped -- "the Tube co-processor
+ * has left." and the console stuck in reverse (Doc's brainshot, the Dell). */
 /* IDEA [text]: a brainshot -- Doc, 2026-09-14: "the text equivalent of a
  * screenshot".  The emulator writes /BRAINSHOTS/IDEA-date-time.TXT with the
  * idea and the machine as it was (core/io.c idea_write).  IDEA alone opens
@@ -1183,8 +1188,6 @@ static void cmd_idea(const char *p)
     if (had) { puts_("idea kept: "); puts_(b + 8); newline(); return; }
     shell_copy(b); shell_line(line);
 }
-#pragma code-name (pop)
-#pragma rodata-name (pop)
 
 /* CPM [command]: RunCPM reads AUTOEXEC.TXT at boot and runs its first line,
  * so a command given here is written there, CP/M is started, and the file is
@@ -1519,7 +1522,7 @@ static void pal_load(const char *name)
         if (pal_word(&q, "COLOR") || pal_word(&q, "COLOUR")) {
             uint32_t f = parsehex(&q, &d); if (!d) continue;
             while (*q == ' ') q++; b = parsehex(&q, &d);
-            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bg; }
+            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bands_on() ? BAND_BG : bg; }
             cls();
             continue;
         }
@@ -1864,7 +1867,7 @@ static const shcmd_t shcmds[] = {
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
-    { n_IDEA, 1, cmd_idea },
+    { n_IDEA, 0, cmd_idea },
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)
@@ -1951,7 +1954,7 @@ static void video_init(void)
     } else                                                { OY = 0;         bband = 0; }
     COLS = PCOLS; ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
-    REG(VICKY + 1) = C_BG;
+    REG(VICKY + 1) = bands_on() ? BAND_BG : C_BG;   /* BGCOL: the HD modes' spare lines under the text -- the bands' colour when they are up (Doc's brainshot, 2026-09-14) */
     /* The palette is deliberately NOT reloaded here.  VICKY comes up with the
      * VIC-II sixteen already in entries 0-15 (core/vicky.c: vicky_reset), byte
      * for byte the same table this used to write, so the write was doing

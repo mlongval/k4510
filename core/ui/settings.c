@@ -26,7 +26,7 @@ static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
 static const set_desc desc[SET_COUNT] = {
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
-    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_720x540, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
+    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_360x270, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },

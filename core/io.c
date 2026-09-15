@@ -871,6 +871,16 @@ static void sys_latch(void)
     sys_reg[10] = (m->tm_year + 1900) & 0xFF; sys_reg[11] = (m->tm_year + 1900) >> 8;
     sys_reg[12] = m->tm_wday;
 }
+/* The text map as the console has it, for the dumps and the brainshots: a row
+ * is JIM's stride of cells (up to 180 in MODE 5), and the physical rows follow
+ * the mode -- an 80x60 read garbled every line at 90 columns (the Dell's
+ * brainshot, 2026-09-14). */
+static void screen_geom(int *cols, int *rows)
+{
+    uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10); int st = io_read(0xDA0D), ch = (l0 & 0x60) ? 16 : 8;
+    *cols = st > 0 && st <= 180 ? st : 80;
+    *rows = (ctrl & 0x20) ? vicky_glass_h() / ch : (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60;
+}
 static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
 uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
 static int mode_acked;
@@ -1491,7 +1501,8 @@ int dbg_dump(const char *why)
     fprintf(f, "FS   reg:"); for (int i = 0; i < (int)sizeof fs_reg; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
     fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
     fprintf(f, "\nSCREEN (text layer at $030000, 80 columns):\n");
-    for (int y = 0; y < 60; y++) { char r[81]; int last = -1; for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); }
+    { int sc, sr; screen_geom(&sc, &sr);
+      for (int y = 0; y < sr; y++) { char r[181]; int last = -1; for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[0x30000 + (y * sc + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); } }
     fprintf(f, "\nSHELL LOG (command lines and DUMP notes, oldest first):\n");
     { uint32_t n = dbg_logi < DBG_LOG ? dbg_logi : DBG_LOG, start = dbg_logi - n; for (uint32_t i = 0; i < n; i++) fputc(dbg_log[(start + i) & (DBG_LOG - 1)], f); fprintf(f, "\n"); }
     fprintf(f, "\nKEYS (last %u, oldest first, hex):", dbg_keyi < DBG_KEYS ? dbg_keyi : DBG_KEYS);
@@ -1552,9 +1563,10 @@ static void idea_write(uint8_t how)
     fprintf(f, "running  %s\n", io_title());
     fprintf(f, "build    %.16s\n", sys_version);
     fprintf(f, "screen\n");
-    for (int y = 0; y < 60; y++) {
-        char r[81]; int last = -1;
-        for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
+    int sc, sr; screen_geom(&sc, &sr);
+    for (int y = 0; y < sr; y++) {
+        char r[181]; int last = -1;
+        for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[0x30000 + (y * sc + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
         r[last + 1] = 0;
         if (last >= 0) fprintf(f, "  |%s\n", r);
     }

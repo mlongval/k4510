@@ -151,6 +151,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     /* text modes: 1-bpp glyphs, 8 px wide, H = 8 or 16 rows */
     int H = csz ? 16 : 8;
     int cy = sy / H, gy = sy % H;
+    if (glass_hd && y >= glass_h / H * H) return;   /* HD: no partial row of cells under the last full one -- BGCOL shows in those spare lines */
     if (mode == VL_MODE_TEXT) {
         uint8_t base = (uint8_t)(palofs << 1);
         for (int x = 0; x < w; ) {

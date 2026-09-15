@@ -8553,3 +8553,23 @@ The headless test tools (capture, romtest, headless, bench) keep a
 640x480 buffer: they must not be put in an HD mode. Checked here: the
 unit tests, and the real emulator (SDL dummy driver) in each mode,
 scrolling, and the menu over MODE 6.
+
+## 2026-09-14 — Doc's brainshots from the Dell (hd-modes)
+
+- "BL" instead of Claude Code's bullets, through ssh: JIM maps the
+  bullets to CP437 $07, and the unscii fonts had Unicode's control
+  pictures in $01-$1F (BEL is "BL"). Both sizes now carry CP437's faces,
+  suits, arrows and bullets from unscii's own .hex; the house and the
+  sun, which unscii lacks, stand in as a triangle and an asterisk. On
+  master too: it has been wrong there since the one-font change.
+- "A bit of a bug when returning from idea": IDEA ran SWAP VI from
+  sideways bank 1 and came back into a window VI had left unmapped --
+  "the Tube co-processor has left." and a reversed console. MODE 1 did it
+  too, so not an HD fault. IDEA is in the base image now, beside SWAP.
+  The screen an idea records (and the debug dump) read 80x60; they read
+  the console's real width and rows now.
+- "Color the empty bottom lines the same color as the bands": BGCOL is
+  the bands' colour while they are up, the screen's when not; VICKY's
+  text layers leave the partial row under the last full one undrawn, so
+  BGCOL is what shows there.
+- "Make f7 menu default to mode 7": 360x270 is the default.

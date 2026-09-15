@@ -605,10 +605,13 @@ static void fs_run(uint8_t cmd)
         else rmdir(loc);                      /* remove the placeholder directory MOUNT made (only if it is empty) */
         break; }
     case FS_MOUNTS: {                     /* list mounts: LEN = index -> "/path  url" at ADDR */
-        uint32_t idx = fs_rd32(12); char b[360]; int j;
+        /* The caller's buffer is fs_cap bytes, as for GETCWD; 256 when it says
+         * nothing.  This wrote up to 300 into the ROM's 256 until 2026-09-15. */
+        uint32_t idx = fs_rd32(12); char b[360]; int j, cap = fs_cap ? fs_cap : 256;
+        fs_cap = 0;
         if (idx >= (uint32_t)fs_mnt_n) { st = 4; break; }
         snprintf(b, sizeof b, "/%s  %s", fs_mnt[idx].at, fs_mnt[idx].url);
-        for (j = 0; b[j] && j < 300; j++) k4510_ram[(addr + j) & K4510_PHYS_MASK] = (uint8_t)b[j];
+        for (j = 0; b[j] && j < cap - 1; j++) k4510_ram[(addr + j) & K4510_PHYS_MASK] = (uint8_t)b[j];
         k4510_ram[(addr + j) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)j);
         break; }
     case FS_GETCWD: {
@@ -633,6 +636,12 @@ static void fs_run(uint8_t cmd)
         memcpy(fs_cwd, fs_back_cwd, sizeof fs_cwd); memcpy(fs_remote, fs_back_remote, sizeof fs_remote);
         break;
     default: st = 3;
+    }
+    if (cmd == FS_MOUNT && getenv("K4510_FSDEBUG")) {   /* a MOUNT: the names as the machine gave them, and where they were */
+        char a[256] = "", b[256] = "";
+        fs_guest_name(a, sizeof a); fs_guest_str(fs_rd32(8), b, sizeof b);
+        fprintf(stderr, "fs: MOUNT '%s' @%04X '%s' @%04X -> %d (cwd '%s', %d mounted)\n",
+                a, (unsigned) fs_rd32(4) & 0xFFFF, b, (unsigned) fs_rd32(8) & 0xFFFF, st, fs_cwd, fs_mnt_n);
     }
     if (fs_chdir_ran) {                    /* a CHDIR that landed: remember where it came from */
         fs_chdir_ran = 0;

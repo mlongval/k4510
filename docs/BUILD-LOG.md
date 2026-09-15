@@ -9026,3 +9026,25 @@ sidebar's OPTIONS.CFG at the prompt; while a program runs it shows the line
 to type at the foot of the screen instead of typing into the program. And
 the gradient and knot got a speed: they move, which the step-2 zips said
 they did not.
+
+## 2026-09-15 — the stack MOUNT's list never gave back
+
+The Dell's new sidebar test failed: `MOUNT /SYSTEM/SIDEBARS/ANTFARM.ZIP
+/MNT/SB` was refused, and the same line worked here. Replayed here with the
+zip test before it, it failed here too; K4510_FSDEBUG=1 (new: every MOUNT's
+names and their addresses on stderr) showed the name arriving as
+"?STEM/SIDEBARS/ANTFARM.ZIP" -- its first bytes overwritten -- from $0528,
+below the ROM's C stack ($0600-$07FF). A probe MOUNT after every command
+found the one: MOUNT with no arguments, the list, left the stack 259 bytes
+lower each time -- its 256-byte buffer and two locals, a frame over 255 that
+was never given back. The zip test lists twice; 518 bytes down, MOUNT's own
+buffers sat in memory something else writes.
+
+The list's buffer is 128 now and the device is told its size ($D318, as
+GETCWD does). That found a second fault: the device wrote up to 300 bytes
+into what was a 256-byte buffer; it keeps to the size it is given (256 when
+not told). test/mounttest.sh drives the ROM through five listings and a
+mount that must read, in make test; with the old ROM it fails.
+
+And /HOME on the Dell had filled with the remote tests' files (Doc: "a lot of
+cruft accumulated"): cleared, and every test now removes what it made.

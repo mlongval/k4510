@@ -1845,11 +1845,16 @@ static void nav_mount(const char *p)
     w32(FS + 8, (uint16_t)path);               /* reg 8 -> the mount path, as RENAME passes its second name */
     if (fs_cmd(19)) error("mount: need a URL or a .ZIP, and a path");
 }
-static void nav_list(void)                /* MOUNT with no args: show the mounts */
+/* MOUNT with no args: show the mounts.  The buffer was 256 bytes, and a frame
+ * over 255 was never given back: every listing left the C stack 259 bytes
+ * lower, and two of them put MOUNT's own name buffer below the stack, where it
+ * was overwritten (test/remote/sidebar.k4r found it, 2026-09-15).  128, and the
+ * device told the size ($D318), as GETCWD does. */
+static void nav_list(void)
 {
-    char b[256]; uint8_t i; const char *q;
+    char b[128]; uint8_t i; const char *q;
     for (i = 0; ; i++) {
-        w32(FS + 8, (uint16_t)b); w32(FS + 12, (uint32_t)i);
+        w32(FS + 8, (uint16_t)b); w32(FS + 12, (uint32_t)i); REG(FS + 0x18) = sizeof b;
         if (fs_cmd(21)) break;
         for (q = b; *q; q++) k_chrout((uint8_t)*q);
         newline();

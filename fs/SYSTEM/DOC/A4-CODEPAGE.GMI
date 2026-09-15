@@ -1,22 +1,33 @@
 # Appendix D. The Code Page
 
 Every character the K4510 shows is one byte, and the code page says which
-character each of the 256 bytes is. It is IBM's code page 437 -- the PC's, the
-one with the box drawing -- with 26 of its places given to letters Western
-Europe needs and CP437 never had: the accented capitals of French, Italian and
-Spanish, ô and õ, the euro, the section and pilcrow signs, German's quotes,
-and ÷. The places they took were CP437's Greek and mathematical symbols and a
-few marks nobody used. The box drawing, the shades and blocks, and every
-accented letter CP437 already had are where they always were, so a screen
-drawn for CP437 still draws as it was drawn -- unless it used one of the 26.
+character each of the 256 bytes is. The machine's is IBM's code page 437 --
+the PC's, the one with the box drawing -- as every PC program and every
+bulletin board expects it. That is what it starts in, and what this book's
+pages on the machine are written in.
+
+There is a second page, the K4510 page, for when it is wanted. It is CP437
+with 26 of its places given to letters Western Europe needs and CP437 never
+had: the accented capitals of French, Italian and Spanish, oe and OE, the
+euro, the section and pilcrow signs, German's quotes, and o. The places they
+took were CP437's Greek and mathematical symbols and a few marks nobody used.
+The box drawing, the shades and blocks, and every accented letter CP437
+already had -- the lower-case letters French, Spanish and German are written
+with -- are in the same places in both.
+
+CODEPAGE K4510 chooses it and CODEPAGE 437 goes back; CODEPAGE alone says
+which is in use. F12 -> Terminal -> Code page is the same choice, and the
+machine remembers it. The screen changes at once: the page's font takes the
+place of the other, and the characters already on the screen are drawn again
+from it.
 
 Like the register reference, this appendix is not written by hand:
-doc/guide/mkcodepage.py makes it from core/codepage.h, the one table the
-machine's text runs through. JIM turning UTF-8 into bytes and back, the
-keyboard, the fonts and k4510-remote all read that table, so none of them can
-disagree with this page, or with each other.
+doc/guide/mkcodepage.py makes it from core/codepage.h, which holds both pages.
+JIM turning UTF-8 into bytes and back, the keyboard, the fonts and
+k4510-remote all read that file, so none of them can disagree with this page,
+or with each other.
 
-## The page
+## The K4510 page
 
 (The page as a grid is in the printed book and on the web. On the machine,
 FONTED shows every character, and HEXED any byte.)
@@ -25,90 +36,90 @@ FONTED shows every character, and HEXED any byte.)
 
 ```
 Byte  The K4510 page                                CP437 had
-$9E   ž               euro sign                     Pts
-$9F   Ÿ               section sign                  f
-$A9   ©               pilcrow sign                  (not)
-$E0   à               latin capital letter a with   alpha
+$9E   EUR             euro sign                     ž
+$9F   section         section sign                  Ÿ
+$A9   (para)          pilcrow sign                  ©
+$E0   A               latin capital letter a with   à
                       grave
-$E2   â               latin capital letter a with   Gamma
+$E2   A               latin capital letter a with   â
                       circumflex
-$E3   ã               latin capital letter e with   pi
+$E3   E               latin capital letter e with   ã
                       grave
-$E4   ä               latin capital letter e with   Sigma
+$E4   E               latin capital letter e with   ä
                       circumflex
-$E5   å               latin capital letter e with   sigma
+$E5   E               latin capital letter e with   å
                       diaeresis
-$E7   ç               latin capital letter i with   tau
+$E7   I               latin capital letter i with   ç
                       circumflex
-$E8   è               latin capital letter i with   Phi
+$E8   I               latin capital letter i with   è
                       diaeresis
-$E9   é               latin capital letter o with   Theta
+$E9   O               latin capital letter o with   é
                       circumflex
-$EA   ê               latin capital letter u with   Omega
+$EA   U               latin capital letter u with   ê
                       grave
-$EB   ë               latin capital letter u with   delta
+$EB   U               latin capital letter u with   ë
                       circumflex
-$EC   ì               latin capital letter y with   infinity
+$EC   Y               latin capital letter y with   ì
                       diaeresis
-$ED   í               latin capital letter a with   phi
+$ED   A               latin capital letter a with   í
                       acute
-$EE   î               latin capital letter i with   epsilon
+$EE   I               latin capital letter i with   î
                       acute
-$EF   ï               latin capital letter o with   intersection
+$EF   O               latin capital letter o with   ï
                       acute
-$F0   ð               latin capital letter u with   identical
+$F0   U               latin capital letter u with   ð
                       acute
-$F2   ò               latin capital letter i with   >=
+$F2   I               latin capital letter i with   ò
                       grave
-$F3   ó               latin capital letter o with   <=
+$F3   O               latin capital letter o with   ó
                       grave
-$F4   ô               latin small ligature oe       (integral top)
-$F5   õ               latin capital ligature oe     (integral bottom)
-$F7   ÷               latin small letter o with     ~
+$F4   oe              latin small ligature oe       ô
+$F5   OE              latin capital ligature oe     õ
+$F7   o               latin small letter o with     ÷
                       stroke
-$F9   ù               latin capital letter o with   .
+$F9   O               latin capital letter o with   ù
                       stroke
-$FB   û               double low-9 quotation mark   sqrt
-$FC   "               left double quotation mark    ^n
+$FB   "               double low-9 quotation mark   û
+$FC   "               left double quotation mark    ü
 ```
 
-## The languages it writes
+## The languages each writes
 
-With the 26, these are complete in both cases: French, Italian, Spanish,
-German, Danish, Norwegian, Swedish, Finnish, Dutch, Catalan, Galician, Basque,
-Irish, Scottish Gaelic, Afrikaans and Albanian -- and English. Portuguese is
-four letters short (a o A O); the capital sharp SS is left out as too rare to
-spend a place on. Text arriving as UTF-8 -- from !, from TELNET, over ssh --
-is turned into the page's bytes on the way in, and the curly quotes the page
-has no place for become their plain forms.
+CP437 has every lower-case letter of French, Spanish, German, Italian and the
+Nordic languages, and  € ¥ Ž ™ š  ’ among the capitals -- enough for most
+written French, which leaves the other capitals unaccented. With the K4510
+page these are complete in both cases: French, Italian, Spanish, German,
+Danish, Norwegian, Swedish, Finnish, Dutch, Catalan, Galician, Basque, Irish,
+Scottish Gaelic, Afrikaans and Albanian. Portuguese is four letters short in
+either (a o A O).
+
+Text arriving as UTF-8 -- from !, from TELNET, over ssh -- is turned into the
+page in use on the way in; a character it has no place for becomes its
+nearest, and the curly quotes their plain forms.
 
 ## The first 32, and $7F
 
-Bytes $01-$1F and $7F draw CP437's little pictures: the faces, the card suits,
-the arrows, the notes. As text they are also the control codes -- $07 rings,
-$1B is Escape, $18 to $1A move the cursor -- and the console obeys them rather
-than drawing them. So a program that wants a picture on the screen puts the
-byte into screen memory itself, as the games do, and the characters that
-matter as text (Ÿ, ©) have places in the upper half as well.
+Bytes $01-$1F and $7F draw CP437's little pictures in both pages: the faces,
+the card suits, the arrows, the notes. As text they are also the control codes
+-- $07 rings, $1B is Escape, $18 to $1A move the cursor -- and the console
+obeys them rather than drawing them. So a program that wants a picture on the
+screen puts the byte into screen memory itself, as the games do.
 
 ## Typing them
 
-Every character a keyboard layout has a key for reaches the machine. The dead
-keys compose the rest: ' then A is à, ^ then E is ä -- 55 compositions in all,
-the capitals included. FONTED redraws any of the 256, in both sizes of the
-font, and shows the Unicode value of the character it is editing from the same
-table as this page.
+Every character a keyboard layout has a key for reaches the machine, if the
+page in use has it. The dead keys compose the rest: ' then e is Š in either
+page; ' then A is A in the K4510 page, and a plain A in CP437, which has no
+place for it. FONTED redraws any of the 256, in both sizes of the font, and
+shows the Unicode value of the character it is editing.
 
 ## A BBS
 
-Most ANSI art on a bulletin board is CP437, and nearly all of it is box
-drawing and shades, which the page kept. If it used identical or sqrt, though,
-the K4510 page would draw the letter that lives in that place now -- so TELNET
-does not use it for one. The machine keeps the same font a second time in
-strict CP437, and TELNET draws with that for a CP437 session: a BBS, an old
-system, a far end that never negotiates. A Unix host, which takes the
-XTERM-COLOR terminal type and talks UTF-8, is drawn in the K4510 page, and the
-machine's font comes back when TELNET hangs up.
+TELNET draws a CP437 session -- a bulletin board, an old system, a far end
+that never negotiates -- with strict CP437 whatever page the machine is in, so
+ANSI art is always exactly as it was drawn. A Unix host, which takes the
+XTERM-COLOR terminal type and talks UTF-8, is drawn in the page in use, and
+the machine's font comes back when TELNET hangs up.
 
 => INDEX.GMI Contents
 => A3-SOUND.GMI Previous: C. The Sound, and What It Took

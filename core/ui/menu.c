@@ -1,4 +1,4 @@
-/* The F7 menu. See menu.h. */
+/* The F12 menu. See menu.h. */
 #include "menu.h"
 #include "settings.h"
 #include "ui_draw.h"
@@ -34,6 +34,8 @@ static const item_t term_items[] = {
     { "",                 MI_SEP },
     { "24-hour clock",    MI_SETTING, SET_TERM_CLOCK24 },
     { "Date format",      MI_SETTING, SET_TERM_DATEFMT },
+    { "",                 MI_SEP },
+    { "Code page",        MI_SETTING, SET_TEXT_CODEPAGE },   /* CP437, or the K4510 page (CODEPAGE) */
 };
 static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },
@@ -137,7 +139,7 @@ static char info[INFO_COUNT][40];
 static char slot[MENU_SLOTS][24];
 
 /* ---- the menu file and the shown copy (Doc, 2026-09-13) ---------------------
- * "Could the F7 menu be an editable text file ... if this thing is ever given
+ * "Could the F12 menu be an editable text file ... if this thing is ever given
  * to kids": hidden rows disappear, no PIN, and locks for the Linux shell and
  * the consoles.  hide_* index the FULL tables, so the file's names are the
  * tables' labels; rebuild() makes the copy the rest of this file draws. */
@@ -200,7 +202,7 @@ void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { 
 void menu_slot(int n, const char *text) { if (n >= 0 && n < MENU_SLOTS) { snprintf(slot[n], sizeof slot[n], "%s", text); dirty = 1; } }
 int  menu_key_code(void)
 {
-    static const uint8_t codes[MENUKEY_COUNT] = { KEY_F1 + 6, KEY_F1 + 7, KEY_F1 + 10, 0x9F };
+    static const uint8_t codes[MENUKEY_COUNT] = { KEY_F1 + 6, KEY_F1 + 7, KEY_F1 + 10, 0x9F, KEY_F1 + 11 };
     return codes[settings_get(SET_INPUT_MENU_KEY)];
 }
 
@@ -446,7 +448,7 @@ int menu_file_write(const char *path)
 {
     FILE *f = fopen(path, "w");
     if (!f) return -1;
-    fputs("# K4510 -- what the F7 menu shows.  Written in full the first time the machine\n"
+    fputs("# K4510 -- what the F12 menu shows.  Written in full the first time the machine\n"
           "# starts; edit it, and it takes effect at the next start (or reboot).\n"
           "#   show   the row is there, as always\n"
           "#   hide   the row is gone -- and a menu with nothing left goes too\n"

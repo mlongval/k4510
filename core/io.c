@@ -36,8 +36,8 @@ static uint8_t  kbd_last, kbd_mods, kbd_last_key;   /* kbd_last_key: the byte la
 #define KBD_LATCH 0x1000     /* the key pipe's: this key carries its own modifiers, in bits 9-11 */
 static uint8_t kbd_latched;   /* bit 7 set: KBDST reports these modifiers (bits 0-2), the ones the key last read was sent with */
 
-/* Every key passes here, from the frontend's SDL loop. The F7 menu (core/ui) takes them first: its own key
- * opens it (unshifted only -- Shift+F7 still reaches BBC BASIC) and,
+/* Every key passes here, from the frontend's SDL loop. The F12 menu (core/ui) takes them first: its own key
+ * opens it (unshifted only -- Shift with the menu key is the frontend's pause) and,
  * while it is open, every key is the menu's. */
 static void kbd_enqueue(uint16_t ent)
 {

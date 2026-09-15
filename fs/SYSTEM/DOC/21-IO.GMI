@@ -81,7 +81,7 @@ Microsoft BASIC  140      ten POKEs in a subroutine
 The blitter draws a line in no time at all, so the numbers are the languages:
 what a BASIC spends is its own arithmetic, its arrays and its line lookups,
 and three hundred lines a second is a good deal more than a game of 1985 asked
-for. The split itself costs every one of them nothing. A faster clock (F7, or
+for. The split itself costs every one of them nothing. A faster clock (F12, or
 SETUP) scales all three.
 
 => INDEX.GMI Contents

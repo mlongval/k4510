@@ -80,7 +80,7 @@ No display manager and no X. An autologin getty on tty1, and the
 emulator `exec`ed from a profile script. **Quitting the emulator leaves
 you at a Linux shell on the same tty**, and Ctrl+Alt+F2 gives another
 one — which is the whole distinction K4510x is built on, obtained
-without inventing anything. It also gives F7 → *Quit the emulator* a
+without inventing anything. It also gives F12 → *Quit the emulator* a
 meaning it does not have on the appliance, where the Pi simply halts.
 
 The user needs `video`, `input` and `audio` group membership for DRM

@@ -25,7 +25,7 @@
 #define FM     0xD480u          /* the OPL2: $D480 address port, $D481 data */
 #define SYS    0xD500u
 #define SYSOPT_STATUS 0x08           /* $D521 bit 3: the host's status-bar mode is switched on */
-#define SYS_BANDTOP   0x2D           /* $D52D/$D52E: rows in each band, the F7 Terminal menu's.  $D521 is
+#define SYS_BANDTOP   0x2D           /* $D52D/$D52E: rows in each band, the F12 Terminal menu's.  $D521 is
                                       * full -- all eight bits -- so these are their own bytes. */
 #define SYS_BANDBOT   0x2E
 #define SYS_CLOCKFMT  0x2F           /* bit0 24-hour; bits1-2 the date order (0 D.M.Y, 1 ISO, 2 M/D/Y) */
@@ -70,7 +70,7 @@ uint8_t bband;                                       /* bottom-band height.  NOT
 
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
-static uint8_t mode_note;                  /* an F7 mode/status change was performed: the shell repaints (BANNER) at its next prompt */
+static uint8_t mode_note;                  /* an F12 mode/status change was performed: the shell repaints (BANNER) at its next prompt */
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
 extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
@@ -140,7 +140,7 @@ static void draw_clock(void);         /* the top-right widget.  It lived in ROM2
  * costs no state --
  * which matters, BSSR being 447 of 448 bytes used. */
 static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS >= 40 && PROWS >= 30); }
-/* A program that has claimed the bands gets them whether or not the user's F7
+/* A program that has claimed the bands gets them whether or not the user's F12
  * switch is on -- that is the point of claiming: a program wants the furniture
  * for its own, and asking the user to enable it first would be absurd. */
 static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS >= 40 && PROWS >= 30)); }   /* every shell mode: 40 columns and 30 rows at least (MODE 2 and 7 too, Doc 2026-09-14) */
@@ -339,7 +339,7 @@ static uint8_t caps(uint8_t k)
     if (k >= 'A' && k <= 'Z') return (uint8_t)(k + 32);   /* shifted: a caps lock gives the OTHER case */
     return k;
 }
-/* The host's F7 menu asks for a video mode through $D521 bits 5-7 (always
+/* The host's F12 menu asks for a video mode through $D521 bits 5-7 (always
  * the wanted mode + 1; bit 4 says a change is asked for).  The ROM has to be the one to do it: the console's
  * PCOLS/PROWS/stride are the ROM's, and writing VICKY's CTRL alone would
  * leave the text laid out for the old mode.  Resident on purpose -- banked
@@ -367,7 +367,7 @@ static void mode_do(void)
 static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
-    if (REG(SYS + 0x21) & 0x10) { mode_do(); return 27; }   /* rare: the F7 menu asked for a mode; ESC unsticks
+    if (REG(SYS + 0x21) & 0x10) { mode_do(); return 27; }   /* rare: the F12 menu asked for a mode; ESC unsticks
                                                               * readline (a CR ran the half-typed line) */
     if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
     /* Not while JIM is showing its own: a program that draws through the
@@ -376,7 +376,7 @@ uint8_t k_getin(void)
      * clock, parked on whatever cell the shell last left it on, reversing
      * whatever the program has since drawn there. */
     /* The band's clock follows the menu.  draw_bands() only runs from cls(), so
-     * a clock changed in F7 used to leave yesterday's number sitting in the bar
+     * a clock changed in F12 used to leave yesterday's number sitting in the bar
      * until something cleared the screen (Doc, 2026-09-01).  This is the poll
      * every program already goes through, so it is where the number is kept
      * honest -- and it costs a compare per key poll, only while the bands are up.
@@ -1684,7 +1684,7 @@ static void cmd_alias(const char *p)
 static uint8_t try_com(const char *nm, const char *args)
 {
     char path[40]; uint8_t i = 0, n = 0;
-    if (!(REG(SYS + 0x21) & 1)) return 0;                 /* the F7 menu decides: off by default, so a
+    if (!(REG(SYS + 0x21) & 1)) return 0;                 /* the F12 menu decides: off by default, so a
                                                              mistyped D does not start a Z80 program */
     if (strlen(nm) > 8) return 0;                         /* CP/M names are 8.3 */
     strcpy(path, "/CPM/A/0/"); strcat(path, nm); strcat(path, ".COM");
@@ -1939,7 +1939,7 @@ static void video_init(void)
     /* status mode: two static bands frame the console (the 80-column modes only).
      * The band heights scale with the screen: 640x240 -> 2 top + 3 bottom (25 rows);
      * 640x480 -> 4 + 6 (50 rows).  bband != 0 is the flag the rest of the ROM reads. */
-    /* The bands are the F7 Terminal menu's now, and independent (Doc,
+    /* The bands are the F12 Terminal menu's now, and independent (Doc,
      * 2026-09-02): a top height and a bottom height, either of which may be
      * zero.  They used to be PROWS/15 and PROWS/10 -- 4+6 at 640x480 and 2+3
      * at 640x240 -- which spent a sixth of the screen on furniture holding
@@ -2222,7 +2222,7 @@ int main(void)
     fg = C_FG;
     banner();
     /* /STARTUP.BAT.  No grace window and no "hold a key to skip" any more:
-     * F7 -> Shell -> Run STARTUP.BAT turns it off and stays off, and
+     * F12 -> Shell -> Run STARTUP.BAT turns it off and stays off, and
      * --no-startup.bat skips one run, so a half-second wait at every power-on
      * was buying a third way in that nobody needed. */
     if (!(REG(SYS + 0x21) & 4)) {
@@ -2230,7 +2230,7 @@ int main(void)
         if (!fs_cmd(8)) cmd_exec(line);
     }
     for (;;) {
-        if (mode_note) { mode_note = 0; banner(); }   /* back from an F7 mode or status-bar change */
+        if (mode_note) { mode_note = 0; banner(); }   /* back from an F12 mode or status-bar change */
         put_cwd(); puts_("] ");
         sw_call(3, readline_sw, line);
         shell_line(line);

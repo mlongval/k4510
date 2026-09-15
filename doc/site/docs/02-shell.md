@@ -196,7 +196,7 @@ Whatever you type after the alias is added to the end, so a definition takes arg
 
 ## The status bands
 
-Turn on *status bands* (F7, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band is one row high: the bands are on or off, and that is the only setting.
+Turn on *status bands* (F12, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band is one row high: the bands are on or off, and that is the only setting.
 
 They are shared, and the split is worth knowing. **The top band is yours** — the machine draws the clock and the date in it, in whichever formats the Terminal page is set to, and on a laptop the battery: its charge, with an arrow up while it charges and down while it does not. **The bottom band is the running program’s**, and a program that wants it writes there through JIM; `BANDS` in `/SYSTEM/BIN` is the demonstration.
 
@@ -346,19 +346,19 @@ The monitor is a program, `MONITOR`, and it loads at `$E000`, in the RAM under t
 </tbody>
 </table>
 
-The F7 menu, under Video, has the same two knobs: *Resolution* shows what the machine is actually in — it follows a `MODE` you type — and choosing another asks the ROM to perform it, because the console’s geometry belongs to the ROM and not to the host. VICKY can draw smaller fields than these, but they are for a program that wants the pixels, not for a shell; a program asks for them through the video registers ([Chapter 15, The I/O Page](21-io.md)).
+The F12 menu, under Video, has the same two knobs: *Resolution* shows what the machine is actually in — it follows a `MODE` you type — and choosing another asks the ROM to perform it, because the console’s geometry belongs to the ROM and not to the host. VICKY can draw smaller fields than these, but they are for a program that wants the pixels, not for a shell; a program asks for them through the video registers ([Chapter 15, The I/O Page](21-io.md)).
 
 The picture is always painted into 640×480: a 240-line mode has each line drawn twice, and a 320-wide one has its pixels doubled sideways. Raster lines and SHEILA’s display list count the glass, 0–479, not the mode — which matters the moment a program asks VICKY for a 200-line field, where the first line of the picture is raster line 40.
 
 ## When STARTUP.BAT is the problem
 
-`/STARTUP.BAT` runs at power-on, and a bad one runs at every power-on. There is no moment to catch — the machine boots straight into it — so the way out is not a key held at the right instant but a switch that stays where you put it: the F7 menu, under Shell: *Run STARTUP.BAT*. That setting is the host’s, kept in `k4510.cfg`, so it survives a power cycle and no wedged program in the machine can take it away from you. Boot clean, fix the file, switch it back on.
+`/STARTUP.BAT` runs at power-on, and a bad one runs at every power-on. There is no moment to catch — the machine boots straight into it — so the way out is not a key held at the right instant but a switch that stays where you put it: the F12 menu, under Shell: *Run STARTUP.BAT*. That setting is the host’s, kept in `k4510.cfg`, so it survives a power cycle and no wedged program in the machine can take it away from you. Boot clean, fix the file, switch it back on.
 
 There is a second way, for one boot only:
 
     ./k4510 --no-startup.bat
 
-(`--no-startup` does the same, as does `K4510_NO_STARTUP=1` in the environment). It skips `/STARTUP.BAT` for that run and touches nothing: the F7 setting and `k4510.cfg` are left exactly as they were.
+(`--no-startup` does the same, as does `K4510_NO_STARTUP=1` in the environment). It skips `/STARTUP.BAT` for that run and touches nothing: the F12 setting and `k4510.cfg` are left exactly as they were.
 
 ## When something goes wrong
 

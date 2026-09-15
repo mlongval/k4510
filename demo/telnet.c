@@ -2,7 +2,8 @@
  * Opens tcp://host:port on channel 0, sends what you type, and what
  * arrives goes to JIM, the terminal ($DA00): a VT100/ANSI in hardware, so
  * BBSes get their ANSI art and colours, and cursor and function keys go
- * out as VT sequences. F12 hangs up (Escape is a key the far end wants).
+ * out as VT sequences. Ctrl-] hangs up, as telnet(1) (Escape is a key the far end wants;
+ * F12 did until 2026-09-15, when it became the machine's menu key -- it still works where it is not).
  * Telnet option negotiation (IAC): the server is told the terminal type
  * and the window size (JIM's columns and rows, NAWS), so a BBS lays its
  * screens out for this screen.  The type is a list, one name per TTYPE
@@ -88,7 +89,7 @@ void main(void)
     REG(TERM + 4) = 1;                                    /* JIM: defaults, home... */
     REG(TERM + 9) = 0;                                    /* ...at the console's line (run_at handed the row over; the column is 0) */
     tti = 0;                                              /* each session offers the TTYPE list from the top */
-    if (!n) { say("telnet: host port  (F12 hangs up)\r\n"); return; }
+    if (!n) { say("telnet: host port  (Ctrl-] hangs up)\r\n"); return; }
     url[i++] = 't'; url[i++] = 'c'; url[i++] = 'p'; url[i++] = ':'; url[i++] = '/'; url[i++] = '/';
     while (*p && *p != ' ' && i < 90) url[i++] = *p++;
     while (*p == ' ') p++;
@@ -110,7 +111,7 @@ void main(void)
     REG(TERM + 0x0C) = 0;                                 /* and what it paints with now */
     REG(V_BGCOL)     = 0;                                 /* the screen behind the terminal */
     REG(TERM + 4) = 2;                                    /* clear, so no blue is left around the art */
-    say("connected to "); say(url + 6); say("  (F12 hangs up)\r\n");
+    say("connected to "); say(url + 6); say("  (Ctrl-] hangs up)\r\n");
     u8 = 0;                                               /* CP437 until the far end takes XTERM-COLOR */
     ofont = (unsigned long) REG(L0DATA) | ((unsigned long) REG(L0DATA + 1) << 8) | ((unsigned long) REG(L0DATA + 2) << 16) | ((unsigned long) REG(L0DATA + 3) << 24);
     font_437(1);                                          /* ...drawn with IBM's page */
@@ -119,7 +120,7 @@ void main(void)
     REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
     for (;;) {
         k = rom_getin();
-        if (k == 0x9B && (REG(KBDST) & 0x40)) break;      /* F12 (the kind bit: $9B is also a letter) */
+        if (k == 0x1D || (k == 0x9B && (REG(KBDST) & 0x40))) break;   /* Ctrl-]; F12 where the menu is on another key (the kind bit: $9B is also a letter) */
         if (k == 0x0D) { buf[0] = 13; buf[1] = 10; net_send(buf, 2); }
         else if (k >= 0x80 && !(REG(KBDST) & 0x40)) {   /* an accented letter: not through JIM, which would make it a cursor key */
             if (u8) i = utf8_of(k, buf); else { buf[0] = k; i = 1; }
@@ -193,7 +194,7 @@ void main(void)
     if (u8) { say("\033%@"); u8 = 0; }                     /* the machine's own screen is CP437 */
     say("\033[20h");                                      /* and LNM, as the ROM's video_init sets it */
     REG(TERM + 0x0E) = 0;
-    REG(TERM + 0x15) = odbg;                              /* every exit comes through here: F12, */
+    REG(TERM + 0x15) = odbg;                              /* every exit comes through here: Ctrl-], */
     REG(TERM + 0x0C) = odbg;                              /* a far end that hung up, or a closed */
     REG(V_BGCOL)     = obg;                               /* socket -- so the colours always return */
 }

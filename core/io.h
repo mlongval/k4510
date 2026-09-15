@@ -197,7 +197,7 @@ void    kbd_held(uint8_t mask);           /* the host, once a frame: which of th
  * in the pixels of the mode VICKY is in (0-639 x 0-479 at full size, 0-319 x
  * 0-239 in a 320x240 mode, and so on) wherever the window puts the picture; the
  * deltas and the wheel are "since the last frame", signed.  The machine draws
- * no pointer: a program that wants one uses a sprite.  While the F7 menu is
+ * no pointer: a program that wants one uses a sprite.  While the F12 menu is
  * open the position still reads but buttons, wheel and deltas are 0. */
 #define IO_MOUSEX      (IO_INPUT + 0x08)  /* lo, $D109 hi */
 #define IO_MOUSEY      (IO_INPUT + 0x0A)  /* lo, $D10B hi */
@@ -277,6 +277,8 @@ const char *fs_get_cwd(void);
 #define K4510_FONT16_PHYS  0x00010800u   /* unscii-16: 256 glyphs x 16 rows, 4 KB (MODE 0, 640x480: 80x30 in 8x16 cells) */
 #define K4510_FONT8_437_PHYS  0x00011800u   /* the same fonts in IBM's strict code page 437 (font8/16-cp437.bin), */
 #define K4510_FONT16_437_PHYS 0x00012000u   /* for TELNET's CP437 sessions: a BBS's art as it was drawn (2026-09-15) */
+#define K4510_FONT8_K_PHYS    0x00013000u   /* and in the K4510 page (font8/16-unscii.bin).  The live slots above hold */
+#define K4510_FONT16_K_PHYS   0x00013800u   /* one pair or the other: JIM copies it in when the page is chosen ($DA17) */
 #define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
 
 uint8_t io_read(uint16_t addr);

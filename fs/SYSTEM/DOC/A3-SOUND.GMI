@@ -192,9 +192,9 @@ hold only 15 MHz. On that ground it was settled, and settled against
 replacement. reSID was not the cost. One chip sounding measured 0.039 ms of a
 16.67 ms frame on a desktop -- a quarter of one per cent -- and four chips
 written since reset came to about half a millisecond. The largest the sound
-ever cost was the 3.4 ms of ŸC.4, on the Pi, before silent chips stopped being
-clocked, and that was a bookkeeping fault rather than a fidelity one. Nothing
-measurable was to be bought by removing them.
+ever cost was the 3.4 ms of section C.4, on the Pi, before silent chips
+stopped being clocked, and that was a bookkeeping fault rather than a fidelity
+one. Nothing measurable was to be bought by removing them.
 
 Where the question was real was identity. The SID is a part this machine
 inherited rather than chose: it was in here because the C64 had one, in the

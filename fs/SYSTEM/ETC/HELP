@@ -30,7 +30,7 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          a bare name runs name.prg, looked for in
          /SYSTEM/BIN, /APPS/NAME, /LANG/NAME and
          /HOME/PROJECTS/NAME, with its args;
-         F7 > Shell can also let it run name.COM
+         F12 > Shell can also let it run name.COM
          on CP/M A: (off by default)
 monitor: MON or WOZ [line]  then:  addr  addr.addr
          addr:b b b  addrR  X leaves
@@ -74,13 +74,13 @@ network: a URL is a file name:
          CD tnfs://host/dir  (also ftp:// sftp://)
          MOUNT url /MNT/NAME   UMOUNT /MNT/NAME
          TELNET host port (F12 hangs up)
-host:    F7 the settings menu   F8 the debugger
+host:    F12 the settings menu   Shift+F12 pause
          Super+PgUp resets   PrtSc a screenshot
          k4510-menu.cfg hides menu rows and locks
          ! and the Linux consoles
 boot:    /STARTUP.BAT runs at power-on.  If it
          wedges the machine, turn it off in
-         F7 > Shell, or start --no-startup.bat
+         F12 > Shell, or start --no-startup.bat
 the handbook, on this machine: BOOK
          (BOOK 3 is every command, a line each;
          BOOK SHELL the chapter about the shell)

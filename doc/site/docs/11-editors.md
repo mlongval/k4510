@@ -458,7 +458,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 
 </div>
 
-The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.ERR`: an error in the file on screen takes the cursor to its line (and column, from Mad Pascal); one in another file — a unit, a header — is listed with that file’s name. A `}` typed on a line of its own goes back a level. F7 and F8 stay the machine’s (the menu, pause), so PROG leaves them alone; Ctrl-H is Backspace on this keyboard, which is why replace is Ctrl-R.
+The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.ERR`: an error in the file on screen takes the cursor to its line (and column, from Mad Pascal); one in another file — a unit, a header — is listed with that file’s name. A `}` typed on a line of its own goes back a level. F12 stays the machine’s (its menu; Shift+F12 pauses), so PROG leaves it alone; Ctrl-H is Backspace on this keyboard, which is why replace is Ctrl-R.
 
 Up to eight files are open at once, in the row under the menu bar — the one in front lit, a `*` on each with unsaved changes. F9 saves every changed file before it compiles, because the compilers read the disk: a unit edited in another tab is what `PAS` sees. An error in another file — a unit, a header — opens that file (or brings its tab forward) at the line. Find in files (Shift-Ctrl-F, or *Search*) looks through every source file in the directory of the file in front, and what it finds goes into the message list, where F4 walks it like errors. After Ctrl-F9 the other open files are read back from the disk: a program may use the memory they wait in.
 

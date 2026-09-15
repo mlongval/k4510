@@ -1,6 +1,10 @@
 # A K4510 code page — the plan
 
-Status: **steps 1-4 done**, 2026-09-15: the strict-CP437 bank (TELNET draws a
+Status, later the same day: **strict CP437 is the default** (Doc: "keep plain
+as default but keep modified as option"). core/codepage.h holds both pages;
+CODEPAGE 437|K4510 and F12 -> Terminal -> Code page switch between them (JIM
+$DA17 copies the page's fonts into the live slots), and the choice is saved.
+BOOK's pages are CP437 again. Before that: **steps 1-4 done**, 2026-09-15: the strict-CP437 bank (TELNET draws a
 CP437 session with it) and the handbook appendix (doc/guide/mkcodepage.py)
 followed steps 1-2 the same day. Still open: `k4510-screen --utf8`, the
 audit of $E0-$FF use, what a character with no place becomes. Earlier:

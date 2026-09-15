@@ -32,7 +32,7 @@ The K4510 is a machine that never existed. Almost everything in it that *does* e
 
 Fonts are the part of a computer you look at longest, and clean ones with a clear pedigree are hard to come by.
 
-**Ville-Matias Heikkilä** (“Viznut”) — [unscii](https://viznut.fi/unscii/), placed in the public domain. It is the machine’s one screen font: unscii-8 in the 240-line modes, unscii-16 at 640×480, and both in the F7 menu and the side panel.
+**Ville-Matias Heikkilä** (“Viznut”) — [unscii](https://viznut.fi/unscii/), placed in the public domain. It is the machine’s one screen font: unscii-8 in the 240-line modes, unscii-16 at 640×480, and both in the F12 menu and the side panel.
 
 **The Linux kernel** contributors — the 8x8 console font (`font_8x8.c`) that got the text mode on its feet, and the 8x16 VGA font the K4510x consoles wear.
 

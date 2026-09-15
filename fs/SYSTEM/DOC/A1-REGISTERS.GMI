@@ -542,13 +542,16 @@ cells, STRIDE cells per row
 
 $DA0ERW FLAGS bit0 cursor shown (blinking) bit1 read: application cursor keys
 (DECCKM) bit2 PETSCII mode bit3 THE STATUS BANDS BELONG TO THE PROGRAM. While
-it is set, K/OS lays the console around $DA0F/$DA16 instead of the user's F7
+it is set, K/OS lays the console around $DA0F/$DA16 instead of the user's F12
 heights, and stops drawing into the bands at all - no clock, no MHz, and cls()
 leaves those rows alone. The program draws them itself and MUST clear the bit
 before it exits, the way PETSCII mode must be cleared: leave it set and the
 shell comes back to a screen whose furniture nobody is maintaining.
 
 $DA0FRW BANDTOP rows in the top band while bit3 is set
+
+$DA17RW CODEPAGE 0 strict CP437 (power-on), 1 the K4510 page: JIM's table and
+the fonts follow
 
 $DA16RW BANDBOT rows in the bottom band while bit3 is set. Write the two, set
 bit3, then call VIDEO ($FF92): K/OS re-lays the console around them. Clear

@@ -23,20 +23,25 @@ int main(void)
     f = fopen(cfg, "w"); fputs("# my notes\nvideo.border = 12\naudio.volume=30\nfuture.thing = keep me\nvideo.smoothing = sharp\n", f); fclose(f);
     CHECK(settings_load(cfg) == 0, "load");
     CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, "values read (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_SMOOTH));
-    CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F7 && !settings_changed(), "defaults for the rest, not dirty");
+    CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F12 && settings_get(SET_TEXT_CODEPAGE) == PAGE_CP437 && !settings_changed(), "defaults for the rest (F12, CP437), not dirty");
     settings_set(SET_VIDEO_BORDER, 999); CHECK(settings_get(SET_VIDEO_BORDER) == 64 && settings_changed(), "clamped, dirty");
     settings_step(SET_INPUT_RESET_CHORD, -1); CHECK(settings_get(SET_INPUT_RESET_CHORD) == CHORD_COUNT - 1, "enum wraps");
     CHECK(settings_save(cfg) == 0, "save");
     { char buf[1024] = { 0 }; f = fopen(cfg, "r"); fread(buf, 1, sizeof buf - 1, f); fclose(f);
       CHECK(strstr(buf, "# my notes") && strstr(buf, "future.thing = keep me"), "comments and unknown keys kept");
       CHECK(strstr(buf, "video.border = 64 px") == 0 && strstr(buf, "video.border = 64"), "border rewritten in place");
-      CHECK(strstr(buf, "input.reset_chord = Ctrl+Alt+Del") && strstr(buf, "input.menu_key = F7"), "missing keys appended: '%s'", buf); }
-    printf("1. registry: load, clamp, wrap, save with unknown keys kept\n");
+      CHECK(strstr(buf, "input.reset_chord = Ctrl+Alt+Del") && strstr(buf, "input.menu_key = F12"), "missing keys appended: '%s'", buf); }
+    f = fopen(cfg, "w"); fputs("version = 2\ninput.menu_key = F7\n", f); fclose(f);                    /* 2 -> 3: F7 is F12 now */
+    CHECK(settings_load(cfg) == 0 && settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F12 && settings_changed(), "an old F7 moves to F12, and is saved");
+    f = fopen(cfg, "w"); fputs("version = 3\ninput.menu_key = F7\n", f); fclose(f);
+    CHECK(settings_load(cfg) == 0 && settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F7 && !settings_changed(), "F7 chosen since stays F7");
+    printf("1. registry: load, clamp, wrap, save with unknown keys kept, 2 -> 3\n");
     /* 2. keys reach the menu through kbd_push / kbd_push_key (the F-keys and arrows are KEY codes, since 2026-09-08 a kind of their own) */
     settings_defaults();
     kbd_push('a'); CHECK(io_read(IO_KBD) == 'a' && !menu_is_open(), "a plain key reaches the machine");
-    kbd_modifiers(1, 0, 0); kbd_push_key(KEY_F1 + 6); CHECK(!menu_is_open() && io_read(IO_KBD) == KEY_F1 + 6, "Shift+F7 reaches the machine");
-    kbd_modifiers(0, 0, 0); kbd_push_key(KEY_F1 + 6); CHECK(menu_is_open(), "F7 opens the menu");
+    kbd_modifiers(1, 0, 0); kbd_push_key(KEY_F1 + 11); CHECK(!menu_is_open() && io_read(IO_KBD) == KEY_F1 + 11, "Shift+F12 reaches the machine (the frontend pauses on it)");
+    kbd_modifiers(0, 0, 0); kbd_push_key(KEY_F1 + 6); CHECK(!menu_is_open() && io_read(IO_KBD) == KEY_F1 + 6, "F7 is a program's key now");
+    kbd_push_key(KEY_F1 + 11); CHECK(menu_is_open(), "F12 opens the menu");
     kbd_push('x'); CHECK(io_read(IO_KBD) == 0, "keys do not reach the machine while open");
     CHECK(menu_draw(ov) == 1 && menu_draw(ov) == 0, "draws once, then clean");
     { CHECK(cell_is(1, 2, UIC_FRAME) > 0, "the frame is drawn");
@@ -58,7 +63,7 @@ int main(void)
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
     CHECK(menu_closed_pending() == 1 && menu_closed_pending() == 0, "close reported once");
     kbd_push('b'); CHECK(io_read(IO_KBD) == 'b', "keys reach the machine again");
-    settings_set(SET_INPUT_MENU_KEY, MENUKEY_F8); kbd_push_key(KEY_F1 + 6); CHECK(!menu_is_open(), "F7 is a plain key once the menu key moved");
+    settings_set(SET_INPUT_MENU_KEY, MENUKEY_F8); kbd_push_key(KEY_F1 + 11); CHECK(!menu_is_open(), "F12 is a plain key once the menu key moved");
     kbd_push_key(KEY_F1 + 7); CHECK(menu_is_open(), "F8 opens it"); menu_close();
     printf("2. menu: open/close, navigation, INT steps, ENUM popup, actions\n");
     /* 3. the shell toggle the ROM reads at $D521 */

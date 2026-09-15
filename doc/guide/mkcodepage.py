@@ -23,9 +23,10 @@ OUT = os.path.join(HERE, "generated", "codepage.tex")
 PLACES = 26                                   # what chapters/a4-codepage.tex says
 
 
-def table():
+def table(name="k4510_cp"):
+    """a table of core/codepage.h: k4510_cp, the K4510 page, or cp437_cp, the default"""
     text = open(SRC, encoding="utf-8").read()
-    body = text[text.index("k4510_cp[256]"):]
+    body = text[text.index(name + "[256]"):]
     body = body[body.index("{") + 1: body.index("};")]
     body = re.sub(r"/\*.*?\*/", "", body, flags=re.S)
     vals = [int(v, 16) for v in re.findall(r"0x([0-9A-Fa-f]+)", body)]

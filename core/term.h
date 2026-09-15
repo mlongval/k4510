@@ -18,12 +18,13 @@
  *   $DA0E RW FLAGS   bit0 cursor shown (blinking)   bit1 read: application cursor keys (DECCKM)
  *                    bit2 PETSCII mode
  *                    bit3 THE STATUS BANDS BELONG TO THE PROGRAM.  While it is set, K/OS lays the
- *                    console around $DA0F/$DA16 instead of the user's F7 heights, and stops drawing
+ *                    console around $DA0F/$DA16 instead of the user's F12 heights, and stops drawing
  *                    into the bands at all -- no clock, no MHz, and cls() leaves those rows alone.
  *                    The program draws them itself and MUST clear the bit before it exits, the way
  *                    PETSCII mode must be cleared: leave it set and the shell comes back to a screen
  *                    whose furniture nobody is maintaining.
  *   $DA0F RW BANDTOP rows in the top band while bit3 is set
+ *   $DA17 RW CODEPAGE 0 strict CP437 (power-on), 1 the K4510 page: JIM's table and the fonts follow
  *   $DA16 RW BANDBOT rows in the bottom band while bit3 is set.  Write the two, set bit3, then call
  *                    VIDEO ($FF92): K/OS re-lays the console around them.  Clear bit3 and call VIDEO
  *                    again to hand them back.  (JIM stores these and never reads them; the ROM does.
@@ -54,6 +55,10 @@ void    term_write(uint8_t reg, uint8_t v);
 void    term_tick(void);           /* once a frame: the cursor blink */
 void    term_host_session(int on); /* the `!` shell's session: UTF-8 on and LNM off; off gives LNM back */
 int     term_cp437_utf8(uint8_t b, char *out);   /* a CP437 byte as UTF-8 (1-3 bytes), for a Unix host */
+const uint16_t *term_page_table(void);   /* the code page in use, 256 Unicode values (core/codepage.h) */
+void    term_set_page(int k4510);      /* 0 strict CP437 (the default), 1 the K4510 page: table and fonts */
+int     term_get_page(void);
+int     term_page_request(void);       /* -1, or the page the guest chose through $DA17 since the last call */
 int     term_cursor_park(void);    /* take the cursor out of RAM (a save state); returns whether it was lit */
 void    term_cursor_unpark(int was);
 #ifdef __cplusplus

@@ -64,7 +64,7 @@ WS and MBASIC.
 
 ## Typing a CP/M program's name directly
 
-The shell can be told to treat an unknown word as a CP/M program: F7 -> Shell
+The shell can be told to treat an unknown word as a CP/M program: F12 -> Shell
 -> CP/M .COM by name. With it on, STAT at the /] prompt starts CP/M, runs
 STAT.COM from A: and comes back.
 

@@ -83,7 +83,7 @@ choice: it can keep growing without the ROM budget.
   `core/ui/settings.c`, `core/ui/menu.c`; the Pi-only "Sound on core 3"
   setting gone with them.
 - `$D522` now answers what is beneath the machine — 0 a desktop,
-  1 K4510x — and `INFO` says which; the F7 Info row does the same.
+  1 K4510x — and `INFO` says which; the F12 Info row does the same.
 - `README.md`, `CREDITS.md`, `LICENSES.md`, `THIRD_PARTY_SOURCES.md`
   say the port is retired and where its last tree is.
 - Left for the handbook session (its files): `docs/NAMING.md`,

@@ -79,7 +79,7 @@ KEEP  HUSH           silence.  FIXED 2026-09-01: it zeroed the SIDs and the
                               not return entry 1 (a repeated source of bugs)
 ?  /.TRASH                    shared trash for RM / DELETE / DD
 ?  STARTUP.BAT                boot script; keyboard layout, colours, autostart
-?  Settings saved on exit     F7 settings persist to a file
+?  Settings saved on exit     F12 settings persist to a file
 ?  MOUNT / a real VFS         PROPOSED, not built (docs/notes/design-ideas.md)
 
 ## 3. Editors and file managers  (all .prg -- no ROM)
@@ -134,7 +134,7 @@ KEEP  Screen font      one: unscii (PD) -- 8x8 for the 240-line modes, 8x16
                       for 640x480 (80x30).  Doc, 2026-09-14: "pick one font
                       and jettison all the rest".  CUT: kernel8, open-roms,
                       PXLfont, BESCII, the ZX Origins set, chargen.bin
-                      loading and the F7 Screen font row.
+                      loading and the F12 Screen font row.
 
 ## 7. JIM, the console terminal ($DA00)
 
@@ -177,7 +177,7 @@ CUT   SID playback  SIDPLAY.prg retired (see 13).  `fs/SID` is a SYMLINK to
    banks 3-15 are PROPOSED as user RAM banks and are unclaimed
 ?  DMA
 ?  MAP (28-bit)
-?  CPU clock as a setting   F7 -> Machine.  Desktop starts at 40.5, Pi at 15.
+?  CPU clock as a setting   F12 -> Machine.  Desktop starts at 40.5, Pi at 15.
                             No standing phrase for it anywhere -- deliberate
 
 ## 10. Networking
@@ -192,7 +192,7 @@ CUT   SID playback  SIDPLAY.prg retired (see 13).  `fs/SID` is a SYMLINK to
 ## 11. Host frontend and UI
 
 ?  SDL2 desktop frontend
-?  F7 settings menu    Machine / Video / Audio / ...
+?  F12 settings menu    Machine / Video / Audio / ...
 ?  Vsync               OFF EVERYWHERE, deliberately (a7c8f19).  Measured at
                        51.8 fps with audible artefacts on hdieu.  Re-proposed
                        and withdrawn 2026-09-01

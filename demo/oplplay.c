@@ -385,7 +385,7 @@ static void caption(uint8_t s)
     /* The program cannot tell silence from sound, so say where the volume is.
      * (Until 2026-09-05 this pointed at a Sound chip row; the OPL2 is the only
      * chip now and that row is gone.) */
-    text8_print(TEXTMAP, 80, 2, 5, "silent?  F7 - Audio - Volume, then the host's own mixer");
+    text8_print(TEXTMAP, 80, 2, 5, "silent?  F12 - Audio - Volume, then the host's own mixer");
     for (i = 0; i < NCH; i++) {
         char b[2]; b[0] = (char)('1' + i); b[1] = 0;
         text8_print(TEXTMAP, 80, (uint8_t)(5 + i * 8), 54, b);

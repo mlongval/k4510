@@ -403,7 +403,7 @@ void vicky_line(int y)
 }
 
 /* Draw the picture again from RAM without moving the machine on.
- * The F7 menu freezes the machine, so nothing redraws when a setting changes
+ * The F12 menu freezes the machine, so nothing redraws when a setting changes
  * the way the picture is built -- the chargen at $010000 is the one that
  * matters, and a font you cannot see until you close the menu is no preview.
  * Rasterising has side effects (the raster line, raster and SHEILA IRQ flags,

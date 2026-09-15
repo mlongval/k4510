@@ -13,7 +13,7 @@
  *   arrows move   Tab next channel   PgUp PgDn 16 rows   [ ] pattern
  *   F1 F2 octave   F3 F4 instrument   F9 F10 speed (frames a row)
  *   Space play the pattern / stop   F5 play the song   F6 the instruments
- *   (F7 is the machine's menu and F8 its pause, so TRACKER leaves them be)
+ *   (F12 is the machine's menu, Shift+F12 its pause, so TRACKER leaves it be)
  *   Ins add this pattern to the order   Ctrl-X take the last one off
  *   Ctrl-S save   Ctrl-O open   Ctrl-E export for OPLPLAY   Esc leave
  *

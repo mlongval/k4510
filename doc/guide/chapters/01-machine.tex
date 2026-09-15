@@ -13,7 +13,7 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   machine's own memory management: bank registers, a far-call gate, and RAM
   under the ROM. Its clock is whatever the host it runs on can hold at
   sixty frames a second with no gaps in the sound: the machine is a
-  fantasy and its timings are suggestions. The clock is a setting (F7,
+  fantasy and its timings are suggestions. The clock is a setting (F12,
   under Machine --- six steps from 60\,MHz down to 10; the ladder goes on
   to 202.5, and those faster steps are held back for now). A host nobody
   has measured runs at 40.5, the MEGA65's number; \verb|SETUP| measures
@@ -146,14 +146,14 @@ let the machine measure it.
 \textbf{Keys:} Escape is RUN/STOP (stops a BASIC program), Ctrl-C is
 STOP, Shift+Escape quits the emulator. Reset is a chord, the way it was
 Commodore+Restore on the C64: Super+PageUp (the Windows or Command key
-and PageUp) --- one key cannot do it by accident. F7 opens the settings
+and PageUp) --- one key cannot do it by accident. F12 opens the settings
 menu; F8 pauses the machine and turns the keyboard into a debugger's.
 PrtSc takes a screenshot --- the screen flashes, and the picture is in
 \pth{shots/} beside the emulator.
 \end{aside}
 
 \section{The keyboard}
-The keyboard is the one in front of you, and F7~$\rightarrow$~Input
+The keyboard is the one in front of you, and F12~$\rightarrow$~Input
 $\rightarrow$~\emph{Keyboard layout} says what its keys mean: US,
 US-International, Canadian French, French, German, Spanish, UK or
 Italian --- or \emph{Host}, the first choice, which leaves the question
@@ -171,8 +171,8 @@ Ctrl, where the old Unix keyboards had it; the shell's own
 \verb|CAPSLOCK| command (Chapter~\ref{cha:shell}) is how you get capitals
 without it.
 
-\section{The F7 menu}
-F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and
+\section{The F12 menu}
+F12 freezes the machine and
 takes the whole screen, in the manner of the C64~Ultimate's: the
 categories down the left, the settings of the chosen one on the right,
 and a line at the foot saying what the keys do in whichever pane holds
@@ -182,13 +182,19 @@ memory, so it opens even when a program has wrecked the screen.
 
 Up and Down move; Enter or Right crosses from the categories to the
 settings; Left and Right step a value; Escape goes back a pane, and
-closes at the categories; F7 closes from anywhere. The mouse works too.
+closes at the categories; F12 closes from anywhere. The mouse works too.
+Shift+F12 pauses the machine instead, the picture held; Shift+F12 again
+goes on. The menu was on F7 until the autumn of 2026, a habit from the
+Commodore's keyboard; most emulators keep theirs on F12, and F7 and F8
+are ordinary keys now, for the programs that want all ten. Input
+$\rightarrow$ \emph{Menu key} puts it back on F7 for fingers that
+remember.
 A setting with a list of choices opens that list over the panes, and
 \emph{applies as the cursor passes each one} --- the scaling changes
 under the menu so you can see it --- with Escape putting back whatever
 was there when the list opened.
 
-\screen{shots/menu.png}{The F7 menu: categories on the left, the Video
+\screen{shots/menu.png}{The F12 menu: categories on the left, the Video
 page on the right.}
 
 \begin{description}

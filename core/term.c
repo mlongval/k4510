@@ -504,7 +504,25 @@ static void pet_byte(uint8_t c)
  * takes XTERM-COLOR.  Off by default, and only ESC % G or a `!` session turns it on, so a CP/M or BBC
  * BASIC session is never decoded.  Doc, 2026-09-12: reading Claude Code through
  * TELNET, every bullet was three glyphs of noise. */
-#define cp437_hi (k4510_cp + 0x80)                              /* $80-$FF: the K4510 code page (core/codepage.h) */
+/* The code page (docs/K4510-CODEPAGE.md): strict CP437, the machine's default,
+ * or the K4510 page, which gives 26 of CP437's Greek and maths places to Western
+ * Europe's letters.  $DA17 reads and sets it; setting it copies that page's two
+ * fonts into the live slots, so the screen follows at once.  Not part of T: a
+ * save state does not carry it, the frontend's setting does (Doc, 2026-09-15:
+ * "keep plain as default but keep modified as option"). */
+static int page_k;                                              /* 1: the K4510 page */
+static int page_req = -1;                                       /* the guest chose one: the frontend saves it */
+const uint16_t *term_page_table(void) { return page_k ? k4510_cp : cp437_cp; }
+void term_set_page(int k)
+{
+    uint32_t f8 = k ? K4510_FONT8_K_PHYS : K4510_FONT8_437_PHYS, f16 = k ? K4510_FONT16_K_PHYS : K4510_FONT16_437_PHYS;
+    page_k = k != 0;
+    if (k4510_ram[f8 + 0x41 * 8 + 3])   memcpy(k4510_ram + K4510_FONT8_PHYS, k4510_ram + f8, 2048);    /* an empty slot: the font stays */
+    if (k4510_ram[f16 + 0x41 * 16 + 6]) memcpy(k4510_ram + K4510_FONT16_PHYS, k4510_ram + f16, 4096);
+}
+int term_get_page(void) { return page_k; }
+int term_page_request(void) { int r = page_req; page_req = -1; return r; }
+#define cp437_hi (term_page_table() + 0x80)                      /* $80-$FF: the page in use (core/codepage.h) */
 static const uint16_t cp437_lo[32] = {                           /* $01-$1F: the ROM's pictures; [0] is $7F's house */
     0x2302,0x263A,0x263B,0x2665,0x2666,0x2663,0x2660,0x2022,0x25D8,0x25CB,0x25D9,0x2642,0x2640,0x266A,0x266B,0x263C,
     0x25BA,0x25C4,0x2195,0x203C,0x00B6,0x00A7,0x25AC,0x21A8,0x2191,0x2193,0x2192,0x2190,0x221F,0x2194,0x25B2,0x25BC };
@@ -695,6 +713,7 @@ uint8_t term_read(uint8_t r)
     case 0x10: case 0x11: case 0x12: case 0x13: return (uint8_t)(T.base >> (8 * (r - 0x10)));
     case 0x14: return T.deffg; case 0x15: return T.defbg;
     case 0x16: return T.bandbot;
+    case 0x17: return (uint8_t) page_k;                         /* CODEPAGE: 0 CP437, 1 the K4510 page */
     default: return 0;
     }
 }
@@ -747,6 +766,7 @@ void term_write(uint8_t r, uint8_t v)
     case 0x14: T.deffg = v; return;
     case 0x15: T.defbg = v; return;
     case 0x16: T.bandbot = v; return;
+    case 0x17: term_set_page(v & 1); page_req = page_k; return;
     default: return;
     }
 }

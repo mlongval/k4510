@@ -32,7 +32,7 @@ Ending in `EXIT` is what makes the round trip whole: quitting a CP/M program onl
 
 ## Typing a CP/M program’s name directly
 
-The shell can be told to treat an unknown word as a CP/M program: F7 → Shell → *CP/M .COM by name*. With it on, `STAT` at the `/]` prompt starts CP/M, runs `STAT.COM` from A: and comes back.
+The shell can be told to treat an unknown word as a CP/M program: F12 → Shell → *CP/M .COM by name*. With it on, `STAT` at the `/]` prompt starts CP/M, runs `STAT.COM` from A: and comes back.
 
 It is off to begin with, and deliberately so — `D` typed for `DIR` should not start a Z80 program. It changes only the guess: a command naming `CPM` outright, an alias among them, works either way. There is nothing in a `.prg` to tell the two apart, incidentally — its header is a load address and a run address, and a `.COM` begins with Z80 code that would read as a perfectly plausible one — so the extension is what decides.
 

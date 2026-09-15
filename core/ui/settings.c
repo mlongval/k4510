@@ -5,8 +5,8 @@
 #include <stdlib.h>
 
 /* Bumped when an old file needs interpreting differently; see settings_load. */
-#define SETTINGS_VERSION     2
-#define SETTINGS_VERSION_STR "2"
+#define SETTINGS_VERSION     3
+#define SETTINGS_VERSION_STR "3"
 
 static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "1440x1080", "720x540", "360x270", "320x200", "160x200" };
 const unsigned char vmode_number[VMODE_COUNT] = { 0, 1, 2, 5, 6, 7, 3, 4 };
@@ -22,7 +22,8 @@ static const char *const kbd_names[]   = { "Host", "US", "US-intl", "Canada-FR",
 static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", "81 MHz", "60 MHz",
                                            "40.5 MHz", "30 MHz", "20 MHz", "15 MHz", "10 MHz" };
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
-static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
+static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause", "F12" };
+static const char *const page_names[]  = { "CP437", "K4510" };
 
 static const set_desc desc[SET_COUNT] = {
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
@@ -53,7 +54,7 @@ static const set_desc desc[SET_COUNT] = {
      * were removed.  An old k4510.cfg still carrying them is fine: unknown
      * keys are kept and ignored. */
     { "input.reset_chord",   "Reset chord",    ST_CHORD, CHORD_SUPER_PGUP, 0, 0, 0, chord_names, CHORD_COUNT, SF_LIVE },
-    { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F7, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
+    { "input.menu_key",      "Menu key",       ST_ENUM,  MENUKEY_F12, 0, 0, 0, mkey_names, MENUKEY_COUNT, SF_LIVE },
     { "input.mouse_grab",    "Mouse capture",  ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* a click captures the pointer; the menu releases it.  OFF by default since
                                                                                             2026-09-11: on a laptop the vanishing pointer startled Doc; a game turns it on */
     { "input.mouse_pointer", "Mouse pointer",  ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* on: the host pointer shows over the picture instead of vanishing (Doc, 2026-09-11) */
@@ -81,6 +82,7 @@ static const set_desc desc[SET_COUNT] = {
     { "input.kbd_layout",    "Keyboard layout", ST_ENUM, 0, 0, 0, 0, kbd_names, 9, SF_LIVE },   /* the machine's; the K4510 Linux follows it */
     { "host.lid",            "Lid closed",     ST_ENUM, 0, 0, 0, 0, lid_names, 2, SF_LIVE },   /* keep running (Doc's rule of 2026-09-11), or suspend */
     { "input.keypipe",       "Key pipe",       ST_ENUM, 2, 0, 0, 0, pipe_names, 3, SF_LIVE },  /* remote typing: off / on / on, shown (the default) */
+    { "text.codepage",       "Code page",      ST_ENUM,  PAGE_CP437, 0, 0, 0, page_names, PAGE_COUNT, SF_LIVE },
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
                                                      40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
@@ -187,10 +189,14 @@ int settings_load(const char *path)
     /* Version 1 -> 2 (2026-09-01) migrated audio.chip, which no longer
      * exists; the version line is kept so a future migration has a number
      * to compare against. */
-    (void)filever;
+    /* Version 2 -> 3 (2026-09-15): the menu moved from F7, a Commodore habit, to
+     * F12, where most emulators keep theirs.  Every config wrote its menu key
+     * down, so a default change alone would have moved nobody. */
+    int migrated = 0;
+    if (filever < 3 && value[SET_INPUT_MENU_KEY] == MENUKEY_F7) { value[SET_INPUT_MENU_KEY] = MENUKEY_F12; migrated = 1; }
     /* and again on the way in, in case the file was edited by hand */
     if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_TO;
-    fclose(f); changed = 0;
+    fclose(f); changed = migrated;
     return 0;
 }
 int settings_save(const char *path)

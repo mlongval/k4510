@@ -224,7 +224,7 @@ sideways bank, not in the 64\,KB --- so they survive a reset but not a
 power cycle, which is what \verb|/STARTUP.BAT| is for.
 
 \section{The status bands}\label{sec:bands}
-Turn on \emph{status bands} (F7, under Terminal) and the console stops
+Turn on \emph{status bands} (F12, under Terminal) and the console stops
 being the whole screen: a band at the top and a band at the bottom stay
 still while the text scrolls between them. Each band is one row high:
 the bands are on or off, and that is the only setting.
@@ -453,7 +453,7 @@ always starts in the top-left cell: there is no margin.
 2 & 320$\times$240 & 40$\times$30 & \\
 \end{tabular}
 
-The F7 menu, under Video, has the same two knobs: \emph{Resolution} shows
+The F12 menu, under Video, has the same two knobs: \emph{Resolution} shows
 what the machine is actually in --- it follows a \verb|MODE| you type ---
 and choosing another asks the ROM to perform it, because the console's
 geometry belongs to the ROM and not to the host. VICKY can draw smaller
@@ -472,7 +472,7 @@ line~40.
 \texttt{/STARTUP.BAT} runs at power-on, and a bad one runs at every
 power-on. There is no moment to catch --- the machine boots straight into
 it --- so the way out is not a key held at the right instant but a switch
-that stays where you put it: the F7 menu, under Shell:
+that stays where you put it: the F12 menu, under Shell:
 \emph{Run STARTUP.BAT}. That setting is the host's, kept in
 \texttt{k4510.cfg}, so it survives a power cycle and no wedged program in
 the machine can take it away from you. Boot clean, fix the file, switch it
@@ -486,7 +486,7 @@ There is a second way, for one boot only:
 
 \noindent (\verb|--no-startup| does the same, as does
 \verb|K4510_NO_STARTUP=1| in the environment). It skips
-\texttt{/STARTUP.BAT} for that run and touches nothing: the F7 setting
+\texttt{/STARTUP.BAT} for that run and touches nothing: the F12 setting
 and \texttt{k4510.cfg} are left exactly as they were.
 
 \section{When something goes wrong}

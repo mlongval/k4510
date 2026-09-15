@@ -105,7 +105,7 @@ void main(void)
     addn(REG(SYS + 7), 2); add(":"); addn(REG(SYS + 6), 2); add(":"); addn(REG(SYS + 5), 2);
     nl(); nl();
 
-    ask(bug_labels[5], "shell, EhBASIC, BBC BASIC, CP/M, Forth, Pascal, VI, EDIT, the F7 menu");
+    ask(bug_labels[5], "shell, EhBASIC, BBC BASIC, CP/M, Forth, Pascal, VI, EDIT, the F12 menu");
     ask(bug_labels[6], "the command or the keys, as typed");
     ask(bug_labels[7], 0);
     ask(bug_labels[8], 0);

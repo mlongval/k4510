@@ -175,8 +175,8 @@ will not be built for the Pi. It does not need to be: `sdl/main.c` *is*
 the Pi frontend, and its PERF window already carries the same CPU /
 VICKY / SID split, writing `SYSTEM/PERF.TXT` onto the card. As of
 `c25a295` changing `cpu.clock` reopens that window and appends a block
-headed by the new clock, so the Pi sweeps from the F7 menu the way the
-desktop sweeps from `K4510_CPU_HZ`. Procedure: boot, F7, pick a clock,
+headed by the new clock, so the Pi sweeps from the F12 menu the way the
+desktop sweeps from `K4510_CPU_HZ`. Procedure: boot, F12, pick a clock,
 wait 300 frames, repeat; carry the card off and read the file.
 
 The desktop numbers do not transfer -- different cost mix, no palette

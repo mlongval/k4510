@@ -1,10 +1,14 @@
 # The Code Page
 
-Every character the K4510 shows is one byte, and the code page says which character each of the 256 bytes is. It is IBM’s code page 437 — the PC’s, the one with the box drawing — with 26 of its places given to letters Western Europe needs and CP437 never had: the accented capitals of French, Italian and Spanish, `œ` and `Œ`, the euro, the section and pilcrow signs, German’s quotes, and `ø`. The places they took were CP437’s Greek and mathematical symbols and a few marks nobody used. The box drawing, the shades and blocks, and every accented letter CP437 already had are where they always were, so a screen drawn for CP437 still draws as it was drawn — unless it used one of the 26.
+Every character the K4510 shows is one byte, and the code page says which character each of the 256 bytes is. The machine’s is IBM’s code page 437 — the PC’s, the one with the box drawing — as every PC program and every bulletin board expects it. That is what it starts in, and what this book’s pages on the machine are written in.
 
-Like the register reference, this appendix is not written by hand: `doc/guide/mkcodepage.py` makes it from `core/codepage.h`, the one table the machine’s text runs through. JIM turning UTF-8 into bytes and back, the keyboard, the fonts and `k4510-remote` all read that table, so none of them can disagree with this page, or with each other.
+There is a second page, the *K4510 page*, for when it is wanted. It is CP437 with 26 of its places given to letters Western Europe needs and CP437 never had: the accented capitals of French, Italian and Spanish, `œ` and `Œ`, the euro, the section and pilcrow signs, German’s quotes, and `ø`. The places they took were CP437’s Greek and mathematical symbols and a few marks nobody used. The box drawing, the shades and blocks, and every accented letter CP437 already had — the lower-case letters French, Spanish and German are written with — are in the same places in both.
 
-## The page
+`CODEPAGE K4510` chooses it and `CODEPAGE 437` goes back; `CODEPAGE` alone says which is in use. F12 → Terminal → *Code page* is the same choice, and the machine remembers it. The screen changes at once: the page’s font takes the place of the other, and the characters already on the screen are drawn again from it.
+
+Like the register reference, this appendix is not written by hand: `doc/guide/mkcodepage.py` makes it from `core/codepage.h`, which holds both pages. JIM turning UTF-8 into bytes and back, the keyboard, the fonts and `k4510-remote` all read that file, so none of them can disagree with this page, or with each other.
+
+## The K4510 page
 
 Generated from `core/codepage.h`. The row is a byte’s high hex digit, the column its low one: `$82` is row 8, column 2. The 26 places that are not CP437’s are in bold. <span class="smallcaps">sp</span> is the space and <span class="smallcaps">nb</span> the no-break space; `$00` draws nothing.
 
@@ -208,18 +212,20 @@ F & **Ú** & ± & **Ì** & **Ò** & **œ** & **Œ** & ÷ & **ø** & ° & **Ø** 
 
 </div>
 
-## The languages it writes
+## The languages each writes
 
-With the 26, these are complete in both cases: French, Italian, Spanish, German, Danish, Norwegian, Swedish, Finnish, Dutch, Catalan, Galician, Basque, Irish, Scottish Gaelic, Afrikaans and Albanian — and English. Portuguese is four letters short (`ã õ Ã Õ`); the capital sharp `ẞ` is left out as too rare to spend a place on. Text arriving as UTF-8 — from `!`, from TELNET, over ssh — is turned into the page’s bytes on the way in, and the curly quotes the page has no place for become their plain forms.
+CP437 has every lower-case letter of French, Spanish, German, Italian and the Nordic languages, and `É Ç Ñ Ä Ö Ü Å Æ` among the capitals — enough for most written French, which leaves the other capitals unaccented. With the K4510 page these are complete in both cases: French, Italian, Spanish, German, Danish, Norwegian, Swedish, Finnish, Dutch, Catalan, Galician, Basque, Irish, Scottish Gaelic, Afrikaans and Albanian. Portuguese is four letters short in either (`ã õ Ã Õ`).
+
+Text arriving as UTF-8 — from `!`, from TELNET, over ssh — is turned into the page in use on the way in; a character it has no place for becomes its nearest, and the curly quotes their plain forms.
 
 ## The first 32, and \$7F
 
-Bytes `$01`–`$1F` and `$7F` draw CP437’s little pictures: the faces, the card suits, the arrows, the notes. As text they are also the control codes — `$07` rings, `$1B` is Escape, `$18` to `$1A` move the cursor — and the console obeys them rather than drawing them. So a program that wants a picture on the screen puts the byte into screen memory itself, as the games do, and the characters that matter as text (`§`, `¶`) have places in the upper half as well.
+Bytes `$01`–`$1F` and `$7F` draw CP437’s little pictures in both pages: the faces, the card suits, the arrows, the notes. As text they are also the control codes — `$07` rings, `$1B` is Escape, `$18` to `$1A` move the cursor — and the console obeys them rather than drawing them. So a program that wants a picture on the screen puts the byte into screen memory itself, as the games do.
 
 ## Typing them
 
-Every character a keyboard layout has a key for reaches the machine. The dead keys compose the rest: `‘` then `A` is `À`, `^` then `E` is `Ê` — 55 compositions in all, the capitals included. FONTED redraws any of the 256, in both sizes of the font, and shows the Unicode value of the character it is editing from the same table as this page.
+Every character a keyboard layout has a key for reaches the machine, if the page in use has it. The dead keys compose the rest: `‘` then `e` is `è` in either page; `‘` then `A` is `À` in the K4510 page, and a plain `A` in CP437, which has no place for it. FONTED redraws any of the 256, in both sizes of the font, and shows the Unicode value of the character it is editing.
 
 ## A BBS
 
-Most ANSI art on a bulletin board is CP437, and nearly all of it is box drawing and shades, which the page kept. If it used `≡` or `√`, though, the K4510 page would draw the letter that lives in that place now — so TELNET does not use it for one. The machine keeps the same font a second time in strict CP437, and TELNET draws with that for a CP437 session: a BBS, an old system, a far end that never negotiates. A Unix host, which takes the XTERM-COLOR terminal type and talks UTF-8, is drawn in the K4510 page, and the machine’s font comes back when TELNET hangs up.
+TELNET draws a CP437 session — a bulletin board, an old system, a far end that never negotiates — with strict CP437 whatever page the machine is in, so ANSI art is always exactly as it was drawn. A Unix host, which takes the XTERM-COLOR terminal type and talks UTF-8, is drawn in the page in use, and the machine’s font comes back when TELNET hangs up.

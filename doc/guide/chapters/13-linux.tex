@@ -100,7 +100,7 @@ git, neovim & so that work done here is work \\
 curl, ssh & what \texttt{ftp://}, \texttt{sftp://} and \verb|SSH| go through \\
 \texttt{tek40xx} & a Tektronix 4010 terminal, below \\
 telnetd & bound to the machine itself and nothing else \\
-NetworkManager, Tailscale & the network: F7 $\rightarrow$ Host \\
+NetworkManager, Tailscale & the network: F12 $\rightarrow$ Host \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -108,23 +108,23 @@ NetworkManager, Tailscale & the network: F7 $\rightarrow$ Host \\
 \textbf{The consoles.} Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are
 Linux text consoles, 80 by 25 in the IBM PC's own font, where the
 Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are
-media keys, add Fn.) Quitting the emulator (Shift+Esc, or F7
+media keys, add Fn.) Quitting the emulator (Shift+Esc, or F12
 $\rightarrow$ Quit) drops you to a Linux shell on the machine's own
-console rather than to nothing, and F7 has a \emph{Shut down the
+console rather than to nothing, and F12 has a \emph{Shut down the
 computer} row because there is no desktop to go back to. The power
-button performs a clean shutdown. Closing the lid does what F7
+button performs a clean shutdown. Closing the lid does what F12
 $\rightarrow$ Host $\rightarrow$ \emph{Lid closed} says: \emph{keep
 running}, to begin with, or \emph{suspend}. (Quit to the Linux shell and
 nothing is keeping the machine awake: there the lid suspends.) The consoles speak UTF-8 and follow
-the keyboard layout chosen in F7.
+the keyboard layout chosen in F12.
 
-\textbf{The network.} F7 $\rightarrow$ Host shows the computer's name
+\textbf{The network.} F12 $\rightarrow$ Host shows the computer's name
 and address, and \emph{Wi-Fi / network setup} opens NetworkManager's
 own screen on a spare console to join a network; the machine is back
 when you leave it. A network joined once is remembered.
 
 \textbf{Telnet, both directions.} \verb|TELNET 127.0.0.1 23| from the
-machine's prompt --- or F7 $\rightarrow$ Host $\rightarrow$ \emph{Telnet
+machine's prompt --- or F12 $\rightarrow$ Host $\rightarrow$ \emph{Telnet
 into the host} --- logs in to the Linux underneath through the front
 door rather than through \verb|!|, which is useful when you want a
 session that survives what the machine is doing. The daemon listens on
@@ -237,8 +237,8 @@ ssh k4510@machine k4510-type --key down down enter
 \noindent \verb|\n| is Enter and \verb|~| a half-second pause; keys
 without a letter go by name (\verb|up|, \verb|pgdn|, \verb|esc|,
 \verb|f1|\ldots). Typing and a screenshot at a time is the machine
-driven from another room --- F7's menu included, with
-\verb|--key f7|. F7 $\rightarrow$ Input $\rightarrow$ \emph{Key pipe}
+driven from another room --- F12's menu included, with
+\verb|--key f12|. F12 $\rightarrow$ Input $\rightarrow$ \emph{Key pipe}
 can turn it off, or --- as it starts --- show every key so typed at the
 foot of the screen. \verb|k4510-screen| is the third tool beside them:
 the machine's text screen, as text, so another computer can read what

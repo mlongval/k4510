@@ -48,9 +48,9 @@
  * nothing.  Doc, 2026-09-12: the Dell's KMSDRM screen could not be grabbed
  * from outside (fbdev is bypassed, the scanout is tiled). */
 static volatile sig_atomic_t shot_req;
-static int caps_ctrl_down;          /* F7 -> Input -> Caps Lock is Ctrl: the key is held now */
+static int caps_ctrl_down;          /* F12 -> Input -> Caps Lock is Ctrl: the key is held now */
 static int shot_flash;              /* frames left of the screenshot's screen invert */
-/* F7 -> Input -> Key pipe, "on, shown": keys typed from outside (the KEYS
+/* F12 -> Input -> Key pipe, "on, shown": keys typed from outside (the KEYS
  * pipe, tools/k4510-type) are echoed in a bar at the foot of the window --
  * the last few dozen, gone four seconds after the last -- so nobody types
  * into the machine unseen (Doc, 2026-09-14).  Drawn by the frontend over
@@ -91,7 +91,7 @@ static void shot_signal(int sig) { (void) sig; shot_req = 1; }
  * 60, 30 or 25 by VICKY's mode -- the status bands included, as CP437
  * bytes, trailing blanks trimmed, blank rows kept so a row is always the
  * same line.  Written beside and renamed, so a reader never sees half of
- * one.  The F7 menu draws over the picture, not into this map: a first line
+ * one.  The F12 menu draws over the picture, not into this map: a first line
  * says when it is open. */
 /* Sidebar-savers (Doc's brainshot, 2026-09-14: "scrolling tilemaps or
  * colorcycling maps that run on the sidebars if they are not being used by
@@ -173,7 +173,7 @@ static void screen_save(void)
     mkdir("shots", 0755);
     FILE *f = fopen("shots/.screen.tmp", "wb");
     if (!f) return;
-    if (menu_is_open()) fputs("# the F7 menu is open over this screen\n", f);
+    if (menu_is_open()) fputs("# the menu is open over this screen\n", f);
     for (int r = 0; r < rows; r++) {
         char line[200]; int n = 0;
         for (int c = 0; c < cols; c++) {
@@ -320,12 +320,16 @@ static void slot_refresh(int n)                      /* the slot's row: its file
 /* The screen font: unscii, the one font since 2026-09-14 (Doc: "pick one font
  * and jettison all the rest").  8x8 at $010000 for the 240-line modes, 8x16
  * at $010800 for 640x480; the ROM points VICKY at whichever the mode wants. */
+const uint16_t *term_page_table(void); void term_set_page(int k4510); int term_get_page(void); int term_page_request(void);   /* core/term.h */
 static void load_fonts(void)
 {
     mem_load(K4510_FONT8_PHYS, font_menu, sizeof font_menu);
     mem_load(K4510_FONT16_PHYS, font_panel, sizeof font_panel);
     mem_load(K4510_FONT8_437_PHYS, font_437_8, sizeof font_437_8);        /* zeros if the files were missing: TELNET */
     mem_load(K4510_FONT16_437_PHYS, font_437_16, sizeof font_437_16);     /* sees an empty font and stays on the machine's */
+    mem_load(K4510_FONT8_K_PHYS, font_menu, sizeof font_menu);            /* the K4510 page's pair, for CODEPAGE K4510 */
+    mem_load(K4510_FONT16_K_PHYS, font_panel, sizeof font_panel);
+    term_set_page(settings_get(SET_TEXT_CODEPAGE));                    /* the live slots: CP437, unless the K4510 page was chosen */
 }
 
 /* The keyboard when SDL sends no text.
@@ -333,7 +337,7 @@ static void load_fonts(void)
  * A printable character normally arrives as SDL_TEXTINPUT, already composed by
  * the host's layout.  On the K4510 Linux that never happens: the appliance draws
  * straight on the screen (SDL_VIDEODRIVER=kmsdrm) and SDL's own evdev keyboard
- * gives us key codes and no text at all, so the F7 menu -- which is arrow keys
+ * gives us key codes and no text at all, so the F12 menu -- which is arrow keys
  * and Enter -- worked while nothing could be TYPED (Doc, on the T480,
  * 2026-09-07: "the keyboard is unresponsive outside of the menu").
  *
@@ -363,7 +367,7 @@ static uint8_t key_ascii(SDL_Keycode k, int shift)
     return 0;
 }
 
-/* ---- the machine's own keyboard layout (F7 -> Input -> Keyboard layout) ----
+/* ---- the machine's own keyboard layout (F12 -> Input -> Keyboard layout) ----
  * "Host" types what the host composed (SDL_TEXTINPUT).  Any other layout is
  * the emulator's own table, from the same XKB data the Linux consoles use
  * (tools/mkkbdmaps.py -> core/kbdmaps.h), applied to the PHYSICAL key -- so it
@@ -417,7 +421,8 @@ static int layout_key(int layout, SDL_Scancode sc, SDL_Keymod m)   /* 1: the lay
         uint32_t out = 0;
         for (unsigned i = 0; i < sizeof kbd_compose / sizeof kbd_compose[0]; i++)
             if (kbd_compose[i].dead == kbd_dead && kbd_compose[i].base == u) { out = kbd_compose[i].out; break; }
-        if (out) u = out; else push_unicode(kbd_dead);    /* no such letter: the accent, then the key */
+        if (out && (out < 0x80 || cp437_of(out))) u = out;   /* a letter the page has no place for (CP437's A-grave): the plain letter */
+        else if (!out) push_unicode(kbd_dead);            /* no such letter: the accent, then the key */
         kbd_dead = 0;
     }
     push_unicode(u);
@@ -430,7 +435,8 @@ static int layout_key(int layout, SDL_Scancode sc, SDL_Keymod m)   /* 1: the lay
 static uint8_t cp437_of(unsigned long cp)                /* Unicode -> the K4510 code page (core/codepage.h); 0: no place */
 {
     if (cp == 0x00A0) return 0x20;                     /* no-break space: a space */
-    for (unsigned i = 0x80; i < 0x100; i++) if (k4510_cp[i] == cp) return (uint8_t) i;
+    { const uint16_t *t = term_page_table();          /* the page in use: CP437, or the K4510 page (CODEPAGE) */
+      for (unsigned i = 0x80; i < 0x100; i++) if (t[i] == cp) return (uint8_t) i; }
     return 0;
 }
 
@@ -708,7 +714,7 @@ static uint8_t pad_held(void)
     return h;
 }
 
-/* ---- the Host page (F7 -> Host, the K4510 Linux only) ------------------------
+/* ---- the Host page (F12 -> Host, the K4510 Linux only) ------------------------
  * Name, the first real IPv4 address and the tailnet address, read from the
  * host each time the menu opens (Wi-Fi may have just come up).  "Wi-Fi /
  * network setup" runs nmtui on a spare console the way tekplay runs tek40xx:
@@ -720,7 +726,7 @@ static pid_t host_child;
  * /sys/class/power_supply -- any Linux laptop, the K4510 Linux or a desktop.
  * % in bits 0-6, bit 7 on AC or charging, $FF with no battery.  K4510_BATTERY
  * ("52", "52+") stands in for one, for a headless test.  Doc, 2026-09-12. */
-static void battery_info(void)                   /* F7 -> Info -> Battery, from the same byte as the band */
+static void battery_info(void)                   /* F12 -> Info -> Battery, from the same byte as the band */
 {
     char t[40];
     if (io_battery == 0xFF) snprintf(t, sizeof t, "none");
@@ -758,7 +764,7 @@ static void host_battery_poll(void)
     io_battery = pct < 0 ? 0xFF : (uint8_t)((pct > 100 ? 100 : pct) | (ac ? 0x80 : 0));
     battery_info();
 }
-/* F7 -> Host -> Keyboard layout and F7 -> Input -> Caps Lock is Ctrl, for the
+/* F12 -> Host -> Keyboard layout and F12 -> Input -> Caps Lock is Ctrl, for the
  * Linux beside the machine: its consoles at once (k4510-keymap --set writes
  * /etc/default/keyboard and reloads the kernel keymap), the machine's own
  * typing at the emulator's next start -- SDL reads that keymap once, at init.
@@ -787,7 +793,7 @@ static void host_keymap_apply(void)
     }
     if (pid > 0) kbd_child = pid;
 }
-/* F7 -> Host -> Lid closed.  logind's own rule (k4510-lid.conf) is to suspend
+/* F12 -> Host -> Lid closed.  logind's own rule (k4510-lid.conf) is to suspend
  * on the lid; "keep running", the default -- Doc's rule of 2026-09-11, when a
  * closed lid suspending the machine was the complaint -- holds logind's
  * handle-lid-switch lock for as long as this emulator lives, and "suspend"
@@ -817,7 +823,7 @@ static void host_lid_apply(void)
     if (pid == 0) {
         int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
         execlp("sudo", "sudo", "-n", "systemd-inhibit", "--what=handle-lid-switch", "--mode=block",
-               "--who=K4510", "--why=F7 > Host > Lid closed: keep running", "sh", "-c", loop, (char *) NULL);
+               "--who=K4510", "--why=F12 > Host > Lid closed: keep running", "sh", "-c", loop, (char *) NULL);
         _exit(127);
     }
     if (pid > 0) { lid_child = pid; if (!registered) { atexit(host_lid_release); registered = 1; } }
@@ -885,7 +891,7 @@ static void net_wait_alive(void)
 
 int k4510_frontend_main(int argc, char **argv)
 {
-    /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F7 switch
+    /* --no-startup.bat: skip /STARTUP.BAT for this run only.  The F12 switch
      * does the same thing but persists, and holding a key at the banner needs
      * you to be there -- neither suits a script, or the case where a startup
      * file wedges the machine and you want one clean boot to go and fix it. */
@@ -910,10 +916,10 @@ int k4510_frontend_main(int argc, char **argv)
     }
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
     settings_load(cfg);
-    /* The F7 menu file, beside k4510.cfg and outside the machine's own disk, so
+    /* The F12 menu file, beside k4510.cfg and outside the machine's own disk, so
      * nobody at the machine can edit it: which rows show, and the locks.
      * Written in full when missing, so it lists what can be changed (Doc,
-     * 2026-09-13: "include all options in the F7 menu file as text"). */
+     * 2026-09-13: "include all options in the F12 menu file as text"). */
     { extern int io_lock_linux;                             /* core/io.c: `!` and SSH refused */
       if (menu_file_load("k4510-menu.cfg") < 0) menu_file_write("k4510-menu.cfg");
       io_lock_linux = menu_lock(MENU_LOCK_LINUX); }
@@ -983,7 +989,7 @@ int k4510_frontend_main(int argc, char **argv)
  * The trade is tearing, and on a compositor it is not visible.  It is a
  * SETTING rather than a decision, because that commit said it should be one:
  * a host, a driver or a pair of eyes may want the flip, and the cost of
- * wanting it is measurable and local.  F7 -> Video -> Vertical sync, off by
+ * wanting it is measurable and local.  F12 -> Video -> Vertical sync, off by
  * default, which is exactly the behaviour above.  On the Pi it stays off: the
  * shim's present is the blocking one this was escaped from. */
 SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
@@ -1183,7 +1189,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 break;
             }
             case SDL_KEYDOWN: case SDL_KEYUP: {
-                /* Caps Lock as Ctrl (F7 -> Input), in the emulator because on the
+                /* Caps Lock as Ctrl (F12 -> Input), in the emulator because on the
                  * K4510 Linux SDL reads evdev scancodes, which an XKB or console
                  * keymap option never reaches.  The key is a held Ctrl for every
                  * chord below and never reaches the machine; the lock state it
@@ -1206,7 +1212,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (k == SDLK_PAGEUP) hit = (ch == CHORD_SUPER_PGUP && (m & KMOD_GUI)) || (ch == CHORD_CTRL_PGUP && (m & KMOD_CTRL)) || (ch == CHORD_ALT_PGUP && (m & KMOD_ALT));
                   if (k == SDLK_DELETE && ch == CHORD_CTRL_ALT_DEL && (m & KMOD_CTRL) && (m & KMOD_ALT)) hit = 1;
                   if (hit) { menu_close(); cpu65_reset(); break; } }
-                if (k == SDLK_F8 && settings_get(SET_INPUT_MENU_KEY) != MENUKEY_F8) { paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; }
+                { static const SDL_Keycode mk[MENUKEY_COUNT] = { SDLK_F7, SDLK_F8, SDLK_F11, SDLK_PAUSE, SDLK_F12 };   /* Shift + the menu key pauses: */
+                  if (k == mk[settings_get(SET_INPUT_MENU_KEY)] && (m & KMOD_SHIFT)) {                       /* F8 did until 2026-09-15 */
+                      paused = !paused; SDL_SetWindowTitle(win, paused ? "K4510  [PAUSED]" : "K4510"); break; } }
                 /* PrtSc: shots/shot-*.png, paused or not.  Both keys: on the K4510
                  * Linux SDL reads evdev, where PrtSc is KEY_SYSRQ and SDL's table
                  * makes that SDLK_SYSREQ; SDLK_PRINTSCREEN is X11/Wayland's (and
@@ -1274,6 +1282,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   if (le && (m & KMOD_CTRL)) { uint32_t b = le[0] & KBD_CHAR; if (b >= 'a' && b <= 'z') { kbd_push((uint8_t)(b - 'a' + 1)); break; } }
                   if (le && !(m & (KMOD_CTRL | KMOD_LALT | KMOD_GUI)) && layout_key(lay, e.key.keysym.scancode, m)) break; }
                 if ((m & KMOD_CTRL) && k >= 'a' && k <= 'z') { kbd_push((uint8_t)(k - 'a' + 1)); break; }
+                if ((m & KMOD_CTRL) && k == SDLK_RIGHTBRACKET) { kbd_push(0x1D); break; }   /* Ctrl-]: TELNET hangs up, as telnet(1) */
                 switch (k) {
                 case SDLK_RETURN: case SDLK_KP_ENTER: kbd_push(KEY_ENTER); break;
                 case SDLK_BACKSPACE: kbd_push(KEY_BS); break;
@@ -1331,7 +1340,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          *                2026-09-14: "can you run the K4510 from here? ... i mean
          *                injecting keystrokes").  0600: only its owner types.
          * The keys reach the machine's keyboard queue, as typing would; the
-         * menu key's code there opens F7's menu too (tested 2026-09-14), so
+         * menu key's code there opens F12's menu too (tested 2026-09-14), so
          * the whole machine, settings included, can be driven this way. */
         { static const char *feed; static int feed_init, feed_wait, feed_fr;
           static int kfd = -1, klen, kpos; static char kbuf[4096];
@@ -1348,7 +1357,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           if (kfd >= 0 && kpos >= klen) {
               ssize_t n = read(kfd, kbuf, sizeof kbuf);
               if (n > 0) {
-                  if (settings_get(SET_INPUT_KEYPIPE) == 0) klen = kpos = 0;   /* F7 says off: read, and dropped -- a writer never hangs */
+                  if (settings_get(SET_INPUT_KEYPIPE) == 0) klen = kpos = 0;   /* F12 says off: read, and dropped -- a writer never hangs */
                   else { klen = (int) n; kpos = 0; }
               }
           }
@@ -1451,6 +1460,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                      (uint8_t)((settings_get(SET_TERM_CLOCK24) ? 1 : 0)
                                | (settings_get(SET_TERM_DATEFMT) << 1)));
 
+        { int want = settings_get(SET_TEXT_CODEPAGE), req = term_page_request();   /* the code page: a guest's CODEPAGE is saved, */
+          if (req >= 0) { if (req != want) { settings_set(SET_TEXT_CODEPAGE, req); settings_save(cfg); } }   /* the menu's applied */
+          else if (want != term_get_page()) term_set_page(want); }
         Uint64 p_a = SDL_GetPerformanceCounter();
         int open = menu_is_open();
         if ((!open && !paused) || mode_pending) {            /* frozen while the menu is open OR paused; paused keeps the picture */
@@ -1502,8 +1514,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); /* resets the I/O too */ load_fonts(); mem_load_rom(rom); cpu65_reset();
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
-        case ACT_QUIT: mlog("quit: F7 -> Quit"); running = 0; break;
-        case ACT_SHUTDOWN: mlog("quit: F7 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
+        case ACT_QUIT: mlog("quit: F12 -> Quit"); running = 0; break;
+        case ACT_SHUTDOWN: mlog("quit: F12 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
         case ACT_NETSETUP: host_net_setup(); break;
         case ACT_TELNET: if (menu_lock(MENU_LOCK_LINUX)) break;   /* the row is hidden then; this is belt and braces */
                          { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
@@ -1942,7 +1954,7 @@ tex_done:
                 }
             }
             if (!drawn) SDL_RenderCopy(ren, tex, &gsrc, &dr); }
-          /* The F7 menu: its own 640x480 layer over the picture, scaled the
+          /* The F12 menu: its own 640x480 layer over the picture, scaled the
            * same way whatever the mode -- hard pixels to the whole multiple,
            * smoothing for the rest.  Stretched into the picture it was drawn
            * 1.125x at 720x540 and halved at 360x270, and its letters came out

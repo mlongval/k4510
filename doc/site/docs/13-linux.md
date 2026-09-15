@@ -70,18 +70,18 @@ On a desktop, the other side is your own computer and has whatever you have put 
 </tr>
 <tr class="odd">
 <td style="text-align: left;">NetworkManager, Tailscale</td>
-<td style="text-align: left;">the network: F7 → Host</td>
+<td style="text-align: left;">the network: F12 → Host</td>
 </tr>
 </tbody>
 </table>
 
 </div>
 
-**The consoles.** Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are Linux text consoles, 80 by 25 in the IBM PC’s own font, where the Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc, or F7 → Quit) drops you to a Linux shell on the machine’s own console rather than to nothing, and F7 has a *Shut down the computer* row because there is no desktop to go back to. The power button performs a clean shutdown. Closing the lid does what F7 → Host → *Lid closed* says: *keep running*, to begin with, or *suspend*. (Quit to the Linux shell and nothing is keeping the machine awake: there the lid suspends.) The consoles speak UTF-8 and follow the keyboard layout chosen in F7.
+**The consoles.** Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are Linux text consoles, 80 by 25 in the IBM PC’s own font, where the Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc, or F12 → Quit) drops you to a Linux shell on the machine’s own console rather than to nothing, and F12 has a *Shut down the computer* row because there is no desktop to go back to. The power button performs a clean shutdown. Closing the lid does what F12 → Host → *Lid closed* says: *keep running*, to begin with, or *suspend*. (Quit to the Linux shell and nothing is keeping the machine awake: there the lid suspends.) The consoles speak UTF-8 and follow the keyboard layout chosen in F12.
 
-**The network.** F7 → Host shows the computer’s name and address, and *Wi-Fi / network setup* opens NetworkManager’s own screen on a spare console to join a network; the machine is back when you leave it. A network joined once is remembered.
+**The network.** F12 → Host shows the computer’s name and address, and *Wi-Fi / network setup* opens NetworkManager’s own screen on a spare console to join a network; the machine is back when you leave it. A network joined once is remembered.
 
-**Telnet, both directions.** `TELNET 127.0.0.1 23` from the machine’s prompt — or F7 → Host → *Telnet into the host* — logs in to the Linux underneath through the front door rather than through `!`, which is useful when you want a session that survives what the machine is doing. The daemon listens on the machine itself only, so there is no network path to it at all. Outbound, the network is real: `TELNET` reaches a BBS, and URLs work as [Chapter 2, The Shell](02-shell.md) describes.
+**Telnet, both directions.** `TELNET 127.0.0.1 23` from the machine’s prompt — or F12 → Host → *Telnet into the host* — logs in to the Linux underneath through the front door rather than through `!`, which is useful when you want a session that survives what the machine is doing. The daemon listens on the machine itself only, so there is no network path to it at all. Outbound, the network is real: `TELNET` reaches a BBS, and URLs work as [Chapter 2, The Shell](02-shell.md) describes.
 
 ## On a stick
 
@@ -134,6 +134,6 @@ writes one, as PrtSc would, into `shots/`. And the machine can be typed into fro
     ssh k4510@machine "k4510-type 'BOOK\n'"
     ssh k4510@machine k4510-type --key down down enter
 
-`\n` is Enter and `~` a half-second pause; keys without a letter go by name (`up`, `pgdn`, `esc`, `f1`…). Typing and a screenshot at a time is the machine driven from another room — F7’s menu included, with `--key f7`. F7 → Input → *Key pipe* can turn it off, or — as it starts — show every key so typed at the foot of the screen. `k4510-screen` is the third tool beside them: the machine’s text screen, as text, so another computer can read what the machine says without looking at a picture.
+`\n` is Enter and `~` a half-second pause; keys without a letter go by name (`up`, `pgdn`, `esc`, `f1`…). Typing and a screenshot at a time is the machine driven from another room — F12’s menu included, with `--key f12`. F12 → Input → *Key pipe* can turn it off, or — as it starts — show every key so typed at the foot of the screen. `k4510-screen` is the third tool beside them: the machine’s text screen, as text, so another computer can read what the machine says without looking at a picture.
 
 On the computer doing the driving, `tools/k4510-remote` puts the three together behind one command — `status`, `type`, `key`, `screen`, `expect` (wait until a text appears), `shot`, `run` (a script of those, one a line), `logs` and `reboot` — and `k4510-remote tui` is all of it from a menu, with the machine’s screen live above it and a pass-through mode in which what you type goes straight to the machine (Ctrl-\] leaves).

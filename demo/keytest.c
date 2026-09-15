@@ -5,8 +5,8 @@
  * (Left and é are both $82).  Then the three modifiers through the status
  * register, shifted combinations, a dead-key letter if the keyboard can make
  * one, a summary, and fs/keytest.txt.  A key that never arrives times out
- * after 8 s.  F7 is not asked for: it is the menu's, and never reaches the
- * machine unshifted -- Shift+F7 is in the shifted list instead.
+ * after 8 s.  F12 is not asked for: it is the menu's, and Shift+F12 the
+ * frontend's pause, so neither reaches the machine (F7 did not until 2026-09-15).
  * (Until 2026-09-08 this asked for the C64 matrix of the bare-metal Pi's
  * GPIO keyboard, which is gone with that port.) */
 #include "k4510.h"
@@ -41,12 +41,12 @@ static const key_t keys[] = {
     {"Up", 0x80}, {"Down", 0x81}, {"Left", 0x82}, {"Right", 0x83},
     {"Home", 0x84}, {"End", 0x85}, {"Page Up", 0x86}, {"Page Down", 0x87}, {"Insert", 0x88}, {"Delete", 0x89},
     {"F1", 0x90}, {"F2", 0x91}, {"F3", 0x92}, {"F4", 0x93}, {"F5", 0x94}, {"F6", 0x95},
-    {"F8", 0x97}, {"F9", 0x98}, {"F10", 0x99}, {"F11", 0x9A}, {"F12", 0x9B},
+    {"F7", 0x96}, {"F8", 0x97}, {"F9", 0x98}, {"F10", 0x99}, {"F11", 0x9A},
     {"A", 'a'}, {"Z", 'z'}, {"Q", 'q'}, {"M", 'm'}, {"1", '1'}, {"0", '0'},
     {"-", '-'}, {"=", '='}, {"[", '['}, {"]", ']'}, {";", ';'}, {"'", '\''}, {",", ','}, {".", '.'}, {"/", '/'}, {"\\", '\\'}, {"`", '`'},
 };
 static const key_t shifted[] = {
-    {"Shift+A", 'A'}, {"Shift+1 (!)", '!'}, {"Shift+2 (@ or \")", 0}, {"Shift+F7 (reaches the machine; F7 alone is the menu's)", 0x96},
+    {"Shift+A", 'A'}, {"Shift+1 (!)", '!'}, {"Shift+2 (@ or \")", 0},
     {"Ctrl+A (code 01)", 0x01}, {"Ctrl+C (code 03)", 0x03},
 };
 

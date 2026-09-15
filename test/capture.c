@@ -23,6 +23,12 @@ int main(int argc,char**argv){ int kwait=0;
       if (g) { if (fread(c8, 1, 2048, g) == 2048) mem_load(K4510_FONT8_437_PHYS, c8, 2048); fclose(g); }
       g = fopen("data/fonts/unscii/font16-cp437.bin", "rb");
       if (g) { if (fread(c16, 1, 4096, g) == 4096) mem_load(K4510_FONT16_437_PHYS, c16, 4096); fclose(g); } }
+    { void term_set_page(int k4510); static uint8_t k8[2048], k16[4096];   /* the K4510 page's pair, and the page as the frontend starts it */
+      FILE *g = fopen("data/fonts/unscii/font8-unscii.bin", "rb");
+      if (g) { if (fread(k8, 1, 2048, g) == 2048) mem_load(K4510_FONT8_K_PHYS, k8, 2048); fclose(g); }
+      g = fopen("data/fonts/unscii/font16-unscii.bin", "rb");
+      if (g) { if (fread(k16, 1, 4096, g) == 4096) mem_load(K4510_FONT16_K_PHYS, k16, 4096); fclose(g); }
+      { const char *cp = getenv("K4510_CODEPAGE"); term_set_page(cp && (*cp == '1' || *cp == 'K' || *cp == 'k')); } }   /* CP437 unless asked */
     /* K4510_SYSOPT=0x0C: the switches the frontend publishes at $D521 (bit 2
      * skip STARTUP.BAT, bit 3 status bar, bits 5-7 mode+1), so a shot can be
      * taken of a machine that booted with the status bands up. */

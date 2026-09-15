@@ -173,7 +173,7 @@ are the machine and should read `K4510`.
   system)`. **The same ROM bytes boot on both hosts**, so the guest
   cannot honestly claim to be the Pi appliance. All three become
   `K4510`. Saves four bytes of rodata and costs nothing.
-- **Shared host chrome** — the SDL window title, the F7 menu heading,
+- **Shared host chrome** — the SDL window title, the F12 menu heading,
   the settings-file header, the dump header in `core/io.c`: `K4510`.
 - **File-header comments** across `demo/`, `pascal/`, `basic/`,
   `forth/`, `tube/`, `cpm/`, `mon/`, `test/`, `tools/`: `K4510`. This is

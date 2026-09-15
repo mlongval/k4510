@@ -85,7 +85,7 @@ clear pedigree are hard to come by.
 
 Ville-Matias Heikkil„ ("Viznut") -- unscii, placed in the public domain. It is
 the machine's one screen font: unscii-8 in the 240-line modes, unscii-16 at
-640x480, and both in the F7 menu and the side panel.
+640x480, and both in the F12 menu and the side panel.
 
 => https://viznut.fi/unscii/ unscii
 

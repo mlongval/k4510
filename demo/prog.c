@@ -36,7 +36,7 @@
 #define KPGDN   0x87
 #define KINS    0x88
 #define KDEL    0x89
-#define KF(n)   (0x8F + (n))            /* F1 = $90 ... F12 = $9B; F7 and F8 are the host's (menu, pause) */
+#define KF(n)   (0x8F + (n))            /* F1 = $90 ... F12 = $9B; F12 is the host's (menu; Shift+F12 pause) */
 #define MSGH    4                       /* message rows */
 #define TEXT0   2                       /* the first row of text: under the menu bar and the files */
 #define MOUSEX  0xD108u                 /* the mouse, in the mode's pixels (core/io.c) */
@@ -941,7 +941,7 @@ static const char *const helptext[] = {
     "  F10          the menu (arrows, Enter, Esc)        F1  this page",
     "  Mouse: click the text, a menu, a tab, a message; drag selects; wheel scrolls",
     "",
-    "  F7 and F8 are the machine's own (its menu, pause): PROG leaves them alone.",
+    "  F12 is the machine's own (its menu; Shift+F12 pauses): PROG leaves it alone.",
     0 };
 static void help(void)
 {

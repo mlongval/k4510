@@ -16,7 +16,7 @@
  * a cell (glyph low, glyph high, foreground, background), so every cell gets
  * its own colour and the panels can carry the blue-and-cyan look a file
  * commander is supposed to have. The frame glyphs are the console font's CP437
- * line-drawing set, the same ones the F7 menu draws its borders with.
+ * line-drawing set, the same ones the F12 menu draws its borders with.
  *
  *   Tab            switch the active panel        Enter   descend / view
  *   arrows         move the selection             Esc     leave
@@ -70,7 +70,7 @@
 #define K_PGUP  0x86
 #define K_PGDN  0x87
 #define K_DEL   0x89
-#define K_F1    0x90               /* F1..F12 = $90..$9B; F7/F8 never arrive  */
+#define K_F1    0x90               /* F1..F12 = $90..$9B; F12 never arrives   */
 
 /* ---- the text32 screen ------------------------------------------------- */
 #define SCREEN  0x00030000UL

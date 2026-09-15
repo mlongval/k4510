@@ -237,7 +237,7 @@ they survive a reset but not a power cycle, which is what /STARTUP.BAT is for.
 
 ## The status bands
 
-Turn on status bands (F7, under Terminal) and the console stops being the
+Turn on status bands (F12, under Terminal) and the console stops being the
 whole screen: a band at the top and a band at the bottom stay still while the
 text scrolls between them. Each band is one row high: the bands are on or off,
 and that is the only setting.
@@ -465,7 +465,7 @@ MODE  pixels   text
 2     320x240  40x30
 ```
 
-The F7 menu, under Video, has the same two knobs: Resolution shows what the
+The F12 menu, under Video, has the same two knobs: Resolution shows what the
 machine is actually in -- it follows a MODE you type -- and choosing another
 asks the ROM to perform it, because the console's geometry belongs to the ROM
 and not to the host. VICKY can draw smaller fields than these, but they are
@@ -485,9 +485,10 @@ line of the picture is raster line 40.
 /STARTUP.BAT runs at power-on, and a bad one runs at every power-on. There is
 no moment to catch -- the machine boots straight into it -- so the way out is
 not a key held at the right instant but a switch that stays where you put it:
-the F7 menu, under Shell: Run STARTUP.BAT. That setting is the host's, kept in
-k4510.cfg, so it survives a power cycle and no wedged program in the machine
-can take it away from you. Boot clean, fix the file, switch it back on.
+the F12 menu, under Shell: Run STARTUP.BAT. That setting is the host's, kept
+in k4510.cfg, so it survives a power cycle and no wedged program in the
+machine can take it away from you. Boot clean, fix the file, switch it back
+on.
 
 There is a second way, for one boot only:
 
@@ -496,7 +497,7 @@ There is a second way, for one boot only:
 ```
 
 (--no-startup does the same, as does K4510_NO_STARTUP=1 in the environment).
-It skips /STARTUP.BAT for that run and touches nothing: the F7 setting and
+It skips /STARTUP.BAT for that run and touches nothing: the F12 setting and
 k4510.cfg are left exactly as they were.
 
 ## When something goes wrong

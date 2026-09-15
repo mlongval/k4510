@@ -1,5 +1,5 @@
 # A sample /STARTUP.BAT -- copy it to / and edit. It runs at power-on.
-# If one you wrote wedges the machine, turn it off in F7 > Run STARTUP.BAT,
+# If one you wrote wedges the machine, turn it off in F12 > Run STARTUP.BAT,
 # or start the emulator with --no-startup.bat. Your own copy is never
 # overwritten.
 # Aliases live in RAM, so they are defined here every boot.
@@ -47,7 +47,7 @@ ALIAS LL DIR A
 # ---------------------------------------------------------------------
 
 # ---------------------------------------------------------------------
-# THE KEYBOARD LAYOUT IS NOT SET HERE.  It is F7 > Input > Keyboard
+# THE KEYBOARD LAYOUT IS NOT SET HERE.  It is F12 > Input > Keyboard
 # layout (US, US-intl, Canada-FR, France, Germany, Spain, UK, Italy, or
 # Host to leave it to the desktop or Linux beneath), kept in k4510.cfg;
 # on the K4510's own Linux the consoles follow it.

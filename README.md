@@ -60,7 +60,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   a far-call gate, RAM under the ROM. The machine is a fantasy and its
   timings are suggestions, so the clock is whatever the host can hold at
   60 fps with clean sound. A recent desktop holds 100+ (the sweep is in
-  `docs/CPU-CLOCK-POLICY.md`). It is a setting (F7 → Machine), capped
+  `docs/CPU-CLOCK-POLICY.md`). It is a setting (F12 → Machine), capped
   at 60 MHz for now, and the first boot on a host measures it and picks
   the highest step that fits with margin (`core/calib.c`); `BENCH`
   shows the whole ladder. The
@@ -108,7 +108,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   `/.HELP`), `MON`/`WOZ` the Wozmon-style monitor, `INFO`, `MODE 0-2`,
   `ALIAS`, `SWAP` (run a program on a clean machine and get this one
   back), `EXEC` scripts and `/STARTUP.BAT` at power-on (skip it from the
-  F7 menu, Shell → Run STARTUP.BAT, or with `--no-startup.bat`). An
+  F12 menu, Shell → Run STARTUP.BAT, or with `--no-startup.bat`). An
   unknown word runs `name.prg` from disk with its arguments — the REXX
   rule; `SAY` is the demo. Files live in `fs/`, one directory per
   language; bare names are searched across them.
@@ -139,10 +139,11 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   program, which is where the output belongs. `DD` and the shell's `RM`
   move things to `/.TRASH` rather than destroying them; `DELETE` lists it
   and puts them back.
-- **F7** opens the settings menu (C64u-style: video, audio — including
+- **F12** opens the settings menu (C64u-style: video, audio — including
   which sound chip has the machine — keys, save and load state, the Tube,
   the shell's switches; saved to `k4510.cfg`).
-  Super+PageUp resets. Esc is RUN/STOP, Shift+Esc quits the emulator.
+  Shift+F12 pauses; F7 and F8 are ordinary keys (the menu was on F7 until
+  2026-09-15). Super+PageUp resets. Esc is RUN/STOP, Shift+Esc quits the emulator.
 - **When something goes wrong:** `DUMP ON`, make it go wrong again, then
   `BUG` — it interviews you and writes a finished report to
   `/SYSTEM/LOG/BUGREPORTS/`, with the build, the machine and the last dump

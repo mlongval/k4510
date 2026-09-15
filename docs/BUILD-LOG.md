@@ -8811,3 +8811,22 @@ the grid stays out of BOOK, since $01-$1F are controls in a file. mkref would
 not build without descriptions for HEXED and FONTED; they have them. A 6 pt
 overflow in chapter 2's MODE table fixed. The web and BOOK pages had not been
 rebuilt since the one-font change (2026-09-14); they are now.
+
+## 2026-09-15 — CP437 by default, the K4510 page on request; the menu on F12
+
+Doc: "keep plain as default but keep modified as option", and F7 -- a
+Commodore habit -- replaced by F12, pause on Shift+F12. core/codepage.h holds
+both pages (cp437_cp, k4510_cp); JIM's new CODEPAGE register ($DA17) chooses
+one and copies its two fonts into the live slots (the frontend keeps all four:
+$011800/$012000 CP437, $013000/$013800 the K4510 page). The frontend starts
+the saved page (text.codepage, F12 -> Terminal -> Code page, CP437 by
+default) and saves one a guest chose; /SYSTEM/BIN/codepage.prg is CODEPAGE
+[437 | K4510]. The keyboard follows the page; a dead-key letter it has no place
+for types plain (CP437's A-grave: A). BOOK's pages are CP437 again, with oe,
+EUR and the like for the K4510 page's own. The menu key is F12 (settings
+version 3 moves a saved F7 once); Shift + the menu key pauses; F7 and F8 are
+ordinary keys; TELNET hangs up with Ctrl-] (now sent), and F12 where the menu
+is elsewhere. 111 mentions of F7 renamed (the hex and MATH F7s left alone),
+KEYTEST asks for F7. Checked: termtest, uitest (the migration too), statetest,
+the same bytes as CP437 then as the K4510 page after CODEPAGE K4510, the
+guide, booktest.

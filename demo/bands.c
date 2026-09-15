@@ -2,7 +2,7 @@
  *
  * The bands are K/OS's furniture: a top band with the clock and a bottom one
  * with the CPU clock, framing the console.  Their heights are the user's, set
- * in F7 -> Terminal.  This is the other half: a PROGRAM asking for them, for
+ * in F12 -> Terminal.  This is the other half: a PROGRAM asking for them, for
  * as long as it runs, and giving them back on the way out.
  *
  * The whole protocol, and it is three registers:
@@ -23,7 +23,7 @@
  * YOU MUST HAND THEM BACK.  It is the same discipline PETSCII mode has (FLAGS
  * bit 2, see PETSCII.PRG): leave the bit set when you exit and the shell comes
  * back to furniture nobody is maintaining -- a clock that has stopped and a
- * CPU reading that no longer follows the F7 menu.  Nothing enforces it but
+ * CPU reading that no longer follows the F12 menu.  Nothing enforces it but
  * the program, which is why test/jimtest.sh checks that this one does.
  *
  * The demo asks for 2 rows on top and 1 at the bottom, draws its own things in

@@ -1,4 +1,4 @@
-/* The F7 menu: a framed window over the live (frozen, dimmed) screen, in
+/* The F12 menu: a framed window over the live (frozen, dimmed) screen, in
  * the style of the C64 Ultimate's. Declarative tree (static tables), a
  * small state machine, drawn into the overlay only when something
  * changed. Keys arrive as K4510 key codes (io.h) from kbd_push, which

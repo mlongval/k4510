@@ -4,7 +4,7 @@ The K4510 is a fantasy computer: a machine that never existed, built the way 198
 
 ## What is the K4510?
 
-- **CPU: the 45GS10** — the MEGA65’s 45GS02 instruction set (a 4510 with the Q pseudo-register and 32-bit flat addressing) plus this machine’s own memory management: bank registers, a far-call gate, and RAM under the ROM. Its clock is whatever the host it runs on can hold at sixty frames a second with no gaps in the sound: the machine is a fantasy and its timings are suggestions. The clock is a setting (F7, under Machine — six steps from 60 MHz down to 10; the ladder goes on to 202.5, and those faster steps are held back for now). A host nobody has measured runs at 40.5, the MEGA65’s number; `SETUP` measures it properly, with the sound and the picture really running, and the machine keeps the answer for that host so later boots pay nothing. It never second-guesses a clock you chose yourself. A desktop of the last ten years holds a hundred megahertz or more. `INFO` reports the clock in force, read live, and `BENCH` is there when you want the whole picture.
+- **CPU: the 45GS10** — the MEGA65’s 45GS02 instruction set (a 4510 with the Q pseudo-register and 32-bit flat addressing) plus this machine’s own memory management: bank registers, a far-call gate, and RAM under the ROM. Its clock is whatever the host it runs on can hold at sixty frames a second with no gaps in the sound: the machine is a fantasy and its timings are suggestions. The clock is a setting (F12, under Machine — six steps from 60 MHz down to 10; the ladder goes on to 202.5, and those faster steps are held back for now). A host nobody has measured runs at 40.5, the MEGA65’s number; `SETUP` measures it properly, with the sound and the picture really running, and the machine keeps the answer for that host so later boots pay nothing. It never second-guesses a clock you chose yourself. A desktop of the last ten years holds a hundred megahertz or more. `INFO` reports the clock in force, read live, and `BENCH` is there when you want the whole picture.
 
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time; everything else is one instruction away.
 
@@ -95,23 +95,23 @@ Switch it on (on a desktop: `./k4510`; otherwise, power up). The machine’s log
 The `/HOME]` at the bottom is the shell prompt — the part before the `]` is the directory you are in, and the machine starts you in `/HOME`, which is yours. Type `HELP` for the commands, `INFO` for the machine’s full self-description, and `DIR` to see your files. The first time on a new computer, type `SETUP` and let the machine measure it.
 
 !!! note ""
-    **Keys:** Escape is RUN/STOP (stops a BASIC program), Ctrl-C is STOP, Shift+Escape quits the emulator. Reset is a chord, the way it was Commodore+Restore on the C64: Super+PageUp (the Windows or Command key and PageUp) — one key cannot do it by accident. F7 opens the settings menu; F8 pauses the machine and turns the keyboard into a debugger’s. PrtSc takes a screenshot — the screen flashes, and the picture is in `shots/` beside the emulator.
+    **Keys:** Escape is RUN/STOP (stops a BASIC program), Ctrl-C is STOP, Shift+Escape quits the emulator. Reset is a chord, the way it was Commodore+Restore on the C64: Super+PageUp (the Windows or Command key and PageUp) — one key cannot do it by accident. F12 opens the settings menu; F8 pauses the machine and turns the keyboard into a debugger’s. PrtSc takes a screenshot — the screen flashes, and the picture is in `shots/` beside the emulator.
 
 ## The keyboard
 
-The keyboard is the one in front of you, and F7 → Input → *Keyboard layout* says what its keys mean: US, US-International, Canadian French, French, German, Spanish, UK or Italian — or *Host*, the first choice, which leaves the question to the desktop or Linux the machine is running on. A layout chosen here takes effect at once, with its AltGr and its dead keys: on US-intl, `'` then `e` is é, the dead key twice or before a space gives the mark itself, and a `'` or `"` before a letter that takes no accent types itself. On the K4510’s own Linux the Linux consoles follow the same choice. A letter the machine’s character set (the IBM PC’s) cannot draw is not offered. For programming, plain US has no dead keys to step round.
+The keyboard is the one in front of you, and F12 → Input → *Keyboard layout* says what its keys mean: US, US-International, Canadian French, French, German, Spanish, UK or Italian — or *Host*, the first choice, which leaves the question to the desktop or Linux the machine is running on. A layout chosen here takes effect at once, with its AltGr and its dead keys: on US-intl, `'` then `e` is é, the dead key twice or before a space gives the mark itself, and a `'` or `"` before a letter that takes no accent types itself. On the K4510’s own Linux the Linux consoles follow the same choice. A letter the machine’s character set (the IBM PC’s) cannot draw is not offered. For programming, plain US has no dead keys to step round.
 
 *Caps Lock is Ctrl*, beside it, makes the Caps Lock key a second Ctrl, where the old Unix keyboards had it; the shell’s own `CAPSLOCK` command ([Chapter 2, The Shell](02-shell.md)) is how you get capitals without it.
 
-## The F7 menu
+## The F12 menu
 
-F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and takes the whole screen, in the manner of the C64 Ultimate’s: the categories down the left, the settings of the chosen one on the right, and a line at the foot saying what the keys do in whichever pane holds the cursor. Sound stops, and closing the menu resumes exactly where it froze. The menu draws with its own copy of the font and never touches the machine’s memory, so it opens even when a program has wrecked the screen.
+F12 freezes the machine and takes the whole screen, in the manner of the C64 Ultimate’s: the categories down the left, the settings of the chosen one on the right, and a line at the foot saying what the keys do in whichever pane holds the cursor. Sound stops, and closing the menu resumes exactly where it froze. The menu draws with its own copy of the font and never touches the machine’s memory, so it opens even when a program has wrecked the screen.
 
-Up and Down move; Enter or Right crosses from the categories to the settings; Left and Right step a value; Escape goes back a pane, and closes at the categories; F7 closes from anywhere. The mouse works too. A setting with a list of choices opens that list over the panes, and *applies as the cursor passes each one* — the scaling changes under the menu so you can see it — with Escape putting back whatever was there when the list opened.
+Up and Down move; Enter or Right crosses from the categories to the settings; Left and Right step a value; Escape goes back a pane, and closes at the categories; F12 closes from anywhere. The mouse works too. Shift+F12 pauses the machine instead, the picture held; Shift+F12 again goes on. The menu was on F7 until the autumn of 2026, a habit from the Commodore’s keyboard; most emulators keep theirs on F12, and F7 and F8 are ordinary keys now, for the programs that want all ten. Input → *Menu key* puts it back on F7 for fingers that remember. A setting with a list of choices opens that list over the panes, and *applies as the cursor passes each one* — the scaling changes under the menu so you can see it — with Escape putting back whatever was there when the list opened.
 
 ![](img/menu.png)
 
-<p class="caption">The F7 menu: categories on the left, the Video page on the right.</p>
+<p class="caption">The F12 menu: categories on the left, the Video page on the right.</p>
 
 
 Video  
@@ -209,6 +209,9 @@ on, off; to begin with, on
 **`Date format`** — *term.datefmt*  
 DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY; to begin with, DD.MM.YYYY
 
+**`Code page`** — *text.codepage*  
+CP437, K4510; to begin with, CP437
+
 ### Audio
 
 **`Volume`** — *audio.volume*  
@@ -220,7 +223,7 @@ DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY; to begin with, DD.MM.YYYY
 Super+PageUp, Ctrl+PageUp, Alt+PageUp, Ctrl+Alt+Del; to begin with, Super+PageUp
 
 **`Menu key`** — *input.menu_key*  
-F7, F8, F11, Pause; to begin with, F7
+F7, F8, F11, Pause, F12; to begin with, F12
 
 **`Mouse capture`** — *input.mouse_grab*  
 on, off; to begin with, off

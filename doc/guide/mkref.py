@@ -103,6 +103,7 @@ DESC = {
     "SETUP":     (7, "SETUP", "Measures this host thoroughly and keeps the clock it settles on."),
     "SPLIT":     (7, "SPLIT", "A split screen held by SHEILA: blitter lines above, four rows of text below, and how many lines a second."),
     "HEXED":     (7, "HEXED name | $address", "A hex editor: a file, loaded whole (8 MB at most), or memory by 28-bit address, changed live. Hex on the left, the code page on the right; go to, find, save, undo, the mouse."),
+    "CODEPAGE":  (7, "CODEPAGE [437 | K4510]", "Alone, say which code page the machine speaks. 437 is IBM's, the default; K4510 gives 26 of its Greek and maths places to Western Europe's capitals, oe, the euro and German quotes. Remembered, as F12 -> Terminal -> Code page."),
     "FONTED":    (7, "FONTED [name.FNT] | -L name", "The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT."),
     "SUPERMON":  (7, "SUPERMON", "Jim Butterfield's monitor, grown up: an assembler and a 45GS02 disassembler."),
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),

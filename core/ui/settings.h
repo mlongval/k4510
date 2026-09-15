@@ -29,7 +29,7 @@ typedef enum {
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
-    SET_INPUT_MOUSE_GRAB,    /* BOOL a click on the picture confines the pointer to the window; F7 frees it */
+    SET_INPUT_MOUSE_GRAB,    /* BOOL a click on the picture confines the pointer to the window; F12 frees it */
     SET_INPUT_MOUSE_SHOW,    /* BOOL show the host mouse pointer over the picture (on: it does not vanish on the glass) */
     SET_SHELL_CPMCOM,        /* BOOL an unknown word may run a CP/M .COM */
     SET_SHELL_STARTUP,       /* BOOL run /STARTUP.BAT at power-on */
@@ -42,15 +42,17 @@ typedef enum {
     SET_TERM_CLOCK24,        /* BOOL 24-hour clock; off is 12-hour with AM/PM */
     SET_TERM_DATEFMT,        /* ENUM DD.MM.YYYY / YYYY-MM-DD / MM/DD/YYYY -- all ten cells wide, which is
                               * what lets the IRQ's clock painter stay a fixed-width digit poker */
-    SET_INPUT_CAPS_CTRL,     /* BOOL Caps Lock is a Ctrl key (F7 -> Input); at the end so no index moves (Doc, 2026-09-12) */
-    SET_INPUT_KBD_LAYOUT,    /* ENUM the machine's keyboard layout (F7 -> Input): "Host" follows the desktop / kernel keymap;
+    SET_INPUT_CAPS_CTRL,     /* BOOL Caps Lock is a Ctrl key (F12 -> Input); at the end so no index moves (Doc, 2026-09-12) */
+    SET_INPUT_KBD_LAYOUT,    /* ENUM the machine's keyboard layout (F12 -> Input): "Host" follows the desktop / kernel keymap;
                               * any other is the emulator's own table (core/kbdmaps.h), at once, and on the K4510 Linux
                               * the consoles are set to match (k4510-keymap, also at every boot).  Doc, 2026-09-12 */
-    SET_HOST_LID,            /* ENUM F7 -> Host -> Lid closed: keep running (the default: an emulator holds logind's
+    SET_HOST_LID,            /* ENUM F12 -> Host -> Lid closed: keep running (the default: an emulator holds logind's
                               * lid lock) or suspend (it lets go, and logind suspends).  K4510 Linux only.  Doc, 2026-09-14 */
-    SET_INPUT_KEYPIPE,       /* ENUM F7 -> Input -> Key pipe: off / on / on, shown -- keys typed from outside through the
+    SET_INPUT_KEYPIPE,       /* ENUM F12 -> Input -> Key pipe: off / on / on, shown -- keys typed from outside through the
                               * emulator's KEYS pipe (tools/k4510-type), and whether each is echoed on the glass for a
                               * few seconds so nobody types into the machine unseen.  Doc, 2026-09-14 */
+    SET_TEXT_CODEPAGE,       /* ENUM strict CP437 (the default) or the K4510 page: F12 -> Terminal -> Code page, or
+                              * CODEPAGE (JIM $DA17, which the frontend follows and saves).  Doc, 2026-09-15 */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
@@ -114,7 +116,8 @@ enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_KNOT,
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
 /* the menu keys, in the ENUM's order */
-enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_COUNT };
+enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_F12, MENUKEY_COUNT };   /* F12 the default since 2026-09-15 */
+enum { PAGE_CP437, PAGE_K4510, PAGE_COUNT };
 
 const set_desc *settings_desc(set_id id);
 int         settings_choices(set_id id);          /* how many of an ENUM's labels the menu may offer */

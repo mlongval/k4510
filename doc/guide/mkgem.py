@@ -11,9 +11,9 @@ and nothing else is markup.
   LaTeX -> mkweb.prep() -> pandoc (Markdown) -> md2gemini -> fixes -> .GMI
 
 The fixes are what the machine needs and Gemini does not say:
-  * the machine's character set is the K4510 code page (core/codepage.h:
-    CP437 with 26 places given to Western Europe's letters), so the pages
-    are written in it: typographic dashes and quotes become their typewriter
+  * the machine's character set is IBM's CP437 (core/codepage.h's cp437_cp,
+    the default; the K4510 page is an option), so the pages are written in
+    it: typographic dashes and quotes become their typewriter
     forms, and a character it cannot draw stops the build;
   * paragraphs are wrapped at 78 columns, so TYPE shows them whole
     (Gemini leaves wrapping to the reader; a wrapped page is still valid);
@@ -46,14 +46,12 @@ WIDTH = 78
 TYPOGRAPHY = {"—": "--", "–": "-", "’": "'", "‘": "'", "“": '"', "”": '"', "…": "...",
               "×": "x", "→": "->", "←": "<-", " ": " ", " ": " ", " ": " ",
               "·": ".", "−": "-", "✓": "v", "★": "*", "©": "(c)",
-              # CP437's own characters the K4510 page gave to Western Europe's
-              # letters (Appendix D names them all): what a reader would call them
-              "₧": "Pts", "ƒ": "f", "⌐": "(not)", "α": "alpha", "Γ": "Gamma", "π": "pi",
-              "Σ": "Sigma", "σ": "sigma", "τ": "tau", "Φ": "Phi", "Θ": "Theta", "Ω": "Omega",
-              "δ": "delta", "∞": "infinity", "φ": "phi", "ε": "epsilon", "∩": "intersection",
-              "≡": "identical", "≥": ">=", "≤": "<=", "⌠": "(integral top)", "⌡": "(integral bottom)",
-              "≈": "~", "∙": ".", "√": "sqrt", "ⁿ": "^n",
-              # a letter the page has no room for and no plain letter under it
+              # CP437 draws a section sign, but at $15 -- a control code to
+              # Python's codec and to JIM alike
+              "§": "section ",
+              # what only the K4510 page has (Appendix D): a plain spelling in CP437
+              # (its accented capitals need none -- the letter without its accent is found)
+              "€": "EUR", "œ": "oe", "Œ": "OE", "ø": "o", "Ø": "O", "„": '"', "¶": "(para) ",
               "ẞ": "SS"}
 
 
@@ -149,10 +147,10 @@ def wrap(gem):
     return "\n".join(out)
 
 
-# The page as text: $20-$FF but $7F.  $01-$1F and $7F draw pictures, but in a
+# The page as text (CP437, the machine's default): $20-$FF but $7F.  $01-$1F and $7F draw pictures, but in a
 # file they are controls ($0A ends a line), so they are no place for text.
 import mkcodepage
-PAGE = {chr(u): b for b, u in enumerate(mkcodepage.table()) if b >= 0x20 and b != 0x7F}
+PAGE = {chr(u): b for b, u in enumerate(mkcodepage.table("cp437_cp")) if b >= 0x20 and b != 0x7F}
 
 
 def machine_char(c):

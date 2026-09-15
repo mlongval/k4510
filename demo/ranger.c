@@ -39,7 +39,7 @@
  *
  * The screen is drawn straight into VICKY's text32 map, four bytes a cell, the
  * same way KOMMANDER does it -- and, like KOMMANDER, the console's origin is
- * read from JIM at $DA07/$DA08 rather than assumed, because the F7 menu can
+ * read from JIM at $DA07/$DA08 rather than assumed, because the F12 menu can
  * turn the one-cell margin off underneath us.
  */
 #include "k4510.h"

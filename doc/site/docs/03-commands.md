@@ -22,7 +22,7 @@ a language: its folder, with its examples.
 ROM, on the Linux  
 a word the ROM answers to by starting something on the Linux the machine runs on ([Chapter 13, The Linux Underneath](13-linux.md)).
 
-Every word below also works from a BASIC, Forth or the monitor with a `*` in front, and a bare name that is not here is tried as a program, then as a CP/M program if F7 allows it, then as an alias, then as an RX script — in that order, so an alias never hides a command. Capitals are the convention; the shell does not mind either way.
+Every word below also works from a BASIC, Forth or the monitor with a `*` in front, and a bare name that is not here is tried as a program, then as a CP/M program if F12 allows it, then as an alias, then as an RX script — in that order, so an alias never hides a command. Capitals are the convention; the shell does not mind either way.
 
 ## Files and directories
 
@@ -189,6 +189,9 @@ Asks seven questions about a fault and writes the report (Appendix B).
 
 **`CHROUT`** — */SYSTEM/BIN*  
 How fast the ROM’s console prints.
+
+**`CODEPAGE [437 | K4510]`** — */SYSTEM/BIN*  
+Alone, say which code page the machine speaks. 437 is IBM’s, the default; K4510 gives 26 of its Greek and maths places to Western Europe’s capitals, oe, the euro and German quotes. Remembered, as F12 -\> Terminal -\> Code page.
 
 **`DELETE [-l | -r name | -e | name]`** — */SYSTEM/BIN*  
 The trash: list it, put a file back, empty it, or send a file there.

@@ -3,7 +3,7 @@
 
     k4510-remote status             the machine: uptime, layer, emulator, key pipe
     k4510-remote type 'BOOK 8\\n'    text: \\n is Enter, \\t Tab, ~ a half-second pause
-    k4510-remote key f7 down enter  keys by name (up down left right home end pgup
+    k4510-remote key f12 down enter  keys by name (up down left right home end pgup
                                     pgdn ins del esc enter tab bs f1..f12)
     k4510-remote screen             the text screen, as text
     k4510-remote expect 'Ready' 10  wait up to 10 s (default 10) for the text; exit 1,
@@ -26,7 +26,7 @@ to ~/k4510-remote/session.log: a session is its own record.
 
 On the machine it uses tools/k4510-type (the key pipe), tools/k4510-shot
 (SIGUSR1: a picture) and tools/k4510-screen (SIGUSR2: the text), all three
-in the K4510's checkout.  F7 > Input > Key pipe there can turn typing off,
+in the K4510's checkout.  F12 > Input > Key pipe there can turn typing off,
 or -- as it starts -- show every key typed this way at the foot of the
 screen.  Doc, 2026-09-14: "standardize it to better use it for testing and
 remote debugging ... perhaps a small tui on top of k4510-remote".

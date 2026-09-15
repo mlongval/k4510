@@ -8716,3 +8716,14 @@ Ctrl-E renders the song into a looping K4OP stream in OPLPLAY's TUNES, so
 OPLPLAY plays it. F7 and F8 turned out to be the machine's (menu, pause),
 so the instruments are on F6. Checked headless: notes typed, the pattern
 and instrument pages, a save reopened, and an export's header and loop.
+
+## 2026-09-15 — FONTED
+
+/SYSTEM/BIN/fonted.prg edits the machine's two fonts where they live ($010000
+8x8, $010800 8x16), so every edit is on the screen at once: a grid of all
+256 characters beside a big editor, the character's Unicode value from
+core/codepage.h, the mouse to pick and paint, invert, mirror, flip, shift,
+clear, copy/paste, undo, and F to make one size from the other. A .FNT is
+both fonts as they lie in memory (6144 bytes); FONTED -L NAME loads one and
+leaves, for STARTUP.BAT (the host's fonts come back at power-on). Checked
+headless in MODE 0 and 7; a save compared byte for byte with the host fonts.

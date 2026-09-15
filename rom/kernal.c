@@ -48,8 +48,10 @@
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
  * banks 1+ are appended 8 KB images called through sw_call(). */
-static uint8_t COLS, ROWS, vmode;                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240); video_init sets them */
-static uint8_t PCOLS, PROWS;                         /* physical text cells: the terminal starts at (0,0) */
+static uint8_t COLS, ROWS, vmode;                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240);
+                                                      * hd-modes: 5 180x67 (1440x1080)  6 90x33 (720x540)  7 45x33 (360x270); video_init sets them */
+uint8_t PCOLS;                                       /* physical text cells: the terminal starts at (0,0); */
+static uint8_t PROWS;                                /* crt0.s's clock reads PCOLS, so it is not static */
 uint8_t OY;                                          /* status mode: top-band height (the console origin).
                                                       * Exported since 2026-09-02: the IRQ reads it, because
                                                       * the clock lives in the TOP band and a bottom height
@@ -137,11 +139,11 @@ static void draw_clock(void);         /* the top-right widget.  It lived in ROM2
 /* Are the bands up?  The host's own switch is the only honest answer, and it
  * costs no state --
  * which matters, BSSR being 447 of 448 bytes used. */
-static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS == 80); }
+static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS >= 40 && PROWS >= 30); }
 /* A program that has claimed the bands gets them whether or not the user's F7
  * switch is on -- that is the point of claiming: a program wants the furniture
  * for its own, and asking the user to enable it first would be absurd. */
-static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS == 80)); }
+static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS >= 40 && PROWS >= 30)); }   /* every shell mode: 40 columns and 30 rows at least (MODE 2 and 7 too, Doc 2026-09-14) */
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {
@@ -355,7 +357,7 @@ static void mode_do(void)
                                             * performed.  Without this it stands for frames and every
                                             * key poll performs it again, and each cls() wipes whatever
                                             * the machine printed in between. */
-    vmode  = (uint8_t)((r >> 5) - 1);           /* bits 5-7 carry mode+1: 0 is "nothing published" */
+    vmode  = REG(SYS + 0x3C) ? (uint8_t)(REG(SYS + 0x3C) - 1) : (uint8_t)((r >> 5) - 1);   /* $D53C has it whole (MODE 5-7); else bits 5-7, mode+1 */
     video_init(); cls();
     mode_note = 1;
 }
@@ -936,18 +938,22 @@ hex:
 static void video_init(void);
 static const char *modename(uint8_t m)
 {
-    return m == 0 ? "640x480" : m == 1 ? "640x240" : m == 2 ? "320x240" : m == 3 ? "320x200" : "160x200";
+    /* A chain, not a table of pointers: with --local-strings the literals stay
+     * beside the code, and a table's pointers pointed where the sideways bank
+     * was not (the Dell, 2026-09-14: MODE printed garbage for 5-7). */
+    return m == 0 ? "640x480" : m == 1 ? "640x240" : m == 2 ? "320x240" : m == 3 ? "320x200" : m == 4 ? "160x200"
+         : m == 5 ? "1440x1080" : m == 6 ? "720x540" : "360x270";
 }
 static void cmd_mode(const char *p)
 {
     uint8_t d; uint32_t m;
     if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               puts_(modename(vmode)); puts_(" pixels   (MODE 0-2)"); newline(); return; }
+               puts_(modename(vmode)); puts_(" pixels   (MODE 0-2, 5-7)"); newline(); return; }
     /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
      * way back out, and someone meeting the machine for the first time should
      * not be able to type themselves into a screen they cannot use. VICKY
      * still has them: a program that wants one writes the CTRL bits itself. */
-    m = parsehex(&p, &d); if (!d || m > 2) { error("mode: 0 = 80x30 (640x480), 1 = 80x30 (640x240), 2 = 40x30 (320x240)"); return; }
+    m = parsehex(&p, &d); if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240; 5 1440x1080, 6 720x540, 7 360x270"); return; }
     vmode = (uint8_t)m; skipsp(&p);
     video_init(); cls();
 }
@@ -957,7 +963,7 @@ static void cmd_color(const char *p)
     uint8_t d; uint32_t f, b = bg;
     f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
     skipsp(&p); if (*p) b = parsehex(&p, &d);
-    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bg;
+    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bands_on() ? BAND_BG : bg;   /* the spare lines under the text wear the bands' colour */
     cls();
 }
 #pragma code-name (pop)
@@ -1020,7 +1026,7 @@ static void info_mem(void)
 static void info_video(void)
 {
     uint8_t ctrl = REG(VICKY), n, L, lc, cnt = 0; uint32_t t; uint8_t i;
-    label("VIDEO"); puts_("VICKY "); puts_((ctrl & 2) ? "320x240" : (ctrl & 4) ? "640x240" : "640x480"); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
+    label("VIDEO"); puts_("VICKY "); puts_(modename(vmode)); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
     onoff(ctrl & 1); puts_(", bg colour $"); puthex(REG(VICKY + 1)); puts_(", raster "); putdec(r16(VICKY + 2) & 0x1FF);
     puts_(", irq mask $"); puthex(REG(VICKY + 5)); newline();
     for (n = 0; n < 4; n++) {
@@ -1157,6 +1163,11 @@ static void cmd_dump(const char *p)
     if (n) { puts_("dump "); putdec(n); puts_(" written (dumps/dump-"); if (n < 100) k_chrout('0'); if (n < 10) k_chrout('0'); putdec(n); puts_(".txt)"); newline(); }
     else error("dump: failed");
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
+/* In the base image, beside SWAP, since 2026-09-14: from bank 1 it ran SWAP VI and
+ * came back into a window the program had left unmapped -- "the Tube co-processor
+ * has left." and the console stuck in reverse (Doc's brainshot, the Dell). */
 /* IDEA [text]: a brainshot -- Doc, 2026-09-14: "the text equivalent of a
  * screenshot".  The emulator writes /BRAINSHOTS/IDEA-date-time.TXT with the
  * idea and the machine as it was (core/io.c idea_write).  IDEA alone opens
@@ -1177,8 +1188,6 @@ static void cmd_idea(const char *p)
     if (had) { puts_("idea kept: "); puts_(b + 8); newline(); return; }
     shell_copy(b); shell_line(line);
 }
-#pragma code-name (pop)
-#pragma rodata-name (pop)
 
 /* CPM [command]: RunCPM reads AUTOEXEC.TXT at boot and runs its first line,
  * so a command given here is written there, CP/M is started, and the file is
@@ -1250,10 +1259,10 @@ static void cmd_swap(const char *p)
      * the same reason; the two must match. */
     w32(DMA, 0x00000000UL); w32(DMA + 4, SWAPRAM); w32(DMA + 8, 0x10000UL);
     REG(DMA + 12) = 1;
-    if (!keep) dma_copy(SCREEN, SWAPSCR, 80UL * 60 * 4);
+    if (!keep) dma_copy(SCREEN, SWAPSCR, 180UL * 67 * 4);
     swapping = 1;                                     /* set after the save, so the restore clears it again */
     shell_line(p);
-    if (!keep) dma_copy(SWAPSCR, SCREEN, 80UL * 60 * 4);
+    if (!keep) dma_copy(SWAPSCR, SCREEN, 180UL * 67 * 4);
     else { REG(TERM + 9) = cx; REG(TERM + 10) = cy; }   /* the console kept what the command drew: JIM follows the ROM again */
     /* The restore overwrites the stack, so it must not be triggered from
      * inside a call: the returning JSR would find the SAVED return address
@@ -1513,7 +1522,7 @@ static void pal_load(const char *name)
         if (pal_word(&q, "COLOR") || pal_word(&q, "COLOUR")) {
             uint32_t f = parsehex(&q, &d); if (!d) continue;
             while (*q == ' ') q++; b = parsehex(&q, &d);
-            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bg; }
+            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bands_on() ? BAND_BG : bg; }
             cls();
             continue;
         }
@@ -1858,7 +1867,7 @@ static const shcmd_t shcmds[] = {
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
-    { n_IDEA, 1, cmd_idea },
+    { n_IDEA, 0, cmd_idea },
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)
@@ -1918,12 +1927,14 @@ static void shell_line(const char *p)
 #pragma rodata-name (pop)
 /* VICKY CTRL for each MODE: halve columns (2), halve lines (4), 200-line
  * field (8), quarter columns (16).  See core/vicky.h. */
-static const uint8_t ctrlmode[5] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
+static const uint8_t ctrlmode[8] = { 0, 4, 2, 2 | 8, 2 | 8 | 16, 0x20, 0x20 | 6, 0x20 | 6 | 16 };   /* 5-7: the HD family (core/vicky.h) */
+static const uint8_t pcols_of[8] = { 80, 80, 40, 40, 20, 180, 90, 45 };
+static const uint8_t prows_of[8] = { 30, 30, 30, 25, 25, 67, 33, 33 };   /* 8x16 cells in 0, 5, 6; 8x8 in the rest */
 #pragma code-name (push, "CODE2")
 static void video_init(void)
 {
     uint8_t i;
-    PCOLS = vmode == 4 ? 20 : vmode >= 2 ? 40 : 80; PROWS = vmode >= 3 ? 25 : 30;   /* MODE 0 is 30 rows of 8x16 since 2026-09-14 */
+    vmode &= 7; PCOLS = pcols_of[vmode]; PROWS = prows_of[vmode];
     /* status mode: two static bands frame the console (the 80-column modes only).
      * The band heights scale with the screen: 640x240 -> 2 top + 3 bottom (25 rows);
      * 640x480 -> 4 + 6 (50 rows).  bband != 0 is the flag the rest of the ROM reads. */
@@ -1943,7 +1954,7 @@ static void video_init(void)
     } else                                                { OY = 0;         bband = 0; }
     COLS = PCOLS; ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
-    REG(VICKY + 1) = C_BG;
+    REG(VICKY + 1) = bands_on() ? BAND_BG : C_BG;   /* BGCOL: the HD modes' spare lines under the text -- the bands' colour when they are up (Doc's brainshot, 2026-09-14) */
     /* The palette is deliberately NOT reloaded here.  VICKY comes up with the
      * VIC-II sixteen already in entries 0-15 (core/vicky.c: vicky_reset), byte
      * for byte the same table this used to write, so the write was doing
@@ -1955,10 +1966,10 @@ static void video_init(void)
      * 640x480, 8x8 in unscii-8 in the 240-line modes */
     w16(VICKY + 0x16, PCOLS);
     w32(VICKY + 0x1C, SCREEN);
-    w32(VICKY + 0x18, vmode ? FONT : FONT16);
+    w32(VICKY + 0x18, ((0x61 >> vmode) & 1) ? FONT16 : FONT);   /* 8x16 in MODE 0, 5, 6 */
     w16(VICKY + 0x12, 0); w16(VICKY + 0x14, 0);
     REG(VICKY + 0x11) = 0;
-    REG(VICKY + 0x10) = vmode ? 0x01 | (3 << 1) : 0x01 | (3 << 1) | 0x20;   /* enable | text32 (| 8x16 cells) */
+    REG(VICKY + 0x10) = ((0x61 >> vmode) & 1) ? 0x01 | (3 << 1) | 0x20 : 0x01 | (3 << 1);   /* enable | text32 (| 8x16 cells) */
     for (i = 1; i < 4; i++) REG(VICKY + 0x10 + i * 0x10) = 0;
     REG(VICKY + 0x0E) = 0; REG(VICKY + 0x64) = 0;
     REG(VICKY + 5) = 1;                        /* IRQ on vblank */
@@ -2200,8 +2211,8 @@ int main(void)
      * into it -- there is no late mode request to perform, and nothing to
      * wipe the banner with.  MODE 0 (640x480, 80x30) if nothing
      * is published. */
-    vmode = (uint8_t)(REG(SYS + 0x21) >> 5);
-    if (vmode) vmode--; else vmode = 0;           /* nothing published: 640x480 (the default since 2026-09-14) */
+    vmode = REG(SYS + 0x3C) ? REG(SYS + 0x3C) : (uint8_t)(REG(SYS + 0x21) >> 5);   /* $D53C whole (MODE 5-7), else bits 5-7 */
+    if (vmode) vmode--;                           /* nothing published: 640x480 */
     video_init();
     sw_call(2, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
     fg = C_FG;

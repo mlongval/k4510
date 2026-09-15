@@ -84,13 +84,19 @@ typedef struct {
  * rest"): unscii, 8x16 at 640x480 and 8x8 in the 240-line modes.  The host
  * loads both (sdl/main.c); there is no setting. */
 /* video modes, in the ENUM's order -- the shell's MODE 0-4 */
-enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
-#define VMODE_MENU_MAX VMODE_320x240   /* the menu offers no less than this.  320x200 and 160x200 are
+/* hd-modes (2026-09-14): the HD family after the three classic shells, so the
+ * menu's choices stay one run.  The order is the menu's, not the MODE number:
+ * vmode_number[] maps (0 1 2 5 6 7 3 4). */
+enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_1440x1080, VMODE_720x540, VMODE_360x270,
+       VMODE_320x200, VMODE_160x200, VMODE_COUNT };
+extern const unsigned char vmode_number[VMODE_COUNT];
+#define VMODE_MENU_MAX VMODE_360x270   /* the menu offers no less than this.  320x200 and 160x200 are
                                         * for games and for a language that wants the pixels -- 40x25
                                         * and 20x25 are not a shell -- so MODE 3 and MODE 4 reach them
                                         * and the menu still SHOWS them when the guest is in one, but
                                         * you cannot steer the machine into one from the menu. */
-#define VMODE_SAVE_MAX VMODE_320x240   /* and nothing smaller is ever written to k4510.cfg */
+#define VMODE_SAVE_MAX VMODE_360x270   /* and nothing past it is ever written to k4510.cfg: */
+#define VMODE_SAVE_TO  VMODE_320x240   /* a game mode is saved as this */
 /* (scanlines, a dark line between each of the machine's, went 2026-09-14 --
  * Doc: "a nice idea that has limited only nostalgic use") */
 /* scaling, in the ENUM's order, hard pixels both (Doc, 2026-09-14: "only 2

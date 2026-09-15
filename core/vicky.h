@@ -5,9 +5,13 @@
  * memory. Rendering is per scanline into an 8-bit indexed framebuffer the
  * frontend supplies; the frontend applies vicky_palette_rgb().
  *
- *   $00  CTRL      bit0 display enable; the rest pick the mode.  The glass is
- *                  always 640x480 and the raster lines are always 0..479 --
- *                  a smaller mode is drawn into it, doubled, and centred.
+ *   $00  CTRL      bit0 display enable; the rest pick the mode.  Without bit5
+ *                  the glass is 640x480 and the raster lines 0..479 -- a
+ *                  smaller mode is drawn into it, doubled, and centred.
+ *                  bit5 (hd-modes branch, 2026-09-14): the HD family, drawn at
+ *                  its own size, the raster lines 0..h-1:
+ *                     1|32        1440x1080    1|32|2|4     720x540
+ *                     1|32|2|4|16 360x270  (a 1080-line panel shows them 1x, 2x, 4x)
  *                  bit1 columns halved (320), bit2 lines halved (240),
  *                  bit3 a 200-line field (40 blank lines top and bottom),
  *                  bit4 columns quartered (160; with bit1).
@@ -97,8 +101,8 @@
 #define K4510_VICKY_H
 #include <stdint.h>
 
-#define VICKY_WIDTH   640
-#define VICKY_HEIGHT  480
+#define VICKY_WIDTH   1440       /* the largest glass (the HD family); the classic modes use 640x480 of it */
+#define VICKY_HEIGHT  1080
 #define VICKY_LAYERS  4
 
 /* register offsets */
@@ -159,6 +163,8 @@ void     vicky_render(uint8_t *fb, int pitch);        /* one full frame (tests) 
 void     vicky_begin_frame(uint8_t *fb, int pitch);
 void     vicky_line(int y);                           /* render line y, run SHEILA, raise IRQs */
 void     vicky_end_frame(void);                       /* vblank */
+int      vicky_glass_w(void);                         /* this frame's glass, latched at its start: 640x480, */
+int      vicky_glass_h(void);                         /* or an HD mode's own size; the frame has vicky_glass_h() lines */
 void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */
 /* JIM's shaped cursor: the text32 cell whose attribute byte is at attr_addr is
  * drawn with an underline (style 1, the bottom two rows reversed) or a bar

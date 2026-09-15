@@ -101,13 +101,14 @@ static void screen_save(void)
     /* bit 3 a 200-line field (25 rows); bit 2 lines halved and bit 1 320 wide --
      * which halves the lines too (MODE 2) -- 30; neither, the whole 480: 30
      * rows of 8x16 (layer 0's cell bits), or 60 of 8x8 for a program's own */
-    int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (vicky_read(0x10) & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
+    int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (vicky_read(0x10) & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
+    if (ctrl & 0x20) rows = vicky_glass_h() / ((vicky_read(0x10) & 0x60) ? 16 : 8);   /* the HD family */
     mkdir("shots", 0755);
     FILE *f = fopen("shots/.screen.tmp", "wb");
     if (!f) return;
     if (menu_is_open()) fputs("# the F7 menu is open over this screen\n", f);
     for (int r = 0; r < rows; r++) {
-        char line[168]; int n = 0;
+        char line[200]; int n = 0;
         for (int c = 0; c < cols; c++) {
             uint8_t ch = mem_peek((map + (uint32_t)(r * stride + c) * 4) & 0x0FFFFFFFu);
             line[n++] = (ch < 0x20 || ch == 0x7F) ? ' ' : (char) ch;
@@ -133,24 +134,26 @@ static void png_chunk(FILE *f, const char *type, const uint8_t *data, uint32_t l
     png_be32(b, c ^ 0xFFFFFFFFu); fwrite(b, 1, 4, f);
 }
 static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal, const uint32_t *upal) {
-    enum { W = VICKY_WIDTH, H = VICKY_HEIGHT, ROW = 1 + W * 3, BLK = 65535 };
-    static uint8_t raw[H * ROW];
+    enum { BLK = 65535 };
+    const int W = vicky_glass_w(), H = vicky_glass_h(), ROW = 1 + W * 3;   /* the glass, whatever the mode */
+    static uint8_t raw[VICKY_HEIGHT * (1 + VICKY_WIDTH * 3)];
+    const size_t rawlen = (size_t) H * (size_t) ROW;
     for (int y = 0; y < H; y++) {
         uint8_t *d = raw + y * ROW; *d++ = 0;                      /* filter: none */
         for (int x = 0; x < W; x++) {
-            int o = ov ? ov[y * UI_W + x] : 0;
-            uint32_t p = o ? upal[o] : pal[src[y * W + x]];
+            int o = ov ? ov[(y * UI_H / H) * UI_W + x * UI_W / W] : 0;
+            uint32_t p = o ? upal[o] : pal[src[y * VICKY_WIDTH + x]];
             *d++ = (uint8_t)(p >> 16); *d++ = (uint8_t)(p >> 8); *d++ = (uint8_t) p;
         }
     }
-    size_t nblk = (sizeof raw + BLK - 1) / BLK;
-    uint8_t *z = malloc(2 + sizeof raw + nblk * 5 + 4), *q = z;
+    size_t nblk = (rawlen + BLK - 1) / BLK;
+    uint8_t *z = malloc(2 + rawlen + nblk * 5 + 4), *q = z;
     if (!z) return;
     *q++ = 0x78; *q++ = 0x01;                                      /* zlib: deflate, no dictionary */
     uint32_t a = 1, b = 0;
-    for (size_t off = 0; off < sizeof raw; off += BLK) {
-        size_t n = sizeof raw - off < BLK ? sizeof raw - off : BLK;
-        *q++ = (uint8_t)(off + n == sizeof raw);                  /* a stored block; the last one says so */
+    for (size_t off = 0; off < rawlen; off += BLK) {
+        size_t n = rawlen - off < BLK ? rawlen - off : BLK;
+        *q++ = (uint8_t)(off + n == rawlen);                  /* a stored block; the last one says so */
         *q++ = (uint8_t) n; *q++ = (uint8_t)(n >> 8); *q++ = (uint8_t) ~n; *q++ = (uint8_t)(~n >> 8);
         memcpy(q, raw + off, n); q += n;
         for (size_t i = 0; i < n; i++) { a = (a + raw[off + i]) % 65521; b = (b + a) % 65521; }
@@ -204,7 +207,8 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 /* the emulated clock is a setting (cpu.clock): full on the desktop, 20 MHz on
  * the Pi by default, where the whole machine would otherwise run at 20 fps */
-static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / VICKY_HEIGHT;
+static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / 480;
+static int frame_lines = 480;                 /* this frame's lines: 480, or an HD mode's height (vicky_glass_h) */
 /* what the guest reads at SYS+$36: the wall clock, not the frame count */
 static uint32_t sdl_ms_now(void) { return (uint32_t)SDL_GetTicks(); }
 /* the governor steps down above this much of the frame spent inside the
@@ -378,7 +382,10 @@ static uint8_t cp437_of(unsigned long cp)
 static int geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1.0;   /* Placement: the picture's device offset and scale (1, 0, 0 when SDL maps) */
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
 static int to_machine(int v, int full) { int m = (v - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
-static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(mouse_x, mouse_y, mouse_btn, wheel_acc); }
+/* the menu is drawn at 640x480 whatever the glass: the pointer is taken there */
+static int ui_mx(int x) { return x * UI_W / vicky_glass_w(); }
+static int ui_my(int y) { return y * UI_H / vicky_glass_h(); }
+static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(ui_mx(mouse_x), ui_my(mouse_y), mouse_btn, wheel_acc); }
 /* The pointer stays on the machine (Doc, 2026-09-14: "limit mouse to k4510
  * screen only ... it doesnt go into sidebars, or above or below active screen
  * ... it can however go into side bars if the processor info sidebar is
@@ -483,7 +490,10 @@ static int cpu_run(int cycles)                /* run the CPU for so many cycles;
 }
 static void line_begin(void)
 {
-    if (m_line == 0 && !m_in_frame) { vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1; }
+    if (m_line == 0 && !m_in_frame) {
+        vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1;
+        frame_lines = vicky_glass_h(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;   /* a frame is 1/60 s however many lines */
+    }
     cpu65.irqLevel = vicky_irq() ? 1 : 0;
 }
 /* The status bands carry two things the machine itself does not know (Doc,
@@ -509,10 +519,10 @@ static void band_text(int row, int col, int maxc, const char *s, int stride, int
         uint8_t g = (uint8_t) s[i];
         for (int gy = 0; gy < rh; gy++) {
             int y = y0 + row * rh + gy;
-            if (y < 0 || y >= VICKY_HEIGHT) break;
+            if (y < 0 || y >= vicky_glass_h()) break;
             uint8_t bits = mem_peek((font + (uint32_t) g * (uint32_t) gh + (uint32_t)(gy * gh / rh)) & 0x0FFFFFFFu);
             uint8_t *p = fb + (size_t) y * VICKY_WIDTH + (size_t)(col + i) * (size_t) cw;
-            if ((col + i + 1) * cw > VICKY_WIDTH) break;
+            if ((col + i + 1) * cw > vicky_glass_w()) break;
             for (int gx = 0; gx < cw; gx++) p[gx] = (bits & (0x80 >> (gx * 8 / cw))) ? fg : bg;
         }
     }
@@ -525,8 +535,10 @@ static void bands_overlay(void)
     uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10);
     if (!(ctrl & 1) || !(l0 & 1) || ((l0 >> 1) & 3) != 3) return;       /* the console (text32) is not the picture */
     int stride = vicky_read(0x16) | (vicky_read(0x17) << 8);
-    int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 160 ? stride : 80;
-    int rh = rows == 60 ? 8 : 16, cw = VICKY_WIDTH / cols, y0 = (ctrl & 8) ? 40 : 0;
+    int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
+    int rh = rows == 60 ? 8 : 16, cw = vicky_glass_w() / cols, y0 = (ctrl & 8) ? 40 : 0;
+    if (ctrl & 0x20) { rh = (l0 & 0x60) ? 16 : 8; rows = vicky_glass_h() / rh; y0 = 0; }   /* the HD family: rows of the mode's own cells */
+    if (cols < 40 || rows < 30) return;                                /* the ROM's rule: bands in every shell mode, not the 25-row game modes */
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* what is running, left of the clock */
         const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
         if (maxc > 4) {
@@ -551,14 +563,14 @@ static void line_end(int vol)                 /* the scanline's picture and soun
     Uint64 t2 = PCLK();
     /* The audio clock the OPL2 writes are stamped with: one scanline of it,
      * whoever is rendering.  See core/sndq.h. */
-    sndq_tick(1000000u / (60u * VICKY_HEIGHT));
+    sndq_tick(1000000u / (60u * (unsigned) frame_lines));
     if (sndq_owner() == SNDQ_OWNER_CPU)
     { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
       for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
     m_cyc = 0;
-    if (++m_line == VICKY_HEIGHT) {
+    if (++m_line == frame_lines) {
         m_line = 0; m_in_frame = 0;
         vicky_end_frame();
         bands_overlay();                          /* what is running, and the keys typed from outside, in the bands */
@@ -858,7 +870,7 @@ int k4510_frontend_main(int argc, char **argv)
     cpu65_reset();
 
     io_set_ms_source(sdl_ms_now);              /* SYS+$36: the wall clock the guest can pace against */
-    cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT; io_set_cpu_khz(cpu_hz_now / 1000);
+    cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines; io_set_cpu_khz(cpu_hz_now / 1000);
     audio_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     main_tid = SDL_ThreadID(); plat_net_wait_hook = net_wait_alive;
@@ -890,7 +902,7 @@ int k4510_frontend_main(int argc, char **argv)
     host_info_refresh();
     /* K4510_WINDOW=WxH: the window's first size (1280x960 otherwise).  For a
      * wide window with the side panel, and for screenshots of one. */
-    int win_w = VICKY_WIDTH * SCALE, win_h = VICKY_HEIGHT * SCALE;
+    int win_w = 640 * SCALE, win_h = 480 * SCALE;
     { const char *wv = getenv("K4510_WINDOW"); int a, c2; if (wv && sscanf(wv, "%dx%d", &a, &c2) == 2 && a >= 320 && c2 >= 240) { win_w = a; win_h = c2; } }
     SDL_Window *win = SDL_CreateWindow("K4510", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                                        win_w, win_h, SDL_WINDOW_RESIZABLE);
@@ -915,7 +927,7 @@ int k4510_frontend_main(int argc, char **argv)
  * shim's present is the blocking one this was escaped from. */
 SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     if (!ren) ren = SDL_CreateRenderer(win, -1, 0);      /* no GPU (the dummy driver, a screenshot run) */
-    SDL_RenderSetLogicalSize(ren, VICKY_WIDTH, VICKY_HEIGHT);
+    SDL_RenderSetLogicalSize(ren, 640, 480);
     SDL_Texture *tex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
                                          VICKY_WIDTH, VICKY_HEIGHT);
     int smooth_applied = -1, logical_set = 0, vsync_applied = -1;
@@ -1055,7 +1067,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     int wx, wy; SDL_GetMouseState(&wx, &wy);
                     if (confine_clamp(&wx, &wy)) { SDL_WarpMouseInWindow(win, wx, wy); break; }
                 }
-                mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), VICKY_WIDTH); mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), VICKY_HEIGHT);
+                mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), vicky_glass_w()); mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), vicky_glass_h());
                 dx_acc += (int)(e.motion.xrel / geo_s); dy_acc += (int)(e.motion.yrel / geo_s);
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
@@ -1068,7 +1080,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 break;
             case SDL_MOUSEWHEEL:
                 wheel_acc += e.wheel.y;
-                if (menu_is_open()) { menu_mouse(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, mouse_btn, e.wheel.y); wheel_acc = 0; }
+                if (menu_is_open()) { menu_mouse(mouse_x < 0 ? 0 : ui_mx(mouse_x), mouse_y < 0 ? 0 : ui_my(mouse_y), mouse_btn, e.wheel.y); wheel_acc = 0; }
                 break;
             case SDL_CONTROLLERDEVICEADDED: pad_open(e.cdevice.which); break;
             case SDL_CONTROLLERDEVICEREMOVED:
@@ -1317,13 +1329,13 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * choosing a resolution in the menu is watching it happen.  So an
          * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
-        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 2 | 8, 2 | 8 | 16 };
+        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 0x20, 0x20 | 6, 0x20 | 6 | 16, 2 | 8, 2 | 8 | 16 };   /* in the menu's order */
           uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
           if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
                                                          * video_init runs, CTRL is 0 -- which is NOT
                                                          * 640x480, though it looks just like it. */
-              uint8_t m = (uint8_t)(c & (2 | 4 | 8 | 16));
+              uint8_t m = (uint8_t)(c & (2 | 4 | 8 | 16 | 0x20));
               for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == m) machine = i;
           }
           if (mode_req) {
@@ -1363,12 +1375,17 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * boots (STARTUP.BAT) and on its next key poll (the mode request), so
          * a byte written at the end of the frame would arrive one frame late
          * -- and for the boot read, a whole power-on too late. */
-        io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
-                    | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
-                    | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
-                    | (uint8_t)((mode_pending ? mode_pending
-                                              : settings_get(SET_VIDEO_MODE) + 1) << SYSOPT_MODE_SHIFT)
-                    | (mode_pending ? SYSOPT_MODEREQ : 0));
+        /* The mode goes out as the ROM's MODE number (the menu's order is not
+         * it: vmode_number), whole in $D53C and, where it fits, in $D521's
+         * three bits as before. */
+        { int idx = (mode_pending ? mode_pending : settings_get(SET_VIDEO_MODE) + 1) - 1;
+          int m1 = (idx >= 0 && idx < VMODE_COUNT) ? vmode_number[idx] + 1 : 0;
+          io_set_mode((uint8_t) m1);
+          io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
+                      | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
+                      | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
+                      | (uint8_t)((m1 <= 7 ? m1 : 0) << SYSOPT_MODE_SHIFT)
+                      | (mode_pending ? SYSOPT_MODEREQ : 0)); }
         io_set_bands(1, 1,                               /* one row each, when the bands are on (Doc, 2026-09-14) */
                      (uint8_t)((settings_get(SET_TERM_CLOCK24) ? 1 : 0)
                                | (settings_get(SET_TERM_DATEFMT) << 1)));
@@ -1524,7 +1541,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             }
         }
         if (settings_cpu_hz() != cpu_hz_now) {
-            cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / VICKY_HEIGHT;
+            cpu_hz_now = settings_cpu_hz(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;
             io_set_cpu_khz(cpu_hz_now / 1000); audio_set_cpu_hz((double)cpu_hz_now);
             /* A new clock is a new machine to measure: open another PERF window
              * and append it.  This is how the Pi gets swept -- there is no
@@ -1577,17 +1594,18 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         /* Nothing new to show -- same picture, same overlay, same tables --
          * and the texture already holds it: skip the 307,200 lookups (review
          * 2026-09-05, 9).  A still screen at the prompt is most frames. */
-        { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1;
-          if (!tex_stale && open == last_open
+        const int gw = vicky_glass_w(), gh = vicky_glass_h();   /* the glass: 640x480, or an HD mode's own size */
+        { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1, last_gw, last_gh;
+          if (!tex_stale && open == last_open && gw == last_gw && gh == last_gh
               && !memcmp(fb, last_fb, sizeof fb) && (!open || !memcmp(ov, last_ov, sizeof ov))) goto tex_done;
-          tex_stale = 0; last_open = open;
+          tex_stale = 0; last_open = open; last_gw = gw; last_gh = gh;
           memcpy(last_fb, fb, sizeof fb); if (open) memcpy(last_ov, ov, sizeof ov); }
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
-        for (int y = 0; y < VICKY_HEIGHT; y++) {
-            const uint8_t *src = fb + y * VICKY_WIDTH, *o = ov + y * UI_W;
+        for (int y = 0; y < gh; y++) {
+            const uint8_t *src = fb + y * VICKY_WIDTH, *o = ov + (y * UI_H / gh) * UI_W;   /* the menu is 640x480: stretched over the glass */
             uint32_t *d = (uint32_t *)((uint8_t *)pixels + y * pitch);
-            if (!open) for (int x = 0; x < VICKY_WIDTH; x++) d[x] = pal[src[x]];
-            else       for (int x = 0; x < VICKY_WIDTH; x++) d[x] = o[x] ? upal[o[x]] : mpal[src[x]];
+            if (!open) for (int x = 0; x < gw; x++) d[x] = pal[src[x]];
+            else       for (int x = 0; x < gw; x++) { uint8_t c = o[x * UI_W / gw]; d[x] = c ? upal[c] : mpal[src[x]]; }
         }
         SDL_UnlockTexture(tex);
 tex_done:
@@ -1595,10 +1613,11 @@ tex_done:
         if (screen_req) { screen_req = 0; screen_save(); }                                                         /* the text screen, as text: no flash, it is not a picture */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
-        { int b = settings_get(SET_VIDEO_BORDER);
+        { int b = settings_get(SET_VIDEO_BORDER) * gw / 640;     /* the border's pixels are 640-glass pixels */
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
           geo_b = b;                                             /* for the mouse */
-          SDL_Rect dr = { b, b, VICKY_WIDTH - 2 * b, VICKY_HEIGHT - 2 * b };
+          SDL_Rect gsrc = { 0, 0, gw, gh };                      /* the glass, in the top-left of the largest texture */
+          SDL_Rect dr = { b, b, gw - 2 * b, gh - 2 * b };
           /* Placement and the side panel (Doc, 2026-09-09).  Centred, the
            * picture is SDL's logical canvas and SDL scales and centres it, as
            * always.  Placed left or right, SDL's mapping is switched OFF and
@@ -1639,7 +1658,7 @@ tex_done:
                                 setenv("K4510_WINRECT", now, 1); setenv("SDL_VIDEO_WINDOW_POS", pos, 1); }
                   else        { unsetenv("K4510_WINRECT"); unsetenv("SDL_VIDEO_WINDOW_POS"); }
               } } }
-          int lw = VICKY_WIDTH, canvas_h = VICKY_HEIGHT, cow = 0, coh = 0;
+          int lw = gw, canvas_h = gh, cow = 0, coh = 0;
           SDL_GetRendererOutputSize(ren, &cow, &coh);
           int custom = place != PLACE_CENTRE && cow > 0 && coh > 0;
           double sc = 1.0; int pic_x = 0, pic_y = 0, pic_w = lw, pic_h = canvas_h;
@@ -1653,9 +1672,11 @@ tex_done:
               pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
               pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
               dr.x = pic_x + (int)(b * sc); dr.y = pic_y + (int)(b * sc);
-              dr.w = (int)((VICKY_WIDTH - 2 * b) * sc); dr.h = (int)((VICKY_HEIGHT - 2 * b) * sc);
+              dr.w = (int)((gw - 2 * b) * sc); dr.h = (int)((gh - 2 * b) * sc);
           }
           geo_s = custom ? sc : 1.0; geo_xd = custom ? pic_x : 0; geo_yd = custom ? pic_y : 0;
+          { static int set_w, set_h;
+            if (lw != set_w || canvas_h != set_h) { set_w = lw; set_h = canvas_h; logical_set = 0; } }   /* a new glass: a new canvas */
           if (custom != logical_custom || !logical_set) {
               logical_custom = custom; logical_set = 1;
               SDL_RenderSetLogicalSize(ren, custom ? 0 : lw, custom ? 0 : canvas_h);
@@ -1725,8 +1746,8 @@ tex_done:
            * and phase across the seam instead of restarting them at the window
            * edge.  Then put the mapping back for the picture itself. */
           if (btex) {
-              SDL_Rect bsrc = { 0, 0, 1, VICKY_HEIGHT };
-              int ow = 0, oh = 0, lh = VICKY_HEIGHT;
+              SDL_Rect bsrc = { 0, 0, 1, gh };
+              int ow = 0, oh = 0, lh = gh;
               SDL_GetRendererOutputSize(ren, &ow, &oh);
               if (ow > 0 && oh > 0) {
                   /* ASK SDL where the picture lands rather than working it out
@@ -1752,7 +1773,7 @@ tex_done:
                   } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
               } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
           }
-          SDL_RenderCopy(ren, tex, NULL, &dr);
+          SDL_RenderCopy(ren, tex, &gsrc, &dr);
           /* the side panel: the device pixels beside the picture, at the picture's rows */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {
@@ -1870,9 +1891,9 @@ tex_done:
           if (shot && --shot_fr == 0) {
               char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
               FILE *f = fopen(path, "wb");
-              int sh = VICKY_HEIGHT;
-              if (f) { fprintf(f, "P6 %d %d 255\n", VICKY_WIDTH, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
-                       for (int y = 0; y < sh; y++) for (int x = 0; x < VICKY_WIDTH; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
+              int sh = vicky_glass_h(), sw = vicky_glass_w();
+              if (f) { fprintf(f, "P6 %d %d 255\n", sw, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
+                       for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
                        SDL_UnlockTexture(tex); fclose(f); }
               running = 0; } }
     }

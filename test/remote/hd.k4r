@@ -1,0 +1,29 @@
+# test/remote/hd.k4r -- the hd-modes branch: MODE 6 (720x540, 90x33 in 8x16),
+# MODE 5 (1440x1080, 180x67) and MODE 7 (360x270, 45x33 in 8x8), a shot of
+# each, then back to MODE 1 so the Dell keeps the mode it had.  The text rows
+# MODE prints lose the two band rows when the status bands are on, so only
+# the columns are checked.
+#     tools/k4510-remote run test/remote/hd.k4r
+key esc
+type MODE 6\n
+wait 2
+type DIR\n
+type MODE\n
+expect "MODE 6: 90x" 10
+shot hd-720x540
+type MODE 5\n
+wait 2
+type DIR\n
+type MODE\n
+expect "MODE 5: 180x" 10
+shot hd-1440x1080
+type MODE 7\n
+wait 2
+type DIR\n
+type MODE\n
+expect "MODE 7: 45x" 10
+shot hd-360x270
+type MODE 1\n
+wait 2
+type MODE\n
+expect "MODE 1: 80x" 10

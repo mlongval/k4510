@@ -69,7 +69,8 @@ static int mouse_x, mouse_y; static uint8_t mouse_btn; static int8_t mouse_wheel
 static int8_t clamp8(int v) { return (int8_t)(v > 127 ? 127 : v < -128 ? -128 : v); }
 void mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy)
 {
-    mouse_x = x < 0 ? 0 : x > 639 ? 639 : x; mouse_y = y < 0 ? 0 : y > 479 ? 479 : y;
+    int gw = vicky_glass_w(), gh = vicky_glass_h();                     /* the glass: 640x480, or an HD mode's own size */
+    mouse_x = x < 0 ? 0 : x > gw - 1 ? gw - 1 : x; mouse_y = y < 0 ? 0 : y > gh - 1 ? gh - 1 : y;
     mouse_btn = buttons; mouse_wheel = clamp8(wheel); mouse_dx = clamp8(dx); mouse_dy = clamp8(dy);
 }
 static int kbd_ready(void) { return kbd_head != kbd_tail; }
@@ -870,11 +871,23 @@ static void sys_latch(void)
     sys_reg[10] = (m->tm_year + 1900) & 0xFF; sys_reg[11] = (m->tm_year + 1900) >> 8;
     sys_reg[12] = m->tm_wday;
 }
+/* The text map as the console has it, for the dumps and the brainshots: a row
+ * is JIM's stride of cells (up to 180 in MODE 5), and the physical rows follow
+ * the mode -- an 80x60 read garbled every line at 90 columns (the Dell's
+ * brainshot, 2026-09-14). */
+static void screen_geom(int *cols, int *rows)
+{
+    uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10); int st = io_read(0xDA0D), ch = (l0 & 0x60) ? 16 : 8;
+    *cols = st > 0 && st <= 180 ? st : 80;
+    *rows = (ctrl & 0x20) ? vicky_glass_h() / ch : (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60;
+}
 static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
 uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
 static int mode_acked;
 void io_set_opts(uint8_t v) { sys_opts = v; }
 static uint8_t sys_band_top = 1, sys_band_bot = 1, sys_clockfmt;
+static uint8_t sys_mode;                   /* $D53C: the mode the host wants, whole (mode+1; 0 none) -- $D521's three bits stop at MODE 6 */
+void io_set_mode(uint8_t m1) { sys_mode = m1; }
 void io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt)
 { sys_band_top = top; sys_band_bot = bot; sys_clockfmt = clockfmt; }
 int  io_mode_acked(void) { int a = mode_acked; mode_acked = 0; return a; }
@@ -931,6 +944,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x2D) return sys_band_top;      /* rows in the top band */
     if (r == 0x2E) return sys_band_bot;      /* rows in the bottom band */
     if (r == 0x2F) return sys_clockfmt;      /* bit0 24-hour; bits1-2 the date order */
+    if (r == 0x3C) return sys_mode;          /* the wanted video mode, mode+1 (hd-modes: MODE 5-7 need it) */
     if (r == 0x22) return (uint8_t)io_host_kind;  /* what is beneath the machine, for BUG and INFO */
     /* The clock's index in the frontend's ladder.  Deliberately NOT documented
      * as a fixed table: the ladder is reordered when steps are added, and a
@@ -1487,7 +1501,8 @@ int dbg_dump(const char *why)
     fprintf(f, "FS   reg:"); for (int i = 0; i < (int)sizeof fs_reg; i++) fprintf(f, " %02X", fs_reg[i]); fprintf(f, "   DMA:"); for (int i = 0; i < 14; i++) fprintf(f, " %02X", dma_reg[i]); fprintf(f, "\n");
     fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
     fprintf(f, "\nSCREEN (text layer at $030000, 80 columns):\n");
-    for (int y = 0; y < 60; y++) { char r[81]; int last = -1; for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); }
+    { int sc, sr; screen_geom(&sc, &sr);
+      for (int y = 0; y < sr; y++) { char r[181]; int last = -1; for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[0x30000 + (y * sc + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); } }
     fprintf(f, "\nSHELL LOG (command lines and DUMP notes, oldest first):\n");
     { uint32_t n = dbg_logi < DBG_LOG ? dbg_logi : DBG_LOG, start = dbg_logi - n; for (uint32_t i = 0; i < n; i++) fputc(dbg_log[(start + i) & (DBG_LOG - 1)], f); fprintf(f, "\n"); }
     fprintf(f, "\nKEYS (last %u, oldest first, hex):", dbg_keyi < DBG_KEYS ? dbg_keyi : DBG_KEYS);
@@ -1548,9 +1563,10 @@ static void idea_write(uint8_t how)
     fprintf(f, "running  %s\n", io_title());
     fprintf(f, "build    %.16s\n", sys_version);
     fprintf(f, "screen\n");
-    for (int y = 0; y < 60; y++) {
-        char r[81]; int last = -1;
-        for (int x = 0; x < 80; x++) { uint8_t ch = k4510_ram[0x30000 + (y * 80 + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
+    int sc, sr; screen_geom(&sc, &sr);
+    for (int y = 0; y < sr; y++) {
+        char r[181]; int last = -1;
+        for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[0x30000 + (y * sc + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
         r[last + 1] = 0;
         if (last >= 0) fprintf(f, "  |%s\n", r);
     }
@@ -1646,6 +1662,7 @@ static uint8_t io_read_inner(uint16_t addr)
             uint8_t ctrl = vicky_read(0); int xs = (ctrl & 16) ? 2 : (ctrl & 2) ? 1 : 0, ys = (ctrl & 4) ? 1 : 0;
             int x = mouse_x >> xs, y = mouse_y - ((ctrl & 8) ? 40 : 0), ymax = ((ctrl & 8) ? 400 : 480) - 1;
             y = (y < 0 ? 0 : y > ymax ? ymax : y) >> ys;
+            if (ctrl & 0x20) { xs = ys = 0; x = mouse_x; y = mouse_y; }        /* the HD family: the glass is the mode's own pixels */
             switch (addr - IO_MOUSEX) {
             case 0: return (uint8_t) x;  case 1: return (uint8_t)(x >> 8);
             case 2: return (uint8_t) y;  case 3: return (uint8_t)(y >> 8);

@@ -8,7 +8,8 @@
 #define SETTINGS_VERSION     2
 #define SETTINGS_VERSION_STR "2"
 
-static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "320x200", "160x200" };
+static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "1440x1080", "720x540", "360x270", "320x200", "160x200" };
+const unsigned char vmode_number[VMODE_COUNT] = { 0, 1, 2, 5, 6, 7, 3, 4 };
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
@@ -25,7 +26,7 @@ static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause" };
 static const set_desc desc[SET_COUNT] = {
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
-    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_640x480, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
+    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_360x270, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
@@ -135,7 +136,7 @@ static const char *file_text(set_id id, char *buf, int max)   /* what goes in th
      * power cycle in 160x200 is a place you cannot easily steer out of, so
      * what reaches the file is never below 320x240. */
     if (id == SET_VIDEO_MODE && value[id] > VMODE_SAVE_MAX)
-        { snprintf(buf, (size_t) max, "%s", vmode_names[VMODE_SAVE_MAX]); return buf; }
+        { snprintf(buf, (size_t) max, "%s", vmode_names[VMODE_SAVE_TO]); return buf; }
     if (d->type == ST_ENUM || d->type == ST_CHORD || d->type == ST_BOOL) return settings_text(id, buf, max);
     snprintf(buf, (size_t) max, "%d", value[id]); return buf;
 }
@@ -186,7 +187,7 @@ int settings_load(const char *path)
      * to compare against. */
     (void)filever;
     /* and again on the way in, in case the file was edited by hand */
-    if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_MAX;
+    if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_TO;
     fclose(f); changed = 0;
     return 0;
 }

@@ -15,6 +15,17 @@ static uint16_t raster_cmp;
 static uint8_t  owner[VICKY_WIDTH];          /* per-pixel: 0 = layers only, else sprite n+1 */
 static uint8_t  layer_hit[VICKY_WIDTH];      /* per-pixel: a layer drew a non-zero index here */
 static uint8_t  lowres_tmp[VICKY_WIDTH];     /* CTRL bit1: 320x240 rendered here, then doubled */
+#define OLD_W 640                            /* the classic glass: MODE 0-4 are drawn into 640x480 */
+#define OLD_H 480
+static int      glass_w = OLD_W, glass_h = OLD_H, glass_hd;   /* this frame's, latched at its start */
+static void glass_latch(void)
+{
+    uint8_t c = reg[VR_CTRL];
+    if (c & 0x20) { int d = (c & 16) ? 4 : (c & 6) ? 2 : 1; glass_w = VICKY_WIDTH / d; glass_h = VICKY_HEIGHT / d; glass_hd = 1; }
+    else { glass_w = OLD_W; glass_h = OLD_H; glass_hd = 0; }
+}
+int vicky_glass_w(void) { return glass_w; }
+int vicky_glass_h(void) { return glass_h; }
 static uint8_t  spr_list[4][VICKY_SPRITES];  /* this line's sprites, by Z, in table order (sprites_gather) */
 static int      spr_n[4];
 
@@ -140,6 +151,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     /* text modes: 1-bpp glyphs, 8 px wide, H = 8 or 16 rows */
     int H = csz ? 16 : 8;
     int cy = sy / H, gy = sy % H;
+    if (glass_hd && y >= glass_h / H * H) return;   /* HD: no partial row of cells under the last full one -- BGCOL shows in those spare lines */
     if (mode == VL_MODE_TEXT) {
         uint8_t base = (uint8_t)(palofs << 1);
         for (int x = 0; x < w; ) {
@@ -324,6 +336,7 @@ int vicky_irq(void) { return reg[VR_IRQSTAT] & reg[VR_IRQMASK]; }
 void vicky_begin_frame(uint8_t *fb, int pitch)
 {
     frame_fb = fb; frame_pitch = pitch;
+    glass_latch();
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
     sh_pc = rd32(&reg[VR_SHEILA]); sh_wait = (reg[VR_SHEILACTL] & 1) ? -1 : -2;
 }
@@ -337,18 +350,30 @@ void vicky_line(int y)
     uint8_t ctrl = reg[VR_CTRL];
     /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
      * field, 40 blank lines above and below it; bit4: columns quartered (160). */
-    int top = (ctrl & 8) ? (VICKY_HEIGHT - 400) / 2 : 0;
-    if (y < top || y >= VICKY_HEIGHT - top) { memset(line, reg[VR_BGCOL], VICKY_WIDTH); return; }
+    if (glass_hd) {                                  /* the HD family: its own size, nothing doubled */
+        if (y >= glass_h) return;
+        memset(line, reg[VR_BGCOL], (size_t) glass_w);
+        if (!(ctrl & 1)) return;
+        memset(owner, 0, (size_t) glass_w); memset(layer_hit, 0, (size_t) glass_w);
+        sprites_gather(y);
+        for (int n = 0; n < VICKY_LAYERS; n++) {
+            if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y, line, glass_w);
+            sprites_line(n, y, line, glass_w);
+        }
+        return;
+    }
+    int top = (ctrl & 8) ? (OLD_H - 400) / 2 : 0;
+    if (y < top || y >= OLD_H - top) { memset(line, reg[VR_BGCOL], OLD_W); return; }
     int yy = y - top;
     if (ctrl & 6) {
         int half = ctrl & 2;
         int q = (ctrl & 16) ? 4 : 2;                           /* screen pixels per pixel of the machine */
-        int w = half ? VICKY_WIDTH / q : VICKY_WIDTH;
-        if (yy & 1) { memcpy(line, line - frame_pitch, VICKY_WIDTH); return; }
+        int w = half ? OLD_W / q : OLD_W;
+        if (yy & 1) { memcpy(line, line - frame_pitch, OLD_W); return; }
         uint8_t *dst = half ? lowres_tmp : line;
-        memset(dst, reg[VR_BGCOL], VICKY_WIDTH);
+        memset(dst, reg[VR_BGCOL], OLD_W);
         if (ctrl & 1) {
-            memset(owner, 0, VICKY_WIDTH); memset(layer_hit, 0, VICKY_WIDTH);
+            memset(owner, 0, OLD_W); memset(layer_hit, 0, OLD_W);
             sprites_gather(yy >> 1);
             for (int n = 0; n < VICKY_LAYERS; n++) {
                 if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy >> 1, dst, w);
@@ -359,13 +384,13 @@ void vicky_line(int y)
                         for (int i = 0; i < q; i++) line[x * q + i] = lowres_tmp[x]; }
         return;
     }
-    memset(line, reg[VR_BGCOL], VICKY_WIDTH);
+    memset(line, reg[VR_BGCOL], OLD_W);
     if (!(ctrl & 1)) return;
-    memset(owner, 0, VICKY_WIDTH); memset(layer_hit, 0, VICKY_WIDTH);
+    memset(owner, 0, OLD_W); memset(layer_hit, 0, OLD_W);
     sprites_gather(yy);
     for (int n = 0; n < VICKY_LAYERS; n++) {
-        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy, line, VICKY_WIDTH);
-        sprites_line(n, yy, line, VICKY_WIDTH);
+        if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy, line, OLD_W);
+        sprites_line(n, yy, line, OLD_W);
     }
 }
 
@@ -383,7 +408,7 @@ void vicky_repaint(uint8_t *fb, int pitch)
     uint8_t *sfb = frame_fb; int spitch = frame_pitch, sline = cur_line, swait = sh_wait;
     uint32_t spc = sh_pc; uint16_t scmp = raster_cmp;
     vicky_begin_frame(fb, pitch);
-    for (int y = 0; y < VICKY_HEIGHT; y++) vicky_line(y);
+    for (int y = 0; y < glass_h; y++) vicky_line(y);
     memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16);
     frame_fb = sfb; frame_pitch = spitch; cur_line = sline; sh_wait = swait; sh_pc = spc; raster_cmp = scmp;
 }
@@ -394,14 +419,14 @@ void vicky_end_frame(void)
     for (int i = 0; i < 16; i++) { reg[VR_COLSS + i] |= col_ss[i]; reg[VR_COLSL + i] |= col_sl[i]; any |= col_ss[i] | col_sl[i]; }
     if (any) reg[VR_IRQSTAT] |= VI_COLL;
     reg[VR_IRQSTAT] |= VI_VBLANK;
-    cur_line = VICKY_HEIGHT;   /* vblank */
+    cur_line = glass_h;        /* vblank */
     io_frame_tick();
 }
 
 void vicky_render(uint8_t *fb, int pitch)
 {
     vicky_begin_frame(fb, pitch);
-    for (int y = 0; y < VICKY_HEIGHT; y++) vicky_line(y);
+    for (int y = 0; y < glass_h; y++) vicky_line(y);
     vicky_end_frame();
 }
 

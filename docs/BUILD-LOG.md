@@ -8525,3 +8525,66 @@ that kept the average brightness, the striped border and letterbox, and
 the 2x logical scale the placement and mouse arithmetic carried. The
 picture is one texture row per line now; an old video.scanlines line in
 k4510.cfg is kept and ignored, as unknown keys are.
+
+## 2026-09-14 — hd-modes (a branch): 1440x1080, 720x540, 360x270
+
+Doc: "if display is HD, then 1440 x 1080 would maintain the 4:3 aspect
+ratio ... 1/2 would be 720x540, 1/4 would be 360x270 ... Can we try an
+experimental branch with those resolutions instead of the current ones,
+which I probably chose only out of nostalgia". On the branch hd-modes,
+the old modes kept for now. Cells 8x16 (Doc: no 8x18 -- "any vertical
+line construction with text will have blank 2 or 4 pixel lines after
+each row"), 8x8 in the low mode:
+
+    MODE 5  1440x1080  180x67  8x16  (8 lines spare)
+    MODE 6   720x540    90x33  8x16  (12)   the branch's default
+    MODE 7   360x270    45x33  8x8   (6)
+
+VICKY CTRL bit 5 is the HD family, drawn at its own size (not doubled
+into a fixed glass), and the frame has as many lines as the mode: the
+CPU's cycles a line and the sound's clock a line follow it, so a frame
+is still 1/60 s. The frontend's buffers are the largest glass; the
+texture, scaling, border, mouse, screenshots and the text dump follow the
+glass; the F7 menu is still drawn at 640x480 and stretched over it. The
+host publishes the whole mode number in $D53C (the three bits in $D521
+stop at MODE 6); the menu offers the modes in the order 0 1 2 5 6 7. The
+ROM's mode tables are tables now; the IRQ clock is placed from PCOLS.
+The headless test tools (capture, romtest, headless, bench) keep a
+640x480 buffer: they must not be put in an HD mode. Checked here: the
+unit tests, and the real emulator (SDL dummy driver) in each mode,
+scrolling, and the menu over MODE 6.
+
+## 2026-09-14 — Doc's brainshots from the Dell (hd-modes)
+
+- "BL" instead of Claude Code's bullets, through ssh: JIM maps the
+  bullets to CP437 $07, and the unscii fonts had Unicode's control
+  pictures in $01-$1F (BEL is "BL"). Both sizes now carry CP437's faces,
+  suits, arrows and bullets from unscii's own .hex; the house and the
+  sun, which unscii lacks, stand in as a triangle and an asterisk. On
+  master too: it has been wrong there since the one-font change.
+- "A bit of a bug when returning from idea": IDEA ran SWAP VI from
+  sideways bank 1 and came back into a window VI had left unmapped --
+  "the Tube co-processor has left." and a reversed console. MODE 1 did it
+  too, so not an HD fault. IDEA is in the base image now, beside SWAP.
+  The screen an idea records (and the debug dump) read 80x60; they read
+  the console's real width and rows now.
+- "Color the empty bottom lines the same color as the bands": BGCOL is
+  the bands' colour while they are up, the screen's when not; VICKY's
+  text layers leave the partial row under the last full one undrawn, so
+  BGCOL is what shows there.
+- "Make f7 menu default to mode 7": 360x270 is the default.
+
+## 2026-09-14 — the languages in every mode (hd-modes)
+
+Doc's brainshot asked for a test of the interpreted languages in every
+video mode: test/remote/langs.k4r, EhBASIC, Microsoft BASIC, BBC BASIC,
+Forth, LOGO and REXX in MODE 0, 1, 2, 5, 6 and 7, run first against an
+emulator here (k4510-remote's new K4510_REMOTE=local) so it need not take
+the Dell from Doc. All 36 pass; the screenshots found what the checks
+could not: LOGO read VICKY's CTRL without the HD bit, so MODE 5 looked
+like MODE 0 (its 640-wide picture drawn into the 1440 glass, twice) and
+MODE 6 and 7 came back as MODE 1 at BYE. LOGO, BOOK (which cleared the
+halving bits and stayed HD), SPLIT (which took lines-halved to mean
+doubled) and BUG (which names the mode) know bit 5 now. The test's own
+faults on the way: Microsoft BASIC reads 72 characters a line, and BBC
+BASIC's banner wraps at 40 columns.

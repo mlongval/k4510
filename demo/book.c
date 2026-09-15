@@ -328,7 +328,7 @@ static void picture(const char *file)
     REG(VIC + 0x26) = (uint8_t)w; REG(VIC + 0x27) = (uint8_t)(w >> 8);   /* stride */
     REG(VIC + 0x28) = 0; REG(VIC + 0x29) = 0; REG(VIC + 0x2A) = 0x20; REG(VIC + 0x2B) = 0;   /* $200000 */
     dma_fill(0, BITMAP, (uint32_t)w * ht);
-    REG(VIC) = (uint8_t)(ctrl & 0xF9);                        /* 640x480, no doubling */
+    REG(VIC) = (uint8_t)(ctrl & 0xD9);                        /* 640x480, no doubling -- and out of the HD family (bit 5) */
     REG(VIC + 0x10) = 0;                                      /* the text layer off */
     REG(VIC + 0x20) = 0x19;                                   /* layer 1: on, bitmap, 8 bpp */
     o = PIC + 16;

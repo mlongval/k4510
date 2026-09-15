@@ -93,8 +93,8 @@ void main(void)
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) { if (len < BUFMAX - 1) BUF[len++] = (char)REG(SYS + 0x10 + i); }
     nl();
     add("Screen:   "); addn(REG(TERM + 5), 0); add("x"); addn(REG(TERM + 6), 0);
-    mode = (uint8_t)(REG(0xD000) & 0x1E);
-    add("  (MODE "); addn(mode == 0 ? 0 : mode == 4 ? 1 : mode == 2 ? 2 : mode == 10 ? 3 : 4, 0); add(")"); nl();
+    mode = (uint8_t)(REG(0xD000) & 0x3E);                     /* bit 5: the HD family */
+    add("  (MODE "); addn(mode == 0 ? 0 : mode == 4 ? 1 : mode == 2 ? 2 : mode == 10 ? 3 : mode == 0x20 ? 5 : mode == 0x26 ? 6 : mode == 0x36 ? 7 : 4, 0); add(")"); nl();
     add("Dump:     ");
     if (!REG(SYS + 0xF0)) add("none -- type DUMP while it is wrong, then run BUG again");
     else { add("dumps/dump-"); addn(REG(SYS + 0xF0), 3); add(".txt"); }

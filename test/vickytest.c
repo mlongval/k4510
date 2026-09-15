@@ -7,7 +7,7 @@
 #include "../core/io.h"
 #include "../core/vicky.h"
 #include <stdlib.h>
-static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT];
+static uint8_t fb[640 * 480];                 /* the classic glass: this test draws no HD mode */
 /* K4510_SHOT=dir: write each stage's framebuffer as a PPM there */
 static void shot(const char *name)
 {
@@ -45,7 +45,7 @@ int main(void)
     W(VR_CTRL, 1);
     W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 640);
     W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_BITMAP << 1) | (3 << 3));   /* enable, bitmap, 8 bpp */
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     shot("1-bitmap");
     printf("1. bitmap: px(10,10)=%d hole(150,150)=%d (index 0 transparent -> BGCOL)\n", fb[10*640+10], fb[150*640+150]);
     CHECK(fb[10 * 640 + 10] == 7, "bitmap pixel");
@@ -60,7 +60,7 @@ int main(void)
     W32(VR_LAYER(1) + VL_DATA, font); W32(VR_LAYER(1) + VL_MAP, map); W16(VR_LAYER(1) + VL_STRIDE, 80);
     W(VR_LAYER(1) + VL_PALOFS, 9);                     /* 1 bpp: index = (9<<1)|pix = 18/19 */
     W(VR_LAYER(1) + VL_CTRL, 1 | (VL_MODE_TEXT << 1));
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     shot("2-text-over-bitmap");
     printf("2. text over bitmap: (0,0)=%d  (20,0)=%d (space: transparent, bitmap shows)\n", fb[0], fb[20]);
     CHECK(fb[0] == 19, "text pixel with palette offset");
@@ -69,15 +69,15 @@ int main(void)
     /* scroll text layer by 8 px: the X moves left off-screen, cell (1,0) now at x=0 */
     mem_poke(map + 1, 'X');
     W16(VR_LAYER(1) + VL_SCROLLX, 8);
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     CHECK(fb[0] == 19 && fb[8] == 7, "scroll X by one cell");
 
     /* display off -> all background */
-    W(VR_CTRL, 0); vicky_render(fb, VICKY_WIDTH);
+    W(VR_CTRL, 0); vicky_render(fb, 640);
     CHECK(fb[0] == 2 && fb[150 * 640 + 150] == 2, "display off = background colour");
 
     /* raster register reads back end-of-frame */
-    CHECK(io_read(IO_VICKY + VR_RASTER) == (VICKY_HEIGHT & 0xFF), "raster low after frame");
+    CHECK(io_read(IO_VICKY + VR_RASTER) == (480 & 0xFF), "raster low after frame");
 
     /* ---- tiles: 16x16 at 4 bpp, map entry with H-flip and palette offset ---- */
     mem_reset(); W(VR_CTRL, 1); W(VR_BGCOL, 0);
@@ -89,7 +89,7 @@ int main(void)
     mem_poke(tmap + 2, 1); mem_poke(tmap + 3, 0x04 | 0x30);   /* cell 1: tile 1, H-flip, palofs 3 */
     W32(VR_LAYER(0) + VL_DATA, tiles); W32(VR_LAYER(0) + VL_MAP, tmap); W16(VR_LAYER(0) + VL_STRIDE, 40);
     W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TILE << 1) | (2 << 3) | (1 << 5));   /* tile, 4 bpp, 16 px */
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     shot("3-tiles");
     printf("3. tiles 16x16 4bpp: cell0 (0,5)=%d (12,5)=%d | cell1 flipped+palofs3 (16,5)=%d (28,5)=%d\n",
            fb[5*640+0], fb[5*640+12], fb[5*640+16], fb[5*640+28]);
@@ -104,7 +104,7 @@ int main(void)
     mem_load(m32, cell0, 4); mem_load(m32 + 4, cell1, 4);
     W32(VR_LAYER(1) + VL_DATA, f16); W32(VR_LAYER(1) + VL_MAP, m32); W16(VR_LAYER(1) + VL_STRIDE, 80);
     W(VR_LAYER(1) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));   /* text32, 8x16 */
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     shot("4-text32");
     printf("4. text32 8x16: cell0 (1,12)=%d (6,12)=%d | reversed cell1 (9,12)=%d (14,12)=%d\n",
            fb[12*640+1], fb[12*640+6], fb[12*640+9], fb[12*640+14]);
@@ -127,7 +127,7 @@ int main(void)
     for (int y = 0; y < 480; y++) for (int x = 0; x < 640; x++) mem_poke(bmp + y * 640 + x, y >= 60 ? 1 : 0);
     W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 640);
     W(VR_LAYER(0) + VL_CTRL, 1 | (3 << 3));
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     shot("5-sprites");
     printf("5. sprites: s0(100,50)=%d  s1 over s0 (110,60)=%d  outside=%d  colSS=$%02X colSL=$%02X\n",
            fb[50*640+100], fb[60*640+110], fb[40*640+100], io_read(IO_VICKY+VR_COLSS), io_read(IO_VICKY+VR_COLSL));
@@ -137,7 +137,7 @@ int main(void)
     /* collisions: s0<->s1 overlap -> bits 0,1; s0 and s1 over layer (y>=60) -> bits 0,1; s2 off-screen: none */
     mem_reset(); /* reset clears read-cleared regs; re-render to read fresh */
     W(VR_CTRL,1); W32(VR_SPRTAB, stab); W(VR_SPRCTL,1); W32(VR_LAYER(0)+VL_DATA,bmp); W16(VR_LAYER(0)+VL_STRIDE,640); W(VR_LAYER(0)+VL_CTRL, 1|(3<<3));
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     uint8_t ss = io_read(IO_VICKY + VR_COLSS), sl = io_read(IO_VICKY + VR_COLSL);
     CHECK(ss == 0x03, "sprite-sprite collision bits (%02X)", ss);
     CHECK(sl == 0x03, "sprite-layer collision bits (%02X)", sl);
@@ -159,9 +159,9 @@ int main(void)
     W32(VR_SHEILA, cop); W(VR_SHEILACTL, 1);
     W(VR_RASTER, 50); W(VR_RASTER + 1, 0);
     W(VR_IRQMASK, VI_RASTER | VI_SHEILA);
-    vicky_begin_frame(fb, VICKY_WIDTH);
+    vicky_begin_frame(fb, 640);
     int irq_at_raster = -1, irq_at_sheila = -1;
-    for (int y = 0; y < VICKY_HEIGHT; y++) {
+    for (int y = 0; y < 480; y++) {
         vicky_line(y);
         if (irq_at_raster < 0 && (io_read(IO_VICKY + VR_IRQSTAT) & VI_RASTER)) irq_at_raster = y;
         if (irq_at_sheila < 0 && (io_read(IO_VICKY + VR_IRQSTAT) & VI_SHEILA)) irq_at_sheila = y;
@@ -176,7 +176,7 @@ int main(void)
     CHECK(vicky_irq() && !(vicky_irq() & VI_VBLANK), "IRQ line respects mask (vblank masked)");
     W(VR_IRQSTAT, VI_RASTER | VI_SHEILA);
     CHECK(vicky_irq() == 0, "ack clears");
-    vicky_render(fb, VICKY_WIDTH);
+    vicky_render(fb, 640);
     /* frame 2: BGCOL persists at 3 from frame 1 until the list sets 2 at line 100 -> proves restart */
     CHECK(fb[50*640] == 3 && fb[150*640] == 2, "SHEILA restarts each frame");
 
@@ -227,7 +227,7 @@ int main(void)
       W(VR_SPRCTL, 0); W(VR_SHEILACTL, 0);
 
       W(VR_CTRL, 1 | 2 | 8);                                          /* 320x200 */
-      vicky_render(fb, VICKY_WIDTH);
+      vicky_render(fb, 640);
       printf("8. 320x200: line 39=%d line 40=%d line 439=%d line 440=%d  px(638,240)=%d\n",
              fb[39*640], fb[40*640], fb[439*640], fb[440*640], fb[240*640+638]);
       CHECK(fb[39*640] == 3 && fb[440*640] == 3, "the 40 lines above and below the field are BGCOL");
@@ -236,7 +236,7 @@ int main(void)
 
       W(VR_CTRL, 1 | 2 | 8 | 16);                                     /* 160x200: four screen pixels each */
       for (int i = 0; i < 320 * 200; i++) mem_poke(bm + i, (i % 320) < 1 ? 5 : 7);   /* column 0 of the source = 5 */
-      vicky_render(fb, VICKY_WIDTH);
+      vicky_render(fb, 640);
       printf("9. 160x200: px(0,100)=%d px(3,100)=%d px(4,100)=%d line 39=%d\n",
              fb[100*640], fb[100*640+3], fb[100*640+4], fb[39*640]);
       CHECK(fb[100*640] == 5 && fb[100*640+3] == 5 && fb[100*640+4] == 7, "one pixel of the machine is four on the glass");

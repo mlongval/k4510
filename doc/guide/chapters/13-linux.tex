@@ -36,6 +36,36 @@ letter you type arrives as one.
 \verb|SSH [user@]host| is the same thing for a computer across the
 network: an ssh session, drawn by JIM, through the Linux's own ssh.
 
+\section{\texttt{NVIM} --- Neovim, dressed for the machine}
+The machine's own editor is \verb|VI|. The Linux's is Neovim, and
+\verb|NVIM [name]| brings it onto the glass the way \verb|!| would, but
+set up for this machine (\pth{tools/nvim/init.lua}):
+
+\begin{itemize}[leftmargin=1.4em]
+\item It is in the machine's colours --- JIM's sixteen, which are the
+  palette's, so a \verb|PALETTE| you load recolours it too --- and it
+  draws nothing the code page has not got.
+\item It knows the machine's languages by their extensions in capitals:
+  \texttt{.C} is C (not the C++ Neovim takes \texttt{*.C} for),
+  \texttt{.PAS} Pascal, \texttt{.RX} REXX, \texttt{.BAS} the machine's
+  BASIC, \texttt{.BBC} BBC BASIC, \texttt{.LGO} LOGO. The BASIC's and
+  LOGO's keywords are read from the interpreters' own sources
+  (\pth{tools/mknvim.py}), so a keyword added there is coloured here.
+\item \verb|:make| (or F9) compiles with the machine's compilers --- the
+  same \verb|CC| and \verb|PAS|, a \texttt{PROJECT.K4P} beside the file
+  included --- and reads \pth{/SYSTEM/LOG/MAKE.ERR}, the file
+  \verb|VI|'s \verb|:make| reads, into Neovim's error list: it puts you on
+  the first error, and \verb|:cn|, \verb|:cp| and \verb|:cl| go through
+  them as in \verb|VI|.
+\item \verb|:Run| (or F10) builds it and the machine runs it: Neovim
+  steps aside, the program runs on the machine as \verb|VI|'s \verb|:run|
+  runs it --- REXX, BASIC and LOGO in their interpreters --- and a key
+  brings Neovim back, on the line you were on. A REXX program that stops
+  on an error brings you back to that line.
+\end{itemize}
+
+\noindent Everything else is Neovim as it comes.
+
 \begin{aside}
 \textbf{Locking the door.} On a machine a child uses, the way into Linux
 may be a way into trouble. \verb|linux = locked| in the menu file

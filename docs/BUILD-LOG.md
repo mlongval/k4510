@@ -9048,3 +9048,36 @@ mount that must read, in make test; with the old ROM it fails.
 
 And /HOME on the Dell had filled with the remote tests' files (Doc: "a lot of
 cruft accumulated"): cleared, and every test now removes what it made.
+
+## 2026-09-15 — NVIM, the NeoVim Tube
+
+Doc, driving home: "What about a NeoVIM tube ??? ... Overkill? Too
+Complicated? Blasphemy???", and then "make the neovim tube and the proper
+setup for our target languages and the make sequence". `!nvim` already ran on
+the Tube; what was missing was the machine in it.
+
+- NVIM is fs/SYSTEM/BIN/nvim.prg (no ROM room needed): it runs
+  `!k4510-nvim ARGS`, as CC runs k4510-cc.
+- tools/k4510-nvim starts Neovim with tools/nvim/init.lua. The colours are
+  JIM's sixteen (colors/k4510.vim names no RGB: a loaded palette recolours
+  it); fill and list characters are ones CP437 has.
+- The languages by extension in capitals (.C is C, not C++), .PAS .RX .BAS
+  .BBC .LGO .K4P; the BASIC's and LOGO's keywords generated from basic.asm's
+  table and logo.c's words by tools/mknvim.py (tracked outputs, a make rule),
+  BBC BASIC's by hand.
+- :make / F9 runs k4510-cc or k4510-pas in the file's folder (with -p when a
+  PROJECT.K4P is there) and reads MAKE.ERR -- VI's file, k4510-errfmt's
+  format -- into the quickfix list, to the first error; `:make` typed is
+  this one.
+- :Run / F10 builds, writes the command for the machine to
+  /SYSTEM/LOG/NVIM.BAT (`SWAP -k /HOME/SIEVE`, `SWAP -k RX /HOME/HI.RX`, a
+  project's program) and where you were to NVIM.RESUME, and quits; the
+  wrapper exits 42; nvim.prg EXECs NVIM.BAT, waits for a key and runs
+  `k4510-nvim --resume`, back on the line. A REXX run that stopped on an
+  error (its MAKE.ERR) comes back to that line, as VI's :run does.
+
+test/nvimtest.sh (make test; skipped where there is no nvim) drives it
+headless with stand-in compilers: every filetype and syntax, the error list
+and its first error, a project's -p, the wrapper's 42, NVIM.BAT for a
+program, a REXX file and a project, nothing run after a failed build, the
+resume, and the REXX error on the way back.

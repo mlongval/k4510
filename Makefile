@@ -31,7 +31,7 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # make expands prerequisite lists at once, so a later definition left both
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
-BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage
+BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim
 APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
 C_EX_NAMES = hello sieve
@@ -53,11 +53,15 @@ endef
 $(foreach n,$(SIDEBAR_NAMES),$(eval $(call sidebar_rule,$n)))
 sidebars: $(SIDEBAR_ZIPS)
 .PHONY: sidebars
+# Neovim's syntax files for the machine's languages, from the languages themselves
+NVIM_SYNTAX = tools/nvim/syntax/k4510basic.vim tools/nvim/syntax/k4510logo.vim
+$(NVIM_SYNTAX) &: basic/basic.asm demo/logo.c tools/mknvim.py
+	python3 tools/mknvim.py
 # and what draws them: sdl/savers.c picks, one scene a file in sdl/sidebars/
 SIDEBAR_C = sdl/savers.c $(wildcard sdl/sidebars/*.c)
 
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -195,6 +199,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/fstest
 	sh ./test/ziptest.sh
 	sh ./test/mounttest.sh
+	sh ./test/nvimtest.sh
 	python3 tools/mksidebar.py --check fs/SYSTEM/SIDEBARS/*.ZIP
 	./test/sidebartest
 	./test/termtest

@@ -1,0 +1,32 @@
+#!/bin/sh
+# k4510-nvim [FILE...]   Neovim with the K4510's own setup (tools/nvim/init.lua):
+#                        the machine's colours, its languages, :make and :Run.
+#
+# NVIM (fs/SYSTEM/BIN/nvim.prg) runs this on the Tube, the way CC runs
+# k4510-cc.  :Run (F10) in Neovim builds the file, leaves the command that
+# runs it in /SYSTEM/LOG/NVIM.BAT and where you were in NVIM.RESUME, and
+# quits; this then exits 42, NVIM runs NVIM.BAT on the machine, and
+# `k4510-nvim --resume` puts you back.  Any other exit is Neovim done.
+#
+# K4510_ROOT is the machine's fs/ (the Tube sets it); from a plain terminal
+# it defaults to the checkout's.
+here=$(cd "$(dirname "$(readlink -f "$0")")" && pwd)
+: "${K4510_ROOT:=$(cd "$here/../fs" 2>/dev/null && pwd)}"
+export K4510_ROOT
+log=$K4510_ROOT/SYSTEM/LOG
+mkdir -p "$log" 2>/dev/null
+command -v nvim >/dev/null 2>&1 || { echo "k4510-nvim: there is no nvim on this Linux" >&2; exit 127; }
+if [ "${1:-}" = --resume ]; then
+    shift
+    if [ -f "$log/NVIM.RESUME" ]; then
+        { IFS= read -r file; IFS= read -r line; } < "$log/NVIM.RESUME"
+        rm -f "$log/NVIM.RESUME"
+        K4510_NVIM_RAN=1; export K4510_NVIM_RAN      # init.lua: say so, and REXX's error if it stopped on one
+        set -- "$@" "+${line:-1}" "$file"
+    fi
+fi
+rm -f "$log/NVIM.BAT"
+nvim -u "$here/nvim/init.lua" "$@"
+st=$?
+[ -f "$log/NVIM.BAT" ] && exit 42
+exit $st

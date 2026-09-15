@@ -18,6 +18,8 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          :w :q :q! :wq, Esc leaves insert;
          /SYSTEM/ETC/VI.RC runs at startup --
          copy VI.SAMPLE there)
+         NVIM [name]   Neovim, on the Linux, set
+         up for the machine: F9 :make, F10 :Run
          LOAD name [addr]
          SAVE name from.to
          RENAME old new   CP old new

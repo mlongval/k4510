@@ -1212,7 +1212,7 @@ static void cmd_dump(const char *p)
  * came back into a window the program had left unmapped -- "the Tube co-processor
  * has left." and the console stuck in reverse (Doc's brainshot, the Dell). */
 /* IDEA [text]: a brainshot -- Doc, 2026-09-14: "the text equivalent of a
- * screenshot".  The emulator writes /BRAINSHOTS/IDEA-date-time.TXT with the
+ * screenshot".  The emulator writes /SYSTEM/BRAINSHOTS/IDEA-date-time.TXT with the
  * idea and the machine as it was (core/io.c idea_write).  IDEA alone opens
  * VI on the new file.  A ROM word, not a .prg, so *IDEA from a BASIC loads
  * nothing over the BASIC; VI goes by SWAP, as *VI does. */

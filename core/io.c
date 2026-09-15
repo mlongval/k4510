@@ -1531,7 +1531,7 @@ int dbg_dump(const char *why)
  * things I often get a small brain fart to improve it, but you are often
  * busy ... and then I forget it."  The ROM's IDEA sends the text a byte at a
  * time to SYS+$42 and writes SYS+$43 (1: that text is the idea, 2: an empty
- * one, for VI); this writes /BRAINSHOTS/IDEA-date-time.TXT -- the idea, then
+ * one, for VI); this writes /SYSTEM/BRAINSHOTS/IDEA-date-time.TXT -- the idea, then
  * the machine as it was, which the ROM could not know: the host's time, the
  * directory, what was running (the top band's title), the build, the
  * screen.  Reading SYS+$43 hands the file's name back, a byte at a time, so
@@ -1545,12 +1545,16 @@ static void idea_write(uint8_t how)
 {
     char host[800]; time_t t = time(NULL); struct tm *m = localtime(&t); FILE *f;
     idea_txt[idea_n] = 0; idea_n = 0; idea_rd = 0; idea_path[0] = 0;
-    snprintf(host, sizeof host, "%s/BRAINSHOTS", fs_root);
+    /* /SYSTEM/BRAINSHOTS since 2026-09-15 (Doc); /BRAINSHOTS, where they were, moves
+     * there whole the first time, so none is left behind */
+    { char old[800]; snprintf(old, sizeof old, "%s/BRAINSHOTS", fs_root);
+      snprintf(host, sizeof host, "%s/SYSTEM/BRAINSHOTS", fs_root);
+      if (access(host, F_OK) != 0 && access(old, F_OK) == 0) rename(old, host); }
     mkdir(host, 0777);
     for (int k = 1; k < 100; k++) {                   /* two in one second: -2, -3 ... */
-        if (k == 1) snprintf(idea_path, sizeof idea_path, "/BRAINSHOTS/IDEA-%04d%02d%02d-%02d%02d%02d.TXT",
+        if (k == 1) snprintf(idea_path, sizeof idea_path, "/SYSTEM/BRAINSHOTS/IDEA-%04d%02d%02d-%02d%02d%02d.TXT",
                              m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec);
-        else snprintf(idea_path, sizeof idea_path, "/BRAINSHOTS/IDEA-%04d%02d%02d-%02d%02d%02d-%d.TXT",
+        else snprintf(idea_path, sizeof idea_path, "/SYSTEM/BRAINSHOTS/IDEA-%04d%02d%02d-%02d%02d%02d-%d.TXT",
                       m->tm_year + 1900, m->tm_mon + 1, m->tm_mday, m->tm_hour, m->tm_min, m->tm_sec, k);
         snprintf(host, sizeof host, "%s%s", fs_root, idea_path);
         if (access(host, F_OK) != 0) break;

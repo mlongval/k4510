@@ -179,17 +179,22 @@ BRAIN = HOME / "brainshots"
 
 
 def c_ideas(every=False):
-    """IDEA's brainshots (fs/BRAINSHOTS on the machine): the ones not read here yet."""
+    """IDEA's brainshots (fs/SYSTEM/BRAINSHOTS on the machine; fs/BRAINSHOTS before
+    2026-09-15, which IDEA moves the first time): the ones not read here yet."""
     BRAIN.mkdir(parents=True, exist_ok=True)
     seen_f = BRAIN / ".seen"
     seen = set(seen_f.read_text().split()) if seen_f.exists() else set()
-    names = sorted(n for n in remote("ls -1 ~/k4510/fs/BRAINSHOTS 2>/dev/null || true").split() if n.upper().endswith(".TXT"))
+    where = {}
+    for d in ("BRAINSHOTS", "SYSTEM/BRAINSHOTS"):                  # the new place last: it wins a name in both
+        for n in remote(f"ls -1 ~/k4510/fs/{d} 2>/dev/null || true").split():
+            if n.upper().endswith(".TXT"): where[n] = d
+    names = sorted(where)
     new = [n for n in names if every or n not in seen]
     if not new:
         return f"no new brainshots ({len(names)} in all; --all shows every one)"
     out = []
     for n in new:
-        text = remote(f"cat ~/k4510/fs/BRAINSHOTS/{shlex.quote(n)}")
+        text = remote(f"cat ~/k4510/fs/{where[n]}/{shlex.quote(n)}")
         (BRAIN / n).write_text(text)
         out.append(f"=== {n}\n{text.rstrip()}")
     seen_f.write_text("\n".join(sorted(seen | set(names))) + "\n")

@@ -8879,3 +8879,13 @@ an ant backing up from a dead end: back up at the doorstep it could go no
 higher, stepped down and up again till its count ran out; now it goes out for
 a stroll. Checked with the AF_DEBUG trace over a day and a half and a sheet of
 day 2's hours.
+
+## 2026-09-15 — brainshots in /SYSTEM/BRAINSHOTS
+
+Doc: "How about /SYSTEM/BRAINSHOTS". IDEA writes there now; the first IDEA on a
+machine that still has /BRAINSHOTS moves the whole folder across (rename, so
+nothing is copied or lost). tools/k4510-remote ideas reads both places until
+then, keyed by name, so nothing already read comes back as new. .gitignore
+keeps both out of the repository. Checked headless: an old /BRAINSHOTS with
+three files, one IDEA, and all four in /SYSTEM/BRAINSHOTS with the old folder
+gone.

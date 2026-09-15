@@ -438,13 +438,13 @@ performs.
 
 IDEA is a screenshot in words: a thought about how something could be better,
 kept before it goes. IDEA the menu should remember its place writes it to
-/BRAINSHOTS at once; IDEA alone opens VI on a new one, for an idea that needs
-a paragraph. Either way the machine adds what it knew at that moment -- the
-time, the directory, what was running, the screen -- so an idea found a week
-later still says what it was about. From a BASIC it is *IDEA, and it loads
-nothing over the program. The files are plain text; TYPE and VI read them, and
-so does the person you asked to build the idea (Chapter 13, The Linux
-Underneath).
+/SYSTEM/BRAINSHOTS at once; IDEA alone opens VI on a new one, for an idea that
+needs a paragraph. Either way the machine adds what it knew at that moment --
+the time, the directory, what was running, the screen -- so an idea found a
+week later still says what it was about. From a BASIC it is *IDEA, and it
+loads nothing over the program. The files are plain text; TYPE and VI read
+them, and so does the person you asked to build the idea (Chapter 13, The
+Linux Underneath).
 
 => 13-LINUX.GMI Chapter 13, The Linux Underneath
 

@@ -96,8 +96,8 @@ Clear the bitmap over the text, whoever drew it.
 **`CLS`** — *ROM*  
 Clear the text screen.
 
-**`COLOR fg [bg]`** — *ROM, bank 1*  
-The text colours, as palette indices in hex. Also COLOUR.
+**`COLOR fg [bg] [!]`** — *ROM, bank 1*  
+The text colours, as palette indices in hex. A pair the palette makes hard to read is refused, with one that reads suggested; ! has it anyway. Also COLOUR.
 
 **`MODE [n]`** — *ROM, bank 1*  
 Alone, say the mode; 0 640x480, 1 640x240, 2 320x240.

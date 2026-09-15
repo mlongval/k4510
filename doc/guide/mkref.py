@@ -56,7 +56,7 @@ DESC = {
     "CLS":     (2, "CLS", "Clear the text screen."),
     "CLG":     (2, "CLG", "Clear the bitmap over the text, whoever drew it."),
     "MODE":    (2, "MODE [n]", "Alone, say the mode; 0 640x480, 1 640x240, 2 320x240."),
-    "COLOR":   (2, "COLOR fg [bg]", "The text colours, as palette indices in hex."),
+    "COLOR":   (2, "COLOR fg [bg] [!]", "The text colours, as palette indices in hex. A pair the palette makes hard to read is refused, with one that reads suggested; ! has it anyway."),
     "PALETTE": (2, "PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]", "The 256 colours: list them, set one, load a .PAL from /SYSTEM/ETC/PALETTES, save them, or put the machine's own back."),
     "BANNER":  (2, "BANNER", "Clear the screen and print the power-on banner again."),
     "CAPSLOCK":(2, "CAPSLOCK [ON | OFF]", "Toggle the caps lock: letters come up uppercase. Suspended while a program runs."),

@@ -8843,3 +8843,20 @@ the shell's colours JIM's defaults. Found headless with SGR 0 after PALETTE
 LOAD AMBER: the old ROM shows the brown, the new one amber on black; romtest,
 palettetest. The remote tests begin with PALETTE RESET (Doc's suggestion), so
 a STARTUP.BAT's palette does not colour their shots.
+
+## 2026-09-15 — COLOR refuses what cannot be read; a dim .PAL gets a pair; the bars read
+
+Doc: "add the contrast warning and the safety net" -- and the status bars were
+hard to read in amber. The ROM weighs each palette entry's brightness (Rec. 709
+on the gamma-coded values, 0-255, resident in CODE2) and calls a pair readable
+64 apart or more. COLOR refuses a closer pair and names the entry that reads
+best on that ground (amber's COLOR 7 6, 12 apart: "COLOR 01 06 reads"); COLOR
+fg bg ! has it anyway. PALETTE LOAD, when the file has no COLOR line and the
+shell's colours no longer read, takes the best text on that ground, or on the
+darkest entry, and says so. The bars keep white on grey where it reads and
+take the best text on the grey where it does not (black on amber), recomputed
+at video_init and redrawn after every palette change -- the clock only rewrites
+its digits, so they had kept the boot's colours. Bank 2 was full: PALETTE
+LOAD's message moved into the new routine, its words resident. Checked:
+palettetest (refusal, !, a dim .PAL), romtest, the bars' pixels under amber
+(black on 204,140,0) and under the VIC-II palette (white on grey, as before).

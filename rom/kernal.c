@@ -131,8 +131,46 @@ static void draw_cursor(uint8_t on)
  * the bands sit still while text scrolls -- a VT100 DECSTBM done in the
  * machine's own layout.  Phase 1 draws a title bar and a status bar; the
  * blank spacer rows are where the widgets go later. */
-#define BAND_FG  C_HI                 /* white on grey: a status bar, ancient or modern */
-#define BAND_BG  0x0C
+#define BAND_FG0 C_HI                 /* white on grey: a status bar, ancient or modern */
+#define BAND_BG0 0x0C
+/* ...unless the palette makes white and grey two ambers (Doc, 2026-09-15: "the top
+ * and bottom bars are harder to read in amber palette"): the bars' pair is chosen
+ * from the palette in use by bands_readable(), at every video_init and palette change. */
+static uint8_t band_fg, band_bg;
+#define BAND_FG band_fg
+#define BAND_BG band_bg
+#pragma code-name (push, "CODE2")
+/* Contrast, from the palette in use: each entry's brightness as Rec. 709 weighs
+ * it, on the gamma-coded values the eye compares, 0-255.  COLOR refuses a pair
+ * closer than READABLE (amber's 7 on 6 is 12 apart, the VIC-II's 7 on 6 over 150);
+ * PALETTE LOAD and the status bars choose pairs that are not. */
+#define READABLE 64
+static uint8_t luma(uint8_t i)
+{
+    uint8_t r, g, b;
+    REG(VICKY + 6) = i; r = REG(VICKY + 7); g = REG(VICKY + 8); b = REG(VICKY + 9);
+    return (uint8_t)(((uint16_t) r * 54 + (uint16_t) g * 183 + (uint16_t) b * 19) >> 8);
+}
+static uint8_t contrast(uint8_t a, uint8_t b) { uint8_t x = luma(a), y = luma(b); return (uint8_t)(x > y ? x - y : y - x); }
+static uint8_t best_on(uint8_t b)          /* the entry that reads best on b */
+{
+    uint8_t i, best = 0, bc = 0, c;
+    for (i = 0; i < 16; i++) if ((c = contrast(i, b)) > bc) { bc = c; best = i; }
+    return best;
+}
+static void bands_readable(void)
+{
+    band_fg = BAND_FG0; band_bg = BAND_BG0;
+    if (contrast(band_fg, band_bg) < READABLE) band_fg = best_on(band_bg);
+}
+static uint8_t bands_on(void); static void draw_bands(void);
+static void bands_refresh(void)            /* after a palette change: the pair again, and the bars redrawn in it --
+                                            * the clock only rewrites its digits, so they kept the boot's colours */
+{
+    bands_readable();
+    if (bands_on()) draw_bands();
+}
+#pragma code-name (pop)
 static void draw_clock(void);         /* the top-right widget.  It lived in ROM2 while ROM1C was full;
                                        * the 2026-09-01/02 savings gave ROM1C the room, and it belongs
                                        * beside bar_str, which is what it draws through. */
@@ -961,8 +999,12 @@ static void cmd_mode(const char *p)
 static void cmd_color(const char *p)
 {
     uint8_t d; uint32_t f, b = bg;
-    f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
-    skipsp(&p); if (*p) b = parsehex(&p, &d);
+    f = parsehex(&p, &d); if (!d) { error("color: fg [bg] [!]  (palette indices, hex)"); return; }
+    skipsp(&p); if (*p && *p != '!') { b = parsehex(&p, &d); skipsp(&p); }
+    if (*p != '!' && contrast((uint8_t) f, (uint8_t) b) < READABLE) {   /* ! has it anyway (Doc, 2026-09-15) */
+        puts_("color: would be hard to read here; COLOR "); puthex(best_on((uint8_t) b)); k_chrout(' '); puthex((uint8_t) b);
+        puts_(" reads, or add ! to have it anyway"); newline(); return;
+    }
     fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bg;
     REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;        /* and JIM's defaults, see video_init */
     cls();
@@ -1500,10 +1542,33 @@ static void pal_path(const char *name, char *out)
     out[i] = 0;
 }
 
+#pragma rodata-name (push, "CODE2")   /* its words resident: bank 2 has room for the code, not for them too */
+/* After a .PAL (here, in bank 2 beside it -- CODE2 is full): the bars' pair again, and -- when the file said no COLOR and the
+ * shell's colours no longer read -- a pair that does, the best text on the ground
+ * there is, or on the darkest entry if nothing reads on it. */
+static void pal_after(uint8_t n, uint8_t hc, const char *path)
+{
+    uint8_t fixed = 0;
+    if (!hc && contrast(fg, bg) < READABLE) {
+        fg = best_on(bg);
+        if (contrast(fg, bg) < READABLE) {
+            uint8_t i, lo = 255, l;
+            for (i = 0; i < 16; i++) if ((l = luma(i)) < lo) { lo = l; bg = i; }
+            fg = best_on(bg);
+        }
+        REG(VICKY + 1) = bg; REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;
+        cls(); fixed = 1;
+    }
+    bands_refresh();
+    puts_("palette: "); putdec(n); puts_(" entries from "); puts_(path); newline();
+    if (fixed) { puts_("palette: COLOR "); puthex(fg); k_chrout(' '); puthex(bg); puts_(", to stay readable"); newline(); }
+}
+#pragma rodata-name (pop)
+
 static void pal_load(const char *name)
 {
     char path[NAMEMAX], lb[64];
-    uint32_t len, off = 0; uint8_t n = 0;
+    uint32_t len, off = 0; uint8_t n = 0, hc = 0;
     pal_path(name, path); if (!path[0]) return;
     fs_name(path); w32(FS + 8, PALBUF); w32(FS + 12, 0);
     if (fs_cmd(9)) { error("palette: no such file"); return; }
@@ -1525,7 +1590,7 @@ static void pal_load(const char *name)
             while (*q == ' ') q++; b = parsehex(&q, &d);
             fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bg; }
             REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;   /* JIM's defaults too */
-            cls();
+            hc = 1; cls();
             continue;
         }
         idx = parsehex(&q, &d); if (!d) continue;
@@ -1535,13 +1600,7 @@ static void pal_load(const char *name)
         pal_put((uint8_t)idx, (uint8_t)r, (uint8_t)g, (uint8_t)b);
         n++;
     }
-    puts_("palette: "); {
-        char nb[4]; uint8_t j = 0, v = n;
-        if (v >= 100) { nb[j++] = (char)('0' + v / 100); v = (uint8_t)(v % 100); }
-        if (n >= 10)  { nb[j++] = (char)('0' + v / 10); }
-        nb[j++] = (char)('0' + v % 10); nb[j] = 0; puts_(nb);
-    }
-    puts_(" entries from "); puts_(path); newline();
+    pal_after(n, hc, path);
 }
 
 static void pal_save(const char *name)
@@ -1577,7 +1636,7 @@ static void cmd_palette(const char *p)
         }
         return;
     }
-    if (pal_word(&p, "RESET")) { pal_reset16(0); return; }
+    if (pal_word(&p, "RESET")) { pal_reset16(0); bands_refresh(); return; }
     if (pal_word(&p, "LOAD"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: load name?"); return; } pal_load(nm); return; }
     if (pal_word(&p, "SAVE"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: save name?"); return; } pal_save(nm); return; }
     idx = parsehex(&p, &d); if (!d) { error("palette: [n rr gg bb | LOAD f | SAVE f | RESET]"); return; }
@@ -1979,6 +2038,7 @@ static void video_init(void)
     REG(VICKY + 0) = (uint8_t)(1 | ctrlmode[vmode]);
     /* JIM, the terminal, draws in the same window */
     REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
+    bands_readable();                                    /* the bars' pair, from the palette in use */
     REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;        /* the shell's colours are JIM's defaults: a program's SGR 0 or reset
                                                           * (BBC BASIC's start) lands on them, not on 7 6 (Doc, 2026-09-15, amber) */
     REG(TERM) = 27; REG(TERM) = '['; REG(TERM) = '2'; REG(TERM) = '0'; REG(TERM) = 'h';  /* LNM: \n returns the column */

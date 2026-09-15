@@ -43,6 +43,27 @@ PALETTE
 ' 1800 2>&1) || fail "PALETTE RESET did not run"
 echo "$out" | grep -q "7 EEEE77" || fail "RESET did not restore the VIC-II palette"
 
+# COLOR refuses a pair the palette makes unreadable, says what reads, and ! has
+# it anyway; a .PAL with no COLOR line that leaves the text unreadable gets a
+# pair that reads (Doc, 2026-09-15, amber)
+out=$(./test/headless rom/kernal.bin 'PALETTE LOAD AMBER
+COLOR 7 6
+' 1500 2>&1) || fail "COLOR did not run"
+echo "$out" | grep -q "would be hard to read here; COLOR 01 06 reads" || fail "COLOR 7 6 on amber was not refused with a suggestion"
+out=$(./test/headless rom/kernal.bin 'PALETTE LOAD AMBER
+COLOR 7 6 !
+ECHO forced
+' 1500 2>&1) || fail "COLOR ! did not run"
+echo "$out" | grep -q "hard to read" && fail "COLOR 7 6 ! was refused"
+echo "$out" | grep -q "forced" || fail "the shell did not go on after COLOR !"
+printf '6 70 70 70\n7 78 78 78\n' > fs/HOME/DIMTEST.PAL
+out=$(./test/headless rom/kernal.bin 'PALETTE LOAD /HOME/DIMTEST.PAL
+' 900 2>&1); rm -f fs/HOME/DIMTEST.PAL
+echo "$out" | grep -q "to stay readable" || fail "a palette that made 7 on 6 unreadable did not get a readable pair"
+out=$(./test/headless rom/kernal.bin 'COLOR E 0
+' 900 2>&1)
+echo "$out" | grep -q "hard to read" && fail "COLOR E 0 on the VIC-II palette was refused"
+
 # the alias engine shares bank 2 with all of this.  Its table starts at $B400
 # and the linker now refuses code past that, but a live alias is the proof.
 out=$(./test/headless rom/kernal.bin 'ALIAS PT ECHO alias-intact
@@ -50,4 +71,4 @@ PT
 ' 900 2>&1) || fail "ALIAS did not run"
 echo "$out" | grep -q "alias-intact" || fail "the alias engine broke (bank 2 collision?)"
 
-echo "palettetest: OK (VIC-II at boot, .PAL loads with its COLOR line, survives MODE, RESET restores, aliases intact)"
+echo "palettetest: OK (VIC-II at boot, .PAL loads with its COLOR line, survives MODE, RESET restores, COLOR refuses the unreadable, a dim .PAL gets a readable pair, aliases intact)"

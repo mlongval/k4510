@@ -964,6 +964,7 @@ static void cmd_color(const char *p)
     f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
     skipsp(&p); if (*p) b = parsehex(&p, &d);
     fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bg;
+    REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;        /* and JIM's defaults, see video_init */
     cls();
 }
 #pragma code-name (pop)
@@ -1523,6 +1524,7 @@ static void pal_load(const char *name)
             uint32_t f = parsehex(&q, &d); if (!d) continue;
             while (*q == ' ') q++; b = parsehex(&q, &d);
             fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bg; }
+            REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;   /* JIM's defaults too */
             cls();
             continue;
         }
@@ -1977,7 +1979,8 @@ static void video_init(void)
     REG(VICKY + 0) = (uint8_t)(1 | ctrlmode[vmode]);
     /* JIM, the terminal, draws in the same window */
     REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
-    REG(TERM + 0x14) = C_FG; REG(TERM + 0x15) = C_BG;
+    REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;        /* the shell's colours are JIM's defaults: a program's SGR 0 or reset
+                                                          * (BBC BASIC's start) lands on them, not on 7 6 (Doc, 2026-09-15, amber) */
     REG(TERM) = 27; REG(TERM) = '['; REG(TERM) = '2'; REG(TERM) = '0'; REG(TERM) = 'h';  /* LNM: \n returns the column */
     REG(TERM + 9) = cx; REG(TERM + 10) = cy;                                             /* and JIM starts where the console is */
     jim_fg = jim_bg = 0xFF;                                                              /* colours re-pushed on the next character */

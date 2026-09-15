@@ -3,6 +3,9 @@
 # a DIR, and EXIT back to the shell.
 #     tools/k4510-remote run test/remote/cpm.k4r
 key esc
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type CD /HOME\n
 type CPM\n
 expect "A0>" 20

@@ -3,6 +3,9 @@
 # A broken file is typed into VI, :make must land on the error, the fix
 # compiles, :run runs it and comes back.
 key esc
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type CD /HOME\n
 type VI MKTEST.C\n
 expect "MKTEST.C" 10

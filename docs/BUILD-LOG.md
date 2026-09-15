@@ -8830,3 +8830,16 @@ is elsewhere. 111 mentions of F7 renamed (the hex and MATH F7s left alone),
 KEYTEST asks for F7. Checked: termtest, uitest (the migration too), statetest,
 the same bytes as CP437 then as the K4510 page after CODEPAGE K4510, the
 guide, booktest.
+
+## 2026-09-15 — COLOR sets JIM's defaults; the remote tests reset the palette
+
+Doc, on the Dell: starting BBC BASIC turned the screen to dim text on brown
+under his STARTUP.BAT's PALETTE LOAD AMBER. COLOR (and a .PAL's COLOR line)
+set the shell's colours but not JIM's defaults ($DA14/$DA15), which video_init
+set from the constants 7 and 6; BBC BASIC's start resets JIM (tube_term), and
+any program's SGR 0 does the same, so both landed on 7 on 6 -- two amber
+steps that cannot be read. Now COLOR, the .PAL's COLOR and video_init all make
+the shell's colours JIM's defaults. Found headless with SGR 0 after PALETTE
+LOAD AMBER: the old ROM shows the brown, the new one amber on black; romtest,
+palettetest. The remote tests begin with PALETTE RESET (Doc's suggestion), so
+a STARTUP.BAT's palette does not colour their shots.

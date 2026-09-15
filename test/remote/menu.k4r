@@ -1,6 +1,9 @@
 # test/remote/menu.k4r -- the F12 menu opens, is photographed, and closes.
 #     tools/k4510-remote run test/remote/menu.k4r
 # (the screen dump's first line says when the menu is over the machine)
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 key f12
 expect "the menu is open" 5
 shot menu

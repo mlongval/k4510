@@ -2,6 +2,9 @@
 #     tools/k4510-remote run test/remote/smoke.k4r
 # The prompt answers, BOOK opens its contents, Esc comes back to the prompt.
 # (k4510-remote: type / key / expect TEXT [secs] / wait S / shot NAME / screen)
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type BOOK\n
 expect "The K4510 User's and Programmer's Guide" 15
 shot book-contents

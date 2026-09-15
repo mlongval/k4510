@@ -3,6 +3,9 @@
 # Ctrl-F9), RX's MAKE.ERR line taking PROG to the error, and ^Q.
 #     tools/k4510-remote run test/remote/rexx.k4r
 key esc
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type CD /HOME\n
 type RM -f RXTEST.RX\n
 wait 1

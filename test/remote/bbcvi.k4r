@@ -4,6 +4,9 @@
 # The letters go in their real case: with Caps Lock on in the machine
 # they arrive inverted and BBC BASIC answers "Mistake".
 key esc
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type CD /LANG/BBCBASIC\n
 type BBC\n
 expect "*QUIT returns" 10

@@ -1,5 +1,8 @@
 # test/remote/split.k4r -- SPLIT on a K4510 elsewhere: the split and its speed.
 #     tools/k4510-remote run test/remote/split.k4r
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type SPLIT\n
 expect "lines a second" 10
 shot split

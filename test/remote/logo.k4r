@@ -1,5 +1,8 @@
 # test/remote/logo.k4r -- LOGO: the turtle comes up, draws, and BYE comes home.
 #     tools/k4510-remote run test/remote/logo.k4r
+# the machine's own colours first: a STARTUP.BAT may load another palette (Doc, 2026-09-15)
+type PALETTE RESET\n
+wait 1
 type LOGO\n
 expect "the turtle is home" 10
 type REPEAT 8 [FD 60 RT 45]\n

@@ -8705,3 +8705,14 @@ BOOK can show what is painted. Found on the way: a bitmap's colour 0 is
 see-through to the ground (BGCOL), so PAINT and BOOK now make the ground
 colour 0 while a picture is up. Saving and loading checked headless; strokes
 want the Dell's mouse.
+
+## 2026-09-15 — TRACKER
+
+/APPS/TRACKER/tracker.prg: an OPL2 tracker. Nine channels (the chip's
+voices), sixteen 64-row patterns in far memory, an order, sixteen editable
+two-operator instruments (F6), the keyboard as a two-octave piano. Space
+plays the pattern, F5 the song; Ctrl-S saves .TRK (K4TR, 18808 bytes);
+Ctrl-E renders the song into a looping K4OP stream in OPLPLAY's TUNES, so
+OPLPLAY plays it. F7 and F8 turned out to be the machine's (menu, pause),
+so the instruments are on F6. Checked headless: notes typed, the pattern
+and instrument pages, a save reopened, and an export's header and loop.

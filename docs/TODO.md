@@ -34,9 +34,9 @@ every guest caller polls -- the ROM, the demos, both BASICs, Pascal, CP/M.
 
 Fixed the same day except these:
 
-- [ ] **The stick keeps the Tailscale node key and Wi-Fi PSKs in clear** on
-      its persistence partition — Doc's call: `tailscale logout` before
-      lending it, or drop `/var/lib/tailscale` from the stick's persistence.
+- [x] **The stick keeps the Tailscale node key and Wi-Fi PSKs in clear** on
+      its persistence partition — Doc ruled 2026-09-15: leave it; he runs
+      `tailscale logout` before lending the stick.  No build change.
 - [ ] **STAT/CHDIR on ftp/sftp/http fetch the whole file** — a HEAD
       request (`curl -sI`) for the size; cache one listing per CD→DIR.
 - [ ] **Chess's port reply buffer is unbounded** (~40 BOARD lines in one

@@ -1915,7 +1915,39 @@ tex_done:
                   if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
               }
           }
-          SDL_RenderCopy(ren, tex, &gsrc, &dr);
+          /* Sharp-bilinear (Doc, 2026-09-14: "soft" scaling back, but not for the
+           * integer modes).  Fit on a picture that does not divide the screen --
+           * 640x480 on 1080 lines is 2.25x -- would make some pixels two lines
+           * tall and some three.  So: hard pixels to the whole multiple below
+           * (2x) into a texture, then smoothing for the last bit (1.125x): even
+           * pixels, and only their edges soft.  Integer, and an HD mode that
+           * fits exactly, stay pixel for pixel. */
+          { float esx = 1.0f, esy = 1.0f; double eff;
+            if (custom) eff = sc; else { SDL_RenderGetScale(ren, &esx, &esy); eff = esy; }
+            int n = (int) eff;
+            static SDL_Texture *sbt; static int sbw, sbh;
+            int drawn = 0;
+            if (smooth_applied == SMOOTH_FIT && n >= 1 && eff - n > 0.02 && SDL_RenderTargetSupported(ren)) {
+                int tw = gw * n, th = gh * n;
+                if (!sbt || sbw != tw || sbh != th) {
+                    if (sbt) SDL_DestroyTexture(sbt);
+                    sbt = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, tw, th);
+                    if (sbt) SDL_SetTextureScaleMode(sbt, SDL_ScaleModeLinear);
+                    sbw = tw; sbh = th;
+                }
+                if (sbt) {
+                    if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                    if (SDL_SetRenderTarget(ren, sbt) == 0) {
+                        SDL_Rect whole = { 0, 0, tw, th };
+                        SDL_RenderCopy(ren, tex, &gsrc, &whole);   /* hard pixels: tex is Nearest */
+                        SDL_SetRenderTarget(ren, NULL);
+                        if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                        SDL_RenderCopy(ren, sbt, NULL, &dr);        /* the rest, smoothed */
+                        drawn = 1;
+                    } else if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                }
+            }
+            if (!drawn) SDL_RenderCopy(ren, tex, &gsrc, &dr); }
           /* the side panel: the device pixels beside the picture, at the picture's rows */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {

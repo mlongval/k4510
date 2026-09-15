@@ -8640,3 +8640,10 @@ every frame, in machine pixels; the frog rides platforms down and leaps
 up the river to stay between 36% and 63% of the height (tracked for five
 minutes at three sidebar sizes). Mine is dreamfall: a floating island
 whose waterfall pours the whole height of the sidebar.
+
+## 2026-09-15 — Tetris in the sidebars; sharp-bilinear
+
+A sixth scene saver, an endless self-playing Tetris per sidebar. And
+"soft" back in the form Doc agreed to: on Fit, a picture that does not
+divide the screen is scaled with hard pixels to the whole multiple and
+smoothed only for the remainder; integer scales are untouched.

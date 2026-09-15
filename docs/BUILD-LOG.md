@@ -8607,3 +8607,11 @@ The second: a three-strand rope, one twist a 24x48 tile, each strand
 shaded by nearness with a dark edge, gold on a grey or black border,
 rolling down the middle of each sidebar over the border colour. Doc on
 the gradient, running on the Dell: "very nice".
+
+## 2026-09-14 — BANNER in every mode
+
+Doc: the banner did not fit the low-res modes. Both the ROM's (BANNER
+at the prompt, and the power-on picture) and banner.prg put the text at
+column 20 beside the bars; on a narrow screen they now put it under
+them -- the ROM's from column 0, the .prg's word-wrapped -- and wide
+screens are unchanged. Checked in MODE 7, 2 and 6 on the emulator here.

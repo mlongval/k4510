@@ -2167,11 +2167,20 @@ uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_copy(p); shell_line(line); 
  * match), and the machine's description beside them.  BANNER reprints it;
  * the shell calls it at boot.
  * Lives in the sideways window (SWCODE0), not the resident ROM. */
+/* A line of the banner's text (rows 0, 2 and 4), in its colour.  A chain of
+ * literals, not a table of pointers: the strings stay beside the code. */
+static void bline(uint8_t r)
+{
+    fg = r ? C_FG : C_HI;
+    puts_(r == 0 ? "K4510 Fantasy Computer - K/OS"            /* one name everywhere (docs/NAMING.md, 2026-09-12) */
+        : r == 2 ? "CPU: 45GS10   RAM: 256 Mb"               /* no clock: INFO says it, in kHz */
+        : "CHIPS: MELODY, VICKY, SHEILA, FRED, JIM");
+}
 static void banner(void)
 {
     static const uint8_t width[5]  = { 16, 12, 8, 12, 16 };   /* 4,3,2,3,4 -- Doc's proportions */
     static const uint8_t colour[5] = { 2, 8, 7, 5, 14 };      /* red, orange, yellow, green, light blue */
-    uint8_t r, i, obg = bg, ofg = fg;
+    uint8_t r, i, obg = bg, ofg = fg, narrow = (uint8_t)(COLS < 60);   /* MODE 2 and 7: the text under the bars (Doc, 2026-09-14) */
     cls();
     newline();
     for (r = 0; r < 5; r++) {
@@ -2179,17 +2188,11 @@ static void banner(void)
         bg = colour[r]; fg = colour[r];
         for (i = 0; i < width[r]; i++) k_chrout(' ');
         bg = obg;
-        pad(20);
-        switch (r) {
-        case 0: fg = C_HI;  puts_("K4510 Fantasy Computer - K/OS"); break;   /* one name everywhere (docs/NAMING.md, 2026-09-12) */
-        /* No clock here: the machine has no one speed any more.  The clock in
-         * force is INFO's business, and it says it in kHz. */
-        case 2: fg = C_FG;  puts_("CPU: 45GS10   RAM: 256 Mb"); break;
-        case 4: fg = C_FG;  puts_("CHIPS: MELODY, VICKY, SHEILA, FRED, JIM"); break;
-        }
+        if (!narrow && !(r & 1)) { pad(20); bline(r); }
         fg = ofg;
         newline();
     }
+    if (narrow) { newline(); for (r = 0; r < 5; r += 2) { bline(r); fg = ofg; newline(); } }
     /* The "clock not measured -- run SETUP" line used to live here.  It is out
      * (Doc, 2026-09-01): the boot probe that would have cleared it is itself
      * disabled (sdl/main.c: "the boot probe: kept, not run"), so the banner was

@@ -8624,3 +8624,10 @@ down by half its spare lines (4, 6, 3 in MODE 5, 6, 7), VICKY draws a
 text layer only over its whole rows, and the band overlay, PROG's mouse
 and SPLIT follow the offset. With the bands on, the text is centred
 between two equal grey edges.
+
+## 2026-09-14 — the colour flip in SPLIT
+
+Doc caught SPLIT's picture grey with dark lines on the Dell. Making BGCOL
+the bands' grey (for the HD spare lines) also greyed every transparent
+bitmap -- SPLIT's is mostly transparent. BGCOL is the console's colour
+again; VICKY paints the spare lines from the nearest text row instead.

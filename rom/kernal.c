@@ -963,7 +963,7 @@ static void cmd_color(const char *p)
     uint8_t d; uint32_t f, b = bg;
     f = parsehex(&p, &d); if (!d) { error("color: fg [bg]  (palette indices, hex)"); return; }
     skipsp(&p); if (*p) b = parsehex(&p, &d);
-    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bands_on() ? BAND_BG : bg;   /* the spare lines under the text wear the bands' colour */
+    fg = (uint8_t)f; bg = (uint8_t)b; REG(VICKY + 1) = bg;
     cls();
 }
 #pragma code-name (pop)
@@ -1522,7 +1522,7 @@ static void pal_load(const char *name)
         if (pal_word(&q, "COLOR") || pal_word(&q, "COLOUR")) {
             uint32_t f = parsehex(&q, &d); if (!d) continue;
             while (*q == ' ') q++; b = parsehex(&q, &d);
-            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bands_on() ? BAND_BG : bg; }
+            fg = (uint8_t)f; if (d) { bg = (uint8_t)b; REG(VICKY + 1) = bg; }
             cls();
             continue;
         }
@@ -1955,7 +1955,7 @@ static void video_init(void)
     } else                                                { OY = 0;         bband = 0; }
     COLS = PCOLS; ROWS = PROWS - OY - bband;
     REG(VICKY + 0) = 0;
-    REG(VICKY + 1) = bands_on() ? BAND_BG : C_BG;   /* BGCOL: the HD modes' spare lines under the text -- the bands' colour when they are up (Doc's brainshot, 2026-09-14) */
+    REG(VICKY + 1) = C_BG;                        /* BGCOL stays the console's: a program's transparent bitmap shows it (VICKY paints the HD spare lines itself) */
     /* The palette is deliberately NOT reloaded here.  VICKY comes up with the
      * VIC-II sixteen already in entries 0-15 (core/vicky.c: vicky_reset), byte
      * for byte the same table this used to write, so the write was doing

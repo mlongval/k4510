@@ -151,9 +151,15 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     /* text modes: 1-bpp glyphs, 8 px wide, H = 8 or 16 rows */
     int H = csz ? 16 : 8;
     sy = y + (int16_t) rd16(&L[VL_SCROLLY]);          /* signed for text: the ROM scrolls the HD console DOWN by half its spare lines */
-    if (sy < 0) return;                                /* above the map: nothing (BGCOL), never row -1 */
+    /* The HD spare lines, above and below the whole rows: a text32 layer
+     * paints them with the nearest row's backgrounds and no glyphs, so with
+     * the bands up they are the bands' grey and without them the console's
+     * colour.  Not BGCOL: that is what a program's transparent bitmap shows,
+     * and making it grey turned SPLIT's picture grey (the Dell, 2026-09-14). */
+    int pad = 0;
+    if (sy < 0) { if (mode != VL_MODE_TEXT32 || !glass_hd) return; sy = 0; pad = 1; }
     int cy = sy / H, gy = sy % H;
-    if (glass_hd && sy >= glass_h / H * H) return;    /* HD: only whole rows -- the spare lines, split above and below, show BGCOL */
+    if (glass_hd && sy >= glass_h / H * H) { if (mode != VL_MODE_TEXT32) return; cy = glass_h / H - 1; pad = 1; }
     if (mode == VL_MODE_TEXT) {
         uint8_t base = (uint8_t)(palofs << 1);
         for (int x = 0; x < w; ) {
@@ -175,10 +181,10 @@ static void layer_line(int n, int y, uint8_t *line, int w)
         int rev = ram(e + 1) & 0x80;
         uint8_t fg = ram(e + 2), bg = ram(e + 3);
         if (rev) { uint8_t t = fg; fg = bg; bg = t; }
-        uint8_t row = ram(data + (uint32_t)g * H + gy);
+        uint8_t row = pad ? 0 : ram(data + (uint32_t)g * H + gy);   /* a padding line: the background only */
         /* the shaped cursor (vicky_cursor): an underline reverses this cell's
          * bottom two rows, a bar its left two columns */
-        int cur = cur_on && e + 1 == cur_at;
+        int cur = !pad && cur_on && e + 1 == cur_at;
         if (cur && cur_style == 1 && gy < H - 2) cur = 0;
         for (int gx = gx0; gx < 8 && x < w; gx++, x++) {
             int sw = cur && (cur_style == 1 || gx < 2);

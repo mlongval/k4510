@@ -8754,3 +8754,16 @@ from where the ball meets it, faster after 4 and 12 hits and at the orange
 and red rows, five balls, a new wall when one is cleared, the best five
 saved. Both have OPL2 sounds. Checked headless: a snake turning and eating,
 a wall with a brick gone and a ball waiting on the paddle.
+
+## 2026-09-15 — ROCKFALL
+
+The third of Doc's "more games", the Boulder Dash kind (named ROCKFALL, the
+other name being someone's trademark): MODE 7, a 40x26 cave of dirt, rocks,
+diamonds, brick walls and steel. The old rules -- the cave looked at from the
+bottom up ten times a second, each thing moving at most once a look: rocks
+and diamonds fall into space, roll off rocks, diamonds and walls, and a rock
+that falls on you ends the life. Rocks push sideways into space (a moment's
+shove); Space with an arrow takes without moving. A third of the cave's
+diamonds (and one more a cave) open the exit; the time left is points.
+Every cave is made from its number, so there is no last one. Three lives,
+the best five saved. Checked headless: cave 1 made, settled and dug into.

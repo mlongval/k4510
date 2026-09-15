@@ -183,7 +183,7 @@ def c_ideas(every=False):
     """IDEA's brainshots (fs/SYSTEM/BRAINSHOTS on the machine; fs/BRAINSHOTS before
     2026-09-15): each new one is shown, copied here, and moved on the machine into
     SYSTEM/BRAINSHOTS/PROCESSED (Doc, 2026-09-15), so the folder holds only what is
-    still to be read.  One already read here but not yet moved is moved quietly.
+    still to be read; 48 hours after that it is deleted there (this copy stays).  One already read here but not yet moved is moved quietly.
     --all shows every one, PROCESSED included."""
     BRAIN.mkdir(parents=True, exist_ok=True)
     seen_f = BRAIN / ".seen"
@@ -203,7 +203,10 @@ def c_ideas(every=False):
         out.append(f"=== {n}\n{text.rstrip()}")
     if where:                                                     # everything read here now goes to PROCESSED
         moves = " ".join(f"~/k4510/fs/{where[n]}/{shlex.quote(n)}" for n in sorted(where))
-        remote(f"mkdir -p ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED && mv -n {moves} ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED/ && rmdir ~/k4510/fs/BRAINSHOTS 2>/dev/null; true")
+        stamped = " ".join(f"~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED/{shlex.quote(n)}" for n in sorted(where))
+        remote(f"mkdir -p ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED && mv -n {moves} ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED/ && touch {stamped}; "
+               "rmdir ~/k4510/fs/BRAINSHOTS 2>/dev/null; true")   # touched: the 48 hours count from here, not from IDEA
+    remote("find ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED -maxdepth 1 -name '*.TXT' -mmin +2880 -delete 2>/dev/null; true")   # 48 hours after processing (Doc); the copies here stay
     seen_f.write_text("\n".join(sorted(seen | set(where) | done)) + "\n")
     log(f"ideas: {len(new)} new, {len(where)} moved to PROCESSED")
     if not out:

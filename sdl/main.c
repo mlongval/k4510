@@ -321,6 +321,22 @@ static void slot_refresh(int n)                      /* the slot's row: its file
  * and jettison all the rest").  8x8 at $010000 for the 240-line modes, 8x16
  * at $010800 for 640x480; the ROM points VICKY at whichever the mode wants. */
 const uint16_t *term_page_table(void); void term_set_page(int k4510); int term_get_page(void); int term_page_request(void);   /* core/term.h */
+/* Brainshots read and moved to PROCESSED (tools/k4510-remote ideas) go 48 hours
+ * after that, at the next start (Doc, 2026-09-15); the reader keeps its own copy.
+ * The move re-stamps them, so the hours count from processing, not from IDEA. */
+static void prune_brainshots(const char *fsroot)
+{
+    char dir[600], p[900]; DIR *d; struct dirent *e; struct stat st; time_t now = time(NULL);
+    snprintf(dir, sizeof dir, "%s/SYSTEM/BRAINSHOTS/PROCESSED", fsroot);
+    if (!(d = opendir(dir))) return;
+    while ((e = readdir(d))) {
+        size_t n = strlen(e->d_name);
+        if (n < 4 || e->d_name[n - 4] != '.' || (e->d_name[n - 3] | 32) != 't' || (e->d_name[n - 2] | 32) != 'x' || (e->d_name[n - 1] | 32) != 't') continue;
+        snprintf(p, sizeof p, "%s/%s", dir, e->d_name);
+        if (stat(p, &st) == 0 && S_ISREG(st.st_mode) && now - st.st_mtime > 48 * 3600) unlink(p);
+    }
+    closedir(d);
+}
 static void load_fonts(void)
 {
     mem_load(K4510_FONT8_PHYS, font_menu, sizeof font_menu);
@@ -927,6 +943,7 @@ int k4510_frontend_main(int argc, char **argv)
     load_fonts();                                        /* the ROM points VICKY at $010000 or $010800 */
     for (int i = 0; i < MENU_SLOTS; i++) slot_refresh(i);
     menu_info(INFO_VERSION, "K4510 K/OS"); menu_info(INFO_BUILD, K4510_BUILD); menu_info(INFO_ROM, rom); menu_info(INFO_FS, argc > 2 ? argv[2] : "fs");
+    prune_brainshots(argc > 2 ? argv[2] : "fs");            /* processed brainshots older than 48 hours */
     menu_info(INFO_HOST, access("/etc/k4510-linux", F_OK) == 0 ? "the K4510 Linux" : "desktop, SDL2");
 
 

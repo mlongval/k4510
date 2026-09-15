@@ -8897,3 +8897,10 @@ you have looked at". tools/k4510-remote ideas shows the new ones, keeps a copy
 in ~/k4510-remote/brainshots, and moves every one it has read into
 /SYSTEM/BRAINSHOTS/PROCESSED on the machine (mv -n: nothing overwritten), the
 old /BRAINSHOTS emptied and removed; --all shows PROCESSED too.
+Then, Doc: "with automatic deletion of processed BRAINSHOTS 48 hours after
+processing". The move into PROCESSED re-stamps each file (mv keeps IDEA's date),
+and anything there older than 48 hours is deleted -- by k4510-remote ideas each
+time it runs, and by the emulator at every start (prune_brainshots), so it
+happens even when nobody asks for ideas. The copies in ~/k4510-remote/brainshots
+stay. Checked: a PROCESSED file dated three days back went at start, one from
+now stayed.

@@ -92,6 +92,33 @@ static void shot_signal(int sig) { (void) sig; shot_req = 1; }
  * same line.  Written beside and renamed, so a reader never sees half of
  * one.  The F7 menu draws over the picture, not into this map: a first line
  * says when it is open. */
+/* Sidebar-savers (Doc's brainshot, 2026-09-14: "scrolling tilemaps or
+ * colorcycling maps that run on the sidebars if they are not being used by
+ * something else").  The first, the gradient: the border colour's hue turned
+ * once round the colour wheel down the screen, in bands of four machine rows
+ * (so it steps at the machine's own pixel size), rolling once every 24
+ * seconds, a little darker than the border so it stays calm beside text.
+ * Integer HSV: hue 0-1535 (six segments of 256), saturation and value 0-255. */
+static uint32_t sb_hue_rgb(int hue, int sat, int val)
+{
+    hue %= 1536; if (hue < 0) hue += 1536;
+    int seg = hue >> 8, f = hue & 255, r, g, b;
+    int p = val * (255 - sat) / 255, q = val * (255 - sat * f / 255) / 255, u = val * (255 - sat * (255 - f) / 255) / 255;
+    switch (seg) {
+    case 0: r = val; g = u; b = p; break;   case 1: r = q; g = val; b = p; break;   case 2: r = p; g = val; b = u; break;
+    case 3: r = p; g = q; b = val; break;   case 4: r = u; g = p; b = val; break;   default: r = val; g = p; b = q; break;
+    }
+    return 0xFF000000u | (uint32_t) r << 16 | (uint32_t) g << 8 | (uint32_t) b;
+}
+static int sb_rgb_hue(uint32_t c, int *sat, int *val)
+{
+    int r = (int)(c >> 16 & 255), g = (int)(c >> 8 & 255), b = (int)(c & 255);
+    int mx = r > g ? (r > b ? r : b) : (g > b ? g : b), mn = r < g ? (r < b ? r : b) : (g < b ? g : b), d = mx - mn, h;
+    *val = mx; *sat = mx ? d * 255 / mx : 0;
+    if (!d) return 0;
+    if (mx == r) h = (g - b) * 256 / d; else if (mx == g) h = 512 + (b - r) * 256 / d; else h = 1024 + (r - g) * 256 / d;
+    return h < 0 ? h + 1536 : h;
+}
 static volatile sig_atomic_t screen_req;
 static void screen_signal(int sig) { (void) sig; screen_req = 1; }
 static void screen_save(void)
@@ -935,7 +962,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     /* The border: one column of pixels stretched across, a single RenderCopy
      * that reaches the letterbox too; rebuilt only when the colour changes. */
     uint32_t border_lit = 0;
-    SDL_Texture *btex = NULL; int btex_col = -1, btex_smooth = -1;
+    SDL_Texture *btex = NULL; int btex_col = -1, btex_smooth = -1, btex_sbar = -1, btex_gh = -1;
 
     static uint8_t ov[UI_W * UI_H];
     static uint32_t pal[256];                     /* the machine's colours */
@@ -1712,18 +1739,28 @@ tex_done:
                           SDL_WarpMouseInWindow(win, wr.x + wr.w / 2, wr.y + wr.h / 2); }
               } } }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
-          if (!btex || btex_col != bcol || btex_smooth != smooth_applied) {
-              if (btex) SDL_DestroyTexture(btex);
-              btex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING,
-                                       1, VICKY_HEIGHT);
-              btex_col = bcol; btex_smooth = smooth_applied;
-              if (btex) { void *bp; int bpitch;
-                  SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);   /* the picture's filter: hard pixels */
-                  if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
+          int sbar = settings_get(SET_VIDEO_SIDEBARS);
+          if (!btex) {
+              btex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1, VICKY_HEIGHT);
+              if (btex) SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);   /* the picture's filter: hard pixels */
+              btex_col = -1;
+          }
+          /* the border colour flat -- refilled when it changes -- or the
+           * gradient, refilled every frame: a column of 1080 pixels */
+          if (btex && (btex_col != bcol || btex_smooth != smooth_applied || btex_sbar != sbar || btex_gh != gh || sbar == SIDEBAR_GRADIENT)) {
+              void *bp; int bpitch;
+              btex_col = bcol; btex_smooth = smooth_applied; btex_sbar = sbar; btex_gh = gh;
+              if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
+                  if (sbar == SIDEBAR_GRADIENT) {
+                      int s, v, h0 = sb_rgb_hue(border_lit, &s, &v), ph = (int)((uint64_t) SDL_GetTicks() * 1536 / 24000 % 1536);
+                      if (s < 160) s = 160;
+                      v = v * 3 / 4; if (v < 80) v = 80;
                       for (int y = 0; y < VICKY_HEIGHT; y++)
-                          *(uint32_t *)((uint8_t *)bp + y * bpitch) = border_lit;
-                      SDL_UnlockTexture(btex);
-                  } }
+                          *(uint32_t *)((uint8_t *)bp + y * bpitch) = sb_hue_rgb(h0 + ph + (y & ~3) * 1536 / (gh > 0 ? gh : 480), s, v);
+                  } else
+                      for (int y = 0; y < VICKY_HEIGHT; y++) *(uint32_t *)((uint8_t *)bp + y * bpitch) = border_lit;
+                  SDL_UnlockTexture(btex);
+              }
           }
           /* RenderClear is now only the floor under everything: the border
            * colour flat, in case a rounding edge shows through. */

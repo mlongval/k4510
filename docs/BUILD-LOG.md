@@ -8588,3 +8588,15 @@ halving bits and stayed HD), SPLIT (which took lines-halved to mean
 doubled) and BUG (which names the mode) know bit 5 now. The test's own
 faults on the way: Microsoft BASIC reads 72 characters a line, and BBC
 BASIC's banner wraps at 40 columns.
+
+## 2026-09-14 — sidebar-savers: the gradient
+
+Doc's brainshot: screensavers for the sidebars, "a color cycling
+gradient" first, then "some type of celtic knot/rope ... an eternal
+braid". F7 > Video > Sidebars: border or gradient. The backdrop beside
+the picture (and the letterbox) was the border texture, a column stretched
+across; with the gradient it carries the border colour's hue turned round
+the wheel down the screen, four machine rows a band, rolling once in 24 s,
+darker than the border. The knot comes next. The screenshot tools cannot
+see it (they grab the machine's picture, not the window), so it is checked
+by eye on the Dell.

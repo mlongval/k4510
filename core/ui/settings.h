@@ -25,6 +25,7 @@ typedef enum {
                               * display, which costs frames on a host whose refresh is not 60. */
     SET_VIDEO_PLACE,         /* ENUM where the picture sits on a screen wider than 4:3: centre, left, right */
     SET_VIDEO_PANEL,         /* ENUM the side panel in the space that leaves: off, or the registers (sdl/panel.c) */
+    SET_VIDEO_SIDEBARS,      /* ENUM what fills the space beside the picture when nothing else does: the border, or a gradient */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
@@ -106,6 +107,8 @@ extern const unsigned char vmode_number[VMODE_COUNT];
 enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
 enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
+/* the sidebar-savers (Doc's brainshot, 2026-09-14), in the ENUM's order */
+enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
 /* the menu keys, in the ENUM's order */

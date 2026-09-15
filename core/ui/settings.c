@@ -13,6 +13,7 @@ const unsigned char vmode_number[VMODE_COUNT] = { 0, 1, 2, 5, 6, 7, 3, 4 };
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
+static const char *const sidebar_names[]= { "border", "gradient" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const lid_names[]   = { "keep running", "suspend" };
 static const char *const pipe_names[]  = { "off", "on", "on, shown" };
@@ -46,6 +47,7 @@ static const set_desc desc[SET_COUNT] = {
      * panel forces left. */
     { "video.placement",     "Placement",      ST_ENUM,  PLACE_CENTRE, 0, 0, 0, place_names, PLACE_COUNT, SF_LIVE },
     { "video.panel",         "Side panel",     ST_ENUM,  PANEL_OFF, 0, 0, 0, panel_names, PANEL_COUNT, SF_LIVE },
+    { "video.sidebars",      "Sidebars",       ST_ENUM,  SIDEBAR_BORDER, 0, 0, 0, sidebar_names, SIDEBAR_COUNT, SF_LIVE },
     { "audio.volume",        "Volume",         ST_INT,   80, 0, 100, 10, 0, 0, SF_LIVE },
     /* audio.chip and audio.sids lived here until 2026-09-05, when the SIDs
      * were removed.  An old k4510.cfg still carrying them is fine: unknown

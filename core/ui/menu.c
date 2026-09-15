@@ -21,6 +21,7 @@ static const item_t video_items[] = {
     { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
     { "Placement",     MI_SETTING, SET_VIDEO_PLACE },
     { "Side panel",    MI_SETTING, SET_VIDEO_PANEL },
+    { "Sidebars",      MI_SETTING, SET_VIDEO_SIDEBARS },
 };
 /* One chip, the OPL2, so there is nothing to choose but the volume. */
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME } };

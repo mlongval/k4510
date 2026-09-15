@@ -8695,3 +8695,13 @@ the code page on the right, edit on either side; go to, find (hex or text),
 save, 256 undos, the mouse to pick a byte and the wheel to scroll. Any MODE:
 16, 8 or 4 bytes a row by the width. Checked headless, including an edit,
 find, append and save read back from the host.
+
+## 2026-09-15 — PAINT
+
+/APPS/PAINT/paint.prg: a 640x480 canvas (layer 1, 8 bpp) with a bottom
+toolbar -- DawnBringer's 32 colours, pen, line, box, block, oval, disc, fill,
+spray, eraser, pick, four brush sizes, undo/redo, and K4PC open and save, so
+BOOK can show what is painted. Found on the way: a bitmap's colour 0 is
+see-through to the ground (BGCOL), so PAINT and BOOK now make the ground
+colour 0 while a picture is up. Saving and loading checked headless; strokes
+want the Dell's mouse.

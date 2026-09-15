@@ -317,14 +317,15 @@ static void picture(const char *file)
     uint16_t w, ht, nc, i, cnt, n;
     static uint8_t palsave[256 * 3];                         /* the colours the picture's palette overwrites */
     uint32_t o, end, dst;
-    uint8_t ctrl, l0;
+    uint8_t ctrl, l0, bg;
     strcpy(path, DOCDIR); strncat(path, file, NAMELEN - sizeof DOCDIR);
     if (load(path, PIC)) { strcpy(msg, "that picture is not on the disk"); return; }
     end = PIC + zpr32(0xF6);
     dma_copy(PIC, (uint32_t)(uint16_t)h, 16);
     if (h[0] != 'K' || h[1] != '4' || h[2] != 'P' || h[3] != 'C') { strcpy(msg, "not a picture"); return; }
     w = h[4] | (h[5] << 8); ht = h[6] | (h[7] << 8); nc = h[8] | (h[9] << 8);
-    ctrl = REG(VIC); l0 = REG(VIC + 0x10);
+    ctrl = REG(VIC); l0 = REG(VIC + 0x10); bg = REG(VIC + 1);
+    REG(VIC + 1) = 0;                                         /* colour 0 is see-through on a bitmap: the ground shows, so it must be the picture's colour 0 */
     for (i = 0x21; i <= 0x25; i++) REG(VIC + i) = 0;          /* palette offset, scroll */
     REG(VIC + 0x26) = (uint8_t)w; REG(VIC + 0x27) = (uint8_t)(w >> 8);   /* stride */
     REG(VIC + 0x28) = 0; REG(VIC + 0x29) = 0; REG(VIC + 0x2A) = 0x20; REG(VIC + 0x2B) = 0;   /* $200000 */
@@ -357,7 +358,7 @@ static void picture(const char *file)
     }
     while (!rom_getin())
         ;
-    REG(VIC + 0x20) = 0; REG(VIC + 0x10) = l0; REG(VIC) = ctrl;
+    REG(VIC + 0x20) = 0; REG(VIC + 0x10) = l0; REG(VIC) = ctrl; REG(VIC + 1) = bg;
     for (i = 0; i < nc; i++) { REG(0xD006) = (uint8_t)i; REG(0xD007) = palsave[i * 3]; REG(0xD008) = palsave[i * 3 + 1]; REG(0xD009) = palsave[i * 3 + 2]; }   /* B commits */
     rom_video();
     REG(TERM + 4) = 2;                                        /* clear; the page is redrawn */

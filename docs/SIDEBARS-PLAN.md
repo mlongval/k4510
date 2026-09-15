@@ -224,9 +224,12 @@ The old `video.sidebars` setting is read once, becomes `show =` in
 Each is its own commit and leaves the machine working; each deploy runs the
 Dell's remote tests.
 
-## Still open
+## Decided
 
-- **The register panel** (Video → Side panel) uses the same space. Leave it
-  in Video, or make it one more choice in the Sidebar row?
-- **Left and right**: the plan puts it in `SIDEBARS.CFG` (`right = same`), not
-  F12. Enough?
+- **The register panel** becomes one more choice in the Sidebar row
+  (`REGISTERS.ZIP`, `draw = builtin registers`); Video → Side panel goes, and
+  its setting migrates to `show = registers`. (Doc, 2026-09-15.)
+- **Left and right** stay in `SIDEBARS.CFG` (`right = same`), not F12.
+  (Doc, 2026-09-15.)
+
+The ant farm's own ideas, for after this: `docs/ANTFARM-IDEAS.md`.

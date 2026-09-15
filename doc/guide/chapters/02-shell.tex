@@ -301,6 +301,25 @@ UMOUNT /MNT/FUJI
 \verb|TYPE|, \verb|RANGER|, a program started by name --- then works
 there as on the machine's own disk. A mounted place is read-only.
 
+A zip file mounts the same way --- one on the disk, one inside another
+mount, or one on the internet (a URL ending in \texttt{.zip}):
+
+\begin{type}
+MOUNT GAMES.ZIP /MNT/GAMES
+CD /MNT/GAMES
+DIR
+UMOUNT /MNT/GAMES
+\end{type}
+
+\noindent Its folders are folders and its files open like any others, so
+a game shipped with its data as one zip runs from where it is mounted. The
+zip itself is never changed: copy a file out of it to change it. The whole
+zip is read when it is mounted, so a zip changed on the disk afterwards
+needs mounting again. A zip the machine cannot read safely is refused, not
+guessed at: one with a name that would climb out of its folder
+(\texttt{../}), an encrypted file, or a zip too big for the old format
+(zip64).
+
 For programs that want a live connection there is the \emph{N: device}
 at \texttt{\$D900} (FujiNet's name for it): four channels, each a URL
 opened for reading and writing --- \texttt{tcp://host:port} for a

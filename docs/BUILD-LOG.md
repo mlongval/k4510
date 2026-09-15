@@ -8918,3 +8918,25 @@ the bounce), and at column -1 it matched "no second way in" (-1) as a door and
 went in, into nothing. The stroll stays between the edges, and the second way
 in counts only once dug. The AF_DEBUG trace now reports any ant 25 steps at a
 door: none, in a day-long run and a 10-minute day.
+
+## 2026-09-15 — MOUNT a zip
+
+Step 1 of docs/SIDEBARS-PLAN.md (Doc: "zip mounting first"): sidebars are
+going to be zip packages in /SYSTEM/SIDEBARS, and a zip that mounts is useful
+well past them. `MOUNT GAMES.ZIP /MNT/GAMES` -- a zip on the disk, in another
+mount (a zip in a zip works), or a URL ending in .zip. It is the second kind
+of mount beside the network's: the same table (fs_mnt), the same read-only
+rule, and the paths into it are "zip:N:TAIL", made by fs_mount_url and never
+typed, so a guest name cannot reach a zip that is not mounted. DIR, CD, TYPE,
+LOAD, CP out of it, a program run from it by its bare name; writing refused.
+
+core/zip.c: the whole zip held in memory (the disk is RAM), the central
+directory read at MOUNT, an entry inflated when opened and its CRC checked.
+No zlib -- our own inflater after puff.c, stored/fixed/dynamic blocks.
+Refused, not guessed: names with ../ or . parts, a leading /, a backslash or
+colon (the whole zip refused: it could climb out); zip64 and split zips;
+encrypted entries and methods other than stored and deflate (the entry
+refused). test/ziptest.sh makes its zips with Python's zipfile and Info-ZIP
+(folders as entries, a streamed zip with a data descriptor, an empty one, a
+comment the end record hides behind) and bad ones patched by hand; all pass.
+test/remote/zip.k4r does the same on the Dell.

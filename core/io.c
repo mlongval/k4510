@@ -14,6 +14,8 @@ static int dbg_auto; static uint32_t dbg_auto_next;
 #include "opl2.h"
 #include "audio.h"
 #include "net.h"
+#include "zip.h"       /* MOUNT GAMES.ZIP /MNT/GAMES */
+#include <stdlib.h>    /* atoi: a zip mount's slot (fs_mnt_zip) */
 #include "term.h"
 #include "ui/menu.h"
 
@@ -102,7 +104,12 @@ static void fs_net_drop(void) { free(fs_netbuf); fs_netbuf = NULL; fs_netlen = f
  * server can be navigated like a local subtree -- the cwd never becomes a URL,
  * so local programs (RANGER) launch through the usual search path and only the
  * filesystem ops route to the net (Doc, 2026-09-10: the atari8.us case). */
-static struct { char at[80]; char url[240]; } fs_mnt[8]; static int fs_mnt_n;
+/* A mount can also be a zip file (MOUNT GAMES.ZIP /MNT/GAMES, Doc 2026-09-15:
+ * the sidebars' packages first, and anything shipped as one file after): ZIP
+ * is then the whole file, read into memory at MOUNT, and URL only what MOUNT
+ * lists.  Its paths are "zip:N:TAIL" -- N the mount's slot, made here and
+ * never typed, so no guest name can reach a zip that is not mounted. */
+static struct { char at[80]; char url[240]; zip_t *zip; } fs_mnt[8]; static int fs_mnt_n;
 /* REL is a root-relative path; if it is under a mount, fill URL (base + tail)
  * and return 1.  A trailing part is appended with net_url_join. */
 static int fs_mount_url(const char *rel, char *url, size_t max)
@@ -111,10 +118,41 @@ static int fs_mount_url(const char *rel, char *url, size_t max)
         size_t al = strlen(fs_mnt[i].at);
         if (strncasecmp(rel, fs_mnt[i].at, al) || (rel[al] && rel[al] != '/')) continue;
         { const char *tail = rel + al; while (*tail == '/') tail++;
-          if (*tail) net_url_join(url, max, fs_mnt[i].url, tail); else snprintf(url, max, "%s", fs_mnt[i].url); }
+          if (fs_mnt[i].zip) snprintf(url, max, "zip:%d:%s", i, tail);
+          else if (*tail) net_url_join(url, max, fs_mnt[i].url, tail); else snprintf(url, max, "%s", fs_mnt[i].url); }
         return 1;
     }
     return 0;
+}
+static void fs_mnt_clear(void) { for (int i = 0; i < fs_mnt_n; i++) zip_close(fs_mnt[i].zip); fs_mnt_n = 0; }
+/* The zip behind a "zip:N:" path, and the path inside it; NULL for anything else. */
+static zip_t *fs_mnt_zip(const char *url, const char **inner)
+{
+    const char *c; int i;
+    if (strncmp(url, "zip:", 4)) return NULL;
+    i = atoi(url + 4); c = strchr(url + 4, ':');
+    if (!c || i < 0 || i >= fs_mnt_n) return NULL;
+    *inner = c + 1;
+    return fs_mnt[i].zip;
+}
+/* What the file system asks of a mount, to the zip or to the network. */
+static int mnt_fetch(const char *url, uint8_t **b, uint32_t *n)
+{
+    const char *in; zip_t *z = fs_mnt_zip(url, &in);
+    if (z) { int st = zip_fetch(z, in, b, n); return st == 3 ? 2 : st; }
+    return strncmp(url, "zip:", 4) ? net_fetch(url, b, n) : 1;
+}
+static int mnt_listdir(const char *url, net_dirent **e, int *n)
+{
+    const char *in; zip_t *z = fs_mnt_zip(url, &in);
+    if (z) return zip_listdir(z, in, e, n) ? 2 : 0;
+    return strncmp(url, "zip:", 4) ? net_listdir(url, e, n) : 2;
+}
+static int mnt_isdir(const char *url)
+{
+    const char *in; zip_t *z = fs_mnt_zip(url, &in);
+    if (z) return zip_isdir(z, in);
+    return strncmp(url, "zip:", 4) ? net_isdir(url) : -1;
 }
 void fs_set_root(const char *d) { snprintf(fs_root, sizeof fs_root, "%s", d); fs_cwd[0] = 0; }
 const char *fs_get_root(void) { return fs_root; }
@@ -419,8 +457,8 @@ static void fs_run(uint8_t cmd)
               uint8_t *b; uint32_t n;
               bare = rd && !strchr(name, '/') && !strchr(name, '\\') && !net_is_url(name);
               if (!rd) { st = 2; break; }
-              if (cmd == FS_STAT && net_isdir(url) == 1) { fs_wr32(0x10, 0xFFFFFFFFu); break; }
-              if ((st = net_fetch(url, &b, &n))) { st = st == 6 ? 1 : st;
+              if (cmd == FS_STAT && mnt_isdir(url) == 1) { fs_wr32(0x10, 0xFFFFFFFFu); break; }
+              if ((st = mnt_fetch(url, &b, &n))) { st = st == 6 ? 1 : st;
                   if (st == 1 && bare) goto local_fs;     /* not on the server: a local program by this name */
                   break; }
               if (cmd == FS_STAT) { fs_wr32(0x10, n); free(b); break; }
@@ -459,7 +497,7 @@ static void fs_run(uint8_t cmd)
         char durl[512]; const char *lurl = fs_remote[0] ? fs_remote : (fs_mount_url(fs_cwd, durl, sizeof durl) ? durl : NULL);
         if (lurl) {                           /* a listing from the server (CD tnfs:// or a mount) */
             net_dirent *e; int n;
-            if ((st = net_listdir(lurl, &e, &n))) { st = st == 6 ? 2 : st; break; }
+            if ((st = mnt_listdir(lurl, &e, &n))) { st = st == 6 ? 2 : st; break; }
             free(fs_list); free(fs_list_size);
             fs_list = calloc((size_t)(n ? n : 1), 64); fs_list_size = calloc((size_t)(n ? n : 1), sizeof *fs_list_size);
             if (!fs_list || !fs_list_size) { free(fs_list); free(fs_list_size); fs_list = NULL; fs_list_size = NULL; free(e); st = 2; break; }
@@ -472,7 +510,7 @@ static void fs_run(uint8_t cmd)
         char n2[128], rel[256], dst[768], url[512]; uint8_t *nb = NULL; uint32_t nn = 0;
         { char name[128];                     /* CP http://... local: the Meatloaf rule again */
           if (cmd == FS_COPYFILE && !fs_guest_name(name, sizeof name) && fs_url_for(name, url, sizeof url)) {
-              if ((st = net_fetch(url, &nb, &nn))) { st = st == 6 ? 1 : st; break; }
+              if ((st = mnt_fetch(url, &nb, &nn))) { st = st == 6 ? 1 : st; break; }
           } }
         if (!nb && (st = fs_path(path, sizeof path, 1))) break;                /* source, searched + case-fixed */
         if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) break;
@@ -514,7 +552,7 @@ static void fs_run(uint8_t cmd)
         }
         if ((st = fs_resolve(name, rel, sizeof rel, path, sizeof path))) break;
         if (fs_mount_url(rel, url, sizeof url)) {                                      /* into (or within) a mount: the cwd stays local-looking */
-            if (net_isdir(url) == 1) snprintf(fs_cwd, sizeof fs_cwd, "%s", rel); else st = 1;
+            if (mnt_isdir(url) == 1) snprintf(fs_cwd, sizeof fs_cwd, "%s", rel); else st = 1;
             break;
         }
         fs_casefix(path, sizeof path);
@@ -527,24 +565,42 @@ static void fs_run(uint8_t cmd)
     case FS_RMDIR: { struct stat sb; if (fs_remote[0] || fs_name_mounted()) { st = 2; break; } if ((st = fs_path(path, sizeof path, 0))) break; if (stat(path, &sb)) { st = 1; break; }
         if (!S_ISDIR(sb.st_mode) || rmdir(path)) st = 2;
         break; }
-    case FS_MOUNT: {                       /* NAMEPTR = URL, reg 8 -> PATH */
-        char url[256], pathn[256], rel[256], loc[768];
+    case FS_MOUNT: {                       /* NAMEPTR = URL or zip file, reg 8 -> PATH */
+        char url[256], pathn[256], rel[256], loc[768], shown[240]; zip_t *zip = NULL;
+        size_t ul;
         if ((st = fs_guest_name(url, sizeof url))) break;
         if ((st = fs_guest_str(fs_rd32(8), pathn, sizeof pathn))) break;
-        if (!net_is_url(url) || !pathn[0]) { st = 3; break; }
-        if ((st = fs_resolve(pathn, rel, sizeof rel, loc, sizeof loc))) break;
-        if (!rel[0]) { st = 2; break; }                                    /* the root cannot be a mount */
+        if (!pathn[0]) { st = 3; break; }
+        ul = strlen(url);
+        /* a zip: a file on the disk (or in another mount), or a URL ending in .zip */
+        if (!net_is_url(url) || (ul > 4 && !strcasecmp(url + ul - 4, ".zip"))) {
+            uint8_t *b = NULL; uint32_t n = 0; char zu[512], zrel[256], zloc[768];
+            if (fs_url_for(url, zu, sizeof zu)) { if ((st = mnt_fetch(zu, &b, &n))) { st = st == 6 ? 1 : st; break; } snprintf(shown, sizeof shown, "%s", url); }
+            else {
+                FILE *f; long sz; struct stat sb;
+                if ((st = fs_resolve(url, zrel, sizeof zrel, zloc, sizeof zloc))) break;
+                fs_casefix(zloc, sizeof zloc);
+                if (stat(zloc, &sb) || S_ISDIR(sb.st_mode) || !(f = fopen(zloc, "rb"))) { st = 1; break; }
+                fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
+                if (sz < 0 || sz > (long)(512u << 20) || !(b = malloc(sz ? (size_t)sz : 1)) || fread(b, 1, (size_t)sz, f) != (size_t)sz) { free(b); fclose(f); st = 2; break; }
+                fclose(f); n = (uint32_t)sz;
+                snprintf(shown, sizeof shown, "/%.238s", strlen(zloc) > strlen(fs_root) ? zloc + strlen(fs_root) + 1 : zrel);
+            }
+            if ((st = zip_open_mem(b, n, &zip))) break;                    /* b is the zip's now, or freed */
+        } else snprintf(shown, sizeof shown, "%s", url);
+        if ((st = fs_resolve(pathn, rel, sizeof rel, loc, sizeof loc)) || !rel[0]) { zip_close(zip); if (!st) st = 2; break; }   /* the root cannot be a mount */
         { int i; for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) break;
-          if (i == fs_mnt_n) { if (fs_mnt_n >= 8) { st = 2; break; } fs_mnt_n++; }
+          if (i == fs_mnt_n) { if (fs_mnt_n >= 8) { zip_close(zip); st = 2; break; } fs_mnt_n++; fs_mnt[i].zip = NULL; }
+          zip_close(fs_mnt[i].zip); fs_mnt[i].zip = zip;                   /* a mount again at the same place replaces it */
           snprintf(fs_mnt[i].at, sizeof fs_mnt[i].at, "%s", rel);
-          { size_t n; snprintf(fs_mnt[i].url, sizeof fs_mnt[i].url, "%s", url); n = strlen(fs_mnt[i].url); while (n > 8 && fs_mnt[i].url[n - 1] == '/') fs_mnt[i].url[--n] = 0; } }
+          { size_t n; snprintf(fs_mnt[i].url, sizeof fs_mnt[i].url, "%s", shown); n = strlen(fs_mnt[i].url); while (!zip && n > 8 && fs_mnt[i].url[n - 1] == '/') fs_mnt[i].url[--n] = 0; } }
         mkdir(loc, 0777);                     /* a real (empty) directory, so the mount shows in a DIR of its parent */
         break; }
     case FS_UMOUNT: {                      /* NAMEPTR = PATH */
         char name[256], rel[256], loc[768]; int i, found = 0;
         if ((st = fs_guest_name(name, sizeof name))) break;
         if ((st = fs_resolve(name, rel, sizeof rel, loc, sizeof loc))) break;
-        for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) { found = 1; fs_mnt[i] = fs_mnt[--fs_mnt_n]; break; }
+        for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) { found = 1; zip_close(fs_mnt[i].zip); fs_mnt[i] = fs_mnt[--fs_mnt_n]; break; }
         if (!found) st = 1;
         else rmdir(loc);                      /* remove the placeholder directory MOUNT made (only if it is empty) */
         break; }
@@ -1583,7 +1639,7 @@ void io_reset(void)
     sys_frames = 0;
     title_cmd(4); tube_prog_now = 0;             /* the title: back to K/OS */
     tube_stop(); fs_cap = 0;                     /* a power cycle left BBC BASIC running and $D800 saying so (review 2026-09-12) */
-    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_mnt_n = 0; fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
+    net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_mnt_clear(); fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
     /* The prompt starts in /HOME where the disk has one (fs/HOME/README.TXT);
      * the ROM reads /STARTUP.BAT by its absolute name, so boot is unaffected. */
     { char home[600]; struct stat sb; snprintf(home, sizeof home, "%s/HOME", fs_root);
@@ -1851,6 +1907,6 @@ int io_state_load(FILE *f)
     kbd_head %= 64; kbd_tail %= 64; fs_cwd[sizeof fs_cwd - 1] = 0;        /* a corrupt .k4s must not index out of bounds */
     for (int c = 0; c < 4; c++) { seq_head[c] %= SEQ_DEPTH; if (seq_len[c] > SEQ_DEPTH) seq_len[c] = SEQ_DEPTH; }
     if (fs_file) { fclose(fs_file); fs_file = 0; }
-    fs_net_drop(); fs_remote[0] = 0; fs_mnt_n = 0; net_reset(); tube_stop(); fs_cap = 0;
+    fs_net_drop(); fs_remote[0] = 0; fs_mnt_clear(); net_reset(); tube_stop(); fs_cap = 0;
     return 0;
 }

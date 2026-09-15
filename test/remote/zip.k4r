@@ -1,0 +1,31 @@
+# test/remote/zip.k4r -- MOUNT a zip (2026-09-15).  /HOME/ZIPTEST.ZIP must be
+# there first: test/remote/zipfixture.sh makes it (README.TXT, HELLO.PRG,
+# DATA/NOTE.TXT).  Mount, list, read, run a program from it, fail to write
+# into it, unmount.
+type PALETTE RESET\n
+wait 1
+type CD /HOME\n
+type MOUNT ZIPTEST.ZIP /MNT/ZT\n
+wait 1
+type MOUNT\n
+expect "/MNT/ZT  /HOME/ZIPTEST.ZIP" 5
+type DIR /MNT/ZT\n
+expect "README.TXT" 5
+type TYPE /MNT/ZT/DATA/NOTE.TXT\n
+expect "a note in a folder in the zip" 5
+type CD /MNT/ZT\n
+type HELLO\n
+expect "Hello from C on the K4510." 10
+shot zip-hello
+# read-only: the copy must not appear
+type CP README.TXT NEW.TXT\n
+wait 1
+type DIR\n
+expect "README.TXT" 5
+absent "NEW.TXT" 3
+type CD /HOME\n
+type UMOUNT /MNT/ZT\n
+wait 1
+type MOUNT\n
+expect "no mounts" 5
+screen

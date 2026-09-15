@@ -20,7 +20,7 @@ core/io.o: core/build.h
 FORCE:
 
 OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sndq.o core/audio.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/zip.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
 LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -73,6 +73,8 @@ test/termreplay: test/termreplay.c $(CORE_OBJS)   # replay a K4510_TERMLOG throu
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/fstest: test/fstest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+test/ziptest: test/ziptest.c $(CORE_OBJS)   # MOUNT a zip; its fixtures are made by test/ziptest.sh
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
 test/romtest: test/romtest.c $(CORE_OBJS)
@@ -159,7 +161,7 @@ check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.pr
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -170,6 +172,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/vickytest
 	./test/seqtest
 	./test/fstest
+	sh ./test/ziptest.sh
 	./test/termtest
 	./test/uitest
 	./test/statetest

@@ -1843,7 +1843,7 @@ static void nav_mount(const char *p)
     if (!getname(&p, url) || !getrest(&p, path)) { error("mount: MOUNT url path"); return; }
     fs_name(url);                              /* NAMEPTR = the URL */
     w32(FS + 8, (uint16_t)path);               /* reg 8 -> the mount path, as RENAME passes its second name */
-    if (fs_cmd(19)) error("mount: need a tnfs://, http:// or https:// URL and a path");
+    if (fs_cmd(19)) error("mount: need a URL or a .ZIP, and a path");
 }
 static void nav_list(void)                /* MOUNT with no args: show the mounts */
 {

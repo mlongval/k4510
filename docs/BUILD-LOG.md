@@ -8727,3 +8727,17 @@ clear, copy/paste, undo, and F to make one size from the other. A .FNT is
 both fonts as they lie in memory (6144 bytes); FONTED -L NAME loads one and
 leaves, for STARTUP.BAT (the host's fonts come back at power-on). Checked
 headless in MODE 0 and 7; a save compared byte for byte with the host fonts.
+
+## 2026-09-15 — CALC
+
+/APPS/CALC/calc.prg: a VisiCalc-style spreadsheet. A-Z by 1-99; a letter or "
+starts a label, anything else a value or formula: + - * / ^, cell references,
+@SUM @AVG @MIN @MAX @COUNT over ranges (A1...B3 or A1:B3) and lists, @ABS
+@INT @SQRT @ROUND @PI; ERROR for a mistake or a division by zero (the MATH
+unit's NaN/inf flag). Recalculated twice down the sheet after each entry.
+/ commands (save, load, blank, clear, width, format), > go to, F2 change.
+Saved as text, a line a cell (A1:V:+B2*3). Two things found on the way: an
+8-bit count against a 256-byte buffer never flushed (cc65 said so), and
+redrawing and recalculating everything on every key could not keep up with
+typing -- a near table of the cells' kinds now lets both skip the empty
+cells. Checked headless: a sheet of formulas, and a 487-byte save reopened.

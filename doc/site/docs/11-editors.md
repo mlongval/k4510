@@ -381,7 +381,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 
 ## PROG
 
-`PROG name` is the front end for writing a program in C or Pascal: the text, a menu bar, and — under the text — what the compiler said about it. It is VI’s engine with modern keys on it, in the spirit of Turbo Pascal: F9 compiles, Ctrl-F9 compiles and runs, and an error puts the cursor on the line it is about.
+`PROG name` is the front end for writing a program in C, Pascal or REXX: the text, a menu bar, and — under the text — what the compiler said about it. It is VI’s engine with modern keys on it, in the spirit of Turbo Pascal: F9 compiles, Ctrl-F9 compiles and runs, and an error puts the cursor on the line it is about.
 
 <div class="center">
 
@@ -399,7 +399,15 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Enter, Tab</td>
-<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <code>set ts=</code> in VI.RC)</td>
+<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <code>set ts=</code> in VI.RC) — with lines selected, Tab and Shift-Tab indent them and take the indent back</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Shift with a moving key, Ctrl-A</td>
+<td style="text-align: left;">select, by characters, from where the cursor was; Ctrl-A takes the whole file. Typing, Enter, Backspace and Delete replace what is selected</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">the mouse</td>
+<td style="text-align: left;">a click places the cursor, opens a menu, brings a tab forward or goes to a message; a drag selects (Shift-click from the cursor); the wheel scrolls</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Insert</td>
@@ -423,7 +431,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Ctrl-X, Ctrl-C, Ctrl-V</td>
-<td style="text-align: left;">cut, copy, paste the line</td>
+<td style="text-align: left;">cut, copy, paste — the selection, or with nothing selected the line</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Ctrl-F, F3, Ctrl-R, Ctrl-G</td>
@@ -435,7 +443,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </tr>
 <tr class="odd">
 <td style="text-align: left;">F9, Ctrl-F9</td>
-<td style="text-align: left;">save every changed file, compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it</td>
+<td style="text-align: left;">save every changed file, compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it. A <code>.RX</code> has nothing to compile: F9 saves it, Ctrl-F9 runs it, and an error takes you to its line</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">F4, Shift-F4</td>
@@ -468,7 +476,7 @@ For Pascal it is `MAIN=GAME.PAS` instead of `SRC=` — the units come in by `use
 A C project compiles each source once and keeps what it made (on the Linux side, never in your folder): the next F9 compiles only the files that changed — all of them if a `.H` beside them did — and says so, `game.prg: 4211 bytes (1 compiled, 2 kept)`.
 
 !!! note ""
-    **Where it is going.** This is PROG’s third stage. Next come the mouse and selection — Shift and the arrows, the mouse to place the cursor, to open a menu, to pick a message — and last the interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
+    **Where it is going.** This is PROG’s fourth stage: projects came third, the mouse and selection fourth, and REXX is already in. Next come the other interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
 
 ## Editing from inside a BASIC
 

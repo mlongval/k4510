@@ -1,6 +1,10 @@
 # A K4510 code page — the plan
 
-Status: **steps 1-2 done**, 2026-09-15. Doc chose the German quotes over
+Status: **steps 1-4 done**, 2026-09-15: the strict-CP437 bank (TELNET draws a
+CP437 session with it) and the handbook appendix (doc/guide/mkcodepage.py)
+followed steps 1-2 the same day. Still open: `k4510-screen --utf8`, the
+audit of $E0-$FF use, what a character with no place becomes. Earlier:
+steps 1-2 done, 2026-09-15. Doc chose the German quotes over
 Portuguese. The table is `core/codepage.h` (from `tools/mkcodepage.py`), the
 fonts are built from it by `tools/mkk4510font.py`, and JIM, the keyboard, the
 keymaps (dead key + capital, 38 compositions -> 55) and `k4510-remote` read it.

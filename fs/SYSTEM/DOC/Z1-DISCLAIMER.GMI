@@ -46,5 +46,5 @@ All complaints, criticisms and negativity can be addressed to
 ------------------------------------------------------------------------------
 
 => INDEX.GMI Contents
-=> A3-SOUND.GMI Previous: C. The Sound, and What It Took
+=> A4-CODEPAGE.GMI Previous: D. The Code Page
 => Z2-THANKS.GMI Next: Thank You

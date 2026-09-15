@@ -32,18 +32,12 @@ The K4510 as a whole is distributed under the **GNU General Public License, vers
 
 ## Fonts
 
-- **Linux kernel 8x8 console font** — `data/font8.bin`, built by `data/mkfont.py` from `lib/fonts/font_8x8.c`. *GPL-2.0.* This is the default text font.
-
-- **MEGA65 open-roms chargen + PXLfont 2.3** — `data/fonts/openroms/`. Clean-room C64/C65 character shapes; PXLfont is Retrofan’s, included with open-roms’ recorded permission. *LGPL-3.0-or-later* — `8x8font.png` is shipped as the editable source, for LGPL compliance.
-
-- **unscii-8** — Ville-Matias Heikkilä. `data/fonts/unscii/`; `font8-unscii.bin` is a generated drop-in alternative to `data/font8.bin`. *Public domain.*
-
-- **BESCII v3** (Mono + source) — Damian Vila. `data/fonts/bescii/`. *CC0-1.0.*
+- **unscii-8 and unscii-16** — Ville-Matias Heikkilä. `data/fonts/unscii/`: the upstream `.hex` files and the `font8-unscii.bin` and `font16-unscii.bin` made from them. The machine’s one screen font. *Public domain.*
 
 - **Clear Sans** (Intel, *Apache-2.0*) and **Iosevka** (Belleve Invis, *SIL OFL 1.1*) — the two faces this book is set in. They are not part of the machine.
 
 !!! note ""
-    **No Commodore ROMs here.** Until 2026-08-23 the text font was derived from a Commodore 64 character ROM. That file and every derivative were removed from the repository *and from its history* before it was made public. If you own a C64 and want the real thing, drop your own `chargen.bin` into `/SYSTEM/ETC`: the machine will use it, and `.gitignore` will keep it out of the repository. That copy is yours, not ours to publish.
+    **No Commodore ROMs here.** Until 2026-08-23 the text font was derived from a Commodore 64 character ROM. That file and every derivative were removed from the repository *and from its history* before it was made public. Since 2026-09-14 the machine has one font, unscii, and reads no other: a `chargen.bin` in `/SYSTEM/ETC` is ignored.
 
 ## The Linux the machine boots on
 
@@ -64,12 +58,8 @@ Not distributed with the machine, but required to build it: GCC and GNU Make (*G
 
 - **The CP/M system disk.** RunCPM’s `DISK/A0.zip` — Digital Research’s `ASM`, `MAC`, `DDT`, `STAT`, `SUBMIT` and third-party tools — installs into `fs/CPM/A/0/` for your use but is not committed: its files have mixed provenance and this repository is public. The same goes for WordStar, Turbo Pascal 3 and MBASIC, which the `K-*.SUB` launchers know how to start but which you must supply yourself.
 
-- **ZX Origins fonts.** Damien Guard’s faces are free to use and *not* free to re-host, so the machine names them in the F7 font menu and does not ship them: `tools/mkzxfonts.py` turns your own download into screen fonts, and without it those entries fall back to the default face.
-
-- **A Commodore character ROM** — see the note above.
-
 - **Your `STARTUP.BAT`** — yours, not the repository’s (copy `/SYSTEM/ETC/STARTUP.SAMPLE` to start one).
 
 ## If you redistribute the machine
 
-Ship the sources you built from, keep `LICENSES.md` and this chapter with them, keep `8x8font.png` beside the open-roms font, and remember two things that are easy to forget: EhBASIC is non-commercial-only, and “BBC BASIC” is the name of Richard Russell’s interpreter rather than of anything made here — describe it as his, as this book does, and give whatever you build on it a name of its own.
+Ship the sources you built from, keep `LICENSES.md` and this chapter with them, and remember two things that are easy to forget: EhBASIC is non-commercial-only, and “BBC BASIC” is the name of Richard Russell’s interpreter rather than of anything made here — describe it as his, as this book does, and give whatever you build on it a name of its own.

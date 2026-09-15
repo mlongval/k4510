@@ -32,6 +32,7 @@ needs neither a printer nor a browser.
 => A1-REGISTERS.GMI A. The Registers
 => A2-ISSUES.GMI B. Filing an Issue
 => A3-SOUND.GMI C. The Sound, and What It Took
+=> A4-CODEPAGE.GMI D. The Code Page
 
 ## About the Book
 => Z1-DISCLAIMER.GMI Disclaimer

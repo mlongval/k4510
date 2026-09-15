@@ -211,38 +211,51 @@ is that there is no VI.RC on that machine, only the sample.
 
 ## PROG
 
-PROG name is the front end for writing a program in C or Pascal: the text, a
-menu bar, and -- under the text -- what the compiler said about it. It is VI's
-engine with modern keys on it, in the spirit of Turbo Pascal: F9 compiles,
-Ctrl-F9 compiles and runs, and an error puts the cursor on the line it is
-about.
+PROG name is the front end for writing a program in C, Pascal or REXX: the
+text, a menu bar, and -- under the text -- what the compiler said about it. It
+is VI's engine with modern keys on it, in the spirit of Turbo Pascal: F9
+compiles, Ctrl-F9 compiles and runs, and an error puts the cursor on the line
+it is about.
 
 ```
-Key                            Does
-arrows, Home, End, PgUp, PgDn  move; with Ctrl, a word at a time and the ends
-                               of the file
-Enter, Tab                     a new line that keeps the indent; spaces to the
-                               next tab stop (four, or set ts= in VI.RC)
-Insert                         insert or overwrite (the cursor is a bar or a
-                               block)
-Ctrl-S or F2, Ctrl-O, Ctrl-Q   save, open (in a tab of its own), quit --
-                               asking first about every file with unsaved
-                               changes
-Ctrl-N, Ctrl-W, F6, Shift-F6   a new file, close this one, the next and the
-                               previous file
-File -> New project            a folder with a PROJECT.K4P and a first file
-                               that compiles as it stands
-Ctrl-Z, Ctrl-Y                 undo, redo, as far back as the session goes
-Ctrl-X, Ctrl-C, Ctrl-V         cut, copy, paste the line
-Ctrl-F, F3, Ctrl-R, Ctrl-G     find, find again, replace everywhere, go to a
-                               line
-Shift-Ctrl-F                   find in files: every source file in this file's
-                               directory, into the message list
-F9, Ctrl-F9                    save every changed file, compile the .C (CC) or
-                               .PAS (PAS); and run it
-F4, Shift-F4                   the next, the previous message -- one about
-                               another file opens it
-F10, F1                        the menu; the keys
+Key                              Does
+arrows, Home, End, PgUp, PgDn    move; with Ctrl, a word at a time and the
+                                 ends of the file
+Enter, Tab                       a new line that keeps the indent; spaces to
+                                 the next tab stop (four, or set ts= in VI.RC)
+                                 -- with lines selected, Tab and Shift-Tab
+                                 indent them and take the indent back
+Shift with a moving key, Ctrl-A  select, by characters, from where the cursor
+                                 was; Ctrl-A takes the whole file. Typing,
+                                 Enter, Backspace and Delete replace what is
+                                 selected
+the mouse                        a click places the cursor, opens a menu,
+                                 brings a tab forward or goes to a message; a
+                                 drag selects (Shift-click from the cursor);
+                                 the wheel scrolls
+Insert                           insert or overwrite (the cursor is a bar or a
+                                 block)
+Ctrl-S or F2, Ctrl-O, Ctrl-Q     save, open (in a tab of its own), quit --
+                                 asking first about every file with unsaved
+                                 changes
+Ctrl-N, Ctrl-W, F6, Shift-F6     a new file, close this one, the next and the
+                                 previous file
+File -> New project              a folder with a PROJECT.K4P and a first file
+                                 that compiles as it stands
+Ctrl-Z, Ctrl-Y                   undo, redo, as far back as the session goes
+Ctrl-X, Ctrl-C, Ctrl-V           cut, copy, paste -- the selection, or with
+                                 nothing selected the line
+Ctrl-F, F3, Ctrl-R, Ctrl-G       find, find again, replace everywhere, go to a
+                                 line
+Shift-Ctrl-F                     find in files: every source file in this
+                                 file's directory, into the message list
+F9, Ctrl-F9                      save every changed file, compile the .C (CC)
+                                 or .PAS (PAS); and run it. A .RX has nothing
+                                 to compile: F9 saves it, Ctrl-F9 runs it, and
+                                 an error takes you to its line
+F4, Shift-F4                     the next, the previous message -- one about
+                                 another file opens it
+F10, F1                          the menu; the keys
 ```
 
 The messages are the ones :make reads in VI, from the same
@@ -289,11 +302,10 @@ side, never in your folder): the next F9 compiles only the files that changed
 -- all of them if a .H beside them did -- and says so, game.prg: 4211 bytes (1
 compiled, 2 kept).
 
-> Where it is going. This is PROG's third stage. Next come the mouse and
-> selection -- Shift and the arrows, the mouse to place the cursor, to open a
-> menu, to pick a message -- and last the interpreters: EhBASIC, Microsoft
-> BASIC, LOGO and Forth run on the file in front of you, their errors in the
-> same list.
+> Where it is going. This is PROG's fourth stage: projects came third, the
+> mouse and selection fourth, and REXX is already in. Next come the other
+> interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in
+> front of you, their errors in the same list.
 
 ## Editing from inside a BASIC
 

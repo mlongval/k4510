@@ -1,0 +1,115 @@
+# Appendix D. The Code Page
+
+Every character the K4510 shows is one byte, and the code page says which
+character each of the 256 bytes is. It is IBM's code page 437 -- the PC's, the
+one with the box drawing -- with 26 of its places given to letters Western
+Europe needs and CP437 never had: the accented capitals of French, Italian and
+Spanish, ô and õ, the euro, the section and pilcrow signs, German's quotes,
+and ÷. The places they took were CP437's Greek and mathematical symbols and a
+few marks nobody used. The box drawing, the shades and blocks, and every
+accented letter CP437 already had are where they always were, so a screen
+drawn for CP437 still draws as it was drawn -- unless it used one of the 26.
+
+Like the register reference, this appendix is not written by hand:
+doc/guide/mkcodepage.py makes it from core/codepage.h, the one table the
+machine's text runs through. JIM turning UTF-8 into bytes and back, the
+keyboard, the fonts and k4510-remote all read that table, so none of them can
+disagree with this page, or with each other.
+
+## The page
+
+(The page as a grid is in the printed book and on the web. On the machine,
+FONTED shows every character, and HEXED any byte.)
+
+### The 26 places
+
+```
+Byte  The K4510 page                                CP437 had
+$9E   ž               euro sign                     Pts
+$9F   Ÿ               section sign                  f
+$A9   ©               pilcrow sign                  (not)
+$E0   à               latin capital letter a with   alpha
+                      grave
+$E2   â               latin capital letter a with   Gamma
+                      circumflex
+$E3   ã               latin capital letter e with   pi
+                      grave
+$E4   ä               latin capital letter e with   Sigma
+                      circumflex
+$E5   å               latin capital letter e with   sigma
+                      diaeresis
+$E7   ç               latin capital letter i with   tau
+                      circumflex
+$E8   è               latin capital letter i with   Phi
+                      diaeresis
+$E9   é               latin capital letter o with   Theta
+                      circumflex
+$EA   ê               latin capital letter u with   Omega
+                      grave
+$EB   ë               latin capital letter u with   delta
+                      circumflex
+$EC   ì               latin capital letter y with   infinity
+                      diaeresis
+$ED   í               latin capital letter a with   phi
+                      acute
+$EE   î               latin capital letter i with   epsilon
+                      acute
+$EF   ï               latin capital letter o with   intersection
+                      acute
+$F0   ð               latin capital letter u with   identical
+                      acute
+$F2   ò               latin capital letter i with   >=
+                      grave
+$F3   ó               latin capital letter o with   <=
+                      grave
+$F4   ô               latin small ligature oe       (integral top)
+$F5   õ               latin capital ligature oe     (integral bottom)
+$F7   ÷               latin small letter o with     ~
+                      stroke
+$F9   ù               latin capital letter o with   .
+                      stroke
+$FB   û               double low-9 quotation mark   sqrt
+$FC   "               left double quotation mark    ^n
+```
+
+## The languages it writes
+
+With the 26, these are complete in both cases: French, Italian, Spanish,
+German, Danish, Norwegian, Swedish, Finnish, Dutch, Catalan, Galician, Basque,
+Irish, Scottish Gaelic, Afrikaans and Albanian -- and English. Portuguese is
+four letters short (a o A O); the capital sharp SS is left out as too rare to
+spend a place on. Text arriving as UTF-8 -- from !, from TELNET, over ssh --
+is turned into the page's bytes on the way in, and the curly quotes the page
+has no place for become their plain forms.
+
+## The first 32, and $7F
+
+Bytes $01-$1F and $7F draw CP437's little pictures: the faces, the card suits,
+the arrows, the notes. As text they are also the control codes -- $07 rings,
+$1B is Escape, $18 to $1A move the cursor -- and the console obeys them rather
+than drawing them. So a program that wants a picture on the screen puts the
+byte into screen memory itself, as the games do, and the characters that
+matter as text (Ÿ, ©) have places in the upper half as well.
+
+## Typing them
+
+Every character a keyboard layout has a key for reaches the machine. The dead
+keys compose the rest: ' then A is à, ^ then E is ä -- 55 compositions in all,
+the capitals included. FONTED redraws any of the 256, in both sizes of the
+font, and shows the Unicode value of the character it is editing from the same
+table as this page.
+
+## A BBS
+
+Most ANSI art on a bulletin board is CP437, and nearly all of it is box
+drawing and shades, which the page kept. If it used identical or sqrt, though,
+the K4510 page would draw the letter that lives in that place now -- so TELNET
+does not use it for one. The machine keeps the same font a second time in
+strict CP437, and TELNET draws with that for a CP437 session: a BBS, an old
+system, a far end that never negotiates. A Unix host, which takes the
+XTERM-COLOR terminal type and talks UTF-8, is drawn in the K4510 page, and the
+machine's font comes back when TELNET hangs up.
+
+=> INDEX.GMI Contents
+=> A3-SOUND.GMI Previous: C. The Sound, and What It Took
+=> Z1-DISCLAIMER.GMI Next: Disclaimer

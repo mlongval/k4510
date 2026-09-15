@@ -102,6 +102,8 @@ DESC = {
     "SAY":       (7, "SAY text", "Prints its arguments: the smallest program there is."),
     "SETUP":     (7, "SETUP", "Measures this host thoroughly and keeps the clock it settles on."),
     "SPLIT":     (7, "SPLIT", "A split screen held by SHEILA: blitter lines above, four rows of text below, and how many lines a second."),
+    "HEXED":     (7, "HEXED name | $address", "A hex editor: a file, loaded whole (8 MB at most), or memory by 28-bit address, changed live. Hex on the left, the code page on the right; go to, find, save, undo, the mouse."),
+    "FONTED":    (7, "FONTED [name.FNT] | -L name", "The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT."),
     "SUPERMON":  (7, "SUPERMON", "Jim Butterfield's monitor, grown up: an assembler and a 45GS02 disassembler."),
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),

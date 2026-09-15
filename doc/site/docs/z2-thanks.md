@@ -32,15 +32,9 @@ The K4510 is a machine that never existed. Almost everything in it that *does* e
 
 Fonts are the part of a computer you look at longest, and clean ones with a clear pedigree are hard to come by.
 
-**The Linux kernel** contributors — the 8x8 console font (`font_8x8.c`) that got the text mode on its feet and is still the default.
+**Ville-Matias Heikkilä** (“Viznut”) — [unscii](https://viznut.fi/unscii/), placed in the public domain. It is the machine’s one screen font: unscii-8 in the 240-line modes, unscii-16 at 640×480, and both in the F7 menu and the side panel.
 
-**Paul Gardner-Stephen** and **Roman Standzikowski** (FeralChild64) — the clean-room C64/C65 chargen from [MEGA65 open-roms](https://github.com/MEGA65/open-roms), and **Retrofan**, whose PXLfont travels with it by permission.
-
-**Ville-Matias Heikkilä** (“Viznut”) — unscii, placed in the public domain.
-
-**Damian Vila** — [BESCII](https://codeberg.org/Dmian/font-bescii), the PETSCII spirit with a clean pedigree, CC0.
-
-**Damien Guard** drew the [ZX Origins](https://damieng.com/zx-origins) fonts — hundreds of 8x8 faces, refined over thirty-five years and given to anyone who wants them. A dozen of them are in the F7 font menu. They are free to use and *not* free to re-host, so this machine does what it does with Commodore’s chargen: it names them and does not ship them. `tools/mkzxfonts.py` turns your own download into screen fonts; without it those menu entries fall back to the default face, and nothing else breaks.
+**The Linux kernel** contributors — the 8x8 console font (`font_8x8.c`) that got the text mode on its feet, and the 8x16 VGA font the K4510x consoles wear.
 
 **Kenney** makes game art and puts it in the public domain, at a scale and a standard that has quietly furnished a decade of small games. The dungeon in the `TINY` demo — every tile, every little person, and the map they stand on — is his [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon), CC0. The demo exists because the art did. Two more games stand on the same ground: `SKYFIRE` flies Kenney’s [Pixel Shmup](https://kenney.nl/assets/pixel-shmup) ships, and `FLUFFY` is drawn with **Chloe Wolfe**’s Game Boy platformer set, also CC0. In both cases the art came first and the game was written around it, which is the reverse of the usual order and a much better way to spend an evening.
 

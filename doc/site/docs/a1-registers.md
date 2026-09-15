@@ -205,7 +205,7 @@ The Tube (`$D800`): Acorn’s answer, refitted. The HOST runs Richard Russell’
 
 `$D803`*W* 1 start (spawn), 2 stop (kill)
 
-The co-processor has its own flat 256 MB; PAGE/HIMEM live there, far beyond the 64 KB view. On the Pi the co-processor is the same interpreter (or RunCPM’s Z80, program 3) running on core 3 (core/tube_cp.c); an unfitted program leaves status reading 0. The console it talks to is JIM, the terminal at `$DA00` (core/term.h).
+The co-processor has its own flat 256 MB; PAGE/HIMEM live there, far beyond the 64 KB view. The co-processor is a process on the host (BBC BASIC, RunCPM’s Z80 as program 3); where none can be started, status reads 0. The console it talks to is JIM, the terminal at `$DA00` (core/term.h).
 
 ## VICKY, SHEILA and the sprites
 
@@ -217,11 +217,19 @@ VICKY – the K4510 video chip.
 
 Register block at IO_VICKY (`$D000`), 256 bytes, byte-addressed. Every pointer is a 28-bit physical address into main RAM; there is no video memory. Rendering is per scanline into an 8-bit indexed framebuffer the frontend supplies; the frontend applies vicky_palette_rgb().
 
-`$00`**`CTRL`** bit0 display enable; the rest pick the mode. The glass is always 640x480 and the raster lines are always 0..479 – a smaller mode is drawn into it, doubled, and centred. bit1 columns halved (320), bit2 lines halved (240), bit3 a 200-line field (40 blank lines top and bottom), bit4 columns quartered (160; with bit1).
+`$00`**`CTRL`** bit0 display enable; the rest pick the mode. Without bit5 the glass is 640x480 and the raster lines 0..479 – a smaller mode is drawn into it, doubled, and centred. bit5 (hd-modes branch, 2026-09-14): the HD family, drawn at its own size, the raster lines 0..h-1:
 
-    1     640x480      1|4    640x240
-    1|2   320x240      1|2|8  320x200
-    1|2|8|16  160x200  1|4|8  640x200
+    1|32        1440x1080    1|32|2|4     720x540
+
+1|32|2|4|16 360x270 (a 1080-line panel shows them 1x, 2x, 4x)
+
+bit1 columns halved (320), bit2 lines halved (240), bit3 a 200-line field (40 blank lines top and bottom), bit4 columns quartered (160; with bit1).
+
+`1`640x480 1|4 640x240
+
+`1|2`320x240 1|2|8 320x200
+
+`1|2|8|16`160x200 1|4|8 640x200
 
 `$01`**`BGCOL`** background palette index (where nothing is drawn)
 

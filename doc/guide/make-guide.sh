@@ -42,6 +42,11 @@ cd "$HERE"
 # The register appendix comes out of the machine's own headers every build.
 python3 "$HERE/mkregs.py"
 
+# ...the code page appendix out of core/codepage.h, the one table all the
+# machine's text runs through (it stops the build if the page and the book
+# disagree about how many places are not CP437's)...
+python3 "$HERE/mkcodepage.py"
+
 # ...the command list and the F7 menu's rows out of the ROM and the frontend,
 # which fails the build if a command has no description or a described one is
 # gone (the descriptions are in mkref.py)...

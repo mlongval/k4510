@@ -105,20 +105,20 @@ The keyboard is the one in front of you, and F7 → Input → *Keyboard layou
 
 ## The F7 menu
 
-F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and takes the whole screen, in the manner of the C64 Ultimate’s: the categories down the left, the settings of the chosen one on the right, and a line at the foot saying what the keys do in whichever pane holds the cursor. Sound stops, and closing the menu resumes exactly where it froze. The menu draws with its own font and never touches the machine’s memory, so it opens even when a program has wrecked the screen.
+F7 (unshifted; Shift+F7 still reaches BBC BASIC) freezes the machine and takes the whole screen, in the manner of the C64 Ultimate’s: the categories down the left, the settings of the chosen one on the right, and a line at the foot saying what the keys do in whichever pane holds the cursor. Sound stops, and closing the menu resumes exactly where it froze. The menu draws with its own copy of the font and never touches the machine’s memory, so it opens even when a program has wrecked the screen.
 
-Up and Down move; Enter or Right crosses from the categories to the settings; Left and Right step a value; Escape goes back a pane, and closes at the categories; F7 closes from anywhere. The mouse works too. A setting with a list of choices opens that list over the panes, and *applies as the cursor passes each one* — the screen font swaps under the menu so you can see it — with Escape putting back whatever was there when the list opened.
+Up and Down move; Enter or Right crosses from the categories to the settings; Left and Right step a value; Escape goes back a pane, and closes at the categories; F7 closes from anywhere. The mouse works too. A setting with a list of choices opens that list over the panes, and *applies as the cursor passes each one* — the scaling changes under the menu so you can see it — with Escape putting back whatever was there when the list opened.
 
 ![](img/menu.png)
 
-<p class="caption">The F7 menu: categories on the left, the Video page on the right, the screen-font list open over them.</p>
+<p class="caption">The F7 menu: categories on the left, the Video page on the right.</p>
 
 
 Video  
-the border; the screen font (a live swap of the character set — *kernel8*, *unscii*, *open-roms* and *PXLfont*, twelve of Damien Guard’s ZX Origins faces, and *C64 chargen* if you have put a converted Commodore character ROM in `/SYSTEM/ETC/chargen.bin`, which `/SYSTEM/ETC/README.TXT` explains); *resolution* and *left/top margin*, which are the `MODE` command’s two knobs; *scanlines*, a dark line between each of the machine’s, drawn exactly rather than overlaid; *scaling*: *sharp*, *soft*, or *sharp-fit* (hard pixels *and* a whole-number multiple, so every pixel is the same size on the glass); full screen; *vertical sync*, off to begin with — see the aside below; and *placement* and *side panel*, which are the section after next. The figures in this book are taken with the effects off.
+the border; *resolution*, which is the `MODE` command’s knob; *scaling*: *integer*, to begin with (a whole-number multiple, so every pixel is the same size on the glass, with a border where the window is not an exact multiple), or *fit to display* (as large as the window takes; the pixels may come out uneven) — both hard pixels, never blurred; full screen; *vertical sync*, off to begin with — see the aside below; and *placement* and *side panel*, which are the section after next. The figures in this book are taken with the effects off.
 
 Terminal  
-*status bands* and how many rows each takes ([The status bands](02-shell.md#the-status-bands)), and the clock and date format they print.
+*status bands*, on or off (a row at the top, a row at the bottom) ([The status bands](02-shell.md#the-status-bands)), and the clock and date format they print.
 
 Audio  
 volume.
@@ -177,20 +177,11 @@ The list below is generated from the menu’s own source, with the name each set
 **`Border colour`** — *video.border_colour*  
 0 to 15; to begin with, 6
 
-**`Screen font`** — *video.font*  
-kernel8, unscii, open-roms, PXLfont, C64 chargen, Bauhaus, Broadway, Computer, Cyberwire, NLQ, Benguiat, Chicago, Courier, Eurostile, OCR-A, Pristine, Anvil; to begin with, kernel8
-
 **`Resolution`** — *video.mode*  
-640x480; to begin with, 640x240
-
-**`Left/top margin`** — *video.margin*  
-on, off; to begin with, off
-
-**`Scanlines`** — *video.scanlines*  
-off, light, medium, heavy; to begin with, off
+640x480; to begin with, 360x270
 
 **`Scaling`** — *video.smoothing*  
-sharp, soft, sharp-fit; to begin with, sharp
+integer, fit to display; to begin with, integer
 
 **`Full screen`** — *video.fullscreen*  
 on, off; to begin with, off
@@ -204,16 +195,13 @@ centre, left, right; to begin with, centre
 **`Side panel`** — *video.panel*  
 off, registers; to begin with, off
 
+**`Sidebars`** — *video.sidebars*  
+border, gradient, knot, halloween, christmas, space, river, dreamfall, tetris, antfarm; to begin with, border
+
 ### Terminal
 
 **`Status bands`** — *term.bands*  
 on, off; to begin with, off
-
-**`Top band rows`** — *term.band.top*  
-0 to 10; to begin with, 1
-
-**`Bottom band rows`** — *term.band.bottom*  
-0 to 10; to begin with, 2
 
 **`24-hour clock`** — *term.clock24*  
 on, off; to begin with, on

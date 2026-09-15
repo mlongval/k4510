@@ -8796,3 +8796,18 @@ ROM's pointer is saved and given back on every way out. An older frontend
 with no CP437 font leaves TELNET on the machine's (it looks for an 'A').
 Checked: a raw TCP far end's $9E $9F $A9 $E0-$FF drawn as CP437, then the
 same line redrawn in the K4510 page once it hung up; ttypetest, nettest.
+
+## 2026-09-15 — Appendix D, the code page
+
+K4510 code page step 4 (the handbook part). doc/guide/mkcodepage.py makes
+Appendix D from core/codepage.h: the page as a 16x16 grid, the 26 places that
+are not CP437's in bold (compared with Python's cp437 codec, and the build
+stops if the count is not 26), and a table of them with their Unicode names;
+around it, the languages the page writes, the first 32 as pictures and as
+controls, the dead keys, and TELNET's strict font for a BBS. mkgem.py writes
+BOOK's pages in the K4510 page now, not CP437 -- œ, Œ, € and § are real on the
+machine -- with names for the 26 characters CP437 gave up (alpha, pi, >=);
+the grid stays out of BOOK, since $01-$1F are controls in a file. mkref would
+not build without descriptions for HEXED and FONTED; they have them. A 6 pt
+overflow in chapter 2's MODE table fixed. The web and BOOK pages had not been
+rebuilt since the one-font change (2026-09-14); they are now.

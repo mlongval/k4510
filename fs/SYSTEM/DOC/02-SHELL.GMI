@@ -239,8 +239,8 @@ they survive a reset but not a power cycle, which is what /STARTUP.BAT is for.
 
 Turn on status bands (F7, under Terminal) and the console stops being the
 whole screen: a band at the top and a band at the bottom stay still while the
-text scrolls between them. Each band's height is a setting, and either may be
-nothing.
+text scrolls between them. Each band is one row high: the bands are on or off,
+and that is the only setting.
 
 They are shared, and the split is worth knowing. The top band is yours -- the
 machine draws the clock and the date in it, in whichever formats the Terminal
@@ -455,14 +455,13 @@ whenever you like: frames a second and gaps in the sound at every clock of the
 menu's ladder, about 25 seconds, the report in /SYSTEM/LOG/BENCH-NN.TXT. A
 clock is right for a host when it holds 60 frames a second with no gaps.
 
-MODE on its own says where you are; MODE n moves. The second number is the
-margin: 1 (the default) keeps a one-cell gap at the top and the left, 0 uses
-every cell.
+MODE on its own says where you are; MODE n moves. The text always starts in
+the top-left cell: there is no margin.
 
 ```
 MODE  pixels   text
-0     640x480  80x60  the whole glass
-1     640x240  80x30  the machine starts here
+0     640x480  80x30  8x16 cells; the machine starts here
+1     640x240  80x30
 2     320x240  40x30
 ```
 

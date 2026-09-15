@@ -83,30 +83,14 @@ the MIT licence in 2025 -- between them, the machine's next native BASIC.
 Fonts are the part of a computer you look at longest, and clean ones with a
 clear pedigree are hard to come by.
 
+Ville-Matias Heikkil„ ("Viznut") -- unscii, placed in the public domain. It is
+the machine's one screen font: unscii-8 in the 240-line modes, unscii-16 at
+640x480, and both in the F7 menu and the side panel.
+
+=> https://viznut.fi/unscii/ unscii
+
 The Linux kernel contributors -- the 8x8 console font (font_8x8.c) that got
-the text mode on its feet and is still the default.
-
-Paul Gardner-Stephen and Roman Standzikowski (FeralChild64) -- the clean-room
-C64/C65 chargen from MEGA65 open-roms, and Retrofan, whose PXLfont travels
-with it by permission.
-
-=> https://github.com/MEGA65/open-roms MEGA65 open-roms
-
-Ville-Matias Heikkil„ ("Viznut") -- unscii, placed in the public domain.
-
-Damian Vila -- BESCII, the PETSCII spirit with a clean pedigree, CC0.
-
-=> https://codeberg.org/Dmian/font-bescii BESCII
-
-Damien Guard drew the ZX Origins fonts -- hundreds of 8x8 faces, refined over
-thirty-five years and given to anyone who wants them. A dozen of them are in
-the F7 font menu. They are free to use and not free to re-host, so this
-machine does what it does with Commodore's chargen: it names them and does not
-ship them. tools/mkzxfonts.py turns your own download into screen fonts;
-without it those menu entries fall back to the default face, and nothing else
-breaks.
-
-=> https://damieng.com/zx-origins ZX Origins
+the text mode on its feet, and the 8x16 VGA font the K4510x consoles wear.
 
 Kenney makes game art and puts it in the public domain, at a scale and a
 standard that has quietly furnished a decade of small games. The dungeon in

@@ -99,8 +99,8 @@ Clear the text screen.
 **`COLOR fg [bg]`** — *ROM, bank 1*  
 The text colours, as palette indices in hex. Also COLOUR.
 
-**`MODE [n [margin]]`** — *ROM, bank 1*  
-Alone, say the mode; 0 640x480, 1 640x240, 2 320x240. The margin: 1 keeps a one-cell gap, 0 uses every cell.
+**`MODE [n]`** — *ROM, bank 1*  
+Alone, say the mode; 0 640x480, 1 640x240, 2 320x240.
 
 **`PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]`** — *ROM, bank 2*  
 The 256 colours: list them, set one, load a .PAL from `/SYSTEM/ETC/PALETTES`, save them, or put the machine’s own back.
@@ -113,7 +113,7 @@ Write the machine’s whole state to dumps/ on the host. ON writes one every fif
 **`HUSH`** — *ROM, bank 1*  
 Silence the OPL2 and the sound sequencer.
 
-**`IDEA [text]`** — *ROM, bank 1*  
+**`IDEA [text]`** — *ROM*  
 A brainshot: the idea, and the machine as it was, to `/BRAINSHOTS`. Alone, it opens VI. \*IDEA from a BASIC.
 
 **`INFO [-v]`** — *ROM, bank 1*  
@@ -195,6 +195,12 @@ The trash: list it, put a file back, empty it, or send a file there.
 
 **`EDIT [name]`** — */SYSTEM/BIN*  
 The modeless editor (Chapter 11).
+
+**`FONTED [name.FNT] | -L name`** — */SYSTEM/BIN*  
+The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT.
+
+**`HEXED name | $address`** — */SYSTEM/BIN*  
+A hex editor: a file, loaded whole (8 MB at most), or memory by 28-bit address, changed live. Hex on the left, the code page on the right; go to, find, save, undo, the mouse.
 
 **`KEYTEST`** — */SYSTEM/BIN*  
 Asks for every key and checks what arrives.

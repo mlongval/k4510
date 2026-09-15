@@ -11,8 +11,9 @@ and nothing else is markup.
   LaTeX -> mkweb.prep() -> pandoc (Markdown) -> md2gemini -> fixes -> .GMI
 
 The fixes are what the machine needs and Gemini does not say:
-  * the machine's character set is the IBM PC's (CP437), so the pages are
-    written in it: typographic dashes and quotes become their typewriter
+  * the machine's character set is the K4510 code page (core/codepage.h:
+    CP437 with 26 places given to Western Europe's letters), so the pages
+    are written in it: typographic dashes and quotes become their typewriter
     forms, and a character it cannot draw stops the build;
   * paragraphs are wrapped at 78 columns, so TYPE shows them whole
     (Gemini leaves wrapping to the reader; a wrapped page is still valid);
@@ -45,9 +46,15 @@ WIDTH = 78
 TYPOGRAPHY = {"—": "--", "–": "-", "’": "'", "‘": "'", "“": '"', "”": '"', "…": "...",
               "×": "x", "→": "->", "←": "<-", " ": " ", " ": " ", " ": " ",
               "·": ".", "−": "-", "✓": "v", "★": "*", "©": "(c)",
-              # CP437 draws a section sign, but at $15 -- a control code to
-              # Python's codec and to JIM alike
-              "§": "section "}
+              # CP437's own characters the K4510 page gave to Western Europe's
+              # letters (Appendix D names them all): what a reader would call them
+              "₧": "Pts", "ƒ": "f", "⌐": "(not)", "α": "alpha", "Γ": "Gamma", "π": "pi",
+              "Σ": "Sigma", "σ": "sigma", "τ": "tau", "Φ": "Phi", "Θ": "Theta", "Ω": "Omega",
+              "δ": "delta", "∞": "infinity", "φ": "phi", "ε": "epsilon", "∩": "intersection",
+              "≡": "identical", "≥": ">=", "≤": "<=", "⌠": "(integral top)", "⌡": "(integral bottom)",
+              "≈": "~", "∙": ".", "√": "sqrt", "ⁿ": "^n",
+              # a letter the page has no room for and no plain letter under it
+              "ẞ": "SS"}
 
 
 # the book's \, and pandoc's other spaces (no-break, en, em, six-per-em,
@@ -142,19 +149,19 @@ def wrap(gem):
     return "\n".join(out)
 
 
+# The page as text: $20-$FF but $7F.  $01-$1F and $7F draw pictures, but in a
+# file they are controls ($0A ends a line), so they are no place for text.
+import mkcodepage
+PAGE = {chr(u): b for b, u in enumerate(mkcodepage.table()) if b >= 0x20 and b != 0x7F}
+
+
 def machine_char(c):
     """a character the machine cannot draw, as the nearest one it can: the
-    letter without its accent (the n of a Polish name), if CP437 has that"""
-    try:
-        c.encode("cp437")
+    letter without its accent (the n of a Polish name), if the page has that"""
+    if c in PAGE or c == "\n":
         return c
-    except UnicodeEncodeError:
-        base = "".join(ch for ch in unicodedata.normalize("NFKD", c) if not unicodedata.combining(ch))
-        try:
-            base.encode("cp437")
-            return base
-        except UnicodeEncodeError:
-            return None
+    base = "".join(ch for ch in unicodedata.normalize("NFKD", c) if not unicodedata.combining(ch))
+    return base if base and all(ch in PAGE for ch in base) else None
 
 
 def machine_text(s, where):
@@ -166,13 +173,19 @@ def machine_text(s, where):
         if m is None:
             die(f"{where}: {c!r} (U+{ord(c):04X}) is not in the machine's character set -- add it to TYPOGRAPHY")
         out.append(m)
-    return "".join(out).encode("cp437")
+    return bytes(10 if ch == "\n" else PAGE[ch] for ch in "".join(out))
 
 
 def convert(stem, table, prev, nxt):
     from md2gemini import md2gemini
     tex = mkweb.prep(stem, table, lambda page, anchor: gem_name(page), lambda name: "IMG/" + pic_name(name))
     tex = tex.replace("ASIDEMARK\n", "")
+    # Appendix D's grid shows the pictures $01-$1F draw, which a file can only hold
+    # as controls ($0A ends a line).  The printed book and the web have it; the
+    # machine is told where to look instead (FONTED and HEXED show the real thing).
+    tex = re.sub(r"% not on the machine\n.*?% end not on the machine\n",
+                 "(The page as a grid is in the printed book and on the web. On the machine,\n"
+                 "FONTED shows every character, and HEXED any byte.)\n\n", tex, flags=re.S)
     r = subprocess.run(["pandoc", "-f", "latex", "-t", "gfm-raw_html", "--wrap=none"],
                        input=mkweb.PREAMBLE + tex, capture_output=True, text=True)
     if r.returncode:

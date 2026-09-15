@@ -196,7 +196,7 @@ Whatever you type after the alias is added to the end, so a definition takes arg
 
 ## The status bands
 
-Turn on *status bands* (F7, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band’s height is a setting, and either may be nothing.
+Turn on *status bands* (F7, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band is one row high: the bands are on or off, and that is the only setting.
 
 They are shared, and the split is worth knowing. **The top band is yours** — the machine draws the clock and the date in it, in whichever formats the Terminal page is set to, and on a laptop the battery: its charge, with an arrow up while it charges and down while it does not. **The bottom band is the running program’s**, and a program that wants it writes there through JIM; `BANDS` in `/SYSTEM/BIN` is the demonstration.
 
@@ -315,7 +315,7 @@ The monitor is a program, `MONITOR`, and it loads at `$E000`, in the RAM under t
 
 `SETUP` measures the computer the machine is running on, with the sound and the picture really running, and keeps the fastest clock it holds without a gap — for that computer, so a later boot there pays nothing. `BENCH` measures it again whenever you like: frames a second and gaps in the sound at every clock of the menu’s ladder, about 25 seconds, the report in `/SYSTEM/LOG/BENCH-NN.TXT`. A clock is right for a host when it holds 60 frames a second with no gaps.
 
-`MODE` on its own says where you are; `MODE n` moves. The second number is the margin: 1 (the default) keeps a one-cell gap at the top and the left, 0 uses every cell.
+`MODE` on its own says where you are; `MODE n` moves. The text always starts in the top-left cell: there is no margin.
 
 <table>
 <tbody>
@@ -328,14 +328,14 @@ The monitor is a program, `MONITOR`, and it loads at `$E000`, in the RAM under t
 <tr class="even">
 <td style="text-align: left;">0</td>
 <td style="text-align: left;">640×480</td>
-<td style="text-align: left;">80×60</td>
-<td style="text-align: left;">the whole glass</td>
+<td style="text-align: left;">80×30</td>
+<td style="text-align: left;">8×16 cells; the machine starts here</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">1</td>
 <td style="text-align: left;">640×240</td>
 <td style="text-align: left;">80×30</td>
-<td style="text-align: left;">the machine starts here</td>
+<td style="text-align: left;"></td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">2</td>

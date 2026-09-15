@@ -315,6 +315,7 @@ static void picture(const char *file)
     static uint8_t h[16], buf[254];
     char path[NAMELEN];
     uint16_t w, ht, nc, i, cnt, n;
+    static uint8_t palsave[256 * 3];                         /* the colours the picture's palette overwrites */
     uint32_t o, end, dst;
     uint8_t ctrl, l0;
     strcpy(path, DOCDIR); strncat(path, file, NAMELEN - sizeof DOCDIR);
@@ -332,6 +333,12 @@ static void picture(const char *file)
     REG(VIC + 0x10) = 0;                                      /* the text layer off */
     REG(VIC + 0x20) = 0x19;                                   /* layer 1: on, bitmap, 8 bpp */
     o = PIC + 16;
+    if (nc > 256) nc = 256;
+    /* Keep the colours the picture is about to overwrite, and put them back
+     * after it: the ROM's VIDEO call does NOT reload the palette (so that
+     * PALETTE's choice survives), and BOOK's pages came back in the picture's
+     * colours (Doc, 2026-09-15, chapter 02's picture). */
+    for (i = 0; i < nc; i++) { REG(0xD006) = (uint8_t)i; palsave[i * 3] = REG(0xD007); palsave[i * 3 + 1] = REG(0xD008); palsave[i * 3 + 2] = REG(0xD009); }
     for (i = 0; i < nc; i++, o += 3) {
         dma_copy(o, (uint32_t)(uint16_t)buf, 3);
         REG(0xD006) = (uint8_t)i; REG(0xD007) = buf[0]; REG(0xD008) = buf[1]; REG(0xD009) = buf[2];
@@ -351,6 +358,7 @@ static void picture(const char *file)
     while (!rom_getin())
         ;
     REG(VIC + 0x20) = 0; REG(VIC + 0x10) = l0; REG(VIC) = ctrl;
+    for (i = 0; i < nc; i++) { REG(0xD006) = (uint8_t)i; REG(0xD007) = palsave[i * 3]; REG(0xD008) = palsave[i * 3 + 1]; REG(0xD009) = palsave[i * 3 + 2]; }   /* B commits */
     rom_video();
     REG(TERM + 4) = 2;                                        /* clear; the page is redrawn */
 }

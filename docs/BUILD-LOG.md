@@ -8647,3 +8647,9 @@ A sixth scene saver, an endless self-playing Tetris per sidebar. And
 "soft" back in the form Doc agreed to: on Fit, a picture that does not
 divide the screen is scaled with hard pixels to the whole multiple and
 smoothed only for the remainder; integer scales are untouched.
+
+## 2026-09-15 — BOOK and the picture palette
+
+Doc caught BOOK's text in the wrong colours after chapter 02's picture:
+the picture's palette stayed. BOOK saves the entries it overwrites and
+puts them back itself.

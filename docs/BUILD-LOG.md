@@ -8904,3 +8904,17 @@ time it runs, and by the emulator at every start (prune_brainshots), so it
 happens even when nobody asks for ideas. The copies in ~/k4510-remote/brainshots
 stay. Checked: a PROCESSED file dated three days back went at start, one from
 now stayed.
+
+## 2026-09-15 — the ants at the door, properly
+
+Doc's brainshot: "there are still at least one ant stuck on each of the
+outlets, bug or feature?" A bug, and mine: the doorstep fix of 022413b had
+its code inside a comment (a comment split over two lines), so all that ran
+was `continue` -- a backing-up ant that reached the door skipped every turn
+after, its count frozen. Now it turns round there and tries another branch
+(going out for a stroll instead kept most of the colony on the surface). And
+two more: an ant on the surface could walk off the edge (a random turn after
+the bounce), and at column -1 it matched "no second way in" (-1) as a door and
+went in, into nothing. The stroll stays between the edges, and the second way
+in counts only once dug. The AF_DEBUG trace now reports any ant 25 steps at a
+door: none, in a day-long run and a 10-minute day.

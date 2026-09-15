@@ -744,7 +744,7 @@ static void s_tetris(cv_t *c, uint32_t t, int side)
 #define AG_ROWS 280
 #define ANTS 16
 enum { AT_SOIL, AT_TUNNEL, AT_CHAMBER, AT_QUEEN, AT_STORE };
-typedef struct { int x, y, px, py, st, dir, pref, fails, stuck; } ant_t;   /* st 5: digging a second way in */   /* cell, previous cell, state, the way it likes to dig */
+typedef struct { int x, y, px, py, st, dir, pref, fails, stuck, attop; } ant_t;   /* st 5: digging a second way in */   /* cell, previous cell, state, the way it likes to dig */
 typedef struct {
     int w, h, g, cols, rows, surf, entry, nants, dug, soil, chambers, queen_x, queen_y, store_x, store_y, mound, refill, stepn, food, lastdig, markdug;
     int entry2, mound2;                                          /* the second way in, once the colony has grown (Doc, 2026-09-15) */
@@ -827,6 +827,11 @@ static void af_step(af_t *a, int light)
         ant_t *n = &a->ant[i]; n->px = n->x; n->py = n->y;
         static const int dx[4] = { 1, -1, 0, 0 }, dy[4] = { 0, 0, 1, -1 };
         if ((int)(arand(a) % 100) >= 12 + light * 88 / 256) continue;   /* busy by day, a little at night */
+#ifdef AF_DEBUG
+        if (n->st != 2 && n->y >= a->surf && a->dist[n->y][n->x] <= 1) n->attop++; else n->attop = 0;
+        if (n->attop == 25) fprintf(stderr, "  ant %d at the door 25 steps: st %d stuck %d fails %d at %d,%d dist %d nopen?\n",
+                                    i, n->st, n->stuck, n->fails, n->x, n->y - a->surf, a->dist[n->y][n->x]);
+#endif
         if (n->st == 0) {                                      /* out to the tips of the tunnels, and dig there */
             /* Only at a tip (a cell with one way out) -- or, now and then, a new
              * branch off a corridor -- and only into soil whose other three
@@ -860,10 +865,9 @@ static void af_step(af_t *a, int light)
                 }
                 if (tip && ++n->fails > 10) { n->fails = 0; n->stuck = 40; n->pref = (int)(arand(a) % 3); }   /* a dead end: back up, try another */
             }
-            if (n->stuck && a->dist[n->y][n->x] <= 1) {             /* backed up to the way out: go out for a while, instead of
-                n->stuck = 0; n->st = 2; n->y = a->surf;             * shaking on the doorstep between up and down (Doc) */
-                n->dir = (arand(a) & 1) ? 1 : -1; continue;
-            }
+            if (n->stuck && a->dist[n->y][n->x] <= 1) {             /* backed up as far as the door: turn round and try */
+                n->stuck = 0; n->pref = (int)(arand(a) % 3);         /* another branch, instead of shaking on the doorstep */
+            }                                                        /* between up and down (Doc, 2026-09-15) */
             /* walk: outward along the tunnels to a tip, a random branch at each
              * fork; back toward the surface while 'stuck'; now and then any way */
             int here = a->dist[n->y][n->x] == 0xFFFF ? 0 : a->dist[n->y][n->x], nc = 0, cxs[4], cys[4];
@@ -894,9 +898,10 @@ static void af_step(af_t *a, int light)
                 if (a->cell[a->surf][n->x] == AT_SOIL) { a->cell[a->surf][n->x] = AT_TUNNEL; a->dug++; }
                 continue;
             }
-            n->x += n->dir; if (n->x <= 1 || n->x >= a->cols - 2) n->dir = -n->dir;
+            n->x += n->dir;                                   /* kept between the edges: a random turn after the bounce */
+            if (n->x < 1) { n->x = 1; n->dir = 1; } else if (n->x > a->cols - 2) { n->x = a->cols - 2; n->dir = -1; }   /* walked some off */
             if (light >= 64 && (arand(a) % 40) == 0) n->dir = -n->dir;
-            if ((n->x == a->entry || n->x == a->entry2) && (light < 64 || (arand(a) % 3) == 0)) { n->y = a->surf; n->st = (a->store_x >= 0 && (arand(a) % 4) == 0) ? 4 : 0; }
+            if ((n->x == a->entry || (a->entry2 >= 0 && n->x == a->entry2)) && (light < 64 || (arand(a) % 3) == 0)) {   /* -1 is no second way in, not column -1 */ n->y = a->surf; n->st = (a->store_x >= 0 && (arand(a) % 4) == 0) ? 4 : 0; }
         } else if (n->st == 5) {                               /* the second way in: down three, then along to the first, till it meets a tunnel */
             int nx = n->x, ny = n->y;
             if (n->y - a->surf < 3) ny++; else nx += a->entry > n->x ? 1 : -1;

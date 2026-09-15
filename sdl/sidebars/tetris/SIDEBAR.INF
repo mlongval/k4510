@@ -1,0 +1,7 @@
+# TETRIS.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Tetris
+about   = The machine plays Tetris by itself.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin tetris

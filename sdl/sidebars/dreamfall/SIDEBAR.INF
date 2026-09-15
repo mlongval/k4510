@@ -1,0 +1,7 @@
+# DREAMFALL.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Dreamfall
+about   = A waterfall off a floating island at dusk.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin dreamfall

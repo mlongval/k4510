@@ -1,0 +1,7 @@
+# KNOT.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Knot
+about   = An endless knot down the middle of each side.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin knot

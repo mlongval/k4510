@@ -213,8 +213,8 @@ The old `video.sidebars` setting is read once, becomes `show =` in
 
 | # | what | you would see |
 |---|---|---|
-| 1 | zip mounting, read-only, with its tests | `MOUNT GAMES.ZIP /MNT/GAMES` |
-| 2 | the sidebar zip format; built-ins packed by `make` | `/SYSTEM/SIDEBARS/*.ZIP` |
+| 1 | zip mounting, read-only, with its tests -- **done** 2026-09-15 | `MOUNT GAMES.ZIP /MNT/GAMES` |
+| 2 | the sidebar zip format; built-ins packed by `make` -- **done** 2026-09-15 (`docs/SIDEBAR-FORMAT.md`) | `/SYSTEM/SIDEBARS/*.ZIP` |
 | 3 | the emulator reads the list from the zips; one file per sidebar | nothing -- the same pictures |
 | 4 | `sidebartest` in `make test` | |
 | 5 | `OPTIONS.CFG`, `SIDEBARS.CFG`, the ant farm's `STATE.DAT` | speed, day length; the colony survives a reboot |

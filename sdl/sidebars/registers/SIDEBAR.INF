@@ -1,0 +1,7 @@
+# REGISTERS.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Registers
+about   = The processor's registers, live.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin registers

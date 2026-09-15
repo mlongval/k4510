@@ -1,0 +1,7 @@
+# CHRISTMAS.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Christmas
+about   = Snow falling on a Christmas tree.
+author  = K4510
+version = 1
+season  = 12
+draw    = builtin christmas

@@ -40,8 +40,22 @@ APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.
 C_EX_PRGS = $(foreach n,$(C_EX_NAMES),fs/LANG/C/$n.prg)
 DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg
 
+# The sidebars, as zips in /SYSTEM/SIDEBARS (docs/SIDEBAR-FORMAT.md): each
+# packed from sdl/sidebars/NAME/ by tools/mksidebar.py, the same bytes every
+# time, and tracked like the programs.
+SIDEBAR_NAMES = border gradient knot registers halloween christmas space river dreamfall tetris antfarm
+SIDEBAR_ZIPS = $(foreach n,$(SIDEBAR_NAMES),fs/SYSTEM/SIDEBARS/$(call uc,$n).ZIP)
+define sidebar_rule
+fs/SYSTEM/SIDEBARS/$(call uc,$1).ZIP: $$(wildcard sdl/sidebars/$1/*) tools/mksidebar.py
+	@mkdir -p fs/SYSTEM/SIDEBARS
+	python3 tools/mksidebar.py sdl/sidebars/$1 $$@
+endef
+$(foreach n,$(SIDEBAR_NAMES),$(eval $(call sidebar_rule,$n)))
+sidebars: $(SIDEBAR_ZIPS)
+.PHONY: sidebars
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -100,6 +114,8 @@ core/vicky.o: core/vicky.c core/vicky.h core/mem.h
 core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/opl2.h core/audio.h core/net.h core/term.h
 core/net.o: core/net.c core/net.h core/net_plat.h core/mem.h
 core/net_posix.o: core/net_posix.c core/net_plat.h
+core/zip.o: core/zip.c core/zip.h core/net.h
+core/io.o: core/zip.h
 core/term.o: core/term.c core/term.h core/mem.h core/io.h
 core/state.o: core/state.c core/state.h core/mem.h
 core/mem.o: core/state.h
@@ -153,10 +169,10 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 .PHONY: check-artifacts
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
-check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg rom/kernal.bin
-	@git diff --quiet -- fs/SYSTEM/BIN fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
+check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg rom/kernal.bin $(SIDEBAR_ZIPS)
+	@git diff --quiet -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
-	  git diff --name-only -- fs/SYSTEM/BIN fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
+	  git diff --name-only -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
 	  echo "Rebuild them and commit, or the next machine to build will look dirty."; \
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
@@ -173,6 +189,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/seqtest
 	./test/fstest
 	sh ./test/ziptest.sh
+	python3 tools/mksidebar.py --check fs/SYSTEM/SIDEBARS/*.ZIP
 	./test/termtest
 	./test/uitest
 	./test/statetest

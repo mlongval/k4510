@@ -1,0 +1,7 @@
+# GRADIENT.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Gradient
+about   = The border colour, fading down the side.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin gradient

@@ -8940,3 +8940,19 @@ refused). test/ziptest.sh makes its zips with Python's zipfile and Info-ZIP
 (folders as entries, a streamed zip with a data descriptor, an empty one, a
 comment the end record hides behind) and bad ones patched by hand; all pass.
 test/remote/zip.k4r does the same on the Dell.
+
+## 2026-09-15 — the sidebars as zips
+
+Step 2 of docs/SIDEBARS-PLAN.md. Eleven sidebars -- the ten there were and
+the register panel, now one of them (Doc) -- each a zip in
+/SYSTEM/SIDEBARS: SIDEBAR.INF (name, about, author, version, season, and
+`draw = builtin NAME`) and OPTIONS.CFG (the defaults, commented; speed in
+it, as Doc asked, not in F12). docs/SIDEBAR-FORMAT.md is the format.
+Sources in sdl/sidebars/NAME/, packed by tools/mksidebar.py: entries sorted,
+stored not deflated, dated 1980 -- the same bytes on any machine, so the
+zips are tracked like the programs and check-artifacts guards them. `make
+test` checks every zip (`mksidebar.py --check`): the INF's names and values,
+the builtin named, `scene` and `program` refused until they are drawn, no
+climbing entry names. Names allow 16 characters, not 8: REGISTERS is nine,
+and this machine has no 8.3 (BRAINSHOTS). Nothing draws from the zips yet:
+that is step 3.

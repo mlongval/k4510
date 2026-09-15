@@ -1,0 +1,7 @@
+# HALLOWEEN.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Halloween
+about   = A moonlit night of pumpkins, bats and ghosts.
+author  = K4510
+version = 1
+season  = 10
+draw    = builtin halloween

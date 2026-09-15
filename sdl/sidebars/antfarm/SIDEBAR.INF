@@ -1,0 +1,7 @@
+# ANTFARM.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Ant farm
+about   = A colony digs through the day and the night.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin antfarm

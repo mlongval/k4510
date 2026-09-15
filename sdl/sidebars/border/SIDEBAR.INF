@@ -1,0 +1,7 @@
+# BORDER.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Border
+about   = The border colour, and nothing else.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin border

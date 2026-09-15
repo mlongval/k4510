@@ -1,0 +1,7 @@
+# SPACE.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Space
+about   = Stars, planets and passing ships.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin space

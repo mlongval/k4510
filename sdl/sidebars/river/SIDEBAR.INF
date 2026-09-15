@@ -1,0 +1,7 @@
+# RIVER.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = River
+about   = A river winding down through the country.
+author  = K4510
+version = 1
+season  = 
+draw    = builtin river

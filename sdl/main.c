@@ -24,6 +24,7 @@
 #include "../core/sndq.h"
 #include "../core/host.h"
 #include "panel.h"
+#include "savers.h"                  /* the sidebar-savers that paint whole scenes */
 #include "../core/ui/settings.h"
 #include "../core/hostid.h"
 #include "../core/ui/menu.h"
@@ -1875,6 +1876,41 @@ tex_done:
                       if (e - a < tw + 8) continue;
                       int x = a + (e - a - tw) / 2;
                       for (int y = start; y < oh2; y += th) { SDL_Rect d = { x, y, tw, th }; SDL_RenderCopy(ren, ktex, NULL, &d); }
+                  }
+                  if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+              }
+          }
+          /* the scene savers (sdl/savers.c): each sidebar, the window's full
+           * height, painted in machine pixels every frame and scaled to the
+           * picture's pixel size; not on the side panel's side */
+          if (sbar >= SIDEBAR_HALLOWEEN && sbar < SIDEBAR_COUNT) {
+              static SDL_Texture *stex[2]; static int stw[2], sth[2];
+              int ow2 = 0, oh2 = 0, sx0, sy0, sx1, sy1;
+              SDL_GetRendererOutputSize(ren, &ow2, &oh2);
+              if (custom) { sx0 = pic_x; sx1 = pic_x + pic_w; sy0 = pic_y; sy1 = pic_y + pic_h; }
+              else { SDL_RenderLogicalToWindow(ren, 0.0f, 0.0f, &sx0, &sy0); SDL_RenderLogicalToWindow(ren, (float) lw, (float) canvas_h, &sx1, &sy1); }
+              double ms = (double)(sy1 - sy0) / (gh > 0 ? gh : 480);   /* device pixels a machine pixel */
+              if (ms > 0.1 && ow2 > 0 && oh2 > 0) {
+                  if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                  for (int side = 0; side < 2; side++) {
+                      int a = side ? sx1 : 0, e = side ? ow2 : sx0;
+                      if (panel_kind != PANEL_OFF && custom && ((place == PLACE_LEFT) == (side == 1))) continue;   /* the panel's side */
+                      int mw = (int)((e - a) / ms), mh = (int)(oh2 / ms) + 1;
+                      if (mw < 8 || mh < 8) continue;
+                      if (!stex[side] || stw[side] != mw || sth[side] != mh) {
+                          if (stex[side]) SDL_DestroyTexture(stex[side]);
+                          stex[side] = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, mw, mh);
+                          if (stex[side]) SDL_SetTextureScaleMode(stex[side], SDL_ScaleModeNearest);
+                          stw[side] = mw; sth[side] = mh;
+                      }
+                      void *sp; int spitch;
+                      if (stex[side] && SDL_LockTexture(stex[side], NULL, &sp, &spitch) == 0) {
+                          saver_draw(sbar - SIDEBAR_HALLOWEEN, (uint32_t *) sp, spitch / 4, mw, mh, SDL_GetTicks(), side);
+                          SDL_UnlockTexture(stex[side]);
+                          int dw = (int)(mw * ms + 0.5), dh = (int)(mh * ms + 0.5);
+                          SDL_Rect d = { side ? a : e - dw, (oh2 - dh) / 2, dw, dh };   /* against the picture's edge */
+                          SDL_RenderCopy(ren, stex[side], NULL, &d);
+                      }
                   }
                   if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
               }

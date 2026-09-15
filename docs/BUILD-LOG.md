@@ -8631,3 +8631,12 @@ Doc caught SPLIT's picture grey with dark lines on the Dell. Making BGCOL
 the bands' grey (for the HD spare lines) also greyed every transparent
 bitmap -- SPLIT's is mostly transparent. BGCOL is the console's colour
 again; VICKY paints the spare lines from the nearest text row instead.
+
+## 2026-09-14 (night) — five more sidebar-savers
+
+Doc asked, going to bed, for Halloween, Christmas, space, a Frogger
+river and one of my own. sdl/savers.c paints each sidebar as a scene
+every frame, in machine pixels; the frog rides platforms down and leaps
+up the river to stay between 36% and 63% of the height (tracked for five
+minutes at three sidebar sizes). Mine is dreamfall: a floating island
+whose waterfall pours the whole height of the sidebar.

@@ -8741,3 +8741,16 @@ Saved as text, a line a cell (A1:V:+B2*3). Two things found on the way: an
 redrawing and recalculating everything on every key could not keep up with
 typing -- a near table of the cells' kinds now lets both skip the empty
 cells. Checked headless: a sheet of formulas, and a 487-byte save reopened.
+
+## 2026-09-15 — SNAKE and BREAKOUT
+
+Doc's list, "more games". SNAKE (/APPS/SNAKE/snake.prg): MODE 7 with the
+bands taken, apples to grow on, a level every fifth apple with bars and posts
+growing out of the walls, a gold star now and then, two queued turns so a
+quick corner is not lost, the best five saved. BREAKOUT
+(/APPS/BREAKOUT/breakout.prg): on PAINT's 640x480 bitmap, eight rows in the
+old colours worth 1-7, the mouse or the arrows for the paddle, the angle
+from where the ball meets it, faster after 4 and 12 hits and at the orange
+and red rows, five balls, a new wall when one is cleared, the best five
+saved. Both have OPL2 sounds. Checked headless: a snake turning and eating,
+a wall with a brick gone and a ball waiting on the paddle.

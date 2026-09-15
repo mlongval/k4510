@@ -145,3 +145,5 @@ test/bench
 # fs/BRAINSHOTS.  Personal, like shots/ and dumps/: never into a public repo.
 /fs/BRAINSHOTS/
 fs/APPS/TETRIS/HISCORE.DAT
+fs/APPS/SNAKE/HISCORE.DAT
+fs/APPS/BREAKOUT/HISCORE.DAT

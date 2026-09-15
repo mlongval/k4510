@@ -137,8 +137,13 @@ their zips.
 - **The built-in table** in the emulator only maps `builtin antfarm` to its
   function. What exists, what it is called, and whether it is shown come from
   the zips.
-- **Rules every sidebar keeps**: one frame in under 2 ms at the largest size
-  the Dell draws, its simulation on its own clock (the ant farm's 90 ms);
+- **Rules every sidebar keeps**: one frame in under 5 ms a side at the widest a
+  sidebar gets -- 240x1080 machine pixels, the HD mode on a 1080-line screen;
+  every other mode is smaller (measured by test/sidebartest 2026-09-15 on
+  ubuntu-s1: the ant farm 3.6 ms, Tetris 2.0, space 1.5, the rest under 1.2;
+  the plan's first "2 ms at 480x1080" was a size that never happens) -- its
+  simulation on its own
+  clock (the ant farm's 90 ms);
   the same picture for the same state and clock; any width, down to a few
   pixels; it reads nothing of the guest's. Debug traces under one switch,
   `K4510_SIDEBAR_DEBUG=antfarm` (the ant farm's `AF_DEBUG` becomes this).
@@ -216,7 +221,7 @@ The old `video.sidebars` setting is read once, becomes `show =` in
 | 1 | zip mounting, read-only, with its tests -- **done** 2026-09-15 | `MOUNT GAMES.ZIP /MNT/GAMES` |
 | 2 | the sidebar zip format; built-ins packed by `make` -- **done** 2026-09-15 (`docs/SIDEBAR-FORMAT.md`) | `/SYSTEM/SIDEBARS/*.ZIP` |
 | 3 | the emulator reads the list from the zips; one file per sidebar -- **done** 2026-09-15 (the gradient and knot stay in `main.c`: they are textures SDL scales, not canvases) | nothing -- the same pictures |
-| 4 | `sidebartest` in `make test` | |
+| 4 | `sidebartest` in `make test` -- **done** 2026-09-15 (previews into the zips wait for a picture format: step 8) | |
 | 5 | `OPTIONS.CFG`, `SIDEBARS.CFG`, the ant farm's `STATE.DAT` | speed, day length; the colony survives a reboot |
 | 6 | F12: Sidebar and Edit options | |
 | 7 | scene sidebars | your own, from PAINT |

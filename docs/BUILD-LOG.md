@@ -8980,3 +8980,21 @@ frames -- before and after, byte for byte identical. test/sidebartest (in
 make test): the list from the zips, the setting by name and round the
 list, an unknown name, the panel's move, every scene painting its whole
 canvas.
+
+## 2026-09-15 — the sidebar test, and the farm too small to be one
+
+Step 4: test/sidebartest grew what the plan asked. Every scene changes over
+a simulated minute (none frozen); every scene at every size from 1x1 to
+240x1080 draws only inside its canvas (guard rows and columns around it);
+the budget, measured; and a contact sheet, test/out/sidebars.ppm.
+
+The sizes found a crash: the ant farm divided by cols / 3, and a canvas under
+27 machine pixels wide has none -- main.c draws sidebars from 8 pixels up,
+so a narrow enough window would have taken the emulator down. A farm too
+small to be one is now earth under a sky. The 252 reference frames are still
+byte for byte the same.
+
+The budget in the plan was a size that never happens (2 ms at 480x1080): a
+sidebar is drawn in machine pixels, and the widest there is is 240x1080, the
+HD mode on a 1080-line screen. There, per side: the ant farm 3.6 ms, Tetris
+2.0, space 1.5, the rest under 1.2. The test fails above 5.

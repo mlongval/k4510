@@ -209,7 +209,16 @@ void s_antfarm(cv_t *c, uint32_t t, int side)
         a->rows = h / a->g; if (a->rows > AG_ROWS) a->rows = AG_ROWS;
         a->surf = a->rows / 10; a->soil = (a->rows - a->surf) * a->cols;
         a->nants = clampi(6 + w / 20, 6, ANTS); a->rng = 0xA27Fu + (uint32_t) side * 7717u; a->last = t;
-        af_start(a);
+        if (a->cols >= 9 && a->rows >= 12) af_start(a);
+    }
+    /* Too small for a farm -- a sidebar a few pixels wide, which main.c does
+     * draw from 8 up: earth under a sky, no colony.  af_start divided by
+     * cols / 3, zero there (test/sidebartest found it, 2026-09-15). */
+    if (a->cols < 9 || a->rows < 12) {
+        int sy0 = h / 10;
+        vgrad(c, 0, sy0, RGB(120, 180, 240), RGB(200, 230, 250));
+        rect(c, 0, sy0, w, h - sy0, RGB(110, 72, 40));
+        return;
     }
     double dayf = af_dayfrac(t); int light = af_light(dayf);
     if (t - a->last > 2000) a->last = t;

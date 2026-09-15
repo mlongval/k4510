@@ -151,3 +151,4 @@ fs/APPS/BREAKOUT/HISCORE.DAT
 fs/APPS/ROCKFALL/HISCORE.DAT
 test/ziptest
 test/sidebartest
+test/out/

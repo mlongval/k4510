@@ -119,6 +119,45 @@ static int sb_rgb_hue(uint32_t c, int *sat, int *val)
     if (mx == r) h = (g - b) * 256 / d; else if (mx == g) h = 512 + (b - r) * 256 / d; else h = 1024 + (r - g) * 256 / d;
     return h < 0 ? h + 1536 : h;
 }
+/* The second: a rope of three strands twisting down the middle of each
+ * sidebar -- Doc: "some type of celtic knot/rope that is an eternal braid
+ * that cycles top to bottom".  One full twist is a tile KNOT_W x KNOT_H
+ * machine pixels, drawn when the border colour changes and repeated down the
+ * sidebar, rolling a machine pixel every 80 ms.  Each strand is shaded by how
+ * near it is, the nearest drawn last, with a dark edge; a grey or black
+ * border gives a gold rope.  Integer sine (Bhaskara's approximation): no libm. */
+#define KNOT_W 24
+#define KNOT_H 48
+static int sin1536(int a)                             /* 256 sin(a), a in 1536ths of a turn */
+{
+    a %= 1536; if (a < 0) a += 1536;
+    int neg = a >= 768; if (neg) a -= 768;
+    long long p = (long long) a * (768 - a);
+    int r = (int)(4096LL * p / (5LL * 768 * 768 - 4 * p));
+    return neg ? -r : r;
+}
+static void knot_build(uint32_t *px, int pitch, uint32_t base)
+{
+    int s, v, h = sb_rgb_hue(base, &s, &v);
+    if (s < 60) { h = 170; s = 200; } else if (s < 140) s = 140;
+    for (int y = 0; y < KNOT_H; y++) for (int x = 0; x < KNOT_W; x++) px[y * pitch + x] = 0;   /* transparent */
+    for (int y = 0; y < KNOT_H; y++) {
+        int cx[3], dep[3], ord[3] = { 0, 1, 2 };
+        for (int k = 0; k < 3; k++) {
+            int a = y * 1536 / KNOT_H + k * 512;          /* the strand's angle round the rope */
+            cx[k] = KNOT_W / 2 + sin1536(a) * 7 / 256;   /* across */
+            dep[k] = sin1536(a + 384);                    /* nearness, -256..256 */
+        }
+        for (int i = 0; i < 2; i++) for (int j = 0; j < 2 - i; j++)
+            if (dep[ord[j]] > dep[ord[j + 1]]) { int q = ord[j]; ord[j] = ord[j + 1]; ord[j + 1] = q; }   /* far first */
+        for (int i = 0; i < 3; i++) {
+            int k = ord[i], val = 150 + dep[k] * 90 / 256;
+            uint32_t fill = sb_hue_rgb(h, s, val), edge = sb_hue_rgb(h, s, val / 3);
+            for (int x = cx[k] - 4; x <= cx[k] + 4; x++)
+                if (x >= 0 && x < KNOT_W) px[y * pitch + x] = (x == cx[k] - 4 || x == cx[k] + 4) ? edge : fill;
+        }
+    }
+}
 static volatile sig_atomic_t screen_req;
 static void screen_signal(int sig) { (void) sig; screen_req = 1; }
 static void screen_save(void)
@@ -1762,6 +1801,14 @@ tex_done:
                   SDL_UnlockTexture(btex);
               }
           }
+          static SDL_Texture *ktex; static int kt_col = -1;       /* the knot's tile (sidebar-savers) */
+          if (sbar == SIDEBAR_KNOT && (!ktex || kt_col != bcol)) {
+              if (!ktex && (ktex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, KNOT_W, KNOT_H)) != NULL) {
+                  SDL_SetTextureScaleMode(ktex, SDL_ScaleModeNearest); SDL_SetTextureBlendMode(ktex, SDL_BLENDMODE_BLEND);
+              }
+              void *kp; int kpitch;
+              if (ktex && SDL_LockTexture(ktex, NULL, &kp, &kpitch) == 0) { knot_build((uint32_t *) kp, kpitch / 4, border_lit); SDL_UnlockTexture(ktex); kt_col = bcol; }
+          }
           /* RenderClear is now only the floor under everything: the border
            * colour flat, in case a rounding edge shows through. */
           SDL_SetRenderDrawColor(ren, (bc >> 16) & 255, (bc >> 8) & 255, bc & 255, 255);
@@ -1809,6 +1856,28 @@ tex_done:
                       if (!custom) SDL_RenderSetLogicalSize(ren, lw, lh);
                   } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
               } else SDL_RenderCopy(ren, btex, &bsrc, NULL);
+          }
+          /* the knot: down the middle of each sidebar wide enough for it, at the
+           * picture's pixel size, rolling downward; not on the side panel's side */
+          if (sbar == SIDEBAR_KNOT && ktex) {
+              int ow2 = 0, oh2 = 0, kx0, ky0, kx1, ky1;
+              SDL_GetRendererOutputSize(ren, &ow2, &oh2);
+              if (custom) { kx0 = pic_x; kx1 = pic_x + pic_w; ky0 = pic_y; ky1 = pic_y + pic_h; }
+              else { SDL_RenderLogicalToWindow(ren, 0.0f, 0.0f, &kx0, &ky0); SDL_RenderLogicalToWindow(ren, (float) lw, (float) canvas_h, &kx1, &ky1); }
+              double ms = (double)(ky1 - ky0) / (gh > 0 ? gh : 480);   /* device pixels a machine pixel */
+              int tw = (int)(KNOT_W * ms), th = (int)(KNOT_H * ms);
+              if (tw > 0 && th > 0 && ow2 > 0) {
+                  int oy = (int)((int)(SDL_GetTicks() / 80 % KNOT_H) * ms), start = (ky0 + oy) % th - th;
+                  if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                  for (int side = 0; side < 2; side++) {
+                      int a = side ? kx1 : 0, e = side ? ow2 : kx0;
+                      if (panel_kind != PANEL_OFF && custom && ((place == PLACE_LEFT) == (side == 1))) continue;   /* the panel's side */
+                      if (e - a < tw + 8) continue;
+                      int x = a + (e - a - tw) / 2;
+                      for (int y = start; y < oh2; y += th) { SDL_Rect d = { x, y, tw, th }; SDL_RenderCopy(ren, ktex, NULL, &d); }
+                  }
+                  if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+              }
           }
           SDL_RenderCopy(ren, tex, &gsrc, &dr);
           /* the side panel: the device pixels beside the picture, at the picture's rows */

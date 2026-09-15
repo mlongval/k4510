@@ -108,7 +108,7 @@ enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
 enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
 /* the sidebar-savers (Doc's brainshot, 2026-09-14), in the ENUM's order */
-enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_COUNT };
+enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_KNOT, SIDEBAR_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };
 /* the menu keys, in the ENUM's order */

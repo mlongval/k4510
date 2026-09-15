@@ -8600,3 +8600,10 @@ the wheel down the screen, four machine rows a band, rolling once in 24 s,
 darker than the border. The knot comes next. The screenshot tools cannot
 see it (they grab the machine's picture, not the window), so it is checked
 by eye on the Dell.
+
+## 2026-09-14 — sidebar-savers: the knot
+
+The second: a three-strand rope, one twist a 24x48 tile, each strand
+shaded by nearness with a dark edge, gold on a grey or black border,
+rolling down the middle of each sidebar over the border colour. Doc on
+the gradient, running on the Dell: "very nice".

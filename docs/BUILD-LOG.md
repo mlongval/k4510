@@ -8860,3 +8860,22 @@ its digits, so they had kept the boot's colours. Bank 2 was full: PALETTE
 LOAD's message moved into the new routine, its words resident. Checked:
 palettetest (refusal, !, a dim .PAL), romtest, the bars' pixels under amber
 (black on 204,140,0) and under the VIC-II palette (white on grey, as before).
+
+## 2026-09-15 — the ant farm keeps the day
+
+Doc's brainshots: "sun cross sky and ant activity track daylight", "some minor
+activity during the night", "where is the queen? and why don't the ants make a
+second way in?", "some ants get stuck at the exit and just shake there". The
+saver follows the host's local time (K4510_SAVER_DAY=seconds makes a test day
+that long): the sun crosses from left at 6:00 to right at 18:00, warm at dawn
+and dusk; by night a dark sky, stars, the moon the same way, and the glass
+dimmed. An ant moves every step by day and about one in eight by night, and
+the ones outside go home at dusk; the stall guard no longer counts the night,
+which had been refilling every colony at bedtime. The queen's chamber opens as
+soon as a tunnel is a sixth of the way down (it was by chance, deep, and often
+never), and she is lit. Once the colony has grown, an ant outside digs a second
+way in, down three and along to the first, with its own mound. The shaking was
+an ant backing up from a dead end: back up at the doorstep it could go no
+higher, stepped down and up again till its count ran out; now it goes out for
+a stroll. Checked with the AF_DEBUG trace over a day and a half and a sheet of
+day 2's hours.

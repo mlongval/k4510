@@ -25,6 +25,7 @@
 #include "../core/host.h"
 #include "panel.h"
 #include "savers.h"                  /* the sidebar-savers that paint whole scenes */
+#include "sidebars.h"                /* the sidebars there are: the zips in /SYSTEM/SIDEBARS */
 #include "../core/ui/settings.h"
 #include "../core/hostid.h"
 #include "../core/ui/menu.h"
@@ -931,6 +932,7 @@ int k4510_frontend_main(int argc, char **argv)
         return 1;
     }
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
+    sidebars_scan(argc > 2 ? argv[2] : "fs");             /* the Sidebars choices, before a saved one is looked up */
     settings_load(cfg);
     /* The F12 menu file, beside k4510.cfg and outside the machine's own disk, so
      * nobody at the machine can edit it: which rows show, and the locks.
@@ -1718,7 +1720,11 @@ tex_done:
            * renderer drew nothing right of the picture on a widened canvas
            * above 1x, and a mapping that cannot be trusted is not worth
            * arguing with. */
-          int place = settings_get(SET_VIDEO_PLACE), panel_kind = settings_get(SET_VIDEO_PANEL);
+          /* what the sidebar setting draws (core/sidebars.c); the register panel is
+           * one of the choices since 2026-09-15 (Doc: "Register becomes a choice in
+           * the Sidebar") and everything below still asks panel_kind */
+          int sbar = sidebars_builtin(settings_get(SET_VIDEO_SIDEBARS));
+          int place = settings_get(SET_VIDEO_PLACE), panel_kind = sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;
           if (panel_kind != PANEL_OFF && place == PLACE_CENTRE) place = PLACE_LEFT;
           /* for the host shell's children: tek40xx places its page the same
            * way (Doc, 2026-09-09: "the tek programs should respect the
@@ -1802,7 +1808,6 @@ tex_done:
                           SDL_WarpMouseInWindow(win, wr.x + wr.w / 2, wr.y + wr.h / 2); }
               } } }
           int bcol = settings_get(SET_VIDEO_BORDER_COLOUR);
-          int sbar = settings_get(SET_VIDEO_SIDEBARS);
           if (!btex) {
               btex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1, VICKY_HEIGHT);
               if (btex) SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);   /* the picture's filter: hard pixels */

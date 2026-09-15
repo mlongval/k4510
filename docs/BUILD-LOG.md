@@ -8956,3 +8956,27 @@ the builtin named, `scene` and `program` refused until they are drawn, no
 climbing entry names. Names allow 16 characters, not 8: REGISTERS is nine,
 and this machine has no 8.3 (BRAINSHOTS). Nothing draws from the zips yet:
 that is step 3.
+
+## 2026-09-15 — the list is the zips; one scene a file
+
+Step 3. core/sidebars.c reads /SYSTEM/SIDEBARS at start, before k4510.cfg:
+each zip's SIDEBAR.INF gives its name, line, season and `draw = builtin
+NAME`, and the Sidebars setting's choices become the zips found, saved by
+name (settings_set_labels -- the one ENUM filled at run time). Nothing else
+lists sidebars now: the three hand-kept lists (SIDEBAR_*, sidebar_names,
+SAVER_*) are down to the emulator's own drawings, which only a zip names.
+No zips, the built-in names stand.
+
+The register panel is a sidebar (Doc: "Register becomes a choice in the
+Sidebar"): SIDEBAR_REGISTERS, before the scenes so their numbers stay; the
+panel shows when it is chosen, and Video -> Side panel is gone. An old
+config's video.panel = registers loads as video.sidebars = registers.
+
+sdl/savers.c, 1024 lines, is now the picker (37); each scene is its own
+file in sdl/sidebars/, the toolbox in canvas.h and the sine table, the one
+thing shared, in canvas.c. Split by a script, checked the way the plan
+said: every scene at three sizes, both sides, six frames each -- 252
+frames -- before and after, byte for byte identical. test/sidebartest (in
+make test): the list from the zips, the setting by name and round the
+list, an unknown name, the panel's move, every scene painting its whole
+canvas.

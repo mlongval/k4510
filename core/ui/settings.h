@@ -24,8 +24,10 @@ typedef enum {
                               * OFF is the machine's own 60 Hz (see sdl/main.c); ON hands the pacing to the
                               * display, which costs frames on a host whose refresh is not 60. */
     SET_VIDEO_PLACE,         /* ENUM where the picture sits on a screen wider than 4:3: centre, left, right */
-    SET_VIDEO_PANEL,         /* ENUM the side panel in the space that leaves: off, or the registers (sdl/panel.c) */
-    SET_VIDEO_SIDEBARS,      /* ENUM what fills the space beside the picture when nothing else does: the border, or a gradient */
+    SET_VIDEO_PANEL,         /* ENUM the side panel -- since 2026-09-15 only read, to move an old config's
+                              * registers to the Sidebars setting, where the register panel is now a choice */
+    SET_VIDEO_SIDEBARS,      /* ENUM what fills the space beside the picture: its choices are the zips in
+                              * /SYSTEM/SIDEBARS (core/sidebars.c), saved by name */
     SET_AUDIO_VOLUME,        /* INT  0-100 */
     SET_INPUT_RESET_CHORD,   /* CHORD */
     SET_INPUT_MENU_KEY,      /* ENUM which F-key opens the menu */
@@ -109,8 +111,11 @@ extern const unsigned char vmode_number[VMODE_COUNT];
 enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
 enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
-/* the sidebar-savers (Doc's brainshot, 2026-09-14), in the ENUM's order */
+/* the sidebars the emulator draws itself (Doc's brainshot, 2026-09-14): what
+ * a zip in /SYSTEM/SIDEBARS names with draw = builtin NAME (core/sidebars.c).
+ * The setting's choices are the zips; with none, these, in this order. */
 enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_KNOT,
+       SIDEBAR_REGISTERS,   /* the side panel, a sidebar since 2026-09-15 (Doc); before the scenes, so their numbers stay */
        SIDEBAR_HALLOWEEN, SIDEBAR_CHRISTMAS, SIDEBAR_SPACE, SIDEBAR_RIVER, SIDEBAR_DREAMFALL, SIDEBAR_TETRIS, SIDEBAR_ANTFARM,   /* sdl/savers.c, in SAVER_* order */
        SIDEBAR_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
@@ -125,6 +130,9 @@ int         settings_get(set_id id);
 void        settings_set(set_id id, int v);       /* clamped / wrapped to the descriptor */
 void        settings_step(set_id id, int dir);    /* +1 / -1: the next value (ENUMs wrap, INTs stop) */
 const char *settings_text(set_id id, char *buf, int max);   /* the value as the menu prints it */
+/* An ENUM whose choices are only known at run time (the sidebars: whatever
+ * zips there are).  Before settings_load, so a saved name is found. */
+void        settings_set_labels(set_id id, const char *const *labels, int n, int def);
 /* The key this id names.  desc[] is indexed by set_id, so the enum's order
  * and the table's order must agree, and NOTHING in the compiler checks that:
  * SET_AUDIO_CORE3 was added to the enum above SET_AUDIO_CHIP and below it in

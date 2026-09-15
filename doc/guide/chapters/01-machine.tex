@@ -303,13 +303,14 @@ each setting has in \texttt{k4510.cfg}, its choices and where it starts.
 
 \input{generated/menu}
 
-\section{Placement, the side panel, and F8}
+\section{Placement, the register panel, and F8}
 A 4:3 picture on a 16:9 screen leaves a third of the glass empty.
 \emph{Placement} (centre, left, right) puts the picture against one edge
-instead of in the middle, and \emph{side panel} fills what is left ---
-at present with one thing, the machine as the emulator sees it. A panel
-with a centred picture makes no sense, so turning the panel on forces
-the picture left.
+instead of in the middle, and the \emph{Sidebars} row fills what is left.
+Its choices are the sidebars in \pth{/SYSTEM/SIDEBARS}, one zip each: the
+border colour, a gradient, a knot, scenes --- and \emph{registers}, the
+machine as the emulator sees it. A register panel beside a centred
+picture makes no sense, so choosing it puts the picture left.
 
 The panel is a strip twenty-six columns wide taking the whole height of
 the window, one fact to a line: the program counter, A~X~Y~Z, the stack

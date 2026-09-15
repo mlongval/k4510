@@ -20,7 +20,7 @@ core/io.o: core/build.h
 FORCE:
 
 OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sndq.o core/audio.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/zip.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
 LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -53,6 +53,8 @@ endef
 $(foreach n,$(SIDEBAR_NAMES),$(eval $(call sidebar_rule,$n)))
 sidebars: $(SIDEBAR_ZIPS)
 .PHONY: sidebars
+# and what draws them: sdl/savers.c picks, one scene a file in sdl/sidebars/
+SIDEBAR_C = sdl/savers.c $(wildcard sdl/sidebars/*.c)
 
 
 all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
@@ -88,6 +90,8 @@ test/termreplay: test/termreplay.c $(CORE_OBJS)   # replay a K4510_TERMLOG throu
 
 test/fstest: test/fstest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+test/sidebartest: test/sidebartest.c $(CORE_OBJS) $(SIDEBAR_C) sdl/savers.h sdl/sidebars/canvas.h   # the sidebars: the list from the zips, and the scenes
+	$(CC) $(CFLAGS) -o $@ test/sidebartest.c $(SIDEBAR_C) $(CORE_OBJS) $(LDLIBS)
 test/ziptest: test/ziptest.c $(CORE_OBJS)   # MOUNT a zip; its fixtures are made by test/ziptest.sh
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -115,6 +119,7 @@ core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/opl2.h core/audio.h 
 core/net.o: core/net.c core/net.h core/net_plat.h core/mem.h
 core/net_posix.o: core/net_posix.c core/net_plat.h
 core/zip.o: core/zip.c core/zip.h core/net.h
+core/sidebars.o: core/sidebars.c core/sidebars.h core/zip.h core/ui/settings.h
 core/io.o: core/zip.h
 core/term.o: core/term.c core/term.h core/mem.h core/io.h
 core/state.o: core/state.c core/state.h core/mem.h
@@ -135,8 +140,8 @@ core/vice_clk.o: core/vice_clk.c core/vice_clk.h core/opl2/alarm.h
 core/opl2/fmopl.o: core/opl2/fmopl.c
 	$(CC) $(CFLAGS) -Icore/opl2 -Wno-unused-parameter -c -o $@ $<
 
-sdl/k4510: sdl/main.c sdl/panel.c sdl/panel.h sdl/panel_ops.h sdl/savers.c sdl/savers.h $(CORE_OBJS)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ sdl/main.c sdl/panel.c sdl/savers.c $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
+sdl/k4510: sdl/main.c sdl/panel.c sdl/panel.h sdl/panel_ops.h $(SIDEBAR_C) sdl/savers.h sdl/sidebars/canvas.h $(CORE_OBJS)
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ sdl/main.c sdl/panel.c $(SIDEBAR_C) $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
 	ln -sf sdl/k4510 k4510          # so it starts as ./k4510 from the repo root
 
 test/cputest: test/cputest.c $(CORE_OBJS)
@@ -177,7 +182,7 @@ check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.pr
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -190,6 +195,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/fstest
 	sh ./test/ziptest.sh
 	python3 tools/mksidebar.py --check fs/SYSTEM/SIDEBARS/*.ZIP
+	./test/sidebartest
 	./test/termtest
 	./test/uitest
 	./test/statetest

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <strings.h>
 
 /* Bumped when an old file needs interpreting differently; see settings_load. */
 #define SETTINGS_VERSION     3
@@ -13,7 +14,8 @@ const unsigned char vmode_number[VMODE_COUNT] = { 0, 1, 2, 5, 6, 7, 3, 4 };
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
-static const char *const sidebar_names[]= { "border", "gradient", "knot", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm" };
+/* the sidebars when there are no zips to list them (core/sidebars.c): SIDEBAR_* order */
+static const char *const sidebar_names[]= { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const lid_names[]   = { "keep running", "suspend" };
 static const char *const pipe_names[]  = { "off", "on", "on, shown" };
@@ -25,7 +27,7 @@ static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+P
 static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause", "F12" };
 static const char *const page_names[]  = { "CP437", "K4510" };
 
-static const set_desc desc[SET_COUNT] = {
+static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices are filled in at start (settings_set_labels) */
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
     { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_360x270, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
@@ -144,6 +146,13 @@ static const char *file_text(set_id id, char *buf, int max)   /* what goes in th
     if (d->type == ST_ENUM || d->type == ST_CHORD || d->type == ST_BOOL) return settings_text(id, buf, max);
     snprintf(buf, (size_t) max, "%d", value[id]); return buf;
 }
+void settings_set_labels(set_id id, const char *const *labels, int n, int def)
+{
+    if (id < 0 || id >= SET_COUNT || !labels || n <= 0) return;
+    desc[id].labels = labels; desc[id].nlabels = n;
+    desc[id].def = def >= 0 && def < n ? def : 0;
+    value[id] = desc[id].def;
+}
 void settings_defaults(void) { for (int i = 0; i < SET_COUNT; i++) value[i] = desc[i].def; changed = 0; }
 int settings_changed(void) { return changed; }
 
@@ -194,6 +203,14 @@ int settings_load(const char *path)
      * down, so a default change alone would have moved nobody. */
     int migrated = 0;
     if (filever < 3 && value[SET_INPUT_MENU_KEY] == MENUKEY_F7) { value[SET_INPUT_MENU_KEY] = MENUKEY_F12; migrated = 1; }
+    /* The register panel became a sidebar (2026-09-15, Doc): video.panel =
+     * registers moves to the Sidebars setting, and the panel key stays off.
+     * No version bump: the old key says all there is to know. */
+    if (value[SET_VIDEO_PANEL] == PANEL_REGS) {
+        const set_desc *d = &desc[SET_VIDEO_SIDEBARS];
+        for (int i = 0; i < d->nlabels; i++) if (!strcasecmp(d->labels[i], "registers")) { value[SET_VIDEO_SIDEBARS] = i; break; }
+        value[SET_VIDEO_PANEL] = PANEL_OFF; migrated = 1;
+    }
     /* and again on the way in, in case the file was edited by hand */
     if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_TO;
     fclose(f); changed = migrated;

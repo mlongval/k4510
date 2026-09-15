@@ -112,8 +112,25 @@ def cell(col, row):
     return str(int(col) * 8 + 4), str(int(row) * 16 + 8)
 
 
+def k4510_table():
+    """the K4510 code page (core/codepage.h), byte -> character; CP437 if it is not there"""
+    try:
+        src = (pathlib.Path(__file__).resolve().parent.parent / "core" / "codepage.h").read_text()
+        vals = [int(v, 16) for v in __import__("re").findall(r"0x([0-9A-F]{4})", src.split("k4510_cp[256]")[1])]
+        return [chr(v) if 0x20 <= v or v in (9, 10, 13) else bytes([b]).decode("cp437") for b, v in enumerate(vals)]
+    except (OSError, IndexError):
+        return [bytes([b]).decode("cp437") for b in range(256)]
+
+
+K4510_TABLE = k4510_table()
+
+
+def k4510_decode(data):
+    return "".join("\n" if b == 10 else K4510_TABLE[b] if b >= 0x20 else bytes([b]).decode("cp437") for b in data)
+
+
 def c_screen():
-    return remote(f"{TOOLS}/k4510-screen", binary=True).decode("cp437").rstrip("\n")
+    return k4510_decode(remote(f"{TOOLS}/k4510-screen", binary=True)).rstrip("\n")
 
 
 def c_expect(text, secs=10.0):

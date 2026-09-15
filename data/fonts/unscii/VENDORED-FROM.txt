@@ -29,3 +29,7 @@ font16-unscii.bin generated from it by hex2chargen.py with the third
                   panel's and F7 menu's.
 sha256  2642c8b748fa81f24d76772d70c55faa720d98fadfec8133daf89136c5c8bfb1  unscii-16.hex
 sha256  a43c9d7f63b8a565ab4a77b80ad1269478d80499f82cf4155c22a7496c954d39  font16-unscii.bin
+
+Since 2026-09-15 the fonts are in the K4510 code page (core/codepage.h),
+built by tools/mkk4510font.py from unscii-8.hex and unscii-16.hex; the CP437
+layout they had before is kept as font8-cp437.bin and font16-cp437.bin.

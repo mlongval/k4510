@@ -15,6 +15,7 @@ Doc, 2026-09-12: "I want a selectable keyboard layout in the K4510, reflected
 immediately after selection, and the host in sync."
 """
 import re
+import os
 import subprocess
 import sys
 import unicodedata
@@ -69,6 +70,16 @@ def layout_table(layout, variant):
     return tab
 
 
+def k4510_page():
+    """the characters the K4510 code page has above ASCII (core/codepage.h)"""
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "core", "codepage.h")).read()
+    vals = [int(v, 16) for v in re.findall(r"0x([0-9A-F]{4})", src.split("k4510_cp[256]")[1])]
+    return set(vals[0x80:])
+
+
+K4510 = k4510_page()
+
+
 def compositions():
     rows = []
     bases = [ord(c) for c in "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"]
@@ -79,7 +90,7 @@ def compositions():
             # only what code page 437 can show: Unicode also composes ḧ ẗ ẅ ẍ ...,
             # which the machine drops -- so " then h typed nothing at all, and
             # 10 PRINT"HELLO" lost its quote.  Without a row: the accent, then h.
-            if len(c) == 1 and c.encode("cp437", "ignore"):
+            if len(c) == 1 and ord(c) in K4510:                 # the K4510 code page (core/codepage.h), not CP437
                 rows.append((spacing, b, ord(c)))
     return rows
 

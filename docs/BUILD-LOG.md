@@ -8653,3 +8653,15 @@ smoothed only for the remainder; integer scales are untouched.
 Doc caught BOOK's text in the wrong colours after chapter 02's picture:
 the picture's palette stayed. BOOK saves the entries it overwrites and
 puts them back itself.
+
+## 2026-09-15 — the K4510 code page, steps 1 and 2
+
+Doc: "go with the German quotes, start the code page". core/codepage.h is
+the one table: CP437 with 26 places (Greek, maths, the peseta, f-hook,
+reversed not) given to the accented capitals of French, Italian and
+Spanish, oe/OE, the euro, section and pilcrow, German quotes and o-slash.
+The fonts are built from it (the low German quote is the closing one on
+the baseline); JIM, the keyboard, the keymap generator (dead key + capital:
+38 compositions to 55) and k4510-remote use it. termtest round-trips all
+128 upper bytes through UTF-8. Checked on screen: ECHO of every new letter
+in MODE 6.

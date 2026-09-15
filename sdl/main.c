@@ -369,6 +369,7 @@ static uint8_t key_ascii(SDL_Keycode k, int shift)
  * Lock on letters, dead keys, and Ctrl+letter by the layout's letter.  Doc,
  * 2026-09-12: "selectable in the K4510, immediately, the host in sync". */
 #include "../core/kbdmaps.h"
+#include "../core/codepage.h"
 static const uint8_t sdl2lnx[] = {                        /* SDL scancode -> Linux keycode, the typing keys */
     [SDL_SCANCODE_A] = 30, [SDL_SCANCODE_B] = 48, [SDL_SCANCODE_C] = 46, [SDL_SCANCODE_D] = 32, [SDL_SCANCODE_E] = 18,
     [SDL_SCANCODE_F] = 33, [SDL_SCANCODE_G] = 34, [SDL_SCANCODE_H] = 35, [SDL_SCANCODE_I] = 23, [SDL_SCANCODE_J] = 36,
@@ -423,23 +424,11 @@ static int layout_key(int layout, SDL_Scancode sc, SDL_Keymod m)   /* 1: the lay
 /* Unicode -> code page 437, for the half of the machine's font above ASCII.
  * Only the letters and marks a keyboard can actually produce are here; the box
  * drawing has no key.  0 means "this machine cannot show it". */
-static uint8_t cp437_of(unsigned long cp)
+static uint8_t cp437_of(unsigned long cp)                /* Unicode -> the K4510 code page (core/codepage.h); 0: no place */
 {
-    static const unsigned short u[] = {
-        0x00C7,0x00FC,0x00E9,0x00E2,0x00E4,0x00E0,0x00E5,0x00E7,0x00EA,0x00EB,
-        0x00E8,0x00EF,0x00EE,0x00EC,0x00C4,0x00C5,0x00C9,0x00E6,0x00C6,0x00F4,
-        0x00F6,0x00F2,0x00FB,0x00F9,0x00FF,0x00D6,0x00DC,0x00A2,0x00A3,0x00A5,
-        0x20A7,0x0192,0x00E1,0x00ED,0x00F3,0x00FA,0x00F1,0x00D1,0x00AA,0x00BA,
-        0x00BF };
-    unsigned i;
-    for (i = 0; i < sizeof u / sizeof u[0]; i++) if (u[i] == cp) return (uint8_t)(0x80 + i);
-    switch (cp) {                                   /* the stragglers, out of order in CP437 */
-    case 0x00AC: return 0xAA;  case 0x00BD: return 0xAB;  case 0x00BC: return 0xAC;
-    case 0x00A1: return 0xAD;  case 0x00AB: return 0xAE;  case 0x00BB: return 0xAF;
-    case 0x00DF: return 0xE1;  case 0x00B5: return 0xE6;  case 0x00B1: return 0xF1;
-    case 0x00F7: return 0xF6;  case 0x00B0: return 0xF8;  case 0x00B7: return 0xFA;
-    case 0x00B2: return 0xFD;  case 0x00A0: return 0x20;  default: return 0;
-    }
+    if (cp == 0x00A0) return 0x20;                     /* no-break space: a space */
+    for (unsigned i = 0x80; i < 0x100; i++) if (k4510_cp[i] == cp) return (uint8_t) i;
+    return 0;
 }
 
 /* The mouse.  SDL hands us logical coordinates (the renderer's logical size

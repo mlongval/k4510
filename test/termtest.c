@@ -159,5 +159,17 @@ int main(void)
       n = term_cp437_utf8('a', u);  CHECK(n == 1 && u[0] == 'a', "ASCII passes as one byte");
       n = term_cp437_utf8(0xC4, u); CHECK(n == 3 && (uint8_t)u[0] == 0xE2 && (uint8_t)u[1] == 0x94 && (uint8_t)u[2] == 0x80, "CP437 C4 -> U+2500 (%d bytes)", n); }
     printf("11. CP437 -> UTF-8 for the host: ok\n");
+    /* 12. The K4510 code page (core/codepage.h): every byte $80-$FF out as
+     * UTF-8 and back in through JIM's UTF-8 mode lands on the same byte. */
+    { char u[4]; int bad = 0, firstbad = -1;
+      send("\x1b%G");
+      for (int b = 0x80; b < 0x100; b++) {
+          int n = term_cp437_utf8((uint8_t) b, u); u[n] = 0;
+          send("\x1b[H"); send(u);
+          if (cell(0, 0)[0] != b && b != 0xFF) { bad++; if (firstbad < 0) firstbad = b; }   /* $FF is the no-break space: a space */
+      }
+      send("\x1b%@");
+      CHECK(bad == 0, "the code page round-trips through UTF-8 (%d wrong, the first $%02X)", bad, firstbad); }
+    printf("12. the K4510 code page, byte -> UTF-8 -> byte: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

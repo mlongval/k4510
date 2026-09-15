@@ -8686,3 +8686,12 @@ modern turns with wall and floor nudges, half a second on the floor before
 a piece locks. Korobeiniki on the OPL2, quicker with the levels; a pluck on
 lock, a bell for rows. Checked headless through a whole game and a saved
 best score.
+
+## 2026-09-15 — HEXED
+
+Doc: "then hexed". HEXED NAME edits a file (loaded whole to far memory at
+$D000000, 8 MB at most); HEXED $ADDRESS edits memory live. Hex on the left,
+the code page on the right, edit on either side; go to, find (hex or text),
+save, 256 undos, the mouse to pick a byte and the wheel to scroll. Any MODE:
+16, 8 or 4 bytes a row by the width. Checked headless, including an edit,
+find, append and save read back from the host.

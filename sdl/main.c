@@ -126,8 +126,8 @@ static int sb_rgb_hue(uint32_t c, int *sat, int *val)
  * sidebar, rolling a machine pixel every 80 ms.  Each strand is shaded by how
  * near it is, the nearest drawn last, with a dark edge; a grey or black
  * border gives a gold rope.  Integer sine (Bhaskara's approximation): no libm. */
-#define KNOT_W 24
-#define KNOT_H 48
+#define KNOT_W 40                 /* Doc: "make the rope fatter" -- was 24x48 */
+#define KNOT_H 80
 static int sin1536(int a)                             /* 256 sin(a), a in 1536ths of a turn */
 {
     a %= 1536; if (a < 0) a += 1536;
@@ -145,7 +145,7 @@ static void knot_build(uint32_t *px, int pitch, uint32_t base)
         int cx[3], dep[3], ord[3] = { 0, 1, 2 };
         for (int k = 0; k < 3; k++) {
             int a = y * 1536 / KNOT_H + k * 512;          /* the strand's angle round the rope */
-            cx[k] = KNOT_W / 2 + sin1536(a) * 7 / 256;   /* across */
+            cx[k] = KNOT_W / 2 + sin1536(a) * 12 / 256;  /* across */
             dep[k] = sin1536(a + 384);                    /* nearness, -256..256 */
         }
         for (int i = 0; i < 2; i++) for (int j = 0; j < 2 - i; j++)
@@ -153,8 +153,8 @@ static void knot_build(uint32_t *px, int pitch, uint32_t base)
         for (int i = 0; i < 3; i++) {
             int k = ord[i], val = 150 + dep[k] * 90 / 256;
             uint32_t fill = sb_hue_rgb(h, s, val), edge = sb_hue_rgb(h, s, val / 3);
-            for (int x = cx[k] - 4; x <= cx[k] + 4; x++)
-                if (x >= 0 && x < KNOT_W) px[y * pitch + x] = (x == cx[k] - 4 || x == cx[k] + 4) ? edge : fill;
+            for (int x = cx[k] - 7; x <= cx[k] + 7; x++)
+                if (x >= 0 && x < KNOT_W) px[y * pitch + x] = (x <= cx[k] - 6 || x >= cx[k] + 6) ? edge : fill;   /* a two-pixel edge */
         }
     }
 }

@@ -608,7 +608,13 @@ static const char *compiler(void)                    /* the machine's word for t
     if (rn_up((uint8_t)d[1]) == 'C' && !d[2]) return "CC";
     if (rn_up((uint8_t)d[1]) == 'P' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "PAS";
     if (rn_up((uint8_t)d[1]) == 'R' && rn_up((uint8_t)d[2]) == 'X' && !d[3]) return "RX";    /* REXX: nothing to compile, only to run */
+    if (rn_up((uint8_t)d[1]) == 'B' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "MSBASIC";   /* BASIC and LOGO: */
+    if (rn_up((uint8_t)d[1]) == 'L' && rn_up((uint8_t)d[2]) == 'G' && rn_up((uint8_t)d[3]) == 'O' && !d[4]) return "LOGO";      /* run as REXX is */
     return 0;
+}
+static uint8_t interpreted(const char *t)              /* REXX, MSBASIC, LOGO: an interpreter runs the file; CC and PAS compile */
+{
+    return (uint8_t)(t && (t[0] == 'R' || t[0] == 'M' || t[0] == 'L'));
 }
 static void mkdir_of_name(void)                      /* the file's directory: MAKE.ERR's names are there */
 {
@@ -620,12 +626,12 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
 {
     char *c = shline; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
     if (!name[0]) { note = "make: the file has no name -- :w NAME first"; return 0; }
-    if (!tool && !ed_mkline[0]) { note = "make: no compiler for this file (.C, .PAS, .RX)"; return 0; }
+    if (!tool && !ed_mkline[0]) { note = "make: no compiler for this file (.C .PAS .RX .BAS .LGO)"; return 0; }
     if (dirty) {                                     /* only a changed file: re-saving an unchanged one made it */
         save_file();                                 /* newer than its object, and a project recompiled it for */
         if (note[0] != 'w') return 0;                /* nothing (the Dell: "2 compiled, 0 kept", 2026-09-14) */
     }
-    if (tool && tool[0] == 'R') { note = "saved -- REXX has nothing to compile: run it (^F9, :run)"; return 1; }
+    if (interpreted(tool)) { note = "saved -- nothing to compile: run it (^F9, :run)"; return 1; }
     if (ed_mkline[0]) {                              /* the front end's build: it has set ed_mkdir too */
         for (s = ed_mkline; *s && i < sizeof shline - 1; ) c[i++] = *s++;
         c[i] = 0;
@@ -654,11 +660,12 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
 static void do_run(void)
 {
     char *c = shline; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
-    const char *tool = compiler(); uint8_t rx = (uint8_t)(tool != 0 && tool[0] == 'R');
+    const char *tool = compiler(); uint8_t rx = (uint8_t)(tool != 0 && tool[0] == 'R'), interp = interpreted(tool);
     if (!do_make()) return;
     for (s = "SWAP -k "; *s; ) c[i++] = *s++;
-    if (rx) {                                        /* REXX: the interpreter runs the file; its die() writes MAKE.ERR */
-        for (s = "RX "; *s; ) c[i++] = *s++;
+    if (interp) {                                    /* REXX, BASIC, LOGO: the interpreter runs the file (REXX's die() writes MAKE.ERR) */
+        for (s = tool; *s; ) c[i++] = *s++;
+        c[i++] = ' ';
         for (s = name; *s && i < sizeof shline - 1; ) c[i++] = *s++;
         mkdir_of_name();
     }

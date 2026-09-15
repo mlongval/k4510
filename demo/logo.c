@@ -40,6 +40,7 @@
 #define TURTLE_SPR "/LANG/LOGO/TURTLE.SPR"             /* tools/mkturtle.py: frame k faces k x 22.5 degrees, clockwise from up */
 #define CMDLINE ((char *) 0x0300)                      /* SWAP's command line: below our image (see demo/ranger.c) */
 
+static unsigned char rom_args(void) { return ((unsigned char (*)(void))0xFF95)(); }
 typedef unsigned long fbits;                       /* an IEEE single, as bits */
 
 /* ---- the MATH unit ------------------------------------------------------ */
@@ -557,6 +558,9 @@ void do_edit(void)
 /* ---- main ---------------------------------------------------------------- */
 int main(void)
 {
+    static char arg[32];                                   /* LOGO NAME: a file to load and run first (PROG's Run, 2026-09-15) */
+    { const char *p; uint8_t n = 0; rom_args(); p = *(const char **) 0xF0; while (*p == ' ') p++;
+      while (*p && *p != ' ' && n < 30) arg[n++] = *p++; arg[n] = 0; }   /* before any SHELL call: MODE's reuses $F0 */
     F0 = fint(0); F1 = fint(1); F10 = fint(10); F180 = fint(180); F360 = fint(360);
     FDEG = fdiv(fint(314159L), fint(18000000L));           /* pi / 180 */
     FHALF = fdiv(fint(45), fint(4)); FSTEP = fdiv(fint(45), fint(2));
@@ -568,6 +572,11 @@ int main(void)
     w32r(DMA, 0); w32r(DMA + 4, SPR_TAB); w32r(DMA + 8, 2048); REG(DMA + 0x0C) = 2;   /* an empty sprite table */
     turtle_show();
     puts_("K4510 LOGO -- the turtle is home.  HELP lists the words; BYE leaves."); nl();
+    if (arg[0]) {                                          /* LOGO NAME: loaded and run as LOAD would, then the prompt */
+        uint8_t n; for (n = 0; arg[n] && n < 34; n++) fn[n] = arg[n]; fn[n] = 0;
+        if (!strchr(fn, '.')) strcat(fn, ".LGO");
+        if (lgo_load(ptop)) run_file(); else error("I can't find", fn);
+    }
     for (;;) {
         if (!readline("? ")) continue;
         if (!line[0]) continue;

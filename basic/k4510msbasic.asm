@@ -191,7 +191,69 @@ k4510_start:
         iny
         bne     @banner
 @go:
+        jsr     k4510_autoload           ; MSBASIC NAME: LOAD it and RUN it
         jmp     COLD_START
+
+; ---- MSBASIC NAME ---------------------------------------------------------
+; The shell's argument is a program to LOAD and RUN (PROG's Run, VI's :run,
+; 2026-09-15).  Its name goes where LOAD keeps the last one (".BAS" added
+; when it has no dot, as LOAD does); a plain LOAD is fed after the two
+; cold-start answers; and when that file has been read in, k4510_fget feeds
+; a RUN -- after, because LOAD's own feed takes the input over.
+ROM_ARGS        = $FF95
+k4510_autoload:
+        jsr     ROM_ARGS                 ; ($F0) = the arguments
+        ldy     #0
+@sp:    lda     ($F0),y
+        cmp     #' '
+        bne     @first
+        iny
+        bne     @sp
+@first: cmp     #0
+        beq     @none                    ; none: BASIC as ever
+        ldx     #0
+        stx     k4510_dot
+@copy:  lda     ($F0),y
+        beq     @ended
+        cmp     #' '
+        beq     @ended
+        cmp     #'.'
+        bne     @nd
+        sta     k4510_dot
+@nd:    sta     k4510_name,x
+        inx
+        iny
+        cpx     #K4510_NAMEMAX - 5
+        bcc     @copy
+@ended: lda     k4510_dot
+        bne     @term                    ; it has a dot: only the NUL
+        ldy     #0
+@ext:   lda     k4510_bas,y              ; ".BAS" and its NUL
+        sta     k4510_name,x
+        beq     @armed
+        inx
+        iny
+        bne     @ext
+@term:  lda     #0
+        sta     k4510_name,x
+@armed: ldx     #0                       ; LOAD<CR> after the answers' NUL
+@find:  lda     k4510_answer,x
+        beq     @put
+        inx
+        bne     @find
+@put:   ldy     #0
+@w:     lda     k4510_loadcr,y
+        sta     k4510_answer,x
+        beq     @flag
+        inx
+        iny
+        bne     @w
+@flag:  lda     #1
+        sta     k4510_autorun
+@none:  rts
+k4510_loadcr:  .byte "LOAD", K_CR, 0
+k4510_runcr:   .byte "RUN", K_CR, 0
+k4510_autorun: .byte 0                   ; RUN when the LOAD it fed has been read
 
 k4510_banner:
         .byte   "MICROSOFT BASIC ON THE K4510", K_CR, K_LF
@@ -695,6 +757,8 @@ LOAD:
         sta     FS_CMD
         lda     FS_STATUS
         beq     @ok
+        lda     #0
+        sta     k4510_autorun            ; nothing came in: nothing to RUN later
         lda     #<QT_NOLOAD
         ldy     #>QT_NOLOAD
         jmp     STROUT
@@ -832,6 +896,21 @@ k4510_fget:
         sta     FS_CMD
         lda     #0
         sta     k4510_feed
+        lda     k4510_autorun            ; MSBASIC NAME: in, so RUN it, fed as if typed
+        beq     @norun
+        lda     #0
+        sta     k4510_autorun
+        ldx     #0
+@r:     lda     k4510_runcr,x
+        sta     k4510_answer,x
+        beq     @rdone
+        inx
+        bne     @r
+@rdone: lda     #0
+        sta     k4510_feedx
+        lda     #1
+        sta     k4510_feed
+@norun:
         lda     k4510_fcr
         bne     @end
         inc     k4510_fcr

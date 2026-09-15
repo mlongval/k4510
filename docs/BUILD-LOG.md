@@ -8767,3 +8767,19 @@ shove); Space with an arrow takes without moving. A third of the cave's
 diamonds (and one more a cave) open the exit; the time left is points.
 Every cave is made from its number, so there is no last one. Three lives,
 the best five saved. Checked headless: cave 1 made, settled and dug into.
+
+## 2026-09-15 — PROG runs BASIC and LOGO
+
+Doc's list, "PROG language plugins (MSBASIC, LOGO)". The editor engine PROG
+and VI share (demo/ed.h) now knows .BAS as MSBASIC's and .LGO as LOGO's, the
+way it knew .RX: Make has nothing to compile, Run is SWAP -k MSBASIC NAME or
+SWAP -k LOGO NAME. For that the interpreters take a file on the command
+line: LOGO NAME loads it as LOAD would and runs it, then the prompt; MSBASIC
+NAME puts the name where LOAD keeps its last one, feeds a plain LOAD after
+the two cold-start answers, and feeds RUN when that file has been read in
+(k4510_fget) -- after, because LOAD's own feed takes the input over. The
+image grew past its linker area by 5 bytes: IMG is $2900 now ($7000-$98FF;
+BASIC's RAM below $7000 is untouched). logotest had been failing since the
+turtle became TURTLE.SPR's sixteen 32x32 frames (it read the old 16x16
+layout); it reads the new one and passes. Checked: MSBASIC HI and LOGO SQ,
+VI :run on a .BAS, logotest and msbasictest.

@@ -14,7 +14,8 @@
     k4510-remote run script.k4r     a script: one command a line, as above, plus
                                     "wait S"; # a comment; stops at a failed expect
     k4510-remote logs               the emulator's log, the menu file, the last dumps
-    k4510-remote ideas [--all]      the brainshots IDEA wrote since last asked (--all: every
+    k4510-remote ideas [--all]      the brainshots IDEA wrote since last asked, then moved into
+                                    /SYSTEM/BRAINSHOTS/PROCESSED on the machine (--all: every
                                     one), kept in ~/k4510-remote/brainshots/
     k4510-remote reboot [-y]        reboot the machine and wait for it
     k4510-remote tui                all of it from a menu, with the screen live above
@@ -180,7 +181,10 @@ BRAIN = HOME / "brainshots"
 
 def c_ideas(every=False):
     """IDEA's brainshots (fs/SYSTEM/BRAINSHOTS on the machine; fs/BRAINSHOTS before
-    2026-09-15, which IDEA moves the first time): the ones not read here yet."""
+    2026-09-15): each new one is shown, copied here, and moved on the machine into
+    SYSTEM/BRAINSHOTS/PROCESSED (Doc, 2026-09-15), so the folder holds only what is
+    still to be read.  One already read here but not yet moved is moved quietly.
+    --all shows every one, PROCESSED included."""
     BRAIN.mkdir(parents=True, exist_ok=True)
     seen_f = BRAIN / ".seen"
     seen = set(seen_f.read_text().split()) if seen_f.exists() else set()
@@ -188,17 +192,22 @@ def c_ideas(every=False):
     for d in ("BRAINSHOTS", "SYSTEM/BRAINSHOTS"):                  # the new place last: it wins a name in both
         for n in remote(f"ls -1 ~/k4510/fs/{d} 2>/dev/null || true").split():
             if n.upper().endswith(".TXT"): where[n] = d
-    names = sorted(where)
-    new = [n for n in names if every or n not in seen]
-    if not new:
-        return f"no new brainshots ({len(names)} in all; --all shows every one)"
+    done = set(n for n in remote("ls -1 ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED 2>/dev/null || true").split() if n.upper().endswith(".TXT"))
+    new = sorted(n for n in where if n not in seen)
+    show = sorted(set(where) | done) if every else new
     out = []
-    for n in new:
-        text = remote(f"cat ~/k4510/fs/{where[n]}/{shlex.quote(n)}")
+    for n in show:
+        d = where.get(n, "SYSTEM/BRAINSHOTS/PROCESSED")
+        text = remote(f"cat ~/k4510/fs/{d}/{shlex.quote(n)}")
         (BRAIN / n).write_text(text)
         out.append(f"=== {n}\n{text.rstrip()}")
-    seen_f.write_text("\n".join(sorted(seen | set(names))) + "\n")
-    log(f"ideas: {len(new)} read")
+    if where:                                                     # everything read here now goes to PROCESSED
+        moves = " ".join(f"~/k4510/fs/{where[n]}/{shlex.quote(n)}" for n in sorted(where))
+        remote(f"mkdir -p ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED && mv -n {moves} ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED/ && rmdir ~/k4510/fs/BRAINSHOTS 2>/dev/null; true")
+    seen_f.write_text("\n".join(sorted(seen | set(where) | done)) + "\n")
+    log(f"ideas: {len(new)} new, {len(where)} moved to PROCESSED")
+    if not out:
+        return f"no new brainshots ({len(where) + len(done)} in all, in PROCESSED now; --all shows every one)"
     return "\n\n".join(out)
 
 def c_reboot(ask=True):

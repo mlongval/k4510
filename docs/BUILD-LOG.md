@@ -8889,3 +8889,11 @@ then, keyed by name, so nothing already read comes back as new. .gitignore
 keeps both out of the repository. Checked headless: an old /BRAINSHOTS with
 three files, one IDEA, and all four in /SYSTEM/BRAINSHOTS with the old folder
 gone.
+
+## 2026-09-15 — read brainshots go to PROCESSED
+
+Doc: "structure /SYSTEM/BRAINSHOTS and /SYSTEM/BRAINSHOTS/PROCESSED for the ones
+you have looked at". tools/k4510-remote ideas shows the new ones, keeps a copy
+in ~/k4510-remote/brainshots, and moves every one it has read into
+/SYSTEM/BRAINSHOTS/PROCESSED on the machine (mv -n: nothing overwritten), the
+old /BRAINSHOTS emptied and removed; --all shows PROCESSED too.

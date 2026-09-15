@@ -139,11 +139,11 @@ static void draw_clock(void);         /* the top-right widget.  It lived in ROM2
 /* Are the bands up?  The host's own switch is the only honest answer, and it
  * costs no state --
  * which matters, BSSR being 447 of 448 bytes used. */
-static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS >= 80); }
+static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS >= 40 && PROWS >= 30); }
 /* A program that has claimed the bands gets them whether or not the user's F7
  * switch is on -- that is the point of claiming: a program wants the furniture
  * for its own, and asking the user to enable it first would be absurd. */
-static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS >= 80)); }
+static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS >= 40 && PROWS >= 30)); }   /* every shell mode: 40 columns and 30 rows at least (MODE 2 and 7 too, Doc 2026-09-14) */
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {

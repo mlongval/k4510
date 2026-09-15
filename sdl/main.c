@@ -538,7 +538,7 @@ static void bands_overlay(void)
     int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
     int rh = rows == 60 ? 8 : 16, cw = vicky_glass_w() / cols, y0 = (ctrl & 8) ? 40 : 0;
     if (ctrl & 0x20) { rh = (l0 & 0x60) ? 16 : 8; rows = vicky_glass_h() / rh; y0 = 0; }   /* the HD family: rows of the mode's own cells */
-    if (cols < 80) return;                                             /* the ROM bands only 80 columns and more (360x270 has none) */
+    if (cols < 40 || rows < 30) return;                                /* the ROM's rule: bands in every shell mode, not the 25-row game modes */
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* what is running, left of the clock */
         const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
         if (maxc > 4) {

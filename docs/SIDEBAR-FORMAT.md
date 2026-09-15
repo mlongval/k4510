@@ -7,7 +7,8 @@ checks every zip in `/SYSTEM/SIDEBARS`.
 ## Where
 
     /SYSTEM/SIDEBARS/NAME.ZIP       the sidebar: read-only, never written
-    /SYSTEM/SIDEBARS/NAME/          made on first use (step 5): OPTIONS.CFG, STATE.DAT
+    /SYSTEM/SIDEBARS/NAME/          made when it is first shown: OPTIONS.CFG, and STATE.DAT if it keeps one
+    /SYSTEM/SIDEBARS/SIDEBARS.CFG   made then too: what is not one sidebar's
 
 `NAME` is up to 16 capital letters, digits, `_` or `-`; the file ends in
 `.ZIP`.
@@ -50,10 +51,35 @@ A zip never carries host code: there is no way to write one that does.
 
 ## OPTIONS.CFG
 
-The same format. The zip's copy is the defaults and their explanation; on
-first use it is copied to `/SYSTEM/SIDEBARS/NAME/OPTIONS.CFG`, which is the
-one you edit (F12 → Edit options). Every sidebar has `speed` (0.25 to 4, 1
-as designed); the rest are its own.
+The same format. The zip's copy is the defaults and their explanation; when
+the sidebar is first shown it is copied to `/SYSTEM/SIDEBARS/NAME/OPTIONS.CFG`,
+which is the one you edit (F12 → Video → Edit options: VI on it, at the
+prompt). It is read again within a second of being saved. Every sidebar that
+moves has `speed` (0.25 to 4, 1 as designed; anything else is 1); the rest are
+its own -- the ant farm's `day` (`real`, the host's clock, or a length:
+`30m`, `1h`).
+
+## SIDEBARS.CFG
+
+For all of them; which one is shown stays F12 → Video → Sidebar (saved in
+`k4510.cfg` as `video.sidebars`).
+
+    right   = same     # the right-hand side: same, or another sidebar's name
+    change  = never    # or how often the next one comes: 10m, 1h, 1d
+    seasons = on       # while changing, a seasonal sidebar only in its months
+
+Changing goes round every sidebar but the register panel, in order, from the
+clock -- nothing is written, and a machine switched on at 10:05 with
+`change = 10m` shows what it would have shown had it been on all along. A
+sidebar you choose yourself is shown whatever the month.
+
+## STATE.DAT
+
+What a sidebar keeps across a power cycle -- the ant farm's colony -- written
+every five minutes and when the emulator stops, by way of `STATE.NEW`. A
+header line names the sidebar and its `version`; one written by another
+version is renamed `STATE.OLD` and the sidebar starts new. Delete the folder
+and the sidebar is as it came.
 
 ## The built-in sidebars
 

@@ -312,6 +312,15 @@ border colour, a gradient, a knot, scenes --- and \emph{registers}, the
 machine as the emulator sees it. A register panel beside a centred
 picture makes no sense, so choosing it puts the picture left.
 
+Below it, \emph{Edit options\ldots} opens the chosen sidebar's own
+options in VI: \pth{/SYSTEM/SIDEBARS/ANTFARM/OPTIONS.CFG} for the ant farm
+--- its \texttt{speed}, and the length of its day. Save the file and the
+sidebar changes within a second. \pth{/SYSTEM/SIDEBARS/SIDEBARS.CFG} holds
+what is for all of them: another sidebar on the right
+(\texttt{right = tetris}), a new one every so often (\texttt{change = 1h}),
+and whether Halloween and Christmas keep to their months. The ant colony
+is kept across a power cycle, in the same folder.
+
 The panel is a strip twenty-six columns wide taking the whole height of
 the window, one fact to a line: the program counter, A~X~Y~Z, the stack
 pointer, the B register, the flags, the next few instructions

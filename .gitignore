@@ -152,3 +152,6 @@ fs/APPS/ROCKFALL/HISCORE.DAT
 test/ziptest
 test/sidebartest
 test/out/
+# what the machine makes beside the sidebar zips: SIDEBARS.CFG, and each one's OPTIONS.CFG and STATE.DAT
+fs/SYSTEM/SIDEBARS/*/
+fs/SYSTEM/SIDEBARS/SIDEBARS.CFG

@@ -22,6 +22,25 @@ typedef struct {
     uint32_t last, rng; uint8_t cell[AG_ROWS][AG_COLS]; uint16_t dist[AG_ROWS][AG_COLS], sdist[AG_ROWS][AG_COLS]; ant_t ant[ANTS];
 } af_t;
 static af_t af[2];
+/* A colony read back from STATE.DAT, waiting for its canvas to be the size it
+ * was saved at (the first frames can be another: a window still settling). */
+static af_t af_pending[2]; static int af_pend[2];
+size_t antfarm_state(uint8_t **buf)
+{
+    if ((!af[0].w || af[0].cols < 9) && (!af[1].w || af[1].cols < 9)) return 0;   /* nothing started: nothing to keep */
+    if (!(*buf = malloc(sizeof af))) return 0;
+    memcpy(*buf, af, sizeof af);
+    return sizeof af;
+}
+void antfarm_restore(const uint8_t *buf, size_t n)
+{
+    if (n != sizeof af) return;                     /* another build's layout: a new colony instead */
+    memcpy(af_pending, buf, n);
+    for (int s = 0; s < 2; s++) {
+        af_pend[s] = af_pending[s].w > 0 && af_pending[s].cols >= 9 && af_pending[s].rows >= 12;
+        if (af_pend[s] && af[s].w == af_pending[s].w && af[s].h == af_pending[s].h) { af[s] = af_pending[s]; af_pend[s] = 0; }
+    }
+}
 static uint32_t arand(af_t *a) { a->rng = a->rng * 1103515245u + 12345u; return a->rng >> 9; }
 static int open_cell(af_t *a, int x, int y) { return x >= 0 && x < a->cols && y >= a->surf && y < a->rows && a->cell[y][x] != AT_SOIL; }
 static void af_bfs(af_t *a, uint16_t d[AG_ROWS][AG_COLS], int from_store)   /* steps, through the tunnels */
@@ -61,10 +80,20 @@ static void af_start(af_t *a)
 /* The day, for the ant farm (Doc, 2026-09-15: "sun cross sky and ant activity
  * track daylight"): the host's local time -- or, K4510_SAVER_DAY=seconds, a day
  * that long starting at dawn, to watch a whole one.  0.0 is midnight, 0.5 noon. */
+static double af_optday;                       /* the day option, seconds; 0 = the host's clock */
+void antfarm_option(const char *key, const char *value)
+{
+    if (strcmp(key, "day")) return;
+    char *e; double v = strtod(value, &e);         /* real, or 30m, 1h, 90s, 600 */
+    if (e == value || v <= 0) { af_optday = 0; return; }
+    while (*e == ' ') e++;
+    af_optday = *e == 'm' || *e == 'M' ? v * 60 : *e == 'h' || *e == 'H' ? v * 3600 : *e == 'd' || *e == 'D' ? v * 86400 : v;
+}
 static double af_dayfrac(uint32_t t)
 {
-    static int checked; static double daylen;
-    if (!checked) { const char *e = getenv("K4510_SAVER_DAY"); daylen = e ? atof(e) : 0; checked = 1; }
+    static int checked; static double envday;       /* K4510_SAVER_DAY: a test's, over the option */
+    if (!checked) { const char *e = getenv("K4510_SAVER_DAY"); envday = e ? atof(e) : 0; checked = 1; }
+    double daylen = envday > 0 ? envday : af_optday;
     if (daylen > 0) return fmod(t / 1000.0 / daylen + 0.25, 1.0);
     time_t now = time(NULL); struct tm lt; localtime_r(&now, &lt);
     return (lt.tm_hour * 3600 + lt.tm_min * 60 + lt.tm_sec) / 86400.0;
@@ -204,12 +233,16 @@ void s_antfarm(cv_t *c, uint32_t t, int side)
     int w = c->w, h = c->h, k = scale_of(w);
     af_t *a = &af[side];
     if (a->w != w || a->h != h) {
+      if (af_pend[side] && af_pending[side].w == w && af_pending[side].h == h) {   /* the colony from before the power cycle */
+        *a = af_pending[side]; af_pend[side] = 0; a->last = t;
+      } else {
         memset(a, 0, sizeof *a); a->w = w; a->h = h; a->g = 2 * k;
         a->cols = w / a->g; if (a->cols > AG_COLS) a->cols = AG_COLS;
         a->rows = h / a->g; if (a->rows > AG_ROWS) a->rows = AG_ROWS;
         a->surf = a->rows / 10; a->soil = (a->rows - a->surf) * a->cols;
         a->nants = clampi(6 + w / 20, 6, ANTS); a->rng = 0xA27Fu + (uint32_t) side * 7717u; a->last = t;
         if (a->cols >= 9 && a->rows >= 12) af_start(a);
+      }
     }
     /* Too small for a farm -- a sidebar a few pixels wide, which main.c does
      * draw from 8 up: earth under a sky, no colony.  af_start divided by

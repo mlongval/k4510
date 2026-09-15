@@ -1,0 +1,21 @@
+# test/remote/sidebar.k4r -- the sidebars' files (docs/SIDEBAR-FORMAT.md).
+# Whatever sidebar is showing, the machine makes SIDEBARS.CFG beside the
+# zips within a second of starting; a sidebar zip mounts and reads.
+type PALETTE RESET\n
+wait 2
+type DIR /SYSTEM/SIDEBARS\n
+expect "SIDEBARS.CFG" 5
+expect "ANTFARM.ZIP" 5
+type CLS\n
+type TYPE /SYSTEM/SIDEBARS/SIDEBARS.CFG\n
+expect "right   = same" 5
+type CLS\n
+type MOUNT /SYSTEM/SIDEBARS/ANTFARM.ZIP /MNT/SB\n
+wait 1
+type TYPE /MNT/SB/SIDEBAR.INF\n
+expect "draw    = builtin antfarm" 5
+type UMOUNT /MNT/SB\n
+wait 1
+type MOUNT\n
+expect "no mounts" 5
+screen

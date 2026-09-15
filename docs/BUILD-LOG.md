@@ -8998,3 +8998,31 @@ The budget in the plan was a size that never happens (2 ms at 480x1080): a
 sidebar is drawn in machine pixels, and the widest there is is 240x1080, the
 HD mode on a 1080-line screen. There, per side: the ant farm 3.6 ms, Tetris
 2.0, space 1.5, the rest under 1.2. The test fails above 5.
+
+## 2026-09-15 — the sidebars' own files, and F12's two rows
+
+Steps 5 and 6. When a sidebar is first shown its folder is made beside its
+zip -- /SYSTEM/SIDEBARS/ANTFARM/ -- with OPTIONS.CFG, the zip's commented
+copy, and /SYSTEM/SIDEBARS/SIDEBARS.CFG for what is not one sidebar's. Both
+are read again within a second of a change. `speed` (0.25-4) is each side's
+own clock; the ant farm's `day` is real or a length (Doc's 30-minute days are
+`day = 30m`); K4510_SAVER_DAY still overrides, for tests. SIDEBARS.CFG:
+`right = tetris` puts another on the right; `change = 10m` goes round them
+from the clock, nothing written; `seasons = on` keeps Halloween to October
+and Christmas to December while changing (a sidebar chosen by hand is shown
+whatever the month). Which one is shown stayed in k4510.cfg -- the F12 row
+already saves it there -- where the plan had it in SIDEBARS.CFG.
+
+The ant farm keeps its colony: STATE.DAT every five minutes and when the
+emulator stops, by way of STATE.NEW; a header names the sidebar and its
+version, and another version's is set aside as STATE.OLD. It is restored only
+at the canvas size it was saved at, so the first frames of a window still
+settling cannot start a new colony over it. The test saves a colony, lets it
+go on, restores it, and the next frame is the saved colony's, pixel for pixel.
+
+F12 -> Video: "Sidebar" and "Edit options..." (Doc: "limit the F12 options
+to 'which one' and 'Edit options'"). Edit options types VI on the shown
+sidebar's OPTIONS.CFG at the prompt; while a program runs it shows the line
+to type at the foot of the screen instead of typing into the program. And
+the gradient and knot got a speed: they move, which the step-2 zips said
+they did not.

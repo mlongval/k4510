@@ -20,7 +20,10 @@ static const item_t video_items[] = {
     { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
     { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
     { "Placement",     MI_SETTING, SET_VIDEO_PLACE },
-    { "Sidebars",      MI_SETTING, SET_VIDEO_SIDEBARS },
+    /* the sidebar, and its options in its own file: F12 keeps to these two rows
+     * (Doc, 2026-09-15: "limit the F12 options to 'which one' and 'Edit options'") */
+    { "Sidebar",       MI_SETTING, SET_VIDEO_SIDEBARS },
+    { "Edit options...", MI_ACTION, ACT_SIDEBAR_OPTIONS },
 };
 /* One chip, the OPL2, so there is nothing to choose but the volume. */
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME } };

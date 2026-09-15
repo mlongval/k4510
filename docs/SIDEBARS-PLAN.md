@@ -222,8 +222,8 @@ The old `video.sidebars` setting is read once, becomes `show =` in
 | 2 | the sidebar zip format; built-ins packed by `make` -- **done** 2026-09-15 (`docs/SIDEBAR-FORMAT.md`) | `/SYSTEM/SIDEBARS/*.ZIP` |
 | 3 | the emulator reads the list from the zips; one file per sidebar -- **done** 2026-09-15 (the gradient and knot stay in `main.c`: they are textures SDL scales, not canvases) | nothing -- the same pictures |
 | 4 | `sidebartest` in `make test` -- **done** 2026-09-15 (previews into the zips wait for a picture format: step 8) | |
-| 5 | `OPTIONS.CFG`, `SIDEBARS.CFG`, the ant farm's `STATE.DAT` | speed, day length; the colony survives a reboot |
-| 6 | F12: Sidebar and Edit options | |
+| 5 | `OPTIONS.CFG`, `SIDEBARS.CFG`, the ant farm's `STATE.DAT` -- **done** 2026-09-15 (which one is shown stays in `k4510.cfg`, where the F12 row saves it) | speed, day length; the colony survives a reboot |
+| 6 | F12: Sidebar and Edit options -- **done** 2026-09-15 | |
 | 7 | scene sidebars | your own, from PAINT |
 
 Each is its own commit and leaves the machine working; each deploy runs the

@@ -4,11 +4,20 @@
 #ifndef K4510_SAVERS_H
 #define K4510_SAVERS_H
 #include <stdint.h>
+#include <stddef.h>
 
 enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_COUNT };
 
 /* which: SAVER_*; px: w x h ARGB pixels, pitch in pixels; ms: a clock in
  * milliseconds; side: 0 left, 1 right (each side its own scene and seed). */
 void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, int side);
+/* A scene's own option, from its OPTIONS.CFG (the ant farm's day = 30m). */
+void   saver_option(int which, const char *key, const char *value);
+/* What a scene keeps across a power cycle (STATE.DAT): a new buffer the caller
+ * frees, and its length; 0 when it keeps nothing or has not started.  Restore
+ * takes it back -- at once when the canvas is the size it was saved at, or when
+ * the scene is next drawn at that size. */
+size_t saver_state(int which, uint8_t **buf);
+void   saver_restore(int which, const uint8_t *buf, size_t n);
 
 #endif

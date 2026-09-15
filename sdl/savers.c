@@ -35,3 +35,16 @@ void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, i
     default:              s_dreamfall(&c, ms, side & 1); break;
     }
 }
+void saver_option(int which, const char *key, const char *value)
+{
+    if (which == SAVER_ANTFARM && key && value) antfarm_option(key, value);
+}
+size_t saver_state(int which, uint8_t **buf)
+{
+    *buf = NULL;
+    return which == SAVER_ANTFARM ? antfarm_state(buf) : 0;
+}
+void saver_restore(int which, const uint8_t *buf, size_t n)
+{
+    if (which == SAVER_ANTFARM && buf) antfarm_restore(buf, n);
+}

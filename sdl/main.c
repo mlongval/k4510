@@ -325,6 +325,16 @@ const uint16_t *term_page_table(void); void term_set_page(int k4510); int term_g
 /* Brainshots read and moved to PROCESSED (tools/k4510-remote ideas) go 48 hours
  * after that, at the next start (Doc, 2026-09-15); the reader keeps its own copy.
  * The move re-stamps them, so the hours count from processing, not from IDEA. */
+/* What the sidebars keep across a power cycle, to STATE.DAT: every five minutes
+ * and at the end (sidebars step 5).  A scene not yet started keeps nothing. */
+static void sidebar_save_states(void)
+{
+    for (int i = 0; i < sidebars_count(); i++) {
+        int b = sidebars_info(i)->builtin; uint8_t *st; size_t n;
+        if (b < SIDEBAR_HALLOWEEN || !(n = saver_state(b - SIDEBAR_HALLOWEEN, &st))) continue;
+        sidebars_state_write(i, st, n); free(st);
+    }
+}
 static void prune_brainshots(const char *fsroot)
 {
     char dir[600], p[900]; DIR *d; struct dirent *e; struct stat st; time_t now = time(NULL);
@@ -934,6 +944,10 @@ int k4510_frontend_main(int argc, char **argv)
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
     sidebars_scan(argc > 2 ? argv[2] : "fs");             /* the Sidebars choices, before a saved one is looked up */
     settings_load(cfg);
+    for (int i = 0; i < sidebars_count(); i++) {           /* what the sidebars kept across the power cycle (STATE.DAT) */
+        int b = sidebars_info(i)->builtin; size_t n; uint8_t *st;
+        if (b >= SIDEBAR_HALLOWEEN && (st = sidebars_state_read(i, &n))) { saver_restore(b - SIDEBAR_HALLOWEEN, st, n); free(st); }
+    }
     /* The F12 menu file, beside k4510.cfg and outside the machine's own disk, so
      * nobody at the machine can edit it: which rows show, and the locks.
      * Written in full when missing, so it lists what can be changed (Doc,
@@ -1536,6 +1550,18 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_QUIT: mlog("quit: F12 -> Quit"); running = 0; break;
         case ACT_SHUTDOWN: mlog("quit: F12 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
         case ACT_NETSETUP: host_net_setup(); break;
+        case ACT_SIDEBAR_OPTIONS: {                                   /* F12 -> Video -> Edit options: the sidebar's OPTIONS.CFG in VI */
+            extern const char *io_title(void);
+            int i = settings_get(SET_VIDEO_SIDEBARS); char path[80], cmd[100];
+            if (sidebars_count()) sidebars_prepare(i);                /* made from the zip's copy if it is not there yet */
+            sidebars_options_path(sidebars_count() ? i : -1, path, sizeof path);
+            if (!strcmp(io_title(), "K/OS")) {                        /* at the prompt: typed for you */
+                menu_close(); snprintf(cmd, sizeof cmd, "VI %s\r", path);
+                for (const char *c = cmd; *c; c++) kbd_push((uint8_t) *c);
+            } else {                                                  /* a program is running: typing into it would be wrong -- say what to type */
+                snprintf(echo_txt, sizeof echo_txt, "VI %.44s", path); echo_len = (int) strlen(echo_txt); echo_until = SDL_GetTicks() + 8000;
+            }
+            break; }
         case ACT_TELNET: if (menu_lock(MENU_LOCK_LINUX)) break;   /* the row is hidden then; this is belt and braces */
                          { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }
@@ -1723,7 +1749,35 @@ tex_done:
           /* what the sidebar setting draws (core/sidebars.c); the register panel is
            * one of the choices since 2026-09-15 (Doc: "Register becomes a choice in
            * the Sidebar") and everything below still asks panel_kind */
-          int sbar = sidebars_builtin(settings_get(SET_VIDEO_SIDEBARS));
+          int sv = settings_get(SET_VIDEO_SIDEBARS), sbar = sidebars_builtin(sv);
+          /* each side's sidebar and its own clock (step 5): the right can be another
+           * (SIDEBARS.CFG right =), the choice can change on a timer (change =),
+           * and each runs at its speed (OPTIONS.CFG speed =).  Once a second: the
+           * files read again if they changed, the options handed to the scenes,
+           * and every five minutes what they keep written to STATE.DAT. */
+          static int shown[2] = { -1, -1 }, shown_v = -1; static Uint32 shown_at, vlast, state_at; static double vclk[2];
+          { Uint32 tn = SDL_GetTicks();
+            if (shown_v != sv || tn - shown_at >= 1000) {
+                time_t wall = time(NULL); struct tm lt; localtime_r(&wall, &lt);
+                shown_at = tn; shown_v = sv;
+                sidebars_poll();
+                for (int s2 = 0; s2 < 2; s2++) {
+                    int i = sidebars_shown(sv, s2, (long) wall, lt.tm_mon + 1), b2 = sidebars_builtin(i);
+                    shown[s2] = i;
+                    if (i >= 0 && sidebars_count()) {
+                        sidebars_prepare(i);
+                        if (b2 >= SIDEBAR_HALLOWEEN) { const char *d = sidebars_opt(i, "day"); saver_option(b2 - SIDEBAR_HALLOWEEN, "day", d ? d : "real"); }
+                    }
+                }
+                if (!state_at) state_at = tn;
+                if (tn - state_at >= 300000) { state_at = tn; sidebar_save_states(); }
+            }
+            Uint32 dt = vlast ? tn - vlast : 0; if (dt > 250) dt = 250; vlast = tn;
+            for (int s2 = 0; s2 < 2; s2++) vclk[s2] += dt * (sidebars_count() ? sidebars_speed(shown[s2]) : 1.0); }
+          int sb_side[2] = { sidebars_builtin(shown[0] >= 0 ? shown[0] : sv), sidebars_builtin(shown[1] >= 0 ? shown[1] : sv) };
+          if (sbar == SIDEBAR_REGISTERS) sb_side[0] = sb_side[1] = SIDEBAR_BORDER;   /* the panel is drawn on its own, below */
+          int grad = sb_side[0] == SIDEBAR_GRADIENT || sb_side[1] == SIDEBAR_GRADIENT, knot = sb_side[0] == SIDEBAR_KNOT || sb_side[1] == SIDEBAR_KNOT;
+          Uint32 gclk = (Uint32) vclk[sb_side[0] == SIDEBAR_GRADIENT || sb_side[0] == SIDEBAR_KNOT ? 0 : 1];   /* the gradient's and the knot's clock */
           int place = settings_get(SET_VIDEO_PLACE), panel_kind = sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;
           if (panel_kind != PANEL_OFF && place == PLACE_CENTRE) place = PLACE_LEFT;
           /* for the host shell's children: tek40xx places its page the same
@@ -1815,12 +1869,12 @@ tex_done:
           }
           /* the border colour flat -- refilled when it changes -- or the
            * gradient, refilled every frame: a column of 1080 pixels */
-          if (btex && (btex_col != bcol || btex_smooth != smooth_applied || btex_sbar != sbar || btex_gh != gh || sbar == SIDEBAR_GRADIENT)) {
+          if (btex && (btex_col != bcol || btex_smooth != smooth_applied || btex_sbar != grad || btex_gh != gh || grad)) {
               void *bp; int bpitch;
-              btex_col = bcol; btex_smooth = smooth_applied; btex_sbar = sbar; btex_gh = gh;
+              btex_col = bcol; btex_smooth = smooth_applied; btex_sbar = grad; btex_gh = gh;
               if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
-                  if (sbar == SIDEBAR_GRADIENT) {
-                      int s, v, h0 = sb_rgb_hue(border_lit, &s, &v), ph = (int)((uint64_t) SDL_GetTicks() * 1536 / 24000 % 1536);
+                  if (grad) {
+                      int s, v, h0 = sb_rgb_hue(border_lit, &s, &v), ph = (int)((uint64_t) gclk * 1536 / 24000 % 1536);
                       if (s < 160) s = 160;
                       v = v * 3 / 4; if (v < 80) v = 80;
                       for (int y = 0; y < VICKY_HEIGHT; y++)
@@ -1831,7 +1885,7 @@ tex_done:
               }
           }
           static SDL_Texture *ktex; static int kt_col = -1;       /* the knot's tile (sidebar-savers) */
-          if (sbar == SIDEBAR_KNOT && (!ktex || kt_col != bcol)) {
+          if (knot && (!ktex || kt_col != bcol)) {
               if (!ktex && (ktex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, KNOT_W, KNOT_H)) != NULL) {
                   SDL_SetTextureScaleMode(ktex, SDL_ScaleModeNearest); SDL_SetTextureBlendMode(ktex, SDL_BLENDMODE_BLEND);
               }
@@ -1888,7 +1942,7 @@ tex_done:
           }
           /* the knot: down the middle of each sidebar wide enough for it, at the
            * picture's pixel size, rolling downward; not on the side panel's side */
-          if (sbar == SIDEBAR_KNOT && ktex) {
+          if (knot && ktex) {
               int ow2 = 0, oh2 = 0, kx0, ky0, kx1, ky1;
               SDL_GetRendererOutputSize(ren, &ow2, &oh2);
               if (custom) { kx0 = pic_x; kx1 = pic_x + pic_w; ky0 = pic_y; ky1 = pic_y + pic_h; }
@@ -1896,11 +1950,12 @@ tex_done:
               double ms = (double)(ky1 - ky0) / (gh > 0 ? gh : 480);   /* device pixels a machine pixel */
               int tw = (int)(KNOT_W * ms), th = (int)(KNOT_H * ms);
               if (tw > 0 && th > 0 && ow2 > 0) {
-                  int oy = (int)((int)(SDL_GetTicks() / 80 % KNOT_H) * ms), start = (ky0 + oy) % th - th;
+                  int oy = (int)((int)(gclk / 80 % KNOT_H) * ms), start = (ky0 + oy) % th - th;
                   if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
                   for (int side = 0; side < 2; side++) {
                       int a = side ? kx1 : 0, e = side ? ow2 : kx0;
                       if (panel_kind != PANEL_OFF && custom && ((place == PLACE_LEFT) == (side == 1))) continue;   /* the panel's side */
+                      if (sb_side[side] != SIDEBAR_KNOT) continue;
                       if (e - a < tw + 8) continue;
                       int x = a + (e - a - tw) / 2;
                       for (int y = start; y < oh2; y += th) { SDL_Rect d = { x, y, tw, th }; SDL_RenderCopy(ren, ktex, NULL, &d); }
@@ -1911,7 +1966,7 @@ tex_done:
           /* the scene savers (sdl/savers.c): each sidebar, the window's full
            * height, painted in machine pixels every frame and scaled to the
            * picture's pixel size; not on the side panel's side */
-          if (sbar >= SIDEBAR_HALLOWEEN && sbar < SIDEBAR_COUNT) {
+          if (sb_side[0] >= SIDEBAR_HALLOWEEN || sb_side[1] >= SIDEBAR_HALLOWEEN) {
               static SDL_Texture *stex[2]; static int stw[2], sth[2];
               int ow2 = 0, oh2 = 0, sx0, sy0, sx1, sy1;
               SDL_GetRendererOutputSize(ren, &ow2, &oh2);
@@ -1923,6 +1978,7 @@ tex_done:
                   for (int side = 0; side < 2; side++) {
                       int a = side ? sx1 : 0, e = side ? ow2 : sx0;
                       if (panel_kind != PANEL_OFF && custom && ((place == PLACE_LEFT) == (side == 1))) continue;   /* the panel's side */
+                      if (sb_side[side] < SIDEBAR_HALLOWEEN) continue;
                       int mw = (int)((e - a) / ms), mh = (int)(oh2 / ms) + 1;
                       if (mw < 8 || mh < 8) continue;
                       if (!stex[side] || stw[side] != mw || sth[side] != mh) {
@@ -1933,7 +1989,7 @@ tex_done:
                       }
                       void *sp; int spitch;
                       if (stex[side] && SDL_LockTexture(stex[side], NULL, &sp, &spitch) == 0) {
-                          saver_draw(sbar - SIDEBAR_HALLOWEEN, (uint32_t *) sp, spitch / 4, mw, mh, SDL_GetTicks(), side);
+                          saver_draw(sb_side[side] - SIDEBAR_HALLOWEEN, (uint32_t *) sp, spitch / 4, mw, mh, (uint32_t) vclk[side], side);
                           SDL_UnlockTexture(stex[side]);
                           int dw = (int)(mw * ms + 0.5), dh = (int)(mh * ms + 0.5);
                           SDL_Rect d = { side ? a : e - dw, (oh2 - dh) / 2, dw, dh };   /* against the picture's edge */
@@ -2148,6 +2204,7 @@ tex_done:
                        fclose(f); }
               running = 0; } }
     }
+    sidebar_save_states();                                /* the ant colony, and anything else a sidebar keeps */
     if (settings_changed()) settings_save(cfg);
     mlog("exit: the frame loop ended normally");
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();

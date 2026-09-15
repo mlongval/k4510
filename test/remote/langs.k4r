@@ -1,0 +1,304 @@
+# test/remote/langs.k4r -- every interpreted language in every shell mode
+# (Doc's brainshot, 2026-09-14: "a test that runs all of the interpreted
+# languages in all of the video modes to see how they respond").
+# Microsoft BASIC reads 72 characters a line: its text goes in A$ first.
+#
+# Each language prints 40 numbered lines longer than the narrow modes are
+# wide, so every mode scrolls and MODE 2 and 7 wrap; the test waits for the
+# last one and for the prompt to come back, and shoots the screen in
+# between.  A failure is one of three things: the last line never comes
+# (the language went wrong in that mode), the prompt never comes back
+# (it could not be left), or the shot looks wrong (colours, the band,
+# text over text) -- the shots are for eyes.  MODE 3 and 4 are not shells
+# (MODE refuses them).  Ends in MODE 1.
+#     tools/k4510-remote run test/remote/langs.k4r
+key esc
+type CD /HOME\n
+expect "/HOME]" 10
+
+# ---- MODE 0
+type MODE 0\n
+wait 2
+expect "/HOME]" 10
+type EHBASIC\n
+expect "Ready" 15
+type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "EH 40" 20
+shot m0-ehbasic
+type *BYE\n
+expect "/HOME]" 10
+type MSBASIC\n
+wait 3
+type \n
+expect "OK" 15
+type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
+type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
+expect "MS 40" 20
+shot m0-msbasic
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "R. T. Russell" 15
+type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "BBC 40" 20
+shot m0-bbc
+type *QUIT\n
+expect "/HOME]" 10
+type FORTH\n
+wait 3
+type : T 41 1 DO ." FORTH " I . ." ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789" CR LOOP ; T\n
+expect "FORTH 40 " 20
+shot m0-forth
+type BYE\n
+expect "/HOME]" 10
+type LOGO\n
+expect "the turtle is home" 15
+type REPEAT 8 [FD 60 RT 45]\n
+type PRINT [LOGO SAYS HI]\n
+expect "LOGO SAYS HI" 15
+shot m0-logo
+type BYE\n
+expect "/HOME]" 10
+type RX HELLO TESTER\n
+expect "the shell was happy" 20
+shot m0-rexx
+
+# ---- MODE 1
+type MODE 1\n
+wait 2
+expect "/HOME]" 10
+type EHBASIC\n
+expect "Ready" 15
+type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "EH 40" 20
+shot m1-ehbasic
+type *BYE\n
+expect "/HOME]" 10
+type MSBASIC\n
+wait 3
+type \n
+expect "OK" 15
+type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
+type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
+expect "MS 40" 20
+shot m1-msbasic
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "R. T. Russell" 15
+type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "BBC 40" 20
+shot m1-bbc
+type *QUIT\n
+expect "/HOME]" 10
+type FORTH\n
+wait 3
+type : T 41 1 DO ." FORTH " I . ." ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789" CR LOOP ; T\n
+expect "FORTH 40 " 20
+shot m1-forth
+type BYE\n
+expect "/HOME]" 10
+type LOGO\n
+expect "the turtle is home" 15
+type REPEAT 8 [FD 60 RT 45]\n
+type PRINT [LOGO SAYS HI]\n
+expect "LOGO SAYS HI" 15
+shot m1-logo
+type BYE\n
+expect "/HOME]" 10
+type RX HELLO TESTER\n
+expect "the shell was happy" 20
+shot m1-rexx
+
+# ---- MODE 2
+type MODE 2\n
+wait 2
+expect "/HOME]" 10
+type EHBASIC\n
+expect "Ready" 15
+type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "EH 40" 20
+shot m2-ehbasic
+type *BYE\n
+expect "/HOME]" 10
+type MSBASIC\n
+wait 3
+type \n
+expect "OK" 15
+type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
+type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
+expect "MS 40" 20
+shot m2-msbasic
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "R. T. Russell" 15
+type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "BBC 40" 20
+shot m2-bbc
+type *QUIT\n
+expect "/HOME]" 10
+type FORTH\n
+wait 3
+type : T 41 1 DO ." FORTH " I . ." ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789" CR LOOP ; T\n
+expect "FORTH 40 " 20
+shot m2-forth
+type BYE\n
+expect "/HOME]" 10
+type LOGO\n
+expect "the turtle is home" 15
+type REPEAT 8 [FD 60 RT 45]\n
+type PRINT [LOGO SAYS HI]\n
+expect "LOGO SAYS HI" 15
+shot m2-logo
+type BYE\n
+expect "/HOME]" 10
+type RX HELLO TESTER\n
+expect "the shell was happy" 20
+shot m2-rexx
+
+# ---- MODE 5
+type MODE 5\n
+wait 2
+expect "/HOME]" 10
+type EHBASIC\n
+expect "Ready" 15
+type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "EH 40" 20
+shot m5-ehbasic
+type *BYE\n
+expect "/HOME]" 10
+type MSBASIC\n
+wait 3
+type \n
+expect "OK" 15
+type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
+type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
+expect "MS 40" 20
+shot m5-msbasic
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "R. T. Russell" 15
+type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "BBC 40" 20
+shot m5-bbc
+type *QUIT\n
+expect "/HOME]" 10
+type FORTH\n
+wait 3
+type : T 41 1 DO ." FORTH " I . ." ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789" CR LOOP ; T\n
+expect "FORTH 40 " 20
+shot m5-forth
+type BYE\n
+expect "/HOME]" 10
+type LOGO\n
+expect "the turtle is home" 15
+type REPEAT 8 [FD 60 RT 45]\n
+type PRINT [LOGO SAYS HI]\n
+expect "LOGO SAYS HI" 15
+shot m5-logo
+type BYE\n
+expect "/HOME]" 10
+type RX HELLO TESTER\n
+expect "the shell was happy" 20
+shot m5-rexx
+
+# ---- MODE 6
+type MODE 6\n
+wait 2
+expect "/HOME]" 10
+type EHBASIC\n
+expect "Ready" 15
+type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "EH 40" 20
+shot m6-ehbasic
+type *BYE\n
+expect "/HOME]" 10
+type MSBASIC\n
+wait 3
+type \n
+expect "OK" 15
+type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
+type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
+expect "MS 40" 20
+shot m6-msbasic
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "R. T. Russell" 15
+type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "BBC 40" 20
+shot m6-bbc
+type *QUIT\n
+expect "/HOME]" 10
+type FORTH\n
+wait 3
+type : T 41 1 DO ." FORTH " I . ." ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789" CR LOOP ; T\n
+expect "FORTH 40 " 20
+shot m6-forth
+type BYE\n
+expect "/HOME]" 10
+type LOGO\n
+expect "the turtle is home" 15
+type REPEAT 8 [FD 60 RT 45]\n
+type PRINT [LOGO SAYS HI]\n
+expect "LOGO SAYS HI" 15
+shot m6-logo
+type BYE\n
+expect "/HOME]" 10
+type RX HELLO TESTER\n
+expect "the shell was happy" 20
+shot m6-rexx
+
+# ---- MODE 7
+type MODE 7\n
+wait 2
+expect "/HOME]" 10
+type EHBASIC\n
+expect "Ready" 15
+type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "EH 40" 20
+shot m7-ehbasic
+type *BYE\n
+expect "/HOME]" 10
+type MSBASIC\n
+wait 3
+type \n
+expect "OK" 15
+type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
+type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
+expect "MS 40" 20
+shot m7-msbasic
+type *BYE\n
+expect "/HOME]" 10
+type BBC\n
+expect "R. T. Russell" 15
+type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
+expect "BBC 40" 20
+shot m7-bbc
+type *QUIT\n
+expect "/HOME]" 10
+type FORTH\n
+wait 3
+type : T 41 1 DO ." FORTH " I . ." ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789" CR LOOP ; T\n
+expect "FORTH 40 " 20
+shot m7-forth
+type BYE\n
+expect "/HOME]" 10
+type LOGO\n
+expect "the turtle is home" 15
+type REPEAT 8 [FD 60 RT 45]\n
+type PRINT [LOGO SAYS HI]\n
+expect "LOGO SAYS HI" 15
+shot m7-logo
+type BYE\n
+expect "/HOME]" 10
+type RX HELLO TESTER\n
+expect "the shell was happy" 20
+shot m7-rexx
+
+type MODE 1\n
+wait 2
+type MODE\n
+expect "MODE 1: 80x" 10

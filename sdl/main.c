@@ -1669,10 +1669,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           memcpy(last_fb, fb, sizeof fb); if (open) memcpy(last_ov, ov, sizeof ov); }
         SDL_LockTexture(tex, NULL, &pixels, &pitch);
         for (int y = 0; y < gh; y++) {
-            const uint8_t *src = fb + y * VICKY_WIDTH, *o = ov + (y * UI_H / gh) * UI_W;   /* the menu is 640x480: stretched over the glass */
+            const uint8_t *src = fb + y * VICKY_WIDTH;     /* the menu is its own layer now, drawn over this (below) */
             uint32_t *d = (uint32_t *)((uint8_t *)pixels + y * pitch);
             if (!open) for (int x = 0; x < gw; x++) d[x] = pal[src[x]];
-            else       for (int x = 0; x < gw; x++) { uint8_t c = o[x * UI_W / gw]; d[x] = c ? upal[c] : mpal[src[x]]; }
+            else       for (int x = 0; x < gw; x++) d[x] = mpal[src[x]];
         }
         SDL_UnlockTexture(tex);
 tex_done:
@@ -1948,6 +1948,52 @@ tex_done:
                 }
             }
             if (!drawn) SDL_RenderCopy(ren, tex, &gsrc, &dr); }
+          /* The F7 menu: its own 640x480 layer over the picture, scaled the
+           * same way whatever the mode -- hard pixels to the whole multiple,
+           * smoothing for the rest.  Stretched into the picture it was drawn
+           * 1.125x at 720x540 and halved at 360x270, and its letters came out
+           * ragged (Doc, 2026-09-15: "the f7 menu font in the newer mode is
+           * crappy ... perhaps it should always be the same one, like in modes
+           * 0, 1 and 2"). */
+          if (open) {
+              static SDL_Texture *mtex, *mpre; static int mpw, mph;
+              if (!mtex && (mtex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, UI_W, UI_H)) != NULL)
+                  SDL_SetTextureScaleMode(mtex, SDL_ScaleModeNearest);
+              void *mp; int mpitch;
+              if (mtex && SDL_LockTexture(mtex, NULL, &mp, &mpitch) == 0) {
+                  for (int y = 0; y < UI_H; y++) {
+                      uint32_t *d = (uint32_t *)((uint8_t *)mp + y * mpitch); const uint8_t *o = ov + y * UI_W;
+                      for (int x = 0; x < UI_W; x++) d[x] = o[x] ? upal[o[x]] : 0x00000000u;
+                  }
+                  SDL_UnlockTexture(mtex);
+              }
+              float esx = 1.0f, esy = 1.0f; double eff2;
+              if (custom) eff2 = sc; else { SDL_RenderGetScale(ren, &esx, &esy); eff2 = esy; }
+              double me = eff2 * gh / (double) UI_H; int n = (int) me, done = 0;   /* device pixels a menu pixel */
+              if (mtex && n >= 1 && me - n > 0.02 && SDL_RenderTargetSupported(ren)) {
+                  int tw = UI_W * n, th = UI_H * n;
+                  if (!mpre || mpw != tw || mph != th) {
+                      if (mpre) SDL_DestroyTexture(mpre);
+                      mpre = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, tw, th);
+                      if (mpre) { SDL_SetTextureScaleMode(mpre, SDL_ScaleModeLinear); SDL_SetTextureBlendMode(mpre, SDL_BLENDMODE_BLEND); }
+                      mpw = tw; mph = th;
+                  }
+                  if (mpre) {
+                      if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                      if (SDL_SetRenderTarget(ren, mpre) == 0) {
+                          SDL_SetRenderDrawColor(ren, 0, 0, 0, 0); SDL_RenderClear(ren);
+                          SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_NONE);
+                          SDL_Rect whole = { 0, 0, tw, th };
+                          SDL_RenderCopy(ren, mtex, NULL, &whole);
+                          SDL_SetRenderTarget(ren, NULL);
+                          if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                          SDL_RenderCopy(ren, mpre, NULL, &dr);
+                          done = 1;
+                      } else if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                  }
+              }
+              if (mtex && !done) { SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_BLEND); SDL_RenderCopy(ren, mtex, NULL, &dr); }
+          }
           /* the side panel: the device pixels beside the picture, at the picture's rows */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {
@@ -2065,10 +2111,13 @@ tex_done:
           if (shot && --shot_fr == 0) {
               char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
               FILE *f = fopen(path, "wb");
-              int sh = vicky_glass_h(), sw = vicky_glass_w();
-              if (f) { fprintf(f, "P6 %d %d 255\n", sw, sh); SDL_LockTexture(tex, NULL, &pixels, &pitch);
-                       for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) { uint32_t p = ((uint32_t *)((uint8_t *)pixels + y * pitch))[x]; fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
-                       SDL_UnlockTexture(tex); fclose(f); }
+              int sh = vicky_glass_h(), sw = vicky_glass_w(), mo = menu_is_open();
+              if (f) { fprintf(f, "P6 %d %d 255\n", sw, sh);   /* the glass, and the menu over it when it is open (its own layer on the screen) */
+                       for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) {
+                           uint8_t o = mo ? ov[(y * UI_H / sh) * UI_W + x * UI_W / sw] : 0;
+                           uint32_t p = o ? upal[o] : (mo ? mpal : pal)[fb[y * VICKY_WIDTH + x]];
+                           fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
+                       fclose(f); }
               running = 0; } }
     }
     if (settings_changed()) settings_save(cfg);

@@ -532,7 +532,7 @@ static void s_dreamfall(cv_t *c, uint32_t t, int side)
     for (int y = wtop; y < wbot; y++) {
         int ww = 3 * k + (y - wtop) * 4 * k / (wbot - wtop + 1);
         for (int dx = -ww; dx <= ww; dx++) {
-            uint32_t r = hh((uint32_t)((dx + 50) * 7919) + (uint32_t)((y - (int)(t / 4)) / (2 * k)) * 104729u);
+            uint32_t r = hh((uint32_t)((dx + 50) * 7919) + (uint32_t)((y - (int)(t * 7 / 40)) / (2 * k)) * 104729u);
             blend(c, wx + dx, y, (r & 3) == 0 ? RGB(250, 252, 255) : RGB(150, 200, 245), 200);
         }
     }
@@ -695,7 +695,7 @@ static void s_tetris(cv_t *c, uint32_t t, int side)
         z->rng = 0x7E7215u + (uint32_t) side * 977u; z->next = (int)(trand(z) % 7); z->piece = -1; z->last = t;
     }
     if (t - z->last > 2000) z->last = t;                 /* after a pause: carry on, not catch up */
-    for (int n = 0; t - z->last >= 35 && n < 60; n++) { tstep(z); z->last += 35; }
+    for (int n = 0; t - z->last >= 50 && n < 60; n++) { tstep(z); z->last += 50; }   /* a step every 50 ms (Doc: 30% slower than 35) */
     /* the backdrop: deep blue, colours drifting behind the well */
     vgrad(c, 0, h, RGB(8, 8, 28), RGB(24, 10, 40));
     for (int i = 0; i < 4; i++) glow(c, w / 2 + isin((int)(t / 30) + i * 256) * w / 3 / 256, h * (i + 1) / 5 + isin((int)(t / 41) + i * 180) * h / 12 / 256, w / 2, tcol[1 + (i * 2 + (int)(t / 6000)) % 7], 40);

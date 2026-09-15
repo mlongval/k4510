@@ -29,3 +29,8 @@ expect "a key returns" 30
 key enter
 type \x11
 expect "/HOME]" 10
+# leave /HOME as it was: the files this test made go (Doc, 2026-09-15: /HOME had filled with them)
+type CD /HOME\n
+type RM -f PGTEST.C\n
+type RM -f pgtest.prg\n
+wait 1

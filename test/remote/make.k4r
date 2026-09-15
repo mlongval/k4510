@@ -50,3 +50,9 @@ key enter
 expect "ran it" 10
 type :q\n
 expect "/HOME]" 10
+# leave /HOME as it was: the files this test made go (Doc, 2026-09-15: /HOME had filled with them)
+type CD /HOME\n
+type RM -f MKTEST.C\n
+type RM -f MKTEST.PAS\n
+type RM -f mktest.prg\n
+wait 1

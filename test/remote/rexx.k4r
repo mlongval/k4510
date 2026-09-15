@@ -26,3 +26,7 @@ expect "error 1 of" 10
 shot rexx-error
 type \x11
 expect "/HOME]" 10
+# leave /HOME as it was: the files this test made go (Doc, 2026-09-15: /HOME had filled with them)
+type CD /HOME\n
+type RM -f RXTEST.RX\n
+wait 1

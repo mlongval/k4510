@@ -11,6 +11,7 @@ type CD /HOME\n
 type RM -f PJT/PROJECT.K4P\n
 type RM -f PJT/PJT.C\n
 type RM -f PJT/UTIL.C\n
+type RM -f PJT/pjt.prg\n
 type RMDIR PJT\n
 wait 1
 type PROG\n
@@ -51,3 +52,11 @@ shot proj-run
 key enter
 type \x11
 expect "/HOME]" 10
+# leave /HOME as it was: the files this test made go (Doc, 2026-09-15: /HOME had filled with them)
+type CD /HOME\n
+type RM -f PJT/PROJECT.K4P\n
+type RM -f PJT/PJT.C\n
+type RM -f PJT/UTIL.C\n
+type RM -f PJT/pjt.prg\n
+type RMDIR PJT\n
+wait 1

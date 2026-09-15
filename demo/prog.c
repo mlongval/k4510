@@ -201,7 +201,9 @@ static uint8_t event(void)
         far_poke(SPRTAB + 0, (uint8_t)x); far_poke(SPRTAB + 1, (uint8_t)(x >> 8));
         far_poke(SPRTAB + 2, (uint8_t)y); far_poke(SPRTAB + 3, (uint8_t)(y >> 8));
         b = (uint8_t)(REG(MOUSEB) & 1); w = (int8_t)REG(MOUSEW);
-        r = (uint8_t)(y / chh); c = (uint8_t)(x >> 3);
+        { int ty = (int) y + (int16_t)(REG(0xD014) | (REG(0xD015) << 8));   /* the console's row: its layer is scrolled down by the HD padding */
+          r = (uint8_t)(ty < 0 ? 0 : ty / chh); }
+        c = (uint8_t)(x >> 3);
         kmod = REG(KSTAT); kcode = 2;
         if (w) { mwheel = w; mev = 4; return KMOUSE; }
         if (b && !mheld) { mheld = 1; mrow = r; mcol = c; mev = 1; return KMOUSE; }

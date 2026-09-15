@@ -8615,3 +8615,12 @@ at the prompt, and the power-on picture) and banner.prg put the text at
 column 20 beside the bars; on a narrow screen they now put it under
 them -- the ROM's from column 0, the .prg's word-wrapped -- and wide
 screens are unchanged. Checked in MODE 7, 2 and 6 on the emulator here.
+
+## 2026-09-14 — the HD spare lines, half above and half below
+
+Doc asked whether the text's top row is fixed at line 0: it is not --
+the text layer has a vertical scroll. The ROM now scrolls the HD console
+down by half its spare lines (4, 6, 3 in MODE 5, 6, 7), VICKY draws a
+text layer only over its whole rows, and the band overlay, PROG's mouse
+and SPLIT follow the offset. With the bands on, the text is centred
+between two equal grey edges.

@@ -92,16 +92,17 @@ int main(void)
 {
     uint8_t l0, i, k = 0, c = 16, oy, rh, halved;
     int x0 = 100, y0 = 20, x1 = 500, y1 = 180, a = 7, b = 3, e = -5, f = 4;
-    unsigned t, n = 0, dt, split, toph, top, topb;
+    unsigned t, n = 0, dt, split, toph, top, topb, pad;
 
     /* where the split falls: the first glass line of the console's last four rows */
     rows = REG(TERM + 6); oy = REG(TERM + 8);
     if (rows < 8) rows = 30;
     halved = (REG(VIC) & 0x24) == 4;    /* 640x240: each machine line drawn twice (not the HD family, drawn at its own size) */
     rh = (halved || (REG(VIC + 0x10) & 0x60)) ? 16 : 8;   /* a text row in glass lines: 16 when halved or in 8x16 cells (640x480) */
-    split = (unsigned)(oy + rows - 4) * rh;
+    pad = (unsigned) -(int16_t)(REG(VIC + 0x14) | (REG(VIC + 0x15) << 8));   /* the HD padding above the console (0 in the classic modes) */
+    split = (unsigned)(oy + rows - 4) * rh + pad;
     toph = halved ? split / 2 : split;  /* bitmap rows above it */
-    top = (unsigned)oy * rh;            /* the top band's end, a glass line */
+    top = (unsigned)oy * rh + pad;      /* the top band's end, a glass line */
     topb = halved ? top / 2 : top;      /* ... and in bitmap rows: the drawing stays below it */
     y0 = (int)(topb + toph) / 2; y1 = (int)toph - 1;
 

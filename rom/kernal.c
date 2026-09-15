@@ -1930,6 +1930,7 @@ static void shell_line(const char *p)
 static const uint8_t ctrlmode[8] = { 0, 4, 2, 2 | 8, 2 | 8 | 16, 0x20, 0x20 | 6, 0x20 | 6 | 16 };   /* 5-7: the HD family (core/vicky.h) */
 static const uint8_t pcols_of[8] = { 80, 80, 40, 40, 20, 180, 90, 45 };
 static const uint8_t prows_of[8] = { 30, 30, 30, 25, 25, 67, 33, 33 };   /* 8x16 cells in 0, 5, 6; 8x8 in the rest */
+static const uint8_t vpad_of[8]  = { 0, 0, 0, 0, 0, 4, 6, 3 };           /* the HD spare lines (8, 12, 6), half above the text (Doc, 2026-09-14) */
 #pragma code-name (push, "CODE2")
 static void video_init(void)
 {
@@ -1967,7 +1968,7 @@ static void video_init(void)
     w16(VICKY + 0x16, PCOLS);
     w32(VICKY + 0x1C, SCREEN);
     w32(VICKY + 0x18, ((0x61 >> vmode) & 1) ? FONT16 : FONT);   /* 8x16 in MODE 0, 5, 6 */
-    w16(VICKY + 0x12, 0); w16(VICKY + 0x14, 0);
+    w16(VICKY + 0x12, 0); w16(VICKY + 0x14, (uint16_t)(0 - vpad_of[vmode]));   /* the text centred in an HD glass: scrolled DOWN by half the spare lines */
     REG(VICKY + 0x11) = 0;
     REG(VICKY + 0x10) = ((0x61 >> vmode) & 1) ? 0x01 | (3 << 1) | 0x20 : 0x01 | (3 << 1);   /* enable | text32 (| 8x16 cells) */
     for (i = 1; i < 4; i++) REG(VICKY + 0x10 + i * 0x10) = 0;

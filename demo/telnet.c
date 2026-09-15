@@ -36,6 +36,29 @@ static unsigned char buf[256], rep[12], sb[16], sbn, cmd;
 static const char *const ttypes[] = { "XTERM-COLOR", "VT220", "VT100", "ANSI" };
 static unsigned char tt[20], tti;                         /* the TTYPE IS reply, and which name is next */
 static unsigned char u8;                                  /* the session is UTF-8 (JIM decoding) */
+/* The font follows the decoding.  A CP437 session -- a BBS, an old system, a
+ * far end that never negotiates -- draws with IBM's strict page, which the
+ * frontend keeps beside the machine's own, so its art is exactly as drawn;
+ * the 26 places the K4510 page gave to Western Europe's letters would draw
+ * them instead of CP437's Greek and maths.  A UTF-8 session (a Unix host)
+ * decodes into the K4510 page and draws with its font.  The text layer's
+ * glyph pointer (VICKY layer 0, +8) is the ROM's, set per MODE, so it is
+ * saved and always given back. */
+#define L0DATA     0xD018u
+#define FONT8_437  0x00011800UL                           /* core/io.h K4510_FONT8_437_PHYS */
+#define FONT16_437 0x00012000UL
+static unsigned long ofont;
+static void font_437(unsigned char on)
+{
+    unsigned long f = ofont, c;
+    if (on) {
+        c = (REG(0xD010) & 0x60) ? FONT16_437 : FONT8_437;   /* the size this MODE draws */
+        if (!far_peek(c + ((REG(0xD010) & 0x60) ? 0x41 * 16 + 6 : 0x41 * 8 + 3))) return;   /* no 'A': an older frontend, no CP437 font */
+        f = c;
+    }
+    REG(L0DATA) = (unsigned char) f; REG(L0DATA + 1) = (unsigned char)(f >> 8);
+    REG(L0DATA + 2) = (unsigned char)(f >> 16); REG(L0DATA + 3) = (unsigned char)(f >> 24);
+}
 static const unsigned int cp437u[128] = {                 /* CP437 $80-$FF -> Unicode, for a typed letter */
     0x00C7,0x00FC,0x00E9,0x00E2,0x00E4,0x00E0,0x00E5,0x00E7,0x00EA,0x00EB,0x00E8,0x00EF,0x00EE,0x00EC,0x00C4,0x00C5,
     0x00C9,0x00E6,0x00C6,0x00F4,0x00F6,0x00F2,0x00FB,0x00F9,0x00FF,0x00D6,0x00DC,0x00A2,0x00A3,0x00A5,0x20A7,0x0192,
@@ -89,6 +112,8 @@ void main(void)
     REG(TERM + 4) = 2;                                    /* clear, so no blue is left around the art */
     say("connected to "); say(url + 6); say("  (F12 hangs up)\r\n");
     u8 = 0;                                               /* CP437 until the far end takes XTERM-COLOR */
+    ofont = (unsigned long) REG(L0DATA) | ((unsigned long) REG(L0DATA + 1) << 8) | ((unsigned long) REG(L0DATA + 2) << 16) | ((unsigned long) REG(L0DATA + 3) << 24);
+    font_437(1);                                          /* ...drawn with IBM's page */
     say("\033[20l");                                      /* LNM off: a far end's bare LF keeps the column (tmux moves down
                                                            * that way); the ROM console gets its LNM back on the way out */
     REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
@@ -143,8 +168,8 @@ void main(void)
                     if (sbn >= 2 && sb[0] == 24 && sb[1] == 1) {
                         const char *t = ttypes[tti];
                         unsigned char n = 4;
-                        if (tti == 0) { say("\033%G"); u8 = 1; }          /* offering XTERM-COLOR: UTF-8 if it is taken */
-                        else if (u8) { say("\033%@"); u8 = 0; }           /* asked again: not a Unix host, CP437 */
+                        if (tti == 0) { say("\033%G"); u8 = 1; font_437(0); }   /* offering XTERM-COLOR: UTF-8, the K4510 page */
+                        else if (u8) { say("\033%@"); u8 = 0; font_437(1); }    /* asked again: not a Unix host, CP437 */
                         if (tti < 3) tti++;               /* the last name repeats: the list is spent */
                         tt[0] = 255; tt[1] = 250; tt[2] = 24; tt[3] = 0;
                         while (*t) tt[n++] = *t++;
@@ -164,6 +189,7 @@ void main(void)
         if (!got) wait_vblank();
     }
     net(4);
+    font_437(0);                                          /* the machine's page back, on every way out */
     if (u8) { say("\033%@"); u8 = 0; }                     /* the machine's own screen is CP437 */
     say("\033[20h");                                      /* and LNM, as the ROM's video_init sets it */
     REG(TERM + 0x0E) = 0;

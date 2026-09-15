@@ -29,6 +29,10 @@ int main(int argc, char **argv)
     uint8_t font[2048]; FILE *ff = fopen("data/fonts/unscii/font8-unscii.bin", "rb"); if (!ff || fread(font, 1, 2048, ff) != 2048) { fprintf(stderr, "font\n"); return 1; } fclose(ff);
     if (mem_init()) return 1; fs_set_root("fs"); mem_load(K4510_FONT8_PHYS, font, 2048); if (mem_load_rom(rom) <= 0) { fprintf(stderr, "rom\n"); return 1; }
     { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0 in 8x16 cells */
+    { static uint8_t c8[2048], c16[4096]; FILE *g = fopen("data/fonts/unscii/font8-cp437.bin", "rb");   /* strict CP437, where the frontend puts it (TELNET's BBS sessions) */
+      if (g) { if (fread(c8, 1, 2048, g) == 2048) mem_load(K4510_FONT8_437_PHYS, c8, 2048); fclose(g); }
+      g = fopen("data/fonts/unscii/font16-cp437.bin", "rb");
+      if (g) { if (fread(c16, 1, 4096, g) == 4096) mem_load(K4510_FONT16_437_PHYS, c16, 4096); fclose(g); } }
     { extern void io_set_ms_source(uint32_t (*)(void)); io_set_ms_source(hl_ms); }
     { extern int io_lock_linux; if (getenv("K4510_LOCK_LINUX")) io_lock_linux = 1; }   /* as k4510-menu.cfg "linux = locked" (bangtest) */
     io_reset(); cpu65_reset();

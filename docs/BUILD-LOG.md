@@ -8783,3 +8783,16 @@ BASIC's RAM below $7000 is untouched). logotest had been failing since the
 turtle became TURTLE.SPR's sixteen 32x32 frames (it read the old 16x16
 layout); it reads the new one and passes. Checked: MSBASIC HI and LOGO SQ,
 VI :run on a .BAS, logotest and msbasictest.
+
+## 2026-09-15 — a strict CP437 font for TELNET
+
+K4510 code page step 3. The frontend loads the kept font8/16-cp437.bin beside
+the machine's fonts ($011800, $012000; nothing else uses them), and TELNET
+points the text layer at them for a CP437 session -- a BBS, an old system, a
+far end that never negotiates -- so its art draws as it was drawn, CP437's
+Greek and maths where the K4510 page has Western Europe's letters. A UTF-8
+session (a Unix host takes XTERM-COLOR) draws with the machine's page; the
+ROM's pointer is saved and given back on every way out. An older frontend
+with no CP437 font leaves TELNET on the machine's (it looks for an 'A').
+Checked: a raw TCP far end's $9E $9F $A9 $E0-$FF drawn as CP437, then the
+same line redrawn in the K4510 page once it hung up; ttypetest, nettest.

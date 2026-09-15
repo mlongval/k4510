@@ -275,6 +275,8 @@ const char *fs_get_cwd(void);
 /* --- boot-time data the frontend places in RAM (until the system ROM carries it) --- */
 #define K4510_FONT8_PHYS   0x00010000u   /* unscii-8: 256 glyphs x 8 rows, CP437 order, 2 KB at 64 KB (the 240-line modes) */
 #define K4510_FONT16_PHYS  0x00010800u   /* unscii-16: 256 glyphs x 16 rows, 4 KB (MODE 0, 640x480: 80x30 in 8x16 cells) */
+#define K4510_FONT8_437_PHYS  0x00011800u   /* the same fonts in IBM's strict code page 437 (font8/16-cp437.bin), */
+#define K4510_FONT16_437_PHYS 0x00012000u   /* for TELNET's CP437 sessions: a BBS's art as it was drawn (2026-09-15) */
 #define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
 
 uint8_t io_read(uint16_t addr);

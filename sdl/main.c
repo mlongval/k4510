@@ -307,6 +307,7 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
 
 static uint8_t font_menu[2048];                      /* unscii-8: the machine's 8x8 font, and the menu's */
 static uint8_t font_panel[4096]; static int font_panel_rows = 16;  /* unscii-16: MODE 0's font, and the side panel's */
+static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP437, for TELNET's BBS sessions (docs/K4510-CODEPAGE.md) */
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -323,6 +324,8 @@ static void load_fonts(void)
 {
     mem_load(K4510_FONT8_PHYS, font_menu, sizeof font_menu);
     mem_load(K4510_FONT16_PHYS, font_panel, sizeof font_panel);
+    mem_load(K4510_FONT8_437_PHYS, font_437_8, sizeof font_437_8);        /* zeros if the files were missing: TELNET */
+    mem_load(K4510_FONT16_437_PHYS, font_437_16, sizeof font_437_16);     /* sees an empty font and stays on the machine's */
 }
 
 /* The keyboard when SDL sends no text.
@@ -898,6 +901,8 @@ int k4510_frontend_main(int argc, char **argv)
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
+    load_file("data/fonts/unscii/font8-cp437.bin", font_437_8, sizeof font_437_8);      /* optional: IBM's page */
+    load_file("data/fonts/unscii/font16-cp437.bin", font_437_16, sizeof font_437_16);
     if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu ||
         load_file("data/fonts/unscii/font16-unscii.bin", font_panel, sizeof font_panel) != sizeof font_panel) {
         fprintf(stderr, "need data/fonts/unscii/font8-unscii.bin and font16-unscii.bin (run from repo root)\n");

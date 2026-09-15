@@ -90,8 +90,11 @@ static void mode_run(char digit)
 static void mode_enter(void)
 {
     /* VICKY CTRL -> the console's MODE digit (rom/kernal.c ctrlmode[]) */
-    switch (REG(VICKY) & 0x1E) {
+    switch (REG(VICKY) & 0x3E) {                          /* bit 5: the HD family (hd-modes) -- without it MODE 5 read as 0 */
     case 0x00: mode_was = '0'; break;
+    case 0x20: mode_was = '5'; break;
+    case 0x26: mode_was = '6'; break;
+    case 0x36: mode_was = '7'; break;
     case 0x02: mode_was = '2'; break;
     case 0x0A: mode_was = '3'; break;
     case 0x1A: mode_was = '4'; break;

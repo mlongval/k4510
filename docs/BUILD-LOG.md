@@ -8573,3 +8573,18 @@ scrolling, and the menu over MODE 6.
   text layers leave the partial row under the last full one undrawn, so
   BGCOL is what shows there.
 - "Make f7 menu default to mode 7": 360x270 is the default.
+
+## 2026-09-14 — the languages in every mode (hd-modes)
+
+Doc's brainshot asked for a test of the interpreted languages in every
+video mode: test/remote/langs.k4r, EhBASIC, Microsoft BASIC, BBC BASIC,
+Forth, LOGO and REXX in MODE 0, 1, 2, 5, 6 and 7, run first against an
+emulator here (k4510-remote's new K4510_REMOTE=local) so it need not take
+the Dell from Doc. All 36 pass; the screenshots found what the checks
+could not: LOGO read VICKY's CTRL without the HD bit, so MODE 5 looked
+like MODE 0 (its 640-wide picture drawn into the 1440 glass, twice) and
+MODE 6 and 7 came back as MODE 1 at BYE. LOGO, BOOK (which cleared the
+halving bits and stayed HD), SPLIT (which took lines-halved to mean
+doubled) and BUG (which names the mode) know bit 5 now. The test's own
+faults on the way: Microsoft BASIC reads 72 characters a line, and BBC
+BASIC's banner wraps at 40 columns.

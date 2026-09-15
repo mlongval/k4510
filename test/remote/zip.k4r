@@ -17,12 +17,14 @@ type CD /MNT/ZT\n
 type HELLO\n
 expect "Hello from C on the K4510." 10
 shot zip-hello
-# read-only: the copy must not appear
+# read-only: the copy is refused, and the listing on a clear screen is the
+# same two files (NEW.TXT itself would match the command line still on screen)
 type CP README.TXT NEW.TXT\n
+expect "failed" 5
+type CLS\n
 wait 1
 type DIR\n
-expect "README.TXT" 5
-absent "NEW.TXT" 3
+expect "2 file(s), 717 bytes" 5
 type CD /HOME\n
 type UMOUNT /MNT/ZT\n
 wait 1

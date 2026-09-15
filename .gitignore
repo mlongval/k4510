@@ -144,3 +144,4 @@ test/bench
 # Brainshots: IDEA writes the user's ideas, with the screen they were had at, to
 # fs/BRAINSHOTS.  Personal, like shots/ and dumps/: never into a public repo.
 /fs/BRAINSHOTS/
+fs/APPS/TETRIS/HISCORE.DAT

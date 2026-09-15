@@ -8675,3 +8675,14 @@ grain up by the shortest way, open a queen's chamber with eggs and a store
 they fill with crumbs. When three-tenths is dug, or the colony grows by
 less than 25 cells in 4.5 minutes, the sand fills back in and a new colony
 starts. Traced over simulated hours with -DAF_DEBUG.
+
+## 2026-09-15 — TETRIS
+
+Doc: "then tetris". /APPS/TETRIS/tetris.prg, in MODE 7 with the status
+bands taken so all 33 rows are the game's: a 10x20 well with a landing
+shadow, the next piece, score, level, lines, and the best five with
+initials in /APPS/TETRIS/HISCORE.DAT. A shuffled bag of the seven pieces,
+modern turns with wall and floor nudges, half a second on the floor before
+a piece locks. Korobeiniki on the OPL2, quicker with the levels; a pluck on
+lock, a bell for rows. Checked headless through a whole game and a saved
+best score.

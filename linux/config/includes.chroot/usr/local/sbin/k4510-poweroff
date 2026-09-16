@@ -1,5 +1,5 @@
 #!/bin/sh
-# Run by the emulator (F7 -> Shut down) as the k4510 user.  All it may do is
+# Run by the emulator (F12 -> Shut down) as the k4510 user.  All it may do is
 # ask for the real one, which sudoers permits by name and by name only.
 #
 # It lives HERE, in config/includes.chroot, and not in a cat > inside

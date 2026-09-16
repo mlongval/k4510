@@ -76,7 +76,7 @@ NODISK=${NODISK-nvme,nvme_core,ahci,libahci,ata_piix,ata_generic,pata_acpi}
 # `persistence` turns on the fourth partition (see PERSIST_MB).  Note what it
 # costs: the system still lives in RAM, but SAVING now needs the stick, so
 # "pull it out once the banner is up" and "keep my changes" are no longer both
-# true at once.  Leave it in, and use F7 -> Shut down.
+# true at once.  Leave it in, and use F12 -> Shut down.
 CMDLINE="boot=live components toram union=overlay persistence splash"
 [ -n "$NODISK" ] && CMDLINE="$CMDLINE modprobe.blacklist=$NODISK"
 
@@ -296,7 +296,7 @@ echo "== the keyboard picker (k4510.kbd= on the boot line) =="
 # (plain US) stands.  The map codes are the boot menu's.
 # The helper, /usr/local/sbin/k4510-keymap, lives in config/includes.chroot
 # (copied in above) so a change to it rides the machine layer; it also applies
-# the emulator's saved F7 layout and Caps-as-Ctrl when the boot line picks none
+# the emulator's saved F12 layout and Caps-as-Ctrl when the boot line picks none
 # (Doc, 2026-09-12).
 # Its unit, k4510-keymap.service, lives in config/includes.chroot/etc/systemd/
 # system/ (copied in above), so a fix to it rides the machine layer; written
@@ -334,7 +334,7 @@ mkdir -p "$ROOT/usr/local/sbin"
 [ -x "$ROOT/usr/local/sbin/k4510-telnet-login" ] || {
     echo "build-live.sh: config/includes.chroot is missing usr/local/sbin/k4510-telnet-login"; exit 1; }
 
-echo "== shutting the computer down from the F7 menu =="
+echo "== shutting the computer down from the F12 menu =="
 # The marker the emulator looks for (sdl/main.c): its presence is what reveals
 # the "Shut down the computer" row, so a desktop build never offers to power
 # off Doc's workstation.

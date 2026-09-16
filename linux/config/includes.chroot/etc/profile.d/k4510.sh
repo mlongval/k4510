@@ -5,7 +5,7 @@
 # ordinary Debian login, which is the whole difference between K4510 and the
 # bare-metal appliance: the Linux underneath is meant to be reachable.
 #
-# Quitting the emulator (F7 -> Quit) falls out of the exec and back to a login
+# Quitting the emulator (F12 -> Quit) falls out of the exec and back to a login
 # prompt on tty1, because agetty respawns.  That is deliberate: on the Pi that
 # menu entry halts the board; here it should hand you the host.
 # The machine's tools -- k4510-pas and k4510-cc, which PAS and CC at the

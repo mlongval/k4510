@@ -3,15 +3,15 @@
 #
 #   k4510-keymap               at boot (k4510-keymap.service, before tty1): the
 #                              boot menu's k4510.kbd=<code> if it chose one, else
-#                              the emulator's saved F7 settings -- /etc lives in
+#                              the emulator's saved F12 settings -- /etc lives in
 #                              RAM, the emulator's k4510.cfg persists
-#   k4510-keymap --set L C     from the emulator when F7 changes them: L a layout
-#                              name (F7 -> Input -> Keyboard layout; "Host" keeps Linux's own), C 1 or 0
-#                              (F7 -> Input -> Caps Lock is Ctrl)
+#   k4510-keymap --set L C     from the emulator when F12 changes them: L a layout
+#                              name (F12 -> Input -> Keyboard layout; "Host" keeps Linux's own), C 1 or 0
+#                              (F12 -> Input -> Caps Lock is Ctrl)
 #
 # It writes /etc/default/keyboard and reloads the kernel keymap, which every
 # console uses.  The machine types through its own copy of the same XKB layout
-# (core/kbdmaps.h) the moment F7 chooses it; this keeps the Linux side in step.
+# (core/kbdmaps.h) the moment F12 chooses it; this keeps the Linux side in step.
 # Caps as Ctrl is XKB's ctrl:nocaps.
 # Doc, 2026-09-12 ("make that f7 option change the same thing for the linux side
 # as well as keyboard language"); the boot-menu codes are from 2026-09-10.

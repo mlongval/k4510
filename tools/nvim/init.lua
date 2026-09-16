@@ -103,7 +103,10 @@ end
 local function show_first(items)           -- to the first error (or the first message), and say it
     local first = 1
     for i, it in ipairs(items) do if it.type == "E" then first = i; break end end
-    pcall(vim.cmd, "cc " .. first)
+    -- silent: :cc says "(1 of 2): ..." itself, and two messages on one build
+    -- cost a "Press ENTER to continue" (the Dell's shot, 2026-09-15).  One
+    -- line, in VI's wording, is what :make has always given here.
+    pcall(vim.cmd, "silent cc " .. first)
     local it = items[first]
     note(("%s %d of %d: %s"):format(it.type == "W" and "warning" or "error", first, #items, it.text), "ErrorMsg")
 end
@@ -117,7 +120,7 @@ local function make()
     -- a file not on the disk yet is written too, not only a changed one: NVIM
     -- NEWFILE then :Run handed the machine a program that was never saved
     -- (the Dell, 2026-09-15: "RX: not found: /HOME/NVTEST.RX")
-    if vim.bo.modified or not uv.fs_stat(file) then vim.cmd("write") end
+    if vim.bo.modified or not uv.fs_stat(file) then vim.cmd("silent write") end   --[[ silent: see show_first ]]
     if not L.tool then note("saved -- nothing to compile: run it (:Run, F10)"); return true end
     local dir = vim.fn.fnamemodify(file, ":p:h")
     local p = project(dir)
@@ -161,7 +164,7 @@ local function run()
     f:write(file, "\n", vim.fn.line("."), "\n"); f:close()
     f = io.open(log .. "/NVIM.BAT", "w")
     f:write("SWAP -k ", cmd, "\n"); f:close()               -- as VI's :run: over the editor, and the editor back
-    vim.cmd("wall")
+    vim.cmd("silent wall")
     vim.cmd("qall")
 end
 

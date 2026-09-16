@@ -9379,3 +9379,45 @@ every `*.squashfs` in that directory, so a spare copy does not belong in it.
 The remote suite ran 9 of 9 (the zip failure was a missing fixture, not a
 regression: `test/remote/zipfixture.sh` must put ZIPTEST.ZIP on the machine
 first). LOGO keeping its mode was checked on the glass in MODE 2.
+
+## 2026-09-16 — the same bug twice, and what it taught
+
+`LAYER_DIRS` gaining `usr/local/sbin` was necessary and not sufficient. The
+layer built from it did carry the directory -- `k4510-halt`, `k4510-keymap`,
+`k4510-poweroff`, `k4510-telnet-login`, all four of them -- and the login it
+carried was still the old one, `exec /bin/login "$@" k4510`, no `-f`.
+
+The reason is the shape of the script. A `REBUILD=1` keeps the rootfs, puts
+this checkout's HEAD into it, rebuilds the machine and re-squashes the layer:
+two minutes instead of thirty. What it never runs is the main body, and the
+login was written by a `cat >` that lives there. So the rootfs still held the
+copy from the last full build, dated Sep 13, and the layer packaged it
+faithfully. The fix and the file had never been in the same place at the same
+time.
+
+It lives in `config/includes.chroot/usr/local/sbin/k4510-telnet-login` now,
+mode 755, beside `k4510-keymap`. That directory is copied over the rootfs on
+both paths -- line 197 for a REBUILD, line 237 for a full build -- and
+`OVERLAY_FILES` excludes only `usr/local/bin`, so the file rides the layer by
+itself. `build-live.sh` no longer writes it; what stands in its place is a
+guard that stops the build if the overlay file is missing, because the failure
+this replaces was a machine that booted perfectly and quietly asked for a
+password. The script had already learned this lesson once: the socket unit was
+moved into `includes.chroot` for exactly this reason, and says so in a comment
+three lines above the write that had the same fault.
+
+`k4510-halt` and `k4510-poweroff` are still written inline. Their content has
+not changed, so they are not wrong today, but they are the same trap set again
+and belong in `includes.chroot` the next time that file is opened.
+
+The layer is built and verified: sha `f1b731d4`, and the login extracted back
+out of the squashfs reads `exec /bin/login -f k4510`. It is waiting for the
+machine's next boot -- the Dell was shut down before it could be installed.
+
+What is worth keeping from two rounds of this: the check that found both
+failures was reading the artefact, not the source. The source was right and
+committed and pushed both times. `unsquashfs -l` on the layer, and the date on
+the file that was actually running, are what told the truth -- the same lesson
+as the pixel diff in LOGO an hour earlier, where three attempts to measure the
+drawing said the two builds were identical and a dumb byte-for-byte comparison
+found the 320 pixels that differed.

@@ -1,0 +1,20 @@
+#!/bin/sh
+# The clean stop.  The persistence partition is the only thing on the stick
+# that is ever written, so flush it and take it read-only BEFORE halting: after
+# this returns, pulling the stick out cannot lose anything.  It is mounted
+# `sync` anyway (k4510-persistence-sync.service), so this is belt and braces.
+#
+# It lives HERE, in config/includes.chroot, and not in a cat > inside
+# build-live.sh, for the reason written out in k4510-poweroff beside it: the
+# inline writes only ever run on a full build, so a change to one of them
+# cannot reach an installed machine by the fast path.  /etc/sudoers.d/k4510-halt
+# -- the rule that lets the k4510 user call this script and nothing else -- is
+# still written inline, deliberately: a malformed sudoers file takes sudo away
+# from the machine altogether, so moving it is its own small job.
+sync
+for m in /run/live/persistence/*; do
+    [ -d "$m" ] || continue
+    mountpoint -q "$m" && mount -o remount,ro "$m" 2>/dev/null
+done
+sync
+exec systemctl poweroff

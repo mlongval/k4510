@@ -1,0 +1,13 @@
+#!/bin/sh
+# Run by the emulator (F7 -> Shut down) as the k4510 user.  All it may do is
+# ask for the real one, which sudoers permits by name and by name only.
+#
+# It lives HERE, in config/includes.chroot, and not in a cat > inside
+# build-live.sh: that script writes those only on the full-build path, and a
+# REBUILD -- the two-minute one, the one anybody actually uses after a change
+# -- never runs it.  A file written there reaches the rootfs once and then
+# goes stale, and the machine layer packages the stale copy.  That is exactly
+# how the passwordless telnet login was committed, built, deployed and still
+# asked for a password on 2026-09-16.  Same reasoning as k4510-keymap and
+# k4510-telnet-login beside it.
+exec sudo -n /usr/local/sbin/k4510-halt

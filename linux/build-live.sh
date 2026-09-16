@@ -341,27 +341,16 @@ echo "== shutting the computer down from the F7 menu =="
 : > "$ROOT/etc/k4510-linux"
 # Two scripts, because only the second may run as root.  The emulator execs
 # the first after SDL has given the console back and the settings are written.
-cat > "$ROOT/usr/local/sbin/k4510-poweroff" <<'EOF'
-#!/bin/sh
-# Run by the emulator (F7 -> Shut down) as the k4510 user.  All it may do is
-# ask for the real one, which sudoers permits by name and by name only.
-exec sudo -n /usr/local/sbin/k4510-halt
-EOF
-cat > "$ROOT/usr/local/sbin/k4510-halt" <<'EOF'
-#!/bin/sh
-# The clean stop.  The persistence partition is the only thing on the stick
-# that is ever written, so flush it and take it read-only BEFORE halting: after
-# this returns, pulling the stick out cannot lose anything.  It is mounted
-# `sync` anyway (k4510-persistence-sync.service), so this is belt and braces.
-sync
-for m in /run/live/persistence/*; do
-    [ -d "$m" ] || continue
-    mountpoint -q "$m" && mount -o remount,ro "$m" 2>/dev/null
+# Neither is written here any more: both live in config/includes.chroot/usr/
+# local/sbin, beside k4510-keymap and k4510-telnet-login, copied over the
+# rootfs on BOTH paths and carried out by the machine layer.  Written inline
+# they only ever reached the rootfs on a full build, which is how the telnet
+# login went stale (2026-09-16); these two had not changed yet, so they were
+# the same trap merely unsprung.  Doc: "do the halt and poweroff ones too".
+for f in k4510-poweroff k4510-halt; do
+    [ -x "$ROOT/usr/local/sbin/$f" ] || {
+        echo "build-live.sh: config/includes.chroot is missing usr/local/sbin/$f"; exit 1; }
 done
-sync
-exec systemctl poweroff
-EOF
-chmod 755 "$ROOT/usr/local/sbin/k4510-poweroff" "$ROOT/usr/local/sbin/k4510-halt"
 mkdir -p "$ROOT/etc/sudoers.d"
 echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510-halt" > "$ROOT/etc/sudoers.d/k4510-halt"
 chmod 440 "$ROOT/etc/sudoers.d/k4510-halt"

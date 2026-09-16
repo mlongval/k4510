@@ -9589,3 +9589,90 @@ to find it again. SIDEBARS-PLAN.md was left alone: it is dated and says
 
 0.65 ms a side at 240x1080, against a budget of 5. sidebartest, uitest,
 statetest and termtest green.
+
+## 2026-09-16 — three brainshots: slower rain, MODE banners, the tailnet by name
+
+Doc left three (one of them empty -- an `IDEA` typed at 15:21, before VI took
+over the command, which is its own small proof that the change landed).
+
+**"Matrix works great. It is however too fast needs to be slowed down by 40%."**
+Three fifths of the old numbers: `35 + r%95` glyphs a second became
+`21 + r%57`, and the fallback streaks (the no-font path) went the same way.
+The flicker rate was deliberately left alone. In the film the glyphs change
+fast while the column falls slowly, and slowing both together makes the strip
+look tired rather than calm -- the two rates are doing different jobs, and only
+one of them was wrong. 0.65 ms a side, unchanged; sidebartest green.
+
+**"After a resolution change I think that an automatic BANNER command would be
+a good idea."** It already was one, for half the machine: a mode change from
+the F12 menu goes through `mode_do`, which sets `mode_note`, and the shell
+loop prints the banner at the next prompt. The typed `MODE` command did not,
+though it clears the screen exactly the same way -- so the menu left you
+looking at the machine's name and the command left you at a bare prompt in a
+screen whose shape had just changed, with nothing on it to say what shape that
+was. One line, `mode_note = 1`, at the end of `cmd_mode`. Being a flag read by
+the prompt loop rather than a call, a `MODE` inside a `.BAT` still banners
+once, when the prompt comes back, and not in the middle of the script.
+
+**"I cannot ping ubuntu-s1 using tailscale names."** Neither could the machine
+above it: K/OS resolves through the host (`core/net_posix.c` calls
+`getaddrinfo`), so `TELNET UBUNTU-S1` failed for the same reason.
+
+tailscaled had the right answer the whole time and could not install it:
+
+    dns: OScfg: {Nameservers:[100.100.100.100 ...] MatchDomains:[...ts.net.]}
+    dns: failed to configure resolved: setLinkDNS: The name
+         org.freedesktop.resolve1 was not provided by any .service files
+
+The image has no systemd-resolved, so tailscaled's only OS backend is missing
+and NetworkManager goes on writing a resolv.conf with the local DHCP server in
+it and nothing else.
+
+The obvious fix -- point resolv.conf at 100.100.100.100 -- is wrong, and
+measuring it said so before any of it was built. That resolver answers tailnet
+names (`ubuntu-s1` -> 100.116.56.10) and returns **zero** answers for
+deb.debian.org and pkgs.tailscale.com: it is MagicDNS only, which is what
+`MatchDomains` means. Listing it second does not help either, because glibc
+stops at the first nameserver that answers and a negative answer is an answer.
+Real split DNS needs a resolver daemon, which needs a package, and a package is
+the one thing a REBUILD cannot carry -- it costs the full half-hour build.
+
+So: the trick Doc's own KoboTailScale uses on the Kobo, for the same reason.
+`k4510-tailscale-hosts` writes the peers into a marked block in `/etc/hosts`,
+both full name and short (anything behind `tailscale serve` presents a
+certificate for the full one), and `hosts: files dns` finds them before DNS is
+consulted at all. Public names still go to the real resolver, untouched. A
+timer re-syncs every five minutes; if tailscaled is down or logged out the
+script leaves the block alone rather than emptying it, so names keep working
+until it comes back.
+
+It ships **pre-enabled**, as `.wants` symlinks in `config/includes.chroot`, and
+not only by the `systemctl enable` added to build-live.sh. The REBUILD path
+copies that tree over the rootfs and never reaches the enable lines -- which is
+exactly the trap that shipped the passwordless telnet login twice without it
+working. The unit files ride the layer for the same reason.
+
+Installed on the running Dell by hand as well, so the machine has its names
+today rather than after the next build: `ping ubuntu-s1` answers in 53 ms.
+
+### The ninth place, found by the handbook
+
+Regenerating the guide dropped `matrix` from Chapter 1's list of sidebars, and
+the first instinct -- that the generator was stale -- was wrong. It reads
+`sidebar_names[]` in core/ui/settings.c, and that array still ended at
+`antfarm`. MATRIX was written into eight lists on 2026-09-16 and missed a
+ninth.
+
+The eight fail the build, one at a time, which is why they were found. This one
+fails nothing. `core/sidebars.c` calls `settings_set_labels()` at startup and
+replaces those labels with the names of the zips in /SYSTEM/SIDEBARS, which do
+include matrix, so the menu is right on a normal machine and `sidebartest`
+passed its "then matrix, the last of them" check. The short array is reached
+only when there are no zips at all -- and its row declares `SIDEBAR_COUNT`
+labels while holding eleven, so `settings_text` indexed one pointer past the
+end of it.
+
+The handbook found a bug in the emulator, which is a fair return on generating
+the documentation from the source instead of writing it twice. The array now
+carries a comment saying it must have SIDEBAR_COUNT entries and why nothing
+will tell you when it does not.

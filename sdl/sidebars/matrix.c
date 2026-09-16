@@ -64,7 +64,7 @@ void s_matrix(cv_t *c, uint32_t t, int side)
         for (int i = 0; i < cols; i++) {
             uint32_t r = hh(seed + (uint32_t) i);
             int x = i * (w / cols) + (int)(r % 3u), len = 8 * k + (int)((r >> 5) % 30u);
-            int sp = 30 + (int)((r >> 9) % 110u), per = h + len * 2;
+            int sp = 18 + (int)((r >> 9) % 66u), per = h + len * 2;   /* 40% slower, as the rain proper */
             int y = (int)(((t * (uint32_t) sp) / 1000u + (r >> 15)) % (uint32_t) per) - len;
             for (int j = 0; j < len; j++) {
                 int a = 255 - j * 255 / len;
@@ -93,7 +93,14 @@ void s_matrix(cv_t *c, uint32_t t, int side)
             /* Tails scale with the strip: a fixed length looks like confetti
              * down a tall sidebar.  Half its height to nearly all of it. */
             int len   = rows / 2 + (int)((r >> 3) % (uint32_t)(rows / 2 + 1));
-            int speed = 35 + (int)((r >> 8) % 95u);            /* glyphs a second, roughly */
+            /* Glyphs a second, roughly, and 40% slower than the first version
+             * (Doc, 2026-09-16: "Matrix works great.  It is however too fast
+             * needs to be slowed down by 40%").  It was 35 + r%95; three
+             * fifths of that is 21 + r%57.  The flicker is deliberately left
+             * at its old rate: in the film the glyphs change fast while the
+             * column falls slowly, and slowing both together only makes the
+             * whole strip look tired. */
+            int speed = 21 + (int)((r >> 8) % 57u);
             int depth = (int)((r >> 17) % 3u);                 /* 0 near and bright, 2 far and dim */
             /* The period must cover the whole travel: the head starts at -len,
              * fully above the strip, and has to reach rows, fully below it.

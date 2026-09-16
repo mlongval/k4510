@@ -1,0 +1,18 @@
+[Unit]
+# MagicDNS, written into /etc/hosts -- see /usr/local/sbin/k4510-tailscale-hosts
+# for why this machine cannot have the real thing (no systemd-resolved, and the
+# tailnet resolver answers tailnet names only).
+Description=Write the tailnet's names into /etc/hosts (MagicDNS stand-in)
+After=tailscaled.service network-online.target
+Wants=tailscaled.service
+
+[Service]
+Type=oneshot
+# The peers are not there the instant tailscaled starts: it has to reach the
+# coordination server first.  A failure here is never worth a red boot -- the
+# timer comes round again in a minute.
+ExecStart=/usr/local/sbin/k4510-tailscale-hosts
+SuccessExitStatus=0 1
+
+[Install]
+WantedBy=multi-user.target

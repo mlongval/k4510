@@ -18,6 +18,26 @@ It is carried on the Tube ([Chapter 6, The Tube: BBC BASIC](06-tube.md)), which 
 
 `SSH [user@]host` is the same thing for a computer across the network: an ssh session, drawn by JIM, through the Linux’s own ssh.
 
+The third door is a *login* on the Linux beneath — its own tty, its own session — where `!` gives a shell on the Tube. It is F12 → Host → *Telnet into the host*, and it asks for no password: the telnet it speaks to listens on the loopback and nowhere else, so the only way to knock on it is from the machine standing on that very Linux — which already opens an unauthenticated shell there with `!`. One line in `/STARTUP.BAT` gives it a name, which is how the shipped `/SYSTEM/ETC/STARTUP.SAMPLE` has it:
+
+    ALIAS HOST TELNET 127.0.0.1 23
+
+`linux = locked` in the menu file shuts all of them together.
+
+## `NVIM` — Neovim, dressed for the machine
+
+The machine’s own editor is `VI`. The Linux’s is Neovim, and `NVIM [name]` brings it onto the glass the way `!` would, but set up for this machine (`tools/nvim/init.lua`):
+
+- It is in the machine’s colours — JIM’s sixteen, which are the palette’s, so a `PALETTE` you load recolours it too — and it draws nothing the code page has not got.
+
+- It knows the machine’s languages by their extensions in capitals: `.C` is C (not the C++ Neovim takes `*.C` for), `.PAS` Pascal, `.RX` REXX, `.BAS` the machine’s BASIC, `.BBC` BBC BASIC, `.LGO` LOGO. The BASIC’s and LOGO’s keywords are read from the interpreters’ own sources (`tools/mknvim.py`), so a keyword added there is coloured here.
+
+- `:make` (or F9) compiles with the machine’s compilers — the same `CC` and `PAS`, a `PROJECT.K4P` beside the file included — and reads `/SYSTEM/LOG/MAKE.ERR`, the file `VI`’s `:make` reads, into Neovim’s error list: it puts you on the first error, and `:cn`, `:cp` and `:cl` go through them as in `VI`.
+
+- `:Run` (or F10) builds it and the machine runs it: Neovim steps aside, the program runs on the machine as `VI`’s `:run` runs it — REXX, BASIC and LOGO in their interpreters — and a key brings Neovim back, on the line you were on. A REXX program that stops on an error brings you back to that line.
+
+Everything else is Neovim as it comes.
+
 !!! note ""
     **Locking the door.** On a machine a child uses, the way into Linux may be a way into trouble. `linux = locked` in the menu file ([The menu file: what the menu shows](01-machine.md#the-menu-file-what-the-menu-shows)) turns `!`, `SSH` and the menu’s telnet row away with a message, and `consoles = locked` makes the Linux consoles unreachable from the keyboard. `PAS` and `CC` still compile.
 

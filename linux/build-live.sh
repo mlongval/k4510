@@ -391,6 +391,12 @@ git -C "$REPO" archive --format=tar HEAD | tar -x -C "$ROOT/home/$USER_NAME/k451
 $CHROOT_ENV chroot "$ROOT" /bin/sh -e <<EOF
 systemctl enable k4510-telnet.socket
 systemctl enable k4510-persistence-sync.service
+# The tailnet's names in /etc/hosts (no systemd-resolved here, so MagicDNS has
+# nowhere to land).  Enabled here for a full build AND shipped pre-enabled as
+# .wants symlinks in config/includes.chroot, because a REBUILD copies that
+# tree over the rootfs but never reaches these lines -- the same trap that
+# shipped the telnet login twice without it working.
+systemctl enable k4510-tailscale-hosts.service k4510-tailscale-hosts.timer 2>/dev/null || true
 systemctl enable keyboard-setup.service console-setup.service 2>/dev/null || true   # the console keymap machinery (setupcon/ckbcomp)
 systemctl enable k4510-keymap.service 2>/dev/null || true                           # apply the boot menu's k4510.kbd= before tty1
 setupcon --save-only 2>/dev/null || true   # bake the default (US) keymap cache (chroot-safe)

@@ -113,8 +113,8 @@ Write the machine’s whole state to dumps/ on the host. ON writes one every fif
 **`HUSH`** — *ROM, bank 1*  
 Silence the OPL2 and the sound sequencer.
 
-**`IDEA [text]`** — *ROM*  
-A brainshot: the idea, and the machine as it was, to `/BRAINSHOTS`. Alone, it opens VI. \*IDEA from a BASIC.
+**`IDEA`** — *ROM*  
+A brainshot: opens VI on a new one in `/SYSTEM/BRAINSHOTS`, with the machine as it was. No text argument: the shell line would cut it. \*IDEA from a BASIC.
 
 **`INFO [-v]`** — *ROM, bank 1*  
 The machine’s self-description, the clock in force included. -v names the exact build.
@@ -216,6 +216,9 @@ The monitor as a program: MON, WOZ, FILL and COPY run it.
 
 **`MOUSETEST`** — */SYSTEM/BIN*  
 The mouse registers, live, with a sprite pointer.
+
+**`NVIM [name]`** — */SYSTEM/BIN*  
+Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run (Chapter 13).
 
 **`PADTEST`** — */SYSTEM/BIN*  
 The held-keys register, live: a gamepad’s first test.

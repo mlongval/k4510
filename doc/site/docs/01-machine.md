@@ -8,7 +8,7 @@ The K4510 is a fantasy computer: a machine that never existed, built the way 198
 
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time; everything else is one instruction away.
 
-- **Video: VICKY** — 640×480, 256 colours from a 24-bit palette, four layers, 128 sprites, a blitter that draws lines and filled triangles, and a display-list coprocessor named SHEILA. Smaller modes (640×240, 320×240, 320×200, 160×200) are drawn into the same glass, doubled and centred, so the raster is always 480 lines however few of them the picture uses.
+- **Video: VICKY** — 640×480, 256 colours from a 24-bit palette, four layers, 128 sprites, a blitter that draws lines and filled triangles, and a display-list coprocessor named SHEILA. Smaller modes (640×240, 320×240, 320×200, 160×200) are drawn into the same glass, doubled and centred, so the raster is always 480 lines however few of them the picture uses. The 640×480 screen comes two ways in the menu: *640x480*, eighty columns by thirty in tall 8×16 letters, and *640x480x60*, eighty by sixty in 8×8 — the screen the machine had before it settled on one font. `MODE 0 60` and `MODE 0 30` choose them at the prompt, and the machine remembers which.
 
 - **Sound: MELODY** — an OPL2, the Yamaha YM3812, at `$D480`: nine FM voices wired the AdLib’s way, an address port, a data port and a status register you poll. Any AdLib register list or instrument patch therefore means what it says on this machine. A four-channel sound sequencer at `$D5E0` plays through it, in the BBC Micro’s idiom, which is what BBC BASIC’s `SOUND` and Mad Pascal’s `Sound` use. A floating-point MATH unit sits beside it, which the BASICs and LOGO lean on. (The machine had four SID chips until September 2026. [Appendix C, The Sound, and What It Took](a3-sound.md) is the whole story.)
 
@@ -178,7 +178,7 @@ The list below is generated from the menu’s own source, with the name each set
 0 to 15; to begin with, 6
 
 **`Resolution`** — *video.mode*  
-640x480; to begin with, 360x270
+640x480, 640x480x60, 640x240, 320x240, 1440x1080, 720x540, 360x270; to begin with, 360x270
 
 **`Scaling`** — *video.smoothing*  
 integer, fit to display; to begin with, integer
@@ -192,11 +192,11 @@ on, off; to begin with, off
 **`Placement`** — *video.placement*  
 centre, left, right; to begin with, centre
 
-**`Side panel`** — *video.panel*  
-off, registers; to begin with, off
+**`Sidebar`** — *video.sidebars*  
+border, gradient, knot, registers, halloween, christmas, space, river, dreamfall, tetris, antfarm, matrix; to begin with, border
 
-**`Sidebars`** — *video.sidebars*  
-border, gradient, knot, halloween, christmas, space, river, dreamfall, tetris, antfarm, matrix; to begin with, border
+**`Edit options...`** —   
+does it
 
 ### Terminal
 
@@ -319,9 +319,11 @@ does it
 **`Telnet into the host`** —   
 does it
 
-## Placement, the side panel, and F8
+## Placement, the register panel, and F8
 
-A 4:3 picture on a 16:9 screen leaves a third of the glass empty. *Placement* (centre, left, right) puts the picture against one edge instead of in the middle, and *side panel* fills what is left — at present with one thing, the machine as the emulator sees it. A panel with a centred picture makes no sense, so turning the panel on forces the picture left.
+A 4:3 picture on a 16:9 screen leaves a third of the glass empty. *Placement* (centre, left, right) puts the picture against one edge instead of in the middle, and the *Sidebars* row fills what is left. Its choices are the sidebars in `/SYSTEM/SIDEBARS`, one zip each: the border colour, a gradient, a knot, scenes — and *registers*, the machine as the emulator sees it. A register panel beside a centred picture makes no sense, so choosing it puts the picture left.
+
+Below it, *Edit options…* opens the chosen sidebar’s own options in VI: `/SYSTEM/SIDEBARS/ANTFARM/OPTIONS.CFG` for the ant farm — its `speed`, and the length of its day. Save the file and the sidebar changes within a second. `/SYSTEM/SIDEBARS/SIDEBARS.CFG` holds what is for all of them: another sidebar on the right (`right = tetris`), a new one every so often (`change = 1h`), and whether Halloween and Christmas keep to their months. The ant colony is kept across a power cycle, in the same folder.
 
 The panel is a strip twenty-six columns wide taking the whole height of the window, one fact to a line: the program counter, A X Y Z, the stack pointer, the B register, the flags, the next few instructions disassembled, VICKY’s mode and the raster line it is on, the eight bank registers with the engaged ones lit, the audio gaps, the frame counter and the frame rate. It never reads through the I/O page — a read of `$D100` would pop a key off the keyboard, and an instrument that changes what it measures is not one.
 

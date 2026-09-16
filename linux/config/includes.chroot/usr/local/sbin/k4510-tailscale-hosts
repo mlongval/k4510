@@ -1,0 +1,73 @@
+#!/bin/sh
+# k4510-tailscale-hosts -- MagicDNS, written into /etc/hosts.
+#
+# Doc, 2026-09-16 (a brainshot): "I cannot ping ubuntu-s1 using tailscale
+# names."  He could not, and neither could the machine above it: K/OS resolves
+# through the host (core/net_posix.c calls getaddrinfo), so TELNET UBUNTU-S1
+# failed for the same reason the Linux underneath it did.
+#
+# Why the names were missing.  tailscaled had the right answer all along --
+# `dns: OScfg: {Nameservers:[100.100.100.100 ...] MatchDomains:[...ts.net.]}` --
+# and then could not install it:
+#
+#   dns: failed to configure resolved: setLinkDNS: The name
+#   org.freedesktop.resolve1 was not provided by any .service files
+#
+# This image has no systemd-resolved (it is not in packages.list, and a package
+# is the one thing a REBUILD cannot carry -- it costs the full half-hour
+# build), so tailscaled's only OS backend is absent and NetworkManager goes on
+# writing an /etc/resolv.conf with the local DHCP server in it and nothing else.
+#
+# Why not simply point resolv.conf at 100.100.100.100.  Measured on the Dell,
+# 2026-09-16: that resolver answers tailnet names (ubuntu-s1 -> 100.116.56.10)
+# and returns ZERO answers for deb.debian.org and pkgs.tailscale.com -- it is
+# MagicDNS only, which is what MatchDomains means.  Nor does listing it second
+# help: glibc stops at the first nameserver that answers, and a negative answer
+# is an answer.  Proper split DNS needs a resolver daemon, which needs a
+# package, which needs the full build.
+#
+# So: the same trick Doc's KoboTailScale uses on the Kobo, for the same reason
+# (device/tailscale-ctl.sh, "MagicDNS is replaced by the /etc/hosts block this
+# script maintains").  `hosts: files dns` consults /etc/hosts first, so a peer
+# written there is reached by name without touching DNS at all, and every
+# public name still goes to the real resolver, untouched.  It rides the machine
+# layer, so a 5 MB REBUILD carries it to an installed Dell.
+#
+# Each peer is written twice, full name and short: anything behind
+# `tailscale serve` presents a certificate for <host>.<tailnet>.ts.net, so a
+# short-name-only entry would connect and then fail to validate.
+set -e
+
+TS=/usr/bin/tailscale
+HOSTS=/etc/hosts
+BEGIN="# BEGIN k4510 tailnet -- maintained by k4510-tailscale-hosts, edits are lost"
+END="# END k4510 tailnet"
+
+[ -x "$TS" ] || exit 0
+
+# The suffix as the daemon knows it (auroch-universe.ts.net).  Missing while
+# the backend is still starting: then the short name alone is still worth
+# having, so this is not fatal.
+suffix=$("$TS" status --json 2>/dev/null |
+    sed -n 's/.*"MagicDNSSuffix" *: *"\([^"]*\)".*/\1/p' | head -n1)
+
+# One peer per line: <100.x.y.z> <host> <user> <os> ... , and this machine
+# first.  Offline peers are listed too and are written anyway -- a name that
+# resolves to a machine that is asleep gives "no route", which is a better
+# error than "Name or service not known", and it is right again the moment the
+# peer wakes.
+peers=$("$TS" status 2>/dev/null | awk -v sfx="$suffix" '
+    $1 ~ /^100\./ && $2 != "" {
+        if (sfx == "" || $2 ~ /\./) print $1 "\t" $2
+        else                        print $1 "\t" $2 "." sfx "\t" $2
+    }')
+
+# Nothing to say (tailscaled down, or logged out): leave the file as it is
+# rather than emptying the block.  The names keep working until it comes back.
+[ -n "$peers" ] || exit 0
+
+tmp=$(mktemp /etc/hosts.k4510.XXXXXX)
+sed "/^$BEGIN\$/,/^$END\$/d" "$HOSTS" > "$tmp"
+{ printf '%s\n' "$BEGIN"; printf '%s\n' "$peers"; printf '%s\n' "$END"; } >> "$tmp"
+chmod 644 "$tmp"
+mv "$tmp" "$HOSTS"          # one rename: a reader never sees a half-written file

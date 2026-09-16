@@ -1,0 +1,13 @@
+[Unit]
+Description=Keep /etc/hosts in step with the tailnet
+
+[Timer]
+# Once a minute after boot, so a machine that joins the tailnet while the Dell
+# is running is reachable by name a minute later; then every five minutes,
+# which costs one local query to tailscaled and nothing on the network.
+OnBootSec=30s
+OnUnitActiveSec=5min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

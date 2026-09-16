@@ -17,16 +17,32 @@ REPEAT 4 [FD 100 RT 90]
 LOGO: a square repeated round a circle, drawn by the blitter under the
 console's text.
 
-The picture is VICKY's 640x480 bitmap under the console, which is the classic
-LOGO screen: the turtle draws below and the prompt lives above, so you can see
-what you asked for and what you are asking next at once. The turtle itself is
-a small green turtle, a hardware sprite in sixteen headings -- one every 22.5
-degrees, drawn once and turned by tools/mkturtle.py when the machine is built,
-so turning it is a matter of pointing the sprite at the right picture. LOGO
-puts the console into 640x480 for the session, as EhBASIC's GRAPHICS 2 does,
-and back into the mode it found at BYE. Every line is the blitter's, and every
-number is a real one -- IEEE floating point, done by the MATH unit, so a
-heading is an angle and SQRT 2 is what it should be.
+The picture is VICKY's bitmap under the console, which is the classic LOGO
+screen: the turtle draws below and the prompt lives above, so you can see what
+you asked for and what you are asking next at once. LOGO draws on the screen
+it finds -- whatever MODE you were in when you typed LOGO, up to the HD
+1440x1080 -- and leaves it that way when you go. It wants 320x240 at the
+least: on a smaller screen (the game modes 320x200 and 160x200, which a
+program may set) it says so and asks whether to move up to 320x240. Answer Y
+and it moves and runs; answer anything else and it leaves the machine exactly
+as it was and gives you the prompt back. The turtle itself is a small green
+turtle, a hardware sprite in sixteen headings -- one every 22.5 degrees, drawn
+once and turned by tools/mkturtle.py when the machine is built, so turning it
+is a matter of pointing the sprite at the right picture.
+
+The turtle is 32 of the machine's pixels whatever the screen, so it looks
+larger on the coarser ones, where every pixel is drawn twice or four times
+over, and smaller on the HD screens -- as anything else drawn in the machine's
+pixels does.
+
+It need not be a turtle. SETSHAPE "BIRD fetches /LANG/LOGO/BIRD.SPR and the
+bird flies where the turtle walked; SETSHAPE "TURTLE brings it back. A shape
+is sixteen frames of 32x32, one every 22.5 degrees, and tools/mkturtle.py
+draws them -- so anyone may add one. Logo's turtles have taken other shapes
+since the 1980s: Atari Logo's manual offers "cars, planes, human figures,
+animals". Every line is the blitter's, and every number is a real one -- IEEE
+floating point, done by the MATH unit, so a heading is an angle and SQRT 2 is
+what it should be.
 
 ## The words
 
@@ -35,6 +51,7 @@ FD n, BK n                        forward, back
 RT n, LT n                        right, left, in degrees
 PU, PD                            pen up, pen down
 HT, ST                            hide, show the turtle
+SETSHAPE "name                    the turtle's shape: TURTLE, BIRD
 HOME, CS                          to the centre; clear the screen as well
 SETXY x y                         put it somewhere
 SETX, SETY, SETH                  one coordinate, or the heading

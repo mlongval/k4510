@@ -1004,6 +1004,16 @@ static void cmd_mode(const char *p)
           rows60 = (uint8_t)(r == 0x60); rows60_set = 1;
       } }
     video_init(); cls();
+    /* And repaint the banner at the next prompt, the way a mode change from
+     * the F12 menu already does (mode_do sets the same flag).  Doc, 2026-09-16:
+     * "after a resolution change I think that an automatic BANNER command would
+     * be a good idea."  The menu's route had it and the typed command did not,
+     * which is the odd half: MODE clears the screen either way, so without this
+     * the machine dropped you at a bare prompt in a screen whose shape had just
+     * changed, with nothing on it to tell you what shape that was.  The flag is
+     * read by the shell loop, so a MODE inside STARTUP.BAT or a .BAT still
+     * banners once, when the prompt comes back -- not in the middle of it. */
+    mode_note = 1;
 }
 
 static void cmd_color(const char *p)

@@ -11,7 +11,11 @@ LOGO is the language that taught a generation of children that a computer does w
 <p class="caption">LOGO: a square repeated round a circle, drawn by the blitter under the console’s text.</p>
 
 
-The picture is VICKY’s 640×480 bitmap *under* the console, which is the classic LOGO screen: the turtle draws below and the prompt lives above, so you can see what you asked for and what you are asking next at once. The turtle itself is a small green turtle, a hardware sprite in sixteen headings — one every 22.5 degrees, drawn once and turned by `tools/mkturtle.py` when the machine is built, so turning it is a matter of pointing the sprite at the right picture. LOGO puts the console into 640×480 for the session, as EhBASIC’s `GRAPHICS 2` does, and back into the mode it found at `BYE`. Every line is the blitter’s, and every number is a real one — IEEE floating point, done by the MATH unit, so a heading is an angle and `SQRT 2` is what it should be.
+The picture is VICKY’s bitmap *under* the console, which is the classic LOGO screen: the turtle draws below and the prompt lives above, so you can see what you asked for and what you are asking next at once. LOGO draws on the screen it finds — whatever `MODE` you were in when you typed `LOGO`, up to the HD 1440×1080 — and leaves it that way when you go. It wants 320×240 at the least: on a smaller screen (the game modes 320×200 and 160×200, which a program may set) it says so and asks whether to move up to 320×240. Answer `Y` and it moves and runs; answer anything else and it leaves the machine exactly as it was and gives you the prompt back. The turtle itself is a small green turtle, a hardware sprite in sixteen headings — one every 22.5 degrees, drawn once and turned by `tools/mkturtle.py` when the machine is built, so turning it is a matter of pointing the sprite at the right picture.
+
+The turtle is 32 of the machine’s pixels whatever the screen, so it looks larger on the coarser ones, where every pixel is drawn twice or four times over, and smaller on the HD screens — as anything else drawn in the machine’s pixels does.
+
+It need not be a turtle. `SETSHAPE "BIRD` fetches `/LANG/LOGO/BIRD.SPR` and the bird flies where the turtle walked; `SETSHAPE "TURTLE` brings it back. A shape is sixteen frames of 32×32, one every 22.5 degrees, and `tools/mkturtle.py` draws them — so anyone may add one. Logo’s turtles have taken other shapes since the 1980s: Atari Logo’s manual offers “cars, planes, human figures, animals”. Every line is the blitter’s, and every number is a real one — IEEE floating point, done by the MATH unit, so a heading is an angle and `SQRT 2` is what it should be.
 
 ## The words
 
@@ -36,66 +40,70 @@ The picture is VICKY’s 640×480 bitmap *under* the console, which is the class
 <td style="text-align: left;">hide, show the turtle</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><code>SETSHAPE "name</code></td>
+<td style="text-align: left;">the turtle’s shape: <code>TURTLE</code>, <code>BIRD</code></td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><code>HOME</code>, <code>CS</code></td>
 <td style="text-align: left;">to the centre; clear the screen as well</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>SETXY x y</code></td>
 <td style="text-align: left;">put it somewhere</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>SETX</code>, <code>SETY</code>, <code>SETH</code></td>
 <td style="text-align: left;">one coordinate, or the heading</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>SETPC n</code></td>
 <td style="text-align: left;">the pen’s colour</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>FILL</code></td>
 <td style="text-align: left;">paint the area under the turtle</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>XCOR</code>, <code>YCOR</code>, <code>HEADING</code></td>
 <td style="text-align: left;">where it is</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>REPEAT n […]</code></td>
 <td style="text-align: left;">do it n times; <code>REPCOUNT</code> says which time this is</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>IF c […]</code></td>
 <td style="text-align: left;">decide</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>IFELSE c […] […]</code></td>
 <td style="text-align: left;">decide between two</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>MAKE "x expr</code>, <code>:x</code></td>
 <td style="text-align: left;">a variable, and its value</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>PRINT</code>, <code>SHOW</code></td>
 <td style="text-align: left;">print a value</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>RANDOM</code>, <code>SQRT</code>, <code>SIN</code>, <code>COS</code>, <code>INT</code>, <code>ABS</code></td>
 <td style="text-align: left;">numbers</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>TO name :a … END</code></td>
 <td style="text-align: left;">a procedure; <code>STOP</code> and <code>OUTPUT</code> leave it</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>LOAD "name</code></td>
 <td style="text-align: left;">run a <code>.LGO</code> file</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>EDIT "name</code></td>
 <td style="text-align: left;">edit one in VI, then run it</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>HELP</code>, <code>BYE</code></td>
 <td style="text-align: left;">the words; back to K/OS</td>
 </tr>

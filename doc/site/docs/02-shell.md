@@ -230,6 +230,15 @@ Or give the place a name on the disk, and it stays there:
 
 Everything that reads a directory — `DIR`, `CD`, `TYPE`, `RANGER`, a program started by name — then works there as on the machine’s own disk. A mounted place is read-only.
 
+A zip file mounts the same way — one on the disk, one inside another mount, or one on the internet (a URL ending in `.zip`):
+
+    MOUNT GAMES.ZIP /MNT/GAMES
+    CD /MNT/GAMES
+    DIR
+    UMOUNT /MNT/GAMES
+
+Its folders are folders and its files open like any others, so a game shipped with its data as one zip runs from where it is mounted. The zip itself is never changed: copy a file out of it to change it. The whole zip is read when it is mounted, so a zip changed on the disk afterwards needs mounting again. A zip the machine cannot read safely is refused, not guessed at: one with a name that would climb out of its folder (`../`), an encrypted file, or a zip too big for the old format (zip64).
+
 For programs that want a live connection there is the *N: device* at `$D900` (FujiNet’s name for it): four channels, each a URL opened for reading and writing — `tcp://host:port` for a connection, `http://` for a page. `TELNET host port` is the demonstration, a `telnet.prg` in `/SYSTEM/BIN`: what you type goes out, what arrives is drawn by JIM, the terminal ([Chapter 6, The Tube: BBC BASIC](06-tube.md)), so a BBS gets its ANSI colours and CP437 art and the cursor and function keys go out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers the far end the terminal types *xterm-color*, *VT220*, *VT100* and *ANSI*, and a Unix host that takes the first gets UTF-8 as well. The register map is in [Chapter 15, The I/O Page](21-io.md) and `core/net.h`.
 
 So that there is no guessing, this is the whole list of what the machine speaks:
@@ -311,11 +320,13 @@ The monitor is a program, `MONITOR`, and it loads at `$E000`, in the RAM under t
 
 `INFO` is the machine’s self-description; `TIME` the clock; `MODE` sets the text screen — `CLS` clears it and `CLG` clears the bitmap over it, whoever drew it — and both reach a BASIC through the `*` escape, which is how you tidy up after a demo that left its picture behind. `HUSH` silences the sound, whichever part of the machine is making it. `BANNER` clears the screen and prints the power-on banner again, which is a tidy way to end a session or start a screenshot. `RESET` restarts the machine from the shell, the same cold start the reset chord performs.
 
-`IDEA` is a screenshot in words: a thought about how something could be better, kept before it goes. `IDEA the menu should remember its place` writes it to `/SYSTEM/BRAINSHOTS` at once; `IDEA` alone opens VI on a new one, for an idea that needs a paragraph. Either way the machine adds what it knew at that moment — the time, the directory, what was running, the screen — so an idea found a week later still says what it was about. From a BASIC it is `*IDEA`, and it loads nothing over the program. The files are plain text; `TYPE` and VI read them, and so does the person you asked to build the idea ([Chapter 13, The Linux Underneath](13-linux.md)).
+`IDEA` is a screenshot in words: a thought about how something could be better, kept before it goes. It takes no text. Typing `IDEA` writes a new brainshot to `/SYSTEM/BRAINSHOTS` and opens VI on it, and the thought goes in there — a line, or a page. The machine adds what it knew at that moment — the time, the directory, what was running, the screen — so an idea found a week later still says what it was about. From a BASIC it is `*IDEA`, and it loads nothing over the program. The files are plain text; `TYPE` and VI read them, and so does the person you asked to build the idea ([Chapter 13, The Linux Underneath](13-linux.md)).
+
+It did once take the idea on the line itself, and that is worth knowing because it is the sort of convenience that looks free and is not. The text was typed into the shell’s command line, which is 96 bytes in the ROM’s own RAM, so anything longer than ninety characters was cut — and cut at eighty-four from a BASIC, where a star command travels through that same buffer with a wrapper around it. Worse, it was cut in the middle of a word and said nothing about it, which is precisely the wrong behaviour for a thing whose whole purpose is catching a thought before it escapes. Making the line longer would mean taking RAM from the ROM’s C stack, which has form for breaking the shell when it runs short. VI holds 256 characters to a line and as many lines as you care to type, so the longer road is the only honest one.
 
 `SETUP` measures the computer the machine is running on, with the sound and the picture really running, and keeps the fastest clock it holds without a gap — for that computer, so a later boot there pays nothing. `BENCH` measures it again whenever you like: frames a second and gaps in the sound at every clock of the menu’s ladder, about 25 seconds, the report in `/SYSTEM/LOG/BENCH-NN.TXT`. A clock is right for a host when it holds 60 frames a second with no gaps.
 
-`MODE` on its own says where you are; `MODE n` moves. The text always starts in the top-left cell: there is no margin.
+`MODE` on its own says where you are; `MODE n` moves. The text always starts in the top-left cell: there is no margin. Moving clears the screen — the old text was laid out for the old shape — and the banner is printed again at the next prompt, so the machine says what shape it is now in rather than leaving you at a bare cursor.
 
 <table>
 <tbody>

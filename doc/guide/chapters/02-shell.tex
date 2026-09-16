@@ -475,7 +475,10 @@ second and gaps in the sound at every clock of the menu's ladder, about
 right for a host when it holds 60 frames a second with no gaps.
 
 \verb|MODE| on its own says where you are; \verb|MODE n| moves. The text
-always starts in the top-left cell: there is no margin.
+always starts in the top-left cell: there is no margin. Moving clears the
+screen --- the old text was laid out for the old shape --- and the banner
+is printed again at the next prompt, so the machine says what shape it is
+now in rather than leaving you at a bare cursor.
 
 \begin{tabular}{lllp{0.36\linewidth}}
 \textbf{MODE} & \textbf{pixels} & \textbf{text} & \\

@@ -1,0 +1,35 @@
+# test/remote/nvim.k4r -- NVIM, the NeoVim Tube (doc/guide 13-linux):
+# :Run hands a REXX program to the machine and comes back, and :make
+# compiles a C file with the machine's own cc65 and lands on the error.
+# The files are made with ! and removed at the end.
+type PALETTE RESET\n
+wait 1
+type CD /HOME\n
+type !printf 'say "hello from NVIM"\\n' > NVTEST.RX\n
+wait 2
+type NVIM NVTEST.RX\n
+wait 4
+type :Run\r
+expect "hello from NVIM" 30
+expect "a key returns to Neovim" 10
+key enter
+wait 4
+shot nvim-run
+type :q\r
+wait 2
+expect "/HOME]" 15
+# and a C file with an error: :make must put us on it
+type !printf 'void main(void)\\n{\\n    int x = 1\\n}\\n' > NVTEST.C\n
+wait 2
+type NVIM NVTEST.C\n
+wait 4
+type :make\r
+expect "error 1 of" 40
+shot nvim-make
+type :q!\r
+wait 2
+expect "/HOME]" 15
+type RM -f NVTEST.RX\n
+type RM -f NVTEST.C\n
+wait 1
+screen

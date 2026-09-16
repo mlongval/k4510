@@ -8,11 +8,11 @@ not interesting for a newcomer, or some other reason).  Nope does not imply
 that we delete it from the repo, just that the build instructions understand
 what to pick and what to leave."
 
-So this walks the machine and writes SHIPPING.cfg: one line per thing, each
+So this walks the machine and writes /DOCUMENTS/SHIPPING.CFG: one line per thing, each
 marked essential, maybe or nope.  It is the LIST, not the decision -- the file
 is Doc's to edit, and running this again keeps every mark he has made.
 
-    tools/mkmanifest.py            update SHIPPING.cfg, keeping the marks
+    tools/mkmanifest.py            update /DOCUMENTS/SHIPPING.CFG, keeping the marks
     tools/mkmanifest.py --check    say what is new or gone; exit 1 if any
     tools/mkmanifest.py --list nope    the keys at one mark, for a build script
 
@@ -31,7 +31,7 @@ import re, sys, pathlib
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent
-CFG = REPO / "SHIPPING.cfg"
+CFG = REPO / "fs/DOCUMENTS/SHIPPING.CFG"   # on the machine's own disk: Doc edits it there, with VI
 
 MARKS = ("essential", "maybe", "nope")
 
@@ -143,7 +143,7 @@ def main():
         for k in new:
             print(f"new, unmarked: {k}")
         for k in gone:
-            print(f"in SHIPPING.cfg but no longer in the machine: {k}")
+            print(f"in /DOCUMENTS/SHIPPING.CFG but no longer in the machine: {k}")
         return 1 if (new or gone) else 0
 
     write_cfg(items, marks)

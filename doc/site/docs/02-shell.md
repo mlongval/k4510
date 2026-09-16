@@ -16,7 +16,7 @@ The pages are made from the same source as this book and its web edition, at the
 
 ## The disk
 
-Files live on the host: the `fs/` directory beside the emulator. The machine sees that directory as `/` and nothing above it. The root has six folders and one file in it, and that is fixed — everything else lives one level down:
+Files live on the host: the `fs/` directory beside the emulator. The machine sees that directory as `/` and nothing above it. The root has seven folders and one file in it, and that is fixed — everything else lives one level down:
 
 <div class="center">
 
@@ -47,6 +47,10 @@ Files live on the host: the `fs/` directory beside the emulator. The machine see
 <td style="text-align: left;">things from outside: <code>SHARE</code>, the folder the container flavour is given, and anything you <code>MOUNT</code></td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><code>/DOCUMENTS</code></td>
+<td style="text-align: left;">papers about the machine, kept where the machine can read them. <code>SHIPPING.CFG</code> is the list of everything built, each thing marked <code>essential</code>, <code>maybe</code> or <code>nope</code>: edit it here with <code>VI</code>, and the build reads it</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><code>/STARTUP.BAT</code></td>
 <td style="text-align: left;">yours; run at power-on (<a href="02-shell.md#when-startupbat-is-the-problem">When STARTUP.BAT is the problem</a>)</td>
 </tr>
@@ -68,7 +72,7 @@ Names that begin with a dot are hidden; `DIR -a` shows them, and `DIR -l` lists 
 
 ![](img/dir.png)
 
-<p class="caption"><code>DIR</code> at the root: the disk’s whole shape in six folders and one file. Directories come first, in white; files carry their sizes; two columns.</p>
+<p class="caption"><code>DIR</code> at the root: the disk’s whole shape in seven folders and one file. Directories come first, in white; files carry their sizes; two columns.</p>
 
 
 ### Nothing is deleted in a hurry

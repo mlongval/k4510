@@ -56,7 +56,7 @@ python3 "$HERE/mkref.py"
 # that the page and the template cannot say different things.
 python3 "$HERE/mkissue.py"
 
-# What ships: SHIPPING.cfg -> generated/shipping.tex, so \shipif{} knows which
+# What ships: /DOCUMENTS/SHIPPING.CFG -> generated/shipping.tex, so \shipif{} knows which
 # things were marked `nope' and leaves their pages out.  mkweb.py and mkgem.py
 # read the same file, so the three editions cannot disagree (tools/mkmanifest.py
 # keeps the list itself).

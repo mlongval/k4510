@@ -42,12 +42,12 @@ PREAMBLE = r"""
 
 
 def nope_keys():
-    """Keys marked `nope' in SHIPPING.cfg -- the things this build leaves out.
+    """Keys marked `nope' in /DOCUMENTS/SHIPPING.CFG -- the things this build leaves out.
 
     The web edition and the machine's own pages read the same file the PDF
     does (via mkship.py), so the three editions cannot disagree about what is
     in them.  An absent file hides nothing."""
-    cfg = REPO / "SHIPPING.cfg"
+    cfg = REPO / "fs/DOCUMENTS/SHIPPING.CFG"
     out = set()
     if cfg.is_file():
         for line in cfg.read_text().splitlines():
@@ -186,7 +186,7 @@ def prep(stem, table, link, img):
         src, cap = m.group(2), m.group(3)
         return r"\begin{figure}\includegraphics{" + img(pathlib.Path(src).name) + r"}\caption{" + cap + r"}\end{figure}"
     tex = re.sub(r"\\(screen|screeninline)\{([^}]+)\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", shot, tex, flags=re.S)
-    # \shipif{key}{...}: the content stays unless SHIPPING.cfg says nope.
+    # \shipif{key}{...}: the content stays unless /DOCUMENTS/SHIPPING.CFG says nope.
     # Kept by default, exactly as the LaTeX macro is: a misspelt key prints.
     def shipif(m):
         return "" if m.group(1) in nope() else m.group(2)

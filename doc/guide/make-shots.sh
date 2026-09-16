@@ -23,9 +23,15 @@ shot() { # name frames keys
     [ -s "$HERE/shots/$1.png" ] || { echo "shot $1 FAILED"; exit 1; }
 }
 shot boot 40 ""
-shot dir 90 "cd /
-dir
-"
+# A ~ before each command waits 30 frames, so the shell has time to run the
+# line before the next key arrives.  Without them the keys go one per frame
+# and the picture catches the machine mid-word: "dir" typed, Enter not yet
+# processed, no listing at all (2026-09-16, three captures wasted on it --
+# test/dirtest.sh had the right form all along, and test/headless shows the
+# text screen in a second where a PNG has to be squinted at).
+shot dir 200 "cd /
+~dir
+~~"
 shot mon 120 "mon
 ff80.ff8f
 "

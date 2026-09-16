@@ -35,7 +35,7 @@ reads them too, and so does any Gemini reader on another computer.
 \section{The disk}
 Files live on the host: the \texttt{fs/} directory beside the emulator.
 The machine sees that directory as \texttt{/} and nothing above it. The
-root has six folders and one file in it, and that is fixed --- everything
+root has seven folders and one file in it, and that is fixed --- everything
 else lives one level down:
 
 \begin{center}
@@ -48,6 +48,7 @@ else lives one level down:
 \texttt{/HOME} & yours. The prompt starts here \\
 \texttt{/CPM} & the Z80's drives, \texttt{A} to \texttt{P}, one folder each (Chapter~\ref{cha:cpm}) \\
 \texttt{/MNT} & things from outside: \texttt{SHARE}, the folder the container flavour is given, and anything you \verb|MOUNT| \\
+\texttt{/DOCUMENTS} & papers about the machine, kept where the machine can read them. \texttt{SHIPPING.CFG} is the list of everything built, each thing marked \texttt{essential}, \texttt{maybe} or \texttt{nope}: edit it here with \texttt{VI}, and the build reads it \\
 \texttt{/STARTUP.BAT} & yours; run at power-on (Section~\ref{sec:badstartup}) \\
 \bottomrule
 \end{tabular}
@@ -81,7 +82,7 @@ folder without going there, \verb|DIR *.PAS| and \verb|DIR ?.TXT| match
 here (\verb|*| any run of characters, \verb|?| any one).
 
 \screen{shots/dir.png}{\texttt{DIR} at the root: the disk's whole shape
-in six folders and one file. Directories come first, in white; files
+in seven folders and one file. Directories come first, in white; files
 carry their sizes; two columns.}
 
 \subsection*{Nothing is deleted in a hurry}

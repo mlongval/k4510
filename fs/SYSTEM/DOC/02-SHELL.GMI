@@ -35,7 +35,7 @@ TYPE reads them too, and so does any Gemini reader on another computer.
 ## The disk
 
 Files live on the host: the fs/ directory beside the emulator. The machine
-sees that directory as / and nothing above it. The root has six folders and
+sees that directory as / and nothing above it. The root has seven folders and
 one file in it, and that is fixed -- everything else lives one level down:
 
 ```
@@ -53,6 +53,10 @@ one file in it, and that is fixed -- everything else lives one level down:
               Z80 Second Processor)
 /MNT          things from outside: SHARE, the folder the container flavour is
               given, and anything you MOUNT
+/DOCUMENTS    papers about the machine, kept where the machine can read them.
+              SHIPPING.CFG is the list of everything built, each thing marked
+              essential, maybe or nope: edit it here with VI, and the build
+              reads it
 /STARTUP.BAT  yours; run at power-on (When STARTUP.BAT is the problem)
 ```
 
@@ -82,7 +86,7 @@ match here (* any run of characters, ? any one).
 
 => IMG/DIR.PIC DIR at the root
 
-DIR at the root: the disk's whole shape in six folders and one file.
+DIR at the root: the disk's whole shape in seven folders and one file.
 Directories come first, in white; files carry their sizes; two columns.
 
 ### Nothing is deleted in a hurry

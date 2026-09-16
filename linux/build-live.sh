@@ -323,23 +323,16 @@ StandardInput=socket
 StandardError=journal
 EOF
 mkdir -p "$ROOT/usr/local/sbin"
-cat > "$ROOT/usr/local/sbin/k4510-telnet-login" <<'EOF'
-#!/bin/sh
-# The login program telnetd runs (telnetd -E).  It forces the account -- the
-# only name this door will ever offer is k4510 -- and -f says the user is
-# already vouched for, so no password is asked (Doc, 2026-09-16: "can we
-# remove the password when i telnet into the linux host from the k4510   its
-# redundant at least at this point  i understand the risk").
-#
-# Redundant is the right word: the socket is bound to loopback, so the only
-# way to knock is from the machine standing on this very Linux, and that
-# machine already opens an unauthenticated shell here with `!`.  The password
-# guarded a door whose other side was already open.  A machine someone else
-# can reach is a different question: `linux = locked` in the menu file shuts
-# `!`, SSH and this row together.
-exec /bin/login -f k4510
-EOF
-chmod 755 "$ROOT/usr/local/sbin/k4510-telnet-login"
+# The login telnetd runs is NOT written here any more: it lives beside
+# k4510-keymap in config/includes.chroot/usr/local/sbin/k4510-telnet-login,
+# copied over the rootfs on both paths (the full build and a REBUILD) and
+# carried out by the machine layer.  Written inline, it only ever reached the
+# rootfs on a full build, so the passwordless -f was committed, built and
+# deployed on 2026-09-16 and the machine still asked for a password -- the
+# rootfs had kept the copy from the last full build, and the layer packaged
+# that.  One source of truth, and the fast path reaches it.
+[ -x "$ROOT/usr/local/sbin/k4510-telnet-login" ] || {
+    echo "build-live.sh: config/includes.chroot is missing usr/local/sbin/k4510-telnet-login"; exit 1; }
 
 echo "== shutting the computer down from the F7 menu =="
 # The marker the emulator looks for (sdl/main.c): its presence is what reveals

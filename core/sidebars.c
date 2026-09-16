@@ -13,7 +13,7 @@
 
 /* the emulator's own drawings, by the names draw = builtin NAME uses */
 static const char *const builtin_keys[SIDEBAR_COUNT] = {
-    "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm" };
+    "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix" };
 #define MAXSB 64
 static sidebar_info list[MAXSB];
 static const char *labels[MAXSB];

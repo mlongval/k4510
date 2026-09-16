@@ -15,7 +15,11 @@
 #endif
 
 /* ---- the toolbox --------------------------------------------------------- */
-typedef struct { uint32_t *px; int pitch, w, h; } cv_t;
+/* The canvas a scene draws into.  font/frows carry the machine's own glyphs
+ * (sdl/main.c's font_panel: unscii-16, 8 bits a row, frows rows a character),
+ * so a scene can draw real characters -- the Matrix rain does, the rest ignore
+ * them.  font may be NULL: every scene must draw without it. */
+typedef struct { uint32_t *px; int pitch, w, h; const uint8_t *font; int frows; } cv_t;
 
 extern int sb_sintab[1024];                       /* 256 sin, a full turn in 1024 (canvas.c) */
 void sb_sin_init(void);
@@ -128,6 +132,7 @@ void s_river(cv_t *c, uint32_t t, int side);
 void s_dreamfall(cv_t *c, uint32_t t, int side);
 void s_tetris(cv_t *c, uint32_t t, int side);
 void s_antfarm(cv_t *c, uint32_t t, int side);
+void s_matrix(cv_t *c, uint32_t t, int side);
 /* the ant farm's option and its colony across a power cycle (sdl/savers.c) */
 void antfarm_option(const char *key, const char *value);
 size_t antfarm_state(uint8_t **buf);

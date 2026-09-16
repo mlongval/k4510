@@ -15,7 +15,7 @@ REQUIRED = ("name", "about", "author", "version", "draw")
 KNOWN = set(REQUIRED) | {"season"}
 # what `draw = builtin NAME` may name: the sidebars the emulator draws itself
 BUILTINS = {"border", "gradient", "knot", "registers", "halloween", "christmas",
-            "space", "river", "dreamfall", "tetris", "antfarm"}
+            "space", "river", "dreamfall", "tetris", "antfarm", "matrix"}
 NAME_RE = re.compile(r"^[A-Z0-9_-]{1,16}\.ZIP$")   # no 8.3 on this machine (BRAINSHOTS); short enough for a menu row
 
 

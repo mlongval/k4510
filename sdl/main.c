@@ -1996,6 +1996,7 @@ tex_done:
                       }
                       void *sp; int spitch;
                       if (stex[side] && SDL_LockTexture(stex[side], NULL, &sp, &spitch) == 0) {
+                          saver_font(font_panel, font_panel_rows);   /* the machine's glyphs, for the scenes that draw characters */
                           saver_draw(sb_side[side] - SIDEBAR_HALLOWEEN, (uint32_t *) sp, spitch / 4, mw, mh, (uint32_t) vclk[side], side);
                           SDL_UnlockTexture(stex[side]);
                           int dw = (int)(mw * ms + 0.5), dh = (int)(mh * ms + 0.5);

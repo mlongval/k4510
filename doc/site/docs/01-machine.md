@@ -196,7 +196,7 @@ centre, left, right; to begin with, centre
 off, registers; to begin with, off
 
 **`Sidebars`** — *video.sidebars*  
-border, gradient, knot, halloween, christmas, space, river, dreamfall, tetris, antfarm; to begin with, border
+border, gradient, knot, halloween, christmas, space, river, dreamfall, tetris, antfarm, matrix; to begin with, border
 
 ### Terminal
 

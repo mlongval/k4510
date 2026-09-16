@@ -9537,3 +9537,55 @@ nobody can read is the same silent-loss bug wearing a different hat.
 Checked on all three routes: `IDEA`, `IDEA <text>`, and `*IDEA <text>` from BBC
 BASIC, each landing in VI on a fresh file with an empty idea body. romtest,
 basictest (EhBASIC 34 + BBC BASIC 28, both `*` routes) and typetest green.
+
+## 2026-09-16 — MATRIX, the twelfth sidebar
+
+Doc: "and a 'the Matrix' like sidebar", and, asked whether the rain should be
+made of characters or of light: "Real glyphs from the machine's font", "With
+the film's touches".
+
+So the rain is made of the letters this computer knows. `cv_t` gained
+`font`/`frows` and `savers.c` a `saver_font()` -- the font is a property of the
+machine, set once, not threaded through every draw; the first attempt widened
+`saver_draw` itself and would have touched eleven call sites in sidebartest for
+a value that never changes. The glyphs are unscii-16, the same font the
+register panel draws with, and the set it rains from is digits, capitals and
+the CP437 shapes that read as cryptic -- the film's mirrored katakana is not in
+this font, and a near-alphabet is the point.
+
+The film's touches, which are what stop it looking like a screensaver: a
+white-hot leading character with a brighter one behind it, a tail fading green
+to black, glyphs that flicker *while they hang there* (the detail everyone
+remembers), columns at three depths so the strip has distance in it, and a
+column that runs bright the whole way down about once in twenty.
+
+Two mistakes on the way, both mine, both found by looking at the picture.
+
+The first: `head2` was computed and never drawn -- a second drop added to the
+comment and not to the loop. Clean compile, passing tests, no second drop.
+
+The second is the better lesson. Crowding the drops together by shortening the
+period (`per = rows + len/3 + 2`) seemed obviously right and blacked out the
+bottom two thirds of the sidebar. The head sweeps `[-len, per-len)`, so it only
+reaches `rows - 2*len/3`; with the long tails I had just introduced, that is
+about a third of the way down. The period has to cover the whole journey --
+`rows + len + 2` -- and density comes from two drops half a period apart, not
+from cutting the journey short. The tell was in the numbers before it was in my
+eyes: doubling the drops made the frame *cheaper* (0.46 -> 0.44 ms), which only
+happens when fewer glyphs are drawn. It now costs 0.65 ms, and the lower third
+of the strip went from nothing to 1948 lit pixels at 120 wide.
+
+Twelve sidebars means twelve places the list is written down, and the build
+found them one at a time: `SIDEBAR_*` in settings.h (appended -- that enum says
+in a comment not to move the numbers), `builtin_keys[]` in core/sidebars.c,
+`SIDEBAR_NAMES` in the Makefile, `BUILTINS` in tools/mksidebar.py (which
+refused the zip until it knew the name), `order[]` and `nm[]` in sidebartest,
+and the lists in SIDEBAR-FORMAT.md and doc/site. Two sidebartest expectations
+were genuinely invalidated rather than merely broken: the wrap-round now passes
+through matrix before border, and "the eight that are not seasonal or the
+panel" is nine -- written as `SIDEBAR_COUNT - 3` so the next one does not have
+to find it again. SIDEBARS-PLAN.md was left alone: it is dated and says
+"Status: a plan".
+
+0.65 ms a side at 240x1080, against a budget of 5. sidebartest, uitest,
+statetest and termtest green.

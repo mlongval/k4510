@@ -1,0 +1,7 @@
+# MATRIX.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Matrix
+about   = Digital rain, in the machine's own letters.
+author  = K4510
+version = 1
+season  =
+draw    = builtin matrix

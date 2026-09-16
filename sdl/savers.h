@@ -6,11 +6,16 @@
 #include <stdint.h>
 #include <stddef.h>
 
-enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_COUNT };
+enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_MATRIX, SAVER_COUNT };
 
 /* which: SAVER_*; px: w x h ARGB pixels, pitch in pixels; ms: a clock in
  * milliseconds; side: 0 left, 1 right (each side its own scene and seed). */
 void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, int side);
+/* The machine's glyphs (sdl/main.c's font_panel: unscii-16, 8 bits a row,
+ * frows rows a character), for the scenes that draw characters -- the Matrix
+ * rain does.  A property of the machine, set once rather than passed through
+ * every draw; unset, the scenes that want it fall back to something else. */
+void saver_font(const uint8_t *font, int frows);
 /* A scene's own option, from its OPTIONS.CFG (the ant farm's day = 30m). */
 void   saver_option(int which, const char *key, const char *value);
 /* What a scene keeps across a power cycle (STATE.DAT): a new buffer the caller

@@ -42,7 +42,7 @@ One `name = value` a line; `#` starts a comment; names are lower case.
 
 - `builtin NAME` -- drawn by the emulator's own code. `NAME` is one of
   `border gradient knot registers halloween christmas space river dreamfall
-  tetris antfarm`.
+  tetris antfarm matrix`.
 - `scene` and `program NAME.PRG` -- planned (pictures and a description;
   a K4510 program on the Tube). `mksidebar.py` refuses them until they are
   drawn.

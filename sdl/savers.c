@@ -20,9 +20,13 @@
 #include "savers.h"
 #include "sidebars/canvas.h"
 
+static const uint8_t *sv_font;                   /* the machine's glyphs, for the scenes that draw characters */
+static int sv_frows;
+void saver_font(const uint8_t *font, int frows) { sv_font = font; sv_frows = frows > 0 ? frows : 0; }
+
 void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, int side)
 {
-    cv_t c = { px, pitch, w, h };
+    cv_t c = { px, pitch, w, h, sv_font, sv_frows };
     sb_sin_init();
     if (w < 4 || h < 4) return;
     switch (which) {
@@ -32,6 +36,7 @@ void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, i
     case SAVER_RIVER:     s_river(&c, ms, side & 1); break;
     case SAVER_TETRIS:    s_tetris(&c, ms, side & 1); break;
     case SAVER_ANTFARM:   s_antfarm(&c, ms, side & 1); break;
+    case SAVER_MATRIX:    s_matrix(&c, ms, side & 1); break;
     default:              s_dreamfall(&c, ms, side & 1); break;
     }
 }

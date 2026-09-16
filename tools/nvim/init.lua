@@ -125,7 +125,9 @@ local function make()
     local dir = vim.fn.fnamemodify(file, ":p:h")
     local p = project(dir)
     local args = p and ("-p " .. vim.fn.shellescape(p)) or vim.fn.shellescape(vim.fn.fnamemodify(file, ":t"))
-    note("compiling ...")
+    -- and no "compiling ..." before it: two messages on one build still cost a
+    -- "Press ENTER to continue" (the Dell's shot again, 2026-09-15).  VI shows
+    -- nothing while it compiles either; the result is the message.
     local out = vim.fn.system("cd " .. vim.fn.shellescape(dir) .. " && " .. L.tool .. " " .. args .. " 2>&1")
     local rc = vim.v.shell_error
     local items, nerr = read_errors(dir)

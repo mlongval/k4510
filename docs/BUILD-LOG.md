@@ -9142,3 +9142,34 @@ Two faults in our own tooling, both found by the tests for it:
 test/uitest.c published a menu index where $D521 carries the ROM's MODE
 number; they parted company when 640x480 became two rows, and it uses
 vmode_number[] now. test/modetest.sh covers both screens and the host's bit.
+
+## 2026-09-15 — alpha-0.6 'Marginalia'
+
+Doc: "if everything passes then this is the next alpha version  you find a
+cool name and commit it".  All nine remote tests pass on the Dell (layer
+5bd4cde6, commit ecdd686): smoke, menu, langs, logo, prog, make, zip, sidebar,
+nvim -- the last two new today.  K4510_BUILD is 0.6.
+
+Marginalia, because the release's heart is what lives in the margins: the
+sidebars, which became packages with their own options and a colony that
+outlives a power cycle.  It sits beside Colophon (alpha-0.3).
+
+  * The sidebars are zips in /SYSTEM/SIDEBARS -- SIDEBAR.INF, OPTIONS.CFG,
+    STATE.DAT -- and the directory is the list.  The register panel is one of
+    them.  F12 keeps two rows: which one, and Edit options.  SIDEBARS.CFG has
+    the right-hand side, the changing, and the seasons.
+  * MOUNT reads zip files: from the disk, from another mount, or from a URL;
+    read-only, our own inflater, no zlib.
+  * NVIM -- Neovim on the Tube in the machine's colours, knowing its
+    languages, :make through the machine's own compilers into the error list
+    VI reads, :Run handing the program to the machine and coming back on the
+    same line.
+  * 640x480 twice: 80x30 in the tall font, 80x60 in the small one, in the menu
+    and as MODE 0 60 / MODE 0 30.
+  * The ant farm has a day: sun and night, the queen, a second way in, and the
+    colony kept across a power cycle.
+  * Fixed: MOUNT's list leaked the ROM's C stack (the next MOUNT's name was
+    overwritten); the device wrote 300 bytes into the ROM's 256; the headless
+    runner crashed in the HD modes, read every screen at 80 columns, and
+    ignored K4510_SYSOPT; the handbook printed one choice for every capped
+    setting; NVIM ran a file nobody had saved.

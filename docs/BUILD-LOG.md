@@ -9210,3 +9210,15 @@ turtle).  A name that is not there says so and leaves the turtle standing.
 test/logotest.sh (make test): LOGO started in MODE 0, 1 and 2 leaves the
 machine in the mode it found; SETSHAPE loads the bird, refuses a name that is
 not there, and comes back; both .SPR files are sixteen 32x32 frames.
+
+Then Doc: "logo requires minimum 320x240 to run. below that it issues a
+warning, asks if user is ok with move up to minimum resolution then either
+runs or quits". Only the two game screens are smaller, and only a program can
+put the machine in one. LOGO now names what it needs and what it found --
+"LOGO needs 320 x 240 to draw on, and this screen is 160 x 200." -- and asks
+"Move up to 320 x 240?  (Y / N)": Y switches through the ROM's MODE and runs,
+anything else leaves the machine exactly as it was and gives the prompt back.
+Nothing is drawn before the answer. test/logotest.sh boots the machine
+straight into MODE 4 through $D521's mode bits -- the prompt itself refuses
+MODE 4 -- and checks both answers; its 20 columns wrap every line, so it
+matches fragments rather than sentences.

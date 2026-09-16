@@ -19,8 +19,13 @@ The picture is VICKY's bitmap \emph{under} the console, which is the
 classic LOGO screen: the turtle draws below and the prompt lives above,
 so you can see what you asked for and what you are asking next at once.
 LOGO draws on the screen it finds --- whatever \verb|MODE| you were in
-when you typed \verb|LOGO|, from 160$\times$200 to the HD
-1440$\times$1080 --- and leaves it that way when you go. The turtle
+when you typed \verb|LOGO|, up to the HD 1440$\times$1080 --- and leaves
+it that way when you go. It wants 320$\times$240 at the least: on a
+smaller screen (the game modes 320$\times$200 and 160$\times$200, which a
+program may set) it says so and asks whether to move up to
+320$\times$240. Answer \texttt{Y} and it moves and runs; answer anything
+else and it leaves the machine exactly as it was and gives you the
+prompt back. The turtle
 itself is a small green turtle, a hardware sprite in sixteen headings ---
 one every 22.5 degrees, drawn once and turned by \pth{tools/mkturtle.py}
 when the machine is built, so turning it is a matter of pointing the

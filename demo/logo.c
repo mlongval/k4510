@@ -96,6 +96,11 @@ static uint8_t pencol = 1, pendown = 1;
  * mode, which is why it looks bigger on the doubled screens and smaller on the
  * HD ones (Doc: "width in pixels stays same but ... apparent size seems to
  * grow on lower res screens"). */
+static void mode_set(char digit)                       /* MODE n through the ROM: it lays the console out and clears it */
+{
+    strcpy(CMDLINE, "MODE 0"); CMDLINE[5] = digit;        /* page 3: the ROM cannot read our image during the call */
+    rom_shell(CMDLINE);
+}
 static void mode_enter(void)
 {
     switch (REG(VICKY) & 0x3E) {                          /* bit 5: the HD family (hd-modes) -- without it MODE 5 read as 0 */
@@ -583,6 +588,21 @@ int main(void)
     FDEG = fdiv(fint(314159L), fint(18000000L));           /* pi / 180 */
     FHALF = fdiv(fint(45), fint(4)); FSTEP = fdiv(fint(45), fint(2));
     mode_enter();                                          /* the glass as we found it: GW x GH */
+    /* 320x240 at the least (Doc, 2026-09-15: "logo requires minimum ... below
+     * that it issues a warning, asks if user is ok with move up to minimum
+     * resolution then either runs or quits").  Only the two game screens are
+     * smaller, and only a program can put the machine in one. */
+    if (GW < 320 || GH < 240) {
+        uint8_t k;
+        puts_("LOGO needs 320 x 240 to draw on, and this screen is ");
+        puts_(ftoa(fint(GW))); puts_(" x "); puts_(ftoa(fint(GH))); puts_("."); nl();   /* the MATH unit prints every number here */
+        puts_("Move up to 320 x 240?  (Y / N) ");
+        do { k = getin(); } while (!k);
+        nl();
+        if (upc((char) k) != 'Y') { puts_("LOGO: the screen is yours."); nl(); return 0; }
+        mode_set('2');
+        mode_enter();                                      /* the glass again: 320 x 240 */
+    }
     gfx_show(); gfx_clear();
     turtle_load();                                         /* the sixteen frames, beside the bitmap */
     REG(TERM + 0x0E) |= 1;                                 /* the console cursor: the ROM hides it for programs */

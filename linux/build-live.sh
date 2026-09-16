@@ -451,6 +451,12 @@ $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make demo/prg0.o de
 # different machine, but SETUP measures either way.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
     "printf 'version = 2\ncpu.auto = on\ncpu.clock = 20 MHz\nterm.bands = on\n' > ~/k4510/k4510.cfg"
+# ...and a /STARTUP.BAT for a machine that has none yet (Doc, 2026-09-16: the
+# HOST alias "as default for future installs").  Only new images get this:
+# /home/k4510 is the persistence overlay, so a machine that already has a
+# startup file of its own keeps it, and this copy sits underneath, unseen.
+$CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
+    "printf '# STARTUP.BAT -- runs at power-on; it is yours to edit.\n# /SYSTEM/ETC/STARTUP.SAMPLE has more: CP/M aliases, colours, palettes.\n\n# a login on the Linux beneath, with its own tty: the same door as\n# F12 > Host > Telnet into the host, and it asks for no password\nALIAS HOST TELNET 127.0.0.1 23\n' > ~/k4510/fs/STARTUP.BAT"
 $CHROOT_ENV chroot "$ROOT" chown -R $USER_NAME:$USER_NAME "/home/$USER_NAME"
 
 echo "== initramfs =="

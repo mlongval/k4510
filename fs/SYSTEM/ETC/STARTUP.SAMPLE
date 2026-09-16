@@ -13,6 +13,13 @@ ALIAS WS     CPM K-WS
 # odds and ends
 ALIAS LL DIR A
 
+# the Linux beneath, in one word: a login there with its own tty, which is
+# the same door as F12 > Host > Telnet into the host.  It asks for no
+# password -- the telnet listens on the loopback and nowhere else, and `!`
+# already opens a shell on that same Linux.  (`!` is a shell on the Tube;
+# SSH goes to another computer.)
+ALIAS HOST TELNET 127.0.0.1 23
+
 # ---------------------------------------------------------------------
 # CONSOLE COLOURS.  COLOR (or COLOUR) sets the foreground and, if you give
 # a second value, the background.  Both are palette indices IN HEX, and it

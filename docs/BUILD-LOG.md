@@ -9240,9 +9240,18 @@ is already vouched for. A machine someone else can reach is a different
 question, and `linux = locked` in the menu file still shuts `!`, SSH, HOST and
 the menu's row together.
 
-The existing ways were the menu row and ALIAS -- `ALIAS HOST TELNET 127.0.0.1
-23` in /STARTUP.BAT would have done it on one machine. Shipped instead:
-fs/SYSTEM/BIN/host.prg (demo/host.c), so HOST is a word on every machine, the
-way NVIM is. It runs TELNET 127.0.0.1 23. Three doors now, and the handbook
-says what each is for: `!` a shell on the Tube, HOST a login with its own tty,
-SSH another computer.
+For the word itself I first shipped fs/SYSTEM/BIN/host.prg, and Doc: "perhaps
+just using an alias is better, less clutter". He is right -- the machine
+already has ALIAS, aliases are defined at every boot from /STARTUP.BAT, and a
+program in /SYSTEM/BIN for one line of shell is clutter. Withdrawn; the line
+is in the shipped /SYSTEM/ETC/STARTUP.SAMPLE instead:
+
+    ALIAS HOST TELNET 127.0.0.1 23
+
+And "as default for future installs" (Doc): build-live.sh now seeds
+~/k4510/fs/STARTUP.BAT with that alias, beside the k4510.cfg it already
+writes. Only new images get it -- /home/k4510 is the persistence overlay, so a
+machine with a startup file of its own keeps it and never sees this one.
+
+Three doors, and the handbook says what each is for: `!` a shell on the Tube,
+the telnet login a session with its own tty, SSH another computer.

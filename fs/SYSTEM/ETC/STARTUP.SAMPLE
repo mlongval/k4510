@@ -10,8 +10,27 @@ ALIAS MBASIC CPM K-MBAS
 ALIAS TURBO  CPM K-TURBO
 ALIAS WS     CPM K-WS
 
-# odds and ends
+# odds and ends.  These are the ones Doc actually kept on his own machine
+# (2026-09-16), which is why they are the sample's: a short name for DIR, the
+# two spellings a hand types without thinking, and a word for each folder you
+# go back to.  A name may be upper or lower case; the shell does not care.
 ALIAS LL DIR A
+ALIAS d DIR
+ALIAS ls dir
+ALIAS dl dir -l
+ALIAS tekplay !tekplay
+ALIAS .. cd ..
+alias / cd /
+alias less type
+alias HOME cd /HOME
+alias SYSTEM cd /SYSTEM
+alias LANG cd /LANG
+alias DOCUMENTS cd /DOCUMENTS
+
+# BANNER reprints the power-on banner.  The machine has already drawn it by
+# the time this file runs, so this is only worth uncommenting if your startup
+# file printed over it -- a PALETTE LOAD or a COLOR clears the screen.
+# banner
 
 # the Linux beneath, in one word: a login there with its own tty, which is
 # the same door as F12 > Host > Telnet into the host.  It asks for no

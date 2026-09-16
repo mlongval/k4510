@@ -75,6 +75,9 @@ tongues: EHBASIC  MSBASIC  BBC  FORTH  LOGO  RX
          *BYE comes back here; *VI edits the program
 linux:   !command / ! (the Linux beneath)
          SSH [user@]host
+         HOST  (a login on that Linux, no
+         password asked; the same door as
+         F12 > Host > Telnet into the host)
 network: a URL is a file name:
          TYPE http://host/file
          CP http://host/x.prg x.prg

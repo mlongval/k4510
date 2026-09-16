@@ -319,10 +319,19 @@ EOF
 mkdir -p "$ROOT/usr/local/sbin"
 cat > "$ROOT/usr/local/sbin/k4510-telnet-login" <<'EOF'
 #!/bin/sh
-# The login program telnetd runs (telnetd -E).  It forces the account: the only
-# name this door will ever offer is k4510.  Same reasoning as the service on
-# ubuntu-s1, and it costs nothing to keep the habit even on loopback.
-exec /bin/login "$@" k4510
+# The login program telnetd runs (telnetd -E).  It forces the account -- the
+# only name this door will ever offer is k4510 -- and -f says the user is
+# already vouched for, so no password is asked (Doc, 2026-09-16: "can we
+# remove the password when i telnet into the linux host from the k4510   its
+# redundant at least at this point  i understand the risk").
+#
+# Redundant is the right word: the socket is bound to loopback, so the only
+# way to knock is from the machine standing on this very Linux, and that
+# machine already opens an unauthenticated shell here with `!`.  The password
+# guarded a door whose other side was already open.  A machine someone else
+# can reach is a different question: `linux = locked` in the menu file shuts
+# `!`, SSH and this row together.
+exec /bin/login -f k4510
 EOF
 chmod 755 "$ROOT/usr/local/sbin/k4510-telnet-login"
 

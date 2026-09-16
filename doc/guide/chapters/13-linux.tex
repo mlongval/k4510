@@ -36,6 +36,16 @@ letter you type arrives as one.
 \verb|SSH [user@]host| is the same thing for a computer across the
 network: an ssh session, drawn by JIM, through the Linux's own ssh.
 
+\verb|HOST| is the third door: a \emph{login} on the Linux beneath ---
+its own tty, its own session --- where \verb|!| gives a shell on the
+Tube. It is the same thing as F12 $\rightarrow$ Host $\rightarrow$
+\emph{Telnet into the host}, in one word. The telnet it speaks to listens
+on the loopback and nowhere else, and it asks for no password: the only
+way to knock on it is from the machine standing on that very Linux, and
+that machine already opens an unauthenticated shell there with
+\verb|!|. \verb|linux = locked| in the menu file shuts all three
+together.
+
 \section{\texttt{NVIM} --- Neovim, dressed for the machine}
 The machine's own editor is \verb|VI|. The Linux's is Neovim, and
 \verb|NVIM [name]| brings it onto the glass the way \verb|!| would, but
@@ -69,8 +79,8 @@ set up for this machine (\pth{tools/nvim/init.lua}):
 \begin{aside}
 \textbf{Locking the door.} On a machine a child uses, the way into Linux
 may be a way into trouble. \verb|linux = locked| in the menu file
-(Section~\ref{sec:menufile}) turns \verb|!|, \verb|SSH| and the menu's
-telnet row away with a message, and \verb|consoles = locked| makes the
+(Section~\ref{sec:menufile}) turns \verb|!|, \verb|SSH|, \verb|HOST| and
+the menu's telnet row away with a message, and \verb|consoles = locked| makes the
 Linux consoles unreachable from the keyboard. \verb|PAS| and \verb|CC|
 still compile.
 \end{aside}

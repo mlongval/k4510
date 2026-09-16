@@ -9222,3 +9222,27 @@ Nothing is drawn before the answer. test/logotest.sh boots the machine
 straight into MODE 4 through $D521's mode bits -- the prompt itself refuses
 MODE 4 -- and checks both answers; its 20 columns wrap every line, so it
 matches fragments rather than sentences.
+
+## 2026-09-16 — HOST, and no password on the way in
+
+Doc: "can we remove the password when i telnet into the linux host from the
+k4510   its redundant at least at this point  i understand the risk", and "a
+command to allow quick connection (HOST) instead of going through the menu,
+unless there is another existing way??"
+
+Redundant is the right word. The telnet socket is bound to loopback and
+nowhere else, so the only place it can be knocked on is the machine standing
+on that very Linux -- and that machine already opens an unauthenticated shell
+there with `!`. The password guarded a door whose other side was open. So
+/usr/local/sbin/k4510-telnet-login (linux/build-live.sh) is now
+`exec /bin/login -f k4510`: the account is still forced, and -f says the user
+is already vouched for. A machine someone else can reach is a different
+question, and `linux = locked` in the menu file still shuts `!`, SSH, HOST and
+the menu's row together.
+
+The existing ways were the menu row and ALIAS -- `ALIAS HOST TELNET 127.0.0.1
+23` in /STARTUP.BAT would have done it on one machine. Shipped instead:
+fs/SYSTEM/BIN/host.prg (demo/host.c), so HOST is a word on every machine, the
+way NVIM is. It runs TELNET 127.0.0.1 23. Three doors now, and the handbook
+says what each is for: `!` a shell on the Tube, HOST a login with its own tty,
+SSH another computer.

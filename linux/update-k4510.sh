@@ -23,6 +23,10 @@ SRC_HOST=${SRC_HOST:-p15}
 STAGE=${STAGE:-Projects/k4510-pi/k4510/linux/.live-work-internal/stage/live}
 CHECKOUT=${CHECKOUT:-Projects/k4510-pi/k4510}
 USER=${SUDO_USER:-$(id -un)}
+# Who to log in as ON THE BUILD HOST.  Not $USER: that is who we are here, and
+# on an installed machine that is "k4510", an account p15 has never heard of.
+# It tried k4510@p15, ssh refused it, and the pull died (2026-09-16).
+REMOTE_USER=${REMOTE_USER:-doc}
 
 MODE=auto; REBUILD=0
 for a in "$@"; do case "$a" in
@@ -58,9 +62,13 @@ else
     command -v rsync >/dev/null 2>&1 || die "rsync not installed."
     if [ "$REBUILD" = 1 ]; then
         say "rebuilding the machine on $SRC_HOST (REBUILD=1; a couple of minutes)"
-        sudo -u "$USER" ssh -o BatchMode=yes -o ConnectTimeout=8 "$SRC_HOST" \
-            "cd ~/$CHECKOUT && git fetch origin -q && git merge --ff-only @{u} && sudo env NODISK= WORK=\$PWD/linux/.live-work-internal OUT=\$PWD/linux/k4510-internal-amd64.img REBUILD=1 sh linux/build-live.sh" \
-            || die "the remote rebuild failed on $SRC_HOST"
+        # The absolute form matters: p15's /etc/sudoers.d/k4510-build matches
+        # /usr/bin/sh plus the script's full path.  A relative "sh linux/
+        # build-live.sh" does not match the rule, so sudo asks for a password,
+        # and over BatchMode ssh with no tty that is simply a failure.
+        sudo -u "$USER" ssh -o BatchMode=yes -o ConnectTimeout=8 "$REMOTE_USER@$SRC_HOST" \
+            "cd ~/$CHECKOUT && git fetch origin -q && git merge --ff-only @{u} && sudo -n NODISK= WORK=\$PWD/linux/.live-work-internal REBUILD=1 /usr/bin/sh \$HOME/$CHECKOUT/linux/build-live.sh" \
+            || die "the remote rebuild failed on $REMOTE_USER@$SRC_HOST"
     fi
     # A persistent cache, not a temp dir: rsync then moves only the files that
     # changed on p15 (the 5 MB layer, usually) instead of the whole 810 MB every
@@ -69,9 +77,12 @@ else
     say "pulling the payload from $SRC_HOST over the tailnet"
     # --partial: a 750 MB pull over the tailnet takes minutes; if it is cut off,
     # the next run resumes the file instead of starting over (2026-09-11).
+    # No --rsync-path="sudo rsync": p15's sudoers rule grants the build command
+    # and nothing else, so a remote "sudo rsync" asks for a password and fails.
+    # The staged payload is root-owned but world-readable, which is enough.
     sudo -u "$USER" rsync -a --partial --info=progress2 -e "ssh -o BatchMode=yes -o ConnectTimeout=8" \
-        --rsync-path="sudo rsync" "$SRC_HOST:$STAGE/" "$TMP/" \
-        || die "could not fetch from $SRC_HOST (ssh key / reachability?)."
+        "$REMOTE_USER@$SRC_HOST:$STAGE/" "$TMP/" \
+        || die "could not fetch from $REMOTE_USER@$SRC_HOST -- has $USER an ssh key there?  (--stick refreshes from the USB stick instead)"
     SRCDIR="$TMP"
 fi
 [ -f "$SRCDIR/filesystem.squashfs" ] || die "source has no filesystem.squashfs."

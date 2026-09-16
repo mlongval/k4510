@@ -9255,3 +9255,127 @@ machine with a startup file of its own keeps it and never sees this one.
 
 Three doors, and the handbook says what each is for: `!` a shell on the Tube,
 the telnet login a session with its own tty, SSH another computer.
+
+## 2026-09-16 — CALC in the modern spelling
+
+Doc: "can you rewrite the spreadsheet to use modern conventions instead of
+visicalc ones. noone today remembers visicalc".
+
+He is right, and it was the one program here whose manners had to be learned
+rather than guessed. VisiCalc decided what an entry was by its first
+character -- a letter started a label, anything else a value -- so `3 apples`
+was not a note but a mistake, and a formula began with `+` or `@`. All of that
+is gone:
+
+* a formula starts with `=`; a leading `+` or `-` still starts one, as every
+  spreadsheet since has allowed (`-C7`)
+* functions have lost the `@`: `SUM(A1:A9)`, `AVERAGE(B1:B5,10)`, `PI()`
+* a range is `A1:B3`
+* an entry is taken for what it looks like -- a number is a number, an `=` is
+  a formula, and everything else is text, so `3 apples` is a note. A leading
+  `'` forces text (`'2026` stays a year)
+* `#ERROR!` where it said ERROR, `#####` where a number is too wide for its
+  column
+* `AVERAGE` is the name, `AVG` still answers; `ROUND(x)` now also takes the
+  places to keep, `ROUND(x,2)`; `INT` rounds **down** where VisiCalc's `@INT`
+  truncated toward zero, so `INT(-2.5)` is -3 and not -2
+
+The `/` menu is F10, and the things worth a key of their own have one:
+Ctrl-S save, Ctrl-O open, Ctrl-N new sheet, Ctrl-W column width, Ctrl-G go to
+(which frees `>` to be typed), Ctrl-Q quit. Home goes to the start of the row
+and Ctrl-Home to A1, End to the last cell used in the row and Ctrl-End to the
+corner of the sheet, Shift-Tab back a column -- the keyboard latches its
+modifiers into KBDST bits 0-2, which this program had not read before.
+
+Dropping the `@` costs one thing: a name and a cell reference now start alike,
+so `primary()` tries the reference first and the function after -- `A1` is a
+reference because it is a letter and a digit, `ABS` cannot be.
+
+A sheet is saved as `K4CALC 2`, the kind letters now `T` text, `N` number,
+`F` formula (they were `L` and `V`). A `K4CALC 1` sheet still opens: its cells
+are brought over as they load -- the `@` dropped, `A1...B3` turned into
+`A1:B3`, and an `=` put in front of what was a value -- so the next save is
+written in the new spelling and nothing is stranded.
+
+Two notes for whoever tests it next. The prompts come up already filled in, so
+a test gives the name to CALC (`CALC CT.CAL`) and answers each prompt with a
+bare Enter, rather than typing a name onto the end of the one that is there.
+And test/headless can type the control keys -- `\037` says the next byte is a
+character, `\231` is a key code -- but it cannot hold a modifier down, so
+Ctrl-Home and Shift-Tab are the two paths with no test.
+
+Built in the `localhost/k4510-proof` image with the tree bind-mounted:
+ubuntu-s1 has no cc65 and its sudo wants a password. The image's own user
+cannot write into a mounted tree, so `--user 0:0` (rootless podman maps that
+back to doc). test/calctest.sh is 17 checks -- the entry rules, the functions,
+`'` for text, a save and open round trip, an old sheet coming over, the menu
+-- and is in `make test`.
+
+## 2026-09-16 — a right angle that was not one
+
+Doc: "there is probably a rounding error in logo, often the line drawn after a
+90 deg turn shows pixel steps indicating that it is not really 90 deg".
+
+He was right, and the culprit was one constant. LOGO turned degrees into
+radians with `FDEG = 314159/18000000` -- pi to six digits, and no further. The
+error is relative, so it rides on the angle and grows with every turn: `cos 90`
+came back as `+1.4e-06` where it should be 0, `sin 180` as `+2.8e-06`, `cos 270`
+as `-4.3e-06`. A square of FD 160 drawn from the centre therefore did not come
+back to its own corner, and the blitter -- Bresenham, which cannot step a line
+whose endpoints agree -- faithfully drew the step it was given.
+
+`pi/180` rounded to a float is `0x1.1df46ap-6`, and the ratio that lands on it
+exactly has to fit in cc65's 32-bit long: `17453293/1000000000` does (so does
+`atan(1)*4/180` on the MATH unit, which CALC already uses for PI). With it,
+`cos 90` is `-4.4e-08` -- the float's own floor -- and the square closes.
+
+Two things about the hunt are worth keeping. The first is that measuring the
+picture was harder than finding the bug: three passes at "count the drawn
+pixels" measured the banner text instead of the drawing, twice reporting the
+two builds as identical when they plainly were not. What settled it was the
+dumbest possible instrument -- a pixel-by-pixel diff of the before and after
+captures, which said 320 pixels differ, all in x 400..480, y 79..240, red
+before and background after. The second is that this makes a good test: row 79
+of the bitmap is the row above the square's top edge, so it must be empty.
+`test/logotest.sh` section 5 dumps it ($20C580, 640 bytes) and asks for "00";
+the old build answers "00 02". A test that passes on both builds proves
+nothing, so it was run against a deliberately reverted build first.
+
+## 2026-09-16 — why the passwordless telnet login did not ship
+
+It was committed, built, deployed, and it still asked for a password. The file
+was the giveaway: `/usr/local/sbin/k4510-telnet-login` on the Dell was dated
+Sep 13, the base image's date, and `unsquashfs -l` could not find it in
+`k4510.squashfs` at all.
+
+`LAYER_DIRS` lists what rides the small machine layer, and it had
+`usr/local/bin` but not `usr/local/sbin` -- where build-live.sh writes that
+login. So the change lived only in the base squashfs, which a REBUILD never
+re-squashes, and no layer update could ever carry it out to an installed
+machine. `usr/local/sbin` is in `LAYER_DIRS` now, beside `usr/local/bin` and
+for the same reason.
+
+`update-k4510.sh` had two faults of its own, found the same afternoon. It took
+the login name for the build host from `$SUDO_USER`, so on an installed machine
+it tried `k4510@p15` -- an account p15 has never heard of; there is a
+`REMOTE_USER` (default `doc`) for that now. And it pulled with
+`--rsync-path="sudo rsync"`, which needs a passwordless sudo on p15 that the
+sudoers rule does not grant -- it grants the build command and nothing else.
+The staged payload is world-readable, so plain rsync is enough. The remote
+rebuild it runs now uses the absolute `/usr/bin/sh <full path>` form the
+sudoers rule actually matches; the relative form asked for a password and, over
+a BatchMode ssh with no tty, simply failed.
+
+One more, not the script's fault but worth the warning: `update-k4510.sh` dies
+with exit 1 correctly, but it was invoked through `| tail`, which returns the
+status of `tail`. The failure read as success and the payload was reported as
+deployed when nothing had moved. Do not pipe it.
+
+The deploy itself: the layer built from 48367bc went on by hand (p15 ->
+ubuntu-s1 -> the Dell, 5.9 MB, the base and kernel being already identical),
+verified by sha at every hop and again on the partition, with the old layer
+kept outside `/live` as `backup/k4510.squashfs.92fcb911` -- live-boot unions
+every `*.squashfs` in that directory, so a spare copy does not belong in it.
+The remote suite ran 9 of 9 (the zip failure was a missing fixture, not a
+regression: `test/remote/zipfixture.sh` must put ZIPTEST.ZIP on the machine
+first). LOGO keeping its mode was checked on the glass in MODE 2.

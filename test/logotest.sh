@@ -76,4 +76,24 @@ for f in TURTLE BIRD; do
     check "$f.SPR is 16384 bytes" "$(wc -c < fs/LANG/LOGO/$f.SPR)" "16384"
 done
 
-if [ $fails -eq 0 ]; then echo "logotest: OK (three screens kept, the small screen asked about, SETSHAPE, both shapes)"; else echo "logotest: $fails FAILED"; exit 1; fi
+echo "5. a right angle is a right angle"
+# Doc, 2026-09-16: "there is probably a rounding error in logo, often the line
+# drawn after a 90 deg turn shows pixel steps indicating that it is not really
+# 90 deg".  FDEG was 314159/18000000 -- pi to six digits only -- and the error
+# rides on the angle, so cos 90 came back as 1.4e-06 instead of 0 and a square
+# drawn from the centre missed its own corner by a pixel.
+#
+# The proof is in the bitmap, not in a printed number.  A square of FD 160 from
+# the centre of a 640x480 screen has its top edge on row 80, so row 79 must be
+# untouched; with the old constant it carried pen pixels at x 401..480.  The
+# bitmap is at $200000, 640 bytes a row, so row 79 begins at $20C580.  Pen 2 is
+# red: the row reads "00" when it is clean and "00 02" when it is not.
+row79=$(K4510_DUMP=20C580,280 timeout 200 ./test/headless rom/kernal.bin 'LOGO
+~~HT
+~CS
+~SETPC 2
+~REPEAT 4 [FD 160 RT 90]
+~~' 1500 2>/dev/null | sed -n '/^dump /,$p' | tr ' ' '\n' | grep -Ev '^$|^dump|^\$20C580:' | sort -u | tr '\n' ' ' | sed 's/ *$//')
+check "the row above the square's top edge is untouched" "$row79" "00"
+
+if [ $fails -eq 0 ]; then echo "logotest: OK (three screens kept, the small screen asked about, SETSHAPE, both shapes, a square that closes)"; else echo "logotest: $fails FAILED"; exit 1; fi

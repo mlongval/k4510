@@ -585,7 +585,15 @@ int main(void)
     { const char *p; uint8_t n = 0; rom_args(); p = *(const char **) 0xF0; while (*p == ' ') p++;
       while (*p && *p != ' ' && n < 30) arg[n++] = *p++; arg[n] = 0; }   /* before any SHELL call: MODE's reuses $F0 */
     F0 = fint(0); F1 = fint(1); F10 = fint(10); F180 = fint(180); F360 = fint(360);
-    FDEG = fdiv(fint(314159L), fint(18000000L));           /* pi / 180 */
+    /* pi/180, to the last bit of a float.  It was 314159/18000000, which is
+     * pi to six digits only, and the error rides on the angle: cos 90 came
+     * back as 1.4e-06 instead of 0, sin 180 as 2.8e-06, so the turtle's idea
+     * of square was a little off and a line drawn after a turn stepped a
+     * pixel (Doc, 2026-09-16: "there is probably a rounding error in logo,
+     * often the line drawn after a 90 deg turn shows pixel steps indicating
+     * that it is not really 90 deg").  cc65's long is 32 bits, so the ratio
+     * that lands on the exact float has to fit in one: 17453293/1e9 does. */
+    FDEG = fdiv(fint(17453293L), fint(1000000000L));
     FHALF = fdiv(fint(45), fint(4)); FSTEP = fdiv(fint(45), fint(2));
     mode_enter();                                          /* the glass as we found it: GW x GH */
     /* 320x240 at the least (Doc, 2026-09-15: "logo requires minimum ... below

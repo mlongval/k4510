@@ -1,28 +1,30 @@
-/* K4510: CALC -- a spreadsheet, the way VisiCalc made them.
+/* K4510: CALC -- a spreadsheet, the way they are reckoned now.
  *
  *   CALC              a new sheet (saved as SHEET.CAL unless named)
  *   CALC NAME.CAL     that sheet
  *
- * Columns A-Z, rows 1-99.  Type into a cell: a letter or " starts a label,
- * anything else -- a digit, + - . ( @ -- a value, which may be a formula:
+ * Columns A-Z, rows 1-99.  Type into a cell and it is taken for what it looks
+ * like: a number is a number, an = starts a formula, anything else is text.
+ * A leading ' forces text (so '2026 stays a year and not a number).
  *
- *     +A1*2    (B3+B4)/2    2^10    -C7    @SUM(A1...A9)    @AVG(B1:B5,10)
- *     @SUM @AVG @MIN @MAX @COUNT over ranges and lists;  @ABS @INT @SQRT
- *     @ROUND of one value;  @PI.  A range is A1...B3 (VisiCalc's) or A1:B3.
+ *     =A1*2    =(B3+B4)/2    =2^10    -C7    =SUM(A1:A9)    =AVERAGE(B1:B5,10)
+ *     SUM AVERAGE MIN MAX COUNT over ranges and lists;  ABS INT SQRT
+ *     ROUND(x) or ROUND(x,2);  PI().  A range is A1:B3.
  *
  * The sheet works itself out again after every entry.  A formula that cannot
  * be worked out -- a mistake in it, a division by zero, a cell it uses that
- * cannot -- shows ERROR.  A number wider than its column shows >>>>.
+ * cannot -- shows #ERROR!.  A number wider than its column shows #####.
  *
- *   arrows PgUp PgDn Home   move          Enter keep and go down   Tab keep and go right
- *   F2  change the cell's entry           Del  blank the cell      Esc  give up an entry
- *   >   go to a cell                      /   the commands: S save  L load  B blank
- *                                             C clear the sheet  W column width
- *                                             F number format (general / two places)  Q quit
+ *   arrows PgUp PgDn        move        Enter keep and go down   Tab keep and go right
+ *   Home start of the row   Ctrl-Home A1     End last cell used in the row
+ *   F2  change the cell's entry          Del  clear the cell     Esc  drop an entry
+ *   Ctrl-G go to a cell     Ctrl-S save    Ctrl-O open    Ctrl-N new sheet
+ *   Ctrl-W column width     Ctrl-Q quit    F10 the same as a menu
  *
  * The arithmetic is the MATH unit's ($D700, IEEE singles, as LOGO uses it).
- * A sheet is saved as text, a line a cell -- A1:V:+B2*3 -- so EDIT can read
- * one too.
+ * A sheet is saved as text, a line a cell -- A1:F:=B2*3 -- so EDIT can read
+ * one too.  Sheets written by the first CALC (K4CALC 1, VisiCalc's @SUM and
+ * A1...B3) are brought over to this spelling as they load.
  */
 #include "k4510.h"
 
@@ -38,8 +40,8 @@
 #define CELLSZ  48                           /* kind, flags, value (4), text (41 + NUL) */
 #define TXTMAX  41
 #define K_EMPTY 0
-#define K_LABEL 1
-#define K_VALUE 2
+#define K_TEXT  1
+#define K_VAL   2                            /* a number or a formula: either way it is worked out */
 #define SHELL_RC (*(volatile uint8_t *)0x03FF)
 
 void __fastcall__ rom_chrout(unsigned char c);
@@ -52,15 +54,19 @@ enum { BLACK, WHITE, RED, CYAN, PURPLE, GREEN, BLUE, YELLOW, ORANGE, BROWN, LRED
 #define K_LEFT  KY(0x82)
 #define K_RIGHT KY(0x83)
 #define K_HOME  KY(0x84)
+#define K_END   KY(0x85)
 #define K_PGUP  KY(0x86)
 #define K_PGDN  KY(0x87)
 #define K_DEL   KY(0x89)
 #define K_F2    KY(0x91)
+#define K_F10   KY(0x99)
+static uint8_t kmods;                        /* shift/ctrl/alt of the key just read: KBDST bits 0-2 */
 static uint16_t getkey(void)
 {
     uint8_t st = REG(KBDST), k;
     if (!(st & 0x80)) return 0;
     k = REG(KBD);
+    kmods = (uint8_t)(REG(KBDST) & 7);       /* the read above latches them */
     return (st & 0x20) ? KY(k) : k;
 }
 static void fs_w32(uint8_t r, uint32_t v)
@@ -108,11 +114,11 @@ static fbits F0, F10, F100, FBIG, FPI;
 static uint32_t caddr(uint8_t c, uint8_t r) { return CELLS + ((uint32_t) r * NCOL + c) * CELLSZ; }
 static uint8_t kinds[NCOL * NROW];            /* each cell's kind, near: the work passes the empty ones without a DMA */
 static uint8_t vb[6];
-static fbits cell_value(uint8_t c, uint8_t r, uint8_t *kind)   /* a label or an empty cell counts 0 */
+static fbits cell_value(uint8_t c, uint8_t r, uint8_t *kind)   /* text or an empty cell counts 0 */
 {
     fbits v;
     *kind = kinds[(uint16_t) r * NCOL + c];
-    if (*kind != K_VALUE) return F0;
+    if (*kind != K_VAL) return F0;
     dma_copy(caddr(c, r), (uint32_t)(uint16_t) vb, 6);
     if (vb[1]) err = 1;
     v = (fbits) vb[2] | ((fbits) vb[3] << 8) | ((fbits) vb[4] << 16) | ((fbits) vb[5] << 24);
@@ -135,6 +141,24 @@ static uint8_t cellref(uint8_t *c, uint8_t *r)    /* A1..Z99 at sp: 1 and past i
     sp += i;
     return 1;
 }
+/* Is the whole entry a plain number?  This is what decides that 42 and -3.5
+ * are numbers while 3 apples is text -- so it reads the text and touches
+ * neither the MATH unit nor sp. */
+static uint8_t all_number(const char *s)
+{
+    uint8_t d = 0;
+    if (*s == '+' || *s == '-') s++;
+    while (is_digit(*s)) { s++; d = 1; }
+    if (*s == '.') { s++; while (is_digit(*s)) { s++; d = 1; } }
+    if (!d) return 0;
+    if (*s == 'E' || *s == 'e') {
+        s++;
+        if (*s == '+' || *s == '-') s++;
+        if (!is_digit(*s)) return 0;
+        while (is_digit(*s)) s++;
+    }
+    return (uint8_t)(*s == 0);
+}
 static fbits number(void)
 {
     long m = 0;
@@ -153,8 +177,8 @@ static fbits number(void)
     if (scale) v = f2(MATH_MUL, v, f2(MATH_POW, F10, fint(scale)));
     return v;
 }
-/* @SUM and its kind: every value in the ranges and lists between ( and ) */
-static fbits aggregate(uint8_t which)         /* 0 SUM 1 AVG 2 MIN 3 MAX 4 COUNT */
+/* SUM and its kind: every value in the ranges and lists between ( and ) */
+static fbits aggregate(uint8_t which)         /* 0 SUM 1 AVERAGE 2 MIN 3 MAX 4 COUNT */
 {
     fbits sum = F0, lo = F0, hi = F0, v;
     uint16_t count = 0;
@@ -168,8 +192,7 @@ static fbits aggregate(uint8_t which)         /* 0 SUM 1 AVG 2 MIN 3 MAX 4 COUNT
         save = sp;
         if (cellref(&c0, &r0)) {
             skip();
-            if (sp[0] == '.' && sp[1] == '.') { sp += 2; if (*sp == '.') sp++; }
-            else if (*sp == ':') sp++;
+            if (*sp == ':') sp++;
             else { sp = save; goto single; }
             skip();
             if (!cellref(&c1, &r1)) { err = 1; return F0; }
@@ -177,7 +200,7 @@ static fbits aggregate(uint8_t which)         /* 0 SUM 1 AVG 2 MIN 3 MAX 4 COUNT
             if (r1 < r0) { r = r0; r0 = r1; r1 = r; }
             for (r = r0; r <= r1; r++) for (c = c0; c <= c1; c++) {
                 v = cell_value(c, r, &kind);
-                if (kind != K_VALUE) continue;
+                if (kind != K_VAL) continue;
                 if (!count || fcmp(v, lo) < 0) lo = v;
                 if (!count || fcmp(v, hi) > 0) hi = v;
                 sum = f2(MATH_ADD, sum, v); count++;
@@ -202,29 +225,38 @@ single:
     default: return fint(count);
     }
 }
-static fbits function(void)
+static fbits function(void)                  /* a name and its brackets: SUM(A1:A9), ROUND(B2,2), PI() */
 {
-    static const char *const names[10] = { "SUM", "AVG", "MIN", "MAX", "COUNT", "ABS", "INT", "SQRT", "ROUND", "PI" };
-    uint8_t i, n;
-    fbits v;
-    for (i = 0; i < 10; i++) {
+    static const char *const names[11] = { "SUM", "AVERAGE", "AVG", "MIN", "MAX", "COUNT", "ABS", "INT", "SQRT", "ROUND", "PI" };
+    static const uint8_t agg[6] = { 0, 1, 1, 2, 3, 4 };   /* AVG is AVERAGE's older, shorter name */
+    uint8_t i, n = 0, has_d = 0;
+    fbits v, d = F0, p;
+    for (i = 0; i < 11; i++) {
         for (n = 0; names[i][n] && upper(sp[n]) == (uint8_t) names[i][n]; n++) ;
         if (!names[i][n]) break;
     }
-    if (i == 10) { err = 1; return F0; }
+    if (i == 11) { err = 1; return F0; }
     sp += n;
-    if (i < 5) return aggregate(i);
-    if (i == 9) return FPI;
+    if (i < 6) return aggregate(agg[i]);
+    if (i == 10) {                           /* PI, with or without its empty brackets */
+        skip();
+        if (*sp == '(') { sp++; skip(); if (*sp == ')') sp++; else err = 1; }
+        return FPI;
+    }
     skip();
     if (*sp != '(') { err = 1; return F0; }
     sp++; v = expr(); skip();
+    if (i == 9 && *sp == ',') { sp++; d = expr(); skip(); has_d = 1; }   /* ROUND(x, places) */
     if (*sp != ')') { err = 1; return F0; }
     sp++;
     switch (i) {
-    case 5: return f1(MATH_ABS, v);
-    case 6: return fint(ftoi(v));                /* toward zero, as VisiCalc's @INT */
-    case 7: return f1(MATH_SQRT, v);
-    default: return f1(MATH_ROUND, v);
+    case 6: return f1(MATH_ABS, v);
+    case 7: return f1(MATH_FLOOR, v);        /* INT goes down, as a spreadsheet's does */
+    case 8: return f1(MATH_SQRT, v);
+    default:
+        if (!has_d) return f1(MATH_ROUND, v);
+        p = f2(MATH_POW, F10, d);
+        return f2(MATH_DIV, f1(MATH_ROUND, f2(MATH_MUL, v, p)), p);
     }
 }
 static fbits primary(void)
@@ -234,8 +266,8 @@ static fbits primary(void)
     skip();
     if (is_digit(*sp) || *sp == '.') return number();
     if (*sp == '(') { sp++; v = expr(); skip(); if (*sp == ')') sp++; else err = 1; return v; }
-    if (*sp == '@') { sp++; return function(); }
-    if (cellref(&c, &r)) return cell_value(c, r, &kind);
+    if (cellref(&c, &r)) return cell_value(c, r, &kind);   /* a reference is a letter and a digit: A1 before ABS */
+    if (upper(*sp) >= 'A' && upper(*sp) <= 'Z') return function();
     err = 1;
     return F0;
 }
@@ -283,9 +315,10 @@ static void recalc(void)                     /* twice down the sheet, row by row
     for (pass = 0; pass < 2; pass++)
         for (r = 0, i = 0; r < NROW; r++)
             for (c = 0; c < NCOL; c++, i++) {
-                if (kinds[i] != K_VALUE) continue;
+                if (kinds[i] != K_VAL) continue;
                 dma_copy(caddr(c, r), (uint32_t)(uint16_t) rec, CELLSZ);
                 err = 0; sp = (const char *) rec + 6;
+                if (*sp == '=') sp++;        /* the = is how it was typed, not part of the sum */
                 v = expr(); skip();
                 if (*sp) err = 1;
                 rec[1] = err;
@@ -293,13 +326,19 @@ static void recalc(void)                     /* twice down the sheet, row by row
                 dma_copy((uint32_t)(uint16_t) rec, caddr(c, r), 6);
             }
 }
-static void put_cell(uint8_t c, uint8_t r, const char *text)   /* an entry, classified as VisiCalc would */
+/* An entry is taken for what it looks like: a number is a number, = is a
+ * formula, a leading + or - is one too, and everything else is text -- so
+ * 3 apples is a note and not a mistake.  A leading ' forces text. */
+static void put_cell(uint8_t c, uint8_t r, const char *text)
 {
-    uint8_t n = 0, k = upper(text[0]);
+    uint8_t n = 0;
     memset(rec, 0, CELLSZ);
     if (text[0]) {
-        if ((k >= 'A' && k <= 'Z') || text[0] == '"') { rec[0] = K_LABEL; if (text[0] == '"') text++; }
-        else rec[0] = K_VALUE;
+        if (text[0] == '\'') { rec[0] = K_TEXT; text++; }
+        else if (text[0] == '=') rec[0] = K_VAL;
+        else if (all_number(text)) rec[0] = K_VAL;
+        else if (text[0] == '+' || text[0] == '-') rec[0] = K_VAL;
+        else rec[0] = K_TEXT;
         while (text[n] && n < TXTMAX) { rec[6 + n] = (uint8_t) text[n]; n++; }
     }
     dma_copy((uint32_t)(uint16_t) rec, caddr(c, r), CELLSZ);
@@ -340,7 +379,7 @@ static const char *show_value(const uint8_t *cell)   /* the value as the column 
     long n;
     uint8_t i = 0, neg;
     char t[12];
-    if (cell[1]) return "ERROR";
+    if (cell[1]) return "#ERROR!";
     if (fmt2 && fcmp(f1(MATH_ABS, v), FBIG) < 0) {
         n = ftoi(f1(MATH_ROUND, f2(MATH_MUL, v, F100)));
         neg = n < 0; if (neg) n = -n;
@@ -359,26 +398,27 @@ static void draw_cell(uint8_t c, uint8_t r)
     const char *s;
     if (!kinds[(uint16_t) r * NCOL + c]) rec[0] = K_EMPTY;          /* an empty cell: no DMA */
     else dma_copy(caddr(c, r), (uint32_t)(uint16_t) rec, CELLSZ);
-    f = cur ? bg0 : (rec[0] == K_LABEL ? fg0 : (rec[1] ? LRED : WHITE));
+    f = cur ? bg0 : (rec[0] == K_TEXT ? fg0 : (rec[1] ? LRED : WHITE));
     b = cur ? fg0 : bg0;
-    if (rec[0] == K_LABEL) {
+    if (rec[0] == K_TEXT) {
         s = (const char *) rec + 6;
         for (i = 0; i < w; i++) rb_put((uint8_t)(*s ? *s++ : ' '), f, b);
-    } else if (rec[0] == K_VALUE) {
+    } else if (rec[0] == K_VAL) {
         s = show_value(rec);
         n = (uint8_t) strlen(s);
-        if (n > w) for (i = 0; i < w; i++) rb_put('>', f, b);
+        if (n > w) for (i = 0; i < w; i++) rb_put('#', f, b);       /* too wide for the column */
         else { for (i = n; i < w; i++) rb_put(' ', f, b); rb_str(s, f, b); }
     } else for (i = 0; i < w; i++) rb_put(' ', f, b);
     rb_put(' ', fg0, bg0);
 }
-static void draw_status(void)
+static void draw_status(void)                /* where the cell is, what is in it, what it comes to */
 {
     rb_str(" CALC  ", bg0, fg0);
     rb_str(cell_name(cc, cr), bg0, fg0);
+    rb_str("  ", bg0, fg0);
     dma_copy(caddr(cc, cr), (uint32_t)(uint16_t) rec, CELLSZ);
-    if (rec[0] == K_LABEL) { rb_str("  (L) ", bg0, fg0); rb_str((const char *) rec + 6, bg0, fg0); }
-    else if (rec[0] == K_VALUE) { rb_str("  (V) ", bg0, fg0); rb_str((const char *) rec + 6, bg0, fg0); rb_str("  = ", bg0, fg0); rb_str(show_value(rec), bg0, fg0); }
+    if (rec[0] == K_TEXT) rb_str((const char *) rec + 6, bg0, fg0);
+    else if (rec[0] == K_VAL) { rb_str((const char *) rec + 6, bg0, fg0); rb_str("   ", bg0, fg0); rb_str(show_value(rec), bg0, fg0); }
     rb_str("   ", bg0, fg0); rb_str(fname, bg0, fg0);
     if (modified) rb_str(" *", RED, fg0);
     rb_out(0, 1);
@@ -409,8 +449,8 @@ static void redraw(void)
         for (c = lc; c < NCOL && c < lc + vc; c++) draw_cell(c, r);
         rb_out((uint8_t)(3 + i), 0);
     }
-    if (cols >= 78) rb_str(" type to enter  Enter/Tab keep  Esc drop  F2 change  Del blank  > go to  / commands", bg0, fg0);
-    else rb_str(" type  Enter keep  F2  Del  >go  / cmds", bg0, fg0);
+    if (cols >= 78) rb_str(" type to enter  = a formula  Enter down  Tab right  F2 edit  Del clear  Ctrl-G go to  Ctrl-S save  F10 menu", bg0, fg0);
+    else rb_str(" type  = formula  F2 edit  Del  ^G go to  ^S save  F10 menu", bg0, fg0);
     rb_out((uint8_t)(rows - 1), 1);
 }
 static void keep_visible(void)
@@ -449,22 +489,43 @@ static void save_sheet(void)
     fs_w32(4, (uint16_t) fname);
     if (fs_cmd(2)) { strcpy(msg, " could not write that name"); return; }
     on = 0; oerr = 0;
-    emits("K4CALC 1 W"); emit((char)('0' + cw / 10)); emit((char)('0' + cw % 10)); emits(fmt2 ? " F$\n" : " FG\n");
+    emits("K4CALC 2 W"); emit((char)('0' + cw / 10)); emit((char)('0' + cw % 10)); emits(fmt2 ? " F$\n" : " FG\n");
     for (r = 0; r < NROW; r++) for (c = 0; c < NCOL; c++) {
         dma_copy(caddr(c, r), (uint32_t)(uint16_t) rec, CELLSZ);
         if (!rec[0]) continue;
-        emits(cell_name(c, r)); emit(':'); emit(rec[0] == K_LABEL ? 'L' : 'V'); emit(':');
+        emits(cell_name(c, r)); emit(':');
+        emit(rec[0] == K_TEXT ? 'T' : (rec[6] == '=' ? 'F' : 'N'));   /* text, formula, number */
+        emit(':');
         emits((const char *) rec + 6); emit('\n');
     }
     flush(); fs_cmd(5);
     if (oerr) strcpy(msg, " the disk would not take it all");
     else { modified = 0; strcpy(msg, " saved"); }
 }
+/* A cell out of a K4CALC 1 sheet, brought over to this spelling: @SUM(A1...A9)
+ * was how the first CALC wrote it, SUM(A1:A9) is how this one does. */
+static void modernise(char *t)
+{
+    char *s = t, *d = t;
+    uint8_t n;
+    while (*s) {
+        if (*s == '@') { s++; continue; }
+        if (s[0] == '.' && s[1] == '.') { s += 2; if (*s == '.') s++; *d++ = ':'; continue; }
+        *d++ = *s++;
+    }
+    *d = 0;
+    if (t[0] != '=' && !all_number(t)) {     /* it was a value, so it is a formula now */
+        n = (uint8_t) strlen(t);
+        if (n > TXTMAX - 1) { t[TXTMAX - 1] = 0; n = TXTMAX - 1; }
+        while (n) { t[n] = t[n - 1]; n--; }
+        t[0] = '=';
+    }
+}
 static uint8_t load_sheet(void)              /* 0 loaded, 1 absent, 2 not a sheet */
 {
-    static char line[TXTMAX + 16];
+    static char line[TXTMAX + 16], text[TXTMAX + 2];
     uint32_t p, end;
-    uint8_t n, st, c, r, k;
+    uint8_t n, st, c, r, k, legacy = 0;
     fs_w32(4, (uint16_t) fname); fs_w32(8, LOADBUF); fs_w32(12, LOADMAX);
     st = fs_cmd(9);
     if (st == 1) return 1;
@@ -476,7 +537,8 @@ static uint8_t load_sheet(void)              /* 0 loaded, 1 absent, 2 not a shee
         n = 0;
         while (p < end && (k = far_peek(p)) != '\n') { if (n < sizeof line - 1 && k != '\r') line[n++] = (char) k; p++; }
         p++; line[n] = 0;
-        if (line[0] == 'K' && line[1] == '4') {                  /* K4CALC 1 Wnn Fx */
+        if (line[0] == 'K' && line[1] == '4') {                  /* K4CALC v Wnn Fx */
+            legacy = (uint8_t)(line[7] == '1');
             for (n = 0; line[n]; n++) {
                 if (line[n] == 'W' && is_digit(line[n + 1])) { cw = (uint8_t)((line[n + 1] - '0') * 10 + (is_digit(line[n + 2]) ? line[n + 2] - '0' : 0)); if (!is_digit(line[n + 2])) cw = (uint8_t)(line[n + 1] - '0'); }
                 if (line[n] == 'F') fmt2 = line[n + 1] == '$';
@@ -485,10 +547,15 @@ static uint8_t load_sheet(void)              /* 0 loaded, 1 absent, 2 not a shee
             continue;
         }
         sp = line;
-        if (!cellref(&c, &r) || sp[0] != ':' || (sp[1] != 'L' && sp[1] != 'V') || sp[2] != ':') continue;
+        if (!cellref(&c, &r) || sp[0] != ':' || sp[2] != ':') continue;
+        k = upper(sp[1]);
         memset(rec, 0, CELLSZ);
-        rec[0] = sp[1] == 'L' ? K_LABEL : K_VALUE;
-        strncpy((char *) rec + 6, sp + 3, TXTMAX);
+        if (k == 'T' || k == 'L') rec[0] = K_TEXT;               /* L: the first CALC's label */
+        else if (k == 'N' || k == 'F' || k == 'V') rec[0] = K_VAL;
+        else continue;
+        strncpy(text, sp + 3, TXTMAX); text[TXTMAX] = 0;
+        if (legacy && rec[0] == K_VAL) modernise(text);
+        strncpy((char *) rec + 6, text, TXTMAX);
         dma_copy((uint32_t)(uint16_t) rec, caddr(c, r), CELLSZ);
         kinds[(uint16_t) r * NCOL + c] = rec[0];
     }
@@ -516,36 +583,44 @@ static uint8_t leave(void)
         if (k == 0x1B) return 0;
     }
 }
-static uint8_t slash(void)                   /* the / commands; nonzero: leave */
+static void do_save(void) { if (ask(" save as: ", fname, 60)) save_sheet(); }
+static void do_open(void)
+{
+    uint8_t n;
+    if (!ask(" open: ", fname, 60)) return;
+    n = load_sheet();
+    if (n == 1) strcpy(msg, " no such file");
+    else if (n == 2) strcpy(msg, " that is not a CALC sheet");
+    layout();
+}
+static void do_new(void)
+{
+    uint16_t k;
+    rb_str(" clear the whole sheet?  Y", YELLOW, bg0); rb_out(1, 0);
+    while ((k = getkey()) == 0) ;
+    if (k == 'y' || k == 'Y') { dma_fill(0, CELLS, (uint32_t) NCOL * NROW * CELLSZ); memset(kinds, 0, sizeof kinds); modified = 1; cc = cr = lc = tr = 0; }
+}
+static void do_width(void)
 {
     static char q[4];
-    uint16_t k;
     uint8_t n;
-    rb_str(" / S save  L load  B blank  C clear  W width  F format  Q quit", YELLOW, bg0); rb_out(1, 0);
+    q[0] = 0;
+    if (!ask(" column width (3-20): ", q, 2)) return;
+    n = (uint8_t)(q[1] ? (q[0] - '0') * 10 + (q[1] - '0') : q[0] - '0');
+    if (n >= 3 && n <= 20) { cw = n; layout(); modified = 1; } else strcpy(msg, " a width is 3 to 20");
+}
+static void do_format(void) { fmt2 ^= 1; modified = 1; strcpy(msg, fmt2 ? " numbers to two places" : " numbers as they come"); }
+static uint8_t do_menu(void)                 /* F10: the things without a key of their own; nonzero: leave */
+{
+    uint16_t k;
+    rb_str(" S save  O open  N new sheet  W column width  F number format  Q quit", YELLOW, bg0); rb_out(1, 0);
     while ((k = getkey()) == 0) ;
     switch (upper((char) k)) {
-    case 'S': if (ask(" save as: ", fname, 60)) save_sheet(); break;
-    case 'L':
-        if (ask(" load: ", fname, 60)) {
-            n = load_sheet();
-            if (n == 1) strcpy(msg, " no such file"); else if (n == 2) strcpy(msg, " that is not a CALC sheet");
-            layout();
-        }
-        break;
-    case 'B': put_cell(cc, cr, ""); modified = 1; recalc(); break;
-    case 'C':
-        rb_str(" clear the whole sheet?  Y", YELLOW, bg0); rb_out(1, 0);
-        while ((k = getkey()) == 0) ;
-        if (k == 'y' || k == 'Y') { dma_fill(0, CELLS, (uint32_t) NCOL * NROW * CELLSZ); memset(kinds, 0, sizeof kinds); modified = 1; cc = cr = lc = tr = 0; }
-        break;
-    case 'W':
-        q[0] = 0;
-        if (ask(" column width (3-20): ", q, 2)) {
-            n = (uint8_t)(q[1] ? (q[0] - '0') * 10 + (q[1] - '0') : q[0] - '0');
-            if (n >= 3 && n <= 20) { cw = n; layout(); modified = 1; } else strcpy(msg, " a width is 3 to 20");
-        }
-        break;
-    case 'F': fmt2 ^= 1; modified = 1; strcpy(msg, fmt2 ? " numbers to two places" : " numbers as they come"); break;
+    case 'S': do_save(); break;
+    case 'O': do_open(); break;
+    case 'N': do_new(); break;
+    case 'W': do_width(); break;
+    case 'F': do_format(); break;
     case 'Q': return leave();
     }
     return 0;
@@ -559,15 +634,30 @@ static void go_to(void)
     sp = q;
     if (cellref(&c, &r)) { cc = c; cr = r; } else strcpy(msg, " a cell is a letter and a number, like B12");
 }
+static void row_end(void)                    /* End: the last cell in this row with anything in it */
+{
+    uint8_t c, last = 0;
+    for (c = 0; c < NCOL; c++) if (kinds[(uint16_t) cr * NCOL + c]) last = c;
+    cc = last;
+}
+static void sheet_end(void)                  /* Ctrl-End: the corner of what is used */
+{
+    uint8_t c, r, lastc = 0, lastr = 0;
+    uint16_t i = 0;
+    for (r = 0; r < NROW; r++) for (c = 0; c < NCOL; c++, i++) if (kinds[i]) { lastr = r; if (c > lastc) lastc = c; }
+    cc = lastc; cr = lastr;
+}
 static uint8_t key(uint16_t k)               /* nonzero: leave */
 {
     if (entering) {
         switch (k) {
-        case 13:     commit(); if (cr < NROW - 1) cr++; return 0;
-        case 9:      commit(); if (cc < NCOL - 1) cc++; return 0;
-        case K_DOWN: commit(); if (cr < NROW - 1) cr++; return 0;
-        case K_UP:   commit(); if (cr) cr--; return 0;
-        case 0x1B:   entering = 0; return 0;
+        case 13:      commit(); if (cr < NROW - 1) cr++; return 0;
+        case 9:       commit(); if (kmods & 1) { if (cc) cc--; } else if (cc < NCOL - 1) cc++; return 0;
+        case K_DOWN:  commit(); if (cr < NROW - 1) cr++; return 0;
+        case K_UP:    commit(); if (cr) cr--; return 0;
+        case K_LEFT:  commit(); if (cc) cc--; return 0;
+        case K_RIGHT: commit(); if (cc < NCOL - 1) cc++; return 0;
+        case 0x1B:    entering = 0; return 0;
         case 8: case 0x7F: case 0x14: case K_DEL: if (en) ebuf[--en] = 0; only_entry = 1; return 0;
         }
         if (k >= 0x20 && k < 0x100 && en < TXTMAX) { ebuf[en++] = (char) k; ebuf[en] = 0; }
@@ -579,21 +669,29 @@ static uint8_t key(uint16_t k)               /* nonzero: leave */
     case K_UP:    if (cr) cr--; return 0;
     case K_DOWN:  if (cr < NROW - 1) cr++; return 0;
     case K_LEFT:  if (cc) cc--; return 0;
-    case K_RIGHT: case 9: if (cc < NCOL - 1) cc++; return 0;
+    case K_RIGHT: if (cc < NCOL - 1) cc++; return 0;
+    case 9:       if (kmods & 1) { if (cc) cc--; } else if (cc < NCOL - 1) cc++; return 0;   /* Shift-Tab goes back */
+    case 13:      if (cr < NROW - 1) cr++; return 0;
     case K_PGUP:  cr = cr > vr ? (uint8_t)(cr - vr) : 0; return 0;
     case K_PGDN:  cr = cr + vr < NROW ? (uint8_t)(cr + vr) : NROW - 1; return 0;
-    case K_HOME:  cc = cr = 0; return 0;
+    case K_HOME:  if (kmods & 2) { cc = cr = 0; } else cc = 0; return 0;      /* Ctrl-Home the sheet, Home the row */
+    case K_END:   if (kmods & 2) sheet_end(); else row_end(); return 0;
     case K_DEL:   put_cell(cc, cr, ""); modified = 1; recalc(); return 0;
     case K_F2:
         dma_copy(caddr(cc, cr), (uint32_t)(uint16_t) rec, CELLSZ);
         en = 0;
-        if (rec[0] == K_LABEL && !(upper((char) rec[6]) >= 'A' && upper((char) rec[6]) <= 'Z')) ebuf[en++] = '"';
+        /* text that would read as a number or a formula needs its ' back */
+        if (rec[0] == K_TEXT && (rec[6] == '=' || rec[6] == '+' || rec[6] == '-' || rec[6] == '\'' || all_number((const char *) rec + 6))) ebuf[en++] = '\'';
         strcpy(ebuf + en, (const char *) rec + 6); en = (uint8_t) strlen(ebuf);
         entering = 1;
         return 0;
-    case '/':     return slash();
-    case '>':     go_to(); return 0;
-    case 0x13:    if (ask(" save as: ", fname, 60)) save_sheet(); return 0;
+    case K_F10:   return do_menu();
+    case 0x07:    go_to(); return 0;         /* Ctrl-G */
+    case 0x0F:    do_open(); return 0;       /* Ctrl-O */
+    case 0x0E:    do_new(); return 0;        /* Ctrl-N */
+    case 0x17:    do_width(); return 0;      /* Ctrl-W */
+    case 0x13:    do_save(); return 0;       /* Ctrl-S */
+    case 0x11:    return leave();            /* Ctrl-Q */
     case 0x1B:    return leave();
     }
     if (k >= 0x20 && k < 0x100) { entering = 1; en = 0; ebuf[en++] = (char) k; ebuf[en] = 0; only_entry = 1; }
@@ -616,10 +714,10 @@ void main(void)
     F0 = fint(0); F10 = fint(10); F100 = fint(100); FBIG = fint(20000000L);
     FPI = f2(MATH_MUL, f1(MATH_ATAN, fint(1)), fint(4));
     dma_fill(0, CELLS, (uint32_t) NCOL * NROW * CELLSZ);
-    if (!i) { strcpy(fname, "SHEET.CAL"); strcpy(msg, " a new sheet: type a number or a word; / for the commands"); }
+    if (!i) { strcpy(fname, "SHEET.CAL"); strcpy(msg, " a new sheet: type a number or a word, = for a formula; F10 the menu"); }
     else {
         e = load_sheet();
-        if (e == 1) strcpy(msg, " a new sheet: / S saves it");
+        if (e == 1) strcpy(msg, " a new sheet: Ctrl-S saves it");
         else if (e == 2) { const char *m = "calc: that is not a CALC sheet\n"; while (*m) rom_chrout((uint8_t) *m++); SHELL_RC = 1; return; }
     }
 

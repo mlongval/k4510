@@ -133,7 +133,13 @@ trap cleanup EXIT
 # way the layer switches off what the base enables (2026-09-12: inetd, the
 # network wait, ldconfig at every boot, binfmt, e2scrub, apt's timers...).
 OVERLAY_FILES=$(cd "$HERE/config/includes.chroot" && find . \( -type f -o -type l \) ! -path './usr/local/bin/*' | sed 's|^\./||' | sort)
-LAYER_DIRS="home/k4510/k4510 usr/local/bin var/lib/tailscale $OVERLAY_FILES"
+# usr/local/sbin rides the layer for the same reason usr/local/bin does: the
+# telnet login lives there (k4510-telnet-login, written below), and while it
+# sat in the base alone a REBUILD could never carry a change to it out to an
+# installed machine.  The passwordless login was committed on 2026-09-16,
+# deployed, and still asked for a password -- the new layer simply did not
+# contain the file.  Found by reading the dates: the live copy was the base's.
+LAYER_DIRS="home/k4510/k4510 usr/local/bin usr/local/sbin var/lib/tailscale $OVERLAY_FILES"
 squash_base() {
     echo "== squashfs: the base =="
     # zstd: decompresses fast, and the whole thing is read into RAM once at boot.

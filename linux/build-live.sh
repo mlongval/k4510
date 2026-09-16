@@ -47,7 +47,14 @@ USER_PASS=${USER_PASS:-k4510}
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/.." && pwd)
-BUILD_ID="0.5-$(git -C "$REPO" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(git -C "$REPO" diff --quiet HEAD 2>/dev/null || echo +)"   # the commit for K4510_BUILD (the chroot has no .git)
+# The version number comes from the Makefile, which is the copy that is kept
+# current; only the commit is computed here, because the chroot has no .git.
+# It was written out as a literal until 2026-09-16 and said 0.5 for the whole
+# of alpha-0.6 -- a deployed Dell reported 0.5-cff220c+ against an 0.6 tag.
+# Two copies of one number is one too many; the fallback keeps a build working
+# if the Makefile line is ever reworded.
+BUILD_VER=$(sed -n 's/^K4510_BUILD ?= \([0-9][0-9.]*\)-.*/\1/p' "$REPO/Makefile" | head -n1)
+BUILD_ID="${BUILD_VER:-0.6}-$(git -C "$REPO" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(git -C "$REPO" diff --quiet HEAD 2>/dev/null || echo +)"
 OUT=${OUT:-$HERE/k4510-live-$(date +%Y%m%d)-amd64.img}
 WORK=${WORK:-$HERE/.live-work}
 REUSE=${REUSE:-0}

@@ -35,6 +35,19 @@ NAME=${NAME:-k4510}
 IMAGE=${IMAGE:-localhost/k4510:latest}
 SHARE=${SHARE:-$HOME/k4510-share}
 HERE=$(cd "$(dirname "$0")" && pwd); REPO=$(cd "$HERE/.." && pwd)
+
+# The version this build reports (the Info menu, INFO at the prompt).  The
+# number comes from the Makefile -- the one copy that is kept current -- and
+# only the commit is computed here, because the container has no .git.  Both
+# uses below carried the literal "0.5-" until 2026-09-16, through the whole of
+# alpha-0.6, which is how a deployed machine came to report 0.5 against an 0.6
+# tag.  The fallback keeps a build working if that Makefile line is reworded.
+build_id() {
+    ver=$(sed -n 's/^K4510_BUILD ?= \([0-9][0-9.]*\)-.*/\1/p' "$REPO/Makefile" | head -n1)
+    printf '%s-%s%s' "${ver:-0.6}" \
+        "$(git -C "$REPO" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)" \
+        "$(git -C "$REPO" diff --quiet HEAD 2>/dev/null || echo +)"
+}
 UIDN=$(id -u)
 command -v podman >/dev/null 2>&1 || { echo "podman.sh: no podman on this host (dnf/apt install podman)"; exit 1; }
 
@@ -104,8 +117,9 @@ update)
     up
     echo "== this checkout's HEAD into the container =="
     git -C "$REPO" archive --format=tar HEAD | podman exec -i "$NAME" tar -x -C /home/k4510/k4510
-    # the container has no .git, so hand it the commit for K4510_BUILD (the Info menu)
-    BUILD="0.5-$(git -C "$REPO" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(git -C "$REPO" diff --quiet HEAD 2>/dev/null || echo +)"
+    # the container has no .git, so hand it the commit for K4510_BUILD (the Info
+    # menu); the version number comes from the Makefile, the copy kept current
+    BUILD="$(build_id)"
     podman exec -e K4510_BUILD="$BUILD" "$NAME" sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
     # the Tektronix terminal too: it is built from upstream with our patch at
     # image time, and a patch that changed since (2026-09-09) never reached it
@@ -125,7 +139,7 @@ esac
 PKGS=$(sed -e 's/#.*//' -e '/^[[:space:]]*$/d' "$HERE/packages.list" \
        | grep -v -e '^firmware-' -e '^network-manager' -e '^wpasupplicant' -e 'telnetd' -e '^iproute2' -e '^iputils' | tr '\n' ' ')
 echo "== building $IMAGE from this checkout (a few minutes the first time) =="
-BUILD="0.5-$(git -C "$REPO" rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(git -C "$REPO" diff --quiet HEAD 2>/dev/null || echo +)"
+BUILD="$(build_id)"
 podman build -q -t "$IMAGE" --build-arg UID="$UIDN" --build-arg PKGS="$PKGS" --build-arg BUILD="$BUILD" -f "$HERE/Containerfile" "$REPO"
 
 make_container

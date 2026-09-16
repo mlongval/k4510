@@ -87,12 +87,12 @@ archive away.
 
 > Edges, honestly: line-mode programs (assemblers, compilers, MBASIC,
 > adventures) work today, and so does the full-screen software: the console is
-> JIM, a VT100 in hardware (Chapter 6, The Tube: BBC BASIC). WordStar 4 on E:
-> user 3 comes installed for "ANSI Standard" at 79x29 -- WS and you are
-> editing; Turbo Pascal 3 on H: user 3 needs nothing either. A program that
-> asks its terminal type at install time wants "VT100" or "ANSI".
+> JIM, a VT100 in hardware (Chapter 6, The Tube). WordStar 4 on E: user 3
+> comes installed for "ANSI Standard" at 79x29 -- WS and you are editing;
+> Turbo Pascal 3 on H: user 3 needs nothing either. A program that asks its
+> terminal type at install time wants "VT100" or "ANSI".
 
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 > 
 > 
 > The four arrow keys work in CP/M software: while the Tube is running CP/M

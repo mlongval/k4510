@@ -31,7 +31,7 @@ nav:
       - "3. Every Command": 03-commands.md
       - "4. EhBASIC": 04-ehbasic.md
       - "5. Microsoft BASIC, 1977": 05-msbasic.md
-      - "6. The Tube: BBC BASIC": 06-tube.md
+      - "6. The Tube": 06-tube.md
       - "7. Forth": 07-forth.md
       - "8. LOGO": 08-logo.md
       - "9. CP/M: the Z80 Second Processor": 09-cpm.md

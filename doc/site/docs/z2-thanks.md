@@ -14,7 +14,7 @@ The K4510 is a machine that never existed. Almost everything in it that *does* e
 
 **Lee Davison** (1966–2013) wrote EhBASIC, the machine’s first BASIC and still the one that comes up in ROM. He is not here to be asked about the graphics and sound words bolted onto it; the machine carries his name in its `README` and its startup banner instead.
 
-**Richard T. Russell** wrote BBC BASIC, and has kept writing it for forty years. The console edition of his BBC BASIC for SDL 2.0 (BBCTTY) is what runs on the Tube co-processor in [Chapter 6, The Tube: BBC BASIC](06-tube.md), under the zlib licence he publishes it with. “BBC BASIC” is the name of his interpreter; this book uses it only to say what is running, and claims nothing in it.
+**Richard T. Russell** wrote BBC BASIC, and has kept writing it for forty years. The console edition of his BBC BASIC for SDL 2.0 (BBCTTY) is what runs on the Tube co-processor in [Chapter 6, The Tube](06-tube.md), under the zlib licence he publishes it with. “BBC BASIC” is the name of his interpreter; this book uses it only to say what is running, and claims nothing in it.
 
 **Marcelo Dantas** (“Mockba the Borg”) wrote [RunCPM](https://github.com/MockbaTheBorg/RunCPM), which is the whole of [Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md): a complete CP/M 2.2 with its own CCP, vendored here unmodified and simply handed a Z80’s worth of address space.
 

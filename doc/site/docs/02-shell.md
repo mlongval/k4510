@@ -89,7 +89,7 @@ prints `HELLO FROM THE DISK` — there is no `SAY` command, only a `say.prg` in 
 
 Several of the machine’s commands are programs in exactly this sense — `TYPE`, `VI`, `SETUP` and the monitor among them — and you cannot tell from the prompt which is which, which is the point. The disk is the host’s (and on the K4510’s own Linux, in RAM), so a program starts as quickly as a word in the ROM.
 
-Seven words open whole languages: `EHBASIC` ([Chapter 4, EhBASIC](04-ehbasic.md)), `MSBASIC` ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)), `BBC` ([Chapter 6, The Tube: BBC BASIC](06-tube.md)), `FORTH` ([Chapter 7, Forth](07-forth.md)), `LOGO` ([Chapter 8, LOGO](08-logo.md)), `CPM` ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)) and `RX` ([Chapter 12, RX: the Machine’s REXX](12-rx.md)).
+Seven words open whole languages: `EHBASIC` ([Chapter 4, EhBASIC](04-ehbasic.md)), `MSBASIC` ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)), `BBC` ([Chapter 6, The Tube](06-tube.md)), `FORTH` ([Chapter 7, Forth](07-forth.md)), `LOGO` ([Chapter 8, LOGO](08-logo.md)), `CPM` ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)) and `RX` ([Chapter 12, RX: the Machine’s REXX](12-rx.md)).
 
 ### What is on the disk
 
@@ -243,7 +243,7 @@ A zip file mounts the same way — one on the disk, one inside another mount, or
 
 Its folders are folders and its files open like any others, so a game shipped with its data as one zip runs from where it is mounted. The zip itself is never changed: copy a file out of it to change it. The whole zip is read when it is mounted, so a zip changed on the disk afterwards needs mounting again. A zip the machine cannot read safely is refused, not guessed at: one with a name that would climb out of its folder (`../`), an encrypted file, or a zip too big for the old format (zip64).
 
-For programs that want a live connection there is the *N: device* at `$D900` (FujiNet’s name for it): four channels, each a URL opened for reading and writing — `tcp://host:port` for a connection, `http://` for a page. `TELNET host port` is the demonstration, a `telnet.prg` in `/SYSTEM/BIN`: what you type goes out, what arrives is drawn by JIM, the terminal ([Chapter 6, The Tube: BBC BASIC](06-tube.md)), so a BBS gets its ANSI colours and CP437 art and the cursor and function keys go out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers the far end the terminal types *xterm-color*, *VT220*, *VT100* and *ANSI*, and a Unix host that takes the first gets UTF-8 as well. The register map is in [Chapter 15, The I/O Page](21-io.md) and `core/net.h`.
+For programs that want a live connection there is the *N: device* at `$D900` (FujiNet’s name for it): four channels, each a URL opened for reading and writing — `tcp://host:port` for a connection, `http://` for a page. `TELNET host port` is the demonstration, a `telnet.prg` in `/SYSTEM/BIN`: what you type goes out, what arrives is drawn by JIM, the terminal ([Chapter 6, The Tube](06-tube.md)), so a BBS gets its ANSI colours and CP437 art and the cursor and function keys go out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers the far end the terminal types *xterm-color*, *VT220*, *VT100* and *ANSI*, and a Unix host that takes the first gets UTF-8 as well. The register map is in [Chapter 15, The I/O Page](21-io.md) and `core/net.h`.
 
 So that there is no guessing, this is the whole list of what the machine speaks:
 

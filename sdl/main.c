@@ -1358,9 +1358,41 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (ks[SDL_SCANCODE_Z])     held |= HELD_A;
             if (ks[SDL_SCANCODE_X])     held |= HELD_B;
             kbd_held(held | pad_held());
+            /* DOOM on the Tube wants more keys than those seven, and cannot
+             * read $D104 anyway: it is a separate process, and takes its input
+             * through the shared segment (core/io.c).  Gathered here because
+             * this is where the host already has SDL's key state; io_doom_input
+             * throws it away unless DOOM is running.  The layout is the one
+             * DOOM shipped with -- arrows turn, Ctrl fires, Space opens, Alt
+             * strafes -- plus WASD over the top, because no one under fifty
+             * turns with an arrow key any more. */
+            if (io_tube_doom()) {
+                uint32_t d = 0;
+                if (ks[SDL_SCANCODE_UP]    || ks[SDL_SCANCODE_W]) d |= K4DOOM_FORWARD;
+                if (ks[SDL_SCANCODE_DOWN]  || ks[SDL_SCANCODE_S]) d |= K4DOOM_BACK;
+                if (ks[SDL_SCANCODE_LEFT])                        d |= K4DOOM_LEFT;
+                if (ks[SDL_SCANCODE_RIGHT])                       d |= K4DOOM_RIGHT;
+                if (ks[SDL_SCANCODE_A]     || ks[SDL_SCANCODE_LALT])  d |= K4DOOM_STRAFEL;
+                if (ks[SDL_SCANCODE_D]     || ks[SDL_SCANCODE_RALT])  d |= K4DOOM_STRAFER;
+                if (ks[SDL_SCANCODE_LCTRL] || ks[SDL_SCANCODE_RCTRL]) d |= K4DOOM_FIRE;
+                if (ks[SDL_SCANCODE_SPACE] || ks[SDL_SCANCODE_E]) d |= K4DOOM_USE;
+                if (ks[SDL_SCANCODE_LSHIFT]|| ks[SDL_SCANCODE_RSHIFT]) d |= K4DOOM_RUN;
+                if (ks[SDL_SCANCODE_ESCAPE])                      d |= K4DOOM_ESCAPE;
+                if (ks[SDL_SCANCODE_RETURN])                      d |= K4DOOM_ENTER;
+                if (ks[SDL_SCANCODE_TAB])                         d |= K4DOOM_MAP;
+                if (ks[SDL_SCANCODE_RIGHTBRACKET])                d |= K4DOOM_WEAPUP;
+                if (ks[SDL_SCANCODE_LEFTBRACKET])                 d |= K4DOOM_WEAPDN;
+                if (ks[SDL_SCANCODE_Y])                           d |= K4DOOM_YES;
+                if (ks[SDL_SCANCODE_N])                           d |= K4DOOM_NO;
+                io_doom_input(d);
+            }
             mouse_set(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, (uint8_t) mouse_btn, wheel_acc, dx_acc, dy_acc);   /* $D108-$D10F */
             wheel_acc = dx_acc = dy_acc = 0;
         }
+        /* DOOM's picture onto VICKY's bitmap, once a frame.  Cheap and silent
+         * unless the Tube is running it: the pty pump cannot do this job, since
+         * it only runs when bytes arrive and DOOM sends none while it draws. */
+        io_tube_frame();
         /* Keys from outside, typed one per frame; ~ waits 30 frames; a byte of
          * $80 or more is a KEY_* code; $1F says "the next byte is a character
          * whatever its value" (an accented letter).  Two sources, the same rules:
@@ -2214,6 +2246,7 @@ tex_done:
     }
     sidebar_save_states();                                /* the ant colony, and anything else a sidebar keeps */
     if (settings_changed()) settings_save(cfg);
+    io_tube_shutdown();                                   /* a co-processor still running, and DOOM's shared segment with it */
     mlog("exit: the frame loop ended normally");
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
     /* Shut the computer down, in this order and not another: the settings are

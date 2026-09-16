@@ -109,11 +109,10 @@ runs HELLO and PSIEVE through the ROM.
 Everything a Pascal program needs from the machine is in pascal/ of the
 repository, laid out as it lives inside a Mad-Pascal checkout: the runtime
 base (base/rtl6502_k4510.asm and base/k4510/), where @putchar writes to JIM,
-the terminal (Chapter 6, The Tube: BBC BASIC); the SYSTEM and CRT units'
-machine halves (lib/*_k4510.inc); and a k4510 unit. The consequences for the
-programmer:
+the terminal (Chapter 6, The Tube); the SYSTEM and CRT units' machine halves
+(lib/*_k4510.inc); and a k4510 unit. The consequences for the programmer:
 
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 *
 

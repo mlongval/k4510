@@ -55,5 +55,5 @@ with the screen and the session exactly as you left them.
 > INCLUDED that reads through the machine's storage device is on the list.
 
 => INDEX.GMI Contents
-=> 06-TUBE.GMI Previous: 6. The Tube: BBC BASIC
+=> 06-TUBE.GMI Previous: 6. The Tube
 => 08-LOGO.GMI Next: 8. LOGO

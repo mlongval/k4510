@@ -1,6 +1,7 @@
 #include <time.h>
 #include <ctype.h>     /* toupper: the search path uppercases a name's stem (fs_path) */
 #include <strings.h>   /* strcasecmp: the extension table there */
+#include <sys/mman.h>
 #include "io.h"
 #include "ui/settings.h"      /* the CPU clock request at $D523 */
 #include "mem.h"
@@ -1048,6 +1049,8 @@ static uint8_t sys_read(uint8_t r)
 #ifdef __linux__
 #include <sys/prctl.h>          /* PR_SET_PDEATHSIG: the child dies with the emulator */
 static void tube_log(const char *fmt, ...);   /* defined with tube_start; the reap in tube_pump uses it first */
+static void doom_shm_close(void);             /* same reason: the reap frees DOOM's frame buffer, and is written above it */
+static void tube_stop(void);                  /* io_tube_shutdown, just above it, is what the frontend calls on a clean quit */
 #endif
 #include <sys/wait.h>
 #include <signal.h>
@@ -1373,7 +1376,7 @@ static void tube_pump(void)
       if (!full && tube_pid && waitpid (tube_pid, &st, WNOHANG) == tube_pid) {
           tube_log("pid %d ended: %s %d", (int) tube_pid, WIFSIGNALED (st) ? "signal" : "exit", WIFSIGNALED (st) ? WTERMSIG (st) : WEXITSTATUS (st));
           tube_exit = WIFSIGNALED (st) ? (uint8_t) (128 + WTERMSIG (st)) : (uint8_t) WEXITSTATUS (st);
-          tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); } }
+          tube_pid = 0; close (tube_fd); tube_fd = -1; doom_shm_close(); tula_close(); } }
 }
 /* The `!` shell talks UTF-8 (a Linux host's programs do) and JIM draws CP437, so
  * JIM decodes for the length of a shell session -- switched off once the
@@ -1394,6 +1397,105 @@ static void tube_log(const char *fmt, ...)
 }
 static int tube_utf8;
 static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_r) { term_host_session(0); tube_utf8 = 0; } }
+/* ---- DOOM on the Tube ($D803 kind 6) --------------------------------------
+ * Doc, 2026-09-16: "go ahead and build the doom tube".
+ *
+ * Every other co-processor talks through the pty, and DOOM cannot: a 320x200
+ * frame is 64 KB, and 35 of them a second through a byte-at-a-time escape
+ * parser written for VDU codes is not a design, it is a dare.  So the pixels
+ * take their own road -- a shared segment this side creates and the child
+ * mmaps (tube/doom/doomgeneric_k4510.c has the identical struct; if you change
+ * one, change the other, because no header can be shared between a program
+ * built here and one built there).
+ *
+ * The same segment carries the keys DOWNWARD.  doomgeneric wants presses and
+ * RELEASES; a pty delivers keystrokes and never releases, so a player would
+ * walk into a wall and stay there.  The host writes the held mask every frame
+ * and the child diffs it.  It is $D104 (IO_KBDHELD) widened, by another road,
+ * because the child is a separate process and cannot read a register at all. */
+#define DOOM_W 320
+#define DOOM_H 200
+#define DOOM_MAGIC 0x4B344D44u                   /* "DM4K" */
+struct doom_shm {
+    uint32_t magic, seq, held, quit, pal_seq, pad[3];
+    uint8_t  pal[256 * 3];
+    uint8_t  fb[DOOM_W * DOOM_H];
+};
+static struct doom_shm *doom_map;
+static char doom_shm_name[64];
+static uint32_t doom_seq_seen, doom_pal_seen;
+static int doom_active;
+
+int io_tube_doom(void) { return doom_active && doom_map != NULL; }
+
+static void doom_shm_close(void)
+{
+    if (doom_map) { munmap(doom_map, sizeof *doom_map); doom_map = NULL; }
+    if (doom_shm_name[0]) { shm_unlink(doom_shm_name); doom_shm_name[0] = 0; }
+    doom_active = 0; doom_seq_seen = doom_pal_seen = 0;
+}
+static int doom_shm_make(void)
+{
+    int fd;
+    snprintf(doom_shm_name, sizeof doom_shm_name, "/k4510-doom-%d", (int) getpid());
+    shm_unlink(doom_shm_name);                   /* a previous run that died badly */
+    fd = shm_open(doom_shm_name, O_CREAT | O_EXCL | O_RDWR, 0600);
+    if (fd < 0) { doom_shm_name[0] = 0; return 0; }
+    if (ftruncate(fd, (off_t) sizeof(struct doom_shm)) != 0) { close(fd); doom_shm_close(); return 0; }
+    doom_map = mmap(NULL, sizeof(struct doom_shm), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    close(fd);
+    if (doom_map == MAP_FAILED) { doom_map = NULL; doom_shm_close(); return 0; }
+    memset(doom_map, 0, sizeof *doom_map);
+    doom_map->magic = DOOM_MAGIC;
+    doom_seq_seen = doom_pal_seen = 0;
+    return 1;
+}
+void io_doom_input(uint32_t held) { if (doom_map) doom_map->held = held; }
+/* shm_open takes "/name"; the child opens a file, and that name lives under
+ * /dev/shm on Linux.  One place to say so. */
+static const char *doom_shm_path(void)
+{
+    static char p[96];
+    snprintf(p, sizeof p, "/dev/shm%s", doom_shm_name);
+    return p;
+}
+
+/* The picture, once a host frame.  Deliberately NOT part of tube_pump: that
+ * runs only when the pty has traffic and is rate-limited to once per 100 us,
+ * and DOOM can go a minute without sending a byte while drawing all the while. */
+void io_tube_frame(void)
+{
+    if (!io_tube_doom()) return;
+    if (doom_map->pal_seq != doom_pal_seen) {    /* DOOM's palette becomes VICKY's */
+        doom_pal_seen = doom_map->pal_seq;
+        for (int i = 0; i < 256; i++) {
+            vicky_write(VR_PALIDX, (uint8_t) i);
+            vicky_write(VR_PALR, doom_map->pal[i * 3 + 0]);
+            vicky_write(VR_PALG, doom_map->pal[i * 3 + 1]);
+            vicky_write(VR_PALB, doom_map->pal[i * 3 + 2]);   /* the B write commits the entry */
+        }
+    }
+    if (doom_map->seq == doom_seq_seen) return;  /* nothing new drawn */
+    doom_seq_seen = doom_map->seq;
+    /* 320x200 doubled sideways to 640x400 and centred in the 640x480 bitmap:
+     * 40 blank lines top and bottom.  Doubling here rather than in the engine
+     * keeps the shared segment at 64 KB a frame instead of 256 KB. */
+    { const int top = (TULA_H - DOOM_H * 2) / 2;
+      for (int y = 0; y < DOOM_H; y++) {
+          const uint8_t *src = doom_map->fb + (size_t) y * DOOM_W;
+          uint8_t *dst = k4510_ram + TULA_GFXB + (size_t)(top + y * 2) * TULA_W;
+          for (int x = 0; x < DOOM_W; x++) { dst[x * 2] = src[x]; dst[x * 2 + 1] = src[x]; }
+          memcpy(dst + TULA_W, dst, TULA_W);     /* the doubled line, twice */
+      } }
+}
+static void doom_bitmap_on(void)
+{
+    vicky_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll -- as tula_mode */
+    tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */
+    vicky_write(0x20, 0x19);                                        /* enable | bitmap | 8 bpp */
+    memset(k4510_ram + TULA_GFXB, 0, (size_t) TULA_W * TULA_H);     /* the letterbox stays black */
+    tula_on = 1;
+}
 static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM), 4 = the host shell */
 {
     struct winsize ws = { 29, 79, 0, 0 };
@@ -1401,6 +1503,11 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     pid_t parent = getpid ();                     /* NOT 1: in a container the emulator IS pid 1, and "getppid() == 1" then killed every child (2026-09-07) */
     if (tube_pid) return;
     if (prog == 5 && !uci_path()) return;
+    if (prog == 6) {                              /* DOOM: the segment must exist before the fork */
+        if (!doom_shm_make()) { const char *m = "doom: no shared memory for the frame buffer\r\n";
+                                while (*m) ring_put((uint8_t) *m++); tube_refused = 1; return; }
+        doom_active = 1;
+    }
     if (prog == 4) {
         fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd);
         if (tube_rows) ws.ws_row = tube_rows;          /* the console window as the ROM has it, bands and margin taken out */
@@ -1470,6 +1577,18 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             if (cmd[0]) execl (sh, sh, "-c", cmd, (char *) NULL);   /* !ls -l   one command, then back */
             else        execl (sh, sh, (char *) NULL);              /* !        an interactive shell; exit returns */
             { const char *m = "!: the shell would not start\r\n"; ssize_t n = write (1, m, strlen (m)); (void) n; }
+        } else if (prog == 6) {                   /* DOOM: its own window onto VICKY's bitmap, and the keys through it */
+            char *bin = realpath("tube/doom/doomk4510", NULL);   /* before the chdir, as everything here is */
+            char wad[900]; snprintf(wad, sizeof wad, "%.511s/APPS/DOOM/freedoom1.wad", fs_root);
+            char *rwad = realpath(wad, NULL);
+            setenv("K4510_DOOM_SHM", doom_shm_path(), 1);
+            if (chdir(fs_root) != 0) { }
+            if (bin && rwad) execl(bin, "doomk4510", "-iwad", rwad, (char *) NULL);
+            if (bin && !rwad) {
+                const char *m = "doom: no game data.  Run tools/get-freedoom.sh on the host:\r\n"
+                                "      it fetches Freedoom into /APPS/DOOM (28 MB, BSD licensed).\r\n";
+                ssize_t n = write(1, m, strlen(m)); (void) n;
+            }
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);
             char dir[800]; snprintf (dir, sizeof dir, "%.511s/CPM", fs_root);   /* the configured root, as BASIC below, not ./fs */
@@ -1494,12 +1613,21 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* the ROM's JIM reset (tube_term) follows, and leaves it */
     tube_log("start prog %d pid %d%s%s", prog, (int) tube_pid, cmd[0] ? " cmd: " : "", cmd);
 }
+/* The frontend's clean exit does not come through here: it ends its frame
+ * loop, tears SDL down and returns from main (sdl/main.c).  DOOM's shared
+ * segment would then outlive the emulator -- 64 KB of /dev/shm per quit,
+ * until the machine is rebooted -- because the unlink lives in tube_stop and
+ * in the reap, and a quit with DOOM still running reaches neither.  So the
+ * host calls this on its way out. */
+void io_tube_shutdown(void) { tube_stop(); }
 static void tube_stop(void)
 {
     if (tube_pid) { tube_log("stop: killing pid %d", (int) tube_pid);
                     kill (-tube_pid, SIGKILL); kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }   /* the session: a `!nohup x &` too */
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
     tube_w = tube_r = 0; tube_refused = 0;
+    if (doom_map) doom_map->quit = 1;             /* if it is still alive, it exits at its next frame */
+    doom_shm_close();
     tula_close();
     if (tube_utf8) { term_host_session(0); tube_utf8 = 0; }
 }
@@ -1832,7 +1960,7 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) { tube_start(v); tube_prog_now = v; tube_prog_at = title_depth; } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5 || v == 6) { tube_start(v); tube_prog_now = v; tube_prog_at = title_depth; if (v == 6 && tube_pid) doom_bitmap_on(); } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
         if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
         if ((addr & 0xFF) == 8) tube_rows = v;
         if ((addr & 0xFF) == 9) tube_cols = v;

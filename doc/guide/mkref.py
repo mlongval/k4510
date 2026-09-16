@@ -73,6 +73,7 @@ DESC = {
     "COPY":    (4, "COPY from.to dest", "Copy memory, by DMA. Not files: that is CP."),
     # languages
     "BBCBASIC":(5, "BBC", "BBC BASIC on the Tube (Chapter 6)."),
+    "DOOM":    (5, "DOOM", "DOOM on the Tube, drawn on VICKY's bitmap (Chapter 6). Needs a WAD in /APPS/DOOM: tools/get-freedoom.sh fetches one."),
     "CPM":     (5, "CPM [command]", "CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot."),
     "EHBASIC": (5, "EHBASIC", "Enhanced BASIC with the machine's graphics (Chapter 4)."),
     "MSBASIC": (5, "MSBASIC", "Microsoft's 6502 BASIC of 1977 (Chapter 5)."),

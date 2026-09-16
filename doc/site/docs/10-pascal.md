@@ -86,7 +86,7 @@ A new program is a file in `fs/LANG/PASCAL`; `make` finds it, and so does `PAS` 
 
 ### The target
 
-Everything a Pascal program needs from the machine is in `pascal/` of the repository, laid out as it lives inside a Mad-Pascal checkout: the runtime base (`base/rtl6502_k4510.asm` and `base/k4510/`), where `@putchar` writes to JIM, the terminal ([Chapter 6, The Tube: BBC BASIC](06-tube.md)); the SYSTEM and CRT units’ machine halves (`lib/*_k4510.inc`); and a `k4510` unit. The consequences for the programmer:
+Everything a Pascal program needs from the machine is in `pascal/` of the repository, laid out as it lives inside a Mad-Pascal checkout: the runtime base (`base/rtl6502_k4510.asm` and `base/k4510/`), where `@putchar` writes to JIM, the terminal ([Chapter 6, The Tube](06-tube.md)); the SYSTEM and CRT units’ machine halves (`lib/*_k4510.inc`); and a `k4510` unit. The consequences for the programmer:
 
 - `Write` and `WriteLn` go through JIM, so the CRT unit is the real thing: `GotoXY`, `TextColor` and `TextBackground` (the palette’s constants: `BLUE`, `YELLOW`, `LIGHT_GREEN`…), `ClrScr`, `ClrEol`, `InsLine`/`DelLine`, `WhereX`/`WhereY`, `CursorOn`/`CursorOff`, `ReadKey` and `KeyPressed` on the keyboard device, `Delay` and `Pause` on the frame counter, and `Sound` on the machine’s sound sequencer — which changed its contract when the OPL2 became the machine’s chip: `Sound` takes a channel and a pitch in quarter-semitones and holds the note until `NoSound`. `TextMode(0)` puts the ROM’s screen back.
 

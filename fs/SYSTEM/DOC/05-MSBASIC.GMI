@@ -92,4 +92,4 @@ still receives them.
 
 => INDEX.GMI Contents
 => 04-EHBASIC.GMI Previous: 4. EhBASIC
-=> 06-TUBE.GMI Next: 6. The Tube: BBC BASIC
+=> 06-TUBE.GMI Next: 6. The Tube

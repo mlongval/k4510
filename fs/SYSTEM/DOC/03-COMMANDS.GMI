@@ -181,6 +181,10 @@ BBC BASIC on the Tube (Chapter 6). Also BBC.
 CPM [command] -- ROM
 CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot.
 
+DOOM -- ROM
+DOOM on the Tube, drawn on VICKY's bitmap (Chapter 6). Needs a WAD in
+/APPS/DOOM: tools/get-freedoom.sh fetches one.
+
 EHBASIC -- /LANG/EHBASIC
 Enhanced BASIC with the machine's graphics (Chapter 4).
 

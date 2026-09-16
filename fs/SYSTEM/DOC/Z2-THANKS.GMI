@@ -33,11 +33,11 @@ startup banner instead.
 
 Richard T. Russell wrote BBC BASIC, and has kept writing it for forty years.
 The console edition of his BBC BASIC for SDL 2.0 (BBCTTY) is what runs on the
-Tube co-processor in Chapter 6, The Tube: BBC BASIC, under the zlib licence he
-publishes it with. "BBC BASIC" is the name of his interpreter; this book uses
-it only to say what is running, and claims nothing in it.
+Tube co-processor in Chapter 6, The Tube, under the zlib licence he publishes
+it with. "BBC BASIC" is the name of his interpreter; this book uses it only to
+say what is running, and claims nothing in it.
 
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 Marcelo Dantas ("Mockba the Borg") wrote RunCPM, which is the whole of Chapter
 9, CP/M: the Z80 Second Processor: a complete CP/M 2.2 with its own CCP,

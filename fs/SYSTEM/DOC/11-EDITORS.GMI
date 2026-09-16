@@ -5,13 +5,12 @@ for when a file wants a line changed and you want to be out again in ten
 seconds. VI is the one for a file too big to think about, and it is modal, so
 it expects you to have met vi before.
 
-Both draw through JIM, the VT100 in hardware (Chapter 6, The Tube: BBC BASIC),
-and both take their keys raw from the ROM -- an arrow arrives as one byte
-rather than an escape sequence to unpick, with a bit beside it saying that it
-is an arrow and not the accented letter that shares its code. Neither needs
-the Tube.
+Both draw through JIM, the VT100 in hardware (Chapter 6, The Tube), and both
+take their keys raw from the ROM -- an arrow arrives as one byte rather than
+an escape sequence to unpick, with a bit beside it saying that it is an arrow
+and not the accented letter that shares its code. Neither needs the Tube.
 
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 ## EDIT
 
@@ -317,12 +316,11 @@ it back when you leave -- so what you type in the editor is what you LIST
 afterwards. Variables do not survive the round trip, exactly as with LOAD.
 Editing the program in VI has the details for EhBASIC; Microsoft BASIC does
 the same with *VI (Chapter 5, Microsoft BASIC, 1977), BBC BASIC with *VI and
-*EDIT (Chapter 6, The Tube: BBC BASIC), and LOGO with EDIT "name (Chapter 8,
-LOGO).
+*EDIT (Chapter 6, The Tube), and LOGO with EDIT "name (Chapter 8, LOGO).
 
 => 04-EHBASIC.GMI Editing the program in VI
 => 05-MSBASIC.GMI Chapter 5, Microsoft BASIC, 1977
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 => 08-LOGO.GMI Chapter 8, LOGO
 
 To renumber it, which none of those BASICs could do for itself, use :renum in

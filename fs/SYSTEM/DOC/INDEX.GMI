@@ -15,7 +15,7 @@ needs neither a printer nor a browser.
 => 03-COMMANDS.GMI 3. Every Command
 => 04-EHBASIC.GMI 4. EhBASIC
 => 05-MSBASIC.GMI 5. Microsoft BASIC, 1977
-=> 06-TUBE.GMI 6. The Tube: BBC BASIC
+=> 06-TUBE.GMI 6. The Tube
 => 07-FORTH.GMI 7. Forth
 => 08-LOGO.GMI 8. LOGO
 => 09-CPM.GMI 9. CP/M: the Z80 Second Processor

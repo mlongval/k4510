@@ -1208,6 +1208,7 @@ static void shell_copy(const char *p);    /* resident (below k_shell): IDEA, in 
 static void banner(void);                 /* the logo: sideways window, not resident */
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
+static void cmd_doom(void);               /* DOOM on the Tube: kind 6, and its own road for pixels */
 static void cmd_compile(const char *tool, const char *p);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
@@ -2000,6 +2001,7 @@ static void shell_line(const char *p)
      * addresses hold RAM, so a tail left in ROM would read as garbage. */
     if (is_cmd(&p, "HELP"))  { shell_copy("TYPE /SYSTEM/ETC/HELP"); shell_line(line); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
+    if (is_cmd(&p, "DOOM")) { cmd_doom(); return; }
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {                              /* only a .prg as typed: TRACE.TXT typed alone loaded 5 MB over the machine (review 2026-09-12) */
@@ -2226,6 +2228,32 @@ static void cmd_bang(const char *p)
     w32(TUBE + 4, (uint16_t)p);
     REG(TUBE + 8) = ROWS; REG(TUBE + 9) = COLS;           /* the console window: bands and margin already out */
     cmd_bbcbasic(4);
+}
+/* DOOM: the sixth thing fitted to the Tube.  Thin on purpose -- it forwards
+ * no keys and draws nothing.  The co-processor writes its frames into a
+ * shared segment and the host paints them onto VICKY's bitmap; the keys go
+ * the other way down the same road, because a pty carries presses and never
+ * releases, and a player needs to be able to STOP walking (core/io.c).
+ *
+ * The loop is not idle: reading $D800 is what pumps the pty, so a command
+ * that merely slept would never drain the child's output and never notice it
+ * had ended.  Anything the co-processor says -- "no game data", most likely --
+ * comes up the ring and is printed here. */
+static void cmd_doom(void)
+{
+    uint8_t c;
+    REG(TUBE + 3) = 6;
+    { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
+    if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
+    for (;;) {
+        uint8_t st = REG(TUBE);
+        if (!(st & 0x81)) break;                         /* it ended, and its last bytes are shown */
+        if (st & 0x80) { c = REG(TUBE + 1); if (c) k_chrout(c); continue; }
+        if (REG(KBDST) & 0x80) { uint8_t k = REG(KBD); if (k == 0x03) break; }   /* Ctrl-C gives up on a co-processor that will not start */
+    }
+    REG(TUBE + 3) = 2;                                   /* the bitmap goes, the segment with it */
+    video_init(); cls();
+    newline(); puts_("the Tube co-processor has left."); newline();
 }
 /* PAS name / CC name: the compilers on the Linux beside the machine,
  * tools/k4510-pas and tools/k4510-cc, which compile name.PAS / name.C in the

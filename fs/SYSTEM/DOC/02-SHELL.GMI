@@ -123,13 +123,13 @@ which is which, which is the point. The disk is the host's (and on the K4510's
 own Linux, in RAM), so a program starts as quickly as a word in the ROM.
 
 Seven words open whole languages: EHBASIC (Chapter 4, EhBASIC), MSBASIC
-(Chapter 5, Microsoft BASIC, 1977), BBC (Chapter 6, The Tube: BBC BASIC),
-FORTH (Chapter 7, Forth), LOGO (Chapter 8, LOGO), CPM (Chapter 9, CP/M: the
-Z80 Second Processor) and RX (Chapter 12, RX: the Machine's REXX).
+(Chapter 5, Microsoft BASIC, 1977), BBC (Chapter 6, The Tube), FORTH (Chapter
+7, Forth), LOGO (Chapter 8, LOGO), CPM (Chapter 9, CP/M: the Z80 Second
+Processor) and RX (Chapter 12, RX: the Machine's REXX).
 
 => 04-EHBASIC.GMI Chapter 4, EhBASIC
 => 05-MSBASIC.GMI Chapter 5, Microsoft BASIC, 1977
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 => 07-FORTH.GMI Chapter 7, Forth
 => 08-LOGO.GMI Chapter 8, LOGO
 => 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
@@ -338,14 +338,14 @@ For programs that want a live connection there is the N: device at $D900
 (FujiNet's name for it): four channels, each a URL opened for reading and
 writing -- tcp://host:port for a connection, http:// for a page. TELNET host
 port is the demonstration, a telnet.prg in /SYSTEM/BIN: what you type goes
-out, what arrives is drawn by JIM, the terminal (Chapter 6, The Tube: BBC
-BASIC), so a BBS gets its ANSI colours and CP437 art and the cursor and
-function keys go out as VT sequences; F12 hangs up (Escape belongs to the far
-end). It offers the far end the terminal types xterm-color, VT220, VT100 and
-ANSI, and a Unix host that takes the first gets UTF-8 as well. The register
-map is in Chapter 15, The I/O Page and core/net.h.
+out, what arrives is drawn by JIM, the terminal (Chapter 6, The Tube), so a
+BBS gets its ANSI colours and CP437 art and the cursor and function keys go
+out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers
+the far end the terminal types xterm-color, VT220, VT100 and ANSI, and a Unix
+host that takes the first gets UTF-8 as well. The register map is in Chapter
+15, The I/O Page and core/net.h.
 
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 => 21-IO.GMI Chapter 15, The I/O Page
 
 So that there is no guessing, this is the whole list of what the machine

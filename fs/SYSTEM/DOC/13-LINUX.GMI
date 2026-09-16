@@ -22,17 +22,17 @@ runs that command on the Linux the machine is standing on, with its output
 drawn on the machine's screen. A bare ! with nothing after it gives you an
 interactive shell there; leave it the way you leave any shell.
 
-It is carried on the Tube (Chapter 6, The Tube: BBC BASIC), which is the part
-of this machine already built to have another processor's console on the
-glass: the host's shell is started on the same pty the co-processors use, JIM
-renders it, and the ROM's own key loop feeds it. So the colours stay the
-machine's, full-screen programs work -- nvim, htop and tmux run in the window
--- and ls --color lands in the machine's palette. The shell is told its
-terminal is xterm-color, and it speaks UTF-8: JIM draws what it can in the
-machine's character set and a near likeness of the rest, and an accented
-letter you type arrives as one.
+It is carried on the Tube (Chapter 6, The Tube), which is the part of this
+machine already built to have another processor's console on the glass: the
+host's shell is started on the same pty the co-processors use, JIM renders it,
+and the ROM's own key loop feeds it. So the colours stay the machine's,
+full-screen programs work -- nvim, htop and tmux run in the window -- and ls
+--color lands in the machine's palette. The shell is told its terminal is
+xterm-color, and it speaks UTF-8: JIM draws what it can in the machine's
+character set and a near likeness of the rest, and an accented letter you type
+arrives as one.
 
-=> 06-TUBE.GMI Chapter 6, The Tube: BBC BASIC
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 SSH [user@]host is the same thing for a computer across the network: an ssh
 session, drawn by JIM, through the Linux's own ssh.

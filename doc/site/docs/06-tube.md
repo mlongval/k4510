@@ -1,6 +1,6 @@
-# The Tube: BBC BASIC
+# The Tube
 
-The BBC Micro’s most elegant idea was the Tube: a fast port through which a *second processor* — another CPU with its own memory — could take over the computation while the Beeb kept the keyboard, the screen and the discs. The K4510 has a Tube of its own at `$D800`, and the first thing fitted to it is Richard Russell’s BBC BASIC, running on the host machine with a flat 256 MB of its own.
+The BBC Micro’s most elegant idea was the Tube: a fast port through which a *second processor* — another CPU with its own memory — could take over the computation while the Beeb kept the keyboard, the screen and the discs. The K4510 has a Tube of its own at `$D800`, and the first thing fitted to it was Richard Russell’s BBC BASIC, running on the host machine with a flat 256 MB of its own. Others have followed: CP/M on a Z80 ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)), the host’s own shell behind `!`, a chess engine, and — since 2026 — DOOM.
 
     BBC
 
@@ -10,6 +10,19 @@ You get the `>` prompt of a BASIC with real power behind it, and it is *fast* �
     DIM space 200*1024*1024
 
 both just work. Type `*QUIT` to hand the console back to the shell.
+
+## DOOM
+
+    DOOM
+
+takes the Tube, and the machine’s bitmap fills with something no 8-bit computer ever showed. Arrows turn, `W` and `S` walk, `A` and `D` strafe, Ctrl fires, Space opens doors, Shift runs, Tab is the map, `[` and `]` change weapons, and Escape is the menu. Quitting from DOOM’s own menu hands the console back.
+
+The game data does not ship with the machine: an IWAD is 28 MB and the whole machine layer an update carries is under 6. On the host, `tools/ get-freedoom.sh` fetches *Freedoom* — a BSD-licensed replacement for id’s data, built over twenty years to run on this engine — into `/APPS/DOOM`. Any IWAD the engine accepts will do, including your own.
+
+!!! note ""
+    **This is DOOM *displayed on* VICKY, not DOOM *running on* a 45GS10.** Like everything on the Tube it runs on the host beneath the machine: the co-processor draws DOOM’s own 320×200 paletted frame, the machine shows it doubled on its bitmap, and the keys travel back the other way. A 45GS10 at 60 MHz could not run DOOM, and nothing here claims it can. What is genuinely the machine’s is the screen it appears on — the same 8-bit bitmap and the same 256-entry palette that BBC BASIC’s `PLOT` draws into.
+
+The pixels take a different road from everything else on the Tube. BBC BASIC’s graphics arrive as escape sequences and the Tube ULA executes them; DOOM cannot work that way, because a frame is 64 KB and there are 35 of them a second. So the co-processor and the host share a piece of memory: the frames go up it, and — this is the part that matters — the keys go *down* it. A terminal carries keystrokes but never releases, and a player who cannot stop walking is a player who walks into a wall for ever.
 
 ## Graphics and sound
 

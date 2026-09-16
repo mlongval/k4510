@@ -9676,3 +9676,53 @@ The handbook found a bug in the emulator, which is a fair return on generating
 the documentation from the source instead of writing it twice. The array now
 carries a comment saying it must have SIDEBAR_COUNT entries and why nothing
 will tell you when it does not.
+
+## 2026-09-16 — the qualifiers: SHIPPING.cfg and \shipif
+
+Doc, in a brainshot: "We need to start adding qualifiers to all the stuff that
+has been built: Essential ... Maybe ... Nope ... Nope does not imply that we
+delete it from the repo, just that the build instructions understand what to
+pick and what to leave.  This also implies that the handbook and BOOK and
+ReadTheDocs will have to adapt and some stuff will have to be hidden (can we
+just hide stuff in the LaTeX source so that it is not processed?)"
+
+Yes, and in one place rather than three. `tools/mkmanifest.py` walks the
+machine and writes `SHIPPING.cfg`: 89 things to begin with -- twenty apps,
+eight languages, twenty-seven programs in /SYSTEM/BIN, twelve sidebars,
+twenty-two chapters -- each marked essential, maybe or nope. Running it again
+keeps every mark and appends what is new. The file is the list; the marks are
+Doc's.
+
+`\shipif{key}{...}` hides the prose. The PDF gets the macro from
+style/k4510.sty and the declarations from generated/shipping.tex (mkship.py,
+from SHIPPING.cfg); the web edition and the machine's own Gemini pages get
+them in mkweb.prep(), which mkgem.py already calls -- so one implementation
+covers all three editions, which is the dividend for generating them from the
+same chapters. A chapter marked nope drops out of mkweb.chapters() and stops
+being a page anywhere.
+
+Three decisions worth writing down.
+
+**It keeps by default.** A key that is misspelt, absent or newly added prints.
+The failure mode is a book that says too much, never one that silently drops a
+chapter -- and the PDF test confirms it: an unknown key still typesets.
+
+**A new thing appears as `maybe`, never as `nope`.** The default has to be
+wrong in the harmless direction. A `maybe` that should have been `nope` ships
+something dull; a `nope` that should have been `maybe` drops work nobody
+notices is missing until they need it.
+
+**`nope` is not free, and the file says so.** A thing that stops being built
+stops being tested and rots quietly -- the sidebar_names[] bug of this morning
+sat for a day behind exactly that silence. So `nope` marks what an image may
+leave out, not what the repo forgets: the source stays, `make` still compiles
+it, and the tests still run it.
+
+Verified three ways: the inline substitution drops a nope key and keeps the
+others, through nested braces; chapters() goes 22 -> 21 with a chapter marked
+nope, and labels() still resolves references for the rest; and a real xelatex
+run prints the kept text and the unknown key while suppressing the declared
+one. The guide then builds unchanged with nothing marked -- 22 pages, no diff
+in doc/site or fs/SYSTEM/DOC.
+
+Nothing is marked `nope` yet. That is Doc's pass to make.

@@ -133,3 +133,18 @@
      colframe=kgrey!55!white,boxrule=0.6pt,left=6pt,right=4pt,top=4pt,
      bottom=4pt,breakable]\begin{Verbatim}[fontsize=\small]}
   {\end{Verbatim}\end{tcolorbox}}
+
+% --- what ships: \shipif (2026-09-16) -----------------------------------
+% Doc's qualifiers (SHIPPING.cfg, tools/mkmanifest.py): a thing marked `nope'
+% is left out of an image, and its pages are left out of the handbook with it.
+% generated/shipping.tex declares one \shipnope per excluded key; \shipif{key}
+% prints its content unless that key was declared.
+%
+% It KEEPS by default on purpose.  A key that is misspelt, absent or newly
+% added prints -- so the worst this switch can do is say too much.  The other
+% way round, a typo would silently delete a chapter and nobody would see the
+% hole.
+\makeatletter
+\newcommand{\shipnope}[1]{\expandafter\gdef\csname ship@no@#1\endcsname{1}}
+\newcommand{\shipif}[2]{\@ifundefined{ship@no@#1}{#2}{}}
+\makeatother

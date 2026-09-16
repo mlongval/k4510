@@ -56,6 +56,12 @@ python3 "$HERE/mkref.py"
 # that the page and the template cannot say different things.
 python3 "$HERE/mkissue.py"
 
+# What ships: SHIPPING.cfg -> generated/shipping.tex, so \shipif{} knows which
+# things were marked `nope' and leaves their pages out.  mkweb.py and mkgem.py
+# read the same file, so the three editions cannot disagree (tools/mkmanifest.py
+# keeps the list itself).
+python3 "$HERE/mkship.py"
+
 # The cover carries a version and a build date. GUIDE_VERSION=... overrides
 # the git description; the date is always today, written DD.MM.YYYY.
 # Short enough to sit on the cover's first line: tag+commits, e.g. alpha-0.2+88.

@@ -37,7 +37,40 @@ PREAMBLE = r"""
 \newcommand{\regnote}[1]{\par #1\par}
 \newcommand{\menunote}[1]{\par\emph{#1}\par}
 \newcommand{\cmdentry}[3]{\par\noindent\textbf{\texttt{#1}} --- \emph{#2}\\ #3\par}
+\newcommand{\shipif}[2]{#2}
 """
+
+
+def nope_keys():
+    """Keys marked `nope' in SHIPPING.cfg -- the things this build leaves out.
+
+    The web edition and the machine's own pages read the same file the PDF
+    does (via mkship.py), so the three editions cannot disagree about what is
+    in them.  An absent file hides nothing."""
+    cfg = REPO / "SHIPPING.cfg"
+    out = set()
+    if cfg.is_file():
+        for line in cfg.read_text().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if "=" in line:
+                k, v = (x.strip() for x in line.split("=", 1))
+                if v == "nope":
+                    out.add(k)
+    return out
+
+
+NOPE = None
+
+
+def nope():
+    """The nope set, read once.  A function rather than a call at import time
+    so that prep() cannot depend on chapters() having run first: mkgem.py
+    calls both, and an order this file does not control must not decide what
+    the pages say."""
+    global NOPE
+    if NOPE is None:
+        NOPE = nope_keys()
+    return NOPE
 
 
 def die(msg):
@@ -72,7 +105,12 @@ def chapters():
             part = "About the Book"
         else:
             out.append((part, tok.group(2)))
-    return out
+    nope()
+    # A chapter marked `nope' is no longer a page here, on the web or on the
+    # machine.  labels() still reads every chapter on disk, so a \ref into a
+    # dropped chapter does not break the build -- it simply points at a page
+    # that is not published, which mkweb turns into plain text below.
+    return [(p, s) for (p, s) in out if f"chapter:{s}" not in nope()]
 
 
 def inline_inputs(tex):
@@ -148,6 +186,11 @@ def prep(stem, table, link, img):
         src, cap = m.group(2), m.group(3)
         return r"\begin{figure}\includegraphics{" + img(pathlib.Path(src).name) + r"}\caption{" + cap + r"}\end{figure}"
     tex = re.sub(r"\\(screen|screeninline)\{([^}]+)\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", shot, tex, flags=re.S)
+    # \shipif{key}{...}: the content stays unless SHIPPING.cfg says nope.
+    # Kept by default, exactly as the LaTeX macro is: a misspelt key prints.
+    def shipif(m):
+        return "" if m.group(1) in nope() else m.group(2)
+    tex = re.sub(r"\\shipif\{([^}]*)\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", shipif, tex, flags=re.S)
     tex = fix_tabular(tex)
     tex = re.sub(r"\\begin\{description\}\[[^\]]*\]", r"\\begin{description}", tex)
     tex = re.sub(r"\\begin\{itemize\}\[[^\]]*\]", r"\\begin{itemize}", tex)

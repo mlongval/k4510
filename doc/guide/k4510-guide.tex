@@ -21,6 +21,10 @@
 \newcommand{\guideversion}{unversioned}
 \newcommand{\guidedate}{\today}
 \IfFileExists{version.tex}{\input{version}}{}
+% What this build was told to leave out (SHIPPING.cfg -> mkship.py): the
+% \shipnope declarations must be read BEFORE any chapter uses \shipif, so
+% they load here and not where a chapter happens to mention them.
+\IfFileExists{generated/shipping.tex}{\input{generated/shipping}}{}
 \title{The K4510 User's and Programmer's Guide}
 \author{}\date{}
 \begin{document}

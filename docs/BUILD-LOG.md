@@ -9421,3 +9421,29 @@ the file that was actually running, are what told the truth -- the same lesson
 as the pixel diff in LOGO an hour earlier, where three attempts to measure the
 drawing said the two builds were identical and a dumb byte-for-byte comparison
 found the 320 pixels that differed.
+
+**It landed, 10:51.** The layer went on the Dell by hand again (the machine has
+no ssh key to p15, so update-k4510.sh's network mode still cannot run there):
+pushed, checksummed on arrival, the old layer kept as
+`backup/k4510.squashfs.3b3d489dc670c92f` outside `/live`, copied in, checksummed
+again on the partition, and rebooted. `k4510-remote status` reports layer
+`f1b731d4`, and `/usr/local/sbin/k4510-telnet-login` on the running machine is
+dated Sep 16 10:39 -- the overlay file's own timestamp, which is the proof it
+came from the layer and not from the Sep 13 base underneath it.
+
+And then the part that actually matters, because the file being right on disk
+is what was already believed twice today: `HOST` at the prompt opens
+`k4510@k4510:~$` with no password, and `exit` comes back to `/HOME]`. From the
+Linux side, a scripted `telnet 127.0.0.1 23` running `id` answers
+`uid=1000(k4510)` without being asked for anything. Behaviour, not a file.
+
+The remote scripts ran green on the new layer afterwards: smoke, logo, menu,
+sidebar. LOGO matters there -- this is the first layer carrying the corrected
+`FDEG`, so the square it draws on the Dell is now drawn with a true right
+angle.
+
+A note for the next deploy to this machine: the Dell was reachable on screen a
+good two minutes before it was reachable on the tailnet -- ssh timed out while
+`tailscale status` still listed it offline, last seen at the halt. Nothing was
+installed in that window; the install only ran once it answered. Waiting is the
+fix, not retrying harder.

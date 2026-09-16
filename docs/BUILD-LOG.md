@@ -9488,3 +9488,52 @@ option negotiation puts control bytes in the stream, so grep called the whole
 thing binary and swallowed the lines that mattered. That is not a result, and
 it would have been easy to read as one. `strings` (or `grep -a`) first, then
 match.
+
+## 2026-09-16 — IDEA stops taking a line, and why
+
+Doc: "IDEA needs to accept longer lines", and then, once the shape of it was
+clear: "I would simply stick with *IDEA alone swapping into VI. I would note
+in the documentation/git why we did not accept a line argument to *IDEA."
+
+The limit was one buffer, and the two numbers fall out of it exactly. `line[96]`
+in the ROM is where the shell's command line is typed, and `readline` stops
+accepting characters at `max - 1`. So `IDEA <text>` kept 95 - 5 = **90**
+characters; measured 88 -> 88, 89 -> 89, 90 -> 90, 91 -> 90, 95 -> 90. From a
+BASIC it kept **84**: `cmd_bbcbasic` accumulates the OSC string the Tube sends
+(`ESC ] K4510 ; <cmd> BEL`, bbccos.c) into that same `line[]`, so the wrapper
+costs six more -- 95 - 6 - 5 = 84; measured 84 -> 84, 85 -> 84, 95 -> 84. Doc's
+eight brainshots that morning all stop mid-sentence at 84.
+
+Everything downstream was innocent and worth saying so, because it is where one
+would look first: the emulator's `idea_txt` is 256 bytes, `ula_buf` is 256,
+`MAX_PATH` in the Tube is 260, and the file itself has no limit at all. Doc
+asked the right question -- "why don't you just dump it to a file" -- and the
+answer is that the characters never reach the file, or any buffer near it. The
+line editor refuses the keystrokes as they are typed. Nothing is truncated
+later; it is never captured.
+
+Widening `line` is the only cure and it is not worth it. The ROM's BSS has
+**two** free bytes ($0440-$05FD of $05FF), boxed between program page 3 and the
+C stack at $0600, so the room would have to come out of that 512-byte stack --
+the one whose overflow corrupted MOUNT four days ago, and which nothing in the
+tree measures. `HIST_L` would have to grow in step (readline strcpy's into
+`hist` unguarded), and `NAMEMAX` would have to *not* grow, since 23 locals are
+`char name[NAMEMAX]` on that same stack.
+
+So IDEA takes no text now. It writes the brainshot and opens VI on it, whose
+lines are 256 characters and whose count is however many you type. Text typed
+after it is ignored -- and not lost, as it turns out: the screen capture inside
+every brainshot records the prompt line, so a thought typed out of habit is
+still sitting there in the file, three lines down.
+
+There is no message about the ignored text, and that is the second thing worth
+recording. One was written -- "type it in VI" -- and it proved unreadable: VI
+is a SWAP and clears the screen the instant `cmd_idea` returns, so the line is
+gone before it can be seen. The headless runner, given it as a marker and
+watching every frame, never found it once in 600 frames, while a control marker
+was seen in 10. An empty VI on a new brainshot is the honest signal; a message
+nobody can read is the same silent-loss bug wearing a different hat.
+
+Checked on all three routes: `IDEA`, `IDEA <text>`, and `*IDEA <text>` from BBC
+BASIC, each landing in VI on a fresh file with an empty idea body. romtest,
+basictest (EhBASIC 34 + BBC BASIC 28, both `*` routes) and typetest green.

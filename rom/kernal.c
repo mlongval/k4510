@@ -1221,24 +1221,41 @@ static void cmd_dump(const char *p)
 /* In the base image, beside SWAP, since 2026-09-14: from bank 1 it ran SWAP VI and
  * came back into a window the program had left unmapped -- "the Tube co-processor
  * has left." and the console stuck in reverse (Doc's brainshot, the Dell). */
-/* IDEA [text]: a brainshot -- Doc, 2026-09-14: "the text equivalent of a
+/* IDEA: a brainshot -- Doc, 2026-09-14: "the text equivalent of a
  * screenshot".  The emulator writes /SYSTEM/BRAINSHOTS/IDEA-date-time.TXT with the
- * idea and the machine as it was (core/io.c idea_write).  IDEA alone opens
- * VI on the new file.  A ROM word, not a .prg, so *IDEA from a BASIC loads
- * nothing over the BASIC; VI goes by SWAP, as *VI does. */
+ * machine as it was (core/io.c idea_write) and this opens VI on it.  A ROM
+ * word, not a .prg, so *IDEA from a BASIC loads nothing over the BASIC; VI
+ * goes by SWAP, as *VI does.
+ *
+ * It takes no text, and that is deliberate (Doc, 2026-09-16: "I would simply
+ * stick with *IDEA alone swapping into VI").  It used to: IDEA <text> wrote
+ * the note straight out.  But the note was typed into the shell's line[96],
+ * which is where the machine's whole command line lives, so a long one was
+ * cut at 90 characters -- and at 84 from a BASIC, where the escape that
+ * carries a star command is staged through that same buffer.  The cut was
+ * silent and mid-word: eight of Doc's brainshots on 2026-09-16 end in the
+ * middle of a sentence.  Widening line[] is the only cure and it is not
+ * worth it -- the ROM's BSS has two spare bytes, so the room would have to
+ * come out of the 512-byte C stack, the one whose overflow corrupted MOUNT.
+ * VI's lines are 256 and it takes as many as you like, so the long way round
+ * is the only way, and it always writes the whole thought.
+ *
+ * Text typed after it is simply ignored, and there is no message about it:
+ * one was written and proved unreadable.  VI is a SWAP, and it clears the
+ * screen the instant this returns, so a line printed here is gone before
+ * anyone can read it -- the headless runner, watching every frame for it,
+ * never saw it once in 600.  An empty VI on a new brainshot is the honest
+ * signal: it is plainly waiting for the thought to be typed into it. */
 static void cmd_idea(const char *p)
 {
-    char b[NAMEMAX + 10]; uint8_t i = 0, c, had;
+    char b[NAMEMAX + 10]; uint8_t i = 0, c;
     const char *s = "SWAP VI ";
-    while (*p == ' ') p++;
-    had = (uint8_t)(*p != 0);
-    while (*p) REG(SYS + 0x42) = *p++;
-    REG(SYS + 0x43) = had ? 1 : 2;
+    (void)p;                                    /* no text argument: see above */
+    REG(SYS + 0x43) = 2;                        /* the empty brainshot, for VI */
     while (*s) b[i++] = *s++;
     while (i < sizeof b - 1 && (c = REG(SYS + 0x43)) != 0) b[i++] = c;
     b[i] = 0;
     if (i == 8) { error("idea: not written"); return; }
-    if (had) { puts_("idea kept: "); puts_(b + 8); newline(); return; }
     shell_copy(b); shell_line(line);
 }
 

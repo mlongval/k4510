@@ -65,7 +65,7 @@ DESC = {
     "TIME":    (3, "TIME", "The date and the time."),
     "HUSH":    (3, "HUSH", "Silence the OPL2 and the sound sequencer."),
     "DUMP":    (3, "DUMP [note | ON | OFF]", "Write the machine's whole state to dumps/ on the host. ON writes one every fifteen seconds."),
-    "IDEA":    (3, "IDEA [text]", "A brainshot: the idea, and the machine as it was, to /BRAINSHOTS. Alone, it opens VI. *IDEA from a BASIC."),
+    "IDEA":    (3, "IDEA", "A brainshot: opens VI on a new one in /SYSTEM/BRAINSHOTS, with the machine as it was. No text argument: the shell line would cut it. *IDEA from a BASIC."),
     "RESET":   (3, "RESET", "Cold-start the machine, as the reset chord does."),
     # memory
     "MON":     (4, "MON [line]", "The machine monitor, Wozmon's grammar with 28-bit addresses. With a line, runs it and returns."),

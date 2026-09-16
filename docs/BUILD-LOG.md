@@ -9447,3 +9447,44 @@ good two minutes before it was reachable on the tailnet -- ssh timed out while
 `tailscale status` still listed it offline, last seen at the halt. Nothing was
 installed in that window; the install only ran once it answered. Waiting is the
 fix, not retrying harder.
+
+## 2026-09-16 — the shutdown scripts follow
+
+Doc: "do the halt and poweroff ones too". `k4510-poweroff` and `k4510-halt`
+were the same trap as the telnet login, merely unsprung -- written by a
+`cat >` in build-live.sh's full-build body, which a REBUILD never runs. They
+were only safe because their content had not changed since the last full
+build; the first edit to either would have gone the same way the telnet login
+did, and been just as hard to see.
+
+Both live in `config/includes.chroot/usr/local/sbin` now, mode 755, beside
+`k4510-keymap` and `k4510-telnet-login`. Their content is unchanged line for
+line: poweroff still execs `sudo -n k4510-halt`, halt still syncs, remounts
+the persistence mounts read-only and execs `systemctl poweroff`. What replaces
+each write is a guard -- a missing overlay file stops the build rather than
+shipping a machine whose F7 shutdown row is quietly broken.
+
+`/etc/sudoers.d/k4510-halt` stays inline on purpose. It is the rule that lets
+the k4510 user call halt and nothing else, and a malformed sudoers file takes
+sudo away from the machine altogether; that move deserves its own job with its
+own validation, not a ride on this one.
+
+Layer `5a240d1f` built, extracted and checked (all four sbin files at 755 with
+their working lines intact), installed on the Dell and rebooted into. The proof
+is in the dates: `/usr/local/sbin/k4510-halt` and `k4510-poweroff` now read
+Sep 16 10:57 and belong to k4510, where before the reboot they were Sep 13 and
+belonged to root -- the base's copies, replaced by the layer's. The sudoers
+rule is intact, the telnet login is still `-f`, and a scripted telnet to
+127.0.0.1:23 reaches a shell as uid=1000(k4510) with no password asked. smoke,
+logo, menu and sidebar green.
+
+Not tested here, deliberately: F7 -> Shut down itself. Exercising it powers the
+machine off, and Doc was using it. The scripts are present, executable, and the
+right ones; pressing the row is his to try.
+
+One instrument note, in the spirit of the day. The first telnet check answered
+`grep: (standard input): binary file matches` and nothing else -- telnet's
+option negotiation puts control bytes in the stream, so grep called the whole
+thing binary and swallowed the lines that mattered. That is not a result, and
+it would have been easy to read as one. `strings` (or `grep -a`) first, then
+match.

@@ -9076,8 +9076,36 @@ the Tube; what was missing was the machine in it.
   `k4510-nvim --resume`, back on the line. A REXX run that stopped on an
   error (its MAKE.ERR) comes back to that line, as VI's :run does.
 
+Two of its own faults, found at once: NVIM on a file that was not on the disk
+yet handed the machine a program nobody had saved (the Dell: "RX: not found:
+/HOME/NVTEST.RX") -- :make now writes a file that does not exist, not only a
+changed one, and :Run refuses what is still not there. And the Dell's
+test/remote/nvim.k4r made its file with `!printf ... \n`: k4510-type reads its
+own backslash escapes, so the \n was typed as Enter and the shell got an
+unterminated quote. The program is typed IN Neovim now, which is the truer
+test anyway.
+
 test/nvimtest.sh (make test; skipped where there is no nvim) drives it
 headless with stand-in compilers: every filetype and syntax, the error list
 and its first error, a project's -p, the wrapper's 42, NVIM.BAT for a
 program, a REXX file and a project, nothing run after a failed build, the
 resume, and the REXX error on the way back.
+
+## 2026-09-15 — Doc's rows, and the HD modes nothing had ever tested
+
+Doc, at the machine: "just so you know it, the old 640x480 gave 80x60 (approx)
+and 640x240 gave 80x30", and "now both resolutions give only 80x30 (approx) we
+lost the double the lines in 640x480". Not today's layer: the entry of
+2026-09-14 above says it plainly -- "pick one font and jettison all the rest"
+put MODE 0 in 8x16 cells, and 80x60 went with the 8x8 font. Giving it back is
+one bit in video_init's mask (0x61: 8x16 in MODE 0, 5, 6) and one entry in
+prows_of; whether that becomes MODE 0 again, a new mode, or a Text rows
+setting is Doc's to say.
+
+Chasing it found two faults of ours, both in test/headless.c and neither in
+the machine: it drew an HD mode (MODE 5, 1440x1080) into a 640x480 buffer and
+segfaulted, and it read every text screen at 80 columns with an 80-cell
+stride, so an HD mode's 180 columns dumped nothing. It now takes the glass's
+height and layer 0's map, stride and cell height from VICKY, as the frontend
+does. Nothing had ever run an HD mode headless -- test/modetest.sh does now
+(make test): all six modes, each reporting the size its tables give.

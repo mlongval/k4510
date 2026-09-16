@@ -114,7 +114,10 @@ local function make()
     if file == "" then note("make: the file has no name -- :w NAME first", "ErrorMsg"); return false end
     local L = langs[vim.bo.filetype]
     if not L then note("make: no compiler for this file (.C .PAS .RX .BAS .LGO)", "WarningMsg"); return false end
-    if vim.bo.modified then vim.cmd("write") end
+    -- a file not on the disk yet is written too, not only a changed one: NVIM
+    -- NEWFILE then :Run handed the machine a program that was never saved
+    -- (the Dell, 2026-09-15: "RX: not found: /HOME/NVTEST.RX")
+    if vim.bo.modified or not uv.fs_stat(file) then vim.cmd("write") end
     if not L.tool then note("saved -- nothing to compile: run it (:Run, F10)"); return true end
     local dir = vim.fn.fnamemodify(file, ":p:h")
     local p = project(dir)
@@ -144,6 +147,7 @@ local function run()
     if not make() then return end
     local g = guest(file)
     if not g then note("run: the file is not on the machine's disk", "ErrorMsg"); return end
+    if not uv.fs_stat(file) then note("run: " .. g .. " is not on the disk -- :w first", "ErrorMsg"); return end
     local cmd
     if L.run then cmd = L.run .. " " .. g                   -- REXX, BASIC, LOGO: the interpreter runs the file
     else

@@ -1,35 +1,49 @@
-# test/remote/nvim.k4r -- NVIM, the NeoVim Tube (doc/guide 13-linux):
-# :Run hands a REXX program to the machine and comes back, and :make
-# compiles a C file with the machine's own cc65 and lands on the error.
-# The files are made with ! and removed at the end.
+# test/remote/nvim.k4r -- NVIM, the NeoVim Tube (doc/guide 13-linux): a REXX
+# program typed IN Neovim, :Run hands it to the machine and comes back; then a
+# C file with an error, which :make must land on (the machine's own cc65).
+#
+# Nothing is written through the host shell here: k4510-type reads its own
+# backslash escapes, so a printf's \n was typed as Enter and made nothing
+# (2026-09-15).  Typing it in the editor is the truer test anyway.
 type PALETTE RESET\n
 wait 1
 type CD /HOME\n
-type !printf 'say "hello from NVIM"\\n' > NVTEST.RX\n
-wait 2
+type RM -f NVTEST.RX\n
+wait 1
 type NVIM NVTEST.RX\n
-wait 4
+wait 5
+type isay "hello from NVIM"
+key esc
 type :Run\r
-expect "hello from NVIM" 30
+expect "hello from NVIM" 40
 expect "a key returns to Neovim" 10
 key enter
-wait 4
+wait 5
 shot nvim-run
 type :q\r
-wait 2
-expect "/HOME]" 15
-# and a C file with an error: :make must put us on it
-type !printf 'void main(void)\\n{\\n    int x = 1\\n}\\n' > NVTEST.C\n
-wait 2
+wait 3
+expect "/HOME]" 20
+# a C file with an error: :make compiles it and goes to the error
+type RM -f NVTEST.C\n
+wait 1
 type NVIM NVTEST.C\n
-wait 4
+wait 5
+type ivoid main(void)
+key enter
+type {
+key enter
+type     int x = 1
+key enter
+type }
+key esc
 type :make\r
-expect "error 1 of" 40
+expect "error 1 of" 60
 shot nvim-make
 type :q!\r
-wait 2
-expect "/HOME]" 15
+wait 3
+expect "/HOME]" 20
 type RM -f NVTEST.RX\n
 type RM -f NVTEST.C\n
+type RM -f nvtest.prg\n
 wait 1
 screen

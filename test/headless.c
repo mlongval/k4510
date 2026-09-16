@@ -11,14 +11,26 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicky.h"
-static uint8_t fb[640 * 480];
+static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT];   /* the largest glass: an HD mode (MODE 5) drew 1440 wide into 640 and died (2026-09-15) */
 /* the wall clock for SYS+$36.  The harness runs flat out, so this is the only
  * place in it where real time and frame time genuinely differ. */
 #include <time.h>
 static uint32_t hl_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t);
                               return (uint32_t)(t.tv_sec * 1000u + t.tv_nsec / 1000000u); }
-static void row(int r, char *out) { for (int c = 0; c < 80; c++) { uint8_t ch = mem_peek(0x30000 + (r * 80 + c) * 4); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : ' '; } out[80] = 0; for (int i = 79; i >= 0 && out[i] == ' '; i--) out[i] = 0; }
-static int on_screen(const char *s) { char r[81]; for (int i = 0; i < 60; i++) { row(i, r); if (strstr(r, s)) return 1; } return 0; }
+/* The text screen as VICKY has it this frame -- layer 0's map, its stride and
+ * its cell height, which video_init sets per MODE -- so an HD mode's 180
+ * columns are read as 180 and not as 80 (2026-09-15: MODE 5 dumped nothing). */
+static int scr_cols(void) { int n = io_read(IO_VICKY + 0x16) | (io_read(IO_VICKY + 0x17) << 8); return (n > 0 && n <= 240) ? n : 80; }
+static uint32_t scr_map(void) { uint32_t m = 0; for (int i = 0; i < 4; i++) m |= (uint32_t) io_read(IO_VICKY + 0x1C + i) << (8 * i); return m ? m : 0x30000u; }
+static int scr_rows(void) { int h = vicky_glass_h(), cell = (io_read(IO_VICKY + 0x10) & 0x20) ? 16 : 8; if (h < 1) h = 480; return h / cell; }
+static void row(int r, char *out)
+{
+    int n = scr_cols(); uint32_t map = scr_map();
+    for (int c = 0; c < n; c++) { uint8_t ch = mem_peek(map + ((uint32_t) r * n + c) * 4); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : ' '; }
+    out[n] = 0;
+    for (int i = n - 1; i >= 0 && out[i] == ' '; i--) out[i] = 0;
+}
+static int on_screen(const char *s) { char r[241]; int n = scr_rows(); for (int i = 0; i < n; i++) { row(i, r); if (strstr(r, s)) return 1; } return 0; }
 /* marker may be "a|b": either string */
 static int marker_seen(const char *m) { char buf[256]; strncpy(buf, m, 255); buf[255] = 0; for (char *p = strtok(buf, "|"); p; p = strtok(NULL, "|")) if (on_screen(p)) return 1; return 0; }
 int main(int argc, char **argv)
@@ -45,12 +57,13 @@ int main(int argc, char **argv)
     for (fr = 0; fr < maxf; fr++) {
         /* as the frontend's K4510_KEYS: $80+ is a KEY_* code, $1F makes the next byte a character */
         if (fr >= 5 && ki < kn && fr >= wait_until) { uint8_t k = (uint8_t)keys[ki++]; if (k == '~') wait_until = fr + 30; else if (k == '`') wait_until = fr + 5; else if (k == 0x1F && ki < kn) kbd_push((uint8_t)keys[ki++]); else if (k >= 0x80) kbd_push_key(k); else kbd_push(k == '\n' ? 0x0D : k); }
-        vicky_begin_frame(fb, 640);
-        for (int y = 0; y < 480; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(40500000 / 60 / 480); vicky_line(y); }
+        vicky_begin_frame(fb, VICKY_WIDTH);
+        { int h = vicky_glass_h();                      /* this mode's lines, latched at the frame's start */
+          for (int y = 0; y < h; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(40500000 / 60 / h); vicky_line(y); } }
         vicky_end_frame();
         if (marker && ki >= kn && marker_seen(marker)) { seen = 1; break; }
     }
-    for (int i = 0; i < 60; i++) { char r[81]; row(i, r); if (*r) printf("%s\n", r); }
+    for (int i = 0, n = scr_rows(); i < n; i++) { char r[241]; row(i, r); if (*r) printf("%s\n", r); }
     { const char *d = getenv("K4510_DUMP"); if (d) { unsigned long a, n; if (sscanf(d, "%lx,%lx", &a, &n) == 2) { printf("dump $%06lX:", a); for (unsigned long i = 0; i < n; i++) { uint8_t b = mem_peek(a + i); printf(i % 32 ? " %02X" : "\n%02X", b); } printf("\n"); } } }
     if (getenv("K4510_EXITDUMP")) dbg_dump("headless exit");
     fprintf(stderr, "[%d frames%s]\n", fr, marker ? (seen ? ", marker seen" : ", TIMEOUT") : "");

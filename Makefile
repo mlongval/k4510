@@ -200,6 +200,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	sh ./test/ziptest.sh
 	sh ./test/mounttest.sh
 	sh ./test/nvimtest.sh
+	sh ./test/modetest.sh
 	python3 tools/mksidebar.py --check fs/SYSTEM/SIDEBARS/*.ZIP
 	./test/sidebartest
 	./test/termtest

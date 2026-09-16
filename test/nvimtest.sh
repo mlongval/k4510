@@ -93,4 +93,10 @@ else
     echo "  skipped (no test/headless or nvim.prg)"
 fi
 
+echo "6. a file not on the disk yet is written before it runs"
+rm -f "$R/HOME/NEW.RX" "$R/SYSTEM/LOG/NVIM.BAT" "$R/SYSTEM/LOG/NVIM.RESUME"
+set +e; W --headless -c 'normal isay "new"' -c 'Run' NEW.RX >/dev/null; set -e
+check "the new file was written" "$(cat "$R/HOME/NEW.RX" 2>/dev/null)" 'say "new"'
+check "and the machine was handed it" "$(cat "$R/SYSTEM/LOG/NVIM.BAT" 2>/dev/null)" "SWAP -k RX /HOME/NEW.RX"
+
 if [ $fails -eq 0 ]; then echo "nvimtest: OK"; else echo "nvimtest: $fails FAILED"; exit 1; fi

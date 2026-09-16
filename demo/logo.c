@@ -33,11 +33,14 @@
 #define BLT    0xD070u
 #define MATHR  0xD700u
 #define GFX_BASE 0x200000UL
-#define GW 640
-#define GH 480
+static int GW = 640, GH = 480;                 /* the glass LOGO found: mode_enter reads it from VICKY */
 #define SPR_DATA (GFX_BASE + (unsigned long) GW * GH)   /* the turtle: 16 frames of 32x32 8-bpp (TURTLE.SPR), right after the bitmap */
 #define SPR_TAB  (SPR_DATA + 0x4000UL)                 /* the sprite attribute table (128 x 16 B); entry 0 is the turtle */
 #define TURTLE_SPR "/LANG/LOGO/TURTLE.SPR"             /* tools/mkturtle.py: frame k faces k x 22.5 degrees, clockwise from up */
+/* SETSHAPE "BIRD reads /LANG/LOGO/BIRD.SPR, the same sixteen frames of 32x32.
+ * Logo's turtles have taken other shapes since Atari Logo, whose manual offers
+ * "cars, planes, human figures, animals"; tools/mkturtle.py draws ours. */
+static char shape_path[40];
 #define CMDLINE ((char *) 0x0300)                      /* SWAP's command line: below our image (see demo/ranger.c) */
 
 static unsigned char rom_args(void) { return ((unsigned char (*)(void))0xFF95)(); }
@@ -82,28 +85,30 @@ static uint8_t getin(void) { return REG(KBD); }   /* 0 when nothing is waiting *
  * 2026-09-14, a screenshot with a status band across the middle).  The ROM's
  * MODE lays the console, bands and all, out for 640x480 and clears it, as
  * EhBASIC's GRAPHICS 2 does. */
-static uint8_t mode_was, pencol = 1, pendown = 1;
-static void mode_run(char digit)
-{
-    strcpy(CMDLINE, "MODE 0"); CMDLINE[5] = digit;       /* page 3: the ROM cannot read our image during the call */
-    rom_shell(CMDLINE);
-}
+static uint8_t pencol = 1, pendown = 1;
+/* The screen LOGO finds, not one of its own (Doc, 2026-09-15: "logo seems to
+ * force mode 1.  it should respect mode it is started in").  It used to put
+ * the console into MODE 0 for the session and back at BYE, because it had one
+ * surface -- 640x480 -- and a console laid out for another mode left the
+ * status bands across the middle of the picture.  Now the surface is the glass
+ * it finds: GW x GH from VICKY's own CTRL bits, so nothing is laid out again
+ * and nothing is restored.  The turtle stays 32 machine pixels whatever the
+ * mode, which is why it looks bigger on the doubled screens and smaller on the
+ * HD ones (Doc: "width in pixels stays same but ... apparent size seems to
+ * grow on lower res screens"). */
 static void mode_enter(void)
 {
-    /* VICKY CTRL -> the console's MODE digit (rom/kernal.c ctrlmode[]) */
     switch (REG(VICKY) & 0x3E) {                          /* bit 5: the HD family (hd-modes) -- without it MODE 5 read as 0 */
-    case 0x00: mode_was = '0'; break;
-    case 0x20: mode_was = '5'; break;
-    case 0x26: mode_was = '6'; break;
-    case 0x36: mode_was = '7'; break;
-    case 0x02: mode_was = '2'; break;
-    case 0x0A: mode_was = '3'; break;
-    case 0x1A: mode_was = '4'; break;
-    default:   mode_was = '1'; break;
+    case 0x00: GW = 640; GH = 480; break;                 /* MODE 0 */
+    case 0x20: GW = 1440; GH = 1080; break;               /* MODE 5 */
+    case 0x26: GW = 720; GH = 540; break;                 /* MODE 6 */
+    case 0x36: GW = 360; GH = 270; break;                 /* MODE 7 */
+    case 0x02: GW = 320; GH = 240; break;                 /* MODE 2 */
+    case 0x0A: GW = 320; GH = 200; break;                 /* MODE 3, a program's */
+    case 0x1A: GW = 160; GH = 200; break;                 /* MODE 4, a program's */
+    default:   GW = 640; GH = 240; break;                 /* MODE 1 */
     }
-    if (mode_was != '0') mode_run('0');
 }
-static void mode_leave(void) { if (mode_was != '0') mode_run((char) mode_was); }
 static void gfx_show(void)                                                     /* the bitmap on, and the turtle's sprite table */
 {
     uint8_t i;
@@ -148,15 +153,16 @@ static int turtle_py(void) { return clampi(ftoi(fsub(fint(GH / 2), ty)), 0, GH -
  * by tools/mkturtle.py at eight times the size -- so turning the turtle is
  * pointing the sprite at the nearest frame, and nothing is drawn at all.
  * Loaded once into far memory beside the bitmap; without it, the arrow below. */
-static void turtle_load(void)
+static uint8_t turtle_load_file(const char *name)
 {
-    static const char name[] = TURTLE_SPR;
     w32r(FSR + 4, (unsigned long)(uint16_t) name);
     w32r(FSR + 8, SPR_DATA);
     w32r(FSR + 12, 0x4000UL);                      /* no more than the sixteen frames' room */
     REG(FSR) = 9;                                  /* LOAD */
     turtle_frames = !REG(FSR + 1) && r32r(FSR + 12) == 0x4000UL;
+    return turtle_frames;
 }
+static void turtle_load(void) { static const char name[] = TURTLE_SPR; turtle_load_file(name); }
 static void turtle_show(void)
 {
     fbits r, sn, cs; int tipx, tipy, lx, ly, rx, ry;
@@ -425,6 +431,18 @@ static void command(void)
     if (!strcmp(word, "PD") || !strcmp(word, "PENDOWN")) { pendown = 1; return; }
     if (!strcmp(word, "HT") || !strcmp(word, "HIDETURTLE")) { turtle_vis = 0; turtle_show(); return; }
     if (!strcmp(word, "ST") || !strcmp(word, "SHOWTURTLE")) { turtle_vis = 1; turtle_show(); return; }
+    if (!strcmp(word, "SETSHAPE") || !strcmp(word, "SETSH")) {   /* SETSHAPE "BIRD -- /LANG/LOGO/BIRD.SPR */
+        uint8_t i, n = 0; const char *d = "/LANG/LOGO/";
+        if (peekc() != '"') { error("SETSHAPE needs a \"name (TURTLE, BIRD)", 0); return; }
+        cp++; getword();
+        while (*d) shape_path[n++] = *d++;
+        for (i = 0; word[i] && n < 34; i++) shape_path[n++] = upc(word[i]);
+        if (!strchr(word, '.')) { shape_path[n++] = '.'; shape_path[n++] = 'S'; shape_path[n++] = 'P'; shape_path[n++] = 'R'; }
+        shape_path[n] = 0;
+        if (!turtle_load_file(shape_path)) { error("I can't find", shape_path); turtle_load(); return; }
+        turtle_show();
+        return;
+    }
     if (!strcmp(word, "FILL")) { do_fill(); return; }
     if (!strcmp(word, "EDIT") || !strcmp(word, "ED")) { extern void do_edit(void); do_edit(); return; }
     if (!strcmp(word, "HOME")) { fbits ox = tx, oy = ty; turtle_home(); tx = ox; ty = oy; turtle_to(F0, F0); return; }
@@ -564,7 +582,7 @@ int main(void)
     F0 = fint(0); F1 = fint(1); F10 = fint(10); F180 = fint(180); F360 = fint(360);
     FDEG = fdiv(fint(314159L), fint(18000000L));           /* pi / 180 */
     FHALF = fdiv(fint(45), fint(4)); FSTEP = fdiv(fint(45), fint(2));
-    mode_enter();                                          /* 640x480, the console laid out for it (and cleared) */
+    mode_enter();                                          /* the glass as we found it: GW x GH */
     gfx_show(); gfx_clear();
     turtle_load();                                         /* the sixteen frames, beside the bitmap */
     REG(TERM + 0x0E) |= 1;                                 /* the console cursor: the ROM hides it for programs */
@@ -586,6 +604,5 @@ int main(void)
         if (flow == 4) break;
     }
     gfx_hide();
-    mode_leave();                                          /* the mode LOGO found */
     return 0;
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""The LOGO turtle: a small green turtle in sixteen headings, as sprite frames.
+"""LOGO's shapes: a small green turtle -- and now a bird -- in sixteen
+headings, as sprite frames.
 
-    tools/mkturtle.py [--preview out.png]
+    tools/mkturtle.py [--shape turtle|bird] [--out FILE] [--preview out.png]
 
 writes fs/LANG/LOGO/TURTLE.SPR: 16 frames of 32x32 pixels, one byte a pixel
 (an index into the machine's palette; 0 is transparent), frame k facing
@@ -24,13 +25,14 @@ import sys, pathlib
 from PIL import Image, ImageDraw
 
 REPO = pathlib.Path(__file__).resolve().parent.parent
-OUT = REPO / "fs/LANG/LOGO/TURTLE.SPR"
+OUT = REPO / "fs/LANG/LOGO/TURTLE.SPR"          # --out, or SHAPES's own
 PAL = REPO / "fs/SYSTEM/ETC/PALETTES/C64.PAL"
 
 SIZE, SS, FRAMES = 32, 8, 16
 BIG = SIZE * SS
 # the machine's sixteen, by index
 TRANSPARENT, BLACK, GREEN, BROWN, DGREY, LGREEN, YELLOW = 0, 0, 5, 9, 11, 13, 7
+WHITE, GREY, LGREY, BLUE, LBLUE = 1, 12, 15, 6, 14      # the bird's (index 0 is transparent, so never black)
 # a part that wins its pixel with at least this share of the 8x8 block
 PRIORITY = {DGREY: 0.20, BROWN: 0.30}
 
@@ -67,6 +69,43 @@ def draw_turtle():
     for sx in (-1, 1):
         ell(sx * 10, -84, 6, 6, DGREY)
     return im
+
+
+def draw_bird():
+    """A bird seen from above, facing up, at 8x -- LOGO's other traditional
+    shape (Atari Logo's turtles took shapes: "cars, planes, human figures,
+    animals").  Wings swept back a little, so the heading is unmistakable."""
+    im = Image.new("L", (BIG, BIG), TRANSPARENT)
+    d = ImageDraw.Draw(im)
+    c = BIG // 2
+
+    def ell(cx, cy, rx, ry, fill, outline=None, width=0):
+        d.ellipse((c + cx - rx, c + cy - ry, c + cx + rx, c + cy + ry), fill=fill, outline=outline, width=width)
+
+    # wings: swept back from the shoulders, the far tip lower than the root
+    for sx in (-1, 1):
+        d.polygon([(c + sx * 14, c - 24), (c + sx * 104, c + 6), (c + sx * 96, c + 34), (c + sx * 16, c + 26)],
+                  fill=LGREY, outline=GREY)
+        for k in range(1, 4):                      # the flight feathers
+            d.line((c + sx * (30 + k * 18), c + 12 + k * 4, c + sx * (26 + k * 18), c + 30), fill=GREY, width=4)
+    # tail
+    d.polygon([(c - 20, c + 46), (c + 20, c + 46), (c + 10, c + 92), (c - 10, c + 92)], fill=LGREY, outline=GREY)
+    # body and head
+    ell(0, 10, 26, 52, WHITE, GREY, 5)
+    ell(0, -54, 22, 22, WHITE, GREY, 5)
+    # beak, pointing the way it flies
+    d.polygon([(c - 9, c - 72), (c + 9, c - 72), (c, c - 98)], fill=YELLOW, outline=BROWN)
+    # eyes
+    for sx in (-1, 1):
+        ell(sx * 11, -58, 5, 5, DGREY)
+    return im
+
+
+# what each shape draws, what it must not lose in the vote, and where it goes
+SHAPES = {
+    "turtle": (draw_turtle, {DGREY: 0.20, BROWN: 0.30}, "TURTLE.SPR"),
+    "bird":   (draw_bird, {DGREY: 0.18, YELLOW: 0.22, GREY: 0.28}, "BIRD.SPR"),
+}
 
 
 def reduce(big):
@@ -125,14 +164,20 @@ def preview(frames, path):
 
 
 def main():
-    big = draw_turtle()
+    global PRIORITY, OUT
+    shape = sys.argv[sys.argv.index("--shape") + 1].lower() if "--shape" in sys.argv else "turtle"
+    if shape not in SHAPES:
+        raise SystemExit(f"mkturtle: no shape called {shape} (have: {', '.join(sorted(SHAPES))})")
+    draw, PRIORITY, name = SHAPES[shape]
+    OUT = pathlib.Path(sys.argv[sys.argv.index("--out") + 1]) if "--out" in sys.argv else REPO / "fs/LANG/LOGO" / name
+    big = draw()
     frames = []
     for k in range(FRAMES):
         # PIL turns counter-clockwise; LOGO's heading is clockwise
         turned = big.rotate(-k * 360.0 / FRAMES, resample=Image.NEAREST, fillcolor=TRANSPARENT)
         frames.append(reduce(turned))
     OUT.write_bytes(b"".join(frames))
-    print(f"mkturtle: {FRAMES} frames of {SIZE}x{SIZE} -> {OUT.relative_to(REPO)} ({len(frames) * SIZE * SIZE} bytes)")
+    print(f"mkturtle: {shape}, {FRAMES} frames of {SIZE}x{SIZE} -> {OUT} ({len(frames) * SIZE * SIZE} bytes)")
     if "--preview" in sys.argv:
         p = sys.argv[sys.argv.index("--preview") + 1]
         preview(frames, p)

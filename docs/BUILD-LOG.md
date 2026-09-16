@@ -9173,3 +9173,40 @@ outlives a power cycle.  It sits beside Colophon (alpha-0.3).
     runner crashed in the HD modes, read every screen at 80 columns, and
     ignored K4510_SYSOPT; the handbook printed one choice for every capped
     setting; NVIM ran a file nobody had saved.
+
+## 2026-09-15 — LOGO keeps the screen it finds, and the turtle may be a bird
+
+Doc: "logo seems to force mode 1. it should respect mode it is started in",
+"turtle sprite should scale with resolution lower res = bigger turtle", and
+"historically logo also had other animals i think like a bird ... can you
+verify?"
+
+It forced MODE 0, not 1 -- it read VICKY's CTRL, remembered the mode, switched
+to MODE 0 for the session and put the old one back at BYE, because its surface
+was a fixed 640x480 and a console laid out for another mode left the status
+bands across the middle of the picture. Now mode_enter only reads the glass:
+GW and GH are variables (160x200 to 1440x1080), the bitmap, the clipping, the
+turtle's placement and the sprite data's address all follow them, and nothing
+is switched or restored.
+
+The turtle keeps its 32 machine pixels in every mode, which is what Doc meant:
+"width in pixels stays same but because of resolution changes apparent size
+seems to grow on lower res screens". It does -- the coarse modes are doubled
+or quartered onto the same glass, sprites with them (core/vicky.c draws them
+into the same half-width line as the layers) -- so a 32-pixel turtle is twice
+the size at 320x240 and four times at 160x200, and small on the HD screens.
+If that reads too small there, a bigger frame set is the fix; not today.
+
+The history checks out: the turtle began as a floor robot, and Logos have let
+it take other shapes since the 1980s -- Atari Logo held up to 15 user shapes
+("cars, planes, human figures, animals"), LCSI's LogoWriter had multi-turtle
+shapes, and Terrapin's Logo still ships shapes to drop on the turtle, "to
+change its shape to, say, a bird or a car". So: SETSHAPE "BIRD reads
+/LANG/LOGO/BIRD.SPR and SETSHAPE "TURTLE brings the turtle back; a shape is
+sixteen frames of 32x32, and tools/mkturtle.py --shape bird draws ours (white
+body, swept grey wings, a yellow beak; drawn at 8x and voted down like the
+turtle).  A name that is not there says so and leaves the turtle standing.
+
+test/logotest.sh (make test): LOGO started in MODE 0, 1 and 2 leaves the
+machine in the mode it found; SETSHAPE loads the bird, refuses a name that is
+not there, and comes back; both .SPR files are sixteen 32x32 frames.

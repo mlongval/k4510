@@ -15,15 +15,29 @@ REPEAT 4 [FD 100 RT 90]
 \screen{shots/logo.png}{LOGO: a square repeated round a circle, drawn
 by the blitter under the console's text.}
 
-The picture is VICKY's 640$\times$480 bitmap \emph{under} the console,
-which is the classic LOGO screen: the turtle draws below and the prompt
-lives above, so you can see what you asked for and what you are asking
-next at once. The turtle itself is a small green turtle, a hardware
-sprite in sixteen headings --- one every 22.5 degrees, drawn once and
-turned by \pth{tools/mkturtle.py} when the machine is built, so turning
-it is a matter of pointing the sprite at the right picture. LOGO puts the
-console into 640$\times$480 for the session, as EhBASIC's
-\verb|GRAPHICS 2| does, and back into the mode it found at \verb|BYE|.
+The picture is VICKY's bitmap \emph{under} the console, which is the
+classic LOGO screen: the turtle draws below and the prompt lives above,
+so you can see what you asked for and what you are asking next at once.
+LOGO draws on the screen it finds --- whatever \verb|MODE| you were in
+when you typed \verb|LOGO|, from 160$\times$200 to the HD
+1440$\times$1080 --- and leaves it that way when you go. The turtle
+itself is a small green turtle, a hardware sprite in sixteen headings ---
+one every 22.5 degrees, drawn once and turned by \pth{tools/mkturtle.py}
+when the machine is built, so turning it is a matter of pointing the
+sprite at the right picture.
+
+The turtle is 32 of the machine's pixels whatever the screen, so it looks
+larger on the coarser ones, where every pixel is drawn twice or four
+times over, and smaller on the HD screens --- as anything else drawn in
+the machine's pixels does.
+
+It need not be a turtle. \verb|SETSHAPE "BIRD| fetches
+\pth{/LANG/LOGO/BIRD.SPR} and the bird flies where the turtle walked;
+\verb|SETSHAPE "TURTLE| brings it back. A shape is sixteen frames of
+32$\times$32, one every 22.5 degrees, and \pth{tools/mkturtle.py} draws
+them --- so anyone may add one. Logo's turtles have taken other shapes
+since the 1980s: Atari Logo's manual offers ``cars, planes, human
+figures, animals''.
 Every line is the
 blitter's, and every number is a real one --- IEEE floating point, done
 by the MATH unit, so a heading is an angle and \verb|SQRT 2| is what it
@@ -38,6 +52,7 @@ should be.
 \texttt{RT n}, \texttt{LT n} & right, left, in degrees \\
 \texttt{PU}, \texttt{PD} & pen up, pen down \\
 \texttt{HT}, \texttt{ST} & hide, show the turtle \\
+\texttt{SETSHAPE "name} & the turtle's shape: \texttt{TURTLE}, \texttt{BIRD} \\
 \texttt{HOME}, \texttt{CS} & to the centre; clear the screen as well \\
 \texttt{SETXY x y} & put it somewhere \\
 \texttt{SETX}, \texttt{SETY}, \texttt{SETH} & one coordinate, or the heading \\

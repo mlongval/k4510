@@ -1432,7 +1432,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * choosing a resolution in the menu is watching it happen.  So an
          * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
-        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 4, 2, 0x20, 0x20 | 6, 0x20 | 6 | 16, 2 | 8, 2 | 8 | 16 };   /* in the menu's order */
+        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 0, 4, 2, 0x20, 0x20 | 6, 0x20 | 6 | 16, 2 | 8, 2 | 8 | 16 };   /* in the menu's order; both 640x480 screens are one CTRL */
           uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
           if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
@@ -1440,6 +1440,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                                                          * 640x480, though it looks just like it. */
               uint8_t m = (uint8_t)(c & (2 | 4 | 8 | 16 | 0x20));
               for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == m) machine = i;
+              /* The two 640x480 entries share that CTRL: layer 0's cell bit says
+               * which of them the machine is in -- 8x16 is 80x30, 8x8 is 80x60 --
+               * so `MODE 0 60` typed at the prompt is noticed and saved, as a
+               * guest's CODEPAGE is (Doc, 2026-09-15). */
+              if (machine == VMODE_640x480 || machine == VMODE_640x480_60)
+                  machine = (vicky_read(0x10) & 0x20) ? VMODE_640x480 : VMODE_640x480_60;
           }
           if (mode_req) {
               if (io_mode_acked()) mode_req = 0;        /* the guest says it has done it */
@@ -1487,6 +1493,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
                       | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
                       | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
+                      | (settings_get(SET_VIDEO_MODE) == VMODE_640x480_60 ? SYSOPT_ROWS60 : 0)   /* 640x480 in 8x8 cells: 80x60 */
                       | (uint8_t)((m1 <= 7 ? m1 : 0) << SYSOPT_MODE_SHIFT)
                       | (mode_pending ? SYSOPT_MODEREQ : 0)); }
         io_set_bands(1, 1,                               /* one row each, when the bands are on (Doc, 2026-09-14) */

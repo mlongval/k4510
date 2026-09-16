@@ -9109,3 +9109,36 @@ stride, so an HD mode's 180 columns dumped nothing. It now takes the glass's
 height and layer 0's map, stride and cell height from VICKY, as the frontend
 does. Nothing had ever run an HD mode headless -- test/modetest.sh does now
 (make test): all six modes, each reporting the size its tables give.
+
+## 2026-09-15 — 640x480 twice, and MODE 0 60
+
+Doc: "can we have both : 640x480x60 and 640x480x30 in the menu". Both, and
+neither needs a mode number of its own -- 0-7 are all spoken for, 3 and 4 being
+the game screens VICKY keeps for programs.
+
+F12 -> Video -> Resolution now lists 640x480 (80x30, 8x16 cells) and
+640x480x60 (80x60, 8x8), both the ROM's MODE 0. The rows travel out in $D521
+bit 1 (SYSOPT_ROWS60, the bit the one-cell margin left free in September) and
+come back in layer 0's cell bit, which the frontend reads to tell the two
+apart -- so `MODE 0 60` and `MODE 0 30` typed at the prompt are noticed and
+saved, as a guest's CODEPAGE is. In the ROM: rows60 / rows60_set beside vmode,
+video_init picking the cell and PROWS from them, mode_do taking the host's
+choice with its request, and MODE's optional second number (parsehex reads the
+pair as written -- 30 and 60 are $30 and $60 -- so no decimal parser was
+needed). The name "640x480" is unchanged, so every k4510.cfg already written
+still loads.
+
+Two faults in our own tooling, both found by the tests for it:
+
+* test/headless.c never read K4510_SYSOPT, though test/capture.c always has --
+  so every test that passed it (NOBOOT, the bands, and my new 80x60 case) was
+  passing a flag that did nothing. It reads it now.
+* doc/guide/mkref.py trimmed a setting's choices by a cap written as a #define
+  naming an enum value (VMODE_MENU_MAX = VMODE_360x270). c_enums knows only
+  enums, so the cap read as 0 and the handbook's Resolution row listed one
+  choice, "640x480", and had done for as long as the cap existed. It resolves
+  such a define now: seven screens, and Sidebar's eleven.
+
+test/uitest.c published a menu index where $D521 carries the ROM's MODE
+number; they parted company when 640x480 became two rows, and it uses
+vmode_number[] now. test/modetest.sh covers both screens and the host's bit.

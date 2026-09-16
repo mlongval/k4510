@@ -79,8 +79,10 @@ int main(void)
     /* 4. the video mode: asked for through the same byte, and never saved below 320x240 */
     settings_defaults();
     settings_set(SET_VIDEO_MODE, VMODE_320x200);
-    io_set_opts((uint8_t)((VMODE_320x200 + 1) << SYSOPT_MODE_SHIFT));
-    CHECK((io_read(IO_SYS_OPTS) >> SYSOPT_MODE_SHIFT) == VMODE_320x200 + 1, "the guest is asked for the mode at $D521");
+    /* $D521 carries the ROM's MODE number, not the menu's index: they parted
+       company when 640x480 became two rows (Doc, 2026-09-15) */
+    io_set_opts((uint8_t)((vmode_number[VMODE_320x200] + 1) << SYSOPT_MODE_SHIFT));
+    CHECK((io_read(IO_SYS_OPTS) >> SYSOPT_MODE_SHIFT) == vmode_number[VMODE_320x200] + 1u, "the guest is asked for the mode at $D521");
     io_set_opts(0);
     CHECK((io_read(IO_SYS_OPTS) & SYSOPT_MODE) == 0, "and the request clears");
 
@@ -96,7 +98,7 @@ int main(void)
     /* the menu will not steer into 320x200 / 160x200 -- 40x25 and 20x25 are not a
      * shell -- but it still shows one when the guest (MODE 3, a game) is in it */
     settings_defaults();
-    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1, "the menu offers six modes, not eight");
+    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1, "the menu offers seven modes (640x480 twice), not nine");
     settings_set(SET_VIDEO_MODE, VMODE_360x270);
     settings_step(SET_VIDEO_MODE, +1);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_640x480, "stepping past the last offered one wraps, not into 320x200");

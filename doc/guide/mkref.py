@@ -109,6 +109,7 @@ DESC = {
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),
     "VI":        (7, "VI [name]", "The modal editor (Chapter 11)."),
+    "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run (Chapter 13)."),
     "PROG":      (7, "PROG [name]", "The programmer's front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler's messages under the text (Chapter 11)."),
 }
 # words that exist twice: the ROM command wins at the prompt, the program is
@@ -245,6 +246,14 @@ def menu():
     enums = {}
     for h in list((REPO / "core").glob("**/*.h")):
         enums.update(c_enums(h.read_text(errors="replace")))
+    # ...and a #define that is only another name for one of them, which is how
+    # the menu's caps are written (VMODE_MENU_MAX = VMODE_360x270).  Without
+    # this the cap read as 0 and every such row listed one choice: Resolution
+    # said "640x480" and nothing else (found 2026-09-15).
+    for h in list((REPO / "core").glob("**/*.h")):
+        for name, val in re.findall(r"#define\s+(\w+)\s+(\w+)", h.read_text(errors="replace")):
+            if val in enums and name not in enums:
+                enums[name] = enums[val]
     ids = [m for m in re.findall(r"^\s*(SET_\w+),", re.search(r"typedef enum \{(.*?)\} set_id;", set_h, re.S).group(1), re.M)]
     set_nc = re.sub(r"/\*.*?\*/", "", set_c, flags=re.S)
     arrays = {n: re.findall(r'"([^"]*)"', body)

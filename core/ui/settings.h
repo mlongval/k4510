@@ -92,8 +92,13 @@ typedef struct {
 /* hd-modes (2026-09-14): the HD family after the three classic shells, so the
  * menu's choices stay one run.  The order is the menu's, not the MODE number:
  * vmode_number[] maps (0 1 2 5 6 7 3 4). */
-enum { VMODE_640x480, VMODE_640x240, VMODE_320x240, VMODE_1440x1080, VMODE_720x540, VMODE_360x270,
+enum { VMODE_640x480, VMODE_640x480_60, VMODE_640x240, VMODE_320x240, VMODE_1440x1080, VMODE_720x540, VMODE_360x270,
        VMODE_320x200, VMODE_160x200, VMODE_COUNT };
+/* 640x480 twice: the same screen in 8x16 cells (80x30, the default since the
+ * one font of 2026-09-14) and in 8x8 (80x60, what it was before).  Both are
+ * the ROM's MODE 0; the rows are SYSOPT_ROWS60 going out, and layer 0's cell
+ * bit coming back, so `MODE 0 60` typed at the prompt is noticed and saved.
+ * Doc, 2026-09-15: "can we have both ... in the menu". */
 extern const unsigned char vmode_number[VMODE_COUNT];
 #define VMODE_MENU_MAX VMODE_360x270   /* the menu offers no less than this.  320x200 and 160x200 are
                                         * for games and for a language that wants the pixels -- 40x25

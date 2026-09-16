@@ -30,7 +30,12 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   triangles, and a display-list coprocessor named SHEILA. Smaller modes
   (640$\times$240, 320$\times$240, 320$\times$200, 160$\times$200) are
   drawn into the same glass, doubled and centred, so the raster is always
-  480 lines however few of them the picture uses.
+  480 lines however few of them the picture uses. The 640$\times$480
+  screen comes two ways in the menu: \emph{640x480}, eighty columns by
+  thirty in tall 8$\times$16 letters, and \emph{640x480x60}, eighty by
+  sixty in 8$\times$8 --- the screen the machine had before it settled on
+  one font. \verb|MODE 0 60| and \verb|MODE 0 30| choose them at the
+  prompt, and the machine remembers which.
 \item \textbf{Sound: MELODY} --- an OPL2, the Yamaha YM3812, at
   \texttt{\$D480}: nine FM voices wired the AdLib's way, an address port,
   a data port and a status register you poll. Any AdLib register list or

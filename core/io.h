@@ -25,7 +25,8 @@
 #define IO_SYS_OPTS    0xD521u   /* R: what the host's menu has switched on, for the ROM */
 #define SYSOPT_CPMCOM  0x01     /*    an unknown word may run a CP/M .COM */
 #define SYSOPT_NOBOOT  0x04     /*    do NOT run /STARTUP.BAT: the way out of one that wedges the machine */
-                                 /* 0x02 was SYSOPT_MARGIN, the one-cell margin: gone 2026-09-14 */
+#define SYSOPT_ROWS60  0x02     /*    640x480 in 8x8 cells: 80x60 instead of 80x30 (Doc, 2026-09-15).
+                                 *    (0x02 was SYSOPT_MARGIN, the one-cell margin, gone 2026-09-14) */
 #define SYSOPT_STATUS  0x08     /*    the status-bar text mode: the console is a scroll region between two static bands */
 #define SYSOPT_MODEREQ 0x10     /*    a mode CHANGE is asked for (the host holds it up for some frames) */
 #define SYSOPT_MODE    0xE0     /*    bits 5-7: the video mode the host wants, ALWAYS published as

@@ -20,6 +20,11 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          copy VI.SAMPLE there)
          NVIM [name]   Neovim, on the Linux, set
          up for the machine: F9 :make, F10 :Run
+         MODE [n [rows]]  the screen: 0 640x480,
+         1 640x240, 2 320x240, 5 1440x1080,
+         6 720x540, 7 360x270.  MODE 0 60 gives
+         640x480 eighty by sixty, MODE 0 30 the
+         big font back; MODE alone says which
          LOAD name [addr]
          SAVE name from.to
          RENAME old new   CP old new

@@ -9,8 +9,9 @@
 #define SETTINGS_VERSION     3
 #define SETTINGS_VERSION_STR "3"
 
-static const char *const vmode_names[] = { "640x480", "640x240", "320x240", "1440x1080", "720x540", "360x270", "320x200", "160x200" };
-const unsigned char vmode_number[VMODE_COUNT] = { 0, 1, 2, 5, 6, 7, 3, 4 };
+/* "640x480" is the 80x30 screen, as every k4510.cfg already saved it */
+static const char *const vmode_names[] = { "640x480", "640x480x60", "640x240", "320x240", "1440x1080", "720x540", "360x270", "320x200", "160x200" };
+const unsigned char vmode_number[VMODE_COUNT] = { 0, 0, 1, 2, 5, 6, 7, 3, 4 };   /* both 640x480 screens are MODE 0 */
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };

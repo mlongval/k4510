@@ -72,11 +72,18 @@ static int snd_mport = 0;
 
 // Compiled-in sound modules:
 
+/* [K4510] the machine's own: DOOM's effects mixed to one 8-bit stream for the
+ * DigiMAX DAC (snd_k4510.c).  doomgeneric's list was empty unless
+ * FEATURE_SOUND, which means SDL_mixer, which the Tube's co-processor does
+ * not have. */
+extern sound_module_t sound_k4510_module;
+
 static sound_module_t *sound_modules[] = 
 {
     #ifdef FEATURE_SOUND
     &DG_sound_module,
     #endif
+    &sound_k4510_module,
     NULL,
 };
 

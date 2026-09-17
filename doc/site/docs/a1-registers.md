@@ -207,6 +207,24 @@ The Tube (`$D800`): Acorn’s answer, refitted. The HOST runs Richard Russell’
 
 The co-processor has its own flat 256 MB; PAGE/HIMEM live there, far beyond the 64 KB view. The co-processor is a process on the host (BBC BASIC, RunCPM’s Z80 as program 3); where none can be started, status reads 0. The console it talks to is JIM, the terminal at `$DA00` (core/term.h).
 
+## The DigiMAX
+
+Generated from `core/digimax.h`.
+
+### The K4510’s DigiMAX
+
+The K4510’s DigiMAX – four 8-bit DACs at `$D4C0`, beside the OPL2.
+
+`$D4C0-$D4C3`*R/W* **`DAC`** 0..3 unsigned 8 bits; `$80` is silence
+
+`$D4C4`*R* ID
+
+`$04`= four DACs are fitted
+
+The design has had it since the machine was drawn (“DigiMAX PCM: built-in, always present”, docs/K4510-Design.md A-09; “`$D480-$D4FF` OPL2, DigiMAX”). It arrived on 2026-09-17, when Doc asked for DOOM’s sound effects “and the engine”. It is the C64 cartridge’s shape and nothing more: no FIFO, no DMA, no interrupt – whatever is in a DAC’s register is what that DAC is putting out, and a program makes sound by changing it quickly.
+
+One thing can write DAC 0 besides a program: a STREAM, which the machine clocks in at a fixed rate on somebody’s behalf. That is how the Tube’s DOOM is heard (core/io.c hands its shared ring over as the stream), in the same spirit as opl2_write_reg(): the co-processor cannot reach a register, so the machine performs the write for it.
+
 ## VICKY, SHEILA and the sprites
 
 Generated from `core/vicky.h`.

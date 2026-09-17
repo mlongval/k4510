@@ -183,7 +183,7 @@ Nothing else in the design depends on that answer.
 | A-06 | Yamaha core | YM3812 (OPL2) default, YM3526 (OPL) selectable |
 | A-07 | OPL3 | Defer to post-v1 |
 | A-08 | FM chip count | 1, with 2 as a stretch goal |
-| A-09 | DigiMAX PCM | Built-in, always present |
+| A-09 | DigiMAX PCM | Built-in, always present (**fitted 2026-09-17**: four DACs at `$D4C0`, `core/digimax.h`) |
 | A-10/11 | Sampler input, userport DAC | Drop |
 | A-12 | Drive sound | Keep |
 | A-13 | Sampling methods | All four selectable |

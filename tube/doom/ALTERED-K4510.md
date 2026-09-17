@@ -105,3 +105,19 @@ single-producer ring. So the driver keeps its register latch per thread and
 ThreadSanitizer is clean over the title music (2026-09-17). Proved end to end
 the same day: the emulator's audio output is silent without DOOM and carries
 the music with it, about 6 dB under OPLPLAY at DOOM's default volume of 8/15.
+
+## Sound effects (2026-09-17)
+
+Added, not edited: **`snd_k4510.c`**, a `sound_module_t` that mixes DOOM's
+eight channels of DMX lumps to one unsigned 8-bit stream at 11025 Hz and
+pushes it into a second ring in the shared segment; the emulator clocks it
+into DAC 0 of the machine's DigiMAX (`core/digimax.c`). `i_sdlsound.c` is in
+the tree from doomgeneric and is not built -- it wants SDL_mixer.
+
+One `[K4510]` edit: `i_sound.c` lists `sound_k4510_module` in
+`sound_modules[]`, which doomgeneric left empty without `FEATURE_SOUND`.
+
+Mono, so stereo separation is ignored. Sound lumps are cached `PU_STATIC` and
+never released, because the mixer thread reads them and the zone must not
+move them; the whole set is about 1.3 MB of a 6 MB zone.
+

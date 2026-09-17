@@ -45,9 +45,12 @@ the AdLib's way, an address port, a data port and a status register you poll.
 Any AdLib register list or instrument patch therefore means what it says on
 this machine. A four-channel sound sequencer at $D5E0 plays through it, in the
 BBC Micro's idiom, which is what BBC BASIC's SOUND and Mad Pascal's Sound use.
-A floating-point MATH unit sits beside it, which the BASICs and LOGO lean on.
-(The machine had four SID chips until September 2026. Appendix C, The Sound,
-and What It Took is the whole story.)
+Beside it at $D4C0 is a DigiMAX: four 8-bit DACs for sampled sound, with
+nothing between a program and the loudspeaker but the register -- $80 is
+silence, and a sound is that number changing quickly. DOOM's gunfire comes out
+of DAC 0. A floating-point MATH unit sits beside it, which the BASICs and LOGO
+lean on. (The machine had four SID chips until September 2026. Appendix C, The
+Sound, and What It Took is the whole story.)
 => A3-SOUND.GMI Appendix C, The Sound, and What It Took
 
  

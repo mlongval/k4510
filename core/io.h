@@ -14,6 +14,7 @@
 #define IO_STORAGE     0xD300u   /* $D300-$D3FF  host filesystem (D-09)  */
 #define IO_SOUND       0xD400u   /* $D400-$D4FF  the sound page: $D400-$D47F is empty (the SIDs, until 2026-09-05) */
 #define IO_FM          0xD480u   /* $D480-$D4FF  OPL2 (YM3812), DigiMAX  */
+#define IO_DIGIMAX     0xD4C0u   /* $D4C0-$D4C3  four 8-bit DACs, $80 = silence; $D4C4 reads $04 (core/digimax.h) */
 /* The OPL2, wired the AdLib's way, so every AdLib register list means what it
  * says here.  The machine's one sound chip.
  *   $D480  W ADDR    the register to write next

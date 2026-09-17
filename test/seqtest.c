@@ -48,6 +48,18 @@ int main(void)
     note(1, -15, 100, 5); note(1, -15, 120, 5);              /* two queued: the second follows the first */
     long first = energy(15), second = energy(15), none = energy(15);
     CHECK(first > 100000 && second > 100000 && none < first / 20, "queue: %ld %ld %ld", first, second, none);
-    printf("%s: the sequencer sounds through the OPL2, holds, releases and queues\n", fails ? "FAIL" : "OK");
+    /* the DigiMAX (core/digimax.h): four DACs at $D4C0, $80 is silence */
+    io_reset(); audio_reset();
+    CHECK(io_read(0xD4C4) == 0x04, "the DigiMAX's ID reads %02X, want 04", io_read(0xD4C4));
+    for (int d = 0; d < 4; d++) CHECK(io_read(0xD4C0 + d) == 0x80, "DAC %d resets to %02X, want 80", d, io_read(0xD4C0 + d));
+    CHECK(energy(5) == 0, "four DACs at rest are not silent");
+    for (int d = 0; d < 4; d++) {
+        io_write(0xD4C0 + d, 0xFF);
+        CHECK(io_read(0xD4C0 + d) == 0xFF, "DAC %d does not read back", d);
+        long e = energy(2);
+        io_write(0xD4C0 + d, 0x80);
+        CHECK(e > 100000 && energy(2) == 0, "DAC %d: $FF made %ld, and $80 must be silence again", d, e);
+    }
+    printf("%s: the sequencer sounds through the OPL2, holds, releases and queues; the DigiMAX's four DACs speak\n", fails ? "FAIL" : "OK");
     return fails ? 1 : 0;
 }

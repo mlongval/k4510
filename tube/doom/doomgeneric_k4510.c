@@ -55,8 +55,9 @@
 /* Bumped when the segment's shape changed to carry the OPL ring (2026-09-17).
  * A host and a child built either side of that change must refuse each other
  * rather than read past one another's ends, and the magic is what says so. */
-#define DOOM_MAGIC 0x4C344D44u        /* "DM4L" */
+#define DOOM_MAGIC 0x4D344D44u        /* "DM4M": bumped again with the PCM ring, the same day */
 #define OPL_RING_N 2048               /* (reg << 8) | val; a burst of music is dozens */
+#define PCM_RING_N 8192               /* unsigned 8-bit at 11025 Hz: three quarters of a second */
 
 struct doom_shm {
     uint32_t magic;
@@ -72,6 +73,10 @@ struct doom_shm {
      * a read could never be the answer to a write across this. */
     uint32_t opl_w, opl_r;
     uint16_t opl_ring[OPL_RING_N];    /* (reg << 8) | val */
+    /* The sound effects, mixed to one stream (snd_k4510.c): we push, the
+     * emulator clocks them into the DigiMAX's DAC 0 at 11025 a second. */
+    uint32_t pcm_w, pcm_r;
+    uint8_t  pcm_ring[PCM_RING_N];
 };
 
 /* The held-key bits.  These are the emulator's; core/io.h names them
@@ -193,6 +198,20 @@ void k4510_opl_write(uint8_t reg, uint8_t val)
         shm->opl_w = w + 1;
     }
     pthread_mutex_unlock(&opl_ring_mutex);
+}
+
+/* The effects mixer's three calls (snd_k4510.c).  One producer -- its thread
+ * -- so no mutex; the byte lands before the count says so, as above. */
+int k4510_pcm_fill(void) { return shm ? (int)(shm->pcm_w - shm->pcm_r) : 0; }
+int k4510_pcm_room(void) { return shm ? PCM_RING_N - (int)(shm->pcm_w - shm->pcm_r) : 0; }
+void k4510_pcm_push(const uint8_t *s, int n)
+{
+    uint32_t w;
+    if (!shm) return;
+    w = shm->pcm_w;
+    for (int i = 0; i < n; i++) shm->pcm_ring[(w + (uint32_t) i) % PCM_RING_N] = s[i];
+    __sync_synchronize();
+    shm->pcm_w = w + (uint32_t) n;
 }
 
 void DG_SleepMs(uint32_t ms)

@@ -31,7 +31,7 @@ SRC = dummy.c am_map.c doomdef.c doomstat.c dstrings.c d_event.c d_items.c \
       tables.c v_video.c wi_stuff.c w_checksum.c w_file.c w_main.c w_wad.c \
       z_zone.c w_file_stdc.c i_input.c i_video.c doomgeneric.c mus2mid.c \
       doomgeneric_k4510.c \
-      midifile.c i_oplmusic.c opl/opl.c opl/opl_queue.c opl_k4510.c
+      midifile.c i_oplmusic.c opl/opl.c opl/opl_queue.c opl_k4510.c snd_k4510.c
 
 OBJS = $(addprefix $(OBJDIR)/, $(SRC:.c=.o))
 

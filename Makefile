@@ -19,7 +19,7 @@ core/io.o: core/build.h
 .PHONY: FORCE
 FORCE:
 
-OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sndq.o core/audio.o
+OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/digimax.o core/vice_clk.o core/sndq.o core/audio.o
 CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
 LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)

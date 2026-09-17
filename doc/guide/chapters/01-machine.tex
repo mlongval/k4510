@@ -42,7 +42,11 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   instrument patch therefore means what it says on this machine. A
   four-channel sound sequencer at \texttt{\$D5E0} plays through it, in the
   BBC Micro's idiom, which is what BBC BASIC's \verb|SOUND| and Mad
-  Pascal's \verb|Sound| use. A floating-point MATH unit sits beside it,
+  Pascal's \verb|Sound| use. Beside it at \texttt{\$D4C0} is a
+  \textbf{DigiMAX}: four 8-bit DACs for sampled sound, with nothing between
+  a program and the loudspeaker but the register --- \texttt{\$80} is
+  silence, and a sound is that number changing quickly. DOOM's gunfire
+  comes out of DAC~0. A floating-point MATH unit sits beside it,
   which the BASICs and LOGO lean on. (The machine had four SID chips
   until September 2026. Appendix~\ref{cha:sound} is the whole story.)
 \item \textbf{K/OS}: a shell with directories, in ROM --- and on the disk,

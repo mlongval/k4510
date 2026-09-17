@@ -9928,3 +9928,42 @@ the .prg was built on p15 with the Makefile's own three commands.
 
 Known: the machine stands still during a fetch (the storage device is
 synchronous, and curl's limit is 120 s -- a slow line will fail Freedoom).
+
+## 2026-09-17 — the DigiMAX is fitted, and DOOM's guns are heard
+
+Doc: "next can we add the sound effects and the engine". The morning's
+answer had been "no effects: they are 11 kHz samples and the machine has no
+DAC" -- true of the emulator, never true of the *machine*: the design table
+has said "A-09 DigiMAX PCM: built-in, always present" since the beginning,
+and io.h's map reads "$D480-$D4FF OPL2, DigiMAX". So "the engine" is that
+chip, arriving.
+
+**core/digimax.c**: four 8-bit DACs at $D4C0-$D4C3, $80 silence, an ID of $04
+at $D4C4, mixed over the FM in audio_render. The cartridge's shape and no
+more -- no FIFO, no DMA, no interrupt. One addition: a *stream* into DAC 0,
+clocked by the machine at a fixed rate on somebody's behalf, which is
+opl2_write_reg()'s idea again: the Tube's co-processor cannot reach a
+register, so the machine performs the write for it.
+
+**tube/doom/snd_k4510.c**: DOOM's effects are DMX lumps, unsigned 8-bit at
+11025 Hz -- the DigiMAX's native tongue. A thread mixes the eight channels
+to one such stream and keeps 50 ms of it ahead in a second ring in the shared
+segment (magic bumped to "DM4M"); core/io.c hands that ring to the DigiMAX as
+its stream while DOOM runs, and takes it away in doom_shm_close.
+
+Measured in the real emulator with the audio written to a file, DOOM driven
+by writing its held-key mask into the segment: the ring moves at ~11.2 kHz,
+and the output goes from ~130 RMS (title music) to 300-590 with peaks of 2000
+once a game is started and the pistol fired. test/seqtest now holds the four
+DACs to: reset to $80, read back, $FF is loud, $80 is silence. TSan clean
+with the mixer thread running.
+
+The 45GS10 has not yet played a sample itself. Nothing stops it: a loop
+poking $D4C0 is all the C64 ever had. A PLAYSAMPLE wants writing.
+
+Also today: Doc offered a second source of WADs, archive.org/download/doom-wads.
+Looked: no licence, filed by the Archive under "clearancebin", and again
+mostly the commercial games in every release. The freeware in it either
+needs ZDoom (Square, Action Doom 2) or is Heretic's replacement (Blasphemer),
+which this engine cannot run. Nothing there to add to WADS.CFG; same why-not
+as this morning's.

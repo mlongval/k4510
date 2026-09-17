@@ -13,6 +13,7 @@ static int dbg_num;
 static int dbg_auto; static uint32_t dbg_auto_next;
 #include "vicky.h"
 #include "opl2.h"
+#include "digimax.h"
 #include "audio.h"
 #include "net.h"
 #include "zip.h"       /* MOUNT GAMES.ZIP /MNT/GAMES */
@@ -1429,14 +1430,17 @@ static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_
  * because the child is a separate process and cannot read a register at all. */
 #define DOOM_W 320
 #define DOOM_H 200
-#define DOOM_MAGIC 0x4C344D44u                   /* "DM4L" -- bumped with the OPL ring */
+#define DOOM_MAGIC 0x4D344D44u                   /* "DM4M" -- bumped with the OPL ring, then the PCM ring */
 #define OPL_RING_N 2048
+#define PCM_RING_N 8192
 struct doom_shm {
     uint32_t magic, seq, held, quit, pal_seq, pad[3];
     uint8_t  pal[256 * 3];
     uint8_t  fb[DOOM_W * DOOM_H];
     uint32_t opl_w, opl_r;                       /* DOOM's music, as OPL2 register writes */
     uint16_t opl_ring[OPL_RING_N];               /* (reg << 8) | val */
+    uint32_t pcm_w, pcm_r;                       /* DOOM's effects: one stream, unsigned 8-bit, 11025 Hz */
+    uint8_t  pcm_ring[PCM_RING_N];
 };
 static struct doom_shm *doom_map;
 /* The console's colours, kept while DOOM wears its own.
@@ -1515,8 +1519,21 @@ int io_tube_doom(void) { return doom_active && doom_map != NULL; }
  * performed first; then all nine voices are keyed off and the rhythm bits
  * cleared.  The instruments DOOM loaded are left: they are inaudible with no
  * key on, and the next program sets its own.  (Review, 2026-09-17.) */
+/* DOOM's effects, a byte at a time: the DigiMAX's stream (core/digimax.h)
+ * calls this 11025 times a second from the audio render, which runs on the
+ * emulation thread -- the same one that maps and unmaps the segment. */
+static int doom_pcm_pull(void)
+{
+    uint32_t r, w;
+    if (!doom_map) return -1;
+    r = doom_map->pcm_r; w = doom_map->pcm_w;
+    if (r == w) return -1;
+    if (w - r > PCM_RING_N) r = w - PCM_RING_N;  /* overrun, or a child gone mad: the newest */
+    { int s = doom_map->pcm_ring[r % PCM_RING_N]; doom_map->pcm_r = r + 1; return s; }
+}
 static void doom_melody_quiet(void)
 {
+    digimax_stream(NULL, 0);                     /* the effects stop with the game, and DAC 0 returns to silence */
     if (!doom_map) return;
     io_tube_opl_drain();
     for (int ch = 0; ch < 9; ch++) opl2_write_reg((uint8_t)(0xB0 + ch), 0);
@@ -1545,6 +1562,7 @@ static int doom_shm_make(void)
     memset(doom_map, 0, sizeof *doom_map);
     doom_map->magic = DOOM_MAGIC;
     doom_seq_seen = doom_pal_seen = 0;
+    digimax_stream(doom_pcm_pull, 11025);        /* DOOM's effects into DAC 0 */
     return 1;
 }
 void io_doom_input(uint32_t held) { if (doom_map) doom_map->held = held; }
@@ -2010,6 +2028,7 @@ static uint8_t io_read_inner(uint16_t addr)
         return vicky_read(addr & 0xFF);
     case IO_SOUND:
         if (addr >= IO_FM && (addr - IO_FM) < 3) return opl2_read((uint8_t)(addr - IO_FM));   /* the OPL2: STATUS, data readback, ID */
+        if (addr >= IO_DIGIMAX && (addr - IO_DIGIMAX) < 5) return digimax_read((uint8_t)(addr - IO_DIGIMAX));   /* the DigiMAX: four DACs and an ID */
         return 0xFF;                                                       /* $D400-$D47F: nothing there (the SIDs, until 2026-09-05) */
     case IO_SYS:
         return sys_read(addr & 0xFF);
@@ -2113,6 +2132,7 @@ void io_write(uint16_t addr, uint8_t v)
         vicky_write(addr & 0xFF, v); return;
     case IO_SOUND:
         if (addr >= IO_FM && (addr - IO_FM) < 2) opl2_write((uint8_t)(addr - IO_FM), v);   /* the OPL2: ADDR, DATA */
+        if (addr >= IO_DIGIMAX && (addr - IO_DIGIMAX) < 4) digimax_write((uint8_t)(addr - IO_DIGIMAX), v);   /* the DigiMAX's four DACs */
         return;
     case IO_MATH:
         math_write(addr & 0xFF, v); return;

@@ -90,6 +90,7 @@ static uint8_t kbd_read(void)
 /* ---- host filesystem -------------------------------------------------- */
 #include <stdio.h>
 #include <dirent.h>
+#include <sys/statvfs.h>
 #include <sys/stat.h>
 static char fs_root[512] = "fs";
 static char fs_cwd[256] = "";            /* relative to fs_root, no leading/trailing slash; "" = root */
@@ -237,6 +238,94 @@ static int fs_url_for(const char *name, char *out, size_t max)
     if (fs_remote[0] && strcmp(name, "-") != 0) { net_url_join(out, max, fs_remote, name); return 1; }
     if (fs_mnt_n && strcmp(name, "-") != 0 && !fs_resolve(name, rel, sizeof rel, loc, sizeof loc) && fs_mount_url(rel, out, max)) return 1;
     return 0;
+}
+/* Where the machine's disk REALLY is, for MOUNT with nothing after it.
+ *
+ * Doc, 2026-09-17: "I would like the mount command on k/os to show the k4510
+ * mounts (just the parts that get the k4510 up) currently if no mounts are
+ * mounted it just says 'no mounts'."  Which was true and useless: the most
+ * interesting thing about this machine's storage -- that the system is in
+ * RAM and what you save is on a disk, and which disk -- was invisible from
+ * inside it.  Only the host can know, so the storage device says
+ * (FS_SYSMOUNTS) and the ROM prints.
+ *
+ * On a K4510 Linux fs_root sits on an overlay: the lower layers are the
+ * system's squashfs files (in RAM when the kernel was given `toram`), the
+ * upper is wherever saved files go -- the persistence partition, or a tmpfs
+ * when there is none.  Anywhere else it is a plain directory, and says so.
+ * Read from /proc, so it is what IS, not what a config file hoped for. */
+static int mnt_for(const char *path, char *src, size_t smax, char *type, size_t tmax, char *opts, size_t omax)
+{
+    FILE *f = fopen("/proc/self/mounts", "r"); char line[4096], s[512], m[512], t[64], o[3072]; size_t best = 0; int hit = 0;
+    if (!f) return 0;
+    while (fgets(line, sizeof line, f)) {
+        size_t l;
+        if (sscanf(line, "%511s %511s %63s %3071s", s, m, t, o) != 4) continue;
+        l = strlen(m);
+        if (strncmp(path, m, l) || (l > 1 && path[l] && path[l] != '/')) continue;
+        if (l < best) continue;
+        best = l; hit = 1;
+        snprintf(src, smax, "%s", s); snprintf(type, tmax, "%s", t); if (opts) snprintf(opts, omax, "%s", o);
+    }
+    fclose(f);
+    return hit;
+}
+static const char *dev_label(const char *dev, char *out, size_t max)   /* "K4510 (nvme0n1p4)", or just the device */
+{
+    DIR *d = opendir("/dev/disk/by-label"); struct dirent *e; const char *base = strrchr(dev, '/'); char *rd = realpath(dev, NULL);
+    base = base ? base + 1 : dev;
+    snprintf(out, max, "%s", base);
+    if (d) {
+        while (rd && (e = readdir(d))) {
+            char p[600], *r; if (e->d_name[0] == '.') continue;
+            snprintf(p, sizeof p, "/dev/disk/by-label/%.300s", e->d_name);
+            if ((r = realpath(p, NULL))) { int same = !strcmp(r, rd); free(r); if (same) { snprintf(out, max, "%.40s (%.40s)", e->d_name, base); break; } }
+        }
+        closedir(d);
+    }
+    free(rd);
+    return out;
+}
+static void size_words(double bytes, char *out, size_t max)
+{
+    if (bytes >= 10.0 * (1u << 30)) snprintf(out, max, "%.0f GB", bytes / (1u << 30));
+    else if (bytes >= (1u << 30)) snprintf(out, max, "%.1f GB", bytes / (1u << 30));
+    else snprintf(out, max, "%.0f MB", bytes / (1u << 20));
+}
+static int fs_sysmount_row(int idx, char *b, size_t max)
+{
+    char src[512], type[64], opts[3072], sz[32], lab[120]; struct statvfs sv; char *root = realpath(fs_root, NULL);
+    int n = 0, ok = root && mnt_for(root, src, sizeof src, type, sizeof type, opts, sizeof opts);
+    b[0] = 0;
+    if (!ok) { if (idx == 0) snprintf(b, max, "/        a directory on the host: %.100s", root ? root : fs_root); free(root); return idx == 0; }
+    if (strcmp(type, "overlay")) {            /* an ordinary computer: one row */
+        if (idx == 0) { sz[0] = 0; if (!statvfs(root, &sv)) size_words((double) sv.f_bavail * sv.f_frsize, sz, sizeof sz);
+                        snprintf(b, max, "/        a directory on the host computer (%s, %s free)", type, sz); }
+        if (idx == 1) { size_t l = strlen(root); snprintf(b, max, "         %s%s", l > 68 ? "..." : "", l > 68 ? root + l - 65 : root); }   /* its own line: a path and the rest do not fit in 80 columns */
+        free(root); return idx <= 1;
+    }
+    /* row 0: the system */
+    if (idx == n++) {
+        FILE *c = fopen("/proc/cmdline", "r"); char cl[2048] = "", *m; int toram; char from[160] = "";
+        if (c) { if (!fgets(cl, sizeof cl, c)) cl[0] = 0; fclose(c); }
+        toram = strstr(cl, " toram") != NULL;
+        if ((m = strstr(cl, "live-media=/dev/"))) { char dev[128]; sscanf(m + 11, "%127s", dev); snprintf(from, sizeof from, " from %s", dev_label(dev, lab, sizeof lab)); }
+        sz[0] = 0; if (!statvfs("/run/live/medium", &sv)) size_words((double)(sv.f_blocks - sv.f_bfree) * sv.f_frsize, sz, sizeof sz);
+        snprintf(b, max, toram ? "/        the system: in RAM, copied at boot%s%s%s" : "/        the system: read%s%s%s", from, sz[0] ? ", " : "", sz);
+    }
+    /* row 1: what is saved -- the overlay's upper directory, and what THAT is on */
+    { char *u = strstr(opts, "upperdir="), up[512] = "", usrc[512], utype[64]; int disk;
+      if (u) { sscanf(u + 9, "%511[^,]", up); }
+      disk = up[0] && mnt_for(up, usrc, sizeof usrc, utype, sizeof utype, NULL, 0) && !strncmp(usrc, "/dev/", 5);
+      if (idx == n++) {
+          if (disk) { sz[0] = 0; if (!statvfs(up, &sv)) size_words((double) sv.f_bavail * sv.f_frsize, sz, sizeof sz);
+                      snprintf(b, max, "/        what you save: on disk, %s, %s free", dev_label(usrc, lab, sizeof lab), sz); }
+          else snprintf(b, max, "/        what you save: in RAM only -- gone at power-off (no persistence)");
+      }
+      if (disk && idx == n++) snprintf(b, max, "/DISK    on disk only: never loaded at boot (see /DISK/README.TXT)");
+    }
+    free(root);
+    return b[0] != 0;
 }
 /* host path for NAMEPTR; for reads, a bare name (no directory part) that is
  * not where we are is looked for along the disk's shape (fs/HOME/README.TXT):
@@ -609,6 +698,13 @@ static void fs_run(uint8_t cmd)
         for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) { found = 1; zip_close(fs_mnt[i].zip); fs_mnt[i] = fs_mnt[--fs_mnt_n]; break; }
         if (!found) st = 1;
         else rmdir(loc);                      /* remove the placeholder directory MOUNT made (only if it is empty) */
+        break; }
+    case FS_SYSMOUNTS: {                  /* the machine's own storage: LEN = index -> a line at ADDR */
+        uint32_t idx = fs_rd32(12); char b[160]; int j, cap = fs_cap ? fs_cap : 256;
+        fs_cap = 0;
+        if (!fs_sysmount_row((int) idx, b, sizeof b)) { st = 4; break; }
+        for (j = 0; b[j] && j < cap - 1; j++) k4510_ram[(addr + j) & K4510_PHYS_MASK] = (uint8_t)b[j];
+        k4510_ram[(addr + j) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t)j);
         break; }
     case FS_MOUNTS: {                     /* list mounts: LEN = index -> "/path  url" at ADDR */
         /* The caller's buffer is fs_cap bytes, as for GETCWD; 256 when it says

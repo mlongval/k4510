@@ -1895,16 +1895,23 @@ static void nav_mount(const char *p)
  * lower, and two of them put MOUNT's own name buffer below the stack, where it
  * was overwritten (test/remote/sidebar.k4r found it, 2026-09-15).  128, and the
  * device told the size ($D318), as GETCWD does. */
+/* First the machine's own storage -- where the system is and where what you
+ * save goes, which only the host knows (FS_SYSMOUNTS, 23) -- then your mounts
+ * (21).  Doc, 2026-09-17: MOUNT alone "just says 'no mounts'", on a machine
+ * whose disk is the most interesting thing about it. */
 static void nav_list(void)
 {
-    char b[128]; uint8_t i; const char *q;
-    for (i = 0; ; i++) {
-        w32(FS + 8, (uint16_t)b); w32(FS + 12, (uint32_t)i); REG(FS + 0x18) = sizeof b;
-        if (fs_cmd(21)) break;
-        for (q = b; *q; q++) k_chrout((uint8_t)*q);
-        newline();
+    char b[128]; uint8_t i, c; const char *q;
+    for (c = 23; ; c = 21) {
+        for (i = 0; ; i++) {
+            w32(FS + 8, (uint16_t)b); w32(FS + 12, (uint32_t)i); REG(FS + 0x18) = sizeof b;
+            if (fs_cmd(c)) break;
+            for (q = b; *q; q++) k_chrout((uint8_t)*q);
+            newline();
+        }
+        if (c == 21) break;
     }
-    if (!i) { puts_("no mounts"); newline(); }
+    if (!i) { puts_("no mounts of your own"); newline(); }
 }
 static void nav(const char *p)
 {

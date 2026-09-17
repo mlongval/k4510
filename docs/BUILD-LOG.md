@@ -10019,3 +10019,21 @@ bootable so dont worry"):
 
 Not done: install-k4510.sh still makes ONE partition on a new install
 (docs/TODO.md). SHIPPING.CFG's ram/disk column likewise.
+
+## 2026-09-17 — the banner after an F12 resolution change, this time for real
+
+Doc: "banner is still not being issued after resolution changes." He was
+right and yesterday's fix was half of one. `cmd_mode` sets `mode_note` and
+returns to the shell loop, which banners -- so the TYPED command worked, and
+that is the route that was tested. The F12 menu's route runs mode_do from
+inside the key poll while the shell is sitting in readline; the poll returns
+ESC "to unstick" the caller, and readline's answer to ESC is to clear the line
+and go on waiting. The flag was set and nobody looked at it until the next
+Enter: a cleared screen with nothing on it, not even a prompt.
+
+readline now returns an empty line when it is handed that ESC with mode_note
+set. Reproduced before fixing, under Xvfb with xdotool driving the real menu:
+old ROM, a blank text screen; new ROM, the banner and `/HOME]`. (The first
+attempt at that test changed the border colour instead of the resolution and
+"passed" -- a marker line on the screen beforehand is what makes a mode change
+unmistakable.) The ROM was built on p15; cc65 is not on ubuntu-s1.

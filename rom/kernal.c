@@ -512,6 +512,13 @@ static uint8_t readline(char *buf, uint8_t max)
             for (i = p; i < n; i++) buf[i] = buf[i + 1];
             rl_tail(buf, p, n, 1); continue;
         }
+        /* An ESC that is really "the F12 menu just changed the mode" (k_getin:
+         * mode_do ran, the screen was cleared, mode_note is set).  The line is
+         * gone from the glass, so give the shell an empty one: its loop then
+         * sees the flag and banners.  Doc, 2026-09-17: "banner is still not
+         * being issued after resolution changes" -- the typed MODE had it, the
+         * menu's route set the flag and then sat here until the next Enter. */
+        if (k == 27 && mode_note) { buf[0] = 0; return 0; }
         if (k == 27) { while (p) { p--; rl_left(); } rl_tail(buf, 0, 0, n); n = 0; continue; }   /* clear the line */
         if (key) {
             switch (k) {

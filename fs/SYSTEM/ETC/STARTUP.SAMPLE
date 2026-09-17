@@ -20,6 +20,9 @@ ALIAS ls dir
 ALIAS dl dir -l
 ALIAS tekplay !tekplay
 ALIAS .. cd ..
+
+# which game DOOM plays, from anywhere: the program lives in DOOM's own folder
+ALIAS WADS /APPS/DOOM/WADCHOOSER
 alias / cd /
 alias less type
 alias HOME cd /HOME

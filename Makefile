@@ -38,7 +38,7 @@ C_EX_NAMES = hello sieve
 BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
 APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
 C_EX_PRGS = $(foreach n,$(C_EX_NAMES),fs/LANG/C/$n.prg)
-DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg
+DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg fs/APPS/DOOM/wadchooser.prg
 
 # The sidebars, as zips in /SYSTEM/SIDEBARS (docs/SIDEBAR-FORMAT.md): each
 # packed from sdl/sidebars/NAME/ by tools/mksidebar.py, the same bytes every
@@ -223,6 +223,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/rangertest.sh
 	./test/deletetest.sh
 	./test/bangtest.sh
+	./test/wadtest.sh
 	./test/keytest.sh
 	./test/dirtest.sh
 	./test/logotest.sh
@@ -310,6 +311,12 @@ fs/APPS/$(call uc,$1)/$1.prg: demo/$1.c demo/k4510.h demo/far.h demo/prg0.o demo
 	ld65 -C demo/prg.cfg -o $$@ demo/prg0.o demo/romcalls.o demo/$1.o none.lib -m demo/$1.map
 endef
 $(foreach n,$(APP_C_NAMES),$(eval $(call APP_C_RULE,$n)))
+# WADCHOOSER lives in DOOM's folder, not one of its own (Doc, 2026-09-17), so
+# the pattern above -- /APPS/NAME/name.prg -- does not fit it.
+fs/APPS/DOOM/wadchooser.prg: demo/wadchooser.c demo/k4510.h demo/prg0.o demo/romcalls.o demo/prg.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/wadchooser.s demo/wadchooser.c
+	ca65 --cpu 65c02 -o demo/wadchooser.o demo/wadchooser.s
+	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/wadchooser.o none.lib -m demo/wadchooser.map
 # the C examples: source on the disk, built by the same tools/k4510-cc that CC NAME runs
 define C_EX_RULE
 fs/LANG/C/$1.prg: fs/LANG/C/$(call uc,$1).C tools/k4510-cc demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg

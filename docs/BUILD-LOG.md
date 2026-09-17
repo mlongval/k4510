@@ -9890,3 +9890,41 @@ redrawn after LOOKING at it.
 
 Not done: the machine's border colour still frames the game in blue between
 the panels and the picture; and stage 3, the game drawing its own bar.
+
+## 2026-09-17 — WADCHOOSER: which game DOOM plays
+
+Doc: "there is a github with doom wads. Can you make a WADCHOOSER.prg in
+/APPS/DOOM that can download the .wad files available there" --
+github.com/Akbar30Bill/DOOM_wads.
+
+Looked at what is there before building anything: eighteen WADs, no licence,
+and most of them the full commercial games -- DOOM, DOOM II, Final DOOM,
+Heretic, Hexen, Strife -- which are still sold. So the program was built, and
+that list was not wired into it. **The why-not:** the K4510 is a public repo
+that ships on images, and a downloader whose catalogue is somebody's
+unlicensed mirror of games on sale is not a thing to put Doc's name on; nor
+is it needed. What ships in `/APPS/DOOM/WADS.CFG` is what its owners let
+anybody pass on: Freedoom 1 and 2 (BSD, from Freedoom's own release zip) and
+id's shareware DOOM1.WAD -- that one taken from the repository Doc named,
+sha1 5b2e249b..., the v1.9 shareware. And WADCHOOSER lists every .WAD it
+finds in the folder whether or not the catalogue knows it, so a WAD Doc owns,
+copied in, is chosen like any other. Heretic/Hexen/Strife would not run
+regardless: the co-processor is the DOOM engine only.
+
+How it works, which is the pleasing part: nothing is downloaded *into* the
+machine. The storage device already treats a URL as a file and mounts a zip
+from a URL, so the 5 KB cc65 program issues MOUNT, COPYFILE, UMOUNT, RMDIR and
+the host moves the 28 MB. The choice is one line, `wad = NAME`, in
+`/APPS/DOOM/DOOM.CFG`; core/io.c reads it when DOOM starts, matching the name
+against the folder's own entries (never joining it to a path), falling back
+to freedoom1.wad and then to the first .wad there is. The log now says which.
+
+Verified: both download routes against the real servers (a bare URL; a file
+out of a zip at a URL -- the mount point tidied after), and DOOM started in
+the real emulator with each: E1M1 of the shareware, Freedoom's Phase 2 title.
+test/wadtest.sh covers the offline half. `ALIAS WADS` in STARTUP.SAMPLE,
+rather than a second copy on the path. cc65 is not installed on ubuntu-s1;
+the .prg was built on p15 with the Makefile's own three commands.
+
+Known: the machine stands still during a fetch (the storage device is
+synchronous, and curl's limit is 120 s -- a slow line will fail Freedoom).

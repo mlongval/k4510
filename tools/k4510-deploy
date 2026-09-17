@@ -34,7 +34,8 @@ say "layer $SHA"
 scp -q "$T/layer" "$DELL:/tmp/k4510.squashfs.new"
 ssh -o BatchMode=yes "$DELL" "set -e
   echo '$SHA  /tmp/k4510.squashfs.new' | sha256sum -c - >/dev/null
-  LIVE=\$(blkid -L K4510LIVE || blkid -L K4510); BIG=/run/live/persistence/\$(basename \$(blkid -L K4510))
+  L=/dev/disk/by-label; [ -b \$L/K4510LIVE ] && LIVE=\$L/K4510LIVE || LIVE=\$L/K4510    # by-label, not blkid: that is in /usr/sbin, off a user's PATH
+  BIG=/run/live/persistence/\$(basename \$(readlink -f \$L/K4510))
   sudo mkdir -p /mnt/k4live; mountpoint -q /mnt/k4live || sudo mount \$LIVE /mnt/k4live
   OLD=\$(sha256sum /mnt/k4live/live/k4510.squashfs | cut -c1-16)
   sudo mkdir -p \$BIG/backup; sudo cp -p /mnt/k4live/live/k4510.squashfs \$BIG/backup/k4510.squashfs.\$OLD

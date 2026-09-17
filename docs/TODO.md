@@ -130,3 +130,5 @@ Fixed the same day except these:
 
 - [x] (done 2026-09-17, rehearsed four ways: test/install-rehearsal.sh) install-k4510.sh: make two partitions on a new internal install (K4510LIVE for /live, K4510 for persistence and /DISK), as k4510-split-live does for an existing one (2026-09-17)
 - [ ] SHIPPING.CFG: a ram/disk column, and the layer build refusing anything marked disk
+
+- [ ] Prune the RAM image (parked by Doc 2026-09-17, "more involved than I anticipated"): measurements and the order to do it in are in docs/PRUNING-THE-IMAGE.md

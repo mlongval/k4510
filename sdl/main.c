@@ -57,6 +57,17 @@ static int shot_flash;              /* frames left of the screenshot's screen in
  * into the machine unseen (Doc, 2026-09-14).  Drawn by the frontend over
  * the picture, never into it: the machine and its screenshots are untouched. */
 static char echo_txt[48]; static int echo_len; static Uint32 echo_until;
+/* The same bar also carries the frontend's own notices -- the volume, so far.
+ * Doc, 2026-09-17: "the laptop hardware sound keys do not seem to do
+ * anything."  They did: the setting had gone 80 -> 100 under his fingers.
+ * But the only sign was a printf to a tty hidden behind the KMS glass, so a
+ * key that worked and a key that did not looked exactly alike. */
+static const char *echo_tag = "remote: ";
+static void echo_note(const char *txt)
+{
+    snprintf(echo_txt, sizeof echo_txt, "%s", txt); echo_len = (int) strlen(echo_txt);
+    echo_tag = ""; echo_until = SDL_GetTicks() + 2000;
+}
 static void echo_key(int k)
 {
     char s[4] = { 0 };
@@ -69,6 +80,7 @@ static void echo_key(int k)
     else if (k >= 0x90 && k <= 0x9B) snprintf(s, sizeof s, "F%d", k - 0x8F);
     else s[0] = (char) 0xFE;                                    /* a key with no mark: a small square */
     int l = (int) strlen(s);
+    if (!*echo_tag) { echo_tag = "remote: "; echo_len = 0; }     /* a notice was showing: keys do not append to it */
     if (echo_len + l > 40) { int drop = echo_len + l - 40; memmove(echo_txt, echo_txt + drop, (size_t)(echo_len - drop)); echo_len -= drop; }
     memcpy(echo_txt + echo_len, s, (size_t) l); echo_len += l;
     echo_until = SDL_GetTicks() + 4000;
@@ -648,10 +660,22 @@ static void bands_overlay(void)
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* the key pipe's echo, left of the MHz */
         echo_banded = 1;
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
-            char buf[64]; snprintf(buf, sizeof buf, " remote: %.*s", echo_len, echo_txt);
+            char buf[64]; snprintf(buf, sizeof buf, " %s%.*s", echo_tag, echo_len, echo_txt);
             band_text(rows - 1, 0, cols - 14, buf, stride, rh, cw, y0);
         }
     }
+}
+/* The volume setting as a gain, 0..32768.  CUBIC, because ears are
+ * logarithmic: the old straight line made 100 -> 50 a drop of 6 dB and each
+ * ten-percent step near the top under 1 dB, which nobody can hear -- half of
+ * why the volume keys "did nothing".  Cubed, a step is 2-3 dB near the top,
+ * 50% is -18 dB and the bottom of the range is properly quiet.  100% is still
+ * unity, so nothing gets louder than it was. */
+static int vol_gain(int vol)
+{
+    static int last = -1, g;
+    if (vol != last) { last = vol; g = (int)((int64_t) vol * vol * vol * 32768 / 1000000); }
+    return g;
 }
 static void line_end(int vol)                 /* the scanline's picture and sound, then on to the next */
 {
@@ -668,7 +692,7 @@ static void line_end(int vol)                 /* the scanline's picture and soun
     io_tube_opl_drain();
     if (sndq_owner() == SNDQ_OWNER_CPU)
     { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-      for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol / 100); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */ }
+      for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */ }
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
     m_cyc = 0;
@@ -1326,7 +1350,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                       else { v += dv; if (v < 0) v = 0; if (v > 100) v = 100; }
                       settings_set(SET_AUDIO_VOLUME, v);
                       settings_save(cfg);
-                      printf("volume %d%%\n", v); fflush(stdout);
+                      { char note[48]; int n = snprintf(note, sizeof note, "volume %3d%% ", v);   /* on the glass: ten cells, CP437 blocks */
+                        for (int i = 0; i < 10; i++) note[n++] = (char)(i < v / 10 ? 0xDB : 0xB0);
+                        note[n] = 0; echo_note(note); }
+                      { char lg[32]; snprintf(lg, sizeof lg, "volume %d%%", v); mlog(lg); }             /* stderr, so the log has it: stdout is a tty nobody sees on the K4510 Linux */
                       break;
                   } }
                 { int lay = settings_get(SET_INPUT_KBD_LAYOUT);   /* the machine's own layout: Ctrl by ITS letter (AZERTY's A), then typing */
@@ -1578,7 +1605,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
                 int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-                for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol / 100); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */
+                for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */
                 if (n > 0) io_audio_fill = (io_audio_fill > 0xFFFF - n) ? 0xFFFF : (uint16_t)(io_audio_fill + n);
@@ -1617,7 +1644,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 menu_close(); snprintf(cmd, sizeof cmd, "VI %s\r", path);
                 for (const char *c = cmd; *c; c++) kbd_push((uint8_t) *c);
             } else {                                                  /* a program is running: typing into it would be wrong -- say what to type */
-                snprintf(echo_txt, sizeof echo_txt, "VI %.44s", path); echo_len = (int) strlen(echo_txt); echo_until = SDL_GetTicks() + 8000;
+                snprintf(echo_txt, sizeof echo_txt, "VI %.44s", path); echo_len = (int) strlen(echo_txt); echo_tag = "remote: "; echo_until = SDL_GetTicks() + 8000;
             }
             break; }
         case ACT_TELNET: if (menu_lock(MENU_LOCK_LINUX)) break;   /* the row is hidden then; this is belt and braces */
@@ -2165,7 +2192,7 @@ tex_done:
            * steps), the panel's CP437 font at 1-3x for the window's height */
           if (echo_len && !echo_banded && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel) {   /* until four seconds after the last key; the bottom band has it when there is one */
               static SDL_Texture *etex; static int etw, eth;
-              char eline[64]; int en = snprintf(eline, sizeof eline, " remote: %.*s ", echo_len, echo_txt);
+              char eline[64]; int en = snprintf(eline, sizeof eline, " %s%.*s ", echo_tag, echo_len, echo_txt);
               int tw = en * 8, th = font_panel_rows;
               if (!etex || etw != tw || eth != th) {
                   if (etex) SDL_DestroyTexture(etex);

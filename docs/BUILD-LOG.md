@@ -9840,3 +9840,20 @@ deploys. With it at 0 no music fix could ever have been heard. Put back to
 the default 80% through F12 > Audio, read off the screen at each step. Not
 yet confirmed by ear -- that is Doc's to do. A volume change wants an
 on-screen sign, as the MODE banner gives a mode change; not done here.
+
+### The volume keys "do nothing" -- they did, invisibly and inaudibly
+
+Doc, after the deploy: "ok sound works now. brightness also. the laptop
+hardware sound keys do not seem to do anything."  The Dell's k4510.cfg said
+otherwise: `audio.volume` had gone 80 -> 100 at 14:39, under his fingers.
+Two things made a working key look dead. The only sign was a printf to
+stdout, which on the K4510 Linux is tty1 behind the KMS glass. And the
+setting was a straight multiplier: 100 -> 50 is 6 dB, a ten-percent step near
+the top under 1 dB, and he was pressing UP from 80.
+
+So: the volume shows on the glass for two seconds, in the bar the key pipe's
+echo already had (`volume  70%` and ten CP437 cells); it goes to the log on
+stderr; and the gain is the setting CUBED, so a step is 2-3 dB near the top
+and 50% is -18 dB. 100% is still unity: nothing got louder. Checked under
+Xvfb with xdotool pressing XF86AudioLowerVolume and Ctrl+Alt+minus: three log
+lines, the cfg saved, the bar read off a capture of the window.

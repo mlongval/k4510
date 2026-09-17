@@ -38,12 +38,14 @@ void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, i
     case SAVER_ANTFARM:   s_antfarm(&c, ms, side & 1); break;
     case SAVER_MATRIX:    s_matrix(&c, ms, side & 1); break;
     case SAVER_DOOM:      s_doom(&c, ms, side & 1); break;
+    case SAVER_NAVIDROME: s_navidrome(&c, ms, side & 1); break;
     default:              s_dreamfall(&c, ms, side & 1); break;
     }
 }
 void saver_option(int which, const char *key, const char *value)
 {
     if (which == SAVER_ANTFARM && key && value) antfarm_option(key, value);
+    if (which == SAVER_NAVIDROME) navi_option(key, value);
 }
 size_t saver_state(int which, uint8_t **buf)
 {

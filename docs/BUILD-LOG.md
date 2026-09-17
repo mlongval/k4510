@@ -10090,3 +10090,59 @@ but not on this disk -- refusing to guess".
 
 Not tested: a real install from a real stick onto real hardware. The Dell is
 already split, so the next fresh machine is the test.
+
+## 2026-09-17 — MOUNT and STATUS say where the machine is; NVIM learns Doc's hands; a fourth mark; a radio
+
+Five asks in one message, and a sixth cut off in mid-sentence ("I would like
+BOOK to") that is waiting on Doc.
+
+**MOUNT alone** used to say "no mounts", on a machine whose storage is the most
+interesting thing about it. Only the host can know, so the storage device
+says (FS_SYSMOUNTS, 23): the emulator reads /proc/self/mounts for the overlay
+fs_root sits on -- the system in RAM and which partition it was loaded from,
+the upper directory and which disk THAT is on (or "in RAM only: gone at
+power-off"), and /DISK. On a desktop: a directory on the host. The ROM prints
+those rows, then the user's mounts.
+
+**STATUS** (/SYSTEM/BIN/status.prg) is the bird's-eye view: build, clock,
+display and text size, the Tube, battery; how much of the 256 MB holds
+anything (64 KB blocks with a non-zero byte -- there is no allocator to ask,
+and that is what a program looking for room wants to know); the Linux
+beneath; the disk rows and the room left; mounts; the network by interface,
+address and Wi-Fi NAME. The host makes the whole report (FS_SYSINFO, 24) and
+the program prints it, because nearly none of it is the 45GS10's to know.
+
+**NVIM**: `jk` is Esc. `nvim shipping.cfg` now opens SHIPPING.CFG -- Doc
+thought nothing could be done about the Linux minding case; k4510-nvim takes a
+name in any case when exactly ONE file matches, and leaves two that differ
+only in case for the user to tell apart. In SHIPPING.CFG, Space in normal mode
+steps a line through essential, maybe, nope, **nuke**, the notes kept in their
+column.
+
+**nuke** is the fourth mark: "the 'nuked' program is added to git ignore and
+no longer updated. We have to start jettisoning some stuff." tools/nuke.py
+(a dry run unless --apply) stops tracking what ships a thing and adds it to
+.gitignore; the image is built from `git archive`, so it is in no image from
+then on. It deletes nothing from a disk, leaves source frozen in the tree,
+and does not touch the Makefile's lists -- each of those is a decision for
+when it bites. Nothing is marked yet.
+
+**The Navidrome sidebar** is the first that DOES something. A thread speaks
+Subsonic to the server, asks for each song as MP3 (the server transcodes: a
+FLAC library costs this machine nothing), reads it from curl, decodes with
+minimp3 (vendored, public domain, sdl/thirdparty), resamples to 48 kHz into a
+ring, and the frontend adds the ring to the machine's sound before the volume.
+Deliberately NOT through MELODY or the DigiMAX: a sidebar is not part of the
+machine, so this is a radio standing beside it. The scene shows what is
+playing in the machine's letters and a spectrum from the samples being heard.
+`rotate = no` keeps it out of the change= hat. Ctrl+Alt+N is the next song.
+
+Tested against a mock Subsonic server and a real MP3: the emulator's audio
+output carries it (peaks ~2600), the panel shows title/artist/album/progress,
+and a harness driving the player as the frontend does measured a skip at
+240 ms of silence and a second stream request. Two things found on the way:
+the password would have been in `ps` (a shell variable expands onto curl's
+command line) -- curl now takes the URL as a config on stdin; and xdotool's
+Ctrl+Alt+N never reached the window under a bare Xvfb, which looked like a
+broken skip for an hour and was the harness. NOT tested: Doc's real server,
+which needs an account this machine is given by him, never one I read.

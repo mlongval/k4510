@@ -24,7 +24,7 @@ static const char *const panel_names[] = { "off", "registers" };
  * the short array is only reached when there are no zips -- and the handbook's
  * generator, which reads this line, quietly dropped matrix from the list of
  * sidebars in Chapter 1. */
-static const char *const sidebar_names[]= { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom" };
+static const char *const sidebar_names[]= { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom", "navidrome" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const lid_names[]   = { "keep running", "suspend" };
 static const char *const pipe_names[]  = { "off", "on", "on, shown" };

@@ -124,6 +124,7 @@ enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_KNOT,
        SIDEBAR_HALLOWEEN, SIDEBAR_CHRISTMAS, SIDEBAR_SPACE, SIDEBAR_RIVER, SIDEBAR_DREAMFALL, SIDEBAR_TETRIS, SIDEBAR_ANTFARM,   /* sdl/savers.c, in SAVER_* order */
        SIDEBAR_MATRIX,      /* the digital rain (Doc, 2026-09-16); appended, so the numbers above it stay */
        SIDEBAR_DOOM,        /* the first gamebar (Doc, 2026-09-17; docs/GAMEBARS.md); appended likewise */
+       SIDEBAR_NAVIDROME,   /* a radio beside the machine (Doc, 2026-09-17): the first sidebar that DOES something */
        SIDEBAR_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */
 enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CHORD_COUNT };

@@ -691,7 +691,7 @@ static void line_end(int vol)                 /* the scanline's picture and soun
      * so the frame hook would be far too coarse.  Cheap and silent otherwise. */
     io_tube_opl_drain();
     if (sndq_owner() == SNDQ_OWNER_CPU)
-    { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
+    { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256); navi_mix(tmp, n);   /* the Navidrome sidebar's music, when it is playing: before the volume, so the volume governs it */
       for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */ }
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
@@ -1342,6 +1342,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                       if (k == SDLK_EQUALS || k == SDLK_PLUS || k == SDLK_KP_PLUS) dv = 10;
                       else if (k == SDLK_MINUS || k == SDLK_KP_MINUS) dv = -10;
                       else if (k == SDLK_0 || k == SDLK_KP_0) mute = 1;
+                      else if (k == SDLK_n) { navi_next(); echo_note("next song"); mlog("navidrome: next song"); break; }   /* the Navidrome sidebar: nothing happens when it is not playing */
                   }
                   if (dv || mute) {
                       static int was;                      /* what to come back to after a mute */
@@ -1604,7 +1605,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             int vol = settings_get(SET_AUDIO_VOLUME);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
-                int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
+                int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256); navi_mix(tmp, n);   /* the Navidrome sidebar's music, when it is playing: before the volume, so the volume governs it */
                 for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */
@@ -1852,8 +1853,11 @@ tex_done:
                     if (i >= 0 && sidebars_count()) {
                         sidebars_prepare(i);
                         if (b2 >= SIDEBAR_HALLOWEEN) { const char *d = sidebars_opt(i, "day"); saver_option(b2 - SIDEBAR_HALLOWEEN, "day", d ? d : "real"); }
+                        if (b2 == SIDEBAR_NAVIDROME) { static const char *const nk[] = { "server", "user", "password", "play" };   /* the radio's options, read again when the file changes */
+                                                       for (int q = 0; q < 4; q++) saver_option(SAVER_NAVIDROME, nk[q], sidebars_opt(i, nk[q])); }
                     }
                 }
+                navi_active(sidebars_builtin(shown[0]) == SIDEBAR_NAVIDROME || sidebars_builtin(shown[1]) == SIDEBAR_NAVIDROME);   /* it plays while it is on the glass */
                 if (!state_at) state_at = tn;
                 if (tn - state_at >= 300000) { state_at = tn; sidebar_save_states(); }
             }

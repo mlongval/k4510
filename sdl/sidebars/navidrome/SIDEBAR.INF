@@ -1,0 +1,8 @@
+# NAVIDROME.ZIP -- docs/SIDEBAR-FORMAT.md
+name    = Navidrome
+about   = A radio beside the machine: plays your music server.
+author  = K4510
+version = 1
+season  =
+rotate  = no
+draw    = builtin navidrome

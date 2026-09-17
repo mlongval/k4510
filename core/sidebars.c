@@ -13,7 +13,7 @@
 
 /* the emulator's own drawings, by the names draw = builtin NAME uses */
 static const char *const builtin_keys[SIDEBAR_COUNT] = {
-    "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom" };
+    "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom", "navidrome" };
 #define MAXSB 64
 static sidebar_info list[MAXSB];
 static const char *labels[MAXSB];
@@ -53,6 +53,7 @@ static int parse_inf(const uint8_t *text, uint32_t len, sidebar_info *si)
         else if (!strcmp(k, "about")) snprintf(si->about, sizeof si->about, "%s", v);
         else if (!strcmp(k, "version")) si->version = atoi(v);
         else if (!strcmp(k, "game")) snprintf(si->game, sizeof si->game, "%s", v);
+        else if (!strcmp(k, "rotate") && !strcasecmp(v, "no") && !si->game[0]) snprintf(si->game, sizeof si->game, "-");   /* chosen by hand only, like a gamebar: a radio that started itself on a timer would be a fault */
         else if (!strcmp(k, "season")) {
             for (char *p = v; *p; ) { int m = (int) strtol(p, &p, 10); if (m >= 1 && m <= 12) si->months |= 1u << (m - 1); while (*p && !isdigit((unsigned char) *p)) p++; }
         } else if (!strcmp(k, "draw") && !strncmp(v, "builtin", 7) && (v[7] == ' ' || v[7] == '\t'))

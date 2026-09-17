@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_MATRIX, SAVER_DOOM, SAVER_COUNT };
+enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_MATRIX, SAVER_DOOM, SAVER_NAVIDROME, SAVER_COUNT };
 
 /* which: SAVER_*; px: w x h ARGB pixels, pitch in pixels; ms: a clock in
  * milliseconds; side: 0 left, 1 right (each side its own scene and seed). */
@@ -25,4 +25,9 @@ void   saver_option(int which, const char *key, const char *value);
 size_t saver_state(int which, uint8_t **buf);
 void   saver_restore(int which, const uint8_t *buf, size_t n);
 
+/* the Navidrome sidebar's player (sdl/sidebars/navidrome.c): whether it is on the
+ * glass, its music added to n samples of the machine's, and the next song */
+void navi_active(int on);
+void navi_mix(int16_t *out, int n);
+void navi_next(void);
 #endif

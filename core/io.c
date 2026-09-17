@@ -316,7 +316,7 @@ static int fs_sysmount_row(int idx, char *b, size_t max)
         toram = strstr(cl, " toram") != NULL;
         if ((m = strstr(cl, "live-media=/dev/"))) { char dev[128]; sscanf(m + 11, "%127s", dev); snprintf(from, sizeof from, " from %s", dev_label(dev, lab, sizeof lab)); }
         sz[0] = 0; if (!statvfs("/run/live/medium", &sv)) size_words((double)(sv.f_blocks - sv.f_bfree) * sv.f_frsize, sz, sizeof sz);
-        snprintf(b, max, toram ? "/        the system: in RAM, copied at boot%s%s%s" : "/        the system: read%s%s%s", from, sz[0] ? ", " : "", sz);
+        snprintf(b, max, toram ? "/        the system: in RAM, loaded%s%s%s" : "/        the system: read%s%s%s", from, sz[0] ? ", " : "", sz);   /* under 76 columns with a long label: STATUS indents it by two */
     }
     /* row 1: what is saved -- the overlay's upper directory, and what THAT is on */
     { char *u = strstr(opts, "upperdir="), up[512] = "", usrc[512], utype[64]; int disk;

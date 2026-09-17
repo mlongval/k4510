@@ -193,7 +193,7 @@ on, off; to begin with, off
 centre, left, right; to begin with, centre
 
 **`Sidebar`** — *video.sidebars*  
-border, gradient, knot, registers, halloween, christmas, space, river, dreamfall, tetris, antfarm, matrix, doom; to begin with, border
+border, gradient, knot, registers, halloween, christmas, space, river, dreamfall, tetris, antfarm, matrix, doom, navidrome; to begin with, border
 
 **`Edit options...`** —   
 does it

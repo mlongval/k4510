@@ -1,0 +1,145 @@
+#!/usr/bin/env python3
+"""k4510-brightness -- the laptop's brightness keys, on a machine with no desktop.
+
+Doc, 2026-09-17: "The brightness keys don't need to go to SDL they need to
+tell the BIOS or whatever driver that I want to adjust brightness."
+
+Quite right, and the first plan (a case beside the emulator's volume keys) was
+wrong.  Brightness belongs to the host, not to the machine -- the same reason
+the handbook says the keyboard layout "is not set here, and cannot be": the
+Linux beneath translates the key long before the ROM would see it.  On a
+normal desktop the session manager reads the key and writes the backlight; the
+K4510x has no desktop, so nothing was listening and the keys did nothing.
+
+There is no BIOS call in it.  The ACPI/WMI driver turns the keypress into an
+input event, and the intel_backlight driver exposes the level as a file; this
+carries one to the other.
+
+Reading the devices does NOT take them from the emulator: the kernel hands an
+input event to every reader unless somebody asks for EVIOCGRAB, and SDL does
+not (sdl/main.c grabs the mouse pointer only).
+
+Five devices on this laptop claim the brightness keycodes -- the AT keyboard,
+the Video Bus, Intel HID events, Dell WMI hotkeys and the touchpad's companion
+-- and one press can arrive from several at once.  Presses inside DEBOUNCE of
+each other therefore count once, or a single tap would jump five steps.
+"""
+import errno, glob, os, select, struct, sys, time
+
+# linux/input-event-codes.h
+EV_KEY = 0x01
+KEY_BRIGHTNESSDOWN = 224
+KEY_BRIGHTNESSUP = 225
+
+# struct input_event on 64-bit: two longs of timeval, then type, code, value
+EV_FMT = "llHHi"
+EV_SIZE = struct.calcsize(EV_FMT)
+
+BACKLIGHT = "/sys/class/backlight"
+STEP = 0.10          # of the full range, per press
+MIN_FRAC = 0.02      # never all the way off: a black screen looks like a crash
+DEBOUNCE = 0.08      # seconds; one press, however many devices report it
+
+
+def backlight_dir():
+    for d in sorted(glob.glob(os.path.join(BACKLIGHT, "*"))):
+        if os.path.exists(os.path.join(d, "brightness")):
+            return d
+    return None
+
+
+def devices_with_brightness():
+    """Every /dev/input/event* whose device claims the brightness keycodes."""
+    out = []
+    for d in sorted(glob.glob("/sys/class/input/input*")):
+        try:
+            bits = open(os.path.join(d, "capabilities/key")).read().split()
+        except OSError:
+            continue
+        val = 0
+        for i, g in enumerate(reversed(bits)):
+            val |= int(g, 16) << (64 * i)
+        if (val >> KEY_BRIGHTNESSUP) & 1 or (val >> KEY_BRIGHTNESSDOWN) & 1:
+            for f in os.listdir(d):
+                if f.startswith("event"):
+                    out.append("/dev/input/" + f)
+    return out
+
+
+def main():
+    bl = backlight_dir()
+    if not bl:
+        print("k4510-brightness: no backlight in /sys/class/backlight; nothing to do")
+        return 0
+    with open(os.path.join(bl, "max_brightness")) as f:
+        vmax = int(f.read().strip())
+    path = os.path.join(bl, "brightness")
+    step = max(1, int(vmax * STEP))
+    vmin = max(1, int(vmax * MIN_FRAC))
+
+    # The Video Bus can register after this starts, early in a boot: look for
+    # half a minute before deciding the machine simply has no such keys.
+    fds = {}
+    for _ in range(30):
+        for dev in devices_with_brightness():
+            try:
+                fds[os.open(dev, os.O_RDONLY | os.O_NONBLOCK)] = dev
+            except OSError as e:
+                if e.errno not in (errno.EACCES, errno.ENOENT):
+                    raise
+        if fds:
+            break
+        time.sleep(1)
+    if not fds:
+        print("k4510-brightness: no input device claims the brightness keys")
+        return 0
+    print(f"k4510-brightness: {bl}, step {step} of {vmax}, watching {len(fds)} device(s)")
+    sys.stdout.flush()
+
+    last = 0.0
+    while True:
+        if not fds:
+            print("k4510-brightness: every input device went away; restarting")
+            return 1                   # Restart=on-failure finds them again
+        r, _, _ = select.select(list(fds), [], [])
+        for fd in r:
+            while True:
+                try:
+                    data = os.read(fd, EV_SIZE)
+                except BlockingIOError:
+                    break
+                except OSError:
+                    # The device went away (ENODEV: a resume, a re-enumeration).
+                    # Left in the set it would select as readable for ever and
+                    # spin this loop at 100% of a core.
+                    os.close(fd)
+                    del fds[fd]
+                    break
+                if len(data) < EV_SIZE:
+                    break
+                _, _, etype, code, value = struct.unpack(EV_FMT, data)
+                if etype != EV_KEY or value == 0:      # key-up: ignore
+                    continue
+                if code not in (KEY_BRIGHTNESSUP, KEY_BRIGHTNESSDOWN):
+                    continue
+                now = time.monotonic()
+                if now - last < DEBOUNCE:              # the same press, another device
+                    continue
+                last = now
+                try:
+                    with open(path) as f:
+                        cur = int(f.read().strip())
+                except OSError:
+                    continue
+                cur += step if code == KEY_BRIGHTNESSUP else -step
+                cur = max(vmin, min(vmax, cur))
+                try:
+                    with open(path, "w") as f:
+                        f.write(str(cur))
+                except OSError as e:
+                    print(f"k4510-brightness: cannot write {path}: {e}")
+                    sys.stdout.flush()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -404,6 +404,10 @@ systemctl enable k4510-persistence-sync.service
 # tree over the rootfs but never reaches these lines -- the same trap that
 # shipped the telnet login twice without it working.
 systemctl enable k4510-tailscale-hosts.service k4510-tailscale-hosts.timer 2>/dev/null || true
+# The brightness keys: nothing else on this machine listens for them (no
+# desktop session), so they did nothing at all.  Shipped pre-enabled as a
+# .wants symlink too, for the REBUILD path that never reaches these lines.
+systemctl enable k4510-brightness.service 2>/dev/null || true
 systemctl enable keyboard-setup.service console-setup.service 2>/dev/null || true   # the console keymap machinery (setupcon/ckbcomp)
 systemctl enable k4510-keymap.service 2>/dev/null || true                           # apply the boot menu's k4510.kbd= before tty1
 setupcon --save-only 2>/dev/null || true   # bake the default (US) keymap cache (chroot-safe)

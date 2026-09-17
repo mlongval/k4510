@@ -1,0 +1,25 @@
+[Unit]
+# The brightness keys, which nothing else on this machine listens for: there is
+# no desktop session here to read them, so they did nothing at all until this
+# existed (Doc, 2026-09-17).  See /usr/local/sbin/k4510-brightness.
+Description=Brightness keys -> the backlight driver
+# No After=multi-user.target: this is WantedBy that target, and being ordered
+# after the thing that pulls you in is an ordering cycle, which systemd breaks
+# by deleting a job -- quite possibly this one.  The script waits for its input
+# devices itself.
+
+[Service]
+Type=simple
+# root, because /sys/class/backlight/*/brightness is root-owned.  It reads the
+# input devices alongside the emulator rather than taking them from it: the
+# kernel gives an input event to every reader unless one asks for EVIOCGRAB,
+# and SDL asks only for the mouse pointer.
+ExecStart=/usr/local/sbin/k4510-brightness
+Restart=on-failure
+RestartSec=5
+# Nothing it needs beyond the two files it touches.
+ProtectHome=yes
+PrivateTmp=yes
+
+[Install]
+WantedBy=multi-user.target

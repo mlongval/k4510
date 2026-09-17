@@ -431,14 +431,14 @@ echo "== Mad Pascal =="
 # already defaults to, so `make pascal` works with no overrides at all.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c '
 set -e
-mkdir -p ~/Projects/neo6502_dev && cd ~/Projects/neo6502_dev
+mkdir -p ~/Projects/K4510/toolchain && cd ~/Projects/K4510/toolchain
 git clone --depth 1 https://github.com/tebe6502/Mad-Pascal.git
 git clone --depth 1 https://github.com/tebe6502/Mad-Assembler.git
 cd Mad-Assembler && fpc -Mdelphi -O2 mads.pas
 ' || { echo "build-live.sh: MAD PASCAL CHECKOUTS FAILED"; exit 1; }
 # install.py grafts the K4510 target in and rebuilds mp with FPC.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-    'cd ~/k4510 && python3 pascal/install.py ~/Projects/neo6502_dev/Mad-Pascal' \
+    'cd ~/k4510 && python3 pascal/install.py ~/Projects/K4510/toolchain/Mad-Pascal' \
     || { echo "build-live.sh: THE K4510 MAD PASCAL TARGET DID NOT INSTALL"; exit 1; }
 # Prove the whole chain works here rather than discovering it on the laptop.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make pascal' \

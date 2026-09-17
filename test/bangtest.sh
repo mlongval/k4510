@@ -20,7 +20,8 @@ echo "$out" | grep -q 'BANG42' && { echo "$out"; echo "bangtest: FAILED: a locke
 # PAS / CC: the compilers beside the machine (tools/k4510-pas, tools/k4510-cc)
 # compile a source in the machine's directory into a .prg that then RUNs.
 # Only where the toolchain is: mp+mads at the Makefile's defaults, cc65 on PATH.
-MP_DIR=${MP_DIR:-$HOME/Projects/neo6502_dev/Mad-Pascal}
+TC=$HOME/Projects/K4510/toolchain; [ -d "$TC/Mad-Pascal" ] || TC=$HOME/Projects/neo6502_dev   # an image whose base predates the move
+MP_DIR=${MP_DIR:-$TC/Mad-Pascal}
 [ -x "$HOME/opt/cc65/bin/cc65" ] && PATH="$HOME/opt/cc65/bin:$PATH"
 export PATH="$PWD/tools:$PATH"
 if [ -x "$MP_DIR/bin/mp" ] && command -v cc65 >/dev/null 2>&1; then

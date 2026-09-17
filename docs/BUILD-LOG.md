@@ -10037,3 +10037,28 @@ old ROM, a blank text screen; new ROM, the banner and `/HOME]`. (The first
 attempt at that test changed the border colour instead of the resolution and
 "passed" -- a marker line on the screen beforehand is what makes a mode change
 unmistakable.) The ROM was built on p15; cc65 is not on ubuntu-s1.
+
+## 2026-09-17 — the toolchain gets an honest name; docs/STORAGE.md
+
+Doc asked why `neo6502_dev` was still in ~/Projects. Because the K4510 builds
+its Pascal with it: Mad Pascal and the Mad Assembler live there, and the
+Makefile, k4510-pas, build-live.sh and the Containerfile all said so. "move
+neo6502_dev to ~/Projects/K4510/toolchain": moved, on ubuntu-s1 and p15, every
+reference repointed, hello.prg byte-identical afterwards, pastest and bangtest
+green.
+
+The trap, seen before shipping: on a K4510 Linux the toolchain is in the BASE
+image, at the old path, and a deploy replaces only the layer -- so the new
+k4510-pas would have looked in a directory the Dell does not have. Makefile,
+k4510-pas and bangtest look in the new place and then the old. The base
+catches up at its next full build.
+
+A correction to today's own entries: cc65 IS on ubuntu-s1, in ~/opt/cc65/bin
+(k4510-pas adds it to PATH; a bare shell does not have it). The ROM and
+WADCHOOSER were built on p15 for nothing -- rebuilt here, byte for byte the
+same as what p15 made.
+
+Also: Doc asked for "an overview of the disk structure (on disk) and then the
+boot process and what ends up where". docs/STORAGE.md. The Dell's screenshots
+were deleted at his word ("they are not needed anymore. More will come"); the
+big partition holds 59 MB.

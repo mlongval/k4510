@@ -23,8 +23,14 @@
 # Exit status is the compiler's, so RC in a REXX script is 0 on success.
 set -u
 K4510=${K4510:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}
-MP_DIR=${MP_DIR:-$HOME/Projects/neo6502_dev/Mad-Pascal}
-MADS=${MADS:-$HOME/Projects/neo6502_dev/Mad-Assembler/mads}
+# The toolchain moved on 2026-09-17 (Doc: "move neo6502_dev to
+# ~/Projects/K4510/toolchain" -- the old name said Neo6502 and the K4510
+# depended on it).  A K4510 Linux whose BASE image was built before that still
+# has it at the old place, and the base is 800 MB and rebuilt a few times a
+# year, so the old place is still looked in.
+TC=$HOME/Projects/K4510/toolchain; [ -d "$TC/Mad-Pascal" ] || TC=$HOME/Projects/neo6502_dev
+MP_DIR=${MP_DIR:-$TC/Mad-Pascal}
+MADS=${MADS:-$TC/Mad-Assembler/mads}
 [ $# -ge 1 ] || { echo "usage: k4510-pas NAME[.pas]   (compiles NAME.pas into NAME.prg beside it)" >&2; exit 2; }
 ERR=
 [ -n "${K4510_ROOT:-}" ] && [ -d "$K4510_ROOT/SYSTEM/LOG" ] && ERR=$K4510_ROOT/SYSTEM/LOG/MAKE.ERR

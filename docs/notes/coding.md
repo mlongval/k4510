@@ -617,8 +617,8 @@ The state as of 2026-08-27, after installing what was absent:
 | nasm | `tube/bbcbasic` | `~/.local/bin` 2.16.03 | `/usr/bin` 2.16.03 | `/usr/bin` 3.02 | `/usr/bin` 3.02 |
 | ACME 0.97 | `rom/wozmon.bin`, `rom/demo.bin` | `~/.local/bin` | `~/.local/bin` | `~/.local/bin` | `~/.local/bin` |
 | 64tass 1.60.3243 | `fs/FORTH/forth.prg` | `~/.local/bin` | `/usr/local/bin` | `/usr/bin` | `/usr/bin` |
-| Mad Pascal 1.7.8 | `demo/pas/*.pas` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` |
-| Mad Assembler 2.1.8 | the same | `~/Projects/neo6502_dev/` | `~/Projects/neo6502_dev/` | symlink to `~/src/` | `~/Projects/neo6502_dev/` |
+| Mad Pascal 1.7.8 | `demo/pas/*.pas` | `~/Projects/K4510/toolchain/` | `~/Projects/K4510/toolchain/` | `~/Projects/K4510/toolchain/` | `~/Projects/K4510/toolchain/` |
+| Mad Assembler 2.1.8 | the same | `~/Projects/K4510/toolchain/` | `~/Projects/K4510/toolchain/` | symlink to `~/src/` | `~/Projects/K4510/toolchain/` |
 | Free Pascal | rebuilding `mp` | `~/opt/fpc` 3.2.2 | `/usr/bin` 3.2.2 | `/usr/bin` 3.2.3 | `/usr/bin` 3.2.3 |
 | aarch64 15.2 | the Pi kernel | - | - | - | `~/opt/arm-gnu-...` |
 | XeLaTeX | the handbook | `/usr/bin` | **MISSING** | **MISSING** | **MISSING** |
@@ -651,7 +651,7 @@ its own.
 
 One wrinkle: `demo/pas/*.lst` records mads's `-i:` path in its second
 line, so the listings only reproduce when Mad Pascal sits at the canonical
-`~/Projects/neo6502_dev/Mad-Pascal`. Build it elsewhere and you get a
+`~/Projects/K4510/toolchain/Mad-Pascal`. Build it elsewhere and you get a
 one-line diff that is not a code difference.
 
 ubuntu-s1 has no passwordless sudo, so its fpc is the official

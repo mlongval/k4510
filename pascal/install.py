@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install the K4510 target into a Mad-Pascal checkout and rebuild mp.
 
-    pascal/install.py [MP_DIR]      (default: ~/Projects/neo6502_dev/Mad-Pascal)
+    pascal/install.py [MP_DIR]      (default: ~/Projects/K4510/toolchain/Mad-Pascal)
 
 Copies pascal/mp/base and pascal/mp/lib over the checkout (new files only:
 base/rtl6502_k4510.asm, base/k4510/, lib/*_k4510.inc, lib/k4510.pas),
@@ -11,7 +11,7 @@ patch is small enough to send upstream one day.
 """
 import os, sys, shutil, subprocess, re
 here = os.path.dirname(os.path.abspath(__file__))
-mp = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser('~/Projects/neo6502_dev/Mad-Pascal'))
+mp = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else os.path.expanduser('~/Projects/K4510/toolchain/Mad-Pascal'))
 if not os.path.isfile(os.path.join(mp, 'src', 'Targets.pas')):
     sys.exit(f'{mp}: not a Mad-Pascal checkout (no src/Targets.pas)')
 # 1. files

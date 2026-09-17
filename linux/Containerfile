@@ -36,11 +36,11 @@ RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
 # and MADS at the paths the Makefile defaults to, the K4510 target grafted in,
 # the C startup objects built.  PAS name / CC name at the prompt run
 # tools/k4510-pas and tools/k4510-cc through `!`, so tools/ goes on PATH.
-RUN mkdir -p ~/Projects/neo6502_dev && cd ~/Projects/neo6502_dev \
+RUN mkdir -p ~/Projects/K4510/toolchain && cd ~/Projects/K4510/toolchain \
     && git clone -q --depth 1 https://github.com/tebe6502/Mad-Pascal.git \
     && git clone -q --depth 1 https://github.com/tebe6502/Mad-Assembler.git \
     && (cd Mad-Assembler && fpc -Mdelphi -O2 mads.pas >/dev/null) \
-    && cd ~/k4510 && python3 pascal/install.py ~/Projects/neo6502_dev/Mad-Pascal >/dev/null \
+    && cd ~/k4510 && python3 pascal/install.py ~/Projects/K4510/toolchain/Mad-Pascal >/dev/null \
     && make demo/prg0.o demo/romcalls.o \
     && mkdir /tmp/prove && cd /tmp/prove && cp ~/k4510/fs/LANG/PASCAL/HELLO.PAS ~/k4510/fs/LANG/C/SIEVE.C . \
     && PATH=~/k4510/tools:$PATH k4510-pas hello && PATH=~/k4510/tools:$PATH k4510-cc sieve \

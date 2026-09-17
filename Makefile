@@ -249,8 +249,11 @@ clean-demos:
 # disk beside their .prg (fs/LANG/PASCAL/NAME.PAS -> name.prg), compiled by
 # the same tools/k4510-pas that PAS NAME runs at the prompt.  mp from a
 # checkout the K4510 target was installed into, MADS beside it.
-MP_DIR ?= $(HOME)/Projects/neo6502_dev/Mad-Pascal
-MADS   ?= $(HOME)/Projects/neo6502_dev/Mad-Assembler/mads
+# ~/Projects/K4510/toolchain since 2026-09-17; ~/Projects/neo6502_dev before, and
+# still inside any K4510 Linux whose base image predates the move.
+TOOLCHAIN := $(firstword $(wildcard $(HOME)/Projects/K4510/toolchain $(HOME)/Projects/neo6502_dev) $(HOME)/Projects/K4510/toolchain)
+MP_DIR ?= $(TOOLCHAIN)/Mad-Pascal
+MADS   ?= $(TOOLCHAIN)/Mad-Assembler/mads
 PAS_NAMES = hello pfloat pgraph pmandel psieve
 PAS_PRGS = $(foreach n,$(PAS_NAMES),fs/LANG/PASCAL/$n.prg)
 pascal-prgs: $(PAS_PRGS)

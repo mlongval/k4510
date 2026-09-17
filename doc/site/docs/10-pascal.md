@@ -77,7 +77,7 @@ That is `demo/pas/pmandel.pas`: the Mandelbrot set, 78 by 28 cells in the machin
 
 ### Building
 
-On the desktop, with FPC and a Mad-Pascal checkout (the installer patches its target table and rebuilds `mp`). It looks for the checkout in ` /Projects/neo6502_dev/Mad-Pascal` unless `MP_DIR` says otherwise:
+On the desktop, with FPC and a Mad-Pascal checkout (the installer patches its target table and rebuilds `mp`). It looks for the checkout in ` /Projects/K4510/toolchain/Mad-Pascal` unless `MP_DIR` says otherwise:
 
     make pascal-install    # once; MP_DIR=... to point elsewhere
     make pascal            # fs/LANG/PASCAL/*.PAS -> *.prg beside them

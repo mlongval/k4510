@@ -1432,6 +1432,42 @@ struct doom_shm {
     uint8_t  fb[DOOM_W * DOOM_H];
 };
 static struct doom_shm *doom_map;
+/* The console's colours, kept while DOOM wears its own.
+ *
+ * Doc, 2026-09-17: "Palette did not come back to normal (as was before game)
+ * after I exited.  I had to manually reload it."  DOOM writes all 256 entries
+ * -- VICKY has one palette and everything shares it -- so the shell came back
+ * in Freedoom's colours.  cmd_exec has always wrapped a program in pal_snap /
+ * pal_restore (rom/kernal.c); the Tube's DOOM had nothing of the sort.
+ *
+ * It is done HERE rather than in the ROM on purpose: doom_shm_close() runs on
+ * every way out -- a clean quit, *QUIT, a crash, a kill, the emulator being
+ * asked to stop -- while the ROM's loop only gets to tidy up when the session
+ * ends the way it was supposed to.  A restore that works only when nothing
+ * went wrong is the wrong half of the problem to solve. */
+static uint8_t doom_pal_save[256 * 3];
+static int doom_pal_saved;
+static void doom_pal_snap(void)
+{
+    for (int i = 0; i < 256; i++) {
+        uint32_t c = vicky_palette_rgb(i);
+        doom_pal_save[i * 3 + 0] = (uint8_t)(c >> 16);
+        doom_pal_save[i * 3 + 1] = (uint8_t)(c >> 8);
+        doom_pal_save[i * 3 + 2] = (uint8_t) c;
+    }
+    doom_pal_saved = 1;
+}
+static void doom_pal_put_back(void)
+{
+    if (!doom_pal_saved) return;
+    doom_pal_saved = 0;
+    for (int i = 0; i < 256; i++) {
+        vicky_write(VR_PALIDX, (uint8_t) i);
+        vicky_write(VR_PALR, doom_pal_save[i * 3 + 0]);
+        vicky_write(VR_PALG, doom_pal_save[i * 3 + 1]);
+        vicky_write(VR_PALB, doom_pal_save[i * 3 + 2]);   /* the B write commits it */
+    }
+}
 static char doom_shm_name[64];
 static uint32_t doom_seq_seen, doom_pal_seen;
 static int doom_active;
@@ -1440,6 +1476,7 @@ int io_tube_doom(void) { return doom_active && doom_map != NULL; }
 
 static void doom_shm_close(void)
 {
+    doom_pal_put_back();                         /* the shell gets its colours back, however DOOM ended */
     if (doom_map) { munmap(doom_map, sizeof *doom_map); doom_map = NULL; }
     if (doom_shm_name[0]) { shm_unlink(doom_shm_name); doom_shm_name[0] = 0; }
     doom_active = 0; doom_seq_seen = doom_pal_seen = 0;
@@ -1490,19 +1527,34 @@ void io_tube_frame(void)
     /* 320x200 doubled sideways to 640x400 and centred in the 640x480 bitmap:
      * 40 blank lines top and bottom.  Doubling here rather than in the engine
      * keeps the shared segment at 64 KB a frame instead of 256 KB. */
-    { const int top = (TULA_H - DOOM_H * 2) / 2;
-      /* Belt and braces: if the geometry above is ever changed, the picture
-       * stops rather than walking into the sprite table. */
-      if ((size_t)(top + DOOM_H * 2) * TULA_W > TULA_ARENA) return;
-      for (int y = 0; y < DOOM_H; y++) {
-          const uint8_t *src = doom_map->fb + (size_t) y * DOOM_W;
-          uint8_t *dst = k4510_ram + TULA_GFXB + (size_t)(top + y * 2) * TULA_W;
-          for (int x = 0; x < DOOM_W; x++) { dst[x * 2] = src[x]; dst[x * 2 + 1] = src[x]; }
-          memcpy(dst + TULA_W, dst, TULA_W);     /* the doubled line, twice */
+    /* 320x200 across the whole 640x480 glass: doubled sideways, and 200 rows
+     * stretched over 480 rather than doubled to 400 with black bands.
+     *
+     * Doc, 2026-09-17: "Is 320x200 a must?  Could it be 320x240?"  The engine
+     * renders 320x200 and nothing changes that (i_video.h), but the frame was
+     * always meant to be SHOWN at 4:3 -- DOOM's pixels were 1.2 times taller
+     * than wide on a 320x200 CRT, which is why the engine carries a
+     * SCREENHEIGHT_4_3 of 240 of its own.  Doubling to 640x400 was therefore
+     * wrong twice over: it left the bands Doc saw above and below, and it made
+     * everything 20% too squat.  480/200 is exactly the 1.2 the game was drawn
+     * for.
+     *
+     * Each source row lands on two or three destination rows; the repeats are
+     * a memcpy of the row just written rather than the doubling loop again. */
+    { if ((size_t) TULA_H * TULA_W > TULA_ARENA) return;   /* belt and braces, as before */
+      uint8_t *dst = k4510_ram + TULA_GFXB;
+      int prev = -1;
+      for (int y = 0; y < TULA_H; y++, dst += TULA_W) {
+          int sy = y * DOOM_H / TULA_H;
+          if (sy == prev) { memcpy(dst, dst - TULA_W, TULA_W); continue; }
+          { const uint8_t *src = doom_map->fb + (size_t) sy * DOOM_W;
+            for (int x = 0; x < DOOM_W; x++) { dst[x * 2] = src[x]; dst[x * 2 + 1] = src[x]; } }
+          prev = sy;
       } }
 }
 static void doom_bitmap_on(void)
 {
+    doom_pal_snap();                             /* what the console was wearing, to give back after */
     vicky_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll -- as tula_mode */
     tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */
     vicky_write(0x20, 0x19);                                        /* enable | bitmap | 8 bpp */

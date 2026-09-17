@@ -22,6 +22,19 @@
 
 #include "doomtype.h"
 #include "i_swap.h"
+/* [K4510] midifile.c is the only vendored file that reaches for SDL, and only
+ * for two byte-swaps.  The Tube's co-processor has no SDL, so they are spelt
+ * out here rather than dragging the library in for six lines.  MIDI is
+ * big-endian; these are no-ops on a big-endian host. */
+#ifndef SDL_SwapBE16
+#if defined(__BYTE_ORDER__) && __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
+#define SDL_SwapBE16(x) (x)
+#define SDL_SwapBE32(x) (x)
+#else
+#define SDL_SwapBE16(x) __builtin_bswap16((uint16_t)(x))
+#define SDL_SwapBE32(x) __builtin_bswap32((uint32_t)(x))
+#endif
+#endif
 #include "i_system.h"
 #include "m_misc.h"
 #include "midifile.h"

@@ -514,8 +514,8 @@ static void fs_run(uint8_t cmd)
               if ((st = mnt_fetch(url, &nb, &nn))) { st = st == 6 ? 1 : st; break; }
           } }
         if (!nb && (st = fs_path(path, sizeof path, 1))) break;                /* source, searched + case-fixed */
-        if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) break;
-        if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) break;    /* destination, as given */
+        if ((st = fs_guest_str(fs_rd32(8), n2, sizeof n2))) { free(nb); break; }   /* nb: a whole fetched file, leaked on these two ways out until 2026-09-17 */
+        if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) { free(nb); break; }    /* destination, as given */
         { char durl[256]; if (fs_mount_url(rel, durl, sizeof durl)) { if (nb) free(nb); st = 2; break; } }   /* a mount is read-only */
         if (cmd == FS_RENAME)
             st = rename(path, dst) ? 2 : 0;
@@ -523,6 +523,10 @@ static void fs_run(uint8_t cmd)
             FILE *a = nb ? NULL : fopen(path, "rb"), *b = NULL;
             if (nb) { if (!(b = fopen(dst, "wb"))) { free(nb); st = 2; break; } if (fwrite(nb, 1, nn, b) != nn) st = 2; fclose(b); free(nb); break; }
             if (!a) { st = 1; break; }
+            /* CP X X: opening the destination "wb" truncates the source it is
+             * about to read, and the copy then succeeds at copying nothing.
+             * Same device and inode is the test, so ./X and a link are caught. */
+            { struct stat sa, sb; if (fstat(fileno(a), &sa) == 0 && stat(dst, &sb) == 0 && sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino) { fclose(a); st = 2; break; } }
             if (!(b = fopen(dst, "wb"))) { fclose(a); st = 2; break; }
             { char buf[4096]; size_t k; while ((k = fread(buf, 1, sizeof buf, a)) > 0) if (fwrite(buf, 1, k, b) != k) { st = 2; break; } }
             fclose(a); fclose(b);
@@ -1425,11 +1429,14 @@ static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_
  * because the child is a separate process and cannot read a register at all. */
 #define DOOM_W 320
 #define DOOM_H 200
-#define DOOM_MAGIC 0x4B344D44u                   /* "DM4K" */
+#define DOOM_MAGIC 0x4C344D44u                   /* "DM4L" -- bumped with the OPL ring */
+#define OPL_RING_N 2048
 struct doom_shm {
     uint32_t magic, seq, held, quit, pal_seq, pad[3];
     uint8_t  pal[256 * 3];
     uint8_t  fb[DOOM_W * DOOM_H];
+    uint32_t opl_w, opl_r;                       /* DOOM's music, as OPL2 register writes */
+    uint16_t opl_ring[OPL_RING_N];               /* (reg << 8) | val */
 };
 static struct doom_shm *doom_map;
 /* The console's colours, kept while DOOM wears its own.
@@ -1447,6 +1454,23 @@ static struct doom_shm *doom_map;
  * went wrong is the wrong half of the problem to solve. */
 static uint8_t doom_pal_save[256 * 3];
 static int doom_pal_saved;
+/* The console's text layer, switched off while DOOM has the screen.
+ *
+ * Doc, 2026-09-17: "artefact on top left of screen (black rectangle)".  Colour
+ * 0 is TRANSPARENT on VICKY's bitmap, so wherever DOOM draws black the text
+ * layer underneath shows through -- and cmd_doom prints everything the
+ * co-processor says to that console, so the engine's startup chatter
+ * ("I_InitGraphics: DOOM screen size...") sits there for the whole session.
+ * Its character cells carry a background colour too, which after DOOM has
+ * loaded its own palette is whatever Freedoom made of that index: a black
+ * rectangle over the top-left of the picture.
+ *
+ * demo/book.c has always done this for its pictures -- save layer 0, write 0,
+ * "the text layer off", put it back afterwards.  The printing in cmd_doom
+ * stays as it is: it is what makes "no game data" readable when the WAD is
+ * missing, and with the layer off it can no longer bleed into the game. */
+static uint8_t doom_text_layer;
+static int doom_text_saved;
 static void doom_pal_snap(void)
 {
     for (int i = 0; i < 256; i++) {
@@ -1456,6 +1480,12 @@ static void doom_pal_snap(void)
         doom_pal_save[i * 3 + 2] = (uint8_t) c;
     }
     doom_pal_saved = 1;
+}
+static void doom_text_put_back(void)
+{
+    if (!doom_text_saved) return;
+    doom_text_saved = 0;
+    vicky_write(0x10, doom_text_layer);           /* the console comes back */
 }
 static void doom_pal_put_back(void)
 {
@@ -1474,9 +1504,29 @@ static int doom_active;
 
 int io_tube_doom(void) { return doom_active && doom_map != NULL; }
 
+/* MELODY let go of, when DOOM goes.
+ *
+ * A note on an OPL2 sounds until somebody writes its key-off, and DOOM is
+ * usually ended by *QUIT or the machine taking the Tube back -- SIGKILL, so
+ * the engine's own I_OPL_ShutdownMusic never runs and whatever chord was
+ * sounding would drone on under the shell until something else used the
+ * chip.  Like the palette, this is done here because here is the one place
+ * every way out passes through.  What a clean quit did manage to queue is
+ * performed first; then all nine voices are keyed off and the rhythm bits
+ * cleared.  The instruments DOOM loaded are left: they are inaudible with no
+ * key on, and the next program sets its own.  (Review, 2026-09-17.) */
+static void doom_melody_quiet(void)
+{
+    if (!doom_map) return;
+    io_tube_opl_drain();
+    for (int ch = 0; ch < 9; ch++) opl2_write_reg((uint8_t)(0xB0 + ch), 0);
+    opl2_write_reg(0xBD, 0);
+}
 static void doom_shm_close(void)
 {
+    doom_melody_quiet();                         /* before the map goes: the drain reads it */
     doom_pal_put_back();                         /* the shell gets its colours back, however DOOM ended */
+    doom_text_put_back();                        /* ...and its text layer, the same way */
     if (doom_map) { munmap(doom_map, sizeof *doom_map); doom_map = NULL; }
     if (doom_shm_name[0]) { shm_unlink(doom_shm_name); doom_shm_name[0] = 0; }
     doom_active = 0; doom_seq_seen = doom_pal_seen = 0;
@@ -1510,6 +1560,30 @@ static const char *doom_shm_path(void)
 /* The picture, once a host frame.  Deliberately NOT part of tube_pump: that
  * runs only when the pty has traffic and is rate-limited to once per 100 us,
  * and DOOM can go a minute without sending a byte while drawing all the while. */
+/* DOOM's music, performed on MELODY.
+ *
+ * The co-processor's OPL driver (tube/doom/opl_k4510.c) decides which
+ * registers to write and when; they arrive here as (reg, val) pairs and go to
+ * the chip through opl2_write_reg(), which saves and restores the address
+ * latch so this can land between a program's own ADDR and DATA writes.
+ *
+ * Called from the frontend's SCANLINE hook, not its frame hook: music wants
+ * milliseconds, and a frame is sixteen of them.  ~262 drains a frame instead. */
+void io_tube_opl_drain(void)
+{
+    uint32_t r, w;
+    if (!io_tube_doom()) return;
+    r = doom_map->opl_r; w = doom_map->opl_w;
+    if (r == w) return;
+    if (w - r > OPL_RING_N) r = w - OPL_RING_N;   /* overrun: keep the newest */
+    while (r != w) {
+        uint16_t e = doom_map->opl_ring[r % OPL_RING_N];
+        opl2_write_reg((uint8_t)(e >> 8), (uint8_t) e);
+        r++;
+    }
+    doom_map->opl_r = r;
+}
+
 void io_tube_frame(void)
 {
     if (!io_tube_doom()) return;
@@ -1555,6 +1629,8 @@ void io_tube_frame(void)
 static void doom_bitmap_on(void)
 {
     doom_pal_snap();                             /* what the console was wearing, to give back after */
+    doom_text_layer = vicky_read(0x10); doom_text_saved = 1;
+    vicky_write(0x10, 0);                        /* the text layer off: nothing shows through the black */
     vicky_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll -- as tula_mode */
     tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */
     vicky_write(0x20, 0x19);                                        /* enable | bitmap | 8 bpp */
@@ -1574,7 +1650,15 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         doom_active = 1;
     }
     if (prog == 4) {
-        fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd);
+        /* Refused, not run short: fs_guest_str fills the buffer and THEN reports the
+         * overrun, and a shell command cut at byte 255 is a different command --
+         * `rm -rf /a/long/path/build` loses its tail.  (Review, 2026-09-17.) */
+        if (fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd)) {
+            const char *m = "!: that command is too long (255 characters at most)\r\n";
+            while (*m) ring_put((uint8_t) *m++);
+            tube_refused = 1;
+            return;
+        }
         if (tube_rows) ws.ws_row = tube_rows;          /* the console window as the ROM has it, bands and margin taken out */
         if (tube_cols) ws.ws_col = tube_cols;
         /* Locked (k4510-menu.cfg): no way into Linux -- `!`, `!cmd`, SSH.  PAS and
@@ -1673,7 +1757,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         _exit (127);
     }
     tube_exit = 0;
-    if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
+    if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; doom_shm_close(); return; }   /* no child: DOOM's segment would otherwise stay made, and doom_active set */
     fcntl (tube_fd, F_SETFL, O_NONBLOCK);
     if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* the ROM's JIM reset (tube_term) follows, and leaves it */
     tube_log("start prog %d pid %d%s%s", prog, (int) tube_pid, cmd[0] ? " cmd: " : "", cmd);
@@ -2025,7 +2109,15 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5 || v == 6) { tube_start(v); tube_prog_now = v; tube_prog_at = title_depth; if (v == 6 && tube_pid) doom_bitmap_on(); } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5 || v == 6) {
+                /* Only the write that STARTED a session owns it.  tube_start returns at once
+                 * when a co-processor is already up, and a second `6` then re-snapped the
+                 * "console" palette from DOOM's own colours and saved a text layer that was
+                 * already off -- so DOOM's exit restored DOOM; a `6` over BBC BASIC blanked
+                 * its console.  (Review, 2026-09-17.) */
+                int was = tube_pid != 0;
+                tube_start(v);
+                if (!was) { tube_prog_now = v; tube_prog_at = title_depth; if (v == 6 && tube_pid) doom_bitmap_on(); } } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
         if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
         if ((addr & 0xFF) == 8) tube_rows = v;
         if ((addr & 0xFF) == 9) tube_cols = v;
@@ -2106,7 +2198,11 @@ int io_state_load(FILE *f)
      * registers are not carried: a state loads with the chip reset, and the
      * sequencer's playing notes re-sound as their queues advance. */
     math_int_update();
-    kbd_head %= 64; kbd_tail %= 64; fs_cwd[sizeof fs_cwd - 1] = 0;        /* a corrupt .k4s must not index out of bounds */
+    kbd_head = (int)((unsigned) kbd_head % 64); kbd_tail = (int)((unsigned) kbd_tail % 64);   /* unsigned: -5 % 64 is still -5 */
+    fs_cwd[sizeof fs_cwd - 1] = 0;        /* a corrupt .k4s must not index out of bounds */
+    tula_spr_cur = (int)((unsigned) tula_spr_cur & 127);
+    /* ...nor walk out of the root: fs_resolve trusts fs_cwd as already clean */
+    if (fs_cwd[0] == '/' || strstr(fs_cwd, "..") || strchr(fs_cwd, '\\')) fs_cwd[0] = 0;
     for (int c = 0; c < 4; c++) { seq_head[c] %= SEQ_DEPTH; if (seq_len[c] > SEQ_DEPTH) seq_len[c] = SEQ_DEPTH; }
     if (fs_file) { fclose(fs_file); fs_file = 0; }
     fs_net_drop(); fs_remote[0] = 0; fs_mnt_clear(); net_reset(); tube_stop(); fs_cap = 0;

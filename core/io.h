@@ -218,6 +218,7 @@ void    kbd_held(uint8_t mask);           /* the host, once a frame: which of th
 #define K4DOOM_YES      0x4000
 #define K4DOOM_NO       0x8000
 void    io_doom_input(uint32_t held);     /* the host, once a frame, while DOOM has the Tube */
+void    io_tube_opl_drain(void);           /* the host, per SCANLINE: DOOM's music onto MELODY */
 void    io_tube_frame(void);              /* the host, once a frame: DOOM's picture onto VICKY's bitmap.
                                            * NOT tube_pump's job -- that only runs when the pty has
                                            * traffic, and DOOM can go minutes without sending a byte. */

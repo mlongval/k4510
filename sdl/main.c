@@ -162,6 +162,11 @@ static void knot_build(uint32_t *px, int pitch, uint32_t base)
 }
 static volatile sig_atomic_t screen_req;
 static void screen_signal(int sig) { (void) sig; screen_req = 1; }
+/* SIGHUP -- the ssh or terminal that started us going away -- ends the run the
+ * way closing the window does, so settings are saved and the Tube is stopped.
+ * SDL does this for INT and TERM itself; HUP it leaves at "die now". */
+static volatile sig_atomic_t hup_req;
+static void hup_signal(int sig) { (void) sig; hup_req = 1; }
 static void screen_save(void)
 {
     uint32_t map = (uint32_t) vicky_read(0x1C) | ((uint32_t) vicky_read(0x1D) << 8) | ((uint32_t) vicky_read(0x1E) << 16) | ((uint32_t) vicky_read(0x1F) << 24);
@@ -260,7 +265,7 @@ static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal
  * 226 ms in 38 seconds and still climbing).  The chip is clocked either
  * way -- pitch is its own and does not move -- but past the cap the samples
  * are let go, so the lead cannot drift late however the two rates disagree. */
-static int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;
+static volatile int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;   /* the slots volatile too: that is what orders a sample's store before its index's */
 #define RING_MASK ((1 << 15) - 1)
 #define RING_TARGET (1024 + 800)          /* one callback, plus a frame */
 #define RING_CAP    (RING_TARGET + 800)   /* a frame of slack above the lead */
@@ -656,9 +661,14 @@ static void line_end(int vol)                 /* the scanline's picture and soun
     /* The audio clock the OPL2 writes are stamped with: one scanline of it,
      * whoever is rendering.  See core/sndq.h. */
     sndq_tick(1000000u / (60u * (unsigned) frame_lines));
+    /* DOOM's music, if the Tube is playing any: its OPL driver's register
+     * writes come across the shared segment and are performed on MELODY here,
+     * per scanline.  Music wants milliseconds and a frame is sixteen of them,
+     * so the frame hook would be far too coarse.  Cheap and silent otherwise. */
+    io_tube_opl_drain();
     if (sndq_owner() == SNDQ_OWNER_CPU)
     { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-      for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100); }
+      for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol / 100); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */ }
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
     m_cyc = 0;
@@ -922,6 +932,16 @@ int k4510_frontend_main(int argc, char **argv)
      * does the same thing but persists, and holding a key at the banner needs
      * you to be there -- neither suits a script, or the case where a startup
      * file wedges the machine and you want one clean boot to go and fix it. */
+    /* First, before anything slow: the default action of both is to KILL, so a
+     * k4510-shot fired while the ROM was loading ended the emulator (review
+     * 2026-09-17). */
+    signal(SIGUSR1, shot_signal);                  /* tools/k4510-shot: a screenshot, from outside */
+    signal(SIGUSR2, screen_signal);                /* tools/k4510-screen: the text screen, as text */
+    signal(SIGHUP, hup_signal);
+    /* Every exit that is not a return from here -- Xlib calls exit(1) when the
+     * X server goes -- still stops the co-processor and unlinks DOOM's
+     * /dev/shm segment.  Idempotent, so the clean path calling it too is fine. */
+    atexit(io_tube_shutdown);
     int no_startup = 0;
     { int i, j;
       for (i = 1; i < argc; i++)
@@ -1041,8 +1061,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     static uint32_t pal[256];                     /* the machine's colours */
     static uint32_t mpal[256];                    /* the same, half-lit: the picture behind the menu */
     static uint32_t upal[UIC_COUNT];              /* the menu's own colours */
-    signal(SIGUSR1, shot_signal);                  /* tools/k4510-shot: a screenshot, from outside */
-    signal(SIGUSR2, screen_signal);                /* tools/k4510-screen: the text screen, as text */
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
     int mode_pending = 0;                          /* (mode + 1) the ROM has been asked for, 0 = nothing */
@@ -1155,6 +1173,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           }
         }
         SDL_Event e;
+        if (hup_req) { hup_req = 0; mlog("quit: SIGHUP"); running = 0; }
         uint8_t pend = 0;               /* a printable key waiting to see whether SDL sends its text */
         while (SDL_PollEvent(&e)) {
             switch (e.type) {
@@ -1559,7 +1578,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
                 int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-                for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) ring[ring_w++ & RING_MASK] = (int16_t)(tmp[i] * vol / 100);
+                for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol / 100); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */
                 if (n > 0) io_audio_fill = (io_audio_fill > 0xFFFF - n) ? 0xFFFF : (uint16_t)(io_audio_fill + n);
@@ -1671,7 +1690,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (!gov_t0) { gov_t0 = nowc; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
             else if (nowc - gov_t0 >= hzc * 3 && gov_frames >= 30) {
                 double ms = (double)gov_mach * 1000.0 / (double)hzc / gov_frames;
-                unsigned g = io_audio_gaps - gaps_seen;
+                unsigned g = io_audio_gaps >= gaps_seen ? io_audio_gaps - gaps_seen : 0;   /* the guest can clear $D524 mid-window: that is not four billion gaps */
                 int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s);
                 if ((ms > GOV_LATE_MS || g >= 3) && down >= 0) {
                     /* The clock, and only the clock.  cpu.measured and cpu.host
@@ -1757,7 +1776,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               && !memcmp(fb, last_fb, sizeof fb) && (!open || !memcmp(ov, last_ov, sizeof ov))) goto tex_done;
           tex_stale = 0; last_open = open; last_gw = gw; last_gh = gh;
           memcpy(last_fb, fb, sizeof fb); if (open) memcpy(last_ov, ov, sizeof ov); }
-        SDL_LockTexture(tex, NULL, &pixels, &pitch);
+        if (SDL_LockTexture(tex, NULL, &pixels, &pitch) != 0) goto tex_done;   /* checked, as every other lock here is: pixels is garbage otherwise */
         for (int y = 0; y < gh; y++) {
             const uint8_t *src = fb + y * VICKY_WIDTH;     /* the menu is its own layer now, drawn over this (below) */
             uint32_t *d = (uint32_t *)((uint8_t *)pixels + y * pitch);

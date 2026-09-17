@@ -11,8 +11,9 @@
 CC      ?= gcc
 CFLAGS  += -O2 -Wall -Wno-unused-variable -Wno-unused-but-set-variable \
            -DNORMALUNIX -DLINUX -D_DEFAULT_SOURCE \
-           -DCMAP256 -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200
-LDLIBS  += -lm
+           -DCMAP256 -DDOOMGENERIC_RESX=320 -DDOOMGENERIC_RESY=200 \
+           -DDISABLE_SDL2MIXER -I. -Iopl     # i_oplmusic.c includes "opl.h", which lives in opl/
+LDLIBS  += -lm -lpthread          # the OPL driver runs its callback queue on a thread
 
 OBJDIR  = build
 OUTPUT  = doomk4510
@@ -29,14 +30,23 @@ SRC = dummy.c am_map.c doomdef.c doomstat.c dstrings.c d_event.c d_items.c \
       r_things.c sha1.c sounds.c statdump.c st_lib.c st_stuff.c s_sound.c \
       tables.c v_video.c wi_stuff.c w_checksum.c w_file.c w_main.c w_wad.c \
       z_zone.c w_file_stdc.c i_input.c i_video.c doomgeneric.c mus2mid.c \
-      doomgeneric_k4510.c
+      doomgeneric_k4510.c \
+      midifile.c i_oplmusic.c opl/opl.c opl/opl_queue.c opl_k4510.c
 
 OBJS = $(addprefix $(OBJDIR)/, $(SRC:.c=.o))
 
 all: $(OUTPUT)
 
+# [K4510] i_oplmusic.c and midifile.c are newer than the rest of this tree
+# (chocolate-doom 895f581 against doomgeneric dcb7a8d) and use PACKED_STRUCT,
+# I_Realloc and M_fopen, which the fork predates.  k4510_compat.h supplies
+# exactly those three, force-included here so the vendored files stay
+# byte-identical to upstream.
+$(OBJDIR)/i_oplmusic.o: CFLAGS += -include k4510_compat.h
+$(OBJDIR)/midifile.o:   CFLAGS += -include k4510_compat.h
+
 $(OBJDIR)/%.o: %.c
-	@mkdir -p $(OBJDIR)
+	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(OUTPUT): $(OBJS)

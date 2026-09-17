@@ -303,6 +303,10 @@ int mem_state_load(FILE *f)
     if (state_get(f, "MAP ", &map, sizeof map) || state_get(f, "BANK", bank_reg, sizeof bank_reg) || state_get(f, "BKON", bank_on, sizeof bank_on)
         || state_get(f, "FART", &far_table, sizeof far_table) || state_get(f, "FARD", &far_depth, 1) || state_get(f, "FARE", &far_err, 1)
         || state_get(f, "FARS", far_stack, sizeof far_stack) || state_get(f, "ROMB", &mem_rom_base, sizeof mem_rom_base)) return -2;
+    /* a hand-edited .k4s must not index out of bounds: far_gate pops
+     * far_stack[far_depth - 1] and writes bank_reg[block] (review 2026-09-17) */
+    if (far_depth > FAR_DEPTH_MAX) far_depth = FAR_DEPTH_MAX;
+    for (int i = 0; i < FAR_DEPTH_MAX; i++) far_stack[i].block &= 7;
     map_apply();
     return 0;
 }

@@ -50,6 +50,11 @@ typedef struct
     opl_adjust_callbacks_func adjust_callbacks_func;
 } opl_driver_t;
 
+/* [K4510] the machine's driver: it does not synthesise anything, it hands the
+ * register writes to MELODY -- the emulator's YM3812 -- through the shared
+ * segment DOOM already uses for its frames.  See opl_k4510.c. */
+extern opl_driver_t opl_k4510_driver;
+
 // Sample rate to use when doing software emulation.
 
 extern unsigned int opl_sample_rate;
@@ -64,6 +69,9 @@ extern opl_driver_t opl_openbsd_driver;
 #ifdef _WIN32
 extern opl_driver_t opl_win32_driver;
 #endif
+/* [K4510] opl_sdl.c is not vendored -- it synthesises the sound itself, which
+ * is MELODY's job here -- so nothing defines this.  Left declared, unused, to
+ * keep the file diffable against upstream. */
 extern opl_driver_t opl_sdl_driver;
 
 

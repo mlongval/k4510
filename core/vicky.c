@@ -231,7 +231,11 @@ static void sprites_line(int z, int y, uint8_t *line, int w)
         int ry = y - syp;
         int bpp = (ctrl & 2) ? 8 : 4;
         int rowbytes = sw * bpp / 8;
-        uint32_t data = rd32(&ram_ptr(e + 4));
+        /* a byte at a time: rd32 on a raw pointer masked only the START, so a
+         * sprite table in the last bytes of RAM read past the mapping (review
+         * 2026-09-17).  ram() masks each address, as everything else here does. */
+        uint32_t data = ((uint32_t) ram(e + 4) | (uint32_t) ram(e + 5) << 8 | (uint32_t) ram(e + 6) << 16
+                         | (uint32_t) ram(e + 7) << 24) & K4510_PHYS_MASK;
         if (ctrl & 8) ry = h - 1 - ry;                  /* V-flip */
         uint32_t row = data + (uint32_t)ry * rowbytes;
         uint8_t base = (uint8_t)(ram(e + 10) << 4);

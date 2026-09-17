@@ -9726,3 +9726,100 @@ one. The guide then builds unchanged with nothing marked -- 22 pages, no diff
 in doc/site or fs/SYSTEM/DOC.
 
 Nothing is marked `nope` yet. That is Doc's pass to make.
+
+## 2026-09-17 — DOOM's music proved, and a review of the whole emulator
+
+Doc handed the project to a different model: "Opus seems to be having trouble
+with this project. Please see what you can do. And after you fix the problem
+please do a code overview and try to find any bugs, or memory leaks or race
+conditions."
+
+### The music was never broken
+
+The alarm had been "734 OPL writes reach the ring but only registers 02 and
+04" -- read off the first TWELVE writes. Those twelve are `OPL_Detect`. Read
+whole, the 734 are the chip-init burst (every register once), and after it
+the title music runs at about 500 writes a second across 20-35, 40-55, 60-75,
+80-95, A0-A8, B0-B8, C0-C8, E0-F5: instruments, levels, notes. The same
+narrow-window mistake as the rest of that day.
+
+Proved end to end rather than by register census: the real emulator under
+Xvfb with `SDL_AUDIODRIVER=disk`, so what it would have played lands in a
+file. No DOOM: every sample zero. DOOM: AC RMS ~230 for as long as it runs.
+OPLPLAY for scale: ~560. DOOM is 6-8 dB under it because its music slider
+defaults to 8 of 15; left alone, the slider works.
+
+### What the review found in the new DOOM code
+
+- **Two producers on a one-producer ring.** The OPL timer thread writes
+  registers from its callbacks; DOOM's own thread writes them from
+  `I_OPL_SetMusicVolume` and `I_OPL_PauseSong`, which upstream calls without
+  `OPL_Lock`. They shared one register latch (a volume could land in a
+  frequency register) and one ring slot counter (a write could be lost). The
+  latch is now per thread and the push takes a mutex; nothing vendored is
+  touched. ThreadSanitizer: clean.
+- **A pause did not stop the clock.** Every track's next event was overdue at
+  the resume and they fired together. Upstream's SDL driver keeps a
+  pause_offset for this; `start_us` now moves forward by the pause.
+- **Nothing let go of MELODY.** DOOM is usually ended by SIGKILL, so its own
+  key-offs never happen and the chord droned on under the shell; tula_close
+  quiets only the sequencer's four voices. `doom_shm_close` now performs what
+  a clean quit queued, then keys off all nine. Measured: killed mid-song, the
+  output is silent within the second.
+- **The segment outlived an emulator that did not return from main.** Xlib
+  calls exit(1) when the X server goes; SIGHUP just killed. Seen live:
+  `/dev/shm/k4510-doom-<pid>` left behind. `atexit(io_tube_shutdown)`, and
+  SIGHUP now ends the run as closing the window does. Verified by killing the
+  X server under a running DOOM: no segment, no child.
+- **A second `$D803 = 6`** re-snapped the "console" palette from DOOM's own
+  colours and saved an already-off text layer, so DOOM's exit restored DOOM;
+  a 6 written over BBC BASIC blanked its console. Only the write that starts
+  a session now owns it.
+- A failed forkpty left the segment made and `doom_active` set.
+
+### And in the rest (three read-only audits, then fixes)
+
+Fixed: a sprite table in the last bytes of RAM read 3 bytes past the 256 MB
+mapping (`rd32` on a raw pointer -- the one such read in vicky.c); a crafted
+.k4s could index `far_stack`/`bank_reg`, JIM's `u_raw`/`par`, `kbd_fifo`
+(negative % 64 is negative) and the sprite arrays out of bounds, and carry a
+`fs_cwd` of `../..` that walks out of the root; `CP X X` emptied X and
+reported success; `CP http://... <bad name>` leaked the whole download; a `!`
+command over 255 bytes was run TRUNCATED rather than refused; a signal
+(k4510-shot) during a transfer was reported as a network error (EINTR);
+wrong-sequence TNFS replies renewed the wait for ever; `ring[ring_w++] = v`
+let gcc publish the index before the sample (checked in the assembly), a
+click on an empty ring; the governor's gap delta underflowed when the guest
+cleared $D524; SIGUSR1/2 were installed after the slow part of start-up, when
+their default action is to kill; one unchecked SDL_LockTexture.
+
+In the brightness handler: the unit was `After=multi-user.target` AND
+`WantedBy` it -- an ordering cycle, which systemd breaks by deleting a job --
+and a vanished input device stayed in the select set and would have spun a
+core. It also now waits up to 30 s for the Video Bus to appear.
+
+ASan + UBSan over a DOOM session and a headless script: nothing but two
+left-shifts of a negative in MAME's fmopl.c, vendored and unaltered.
+
+### Found and NOT fixed, with the reason
+
+- **A failed state load destroys the running machine** (state.c: RAM is
+  zeroed and the CPU overwritten before later chunks are validated, and the
+  caller ignores the error). Right fix is validate-then-commit, which is a
+  small redesign, not a patch. Until then a bad slot costs the session.
+- **getaddrinfo blocks** the main loop for the resolver's timeout. Needs a
+  thread or getaddrinfo_a; the code already admits it.
+- **A large steady http fetch never pumps the window**, because the hook
+  runs only after an idle 50 ms slice.
+- **SHEILA can run a full blit per display-list instruction**, 256 a line: a
+  guest can hang the frontend. Wants a work budget, and a decision about what
+  the hardware "would" do.
+- **The sndq other-core path is dead code that would break if enabled** (no
+  consumer; opl2_write_reg is three pushes that can split across a full
+  queue). Nothing sets the owner today. Delete or finish -- Doc's call, it
+  was the Pi's.
+- The key pipe drops a $1E/$1F prefix that lands on a 4096-byte read
+  boundary; DOOM's frame copy is not a seqlock (a torn frame is possible,
+  cosmetic); TNFS sessions are never re-mounted and error paths leak server
+  handles; zip_listdir is quadratic; tula's cursor can overflow an int after
+  ~65k relative plots; tube_write drops bytes on EAGAIN.

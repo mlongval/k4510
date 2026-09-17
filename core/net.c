@@ -100,8 +100,14 @@ static int tnfs_xfer(tnfs_t *t, uint8_t cmd, const uint8_t *req, int reqn, uint8
         pkt[0] = t->sid & 255; pkt[1] = t->sid >> 8; pkt[2] = t->seq; pkt[3] = cmd;
         memcpy(pkt + 4, req, (size_t) reqn);
         if (plat_udp_send(t->h, pkt, reqn + 4) < 0) return -1;
-        for (;;) {
-            n = plat_udp_recv(t->h, pkt, sizeof pkt, TNFS_TO);
+        /* One deadline for the attempt, not one per datagram: a server (or a
+         * spoofer) sending wrong-sequence replies more often than TNFS_TO
+         * renewed the wait for ever and the machine never came back (review
+         * 2026-09-17). */
+        for (unsigned t0 = plat_ticks();;) {
+            int left = TNFS_TO - (int)(plat_ticks() - t0);
+            if (left <= 0) { n = 0; break; }
+            n = plat_udp_recv(t->h, pkt, sizeof pkt, left);
             if (n <= 0) break;
             if (n >= 4 && pkt[2] == t->seq && pkt[3] == cmd) {
                 t->seq++;

@@ -31,8 +31,8 @@ their shape.
 
 ## What was changed in the vendored source
 
-**Nothing.** The paletted path is reached by compile flags alone, which is
-why there are no `[K4510]` markers in these files:
+**The video path: nothing.** It is reached by compile flags alone, which is
+why there are no `[K4510]` markers in those files:
 
     -DCMAP256                 pixel_t becomes uint8_t and the framebuffer
                               8 bpp, so I_FinishUpdate memcpy's 320 bytes a
@@ -49,6 +49,40 @@ Defining it rather than editing the file is deliberate: a vendored tree that
 is byte-identical to upstream can be re-vendored by copying, and the next
 person can diff it against `dcb7a8d` and find nothing to explain.
 
+**The music needed five edits**, each marked `[K4510]` where it happens:
+
+| file | what, and why |
+|---|---|
+| `opl/opl.c` | SDL's mutex and condition variable in `OPL_Delay` become pthreads. The co-processor is a plain program with no SDL of its own, and that block was the only place in the file that used it. |
+| `opl/opl.c` | the driver table lists `opl_k4510_driver` in place of the SDL one, which is not vendored. |
+| `opl/opl_internal.h` | declares `opl_k4510_driver`. `opl_sdl_driver`'s now-dangling declaration is left with a note, to keep the file diffable. |
+| `midifile.c` | `SDL_SwapBE16/32` spelt out with `__builtin_bswap`. Six calls were the whole dependency. |
+| `i_sound.c` | `InitMusicModule` chooses `music_opl_module`. doomgeneric replaced Chocolate Doom's module search with a hard-wired assignment, so the OPL module -- which `i_sound.h` still declares -- could never be selected however `snd_musicdevice` was set. |
+
+Added rather than edited: **`opl_k4510.c`**, the driver, and
+**`k4510_compat.h`**, which supplies what the newer music files use and this
+older fork lacks (`PACKED_STRUCT`, `I_Realloc`, `M_fopen`, `M_remove`,
+`opl_driver_ver_t`).
+The header is force-included into those two files from the makefile, so they
+stay byte-identical to chocolate-doom `895f581`.
+
+The driver synthesises nothing: Chocolate Doom's music code decides which OPL
+registers to write and when, and this hands them to the emulator through the
+same shared segment the frames use, to be performed on MELODY by
+`opl2_write_reg()` -- the door the machine's own sound sequencer already uses.
+
+One honesty note. `OPL_Detect()` writes the AdLib timer registers and expects
+the status byte to answer as a real chip's would, and `I_OPL_InitMusic`
+refuses to start the music otherwise. Register writes cross an asynchronous
+ring here, so a read can never be the answer to a write: `read_port_func`
+answers from a small state machine of its own. It is not lying about whether
+an OPL2 is fitted -- one is, and the writes reach it. Only the handshake is
+theatre, and the source says so where it happens.
+
+**No sound effects.** DOOM's are 11 kHz PCM and the machine has no DAC:
+`$D480` answers three registers, and DigiMAX is a comment in the design map
+with nothing behind it. Music only, by Doc's choice, 2026-09-17.
+
 ## The WAD
 
 No game data is vendored. `tools/get-freedoom.sh` fetches **Freedoom**
@@ -61,3 +95,13 @@ Freedoom rather than the shareware `DOOM1.WAD` because its redistribution
 terms are plain, which matters for a machine that is given away as an image.
 Any IWAD the engine accepts will do: put it in `fs/APPS/DOOM/` and name it
 with `DOOM <file>`.
+
+Two threads write OPL registers -- the driver's timer thread from its
+callbacks, and DOOM's own from `I_OPL_SetMusicVolume` and `I_OPL_PauseSong`,
+which upstream calls without `OPL_Lock`. Upstream's SDL driver has the same
+unguarded latch; here it would also have meant two producers on a
+single-producer ring. So the driver keeps its register latch per thread and
+`k4510_opl_write()` takes a mutex, and the vendored music code is untouched.
+ThreadSanitizer is clean over the title music (2026-09-17). Proved end to end
+the same day: the emulator's audio output is silent without DOOM and carries
+the music with it, about 6 dB under OPLPLAY at DOOM's default volume of 8/15.

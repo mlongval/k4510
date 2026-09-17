@@ -55,7 +55,8 @@ char *snd_musiccmd = "";
 // Low-level sound and music modules we are using
 
 static sound_module_t *sound_module = NULL;
-static music_module_t *music_module = NULL;
+/* [K4510] const, to match music_opl_module as chocolate-doom declares it. */
+static const music_module_t *music_module = NULL;
 
 int snd_musicdevice = SNDDEVICE_SB;
 int snd_sfxdevice = SNDDEVICE_SB;
@@ -130,9 +131,15 @@ static void InitSfxModule(boolean use_sfx_prefix)
 
 static void InitMusicModule(void)
 {
-#ifdef FEATURE_SOUND
-    music_module = &DG_music_module;
-#endif /* FEATURE_SOUND */
+    /* [K4510] doomgeneric replaced Chocolate Doom's module search with a
+     * single hard-wired assignment, so music_opl_module -- which i_sound.h
+     * still declares -- could never be chosen however snd_musicdevice was set.
+     * The K4510 has a real OPL2 (MELODY, a YM3812) and DOOM's music was
+     * written for one, so that is the module it wants.  It claims
+     * SNDDEVICE_ADLIB and SNDDEVICE_SB, and snd_musicdevice defaults to SB,
+     * so nothing else needs configuring.  See ALTERED-K4510.md. */
+    music_module = &music_opl_module;
+    (void) InitMusicModule;
 }
 
 //

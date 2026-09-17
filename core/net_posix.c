@@ -36,6 +36,7 @@ static int poll_sliced(int fd, short ev, int timeout_ms)
         int left = timeout_ms - (int)(plat_ticks() - t0), r;
         if (left < 0) left = 0;
         r = poll(&pf, 1, left < WAIT_SLICE ? left : WAIT_SLICE);
+        if (r < 0 && errno == EINTR) continue;   /* a signal (k4510-shot's SIGUSR1) is not a network error; the deadline still holds */
         if (r != 0) return r;
         if (left <= WAIT_SLICE) return 0;
         waited();

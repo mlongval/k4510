@@ -784,5 +784,8 @@ int  term_state_load(FILE *f)
 {
     if (state_get(f, "JIM ", &T, sizeof T)) return -2;
     T.cur_on &= 6; T.rh &= 127; T.rt &= 127; clamp_geometry();   /* a hand-edited .k4s must not index out of bounds */
+    if (T.npar > NPAR) T.npar = NPAR;                            /* ...nor may the parser's own counters (review 2026-09-17): */
+    if (T.u_need > 3 || T.u_nraw + T.u_need > 4) T.u_need = T.u_nraw = 0;   /* u_raw[] is 4, a sequence at most 4 */
+    T.cur_at &= K4510_PHYS_MASK;
     vicky_cursor(0, 0, 0); return 0;
 }

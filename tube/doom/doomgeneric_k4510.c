@@ -44,6 +44,7 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <time.h>
+#include <pthread.h>
 #include <sys/mman.h>
 
 /* The shared segment, as both sides see it.  core/io.c has the identical
@@ -51,7 +52,11 @@
  * can share, because this program is not built with the emulator. */
 #define DOOM_W 320
 #define DOOM_H 200
-#define DOOM_MAGIC 0x4B344D44u        /* "DM4K" */
+/* Bumped when the segment's shape changed to carry the OPL ring (2026-09-17).
+ * A host and a child built either side of that change must refuse each other
+ * rather than read past one another's ends, and the magic is what says so. */
+#define DOOM_MAGIC 0x4C344D44u        /* "DM4L" */
+#define OPL_RING_N 2048               /* (reg << 8) | val; a burst of music is dozens */
 
 struct doom_shm {
     uint32_t magic;
@@ -62,6 +67,11 @@ struct doom_shm {
     uint32_t pad[3];
     uint8_t  pal[256 * 3];            /* R,G,B per entry, as DOOM has them */
     uint8_t  fb[DOOM_W * DOOM_H];     /* one byte a pixel, palette indices */
+    /* MELODY's register writes: we push, the emulator drains from its
+     * scanline hook and performs them on the real chip.  One way only --
+     * a read could never be the answer to a write across this. */
+    uint32_t opl_w, opl_r;
+    uint16_t opl_ring[OPL_RING_N];    /* (reg << 8) | val */
 };
 
 /* The held-key bits.  These are the emulator's; core/io.h names them
@@ -161,6 +171,28 @@ void DG_DrawFrame(void)
     __sync_synchronize();              /* the pixels land before the count says so */
     shm->seq++;
     poll_keys();
+}
+
+/* The OPL driver's one call into this file (opl_k4510.c).  Dropping a write
+ * when the ring is full is right: the emulator has stopped draining, so the
+ * music is already lost, and blocking here would stall the frame loop too. */
+/* The ring has ONE consumer (the emulator) and must have one producer, but two
+ * threads call this -- the OPL timer thread, and DOOM's own when it changes
+ * the volume or pauses.  The mutex makes them one.  (Review, 2026-09-17: two
+ * unserialised producers could claim the same slot and lose a write.) */
+static pthread_mutex_t opl_ring_mutex = PTHREAD_MUTEX_INITIALIZER;
+void k4510_opl_write(uint8_t reg, uint8_t val)
+{
+    uint32_t w, r;
+    if (!shm) return;
+    pthread_mutex_lock(&opl_ring_mutex);
+    w = shm->opl_w; r = shm->opl_r;
+    if (w - r < OPL_RING_N) {
+        shm->opl_ring[w % OPL_RING_N] = (uint16_t)((uint16_t) reg << 8 | val);
+        __sync_synchronize();         /* the pair lands before the count says so */
+        shm->opl_w = w + 1;
+    }
+    pthread_mutex_unlock(&opl_ring_mutex);
 }
 
 void DG_SleepMs(uint32_t ms)

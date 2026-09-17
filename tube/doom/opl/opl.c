@@ -21,7 +21,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "SDL.h"
+/* [K4510] SDL is not available to the Tube's co-processor: it is a plain
+ * program on the host, with no window and no SDL of its own.  Everything SDL
+ * was used for in this file is one small block -- a mutex and a condition
+ * variable, so OPL_Delay can wait for a scheduled callback -- and pthreads do
+ * it exactly as well.  See ALTERED-K4510.md. */
+#include <pthread.h>
 
 #include "opl.h"
 #include "opl_internal.h"
@@ -44,9 +49,11 @@ static opl_driver_t *drivers[] =
 #ifdef _WIN32
     &opl_win32_driver,
 #endif
-#ifndef DISABLE_SDL2MIXER
-    &opl_sdl_driver,
-#endif // DISABLE_SDL2MIXER
+    /* [K4510] the machine's own: register writes go to MELODY, the YM3812 the
+     * emulator already has, through the shared segment (opl_k4510.c).  The
+     * SDL driver is not vendored -- it would synthesise the sound itself,
+     * which is precisely the job MELODY is here to do. */
+    &opl_k4510_driver,
     NULL
 };
 
@@ -451,20 +458,20 @@ typedef struct
 {
     int finished;
 
-    SDL_mutex *mutex;
-    SDL_cond *cond;
+    pthread_mutex_t mutex;          /* [K4510] was SDL_mutex * */
+    pthread_cond_t cond;            /* [K4510] was SDL_cond * */
 } delay_data_t;
 
 static void DelayCallback(void *_delay_data)
 {
     delay_data_t *delay_data = _delay_data;
 
-    SDL_LockMutex(delay_data->mutex);
+    pthread_mutex_lock(&delay_data->mutex);
     delay_data->finished = 1;
 
-    SDL_CondSignal(delay_data->cond);
+    pthread_cond_signal(&delay_data->cond);
 
-    SDL_UnlockMutex(delay_data->mutex);
+    pthread_mutex_unlock(&delay_data->mutex);
 }
 
 // Delay for specified number of microseconds after OPL subsystem is initialized
@@ -486,30 +493,30 @@ void OPL_Delay(uint64_t us)
     // before releasing the mutex lock
 
     delay_data.finished = 0;
-    delay_data.mutex = SDL_CreateMutex();
-    delay_data.cond = SDL_CreateCond();
+    pthread_mutex_init(&delay_data.mutex, NULL);      /* [K4510] */
+    pthread_cond_init(&delay_data.cond, NULL);        /* [K4510] */
 
     OPL_SetCallback(us, DelayCallback, &delay_data);
 
     // Wait until the callback is invoked.
 
-    SDL_LockMutex(delay_data.mutex);
+    pthread_mutex_lock(&delay_data.mutex);
 
     while (!delay_data.finished)
     {
-        SDL_CondWait(delay_data.cond, delay_data.mutex);
+        pthread_cond_wait(&delay_data.cond, &delay_data.mutex);
 #ifdef EMSCRIPTEN
         // Use async sleep to avoid locking browser main thread
         emscripten_sleep(us / 1000);
 #endif
     }
 
-    SDL_UnlockMutex(delay_data.mutex);
+    pthread_mutex_unlock(&delay_data.mutex);
 
     // Clean up.
 
-    SDL_DestroyMutex(delay_data.mutex);
-    SDL_DestroyCond(delay_data.cond);
+    pthread_mutex_destroy(&delay_data.mutex);         /* [K4510] */
+    pthread_cond_destroy(&delay_data.cond);           /* [K4510] */
 }
 
 void OPL_SetPaused(int paused)

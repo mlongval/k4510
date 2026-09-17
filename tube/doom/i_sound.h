@@ -242,7 +242,11 @@ extern sound_module_t DG_sound_module;
 extern music_module_t DG_music_module;
 #endif
 extern sound_module_t sound_pcsound_module;
-extern music_module_t music_opl_module;
+/* [K4510] const, as chocolate-doom 895f581 declares it: i_oplmusic.c
+ * defines it const, and this older fork's declaration did not say so --
+ * "conflicting type qualifiers".  Fixed here rather than in the vendored
+ * file, which stays diffable against upstream. */
+extern const music_module_t music_opl_module;
 
 // For OPL module:
 

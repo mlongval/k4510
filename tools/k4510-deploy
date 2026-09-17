@@ -26,7 +26,10 @@ ssh -o BatchMode=yes "$P15" "cd $REPO && git pull -q --ff-only && [ \"\$(git rev
 scp -q "$P15:Projects/k4510-pi/k4510/linux/.live-work-internal/stage/live/k4510.squashfs" "$T/layer"
 SHA=$(sha256sum "$T/layer" | cut -d' ' -f1)
 # the artefact, not the source: the version string inside the emulator inside the layer
-command -v unsquashfs >/dev/null && { unsquashfs -q -d "$T/x" "$T/layer" home/k4510/k4510/sdl/k4510 >/dev/null 2>&1 && strings "$T/x/home/k4510/k4510/sdl/k4510" | grep -m1 "^[0-9.]*-$HEAD" || { echo "k4510-deploy: the layer's emulator does not say $HEAD"; exit 1; }; }
+if command -v unsquashfs >/dev/null; then
+    unsquashfs -q -d "$T/x" "$T/layer" home/k4510/k4510/sdl/k4510 >/dev/null 2>&1 || true   # not root: it complains about owners and extracts anyway
+    strings "$T/x/home/k4510/k4510/sdl/k4510" 2>/dev/null | grep -q -m1 "^[0-9.]*-$HEAD" || { echo "k4510-deploy: the layer's emulator does not say $HEAD"; exit 1; }
+fi
 say "layer $SHA"
 scp -q "$T/layer" "$DELL:/tmp/k4510.squashfs.new"
 ssh -o BatchMode=yes "$DELL" "set -e

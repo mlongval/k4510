@@ -12,10 +12,10 @@ is a few small text files and a picture; storing them costs nothing.
 import io, os, re, sys, zipfile
 
 REQUIRED = ("name", "about", "author", "version", "draw")
-KNOWN = set(REQUIRED) | {"season"}
+KNOWN = set(REQUIRED) | {"season", "game"}   # game = NAME: a gamebar, that program's side art (docs/GAMEBARS.md)
 # what `draw = builtin NAME` may name: the sidebars the emulator draws itself
 BUILTINS = {"border", "gradient", "knot", "registers", "halloween", "christmas",
-            "space", "river", "dreamfall", "tetris", "antfarm", "matrix"}
+            "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom"}
 NAME_RE = re.compile(r"^[A-Z0-9_-]{1,16}\.ZIP$")   # no 8.3 on this machine (BRAINSHOTS); short enough for a menu row
 
 

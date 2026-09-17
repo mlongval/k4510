@@ -1860,6 +1860,14 @@ tex_done:
             Uint32 dt = vlast ? tn - vlast : 0; if (dt > 250) dt = 250; vlast = tn;
             for (int s2 = 0; s2 < 2; s2++) vclk[s2] += dt * (sidebars_count() ? sidebars_speed(shown[s2]) : 1.0); }
           int sb_side[2] = { sidebars_builtin(shown[0] >= 0 ? shown[0] : sv), sidebars_builtin(shown[1] >= 0 ? shown[1] : sv) };
+          /* GAMEBARS (docs/GAMEBARS.md).  Doc, 2026-09-17: "DOOM themed artwork that
+           * comes up if sidebar(s) is just background.  Something like I would have
+           * seen in an arcade."  So: while DOOM has the Tube, a side that is only a
+           * background -- the border, the gradient -- becomes that game's side panel.
+           * A scene somebody chose on purpose (the ant farm, the rain) keeps its
+           * place, and so does the register panel. */
+          if (io_tube_doom() && sbar != SIDEBAR_REGISTERS)
+              for (int s2 = 0; s2 < 2; s2++) if (sb_side[s2] == SIDEBAR_BORDER || sb_side[s2] == SIDEBAR_GRADIENT) sb_side[s2] = SIDEBAR_DOOM;
           if (sbar == SIDEBAR_REGISTERS) sb_side[0] = sb_side[1] = SIDEBAR_BORDER;   /* the panel is drawn on its own, below */
           int grad = sb_side[0] == SIDEBAR_GRADIENT || sb_side[1] == SIDEBAR_GRADIENT, knot = sb_side[0] == SIDEBAR_KNOT || sb_side[1] == SIDEBAR_KNOT;
           Uint32 gclk = (Uint32) vclk[sb_side[0] == SIDEBAR_GRADIENT || sb_side[0] == SIDEBAR_KNOT ? 0 : 1];   /* the gradient's and the knot's clock */

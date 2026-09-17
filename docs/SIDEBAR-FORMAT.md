@@ -37,12 +37,13 @@ One `name = value` a line; `#` starts a comment; names are lower case.
 | `version` | required | a whole number, raised with each release; `STATE.DAT` from another version is set aside (step 5) |
 | `draw` | required | how the picture is made, below |
 | `season` | | the months it belongs to, `10` or `11, 12`; empty for any time |
+| `game` | | a **gamebar**: the program whose side art this is (`doom`). Never drawn from the hat by `change =`; shown with its game, or chosen by hand. `docs/GAMEBARS.md` |
 
 `draw`:
 
 - `builtin NAME` -- drawn by the emulator's own code. `NAME` is one of
   `border gradient knot registers halloween christmas space river dreamfall
-  tetris antfarm matrix`.
+  tetris antfarm matrix doom`.
 - `scene` and `program NAME.PRG` -- planned (pictures and a description;
   a K4510 program on the Tube). `mksidebar.py` refuses them until they are
   drawn.

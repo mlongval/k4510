@@ -28,7 +28,7 @@ static void load_font(void)
 }
 int main(void)
 {
-    static const char *order[] = { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix" };
+    static const char *order[] = { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom" };
     setenv("K4510_SAVER_DAY", "600", 1);   /* the ant farm's day by the test's clock, not the host's: the same picture every run */
     load_font();                           /* before any scene draws */
 
@@ -59,7 +59,9 @@ int main(void)
     { char b[32]; load("video.sidebars = tetris\n"); settings_step(SET_VIDEO_SIDEBARS, 1);
       CHECK(!strcmp(settings_text(SET_VIDEO_SIDEBARS, b, sizeof b), "antfarm"), "the next after tetris is %s", settings_text(SET_VIDEO_SIDEBARS, b, sizeof b));
       settings_step(SET_VIDEO_SIDEBARS, 1);
-      CHECK(!strcmp(settings_text(SET_VIDEO_SIDEBARS, b, sizeof b), "matrix"), "then matrix, the last of them (%s)", settings_text(SET_VIDEO_SIDEBARS, b, sizeof b));
+      CHECK(!strcmp(settings_text(SET_VIDEO_SIDEBARS, b, sizeof b), "matrix"), "then matrix (%s)", settings_text(SET_VIDEO_SIDEBARS, b, sizeof b));
+      settings_step(SET_VIDEO_SIDEBARS, 1);
+      CHECK(!strcmp(settings_text(SET_VIDEO_SIDEBARS, b, sizeof b), "doom"), "then doom, the last of them (%s)", settings_text(SET_VIDEO_SIDEBARS, b, sizeof b));
       settings_step(SET_VIDEO_SIDEBARS, 1);
       CHECK(!strcmp(settings_text(SET_VIDEO_SIDEBARS, b, sizeof b), "border"), "and then round to border"); }
 
@@ -107,7 +109,7 @@ int main(void)
           } }
 
     printf("8. the budget: the widest a sidebar gets (240x1080, the HD mode on 1080 lines), mean of 100 frames\n");
-    { static uint32_t px[240 * 1080]; static const char *nm[] = { "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix" };
+    { static uint32_t px[240 * 1080]; static const char *nm[] = { "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom" };
       for (int s = 0; s < SAVER_COUNT; s++) {
           struct timespec t0, t1; double ms;
           for (int f = 0; f < 20; f++) saver_draw(s, px, 240, 240, 1080, 1000 + f * 16, 0);
@@ -168,8 +170,8 @@ int main(void)
       CHECK(sidebars_shown(af, 1, 0, 7) == af, "right = registers is refused: the panel is not a side");
       PUT(gp, "change = 10m\nseasons = on\n"); sidebars_poll();
       { unsigned seen = 0; for (long t = 0; t < 40 * 600; t += 600) seen |= 1u << sidebars_builtin(sidebars_shown(af, 0, t, 7));
-        CHECK(!(seen & (1u << SIDEBAR_REGISTERS)) && !(seen & (1u << SIDEBAR_HALLOWEEN)) && !(seen & (1u << SIDEBAR_CHRISTMAS)) && __builtin_popcount(seen) == SIDEBAR_COUNT - 3,
-              "July, every 10 minutes: the %d that are not seasonal or the panel (%x)", SIDEBAR_COUNT - 3, seen);
+        CHECK(!(seen & (1u << SIDEBAR_REGISTERS)) && !(seen & (1u << SIDEBAR_HALLOWEEN)) && !(seen & (1u << SIDEBAR_CHRISTMAS)) && !(seen & (1u << SIDEBAR_DOOM)) && __builtin_popcount(seen) == SIDEBAR_COUNT - 4,
+              "July, every 10 minutes: the %d that are not seasonal, the panel or a gamebar (%x)", SIDEBAR_COUNT - 4, seen);
         seen = 0; for (long t = 0; t < 40 * 600; t += 600) seen |= 1u << sidebars_builtin(sidebars_shown(af, 0, t, 10));
         CHECK((seen & (1u << SIDEBAR_HALLOWEEN)) && !(seen & (1u << SIDEBAR_CHRISTMAS)), "October: halloween comes round, christmas does not");
         CHECK(sidebars_shown(af, 0, 0, 7) == sidebars_shown(af, 0, 599, 7) && sidebars_shown(af, 0, 0, 7) != sidebars_shown(af, 0, 600, 7), "the next one at ten minutes, not before"); }

@@ -43,7 +43,7 @@ DEMOS = $(BIN_PRGS) $(APP_PRGS) $(C_EX_PRGS) fs/LANG/RX/rx.prg
 # The sidebars, as zips in /SYSTEM/SIDEBARS (docs/SIDEBAR-FORMAT.md): each
 # packed from sdl/sidebars/NAME/ by tools/mksidebar.py, the same bytes every
 # time, and tracked like the programs.
-SIDEBAR_NAMES = border gradient knot registers halloween christmas space river dreamfall tetris antfarm matrix
+SIDEBAR_NAMES = border gradient knot registers halloween christmas space river dreamfall tetris antfarm matrix doom
 SIDEBAR_ZIPS = $(foreach n,$(SIDEBAR_NAMES),fs/SYSTEM/SIDEBARS/$(call uc,$n).ZIP)
 define sidebar_rule
 fs/SYSTEM/SIDEBARS/$(call uc,$1).ZIP: $$(wildcard sdl/sidebars/$1/*) tools/mksidebar.py

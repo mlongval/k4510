@@ -133,6 +133,7 @@ void s_dreamfall(cv_t *c, uint32_t t, int side);
 void s_tetris(cv_t *c, uint32_t t, int side);
 void s_antfarm(cv_t *c, uint32_t t, int side);
 void s_matrix(cv_t *c, uint32_t t, int side);
+void s_doom(cv_t *c, uint32_t t, int side);
 /* the ant farm's option and its colony across a power cycle (sdl/savers.c) */
 void antfarm_option(const char *key, const char *value);
 size_t antfarm_state(uint8_t **buf);

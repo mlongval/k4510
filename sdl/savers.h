@@ -6,7 +6,7 @@
 #include <stdint.h>
 #include <stddef.h>
 
-enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_MATRIX, SAVER_COUNT };
+enum { SAVER_HALLOWEEN, SAVER_CHRISTMAS, SAVER_SPACE, SAVER_RIVER, SAVER_DREAMFALL, SAVER_TETRIS, SAVER_ANTFARM, SAVER_MATRIX, SAVER_DOOM, SAVER_COUNT };
 
 /* which: SAVER_*; px: w x h ARGB pixels, pitch in pixels; ms: a clock in
  * milliseconds; side: 0 left, 1 right (each side its own scene and seed). */

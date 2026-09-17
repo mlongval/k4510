@@ -26,6 +26,7 @@ typedef struct {
     int builtin;             /* SIDEBAR_* (core/ui/settings.h) */
     int version;
     unsigned months;         /* bit m-1 for each month of its season; 0 = any time */
+    char game[16];           /* game = NAME: a GAMEBAR, that program's side art (docs/GAMEBARS.md); "" for the rest */
 } sidebar_info;
 
 /* Read the .ZIP files in FSROOT/SYSTEM/SIDEBARS and make them the Sidebars

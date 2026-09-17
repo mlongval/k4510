@@ -9857,3 +9857,36 @@ stderr; and the gain is the setting CUBED, so a step is 2-3 dB near the top
 and 50% is -18 dB. 100% is still unity: nothing got louder. Checked under
 Xvfb with xdotool pressing XF86AudioLowerVolume and Ctrl+Alt+minus: three log
 lines, the cfg saved, the bar read off a capture of the window.
+
+## 2026-09-17 — the first gamebar: DOOM's side panel
+
+Doc, with sound, brightness and the volume bar all confirmed working: "How
+about the Doom sidebar/art". The plan was docs/GAMEBARS.md, written that
+morning from his words: "DOOM themed artwork that comes up if sidebar(s) is
+just background. Something like I would have seen in an arcade."
+
+Stages 1 and 2 at once, because a scene is a function of the clock anyway and
+fire that does not move is just orange. `sdl/sidebars/doom.c`: a sky from
+black-red to the glow off the fire, smoke drifting, the name stacked down the
+panel in 7x7 letters shaded steel to flame with a breathing glow, a pentagram
+turning (one way on the left, the other on the right) round a horned skull
+whose eyes come and go, two ranges of black rock, fire along the foot from
+two sines moving against each other and a 70 ms flicker, embers climbing out
+of it, and a riveted steel girder down the cabinet's outer edge. 1.5-2 ms a
+side at 240x1080. Nothing from the WAD -- the reasoning is in the file.
+
+It is the thirteenth built-in sidebar, so the name went in all nine places
+(the memory note earned its keep), plus a new `game =` line in SIDEBAR.INF:
+a gamebar is never drawn from the hat by `change =`. mksidebar.py refused the
+zip twice -- an unknown key, and an `about` over 60 characters -- which is the
+packer doing its job.
+
+The takeover is five lines in sdl/main.c: while `io_tube_doom()`, a side whose
+sidebar is `border` or `gradient` draws SIDEBAR_DOOM. Checked in the real
+emulator in a 1920x1080 window: the panels are there with DOOM's title and in
+E1M1, and gone the moment the co-processor is. First render had picket-fence
+mountains, a skull four pixels across and a D that read as an O; all three
+redrawn after LOOKING at it.
+
+Not done: the machine's border colour still frames the game in blue between
+the panels and the picture; and stage 3, the game drawing its own bar.

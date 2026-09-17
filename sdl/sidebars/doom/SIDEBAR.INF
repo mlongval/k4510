@@ -1,0 +1,8 @@
+# DOOM.ZIP -- docs/SIDEBAR-FORMAT.md; the first gamebar, docs/GAMEBARS.md
+name    = Doom
+about   = Cabinet side art: fire, a pentagram, the name.
+author  = K4510
+version = 1
+season  =
+game    = doom
+draw    = builtin doom

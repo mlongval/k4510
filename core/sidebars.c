@@ -13,7 +13,7 @@
 
 /* the emulator's own drawings, by the names draw = builtin NAME uses */
 static const char *const builtin_keys[SIDEBAR_COUNT] = {
-    "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix" };
+    "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom" };
 #define MAXSB 64
 static sidebar_info list[MAXSB];
 static const char *labels[MAXSB];
@@ -52,6 +52,7 @@ static int parse_inf(const uint8_t *text, uint32_t len, sidebar_info *si)
         if (!strcmp(k, "name")) snprintf(si->name, sizeof si->name, "%s", v);
         else if (!strcmp(k, "about")) snprintf(si->about, sizeof si->about, "%s", v);
         else if (!strcmp(k, "version")) si->version = atoi(v);
+        else if (!strcmp(k, "game")) snprintf(si->game, sizeof si->game, "%s", v);
         else if (!strcmp(k, "season")) {
             for (char *p = v; *p; ) { int m = (int) strtol(p, &p, 10); if (m >= 1 && m <= 12) si->months |= 1u << (m - 1); while (*p && !isdigit((unsigned char) *p)) p++; }
         } else if (!strcmp(k, "draw") && !strncmp(v, "builtin", 7) && (v[7] == ' ' || v[7] == '\t'))
@@ -252,6 +253,7 @@ int sidebars_shown(int v, int side, long now, int month)
     if (per <= 0) return v;
     for (int i = 0; i < n; i++) {
         if (list[i].builtin == SIDEBAR_REGISTERS) continue;
+        if (list[i].game[0]) continue;                       /* a gamebar belongs to its game: chosen by hand or shown with it, never drawn from the hat */
         if (!(seasons && !strcasecmp(seasons, "off")) && list[i].months && month >= 1 && month <= 12 && !(list[i].months & (1u << (month - 1)))) continue;
         el[k++] = i;
     }

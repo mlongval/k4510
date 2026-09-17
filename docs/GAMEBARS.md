@@ -7,7 +7,22 @@ Doc, 2026-09-17:
 > gamebars (later could become dynamic or perhaps a game could take over the
 > gamebar as a second display —— mini maps come to mind.
 
-Status: **a plan, not built.** Written down while the thought was fresh.
+Status: **stages 1 and 2 built for DOOM, 2026-09-17** (`sdl/sidebars/doom.c`,
+`DOOM.ZIP`). Stage 3 is still the plan below.
+
+What was decided in building it, against the questions further down:
+
+- **When it takes over:** Doc's own words were the rule. While DOOM has the
+  Tube, a side showing only a *background* -- `border` or `gradient` -- shows
+  the gamebar instead. A scene chosen on purpose keeps its place; so does the
+  register panel. No setting yet: nobody has wanted the other answer.
+- **Whose art:** the machine's. Nothing is taken from the WAD.
+- **Where it lives:** an ordinary sidebar, thirteenth of the built-ins, with
+  `game = doom` in its `SIDEBAR.INF`. That line keeps it out of the `change =`
+  rotation; it can still be picked by hand in F12 like any other.
+- The takeover is one test in `sdl/main.c` on `io_tube_doom()`. A second game
+  wants that turned into a lookup of `game =` against what the Tube is
+  running, not a second `if`.
 
 ## What it is
 

@@ -9823,3 +9823,20 @@ left-shifts of a negative in MAME's fmopl.c, vendored and unaltered.
   cosmetic); TNFS sessions are never re-mounted and error paths leak server
   handles; zip_listdir is quadratic; tula's cursor can overflow an int after
   ~65k relative plots; tube_write drops bytes on EAGAIN.
+
+### Deployed, and why the Dell was silent anyway
+
+Layer `8f9cb00e00ed205f`, version `0.6-252196c+`, checked inside the squashfs
+before it moved (the K4510 OPL driver's string in doomk4510, no `After=` in
+the unit, no `__pycache__`). On the hardware: ~486 OPL writes a second reach
+the emulator and the ring drains to empty, ALSA's PCM is RUNNING, and a
+SIGKILLed DOOM hands back a working shell with nothing left in /dev/shm.
+
+And `k4510.cfg` on the Dell said **`audio.volume = 0`**, written at 12:01 --
+the key-watching experiment, when Doc pressed the volume keys. Those keys are
+the emulator's own (steps of 10, mute to 0), every press is saved, and nothing
+on the glass says so; a machine muted that way stays mute across reboots and
+deploys. With it at 0 no music fix could ever have been heard. Put back to
+the default 80% through F12 > Audio, read off the screen at each step. Not
+yet confirmed by ear -- that is Doc's to do. A volume change wants an
+on-screen sign, as the MODE banner gives a mode change; not done here.

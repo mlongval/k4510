@@ -34,6 +34,22 @@ arrives as one.
 
 => 06-TUBE.GMI Chapter 6, The Tube
 
+JIM also draws pictures. It speaks the Kitty terminal's graphics protocol, so
+a program that can show an image in a terminal that way shows it here, among
+the text, scrolling with it:
+
+```
+!chafa -f kitty --size 30x14 cover.png
+!kitten icat photo.png
+```
+
+The picture goes onto VICKY's top layer, dithered onto 216 of the palette's
+colours (entries 40 to 255; the console's sixteen are left alone), and is gone
+when the screen is cleared. Raw RGB and PNG are understood, sent in the escape
+itself or named as a file; animation and pictures under the text are not. BOOK
+uses the same door for the pictures in its pages, and so can any program of
+the machine's own: what it names is a file on the machine's disk.
+
 SSH [user@]host is the same thing for a computer across the network: an ssh
 session, drawn by JIM, through the Linux's own ssh.
 

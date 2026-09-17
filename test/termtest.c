@@ -171,5 +171,55 @@ int main(void)
       send("\x1b%@");
       CHECK(bad == 0, "the code page round-trips through UTF-8 (%d wrong, the first $%02X)", bad, firstbad); }
     printf("12. the K4510 code page, byte -> UTF-8 -> byte: ok\n");
+    /* ---- pictures: the Kitty graphics protocol (core/jimgfx.h) ------------------
+     * The window's origin is cell (1,1) and the cells are 8x16 once layer 0 says
+     * so, which puts cell (0,0)'s first pixel at glass (8,16).  The plane is
+     * layer 3's bitmap at JIMGFX_PLANE, 640 to a row; a pure colour lands on the
+     * cube exactly (40 + 36r + 6g + b), whatever the dither adds. */
+    { uint8_t *pl = k4510_ram + 0x0F000000u; char big[64]; FILE *f;
+#define PX(x, y) pl[(size_t)(y) * 640 + (x)]
+      io_write(0xD010, 0x27);                                   /* layer 0: on, text32, 16-row cells */
+      W(4, 2); drain(big);
+      send("\x1b_Gi=31,s=1,v=1,a=q,t=d,f=24;AAAA\x1b\\"); drain(big);
+      CHECK(!strcmp(big, "\x1b_Gi=31;OK\x1b\\"), "a query is answered OK ('%s')", big + 1);
+      CHECK(io_read(0xD040) == 0, "a query shows nothing: layer 3 stays off");
+      send("\x1b[H\x1b_Ga=T,f=24,s=2,v=2,i=1,q=2;/wAAAP8AAAD/////\x1b\\");      /* red green / blue white */
+      CHECK(io_read(0xD040) == 0x19, "the first picture turns layer 3 on (%02X)", io_read(0xD040));
+      CHECK(PX(8, 16) == 40 + 180 && PX(9, 16) == 40 + 30 && PX(8, 17) == 40 + 5 && PX(9, 17) == 40 + 215, "2x2 RGB at the cursor: %d %d %d %d", PX(8, 16), PX(9, 16), PX(8, 17), PX(9, 17));
+      CHECK(PX(10, 16) == 0 && PX(8, 18) == 0, "and nothing beside or below it");
+      CHECK(R(9) == 1 && R(10) == 0, "the cursor ends just past a one-cell picture (%d,%d)", R(9), R(10));
+      send("\x1b[2J"); CHECK(PX(8, 16) == 0, "ED 2 takes the pictures with the text");
+      send("\x1b[3;5H\x1b_Ga=T,f=100,i=2,q=2;iVBORw0KGgoAAAANSUhEUgAAAAQAAAACCAIAAADwyuo0AAAAFUlEQVR4nGP4z8DAAMb///9nYkACAGvIBf0RkJ86AAAAAElFTkSuQmCC\x1b\\");
+      CHECK(PX(8 + 4 * 8, 16 + 2 * 16) == 220 && PX(8 + 4 * 8 + 3, 16 + 2 * 16 + 1) == 255, "a PNG (truecolour, an Up-filtered row) at row 3 column 5: %d %d", PX(40, 48), PX(43, 49));
+      send("\x1b[H\x1b_Ga=T,f=100,i=3,c=2,r=1,q=2;iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAMAAADD/I+4AAAABlBMVEUAAAD//wCI23BQAAAAC0lEQVR4nGNgZAAAAAUAAtFmM3gAAAAASUVORK5CYII=\x1b\\");
+      CHECK(PX(8, 16) == 40 + 180 + 30 && PX(15, 31) == 40 + 180 + 30 && PX(16, 16) == 40 && PX(23, 31) == 40, "a palette PNG stretched over c=2,r=1: yellow then black, a whole cell each (%d %d %d %d)", PX(8, 16), PX(15, 31), PX(16, 16), PX(23, 31));
+      CHECK(PX(24, 16) == 0 && PX(8, 32) == 0, "and exactly that box (%d %d)", PX(24, 16), PX(8, 32));
+      CHECK(R(9) == 2 && R(10) == 0, "the cursor two cells on (%d,%d)", R(9), R(10));
+      send("\x1b[2J\x1b[H\x1b_Ga=T,f=24,s=2,v=2,o=z,i=4,q=2;eJxjYPjPAEMAFfYD/Q==\x1b\\");
+      CHECK(PX(8, 16) == 45 && PX(9, 17) == 45, "o=z: a zlib payload (%d)", PX(8, 16));
+      send("\x1b[2J\x1b[H\x1b_Ga=t,f=24,s=2,v=2,i=5,m=1,q=2;/wAAAP8A\x1b\\\x1b_Gm=0;AAD/////\x1b\\");
+      CHECK(PX(8, 16) == 0, "a=t in two chunks shows nothing yet");
+      send("\x1b[5;1H\x1b_Ga=p,i=5,q=2\x1b\\");
+      CHECK(PX(8, 16 + 4 * 16) == 220 && PX(9, 16 + 4 * 16 + 1) == 255, "a=p puts it where the cursor is now: row 5 (%d)", PX(8, 80));
+      send("\x1b[29;1H\n");                                       /* a line feed on the last row: everything moves up one */
+      CHECK(PX(8, 16 + 3 * 16) == 220 && PX(8, 16 + 4 * 16) == 0, "the picture scrolls with the text (%d, %d)", PX(8, 64), PX(8, 80));
+      send("\x1b[2J\x1b[28;1H\x1b_Ga=T,f=24,s=2,v=2,i=6,r=4,q=2;/wAAAP8AAAD/////\x1b\\");
+      CHECK(R(10) == 28 && PX(8, 16 + 25 * 16) == 220, "a picture taller than the room below makes room first: it starts on row 26, the cursor ends on 29 (cy=%d, %d)", R(10), PX(8, 416));
+      send("\x1b[2J\x1b[H\x1b_Ga=p,i=99\x1b\\"); drain(big);
+      CHECK(strstr(big, "ENOENT") != NULL, "an image that was never sent: ENOENT ('%s')", big + 1);
+      if ((f = fopen("fs/HOME/JIMTEST.PNG", "wb"))) {            /* t=f: a file on the MACHINE's disk, by the machine's name, in any case */
+          static const uint8_t png2[] = { 0x89,'P','N','G',13,10,26,10, 0,0,0,13,'I','H','D','R',0,0,0,2,0,0,0,1,8,3,0,0,0,0xC3,0xFC,0x8F,0xB8, 0,0,0,6,'P','L','T','E',0,0,0,255,255,0,0x88,0xDB,0x70,0x50,
+                                          0,0,0,11,'I','D','A','T',0x78,0x9C,0x63,0x60,0x64,0,0,0,5,0,2,0xD1,0x66,0x33,0x78, 0,0,0,0,'I','E','N','D',0xAE,0x42,0x60,0x82 };
+          fwrite(png2, 1, sizeof png2, f); fclose(f);
+          send("\x1b[2J\x1b[H\x1b_Ga=T,f=100,t=f,i=7,q=2;L2hvbWUvamltdGVzdC5wbmc=\x1b\\");           /* "/home/jimtest.png" */
+          CHECK(PX(8, 16) == 250 && PX(9, 16) == 40, "t=f reads /home/jimtest.png from the machine's disk (%d %d)", PX(8, 16), PX(9, 16));
+          remove("fs/HOME/JIMTEST.PNG");
+      }
+      send("\x1b[14t"); drain(big); CHECK(!strcmp(big, "\x1b[4;464;632t"), "CSI 14 t: the window in pixels ('%s')", big + 1);
+      send("\x1b[16t"); drain(big); CHECK(!strcmp(big, "\x1b[6;16;8t"), "CSI 16 t: a cell in pixels ('%s')", big + 1);
+      W(4, 2); CHECK(PX(8, 16) == 0, "the clear register clears the pictures");
+      send("\x1b_Xnot ours\x1b\\ok"); row(r, 0); CHECK(!strcmp(r, "ok"), "an APC that is not G is swallowed whole ('%s')", r);
+    }
+    printf("13. pictures: query, RGB, PNG, zlib, chunks, put, scaling, a file, scrolling, clearing: ok\n");
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

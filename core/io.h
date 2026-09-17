@@ -6,6 +6,7 @@
 #ifndef K4510_IO_H
 #define K4510_IO_H
 #include <stdint.h>
+#include <stddef.h>
 
 #define IO_BASE        0xD000u
 #define IO_VICKY       0xD000u   /* $D000-$D0FF  (Phase 4a)              */
@@ -219,6 +220,7 @@ void    kbd_held(uint8_t mask);           /* the host, once a frame: which of th
 #define K4DOOM_YES      0x4000
 #define K4DOOM_NO       0x8000
 void    io_doom_input(uint32_t held);     /* the host, once a frame, while DOOM has the Tube */
+int     io_fs_hostpath(const char *name, char *out, size_t max);   /* a machine path as the host's (JIM's pictures): 1 ok */
 void    io_tube_opl_drain(void);           /* the host, per SCANLINE: DOOM's music onto MELODY */
 void    io_tube_frame(void);              /* the host, once a frame: DOOM's picture onto VICKY's bitmap.
                                            * NOT tube_pump's job -- that only runs when the pty has

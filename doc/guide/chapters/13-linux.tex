@@ -33,6 +33,23 @@ machine's palette. The shell is told its terminal is
 machine's character set and a near likeness of the rest, and an accented
 letter you type arrives as one.
 
+JIM also draws \emph{pictures}. It speaks the Kitty terminal's graphics
+protocol, so a program that can show an image in a terminal that way shows it
+here, among the text, scrolling with it:
+
+\begin{type}
+!chafa -f kitty --size 30x14 cover.png
+!kitten icat photo.png
+\end{type}
+
+\noindent The picture goes onto VICKY's top layer, dithered onto 216 of the
+palette's colours (entries 40 to 255; the console's sixteen are left alone),
+and is gone when the screen is cleared. Raw RGB and PNG are understood, sent
+in the escape itself or named as a file; animation and pictures \emph{under}
+the text are not. \verb|BOOK| uses the same door for the pictures in its
+pages, and so can any program of the machine's own: what it names is a file
+on the machine's disk.
+
 \verb|SSH [user@]host| is the same thing for a computer across the
 network: an ssh session, drawn by JIM, through the Linux's own ssh.
 

@@ -10146,3 +10146,54 @@ command line) -- curl now takes the URL as a config on stdin; and xdotool's
 Ctrl+Alt+N never reached the window under a bare Xvfb, which looked like a
 broken skip for an hour and was the harness. NOT tested: Doc's real server,
 which needs an account this machine is given by him, never one I read.
+
+## 2026-09-17 — JIM draws pictures: the Kitty graphics protocol, and BOOK's pages
+
+Doc: "I would like BOOK to display images inline..... can Jim be upgraded to
+Kitty graphics????" Yes, and that was the right way round to ask it: BOOK
+already writes to JIM, VICKY's layers already stack with colour 0 clear, and a
+JIM that speaks Kitty's protocol is one that chafa, icat, file managers and
+Neovim's image plugins can draw on from a `!` shell too.
+
+**core/jimgfx.c.** An APC `ESC _ G keys ; base64 ESC \` is kept whole by JIM
+and handed over at its ST. Understood: a=q/T/t/p/d; f=24, 32 and 100 (PNG:
+grey, RGB, palette, alpha; 1-16 bits; not interlaced -- a decoder of its own
+on zip.c's inflater, which gained a zlib entry); o=z; chunks (m=1); t=d, t=f,
+t=t; c= r= and the x,y,w,h crop; C=1; q=. Sizing is Kitty's rule, which my
+first version got wrong and the tests caught: no c/r is the picture's own
+size in pixels, both is exactly that box, one keeps the shape. Replies go up
+JIM's reply FIFO; CSI 14/16/18 t and the pty's pixel size say how big a cell
+is, which is how those programs size a picture.
+
+**Where the pixels go.** VICKY layer 3 -- the top one; 1 and 2 stay the
+programs' -- as an 8-bit bitmap the size of the glass, in far memory at
+$0F000000 where nothing lives. One palette of 256 for the whole machine, so a
+picture is ordered-dithered onto a fixed 6x6x6 cube in entries 40-255:
+several pictures share a screen without fighting, and the console's sixteen
+are untouched. Pictures scroll with the text (the plane is memmoved with the
+rows), go with ED and the clear register, and are forgotten at RIS or a
+change of geometry. A picture taller than the room below makes room first,
+as that many lines of text would.
+
+**BOOK.** Asks JIM the way any program asks a Kitty terminal -- a one-pixel
+a=q -- and an emulator that cannot draw never answers, so its pages are as
+they were. A picture's link is followed by 15 rows (30 in the 8-line modes)
+and JIM is sent `t=f` with the machine's own path, IMG/NAME.PNG, c=40, cropped
+with y= and h= when the picture is cut by the top or the foot of the page.
+mkgem.py writes the PNG twins: 92 KB for sixteen, against 664 KB of .PIC.
+Enter on the link still shows it whole.
+
+Two bugs worth the ink. **cc65 drops a register read whose value is thrown
+away**: `while (REG(T+1) & 0x80) (void)REG(T+2);` never popped the FIFO and
+BOOK hung on a blank screen at its first line. Read into a volatile. And
+fs_casefix mends only a path's LAST part, which is all an upper-cased guest
+name ever needs; a program's lower-case `/home/x.png` needs every part.
+
+Verified: 13 checks in test/termtest (pixels on the plane, replies, cursor,
+scrolling, a file on the machine's disk); BOOK in the real emulator with
+chapter 2's DIR screenshot in the page and a clean prompt after Q; and
+`!chafa -f kitty` showing an album cover from Doc's music library with the
+shell's text carrying on beneath it. Not on the Dell yet: it was offline.
+
+Not done: t=s shared memory, animation, z-order under the text, unicode
+placeholders; a save state does not carry the pictures.

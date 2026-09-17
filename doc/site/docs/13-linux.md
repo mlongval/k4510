@@ -16,6 +16,13 @@ runs that command on the Linux the machine is standing on, with its output drawn
 
 It is carried on the Tube ([Chapter 6, The Tube](06-tube.md)), which is the part of this machine already built to have another processor’s console on the glass: the host’s shell is started on the same pty the co-processors use, JIM renders it, and the ROM’s own key loop feeds it. So the colours stay the machine’s, full-screen programs work — `nvim`, `htop` and `tmux` run in the window — and `ls --color` lands in the machine’s palette. The shell is told its terminal is **xterm-color**, and it speaks UTF-8: JIM draws what it can in the machine’s character set and a near likeness of the rest, and an accented letter you type arrives as one.
 
+JIM also draws *pictures*. It speaks the Kitty terminal’s graphics protocol, so a program that can show an image in a terminal that way shows it here, among the text, scrolling with it:
+
+    !chafa -f kitty --size 30x14 cover.png
+    !kitten icat photo.png
+
+The picture goes onto VICKY’s top layer, dithered onto 216 of the palette’s colours (entries 40 to 255; the console’s sixteen are left alone), and is gone when the screen is cleared. Raw RGB and PNG are understood, sent in the escape itself or named as a file; animation and pictures *under* the text are not. `BOOK` uses the same door for the pictures in its pages, and so can any program of the machine’s own: what it names is a file on the machine’s disk.
+
 `SSH [user@]host` is the same thing for a computer across the network: an ssh session, drawn by JIM, through the Linux’s own ssh.
 
 The third door is a *login* on the Linux beneath — its own tty, its own session — where `!` gives a shell on the Tube. It is F12 → Host → *Telnet into the host*, and it asks for no password: the telnet it speaks to listens on the loopback and nowhere else, so the only way to knock on it is from the machine standing on that very Linux — which already opens an unauthenticated shell there with `!`. One line in `/STARTUP.BAT` gives it a name, which is how the shipped `/SYSTEM/ETC/STARTUP.SAMPLE` has it:

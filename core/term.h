@@ -64,4 +64,5 @@ void    term_cursor_unpark(int was);
 #ifdef __cplusplus
 }
 #endif
+int     term_cell_h(void);                      /* 8 or 16: the pty's window size says so in pixels, for programs that draw pictures */
 #endif

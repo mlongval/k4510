@@ -4,6 +4,7 @@
 #include "mem.h"
 #include "io.h"
 #include "vicky.h"
+#include "jimgfx.h"                 /* JIM's pictures: the Kitty graphics protocol (2026-09-17) */
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -41,6 +42,9 @@ static struct {
     uint8_t cur_on; uint32_t cur_at; uint32_t frames;
 } T;
 
+static uint8_t *apc; static size_t apc_n, apc_cap;      /* an APC being received (not in T: a save state does not carry a half-sent picture) */
+static int host_session;                               /* a `!` session: a picture's t=f path is the Linux's, not the machine's */
+static void apc_done(void);
 static const uint8_t apal[8]  = { 0, 2, 5, 7, 6, 4, 3, 1 };      /* ANSI order -> the C64 palette */
 static const uint8_t apalb[8] = { 11, 10, 13, 7, 14, 4, 3, 1 };  /* the bright set */
 static const uint8_t decgfx[32] = {                              /* DEC special graphics ` a b ... ~ -> CP437 */
@@ -65,10 +69,30 @@ static void blank_span(int y, int x0, int x1) { for (int x = x0; x <= x1; x++) b
  * so a row placed at the top of physical RAM ran the copy off the end of the
  * mapping (review 2026-09-12, 1). */
 static void copy_row(int dst, int src) { for (int x = 0; x < T.cols; x++) memcpy(cellp(x, dst), cellp(x, src), 4); }
+/* Where the text window is on the glass, in pixels, for the pictures that live
+ * among the cells (core/jimgfx.h).  The console is VICKY's layer 0: its cells
+ * are 8 wide and 8 or 16 tall by that layer's size field, and the ROM scrolls
+ * the HD console down by half its spare lines, which the pictures must follow. */
+static void gfx_geom(jimgfx_geom_t *g)
+{
+    int H = ((vicky_read(VR_LAYER(0) + VL_CTRL) >> 5) & 3) ? 16 : 8;
+    int sx = vicky_read(VR_LAYER(0) + VL_SCROLLX) | vicky_read(VR_LAYER(0) + VL_SCROLLX + 1) << 8;
+    int sy = (int16_t)(vicky_read(VR_LAYER(0) + VL_SCROLLY) | vicky_read(VR_LAYER(0) + VL_SCROLLY + 1) << 8);
+    g->cols = T.cols; g->rows = T.rows; g->cell_w = 8; g->cell_h = H;
+    g->px0 = T.ox * 8 - sx; g->py0 = T.oy * H - sy; g->cx = T.cx; g->cy = T.cy; g->host = host_session;
+}
+static void gfx_rows_moved(int top, int bot, int n)             /* n rows up (negative) or down: the pictures in those rows go with the text */
+{
+    jimgfx_geom_t g;
+    if (!jimgfx_active()) return;
+    gfx_geom(&g);
+    jimgfx_scroll(g.py0 + top * g.cell_h, g.py0 + (bot + 1) * g.cell_h, n * g.cell_h);
+}
 static void scroll_up(int top, int bot, int n)
 {
     if (n <= 0) return;
     if (n > bot - top + 1) n = bot - top + 1;
+    gfx_rows_moved(top, bot, -n);
     for (int y = top; y + n <= bot; y++) copy_row(y, y + n);
     for (int y = bot - n + 1; y <= bot; y++) blank_span(y, 0, T.cols - 1);
 }
@@ -76,6 +100,7 @@ static void scroll_down(int top, int bot, int n)
 {
     if (n <= 0) return;
     if (n > bot - top + 1) n = bot - top + 1;
+    gfx_rows_moved(top, bot, n);
     for (int y = bot; y - n >= top; y--) copy_row(y, y - n);
     for (int y = top; y < top + n; y++) blank_span(y, 0, T.cols - 1);
 }
@@ -162,6 +187,7 @@ static void clamp_geometry(void)
 void term_reset(void)
 {
     vicky_cursor(0, 0, 0);
+    jimgfx_reset();
     memset(&T, 0, sizeof T);
     T.cols = 80; T.rows = 30; T.stride = 80; T.base = 0x030000u;
     T.deffg = 7; T.defbg = 6;                        /* the ROM's yellow on blue until it says otherwise */
@@ -298,6 +324,10 @@ static void csi(uint8_t c)
         if (m == 0) { blank_span(T.cy, T.cx, T.cols - 1); for (int y = T.cy + 1; y < T.rows; y++) blank_span(y, 0, T.cols - 1); }
         else if (m == 1) { for (int y = 0; y < T.cy; y++) blank_span(y, 0, T.cols - 1); blank_span(T.cy, 0, T.cx); }
         else { for (int y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1); }
+        if (jimgfx_active()) { jimgfx_geom_t g; gfx_geom(&g);        /* the pictures in what was erased go too, as Kitty's do */
+            if (m == 0) jimgfx_clear_rows(g.py0 + (T.cy + (T.cx ? 1 : 0)) * g.cell_h, 1 << 20);
+            else if (m == 1) jimgfx_clear_rows(0, g.py0 + T.cy * g.cell_h);
+            else jimgfx_clear(); }
         break; }
     case 'K': {
         int m = P(0, 0); T.pending = 0;
@@ -320,6 +350,13 @@ static void csi(uint8_t c)
     case 'h': mode(1); break;
     case 'l': mode(0); break;
     case 'm': if (!T.priv) sgr(); break;
+    case 't': {                                                   /* the window in pixels and in cells: how `icat` and its kind size a picture */
+        int m = P(0, 0); jimgfx_geom_t g; char b[40];
+        gfx_geom(&g);
+        if (m == 14) { snprintf(b, sizeof b, "\033[4;%d;%dt", T.rows * g.cell_h, T.cols * g.cell_w); reply(b); }
+        else if (m == 16) { snprintf(b, sizeof b, "\033[6;%d;%dt", g.cell_h, g.cell_w); reply(b); }
+        else if (m == 18) { snprintf(b, sizeof b, "\033[8;%d;%dt", T.rows, T.cols); reply(b); }
+        break; }
     case 'n': {
         int m = P(0, 0);
         if (m == 5) reply("\033[0n");
@@ -364,7 +401,8 @@ static void esc(uint8_t c)
     switch (c) {
     case '[': T.st = 2; T.npar = 0; T.priv = 0; T.inter = 0; memset(T.par, 0, sizeof T.par); return;
     case ']': T.st = 3; return;
-    case 'P': case '^': case '_': case 'X': T.st = 3; return;      /* DCS, PM, APC, SOS: skipped like an OSC */
+    case '_': T.st = 9; apc_n = 0; return;                          /* APC: Kitty's graphics come in one (core/jimgfx.h) */
+    case 'P': case '^': case 'X': T.st = 3; return;                /* DCS, PM, SOS: skipped like an OSC */
     case '(': T.st = 4; return;
     case ')': T.st = 5; return;
     case '#': T.st = 6; return;
@@ -632,11 +670,29 @@ static int utf8_byte(uint8_t c)                                 /* 1: taken */
 static uint8_t host_lnm;
 void term_host_session(int on)
 {
+    host_session = on != 0;
     if (on) { host_lnm = T.lnm; T.lnm = 0; utf8_mode(1); }
     else    { T.lnm = host_lnm; utf8_mode(0); }
 }
 
 /* ---- the stream -------------------------------------------------------------- */
+/* An APC has ended.  If it was a picture to show, JIM makes room the way it
+ * would for that many lines of text -- scrolling, and the pictures already up
+ * scroll too -- and only then is it drawn; the cursor ends on the picture's
+ * last row, just past it, unless the program asked for it to stay (C=1). */
+static void apc_done(void)
+{
+    jimgfx_geom_t g; jimgfx_todo_t todo;
+    gfx_geom(&g);
+    jimgfx_apc(apc, apc_n, &g, &todo); apc_n = 0;
+    if (todo.reply[0]) reply(todo.reply);
+    if (!todo.place) return;
+    { int room = T.bot - T.cy + 1;
+      if (todo.rows > room && T.cy >= T.top && T.cy <= T.bot) { int n = todo.rows - room; if (n > T.cy - T.top) n = T.cy - T.top; scroll_up(T.top, T.bot, n); T.cy = (uint8_t)(T.cy - n); } }
+    gfx_geom(&g);
+    jimgfx_draw(&todo, &g);
+    if (!todo.keep_cursor) { int nx = T.cx + todo.cols, ny = T.cy + todo.rows - 1; T.cx = (uint8_t)(nx > T.cols - 1 ? T.cols - 1 : nx); T.cy = (uint8_t)(ny > T.bot ? T.bot : ny); T.pending = 0; }
+}
 static void put_byte(uint8_t c)
 {
     if (T.petscii && T.st == 0) { pet_byte(c); return; }
@@ -670,6 +726,11 @@ static void put_byte(uint8_t c)
     case 5: T.g1 = (c == '0') ? 1 : 0; T.st = 0; return;
     case 6: if (c == '8') { for (int y = 0; y < T.rows; y++) for (int x = 0; x < T.cols; x++) put_cell(x, y, 'E', 0, T.fg, T.bg); } T.st = 0; return;
     case 8: if (c == 'G' || c == '@') utf8_mode(c == 'G'); T.st = 0; return;
+    case 9:                                                            /* inside an APC: kept whole until its ST */
+        if (c == 0x1B) { T.st = 10; return; }
+        if (apc_n + 1 > apc_cap) { size_t nc = apc_cap ? apc_cap * 2 : 8192; uint8_t *nb = nc <= (64u << 20) ? realloc(apc, nc) : NULL; if (!nb) { T.st = 3; apc_n = 0; return; } apc = nb; apc_cap = nc; }   /* absurd: skip the rest as an OSC is skipped */
+        apc[apc_n++] = c; return;
+    case 10: T.st = 0; if (c == '\\') apc_done(); else apc_n = 0; return;
     }
 }
 
@@ -745,10 +806,10 @@ void term_write(uint8_t r, uint8_t v)
         if (v == 1) { uint8_t sh = T.shown; soft_reset(); T.shown = sh; T.cx = T.cy = 0; }   /* UTF-8 and LNM are left as they
                                                                                               * are: the ROM resets JIM (tube_term) AFTER
                                                                                               * the `!` session has switched them */
-        if (v == 2) { for (int y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1); T.cx = T.cy = 0; T.pending = 0; }
+        if (v == 2) { for (int y = 0; y < T.rows; y++) blank_span(y, 0, T.cols - 1); T.cx = T.cy = 0; T.pending = 0; jimgfx_clear(); }
         cur_draw(); return;
-    case 0x05: cur_undraw(); T.cols = v; clamp_geometry(); T.bot = (uint8_t)(T.rows - 1); T.top = 0; cur_draw(); return;
-    case 0x06: cur_undraw(); T.rows = v; clamp_geometry(); T.bot = (uint8_t)(T.rows - 1); T.top = 0; cur_draw(); return;
+    case 0x05: cur_undraw(); if (T.cols != v) jimgfx_reset(); T.cols = v; clamp_geometry(); T.bot = (uint8_t)(T.rows - 1); T.top = 0; cur_draw(); return;
+    case 0x06: cur_undraw(); if (T.rows != v) jimgfx_reset(); T.rows = v; clamp_geometry(); T.bot = (uint8_t)(T.rows - 1); T.top = 0; cur_draw(); return;
     case 0x07: cur_undraw(); T.ox = v; clamp_geometry(); cur_draw(); return;
     case 0x08: cur_undraw(); T.oy = v; clamp_geometry(); cur_draw(); return;
     case 0x09: cur_undraw(); T.cx = v; clamp_geometry(); T.pending = 0; T.dirty = 0; cur_draw(); return;
@@ -770,6 +831,8 @@ void term_write(uint8_t r, uint8_t v)
     default: return;
     }
 }
+
+int term_cell_h(void) { jimgfx_geom_t g; gfx_geom(&g); return g.cell_h; }
 
 /* ---- save states (core/state.h) ------------------------------------------ */
 #include "state.h"

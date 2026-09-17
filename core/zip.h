@@ -27,4 +27,6 @@ int  zip_isdir(zip_t *z, const char *path);    /* 1 a folder ("" is the top), 0 
 int  zip_fetch(zip_t *z, const char *path, uint8_t **buf, uint32_t *len);
 /* A folder's entries, sorted, each once (the caller frees): 0 ok, 1 not a folder. */
 int  zip_listdir(zip_t *z, const char *path, net_dirent **ents, int *n);
+/* a zlib stream into exactly outlen bytes (0 ok): PNG and Kitty's o=z, for core/jimgfx.c */
+int zip_zlib_inflate(const uint8_t *in, uint32_t inlen, uint8_t *out, uint32_t outlen);
 #endif

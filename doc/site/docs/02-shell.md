@@ -10,7 +10,7 @@ The shell is what the machine boots into. It is a file manager, a program launch
     BOOK 3            chapter 3, every command
     BOOK SHELL        the chapter whose title says SHELL
 
-The arrows, PgUp and PgDn (or Space) and Home and End move through a page. Tab chooses the next link and Shift+Tab the one before; Enter follows it and Backspace comes back, as far as eight pages. `/` finds a word further down, and `n` finds it again. Q or Escape leaves. A link marked *\[picture\]* is one of this book’s screenshots: Enter shows it full screen, drawn by the machine as the machine drew it, and any key comes back to the page.
+The arrows, PgUp and PgDn (or Space) and Home and End move through a page. Tab chooses the next link and Shift+Tab the one before; Enter follows it and Backspace comes back, as far as eight pages. `/` finds a word further down, and `n` finds it again. Q or Escape leaves. A link marked *\[picture\]* is one of this book’s screenshots, and the picture is there in the page beneath it, at half size; Enter on the link shows it full screen, drawn by the machine as the machine drew it, and any key comes back to the page.
 
 The pages are made from the same source as this book and its web edition, at the same time, so the three never disagree. They live in `/SYSTEM/DOC`, one to a chapter, in Gemini text — a small, open format where a line’s first characters say what it is: `#` a heading, `=>` a link, `*` an item in a list. So `TYPE` reads them too, and so does any Gemini reader on another computer.
 

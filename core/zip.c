@@ -150,6 +150,15 @@ static int inflate_all(const uint8_t *in, uint32_t inlen, uint8_t *out, uint32_t
     return s.outpos != outlen;
 }
 
+/* A zlib stream (RFC 1950: two header bytes, deflate, an Adler-32 this does not
+ * check) into exactly OUTLEN bytes: PNG's IDAT, and Kitty's o=z.  JIM's
+ * graphics (core/jimgfx.c) are the caller; the sizes are always known. */
+int zip_zlib_inflate(const uint8_t *in, uint32_t inlen, uint8_t *out, uint32_t outlen)
+{
+    if (inlen < 6 || (in[0] & 0x0F) != 8 || ((in[0] << 8 | in[1]) % 31) != 0 || (in[1] & 0x20)) return 1;
+    return inflate_all(in + 2, inlen - 2, out, outlen);
+}
+
 static uint32_t crc32_of(const uint8_t *p, uint32_t n)
 {
     static uint32_t t[256]; static int made;

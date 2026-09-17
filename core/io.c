@@ -333,6 +333,29 @@ static int fs_sysmount_row(int idx, char *b, size_t max)
     return b[0] != 0;
 }
 static const char *fs_sysinfo_row(int idx);      /* STATUS's report: at the end of this file, where everything it reads is in sight */
+/* A machine path ("/SYSTEM/DOC/IMG/BOOT.PNG", or a name beside the current
+ * directory) as the host's, for JIM's pictures: Kitty's t=f names a FILE, and
+ * on this machine a program's files are the machine's.  The same sandbox as
+ * every other name: it cannot climb out of the root.  1 when it resolves. */
+int io_fs_hostpath(const char *name, char *out, size_t max)
+{
+    char rel[256], part[256]; const char *p; struct stat sb;
+    if (fs_resolve(name, rel, sizeof rel, out, max)) return 0;
+    if (!stat(out, &sb)) return 1;
+    /* Not there as spelt: every part of it in whatever case the disk has it
+     * (fs_casefix mends only the last one, which is all a guest's upper-cased
+     * name ever needs; a path typed by a program may be lower case throughout). */
+    snprintf(out, max, "%s", fs_root);
+    for (p = rel; *p; ) {
+        size_t l = strcspn(p, "/"), n = strlen(out);
+        if (l >= sizeof part || n + l + 2 >= max) return 0;
+        memcpy(part, p, l); part[l] = 0;
+        snprintf(out + n, max - n, "/%s", part);
+        fs_casefix(out, max);
+        p += l; while (*p == '/') p++;
+    }
+    return !stat(out, &sb);
+}
 /* host path for NAMEPTR; for reads, a bare name (no directory part) that is
  * not where we are is looked for along the disk's shape (fs/HOME/README.TXT):
  *   /SYSTEM/BIN/name              the tools
@@ -1839,6 +1862,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         }
         if (tube_rows) ws.ws_row = tube_rows;          /* the console window as the ROM has it, bands and margin taken out */
         if (tube_cols) ws.ws_col = tube_cols;
+        ws.ws_xpixel = (unsigned short)(ws.ws_col * 8); ws.ws_ypixel = (unsigned short)(ws.ws_row * term_cell_h());   /* in pixels too: a program that draws pictures (Kitty's protocol, core/jimgfx.h) sizes them from this */
         /* Locked (k4510-menu.cfg): no way into Linux -- `!`, `!cmd`, SSH.  PAS and
          * CC come through here too, as k4510-pas/k4510-cc, and may pass.  The
          * reason goes out as the session's only output, and no session starts. */

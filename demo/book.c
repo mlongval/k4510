@@ -40,6 +40,7 @@ static void rom_video(void)          { ((void (*)(void))0xFF92)(); }
 #define IDX      0x0C800000UL             /* its display lines: 4-byte offsets */
 #define TYP      0x0C900000UL             /* a type byte each */
 #define PIC      0x0CA00000UL             /* a picture being shown */
+#define RAWIDX   0x0CC00000UL             /* every line's offset, before the display lines are made of them */
 #define BITMAP   0x00200000UL             /* VICKY layer 1's bitmap (as LOGO's) */
 
 #define K_UP     0x80
@@ -51,7 +52,7 @@ static void rom_video(void)          { ((void (*)(void))0xFF92)(); }
 #define K_PGUP   0x86
 #define K_PGDN   0x87
 
-enum { T_TEXT, T_H1, T_H2, T_H3, T_LINK, T_PRE, T_QUOTE, T_LIST };
+enum { T_TEXT, T_H1, T_H2, T_H3, T_LINK, T_PRE, T_QUOTE, T_LIST, T_IMG };   /* T_IMG: a row a picture is drawn over, under its link */
 
 #define DOCDIR   "/SYSTEM/DOC/"
 #define NAMELEN  48
@@ -64,6 +65,16 @@ static uint16_t nlines, top, nlinks;
 static int sel;                          /* the chosen link, -1 none */
 static uint16_t links[MAXLINKS];         /* display line of each link */
 static uint8_t rows, cols, page;
+/* Pictures in the page itself.  Doc, 2026-09-17: "I would like BOOK to display
+ * images inline".  JIM draws them (the Kitty graphics protocol, core/jimgfx.h):
+ * BOOK leaves IMG_ROWS blank rows under a picture's link and asks JIM to put
+ * IMG/NAME.PNG there, IMG_COLS wide -- half size, which is what fits in a page
+ * of text -- cropped when the picture is cut by the top or the foot of the
+ * page.  Enter on the link still shows it whole.  An emulator whose JIM cannot
+ * draw never answers the question main() asks, and the page is as it was. */
+static uint8_t gfx, img_rows;
+static volatile uint8_t sink;            /* where a register read for its side effect goes */
+#define IMG_COLS 40
 static char ln[164];                     /* the line being drawn */
 static char msg[64];
 static char find[40];
@@ -122,6 +133,8 @@ static uint32_t off_of(uint16_t n)
     return o;
 }
 static void set_off(uint16_t n, uint32_t o) { dma_copy((uint32_t)(uint16_t)&o, IDX + ((uint32_t)n << 2), 4); }
+static uint32_t raw_of(uint16_t n) { uint32_t o; dma_copy(RAWIDX + ((uint32_t)n << 2), (uint32_t)(uint16_t)&o, 4); return o; }
+static void set_raw(uint16_t n, uint32_t o) { dma_copy((uint32_t)(uint16_t)&o, RAWIDX + ((uint32_t)n << 2), 4); }
 static void fetch_at(uint32_t o)
 {
     uint32_t left = size > o ? size - o : 0;
@@ -134,25 +147,28 @@ static void fetch_at(uint32_t o)
 static void fetch(uint16_t n) { fetch_at(off_of(n)); }
 
 /* Index the page: every line's offset (pass 1), then the display lines --
- * the ``` fences dropped, each line typed by its first characters (pass 2,
- * compacting in place: the kept index never overtakes the one being read). */
+ * the ``` fences dropped, each line typed by its first characters (pass 2).
+ * Two regions since pictures arrived: a picture ADDS display lines, so the
+ * kept index could overtake the one being read if they shared one. */
+static char *link_target(char **label);
+static uint8_t is_pic(const char *t);
 static void index_page(void)
 {
     static uint8_t buf[256];
     uint32_t o = 0;
     uint16_t nraw = 0, i, n, j, k = 0;
     uint8_t pre = 0, t;
-    set_off(nraw++, 0);
+    set_raw(nraw++, 0);
     while (o < size) {
         n = size - o > 256 ? 256 : (uint16_t)(size - o);
         dma_copy(DOC + o, (uint32_t)(uint16_t)buf, n);
         for (i = 0; i < n; i++)
-            if (buf[i] == '\n' && o + i + 1 < size) set_off(nraw++, o + i + 1);
+            if (buf[i] == '\n' && o + i + 1 < size) set_raw(nraw++, o + i + 1);
         o += n;
     }
     nlinks = 0;
     for (j = 0; j < nraw; j++) {
-        o = off_of(j);
+        o = raw_of(j);
         fetch_at(o);
         if (ln[0] == '`' && ln[1] == '`' && ln[2] == '`') { pre = !pre; continue; }
         if (pre) t = T_PRE;
@@ -165,6 +181,10 @@ static void index_page(void)
         far_poke(TYP + k, t);
         if (t == T_LINK && nlinks < MAXLINKS) links[nlinks++] = k;
         k++;
+        if (t == T_LINK && gfx) {                          /* a picture: its rows follow, each pointing back at the link's line */
+            char *lab;
+            if (is_pic(link_target(&lab))) for (i = 0; i < img_rows; i++) { set_off(k, o); far_poke(TYP + k, T_IMG); k++; }
+        }
     }
     nlines = k;
 }
@@ -223,6 +243,45 @@ static void show(uint16_t n, uint8_t t)
     says(p);
 }
 
+/* ---- a picture in the page ------------------------------------------------ */
+static void rawnum(uint16_t v) { char b[6]; uint8_t i = 5; b[5] = 0; do { b[--i] = (char)('0' + v % 10); v /= 10; } while (v); rawstr(b + i); }
+static void raw64(const char *t)                     /* base64, which is how the protocol carries a file's name */
+{
+    static const char A[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    uint8_t n = (uint8_t)strlen(t), i; uint32_t v;
+    for (i = 0; i < n; i += 3) {
+        v = (uint32_t)(uint8_t)t[i] << 16; if (i + 1 < n) v |= (uint32_t)(uint8_t)t[i + 1] << 8; if (i + 2 < n) v |= (uint8_t)t[i + 2];
+        raw(A[(v >> 18) & 63]); raw(A[(v >> 12) & 63]); raw(i + 1 < n ? A[(v >> 6) & 63] : '='); raw(i + 2 < n ? A[v & 63] : '=');
+    }
+}
+/* Display line n is a picture's row, drawn on screen row r.  The picture is
+ * sent once for the rows of it that are on the page: from its first row when
+ * that is in sight, from the top of the page when it is not. */
+static void inline_picture(uint16_t n, uint8_t r)
+{
+    static char path[NAMELEN]; static uint8_t hd[24];
+    char *lab, *tgt; uint8_t kk, left, l; uint16_t h, sy, sh;
+    for (kk = 1; kk <= n && far_peek(TYP + n - kk) == T_IMG; kk++)
+        ;
+    if (kk != 1 && r != 0) return;                     /* a later row of a picture already begun above */
+    fetch(n); tgt = link_target(&lab);
+    strcpy(path, DOCDIR); strncat(path, tgt, NAMELEN - sizeof DOCDIR - 1);
+    l = (uint8_t)strlen(path); if (l < 4) return;
+    path[l - 2] = 'N'; path[l - 1] = 'G';             /* IMG/NAME.PIC is shown whole; IMG/NAME.PNG is its twin for JIM */
+    if (load(path, PIC)) return;                       /* no twin on this disk: the link alone, as before */
+    dma_copy(PIC, (uint32_t)(uint16_t)hd, 24);
+    if (hd[1] != 'P' || hd[2] != 'N' || hd[3] != 'G') return;
+    h = ((uint16_t)hd[22] << 8) | hd[23];
+    left = (uint8_t)(img_rows - (kk - 1));
+    if (r + left > page) left = (uint8_t)(page - r);
+    sy = (uint16_t)((uint32_t)(kk - 1) * h / img_rows);
+    sh = (uint16_t)((uint32_t)left * h / img_rows);
+    if (!left || !sh) return;
+    at(r, 2);
+    rawstr("\033_Ga=T,f=100,t=f,i=1,q=2,C=1,c="); rawnum(IMG_COLS); rawstr(",r="); rawnum(left);
+    rawstr(",y="); rawnum(sy); rawstr(",h="); rawnum(sh); raw(';'); raw64(path); rawstr("\033\\");
+}
+
 static void status(void)
 {
     uint16_t pct;
@@ -243,12 +302,14 @@ static void draw(void)
 {
     uint8_t r;
     uint16_t n;
+    if (gfx) rawstr("\033_Ga=d,q=2\033\\");            /* the last page's pictures off the glass */
     for (r = 0; r < page; r++) {
         n = top + r;
         at(r, 0); lim = cols; sgr("0");
-        if (n < nlines) { fetch(n); show(n, far_peek(TYP + n)); }
+        if (n < nlines && far_peek(TYP + n) != T_IMG) { fetch(n); show(n, far_peek(TYP + n)); }
         sgr("0"); eeol();
     }
+    if (gfx) for (r = 0; r < page; r++) if (top + r < nlines && far_peek(TYP + top + r) == T_IMG) inline_picture(top + r, r);
     status();
 }
 
@@ -454,6 +515,13 @@ int main(void)
     if (rows < 6) rows = 30;
     page = rows - 1;
     REG(TERM + 4) = 2; REG(TERM + 0x0E) = 0;                 /* clear; no cursor */
+    /* Can this JIM draw?  Ask the way any program asks a Kitty terminal: a
+     * one-pixel query.  JIM answers at once, in its reply register; a JIM that
+     * cannot swallows the question and says nothing. */
+    while (REG(TERM + 1) & 0x80) sink = REG(TERM + 2);      /* into a variable: cc65 drops a read whose value is thrown away, and this loop then never ends */
+    rawstr("\033_Gi=1,s=1,v=1,a=q,t=d,f=24;AAAA\033\\");
+    if (REG(TERM + 1) & 0x80) { gfx = cols >= IMG_COLS + 4; while (REG(TERM + 1) & 0x80) sink = REG(TERM + 2); }
+    img_rows = rows > 40 ? 30 : 15;                          /* 240 lines of glass: fifteen 16-line rows, or thirty of 8 */
     if (open_page("INDEX.GMI")) {
         const char *e = "book: /SYSTEM/DOC/INDEX.GMI is missing\n";
         while (*e) rom_chrout((unsigned char)*e++);

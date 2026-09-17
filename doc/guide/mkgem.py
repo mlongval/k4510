@@ -219,11 +219,26 @@ def convert(stem, table, prev, nxt):
     return machine_text(wrap(gem), stem)
 
 
+def make_png(png, pic):
+    """IMG/NAME.PNG beside IMG/NAME.PIC: what BOOK shows IN the page, through
+    JIM's Kitty graphics (core/jimgfx.h).  Rewritten through PIL rather than
+    copied, so that it is always a PNG JIM reads: 8 bits, no interlace, no
+    colour profile -- and small, a tenth of the .PIC beside it."""
+    dst = PICS / (pic[:-4] + ".PNG")
+    if dst.exists() and dst.stat().st_mtime >= png.stat().st_mtime:
+        return
+    from PIL import Image
+    im = Image.open(png).convert("RGB")
+    q = im.quantize(colors=256, dither=Image.Dither.NONE)     # a screenshot has a few dozen colours: nothing is lost
+    (q if q.convert("RGB").tobytes() == im.tobytes() else im).save(dst, format="PNG", optimize=True)
+
+
 def make_pic(pic):
     png = HERE / "shots" / (pic[:-4].lower() + ".png")
     dst = PICS / pic
     if not png.exists():
         die(f"shots/{png.name} missing -- make-guide.sh takes it")
+    make_png(png, pic)
     if dst.exists() and dst.stat().st_mtime >= png.stat().st_mtime:
         old = dst.read_bytes()[:12]
         if old[:4] == b"K4PC" and old[11] == 3:
@@ -298,7 +313,7 @@ def main():
     for f in OUT.glob("*.GMI"):
         wanted |= set(re.findall(rb"^=> IMG/(\S+\.PIC)", f.read_bytes(), flags=re.M))
     for f in PICS.iterdir():
-        if f.name.encode() not in wanted:
+        if (f.name[:-4] + ".PIC").encode() not in wanted:    # a .PNG lives and dies with its .PIC
             f.unlink()
     size = sum(f.stat().st_size for f in OUT.rglob("*") if f.is_file())
     print(f"mkgem: {len(pages)} pages, {len(wanted)} pictures, {size // 1024} KB -> fs/SYSTEM/DOC")

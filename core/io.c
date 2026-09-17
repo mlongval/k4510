@@ -1658,40 +1658,53 @@ static void doom_bitmap_on(void)
 /* Which game DOOM plays.
  *
  * Doc, 2026-09-17, asked for a WADCHOOSER; its choice is one line in
- * /APPS/DOOM/DOOM.CFG, "wad = NAME".  The name is looked for among the
- * folder's own entries, whatever its case -- never joined onto a path, so
- * nothing the file says can walk out of the folder.  With no file, or a name
- * that is not there: freedoom1.wad, as it always was, and failing that the
- * first .wad there is, so a machine with only DOOM1.WAD on it still plays. */
+ * DOOM.CFG, "wad = NAME".  The name is looked for among a folder's own
+ * entries, whatever its case -- never joined onto a path, so nothing the file
+ * says can walk out of the folder.  With no file, or a name that is not
+ * there: freedoom1.wad, as it always was, and failing that the first .wad
+ * there is, so a machine with only DOOM1.WAD on it still plays.
+ *
+ * Two folders, /DISK/DOOM first.  The games moved there the same day (the
+ * layer is RAM, and 28 MB that is played once a year does not belong in it:
+ * fs/DISK/README.TXT); /APPS/DOOM is still looked in, for a machine whose
+ * WAD was put there before the move. */
+static int doom_wad_in(const char *dir, const char *want, char *out, size_t max)
+{
+    char first[64] = "", found[64] = ""; DIR *d; struct dirent *e;
+    if (!(d = opendir(dir))) return 0;
+    while ((e = readdir(d))) {
+        size_t l = strlen(e->d_name);
+        if (l < 5 || l >= sizeof found || strcasecmp(e->d_name + l - 4, ".wad")) continue;
+        if (want[0] && !strcasecmp(e->d_name, want)) { snprintf(found, sizeof found, "%s", e->d_name); break; }
+        if (!strcasecmp(e->d_name, "freedoom1.wad")) snprintf(found, sizeof found, "%s", e->d_name);
+        if (!first[0] || strcasecmp(e->d_name, first) < 0) snprintf(first, sizeof first, "%s", e->d_name);
+    }
+    closedir(d);
+    if (!found[0] && !first[0]) return 0;
+    snprintf(out, max, "%s/%s", dir, found[0] ? found : first);
+    return found[0] && want[0] && !strcasecmp(found, want) ? 2 : 1;   /* 2: the very one that was asked for */
+}
 static void doom_wad_path(char *out, size_t max)
 {
-    char dir[600], want[64] = "", first[64] = "", line[128]; FILE *f; DIR *d; struct dirent *e;
-    const char *pick = NULL; static char found[64];
-    snprintf(dir, sizeof dir, "%.511s/APPS/DOOM", fs_root);
-    { char cfg[700]; snprintf(cfg, sizeof cfg, "%s/DOOM.CFG", dir); fs_casefix(cfg, sizeof cfg);
-      if ((f = fopen(cfg, "r"))) {
-          while (fgets(line, sizeof line, f)) {
-              char *eq = strchr(line, '='), *v, *z;
-              if (line[0] == '#' || !eq) continue;
-              for (v = eq + 1; *v == ' ' || *v == '\t'; v++) ;
-              for (z = v + strlen(v); z > v && (z[-1] == '\n' || z[-1] == '\r' || z[-1] == ' ' || z[-1] == '\t'); ) *--z = 0;
-              if (!strncasecmp(line, "wad", 3)) snprintf(want, sizeof want, "%s", v);
-          }
-          fclose(f);
-      } }
-    found[0] = 0;
-    if ((d = opendir(dir))) {
-        while ((e = readdir(d))) {
-            size_t l = strlen(e->d_name);
-            if (l < 5 || l >= sizeof found || strcasecmp(e->d_name + l - 4, ".wad")) continue;
-            if (want[0] && !strcasecmp(e->d_name, want)) { snprintf(found, sizeof found, "%s", e->d_name); pick = found; break; }
-            if (!strcasecmp(e->d_name, "freedoom1.wad")) { snprintf(found, sizeof found, "%s", e->d_name); pick = found; if (!want[0]) break; }
-            if (!first[0] || strcasecmp(e->d_name, first) < 0) snprintf(first, sizeof first, "%s", e->d_name);
+    static const char *const where[2] = { "DISK/DOOM", "APPS/DOOM" };
+    char dir[2][600], want[64] = "", line[128], got[2][700]; int r[2]; FILE *f;
+    for (int k = 0; k < 2; k++) snprintf(dir[k], sizeof dir[k], "%.511s/%s", fs_root, where[k]);
+    for (int k = 0; k < 2 && !want[0]; k++) {
+        char cfg[700]; snprintf(cfg, sizeof cfg, "%s/DOOM.CFG", dir[k]); fs_casefix(cfg, sizeof cfg);
+        if (!(f = fopen(cfg, "r"))) continue;
+        while (fgets(line, sizeof line, f)) {
+            char *eq = strchr(line, '='), *v, *z;
+            if (line[0] == '#' || !eq) continue;
+            for (v = eq + 1; *v == ' ' || *v == '\t'; v++) ;
+            for (z = v + strlen(v); z > v && (z[-1] == '\n' || z[-1] == '\r' || z[-1] == ' ' || z[-1] == '\t'); ) *--z = 0;
+            if (!strncasecmp(line, "wad", 3)) snprintf(want, sizeof want, "%s", v);
         }
-        closedir(d);
+        fclose(f);
     }
-    if (!pick && first[0]) pick = first;
-    snprintf(out, max, "%s/%s", dir, pick ? pick : "freedoom1.wad");
+    for (int k = 0; k < 2; k++) r[k] = doom_wad_in(dir[k], want, got[k], sizeof got[k]);
+    if (r[0] == 2 || (r[0] && r[1] != 2)) snprintf(out, max, "%s", got[0]);        /* the one asked for, wherever it is; else /DISK before /APPS */
+    else if (r[1]) snprintf(out, max, "%s", got[1]);
+    else snprintf(out, max, "%s/freedoom1.wad", dir[0]);                             /* nothing anywhere: a name for the "no game data" message to fail on */
 }
 static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (RunCPM), 4 = the host shell */
 {
@@ -1790,8 +1803,8 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             if (chdir(fs_root) != 0) { }
             if (bin && rwad) execl(bin, "doomk4510", "-iwad", rwad, (char *) NULL);
             if (bin && !rwad) {
-                const char *m = "doom: no game data.  Run tools/get-freedoom.sh on the host:\r\n"
-                                "      it fetches Freedoom into /APPS/DOOM (28 MB, BSD licensed).\r\n";
+                const char *m = "doom: no game data.  /APPS/DOOM/WADCHOOSER fetches a game into /DISK/DOOM\r\n"
+                                "      (or tools/get-freedoom.sh on the host: Freedoom, 28 MB, BSD licensed).\r\n";
                 ssize_t n = write(1, m, strlen(m)); (void) n;
             }
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */

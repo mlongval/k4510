@@ -1,0 +1,101 @@
+#!/bin/sh
+# k4510-split-live -- give /live a partition of its own, once.
+#
+# Doc, 2026-09-17: "the premise of this system is that it is loaded and runs
+# from RAM ... how do you propose segregating stuff that must load at each boot
+# from that which should stay available only (on disk)".
+#
+# live-boot's `toram` copies the WHOLE medium into RAM, and on an internal
+# install the medium was the same partition as the persistence: the two system
+# images, and also every saved file, every downloaded game, every old layer
+# kept for rollback -- 2.2 GB a boot on the Dell, of which 0.9 GB was wanted.
+# The fix is the oldest one there is: two partitions.  The small one holds
+# /live and is what toram copies; the big one is persistence and /DISK, and
+# stays on the disk.
+#
+# The big one has to be SHRUNK to make room, and ext4 cannot shrink while it
+# is mounted -- which it always is, as the persistence.  So this runs in a
+# boot of its own: the kernel command line has k4510.maint=split-live and NO
+# `persistence`, the system is in RAM (toram), and nothing on the disk is
+# mounted at all.  k4510-split-live.service starts it; nothing else does.
+#
+# Order matters, and every step leaves a machine that still boots the old
+# way: the filesystem is shrunk well below the new partition size before the
+# table is touched, the old /live is left where it is, and GRUB is edited
+# LAST, only after the copy on the new partition has been checksummed.
+set -u
+# For rehearsing on a loop device (test/split-live-rehearsal.sh): other labels,
+# a smaller partition, a stand-in for the medium, and no reboot.
+LABEL=${K4510_SPLIT_LABEL:-K4510}; NEWLABEL=${K4510_SPLIT_NEWLABEL:-K4510LIVE}
+MEDIUM=${K4510_SPLIT_MEDIUM:-/run/live/medium}; TEST=${K4510_SPLIT_TEST:-}
+LIVE_MB=${K4510_SPLIT_MB:-4096}      # the new partition: 0.9 GB of images today, room for a rollback copy beside them
+LOG=${K4510_SPLIT_LOG:-/run/k4510-split-live.log}
+exec >"$LOG" 2>&1
+say() { echo "== $*"; echo "K4510 maintenance: $*" > /dev/console 2>/dev/null || true; }
+finish() {                          # the log goes onto the big partition, whatever happened, and the machine restarts
+    say "$1"
+    mkdir -p /run/k4p && mount "$P4" /run/k4p 2>/dev/null && { cp "$LOG" /run/k4p/split-live.log; sync; umount /run/k4p; }
+    [ -n "$TEST" ] && exit 0
+    sleep 3; systemctl reboot; exit 0
+}
+
+[ -n "$TEST" ] || grep -qw 'k4510.maint=split-live' /proc/cmdline || { echo "not a maintenance boot"; exit 0; }
+P4=$(blkid -L "$LABEL") || P4=
+[ -n "$P4" ] || { echo "no partition labelled $LABEL"; [ -n "$TEST" ] && exit 1; sleep 3; systemctl reboot; exit 0; }
+DISK=/dev/$(lsblk -no PKNAME "$P4"); PN=$(cat /sys/class/block/"$(basename "$P4")"/partition)
+say "splitting $P4 (partition $PN of $DISK)"
+grep -q "^$P4 " /proc/mounts && finish "REFUSED: $P4 is mounted (was this booted with persistence?)"
+[ -n "$(blkid -L "$NEWLABEL")" ] && finish "REFUSED: a $NEWLABEL partition already exists"
+[ -f "$MEDIUM/live/filesystem.squashfs" ] || finish "REFUSED: the system is not in RAM (/run/live/medium/live)"
+
+SECT=$(cat /sys/class/block/"$(basename "$P4")"/size); START=$(cat /sys/class/block/"$(basename "$P4")"/start)
+NEWSECT=$((SECT - LIVE_MB * 2048)); NEWSECT=$((NEWSECT / 2048 * 2048))
+USED_MB=$(( $(dumpe2fs -h "$P4" 2>/dev/null | awk -F: '/^Block count/{b=$2}/^Free blocks/{f=$2}/^Block size/{s=$2}END{print (b-f)*s/1048576}' | cut -d. -f1) ))
+MARGIN=$(( NEWSECT / 2048 / 4 )); [ "$MARGIN" -gt 2048 ] && MARGIN=2048
+SHRINK_MB=$(( NEWSECT / 2048 - MARGIN ))             # 2 GB under the new partition (a quarter, on a small one): a margin nothing can argue with
+say "used ${USED_MB} MB; filesystem to ${SHRINK_MB} MB, partition to $((NEWSECT / 2048)) MB, then ${LIVE_MB} MB for /live"
+[ "$USED_MB" -gt 0 ] && [ $((USED_MB * 2)) -lt "$SHRINK_MB" ] || finish "REFUSED: not enough free space to shrink safely"
+
+e2fsck -f -y "$P4"; [ $? -le 1 ] || finish "FAILED: e2fsck before the shrink (nothing changed)"
+resize2fs "$P4" "${SHRINK_MB}M" || finish "FAILED: resize2fs shrink (the partition table is untouched; the machine boots as before)"
+
+sfdisk -d "$DISK" > /run/pt.before || finish "FAILED: cannot read the partition table"
+NEWSTART=$((START + NEWSECT))
+{ sed -E "s|^($P4 : start= *$START, size= *)$SECT,|\1$NEWSECT,|" /run/pt.before
+  echo "${DISK}p$((PN + 1)) : start=$NEWSTART, size=$((LIVE_MB * 2048)), type=0FC63DAF-8483-4772-8E79-3D69D8477DE4, name=\"$NEWLABEL\""; } > /run/pt.after
+grep -q "size= *$NEWSECT," /run/pt.after || finish "FAILED: could not rewrite the table (nothing written)"
+cat /run/pt.after
+sfdisk --force "$DISK" < /run/pt.after || { sfdisk --force "$DISK" < /run/pt.before; finish "FAILED: sfdisk; the old table was put back"; }
+blockdev --rereadpt "$DISK" 2>/dev/null; partx -u "$DISK" 2>/dev/null; udevadm settle; sleep 2
+P5=${DISK}p$((PN + 1))
+[ -b "$P5" ] || finish "FAILED: $P5 did not appear (the big partition is smaller but intact; boots as before)"
+
+resize2fs "$P4" || say "warning: could not grow the filesystem back to fill its partition (it is merely smaller)"
+e2fsck -f -y "$P4"; [ $? -le 1 ] || say "warning: e2fsck after the resize was not clean"
+
+mkfs.ext4 -q -F -L "$NEWLABEL" "$P5" || finish "FAILED: mkfs on $P5 (boots as before)"
+mkdir -p /run/k5 && mount "$P5" /run/k5 || finish "FAILED: cannot mount $P5"
+mkdir -p /run/k5/live
+for f in vmlinuz initrd.img filesystem.squashfs k4510.squashfs; do cp "$MEDIUM/live/$f" /run/k5/live/ || finish "FAILED: copying $f"; done
+sync
+( cd "$MEDIUM/live" && sha256sum vmlinuz initrd.img filesystem.squashfs k4510.squashfs ) > /run/sums
+( cd /run/k5/live && sha256sum -c /run/sums ) || finish "FAILED: the copy on $P5 does not match (boots as before)"
+umount /run/k5
+
+# GRUB, last.  The host's /boot is a partition of its own here (Fedora);
+# find the grub.cfg that has our entries.
+for part in $(lsblk -lno NAME,FSTYPE "$DISK" | awk '$2=="ext4"||$2=="vfat"{print "/dev/"$1}'); do
+    [ "$part" = "$P4" ] || [ "$part" = "$P5" ] && continue
+    mkdir -p /run/kb; mount "$part" /run/kb 2>/dev/null || continue
+    for g in /run/kb/grub2/grub.cfg /run/kb/grub/grub.cfg /run/kb/boot/grub2/grub.cfg /run/kb/boot/grub/grub.cfg; do
+        [ -f "$g" ] && grep -q 'K4510 Fantasy Computer' "$g" || continue
+        cp -a "$g" "$g.before-split-live"
+        sed -i -E "s|(search --no-floppy --set=root --label) $LABEL\$|\1 $NEWLABEL|; s|live-media=$P4 |live-media=$P5 |; s| k4510\.maint=split-live||" "$g"
+        # the maintenance entry has done its work: it would refuse next time anyway, but it should not be offered
+        sed -i '/^menuentry "K4510 (maintenance)"/,/^}/d' "$g"
+        say "GRUB: $g now boots /live from $P5"; GRUBDONE=1
+    done
+    sync; umount /run/kb
+done
+[ "${GRUBDONE:-}" = 1 ] || finish "PARTLY DONE: $P5 is ready but no grub.cfg with a K4510 entry was found; still boots the old way"
+finish "DONE: /live is on $P5 ($NEWLABEL); $P4 keeps persistence and /DISK.  The old /live on $P4 is left for now."

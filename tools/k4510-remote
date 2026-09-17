@@ -164,6 +164,11 @@ def c_shot(name="", show=False):
     stamp = f"{datetime.datetime.now():%Y%m%d-%H%M%S}"
     local = SHOTS / (f"{stamp}-{name}.png" if name else f"{stamp}.png")
     local.write_bytes(remote(f"cat {shlex.quote(path)}", binary=True))
+    # The copy here is the one that is kept.  Left on the machine they piled up
+    # to 982 files and 1.2 GB (2026-09-17), all of it copied into RAM at every
+    # boot by toram.  PrtSc's own screenshots are not touched: only this one.
+    if local.stat().st_size > 0:
+        remote(f"rm -f {shlex.quote(path)}")
     log(f"shot {local}")
     if show and shutil.which("chafa"):
         subprocess.run(["chafa", "--size", f"{min(shutil.get_terminal_size().columns, 100)}x40", str(local)])

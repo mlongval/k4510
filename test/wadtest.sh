@@ -1,11 +1,12 @@
 #!/bin/sh
-# WADCHOOSER, without the network: a WAD of one's own in /APPS/DOOM is listed
+# WADCHOOSER, without the network: a WAD of one's own in /DISK/DOOM is listed
 # beside the catalogue's, choosing it writes DOOM.CFG, and the shell comes back
 # where it was.  The downloads (a URL, and a file out of a zip at a URL) were
 # checked by hand against the real servers, 2026-09-17 -- a test suite that
 # fetches 28 MB from GitHub on every run is a test suite nobody runs.
 cd "$(dirname "$0")/.."
-D=fs/APPS/DOOM
+D=fs/DISK/DOOM
+mkdir -p "$D"
 fail() { echo "$out"; rm -f "$D/ZZMINE.WAD"; [ -n "$keep" ] && printf '%s' "$keep" > "$D/DOOM.CFG" || rm -f "$D/DOOM.CFG"; echo "wadtest: FAILED: $1"; exit 1; }
 keep=$(cat "$D/DOOM.CFG" 2>/dev/null)
 printf 'IWAD' > "$D/ZZMINE.WAD"

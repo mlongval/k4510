@@ -1,0 +1,15 @@
+[Unit]
+# Runs ONLY in a maintenance boot (k4510.maint=split-live on the kernel
+# command line, and no `persistence`): see /usr/local/sbin/k4510-split-live.
+Description=K4510 maintenance: give /live its own partition
+ConditionKernelCommandLine=k4510.maint=split-live
+After=local-fs.target systemd-udev-settle.service
+Before=getty@tty1.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/k4510-split-live
+StandardOutput=journal+console
+
+[Install]
+WantedBy=multi-user.target

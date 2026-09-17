@@ -9,7 +9,7 @@
  *
  *   /APPS/DOOM/WADS.CFG   the catalogue: games that can be DOWNLOADED, one a
  *                         line,  NAME.WAD|MB|what it is|URL|path in the zip
- *   any .WAD in the folder   whatever is already there, catalogued or not
+ *   any .WAD in /DISK/DOOM   whatever is already there, catalogued or not
  *
  * The catalogue as shipped lists only what its owners let anybody pass on:
  * Freedoom (BSD) and id Software's DOOM shareware episode.  The repository
@@ -17,7 +17,7 @@
  * Final DOOM, Heretic, Hexen, Strife -- which are still sold and which that
  * repository has no licence to hand out, so this does not fetch them, and the
  * K4510's public repo does not point at them.  It does not need to: the
- * second source is the answer.  A WAD you own, copied into /APPS/DOOM, is
+ * second source is the answer.  A WAD you own, copied into /DISK/DOOM, is
  * listed here and chosen like any other.  (Heretic, Hexen and Strife would
  * not run anyway: the co-processor is the DOOM engine only.)
  *
@@ -25,7 +25,7 @@
  * the host: MOUNT takes a zip from a URL, COPYFILE copies out of it (or
  * straight from a URL), and the 45GS10 never sees a byte of the 28 MB.
  *
- * The choice is one line in /APPS/DOOM/DOOM.CFG, "wad = NAME", which the
+ * The choice is one line in /DISK/DOOM/DOOM.CFG, "wad = NAME", which the
  * emulator reads when DOOM is started (core/io.c).
  */
 #include "k4510.h"
@@ -43,14 +43,21 @@
 #define C_LOAD    9
 #define C_SAVE   10
 #define C_CHDIR  11
+#define C_MKDIR  12
 #define C_RMDIR  14
 #define C_GETCWD 15
 #define C_COPY   17
 #define C_MOUNT  19
 #define C_UMOUNT 20
 
-#define HOME  "/APPS/DOOM"
-#define CAT   HOME "/WADS.CFG"
+/* The games live on /DISK, not beside the program.  Doc, 2026-09-17: "the
+ * premise of this system is that it is loaded and runs from RAM ... however
+ * loading a bunch of doom wads into ram for a slim to none chance of being
+ * played is nonsensical".  /APPS ships in the layer and the layer is RAM;
+ * /DISK is the part of the machine that stays on the disk and is read when
+ * somebody asks (fs/DISK/README.TXT).  The catalogue is small and ships. */
+#define HOME  "/DISK/DOOM"
+#define CAT   "/APPS/DOOM/WADS.CFG"
 #define CFG   HOME "/DOOM.CFG"
 #define DL    HOME "/DL"                  /* where a zip is mounted while one file is copied out of it */
 
@@ -210,8 +217,10 @@ void main(void)
     uint16_t k;
     const char *note = 0;
     w32(FS_ADDR, (uint32_t)(uint16_t) cwd); fs_do(C_GETCWD);
+    fs_name("/DISK"); fs_do(C_MKDIR);                            /* both may be there already; CHDIR below is the test */
+    fs_name(HOME); fs_do(C_MKDIR);
     fs_name(HOME);
-    if (fs_do(C_CHDIR)) { sayln("WADCHOOSER: there is no " HOME " on this disk"); return; }
+    if (fs_do(C_CHDIR)) { sayln("WADCHOOSER: cannot make " HOME); return; }
     read_catalogue(); read_folder(); read_choice();
     if (!chosen[0]) strcpy(chosen, "FREEDOOM1.WAD");             /* what DOOM plays when nothing says otherwise */
     for (sel = 0; sel < n_it && !same(it[sel].name, chosen); sel++) ;

@@ -9980,3 +9980,42 @@ The halving is gone (DMX clipped at the rails too) and a DAC's gain is 64, not
 48, which makes four DACs at full swing exactly fill the output. In the real
 emulator, music and all: peaks of ~750 walking about, ~4400 from the first
 shot.
+
+## 2026-09-17 — what is in RAM and what is on the disk
+
+Doc: "the premise of this system is that it is loaded and runs from RAM ...
+however loading a bunch of doom wads into ram for a slim to none chance of
+being played is nonsensical. how do you propose segregating stuff that must
+load at each boot from that which should stay available only (on disk)".
+
+Looked before proposing, and it was worse than he thought. The Dell boots with
+a bare `toram`, and live-boot's bare toram copies the WHOLE medium -- which on
+an internal install is the same partition as the persistence. /run/live/medium
+was a 2.3 GB tmpfs, 96% full: 887 MB of system images that were wanted, and
+1.2 GB of screenshots (982 of them, k4510-remote's), 109 MB of old layers kept
+for rollback, and the WADs -- none of which is ever read from that copy,
+because persistence mounts the real partition beside it.
+
+Doc chose the partition ("go with the partition ... the laptop is dual
+bootable so dont worry"):
+
+- **/live gets its own partition**, K4510LIVE, 4 GB; toram then copies that
+  and nothing else. The disk had no free space, so the big partition has to
+  shrink, and ext4 cannot shrink mounted -- which, as the persistence, it
+  always is. So `k4510-split-live` runs in a boot of its own: a GRUB entry
+  with `k4510.maint=split-live` and NO `persistence`, the system in RAM,
+  nothing on the disk mounted. fsck, shrink the filesystem 2 GB under the new
+  size, rewrite the table (sfdisk), grow back, mkfs, copy /live out of RAM,
+  checksum, and only then edit GRUB. Every step before the last leaves a
+  machine that boots the old way. Rehearsed on a loop device on the Dell
+  (test/split-live-rehearsal.sh): the first run REFUSED, rightly -- a fixed
+  2 GB margin on a 1 GB disk -- which is the guard earning its keep.
+- **/DISK** is the machine's word for it (fs/DISK/README.TXT): nothing in it
+  ships, nothing in it loads at boot. WADCHOOSER fetches into /DISK/DOOM and
+  keeps DOOM.CFG there; the emulator looks there first and in /APPS/DOOM
+  still, for a WAD put there before today.
+- **Housekeeping I owed:** `k4510-remote shot` now deletes the machine's copy
+  once it has its own; backup/ is pruned to the last three layers at a deploy.
+
+Not done: install-k4510.sh still makes ONE partition on a new install
+(docs/TODO.md). SHIPPING.CFG's ram/disk column likewise.

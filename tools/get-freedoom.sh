@@ -16,7 +16,8 @@
 #   tools/get-freedoom.sh --both   freedoom2.wad as well
 set -e
 HERE=$(cd "$(dirname "$0")/.." && pwd)
-DEST="$HERE/fs/APPS/DOOM"
+DEST="$HERE/fs/DISK/DOOM"     # /DISK: on the disk, never in the layer, never in RAM at boot (fs/DISK/README.TXT)
+DOCS="$HERE/fs/APPS/DOOM"
 VER=0.13.0
 URL="https://github.com/freedoom/freedoom/releases/download/v$VER/freedoom-$VER.zip"
 
@@ -39,8 +40,8 @@ unzip -q -o "$TMP/freedoom.zip" -d "$TMP"
 cp "$TMP/freedoom-$VER/freedoom1.wad" "$DEST/"
 [ "$1" = "--both" ] && cp "$TMP/freedoom-$VER/freedoom2.wad" "$DEST/"
 # the licence travels with the data, as BSD-3 asks
-cp "$TMP/freedoom-$VER/COPYING.txt" "$DEST/COPYING.TXT"
-cp "$TMP/freedoom-$VER/CREDITS.txt" "$DEST/CREDITS.TXT" 2>/dev/null || true
+cp "$TMP/freedoom-$VER/COPYING.txt" "$DOCS/COPYING.TXT"
+cp "$TMP/freedoom-$VER/CREDITS.txt" "$DOCS/CREDITS.TXT" 2>/dev/null || true
 
 ls -l "$DEST"
 echo

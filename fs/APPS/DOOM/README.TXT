@@ -17,23 +17,23 @@ So it is one command away instead, on the host:
 
 That fetches Freedoom (https://freedoom.github.io/), a BSD-licensed set of
 levels built to run on the DOOM engine without any of id's data, and puts
-freedoom1.wad here beside this file.  COPYING.TXT and CREDITS.TXT are its
+freedoom1.wad in /DISK/DOOM -- the part of the machine that stays on the
+disk (see /DISK/README.TXT).  COPYING.TXT and CREDITS.TXT are its
 licence and its long list of authors; they are kept here because the licence
 asks that they travel with the data, and because the people who drew a
 replacement for a 1993 shareware game over twenty years deserve the credit.
 
 Or, on the machine itself, with no host to hand:
 
-    CD /APPS/DOOM
-    WADCHOOSER
+    /APPS/DOOM/WADCHOOSER
 
 which lists the games that may be downloaded (WADS.CFG: Freedoom's two
 phases, and id's own shareware episode), fetches the one you pick, and
-remembers the choice in DOOM.CFG.  It lists only what its owners let anybody
+remembers the choice in /DISK/DOOM/DOOM.CFG.  It lists only what its owners let anybody
 pass on; the full DOOM, DOOM II and Final DOOM are still sold.
 
-Any IWAD the engine accepts will do.  If you own DOOM, put its WAD here:
-WADCHOOSER lists whatever .WAD it finds in this folder, downloaded or not.
+Any IWAD the engine accepts will do.  If you own DOOM, put its WAD in
+/DISK/DOOM: WADCHOOSER lists whatever .WAD it finds there, downloaded or not.
 
 Then, at the machine's prompt:
 

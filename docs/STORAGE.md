@@ -101,6 +101,9 @@ RAM after boot: ~0.9 GB for the system images plus ~0.8 GB in use, of 32 GB.
   Never keep a second `*.squashfs` in `/live` -- live-boot stacks every one it
   finds there.
 - **A USB-stick K4510** has one partition and usually no persistence: all of
-  the above with "disk" read as "gone at power-off". `install-k4510.sh` still
-  makes ONE partition on a new internal install (docs/TODO.md); the split is
-  done afterwards by `k4510-split-live`.
+  the above with "disk" read as "gone at power-off".
+- **A new internal install is made this way from the start**:
+  `install-k4510.sh` carves `K4510LIVE` off the end of the `K4510` partition
+  (and converts a one-partition install the next time it is run, from the
+  host OS, where that partition is not mounted). `k4510-split-live` is the
+  same operation for a machine that has no other OS to do it from.

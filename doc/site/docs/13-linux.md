@@ -117,7 +117,7 @@ A computer that already runs Linux can have the machine as a second choice at po
 
     sudo ./install-k4510.sh
 
-It formats that partition the first time (and never again), copies the system onto it, arranges for your settings and files to be kept in the rest of the partition, and adds two entries to the computer’s boot menu:
+It formats that partition the first time (and never again), takes 4 GB off its end for a second partition, `K4510LIVE`, and copies the system onto *that*; arranges for your settings and files to be kept on `K4510`; and adds two entries to the computer’s boot menu. There are two partitions because the machine loads itself into memory when it starts, and what it loads is the whole of the partition the system is on: kept apart, your files stay on the disk and only the system is copied. (A `K4510` partition under 8 GB is left as one, and says so; 8 GB or more is the size to make.) The two entries:
 
 K4510 Fantasy Computer  
 the machine, quietly: the machine’s logo while Linux starts and nothing else, then the prompt.

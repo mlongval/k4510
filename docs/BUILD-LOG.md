@@ -10062,3 +10062,31 @@ Also: Doc asked for "an overview of the disk structure (on disk) and then the
 boot process and what ends up where". docs/STORAGE.md. The Dell's screenshots
 were deleted at his word ("they are not needed anymore. More will come"); the
 big partition holds 59 MB.
+
+## 2026-09-17 — the installer makes two partitions
+
+Doc: "update install-k4510.sh to make two partitions". It now takes LIVE_MB
+(4 GB) off the END of the K4510 partition for K4510LIVE, puts /live there and
+persistence on K4510, and points GRUB at the right one of each. Run again it
+finds K4510LIVE and only refreshes it. Run on an install from before today it
+CONVERTS it -- fsck, shrink well under, rewrite the table, grow back -- which
+it can do where k4510-split-live needed a boot of its own, because under the
+host OS that partition is not mounted. Under 8 GB, or K4510_ONE_PARTITION=1,
+it keeps the old shape and says so.
+
+The host's own partitions ARE mounted, so the kernel will not re-read the
+table: `sfdisk --no-reread`, then `partx -u` for the one that shrank and
+`partx -a` for the new one, and a check that the kernel's idea of both matches
+before anything is formatted.
+
+test/install-rehearsal.sh, on loop devices with another partition of the
+target disk mounted throughout: a fresh GPT install, a second run, a
+conversion with an 80 MB saved file checksummed before and after, and a fresh
+install on an MBR disk (the old hardware the stick exists for). All four
+pass. What the rehearsal found on the way: /run is noexec (the rsync stand-in
+for a machine without rsync could not run from there), and loop devices left
+by an aborted run make the next one refuse -- rightly: "a K4510LIVE exists,
+but not on this disk -- refusing to guess".
+
+Not tested: a real install from a real stick onto real hardware. The Dell is
+already split, so the next fresh machine is the test.

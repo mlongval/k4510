@@ -128,5 +128,5 @@ Fixed the same day except these:
       sit outside `fs/SYSTEM/LOG/` (the ignored place) — old paths from
       before the disk layout; delete there.
 
-- [ ] install-k4510.sh: make two partitions on a new internal install (K4510LIVE for /live, K4510 for persistence and /DISK), as k4510-split-live does for an existing one (2026-09-17)
+- [x] (done 2026-09-17, rehearsed four ways: test/install-rehearsal.sh) install-k4510.sh: make two partitions on a new internal install (K4510LIVE for /live, K4510 for persistence and /DISK), as k4510-split-live does for an existing one (2026-09-17)
 - [ ] SHIPPING.CFG: a ram/disk column, and the layer build refusing anything marked disk

@@ -209,9 +209,14 @@ sudo ./install-k4510.sh
 \end{type}
 
 \noindent It formats that partition the first time (and never again),
-copies the system onto it, arranges for your settings and files to be
-kept in the rest of the partition, and adds two entries to the
-computer's boot menu:
+takes 4\,GB off its end for a second partition, \texttt{K4510LIVE}, and
+copies the system onto \emph{that}; arranges for your settings and files
+to be kept on \texttt{K4510}; and adds two entries to the computer's boot
+menu. There are two partitions because the machine loads itself into
+memory when it starts, and what it loads is the whole of the partition
+the system is on: kept apart, your files stay on the disk and only the
+system is copied. (A \texttt{K4510} partition under 8\,GB is left as one,
+and says so; 8\,GB or more is the size to make.) The two entries:
 
 \begin{description}[leftmargin=1.4em,style=nextline]
 \item[K4510 Fantasy Computer] the machine, quietly: the machine's logo

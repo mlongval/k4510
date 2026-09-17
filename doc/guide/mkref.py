@@ -43,7 +43,7 @@ DESC = {
     "LOAD":    (0, "LOAD name [addr]", "Load a file into memory, at addr or at the address in its header."),
     "SAVE":    (0, "SAVE name from.to", "Write memory from.to to a file."),
     "XD":      (0, "XD name", "A file as a hex dump. Esc stops it."),
-    "MOUNT":   (0, "MOUNT [url path]", "Alone, list the mounts; otherwise show a tnfs://, http:// or https:// URL at a path of the disk."),
+    "MOUNT":   (0, "MOUNT [url path]", "Alone, say where the machine's own disk really is -- the system in RAM, what you save on which partition -- and then list your mounts; otherwise show a tnfs://, http:// or https:// URL at a path of the disk."),
     "UMOUNT":  (0, "UMOUNT path", "Take a mount away."),
     # running
     "RUN":     (1, "RUN [name | addr]", "Run a program; a bare name does the same. RUN addr jumps there."),
@@ -110,6 +110,7 @@ DESC = {
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),
     "VI":        (7, "VI [name]", "The modal editor (Chapter 11)."),
+    "STATUS":    (7, "STATUS", "The whole machine at a glance: its display and clock, how much of the 256 MB holds anything, the memory of the Linux beneath, where the system and your files really are and how much room is left, what is mounted, and the network by name and address."),
     "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run (Chapter 13)."),
     "PROG":      (7, "PROG [name]", "The programmer's front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler's messages under the text (Chapter 11)."),
 }

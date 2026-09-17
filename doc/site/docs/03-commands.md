@@ -42,7 +42,7 @@ Load a file into memory, at addr or at the address in its header.
 Make a directory.
 
 **`MOUNT [url path]`** — *ROM, bank 3*  
-Alone, list the mounts; otherwise show a `tnfs://`, `http://` or `https://` URL at a path of the disk.
+Alone, say where the machine’s own disk really is – the system in RAM, what you save on which partition – and then list your mounts; otherwise show a `tnfs://`, `http://` or `https://` URL at a path of the disk.
 
 **`RENAME [-f] old new`** — *ROM*  
 Rename or move a file. Refuses to overwrite without -f. Also REN, MV.
@@ -243,6 +243,9 @@ Measures this host thoroughly and keeps the clock it settles on.
 
 **`SPLIT`** — */SYSTEM/BIN*  
 A split screen held by SHEILA: blitter lines above, four rows of text below, and how many lines a second.
+
+**`STATUS`** — */SYSTEM/BIN*  
+The whole machine at a glance: its display and clock, how much of the 256 MB holds anything, the memory of the Linux beneath, where the system and your files really are and how much room is left, what is mounted, and the network by name and address.
 
 **`SUPERMON`** — */SYSTEM/BIN*  
 Jim Butterfield’s monitor, grown up: an assembler and a 45GS02 disassembler.

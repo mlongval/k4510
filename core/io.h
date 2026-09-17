@@ -286,6 +286,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define FS_UMOUNT     20   /* NAMEPTR = PATH: remove a mount */
 #define FS_MOUNTS     21   /* list mounts: LEN = index, writes "/path  url" to ADDR, SIZE = len; status 4 past the end */
 #define FS_SYSMOUNTS  23   /* the machine's OWN storage, as MOUNTS lists a user's: LEN = index, a line of text to ADDR, status 4 past the end */
+#define FS_SYSINFO    24   /* the state of the whole machine, host and all, a line at a time (STATUS): LEN = index, text to ADDR, status 4 past the end */
 #define FS_CHDIR_BACK 22   /* go back to where the last successful CHDIR started from, however long the path */
 /* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."
  * work, ".." never leaves the root. Lookups are case-insensitive when the

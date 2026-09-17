@@ -15,6 +15,10 @@
 set -e
 
 DST_LABEL=${DST_LABEL:-K4510}
+# Since 2026-09-17 an internal install may have /live on a partition of its own
+# (K4510LIVE; k4510-split-live), so that toram copies the system into RAM and
+# not the saved files with it.  That is where a new layer goes when it exists.
+[ -n "${DST_LABEL_SET:-}" ] || { [ -b /dev/disk/by-label/K4510LIVE ] && DST_LABEL=K4510LIVE; }
 SRC_HOST=${SRC_HOST:-p15}
 # where build-live.sh leaves the freshly-squashed payload on the build host
 # The INTERNAL variant (built with NODISK= into .live-work-internal): unlike the

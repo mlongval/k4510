@@ -1,0 +1,48 @@
+#!/bin/sh
+# k4510-deploy -- build the machine layer on p15 and put it on the Dell.
+#
+# What was typed by hand, a dozen times on 2026-09-17, as one command: the Dell
+# has no ssh key of its own, so everything is relayed through the computer this
+# runs on.  Run from a checkout whose HEAD is pushed to the mirror p15 pulls.
+#
+#   tools/k4510-deploy            build, install, reboot, report the layer
+#   tools/k4510-deploy --no-reboot
+#
+# The layer goes to the K4510LIVE partition (/live; what toram copies to RAM);
+# the one it replaces goes to backup/ on the K4510 partition -- on the disk,
+# never in /live, where live-boot would union it -- and only the newest three
+# are kept.
+set -eu
+DELL=${K4510_REMOTE:-k4510@100.76.140.12}; P15=${K4510_BUILDER:-p15}
+REPO='~/Projects/k4510-pi/k4510'; KEEP=3
+T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
+say() { echo "== $*"; }
+
+[ -z "$(git status --porcelain)" ] || { echo "k4510-deploy: uncommitted changes here; the layer is built from what is pushed"; exit 1; }
+HEAD=$(git rev-parse --short HEAD)
+say "building $HEAD on $P15"
+ssh -o BatchMode=yes "$P15" "cd $REPO && git pull -q --ff-only && [ \"\$(git rev-parse --short HEAD)\" = $HEAD ] || { echo 'p15 is not at $HEAD: push first'; exit 1; }
+  sudo -n NODISK= WORK=\$PWD/linux/.live-work-internal REBUILD=1 /usr/bin/sh /home/doc/Projects/k4510-pi/k4510/linux/build-live.sh > /tmp/k4510-layer-build.log 2>&1 || { tail -20 /tmp/k4510-layer-build.log; exit 1; }"
+scp -q "$P15:Projects/k4510-pi/k4510/linux/.live-work-internal/stage/live/k4510.squashfs" "$T/layer"
+SHA=$(sha256sum "$T/layer" | cut -d' ' -f1)
+# the artefact, not the source: the version string inside the emulator inside the layer
+command -v unsquashfs >/dev/null && { unsquashfs -q -d "$T/x" "$T/layer" home/k4510/k4510/sdl/k4510 >/dev/null 2>&1 && strings "$T/x/home/k4510/k4510/sdl/k4510" | grep -m1 "^[0-9.]*-$HEAD" || { echo "k4510-deploy: the layer's emulator does not say $HEAD"; exit 1; }; }
+say "layer $SHA"
+scp -q "$T/layer" "$DELL:/tmp/k4510.squashfs.new"
+ssh -o BatchMode=yes "$DELL" "set -e
+  echo '$SHA  /tmp/k4510.squashfs.new' | sha256sum -c - >/dev/null
+  LIVE=\$(blkid -L K4510LIVE || blkid -L K4510); BIG=/run/live/persistence/\$(basename \$(blkid -L K4510))
+  sudo mkdir -p /mnt/k4live; mountpoint -q /mnt/k4live || sudo mount \$LIVE /mnt/k4live
+  OLD=\$(sha256sum /mnt/k4live/live/k4510.squashfs | cut -c1-16)
+  sudo mkdir -p \$BIG/backup; sudo cp -p /mnt/k4live/live/k4510.squashfs \$BIG/backup/k4510.squashfs.\$OLD
+  ( cd \$BIG/backup && ls -t | tail -n +$((KEEP + 1)) | sudo xargs -r rm -f )
+  sudo cp /tmp/k4510.squashfs.new /mnt/k4live/live/k4510.squashfs.tmp; sudo mv /mnt/k4live/live/k4510.squashfs.tmp /mnt/k4live/live/k4510.squashfs; sync
+  echo '$SHA  /mnt/k4live/live/k4510.squashfs' | sha256sum -c - ; sudo umount /mnt/k4live; rm -f /tmp/k4510.squashfs.new
+  echo \"replaced \$OLD (kept in backup/)\""
+[ "${1:-}" = --no-reboot ] && { say "installed; not rebooted"; exit 0; }
+say "rebooting the Dell"
+ssh -o BatchMode=yes "$DELL" '(sleep 2; sudo systemctl reboot) >/dev/null 2>&1 &'
+sleep 25; n=0; until ssh -o BatchMode=yes -o ConnectTimeout=4 "$DELL" true 2>/dev/null; do n=$((n + 1)); [ $n -gt 60 ] && { echo "the Dell has not come back"; exit 1; }; sleep 8; done
+# what is RUNNING, not what is on the disk: toram's copy of the layer
+GOT=$(ssh -o BatchMode=yes "$DELL" 'sha256sum /run/live/medium/live/k4510.squashfs | cut -d" " -f1')
+[ "$GOT" = "$SHA" ] && say "the Dell is up on $(echo "$SHA" | cut -c1-16) ($HEAD)" || { echo "k4510-deploy: the Dell's layer is $GOT, not $SHA"; exit 1; }

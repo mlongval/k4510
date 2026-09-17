@@ -72,7 +72,7 @@ def remote(cmd, timeout=30, binary=False):
 
 
 def c_status():
-    return remote("uptime -p; echo \"layer:  $(sha256sum /run/live/persistence/nvme0n1p4/live/k4510.squashfs 2>/dev/null | cut -c1-16)\"; "
+    return remote("uptime -p; echo \"layer:  $(sha256sum /run/live/medium/live/k4510.squashfs 2>/dev/null | cut -c1-16)\"; "
                   "p=$(pgrep -nx k4510) && echo \"emulator: pid $p, in $(readlink /proc/$p/cwd)\" || echo 'emulator: not running'; "
                   "[ -p ~/k4510/KEYS ] && echo 'key pipe: ready' || echo 'key pipe: none'").rstrip()
 

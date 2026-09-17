@@ -1180,6 +1180,16 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
  * Attribute table at $260000, pictures at $261000 + n * 4 KB (8 bpp, 64x64 max). */
 #define TULA_SPRTAB 0x260000u
 #define TULA_SPRDAT 0x261000u
+/* The bitmap's room: $200000 up to the sprite table, 384 KB.  Written down
+ * because it was NOT -- the bound lived only as arithmetic in whoever last
+ * thought about it, and the guide's I/O chapter does not mention it.  Nothing
+ * overruns it today: every writer here clamps to TULA_W x TULA_H, and VICKY's
+ * own reads are masked to RAM.  The hazard is the next person who scales the
+ * geometry to the GLASS instead: an HD mode is 1440x1080, which is 1.5 MB and
+ * would run 1.1 MB into the sprite table.  This stops that at compile time
+ * rather than on someone's screen (2026-09-17). */
+#define TULA_ARENA (TULA_SPRTAB - TULA_GFXB)
+typedef char tula_arena_fits[(TULA_W * TULA_H <= TULA_ARENA) ? 1 : -1];
 static int tula_spr_cur, tula_spr_on;
 static uint8_t tula_spr_w[128], tula_spr_h[128];
 static void tula_spr_off(void) { if (tula_spr_on) { vicky_write(0x0E, 0); tula_spr_on = 0; } }
@@ -1481,6 +1491,9 @@ void io_tube_frame(void)
      * 40 blank lines top and bottom.  Doubling here rather than in the engine
      * keeps the shared segment at 64 KB a frame instead of 256 KB. */
     { const int top = (TULA_H - DOOM_H * 2) / 2;
+      /* Belt and braces: if the geometry above is ever changed, the picture
+       * stops rather than walking into the sprite table. */
+      if ((size_t)(top + DOOM_H * 2) * TULA_W > TULA_ARENA) return;
       for (int y = 0; y < DOOM_H; y++) {
           const uint8_t *src = doom_map->fb + (size_t) y * DOOM_W;
           uint8_t *dst = k4510_ram + TULA_GFXB + (size_t)(top + y * 2) * TULA_W;

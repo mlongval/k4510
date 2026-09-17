@@ -2242,6 +2242,25 @@ static void cmd_bang(const char *p)
 static void cmd_doom(void)
 {
     uint8_t c;
+    /* The classic glass FIRST, and only then the co-processor.
+     *
+     * The bitmap DOOM draws into is 640x480 at $200000 with a 640-byte stride,
+     * and VICKY scans a layer across the whole glass.  In an HD mode the glass
+     * is wider than that stride -- 720 in MODE 6 -- so every row showed its own
+     * 640 pixels and then the first 80 of the next: DOOM's status bar appeared
+     * twice, with a seam down the middle of the picture (Doc's Dell, 720x540,
+     * 2026-09-17).  It looked like a torn frame and was not; two captures of
+     * different scenes had the seam in exactly the same place, which is
+     * geometry, not a race.
+     *
+     * Every other bitmap user already does this: bbg_mode22 forces MODE 0 for
+     * BBC BASIC's graphics, and book.c clears the HD bit by hand (ctrl & $D9)
+     * before it enables the layer.  DOOM was the one path that did not.
+     *
+     * The order matters: writing $D803 is what makes the host enable the
+     * bitmap, so the mode has to change before it, not after. */
+    if (!bgon) { oldvm = vmode; bgon = 1; }
+    vmode = 0; video_init(); cls();
     REG(TUBE + 3) = 6;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
     if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
@@ -2252,6 +2271,7 @@ static void cmd_doom(void)
         if (REG(KBDST) & 0x80) { uint8_t k = REG(KBD); if (k == 0x03) break; }   /* Ctrl-C gives up on a co-processor that will not start */
     }
     REG(TUBE + 3) = 2;                                   /* the bitmap goes, the segment with it */
+    if (bgon) { bgon = 0; vmode = oldvm; }               /* and the mode the machine was in comes back */
     video_init(); cls();
     newline(); puts_("the Tube co-processor has left."); newline();
 }

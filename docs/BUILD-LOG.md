@@ -9967,3 +9967,16 @@ mostly the commercial games in every release. The freeware in it either
 needs ZDoom (Square, Action Doom 2) or is Heretic's replacement (Blasphemer),
 which this engine cannot run. Nothing there to add to WADS.CFG; same why-not
 as this morning's.
+
+### "do the sound effects from doom play?"
+
+Doc had to ask, which was the answer. The first measurement -- output level
+up once a game started -- could not tell effects from E1M1's music being
+louder than the title's. Done properly: DOOM run with -nomusic and the PCM
+ring read directly shows silence ($80) at rest and one burst per pistol shot,
+so they played; but each burst peaked at 32 of 127, because the mixer halved
+for headroom and DOOM's default effects volume halves again. Under the music.
+The halving is gone (DMX clipped at the rails too) and a DAC's gain is 64, not
+48, which makes four DACs at full swing exactly fill the output. In the real
+emulator, music and all: peaks of ~750 walking about, ~4400 from the first
+shot.

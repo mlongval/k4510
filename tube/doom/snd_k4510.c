@@ -70,7 +70,12 @@ static void *MixThread(void *unused)
                     acc += ((int) ch->data[ch->pos >> 16] - 128) * ch->vol;
                     ch->pos += ch->step;
                 }
-                acc /= 127 * 2;            /* two full-volume sounds reach the rails; DOOM rarely has more that loud at once */
+                /* One sound at full volume fills the DAC; more than one clips at
+                 * the rails, which is what DMX's own 8-bit mixing did.  The first
+                 * version halved this for headroom, and at DOOM's default effects
+                 * volume (8 of 15) a pistol shot then peaked at 32 of 127 -- under
+                 * the music, and Doc had to ask whether the effects played at all. */
+                acc /= 127;
                 if (acc > 127) acc = 127; else if (acc < -128) acc = -128;
                 block[i] = (uint8_t)(acc + 128);
             }

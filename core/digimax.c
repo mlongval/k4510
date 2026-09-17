@@ -7,10 +7,10 @@ static int rate = 48000;
 static int (*stream_pull)(void);
 static int stream_hz, stream_acc;
 
-/* One DAC at full swing is +-127 * GAIN = about a fifth of the output's
- * range, so all four at once still fit and one sits comfortably over the
- * OPL2's music, which peaks around a tenth. */
-#define GAIN 48
+/* One DAC at full swing is +-127 * GAIN, a quarter of the output's range, so
+ * all four at once exactly fit (4 * 127 * 64 = 32512) and one sits well over
+ * the OPL2's music, which peaks around a twentieth. */
+#define GAIN 64
 
 void digimax_init(int sample_rate) { rate = sample_rate > 0 ? sample_rate : 48000; digimax_reset(); }
 void digimax_reset(void) { for (int i = 0; i < 4; i++) dac[i] = 0x80; stream_acc = 0; }

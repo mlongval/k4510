@@ -33,7 +33,7 @@ HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parent
 CFG = REPO / "fs/DOCUMENTS/SHIPPING.CFG"   # on the machine's own disk: Doc edits it there, with VI
 
-MARKS = ("essential", "maybe", "nope")
+MARKS = ("essential", "maybe", "nope", "nuke")
 
 # The few that are not a judgement call: without these there is no machine to
 # ship, or no handbook that makes sense.  Everything else starts as `maybe`
@@ -106,6 +106,9 @@ def write_cfg(items, marks):
                "#   maybe       decided case by case, at the time of shipping\n"
                "#   nope        left out of an image -- NOT deleted: the source stays\n"
                "#               in the repo and the tests still run it\n"
+               "#   nuke        jettisoned: tools/nuke.py stops tracking it and adds it to\n"
+               "#               .gitignore, so it is in no image and is never updated again.\n"
+               "#               What is on a disk stays there; git history keeps the rest.\n"
                "#\n"
                "# Run tools/mkmanifest.py again after adding anything: it keeps every mark\n"
                "# below and appends what is new, as `maybe'.  Nothing is ever marked `nope'\n"

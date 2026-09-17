@@ -189,3 +189,33 @@ if os.getenv("K4510_NVIM_RAN") then
         note("ran it; the file is as saved")
     end })
 end
+
+-- ---- Doc's hands, and SHIPPING.CFG ------------------------------------------------
+-- Doc, 2026-09-17: "jk -> ESC", and for /DOCUMENTS/SHIPPING.CFG "in normal mode I
+-- want <SPACE> to toggle between essential, maybe, nope, and nuke".
+vim.keymap.set("i", "jk", "<Esc>")
+
+local MARKS = { "essential", "maybe", "nope", "nuke" }
+local function next_mark()
+    local line = vim.api.nvim_get_current_line()
+    -- key = mark   [# a note]   -- the mark is padded so the notes stay in a column
+    local head, mark, pad, rest = line:match("^(%S+%s*=%s*)(%a+)(%s*)(.*)$")
+    if not head then return end
+    for i, m in ipairs(MARKS) do
+        if m == mark then
+            local new = MARKS[i % #MARKS + 1]
+            local width = #mark + #pad
+            if rest ~= "" then new = new .. string.rep(" ", math.max(1, width - #new)) end
+            vim.api.nvim_set_current_line(head .. new .. rest)
+            return
+        end
+    end
+end
+vim.api.nvim_create_autocmd({ "BufReadPost", "BufNewFile" }, { callback = function(ev)
+    if vim.fs.basename(ev.file):upper() == "SHIPPING.CFG" then
+        vim.keymap.set("n", "<Space>", next_mark, { buffer = ev.buf, desc = "essential -> maybe -> nope -> nuke" })
+        vim.fn.matchadd("ErrorMsg", [[=\s*\zsnuke\>]])
+        vim.fn.matchadd("Comment", [[=\s*\zsnope\>]])
+    end
+end })
+

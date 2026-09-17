@@ -25,6 +25,26 @@ if [ "${1:-}" = --resume ]; then
         set -- "$@" "+${line:-1}" "$file"
     fi
 fi
+# The machine's names are in capitals and the Linux beneath minds the
+# difference: Doc, 2026-09-17, "typing nvim shipping.cfg does not work, it has
+# to be written nvim SHIPPING.CFG".  So a file that is not there under the name
+# given is looked for whatever its case, in the directory it was given in, and
+# taken when exactly ONE name matches -- two files that differ only in case
+# stay the user's to tell apart.  A name that matches nothing is a new file,
+# as typed.
+n=$#
+while [ "$n" -gt 0 ]; do
+    a=$1; shift; n=$((n - 1))
+    case "$a" in
+        -*|+*) ;;
+        *)  if [ ! -e "$a" ]; then
+                d=$(dirname -- "$a"); b=$(basename -- "$a")
+                hit=$(find "$d" -maxdepth 1 -iname "$b" 2>/dev/null)
+                [ -n "$hit" ] && [ "$(printf '%s\n' "$hit" | wc -l)" -eq 1 ] && a=$hit
+            fi ;;
+    esac
+    set -- "$@" "$a"
+done
 rm -f "$log/NVIM.BAT"
 nvim -u "$here/nvim/init.lua" "$@"
 st=$?

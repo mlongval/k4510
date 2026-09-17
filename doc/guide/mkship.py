@@ -29,7 +29,7 @@ def nope_keys():
             line = line.split("#", 1)[0].strip()
             if "=" in line:
                 k, v = (x.strip() for x in line.split("=", 1))
-                if v == "nope":
+                if v in ("nope", "nuke"):      # nuked is gone from the image too: the handbook must not describe it
                     out.append(k)
     return out
 

@@ -155,6 +155,7 @@ deliberate, and so is the plain-substring search: \verb|/foo| finds
 \texttt{:run} & \texttt{:make}, and if it compiled, run it; a key comes back \\
 \texttt{:cn}, \texttt{:cp} & the next, the previous compiler message \\
 \texttt{:cc} \emph{n}, \texttt{:cl} & message \emph{n}; the whole list \\
+\texttt{:set wrap} & a line longer than the screen is folded onto the rows under it (so it starts); \texttt{:set nowrap} keeps it to one row that scrolls sideways, and \texttt{:set wrap!} changes it over. Folded, \texttt{j} and \texttt{k} still move by a line of the file, and \texttt{gj} and \texttt{gk} by a row of the screen. \texttt{set nowrap} in VI.RC keeps it \\
 \texttt{:set ts=}\emph{n} & Tab's width: it puts spaces to the next stop, never a tab character (4 unless told; \texttt{set ts=2} in VI.RC keeps it, for PROG too) \\
 \bottomrule
 \end{tabular}

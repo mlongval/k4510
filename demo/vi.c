@@ -26,6 +26,8 @@
  *   ex       :w :q :q! :wq :x
  *            :s/old/new/[g]  :%s/old/new/[g]
  *            :map lhs rhs    :imap lhs rhs      (:imap jk <Esc>)
+ *            :set wrap  :set nowrap  :set wrap!   long lines folded, or scrolled sideways
+ *                            (folded: gj gk move by a screen row, j k by a line, as vim)
  *            :renum [start [step]]   a BASIC file: its lines and GOTOs (u undoes)
  *            :make  :run     compile the .C / .PAS (CC, PAS) and go to the first error; then run it
  *            :cn :cp :cc N :cl       next, previous, Nth error; the list
@@ -54,23 +56,84 @@ static uint8_t lasthoff = 0xFF;
 
 static void draw_row(unsigned r)
 {
-    unsigned l = top + r; uint8_t c, w;
+    unsigned l = top + r; uint8_t c = 0, w;
     at((uint8_t)r, 0);
     if (l < nlines) {
         if (l == cy) { w = ln[0]; for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put(ln[1 + c + hoff]); }
         else { far_get(SLOT(l), tmp, 256); w = tmp[0]; for (c = 0; (unsigned)(c + hoff) < w && c < cols; c++) put(tmp[1 + c + hoff]); }
-    } else put('~');
-    eeol();
+    } else { put('~'); c = 1; }
+    if (c < cols) eeol();                        /* a row full to its last cell: JIM's cursor is still ON that cell (the VT100's
+                                                  * pending wrap), and an erase from there took the 80th character with it */
 }
+/* ---- :set wrap -------------------------------------------------------------
+ * Doc, 2026-09-18: "definable line wrap like nvim".  Folded, a line is as many
+ * screen rows as it needs and `top' is still a file line, so the screen always
+ * starts at the head of one; a row is found by adding up the heights above it,
+ * a length byte each from far memory and never more than a screenful of them.
+ * The cursor's own line counts the cell the cursor is in: appending at the end
+ * of a row that is exactly full puts the cursor on a row of its own, as vim.
+ * What is drawn a line at a time stays so -- only a line whose HEIGHT changed
+ * moves everything under it, and that asks for the full redraw. */
+static uint8_t wrap = 1, lasth;
+
+static uint8_t rows_for(unsigned n) { return n ? (uint8_t)((n - 1) / cols + 1) : 1; }
+static uint8_t height(unsigned l)
+{
+    uint8_t w; unsigned n;
+    if (l == cy) { n = ln[0]; if ((unsigned)cx + 1 > n) n = (unsigned)cx + 1; return rows_for(n); }
+    far_get(SLOT(l), &w, 1);
+    return rows_for(w);
+}
+static unsigned row_of(unsigned l)               /* the screen row line l starts on; l is at or under top */
+{
+    unsigned i, r = 0;
+    for (i = top; i < l && r < rows; i++) r += height(i);
+    return r;
+}
+static void draw_line(unsigned l, unsigned r)    /* every row of line l, from screen row r down */
+{
+    const uint8_t *b; unsigned w, c = 0; uint8_t h = height(l), x;
+    if (l == cy) b = ln; else { far_get(SLOT(l), tmp, 256); b = tmp; }
+    w = b[0];
+    for (; h && r < (unsigned)(rows - 1); h--, r++) {
+        at((uint8_t)r, 0);
+        for (x = 0; x < cols && c < w; x++, c++) put((char)b[1 + c]);
+        if (x < cols) eeol();
+    }
+}
+static void draw_wrapped(void)
+{
+    unsigned r, l; uint8_t hc = height(cy);
+    if (top != lasttop || lasthoff) full = 1;
+    if (!full) {
+        if (lastcy == cy) { if (hc != lasth) full = 1; }
+        else if (hc != rows_for(ln[0]) || (lastcy < nlines && lastcy >= top && height(lastcy) != lasth)) full = 1;
+    }
+    if (full) {
+        for (r = 0, l = top; r < (unsigned)(rows - 1); l++) {
+            if (l < nlines) { draw_line(l, r); r += height(l); }
+            else { at((uint8_t)r, 0); put('~'); eeol(); r++; }
+        }
+        full = 0;
+    } else {
+        if (lastcy != cy && lastcy >= top && lastcy < nlines && (r = row_of(lastcy)) < (unsigned)(rows - 1)) draw_line(lastcy, r);
+        draw_line(cy, row_of(cy));
+    }
+    lasth = hc;
+}
+
 static void draw(void)
 {
     unsigned r;
-    hoff = (cx >= cols) ? (uint8_t)(cx - cols + 1) : 0;
-    if (top != lasttop || hoff != lasthoff) full = 1;
-    if (full) { for (r = 0; r < (unsigned)(rows - 1); r++) draw_row(r); full = 0; }
+    hoff = (!wrap && cx >= cols) ? (uint8_t)(cx - cols + 1) : 0;
+    if (wrap) draw_wrapped();
     else {
-        if (lastcy != cy && lastcy >= top && lastcy < top + (unsigned)(rows - 1)) draw_row(lastcy - top);
-        if (cy >= top && cy < top + (unsigned)(rows - 1)) draw_row(cy - top);
+        if (top != lasttop || hoff != lasthoff) full = 1;
+        if (full) { for (r = 0; r < (unsigned)(rows - 1); r++) draw_row(r); full = 0; }
+        else {
+            if (lastcy != cy && lastcy >= top && lastcy < top + (unsigned)(rows - 1)) draw_row(lastcy - top);
+            if (cy >= top && cy < top + (unsigned)(rows - 1)) draw_row(cy - top);
+        }
     }
     lasttop = top; lastcy = cy; lasthoff = hoff;
 
@@ -90,12 +153,14 @@ static void draw(void)
     clip = 0;
     eeol();
     sgr("0");
-    at((uint8_t)(cy - top), (uint8_t)(cx - hoff));
+    if (wrap) at((uint8_t)(row_of(cy) + cx / cols), (uint8_t)(cx % cols));
+    else at((uint8_t)(cy - top), (uint8_t)(cx - hoff));
 }
 static void scroll_fit(void)
 {
     if (cy < top) top = cy;
     while (cy >= top + (unsigned)(rows - 1)) top++;
+    if (wrap) while (top < cy && row_of(cy) + height(cy) > (unsigned)(rows - 1)) top++;   /* the whole of the cursor's line */
 }
 
 
@@ -325,7 +390,10 @@ static void do_cmd(void)
         while (*v == ' ') v++;
         if (rn_up((uint8_t)v[0]) == 'T' && rn_up((uint8_t)v[1]) == 'S' && v[2] == '=') ed_set_tabw(v + 3);
         else if (!memcmp(v, "tabstop=", 8)) ed_set_tabw(v + 8);
-        nb_reset(); nb_s("ts="); nb_n(ed_tabw); note = nbuf;
+        else if (!memcmp(v, "wrap!", 5) || !memcmp(v, "invwrap", 7)) { wrap = (uint8_t)!wrap; full = 1; }
+        else if (!memcmp(v, "nowrap", 6)) { wrap = 0; full = 1; }
+        else if (!memcmp(v, "wrap", 4)) { wrap = 1; full = 1; }
+        nb_reset(); nb_s("ts="); nb_n(ed_tabw); nb_s(wrap ? "  wrap" : "  nowrap"); note = nbuf;
         mode = 0; cmdlen = 0; cmd[0] = 0; return;
     }
     if (cmd[0] == 's' || (cmd[0] == '%' && cmd[1] == 's')) { do_sub(cmd); mode = 0; cmdlen = 0; cmd[0] = 0; return; }
@@ -432,6 +500,23 @@ void main(void)
         if (pend == 'r') {                                 /* r: replace one character */
             pend = 0;
             if (((k >= 0x20 && k < 0x7F) || (k >= 0x80 && !vk)) && cx < ln[0]) { u_begin(); u_line(cy); line_in(cy); ln[cx + 1] = k; u_end(); dirty = 1; }
+            cnt = 0; continue;
+        }
+        if (pend == 'g' && !op && wrap && (k == 'j' || k == 'k' || k == 0x80 || k == 0x81)) {   /* gj gk: a screen row, not a line */
+            uint8_t x = (uint8_t)(cx % cols); unsigned t;
+            pend = 0;
+            for (n = cnt ? cnt : 1; n; n--) {
+                if (k == 'j' || k == 0x81) {
+                    if ((unsigned)(cx - x) + cols < ln[0]) t = (unsigned)(cx - x) + cols + x;
+                    else if (cy + 1 < nlines) { goline(cy + 1); t = x; }
+                    else break;
+                } else {
+                    if (cx >= cols) t = (unsigned)cx - cols;
+                    else if (cy) { goline(cy - 1); t = (ln[0] ? (unsigned)(ln[0] - 1) / cols * cols : 0) + x; }
+                    else break;
+                }
+                cx = (uint8_t)(ln[0] ? (t < ln[0] ? t : (unsigned)(ln[0] - 1)) : 0);
+            }
             cnt = 0; continue;
         }
         if (pend == 'g') { pend = 0; if (k == 'g') { if (op) { sy = cy; sxc = cx; goline(cnt ? cnt - 1 : 0); apply_op(3); op = 0; } else { goline(cnt ? cnt - 1 : 0); cx = 0; } } cnt = 0; continue; }

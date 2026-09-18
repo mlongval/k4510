@@ -225,6 +225,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/bangtest.sh
 	./test/wadtest.sh
 	./test/appletest.sh
+	./test/radiotest.sh
 	./test/keytest.sh
 	./test/dirtest.sh
 	./test/logotest.sh

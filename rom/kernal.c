@@ -1279,6 +1279,22 @@ static void cmd_idea(const char *p)
     shell_copy(b); shell_line(line);
 }
 
+/* RADIO [words]: the Navidrome sidebar's player, which is the frontend's and
+ * not the machine's -- so the storage device carries the line over
+ * (FS_RADIO, 25) and brings the answer back a line at a time, as MOUNT's
+ * listing comes.  Doc, 2026-09-17: "How do I control Navidrome playback?" */
+static void cmd_radio(const char *p)
+{
+    char b[128]; uint8_t i; const char *q;
+    fs_name(p);
+    for (i = 0; ; i++) {
+        w32(FS + 8, (uint16_t) b); w32(FS + 12, (uint32_t) i); REG(FS + 0x18) = sizeof b;
+        if (fs_cmd(25)) break;
+        for (q = b; *q; q++) k_chrout((uint8_t) *q);
+        newline();
+    }
+}
+
 /* CPM [command]: RunCPM reads AUTOEXEC.TXT at boot and runs its first line,
  * so a command given here is written there, CP/M is started, and the file is
  * taken away again afterwards -- otherwise it would hijack every later boot.
@@ -1971,7 +1987,7 @@ static void mon_copy(const char *p) { mon_prg("COPY", p); }
 N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
 N(XD) N(HEX) N(EXEC) N(HUSH) N(RUN) N(FILL) N(COPY) N(DUMP) N(INFO) N(TIME)
 N(COLOR) N(COLOUR) N(PALETTE) N(MODE) N(SWAP) N(ALIAS) N(CLG) N(CAPSLOCK)
-N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA) N(DOOM) N(APPLE)
+N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA) N(DOOM) N(APPLE) N(RADIO)
 #undef N
 static const shcmd_t shcmds[] = {
     { n_DIR, 0, cmd_dir },       { n_LS, 0, cmd_dir },
@@ -1987,7 +2003,7 @@ static const shcmd_t shcmds[] = {
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
-    { n_IDEA, 0, cmd_idea },     { n_DOOM, 0, cmd_doom_go },  { n_APPLE, 0, cmd_apple },   /* the Tube's games: in the table, not the if-chain -- ROM2 was 19 bytes over when APPLE came */
+    { n_IDEA, 0, cmd_idea },     { n_DOOM, 0, cmd_doom_go },  { n_APPLE, 0, cmd_apple },   { n_RADIO, 0, cmd_radio },   /* the Tube's games: in the table, not the if-chain -- ROM2 was 19 bytes over when APPLE came */
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)

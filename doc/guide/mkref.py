@@ -74,6 +74,7 @@ DESC = {
     # languages
     "BBCBASIC":(5, "BBC", "BBC BASIC on the Tube (Chapter 6)."),
     "DOOM":    (5, "DOOM", "DOOM on the Tube, drawn on VICKY's bitmap and heard through MELODY and the DigiMAX (Chapter 6). Its game data lives in /DISK/DOOM: WADCHOOSER in /APPS/DOOM fetches a game and picks the one to play."),
+    "RADIO":   (7, "RADIO [words]", "The Navidrome sidebar's player, from the prompt: alone, what is playing and the words; PLAY [playlist], ALBUM name, ARTIST name, SONG words, SEARCH words, NEXT, PAUSE, RESUME, OFF. It plays whether or not the sidebar is on the glass; the volume is the machine's."),
     "APPLE":   (5, "APPLE [disk]", "An Apple IIe on the Tube (Chapter 6): LinApple's emulation, drawn on VICKY's bitmap. With a disk image (.dsk, .woz and the rest, kept in /DISK/APPLE) it boots that; alone, DOS 3.3's master. The Alts are the Apple keys, the keypad the joystick, Ctrl+Alt+R is Reset."),
     "CPM":     (5, "CPM [command]", "CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot."),
     "EHBASIC": (5, "EHBASIC", "Enhanced BASIC with the machine's graphics (Chapter 4)."),

@@ -222,7 +222,11 @@ void    kbd_held(uint8_t mask);           /* the host, once a frame: which of th
 void    io_doom_input(uint32_t held);
 void    io_apple_key(uint32_t ev);        /* the Apple IIe on the Tube: one key event (tube/apple/apple_k4510.cpp says the bits) */
 int     io_tube_kind(void);               /* what the Tube is running: 0 nothing, 6 DOOM, 7 the Apple IIe, ... */     /* the host, once a frame, while DOOM has the Tube */
-int     io_fs_hostpath(const char *name, char *out, size_t max);   /* a machine path as the host's (JIM's pictures): 1 ok */
+int     io_fs_hostpath(const char *name, char *out, size_t max);
+/* RADIO (the Navidrome sidebar's player, which is the frontend's): the frontend
+ * sets this; the storage device calls it with the command line and takes back
+ * up to `max` bytes of reply lines, '\n' between them.  NULL: no radio here. */
+extern void (*io_radio_hook)(const char *cmd, char *reply, size_t max);   /* a machine path as the host's (JIM's pictures): 1 ok */
 void    io_tube_opl_drain(void);           /* the host, per SCANLINE: DOOM's music onto MELODY */
 void    io_tube_frame(void);              /* the host, once a frame: DOOM's picture onto VICKY's bitmap.
                                            * NOT tube_pump's job -- that only runs when the pty has
@@ -290,6 +294,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define FS_UMOUNT     20   /* NAMEPTR = PATH: remove a mount */
 #define FS_MOUNTS     21   /* list mounts: LEN = index, writes "/path  url" to ADDR, SIZE = len; status 4 past the end */
 #define FS_SYSMOUNTS  23   /* the machine's OWN storage, as MOUNTS lists a user's: LEN = index, a line of text to ADDR, status 4 past the end */
+#define FS_RADIO      25   /* NAMEPTR = a RADIO command line; LEN = index of the reply line wanted, text to ADDR; status 4 past the end (the frontend's radio: io_radio_hook) */
 #define FS_SYSINFO    24   /* the state of the whole machine, host and all, a line at a time (STATUS): LEN = index, text to ADDR, status 4 past the end */
 #define FS_CHDIR_BACK 22   /* go back to where the last successful CHDIR started from, however long the path */
 /* Names may contain "/" (and "\"): "/" is the sandbox root, "." and ".."

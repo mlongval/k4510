@@ -132,13 +132,21 @@ static void audio_callback(const char *peripheral_id, int slot, const int16_t *c
 static uint32_t last_key;                                 /* the code held down, for the release the emulator sends */
 static void take_keys(void)
 {
+    int pressed = 0;
     if (!shm) return;
     while (shm->key_r != shm->key_w) {
-        uint32_t e = shm->key_ring[shm->key_r % KEY_RING_N]; shm->key_r++;
+        uint32_t e = shm->key_ring[shm->key_r % KEY_RING_N];
         unsigned code = e & 0xFF, flags = (e >> 8) & 0xFF, kind = (e >> 16) & 0xFF, value = e >> 24;
         bool down = (flags & KF_DOWN) != 0;
+        /* One keypress a frame.  The Apple's keyboard is a latch the CPU reads
+         * when it gets round to it; two presses taken before it has run would
+         * leave only the second (the Dell typed CATAOG, 2026-09-17).  The rest
+         * of the ring waits for the next frame. */
+        if (kind == KE_KEY && down && pressed) break;
+        shm->key_r++;
         switch (kind) {
         case KE_KEY: {
+            if (down) pressed = 1;
             KeyboardEvent_t ev = { code, (uint8_t) down, (uint8_t)((flags & KF_SHIFT) != 0), (uint8_t)((flags & KF_CTRL) != 0), 0, 0, { 0, 0, 0 } };
             peripheral_command(0, keyboard_cmd_event, &ev, sizeof ev);
             if (down) last_key = code;

@@ -141,6 +141,7 @@ void navi_option(const char *key, const char *value);
 void navi_active(int on);
 void navi_mix(int16_t *out, int n);
 void navi_next(void);
+void navi_command(const char *cmd, char *reply, size_t max);
 /* the ant farm's option and its colony across a power cycle (sdl/savers.c) */
 void antfarm_option(const char *key, const char *value);
 size_t antfarm_state(uint8_t **buf);

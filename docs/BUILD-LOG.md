@@ -10251,3 +10251,32 @@ Verified: alone, DOS 3.3 boots from the master disk and CATALOG lists it
 APPLE at the prompt, CATALOG and a PRINT typed through the machine's own
 keys, and thirty Applesoft beeps measured in the machine's audio output.
 Not tried yet: a game, a .woz, the joystick, and the Dell -- offline.
+
+## 2026-09-17 — RADIO: the radio from the prompt; the Apple types one key a frame
+
+Doc: "How do I control Navidrome playback?" -- there was Ctrl+Alt+N and the
+volume keys, and that was it. "build the RADIO command but redeploy on the
+k4510 what you just did."
+
+Redeployed first (Kitty graphics, BOOK's pictures, the Apple IIe: layer
+ffa33810). The Apple booted DOS on the Dell and typed CATAOG: on the slower
+host two of the pipe's keys landed in one Apple frame and the latch kept only
+the second. apple_k4510 now takes one keypress a frame and leaves the rest
+of the ring for the next.
+
+**RADIO** is a machine command for a thing the machine cannot see, so it
+goes the way MOUNT's and STATUS's answers came: a storage-device command
+(FS_RADIO, 25) carries the line over, the frontend's hook (io_radio_hook,
+set by sdl/main.c to the sidebar's navi_command) answers, and the ROM
+prints the lines. Alone: what is playing, and the words. PLAY [playlist],
+ALBUM, ARTIST, SONG (Subsonic's search3, then getAlbum/getArtist), SEARCH
+(look, do not play), NEXT, PAUSE, RESUME, OFF. It plays whether or not the
+sidebar is on the glass (`forced`), and the sidebar's OPTIONS.CFG is read
+whether or not it is shown -- which found a second bug: the file's
+`play = random`, re-read every second, undid RADIO's choice every second.
+The file's line is the default now, honoured when it changes.
+
+Verified against the stand-in server in the real emulator: SEARCH lists an
+artist, an album and a song; ALBUM plays track one; NEXT plays track two;
+PAUSE is two seconds of silence in the audio output and RESUME is not. The
+Dell, against the real Navidrome, next.

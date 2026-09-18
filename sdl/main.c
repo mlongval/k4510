@@ -966,6 +966,7 @@ int k4510_frontend_main(int argc, char **argv)
      * X server goes -- still stops the co-processor and unlinks DOOM's
      * /dev/shm segment.  Idempotent, so the clean path calling it too is fine. */
     atexit(io_tube_shutdown);
+    io_radio_hook = navi_command;                  /* RADIO at the prompt reaches the Navidrome sidebar's player */
     int no_startup = 0;
     { int i, j;
       for (i = 1; i < argc; i++)
@@ -1869,10 +1870,11 @@ tex_done:
                     if (i >= 0 && sidebars_count()) {
                         sidebars_prepare(i);
                         if (b2 >= SIDEBAR_HALLOWEEN) { const char *d = sidebars_opt(i, "day"); saver_option(b2 - SIDEBAR_HALLOWEEN, "day", d ? d : "real"); }
-                        if (b2 == SIDEBAR_NAVIDROME) { static const char *const nk[] = { "server", "user", "password", "play" };   /* the radio's options, read again when the file changes */
-                                                       for (int q = 0; q < 4; q++) saver_option(SAVER_NAVIDROME, nk[q], sidebars_opt(i, nk[q])); }
                     }
                 }
+                { int ni = sidebars_find("navidrome");           /* the radio's options, whether or not it is on the glass: RADIO at the prompt plays without the sidebar */
+                  if (ni >= 0) { static const char *const nk[] = { "server", "user", "password", "play" }; sidebars_prepare(ni);
+                                 for (int q = 0; q < 4; q++) saver_option(SAVER_NAVIDROME, nk[q], sidebars_opt(ni, nk[q])); } }
                 navi_active(sidebars_builtin(shown[0]) == SIDEBAR_NAVIDROME || sidebars_builtin(shown[1]) == SIDEBAR_NAVIDROME);   /* it plays while it is on the glass */
                 if (!state_at) state_at = tn;
                 if (tn - state_at >= 300000) { state_at = tn; sidebar_save_states(); }

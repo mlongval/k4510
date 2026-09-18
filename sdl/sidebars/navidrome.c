@@ -40,6 +40,7 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
+#include <stdarg.h>
 
 #define MINIMP3_IMPLEMENTATION
 #define MINIMP3_NO_SIMD
@@ -53,7 +54,7 @@ static volatile unsigned ring_w, ring_r;          /* one producer (the player), 
 static pthread_mutex_t meta_mu = PTHREAD_MUTEX_INITIALIZER;
 static struct { char title[96], artist[96], album[96], note[96]; int duration; } meta;   /* under meta_mu */
 static volatile unsigned played;                  /* samples of this song heard so far */
-static volatile int want_on, skip_req, running;
+static volatile int want_on, skip_req, running, paused, forced;
 static pthread_t th;
 static char o_server[128], o_user[64], o_pass[64], o_play[64] = "random";               /* under meta_mu */
 static volatile int opt_gen;                      /* bumped when an option changes: the player starts over */
@@ -71,7 +72,7 @@ void navi_mix(int16_t *out, int n)
 {
     static const float coef[BANDS + 1] = { 0.90f, 0.55f, 0.30f, 0.16f, 0.085f, 0.045f, 0.024f, 0.012f, 0.006f };
     static float acc[BANDS]; static int cnt;
-    if (!running) return;
+    if (!running || paused) return;
     if (skip_req) ring_r = ring_w;                 /* a skip is heard NOW: whatever the player is still pushing of the old song is dropped here until it has let go of it */
     for (int i = 0; i < n; i++) {
         unsigned r = ring_r;
@@ -100,7 +101,14 @@ void navi_option(const char *key, const char *value)
     if (!strcmp(key, "server")) { dst = o_server; max = sizeof o_server; }
     else if (!strcmp(key, "user")) { dst = o_user; max = sizeof o_user; }
     else if (!strcmp(key, "password")) { dst = o_pass; max = sizeof o_pass; }
-    else if (!strcmp(key, "play")) { dst = o_play; max = sizeof o_play; if (!*value) value = "random"; }
+    else if (!strcmp(key, "play")) {                                  /* the file's choice is the DEFAULT: it takes over only when the file changes, so RADIO's choice is not undone every second */
+        static char file_play[64];
+        if (!*value) value = "random";
+        pthread_mutex_lock(&meta_mu);
+        if (strcmp(file_play, value)) { snprintf(file_play, sizeof file_play, "%s", value); snprintf(o_play, sizeof o_play, "%s", value); opt_gen++; }
+        pthread_mutex_unlock(&meta_mu);
+        return;
+    }
     if (!dst) return;
     pthread_mutex_lock(&meta_mu);
     if (strcmp(dst, value)) { snprintf(dst, max, "%s", value); opt_gen++; }
@@ -212,11 +220,64 @@ static int api_failed(const char *json, char *why, size_t max)
     return 1;
 }
 /* fill the queue: a playlist by name, or random songs */
+/* One JSON object's worth: from the '{' at p to its matching '}' */
+static const char *obj_end(const char *p)
+{
+    int depth = 0, instr = 0;
+    for (; *p; p++) {
+        if (instr) { if (*p == '\\' && p[1]) p++; else if (*p == '"') instr = 0; continue; }
+        if (*p == '"') instr = 1; else if (*p == '{') depth++; else if (*p == '}' && --depth == 0) return p;
+    }
+    return NULL;
+}
+/* the songs of one album, appended to the queue */
+static void queue_album(const char *id)
+{
+    char url[700], ex[80], *js;
+    snprintf(ex, sizeof ex, "id=%s", id);
+    api_url(url, sizeof url, "getAlbum.view", ex);
+    if ((js = fetch_text(url, 1024 * 1024))) { parse_songs(js, "song"); free(js); }   /* parse_songs starts the queue over; queue_album's callers keep what came before */
+}
+/* "album:NAME", "artist:NAME", "song:WORDS": Subsonic's search3, then the songs */
+static int fill_by_search(const char *play, char *why, size_t whymax)
+{
+    char url[700], q[200], ex[300], *js; const char *what = strchr(play, ':') + 1; int n = 0;
+    urlenc(what, q, sizeof q);
+    snprintf(ex, sizeof ex, "query=%s&artistCount=%d&albumCount=%d&songCount=%d", q, !strncasecmp(play, "artist:", 7) ? 1 : 0, !strncasecmp(play, "album:", 6) ? 1 : 0, !strncasecmp(play, "song:", 5) ? 30 : 0);
+    api_url(url, sizeof url, "search3.view", ex);
+    if (!(js = fetch_text(url, 512 * 1024))) { snprintf(why, whymax, "no answer from the server"); return 0; }
+    if (api_failed(js, why, whymax)) { free(js); return 0; }
+    if (!strncasecmp(play, "song:", 5)) n = parse_songs(js, "song");
+    else {
+        char id[48] = ""; const char *key = !strncasecmp(play, "album:", 6) ? "\"album\":[" : "\"artist\":[", *p = strstr(js, key);
+        if (p && (p = strchr(p, '{'))) { const char *e = obj_end(p); if (e) json_str(p, e, "id", id, sizeof id); }
+        if (!id[0]) { snprintf(why, whymax, "the server knows no %.7s called %.40s", play, what); free(js); return 0; }
+        if (!strncasecmp(play, "album:", 6)) { qn = qi = 0; queue_album(id); n = qn; }
+        else {                                            /* an artist: their albums, first to last, until the queue is full */
+            char aurl[700], aex[80], *ajs; snprintf(aex, sizeof aex, "id=%s", id);
+            api_url(aurl, sizeof aurl, "getArtist.view", aex);
+            if ((ajs = fetch_text(aurl, 512 * 1024))) {
+                char ids[8][48]; int na = 0; const char *p2 = strstr(ajs, "\"album\":[");
+                while (na < 8 && p2 && (p2 = strchr(p2, '{'))) { const char *e = obj_end(p2); if (!e) break; if (json_str(p2, e, "id", ids[na], sizeof ids[na])) na++; p2 = e + 1; if (*p2 == ']') break; }
+                free(ajs);
+                qn = qi = 0;
+                for (int a = 0; a < na && qn < QMAX; a++) { int before = qn; song_t keep[QMAX]; memcpy(keep, queue, sizeof keep); queue_album(ids[a]); if (before) { int got = qn; if (before + got > QMAX) got = QMAX - before; memmove(queue + before, queue, (size_t) got * sizeof queue[0]); memcpy(queue, keep, (size_t) before * sizeof queue[0]); qn = before + got; } }
+                n = qn;
+            }
+        }
+    }
+    free(js);
+    if (!n) snprintf(why, whymax, "nothing to play for %.40s", what);
+    return n;
+}
 static int fill_queue(void)
 {
     char url[700], play[64], why[96], *js; int n = 0;
     pthread_mutex_lock(&meta_mu); snprintf(play, sizeof play, "%s", o_play); pthread_mutex_unlock(&meta_mu);
-    if (strcasecmp(play, "random")) {
+    if (!strncasecmp(play, "album:", 6) || !strncasecmp(play, "artist:", 7) || !strncasecmp(play, "song:", 5)) {
+        n = fill_by_search(play, why, sizeof why);        /* RADIO ALBUM / ARTIST / SONG */
+        if (!n) { set_note(why); return 0; }
+    } else if (strcasecmp(play, "random")) {
         api_url(url, sizeof url, "getPlaylists.view", "");
         if ((js = fetch_text(url, 256 * 1024))) {
             char pat[96], id[48] = ""; const char *p = js;
@@ -304,6 +365,7 @@ static void *player(void *unused)
 /* the frontend, once a second: is this sidebar on the glass? */
 void navi_active(int on)
 {
+    if (forced) on = 1;                                              /* RADIO ON / PLAY: it plays whether or not the sidebar is on the glass */
     if (on && !running) { want_on = 1; running = 1; if (pthread_create(&th, NULL, player, NULL)) { running = 0; want_on = 0; } else pthread_detach(th); }
     else if (!on && want_on) want_on = 0;                            /* the thread notices, empties the ring and ends */
 }
@@ -374,4 +436,80 @@ void s_navidrome(cv_t *c, uint32_t t, int side)
       }
       if (note[0] || !running) words(c, x, y + 3, note[0] ? note : "a radio beside the machine: choose me in F12 and I play", RGB(255, 170, 90), 6);
       (void) fh; }
+}
+
+/* ---- RADIO, the machine's command (core/io.c hands the line over) ----------- */
+static void radio_line(char *reply, size_t max, const char *fmt, ...)
+{
+    size_t n = strlen(reply); va_list ap;
+    if (n + 2 >= max) return;
+    va_start(ap, fmt); vsnprintf(reply + n, max - n - 1, fmt, ap); va_end(ap);
+    strcat(reply, "\n");
+}
+void navi_command(const char *cmd, char *reply, size_t max)
+{
+    char word[16], rest[128]; int i = 0;
+    while (*cmd == ' ') cmd++;
+    for (; *cmd && *cmd != ' ' && i < 15; cmd++) word[i++] = (char)((*cmd >= 'a' && *cmd <= 'z') ? *cmd - 32 : *cmd);
+    word[i] = 0;
+    while (*cmd == ' ') cmd++;
+    snprintf(rest, sizeof rest, "%s", cmd);
+    { size_t l = strlen(rest); while (l && rest[l - 1] == ' ') rest[--l] = 0; }
+    reply[0] = 0;
+    if (!word[0] || !strcmp(word, "STATUS") || !strcmp(word, "HELP")) {
+        char title[96], artist[96], album[96], note[96]; int dur; unsigned el = played / 48000u;
+        pthread_mutex_lock(&meta_mu);
+        snprintf(title, sizeof title, "%s", meta.title); snprintf(artist, sizeof artist, "%s", meta.artist); snprintf(album, sizeof album, "%s", meta.album);
+        snprintf(note, sizeof note, "%s", meta.note); dur = meta.duration;
+        pthread_mutex_unlock(&meta_mu);
+        if (!running) radio_line(reply, max, "the radio is off (RADIO PLAY starts it; or choose the Navidrome sidebar)");
+        else if (title[0]) { radio_line(reply, max, "%s %s", paused ? "paused: " : "playing:", title); radio_line(reply, max, "         %s -- %s   %u:%02u/%d:%02d", artist, album, el / 60, el % 60, dur / 60, dur % 60); }
+        if (note[0]) radio_line(reply, max, "%s", note);
+        if (!word[0] || !strcmp(word, "HELP")) {
+            radio_line(reply, max, "RADIO PLAY            start (random songs, or what PLAY last chose)");
+            radio_line(reply, max, "RADIO PLAY name       a playlist    RADIO ALBUM name    RADIO ARTIST name");
+            radio_line(reply, max, "RADIO SONG words      songs whose names match   RADIO SEARCH words  look only");
+            radio_line(reply, max, "RADIO NEXT / PAUSE / RESUME / OFF     (Ctrl+Alt+N is also NEXT)");
+        }
+        return;
+    }
+    if (!strcmp(word, "NEXT")) { if (!running) { radio_line(reply, max, "the radio is off"); return; } skip_req = 1; radio_line(reply, max, "next"); return; }
+    if (!strcmp(word, "PAUSE")) { paused = 1; radio_line(reply, max, "paused"); return; }
+    if (!strcmp(word, "RESUME")) { paused = 0; radio_line(reply, max, "playing"); return; }
+    if (!strcmp(word, "OFF") || !strcmp(word, "STOP")) { forced = 0; paused = 0; navi_active(0); radio_line(reply, max, "off"); return; }
+    if (!strcmp(word, "ON")) { forced = 1; paused = 0; navi_active(1); radio_line(reply, max, "on"); return; }
+    if (!strcmp(word, "PLAY") || !strcmp(word, "ALBUM") || !strcmp(word, "ARTIST") || !strcmp(word, "SONG")) {
+        char want[96];
+        if (!strcmp(word, "PLAY")) snprintf(want, sizeof want, "%s", rest[0] ? rest : "");
+        else snprintf(want, sizeof want, "%s:%s", !strcmp(word, "ALBUM") ? "album" : !strcmp(word, "ARTIST") ? "artist" : "song", rest);
+        if (strcmp(word, "PLAY") && !rest[0]) { radio_line(reply, max, "RADIO %s needs a name", word); return; }
+        if (want[0]) { pthread_mutex_lock(&meta_mu); snprintf(o_play, sizeof o_play, "%s", want); opt_gen++; pthread_mutex_unlock(&meta_mu); }   /* a new choice: the player starts over on it */
+        forced = 1; paused = 0; skip_req = running; navi_active(1);
+        radio_line(reply, max, want[0] ? "asking the server for %s" : "playing", rest[0] ? rest : "random songs");
+        return;
+    }
+    if (!strcmp(word, "SEARCH")) {
+        char url[700], q[200], ex[200], *js, why[96];
+        if (!rest[0]) { radio_line(reply, max, "RADIO SEARCH needs words"); return; }
+        urlenc(rest, q, sizeof q);
+        snprintf(ex, sizeof ex, "query=%s&artistCount=3&albumCount=5&songCount=6", q);
+        api_url(url, sizeof url, "search3.view", ex);
+        if (!(js = fetch_text(url, 512 * 1024))) { radio_line(reply, max, "no answer from the server (set server, user and password in the sidebar's options)"); return; }
+        if (api_failed(js, why, sizeof why)) { radio_line(reply, max, "%s", why); free(js); return; }
+        { static const struct { const char *key, *label, *namekey; } kinds[3] = { { "\"artist\":[", "artist", "name" }, { "\"album\":[", "album ", "name" }, { "\"song\":[", "song  ", "title" } };
+          int any = 0;
+          for (int k = 0; k < 3; k++) {
+              const char *p = strstr(js, kinds[k].key);
+              while (p && (p = strchr(p, '{'))) {
+                  const char *e = obj_end(p); char nm[80], by[80]; if (!e) break;
+                  json_str(p, e, kinds[k].namekey, nm, sizeof nm); if (!json_str(p, e, "artist", by, sizeof by)) by[0] = 0;
+                  radio_line(reply, max, "%s  %.40s%s%.30s", kinds[k].label, nm, by[0] ? " -- " : "", by); any = 1;
+                  p = e + 1; if (*p == ']') break;
+              }
+          }
+          if (!any) radio_line(reply, max, "nothing matches %s", rest); }
+        free(js);
+        return;
+    }
+    radio_line(reply, max, "RADIO: no such word as %s (RADIO alone lists them)", word);
 }

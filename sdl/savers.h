@@ -30,4 +30,5 @@ void   saver_restore(int which, const uint8_t *buf, size_t n);
 void navi_active(int on);
 void navi_mix(int16_t *out, int n);
 void navi_next(void);
+void navi_command(const char *cmd, char *reply, size_t max);   /* RADIO: the machine's command line, and the answer, lines with '\n' */
 #endif

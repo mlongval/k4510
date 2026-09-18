@@ -334,6 +334,8 @@ static int fs_sysmount_row(int idx, char *b, size_t max)
     free(root);
     return b[0] != 0;
 }
+void (*io_radio_hook)(const char *cmd, char *reply, size_t max);
+static char radio_reply[1024]; static int radio_lines;
 static const char *fs_sysinfo_row(int idx);      /* STATUS's report: at the end of this file, where everything it reads is in sight */
 /* A machine path ("/SYSTEM/DOC/IMG/BOOT.PNG", or a name beside the current
  * directory) as the host's, for JIM's pictures: Kitty's t=f names a FILE, and
@@ -729,6 +731,24 @@ static void fs_run(uint8_t cmd)
         for (i = 0; i < fs_mnt_n; i++) if (!strcasecmp(fs_mnt[i].at, rel)) { found = 1; zip_close(fs_mnt[i].zip); fs_mnt[i] = fs_mnt[--fs_mnt_n]; break; }
         if (!found) st = 1;
         else rmdir(loc);                      /* remove the placeholder directory MOUNT made (only if it is empty) */
+        break; }
+    case FS_RADIO: {                      /* RADIO: index 0 runs the command line at NAMEPTR and keeps its reply; then a line at a time */
+        uint32_t idx = fs_rd32(12); int j, cap = fs_cap ? fs_cap : 256; const char *b = radio_reply, *e;
+        fs_cap = 0;
+        if (idx == 0) {
+            char cmd[200];
+            if (fs_guest_name(cmd, sizeof cmd)) { st = 5; break; }
+            radio_reply[0] = 0; radio_lines = 0;
+            if (io_radio_hook) io_radio_hook(cmd, radio_reply, sizeof radio_reply);
+            else snprintf(radio_reply, sizeof radio_reply, "no radio on this host (the Navidrome sidebar is the frontend's)");
+            for (const char *p = radio_reply; *p; p++) if (*p == '\n') radio_lines++;
+            if (radio_reply[0] && radio_reply[strlen(radio_reply) - 1] != '\n') radio_lines++;
+        }
+        for (uint32_t k = 0; k < idx && *b; k++) { e = strchr(b, '\n'); b = e ? e + 1 : b + strlen(b); }
+        if (!*b) { st = 4; break; }
+        e = strchr(b, '\n'); if (!e) e = b + strlen(b);
+        for (j = 0; b + j < e && j < cap - 1; j++) k4510_ram[(addr + j) & K4510_PHYS_MASK] = (uint8_t) b[j];
+        k4510_ram[(addr + j) & K4510_PHYS_MASK] = 0; fs_wr32(0x10, (uint32_t) j);
         break; }
     case FS_SYSINFO: {                    /* STATUS: LEN = index -> a line at ADDR; index 0 takes the snapshot */
         uint32_t idx = fs_rd32(12); const char *b; int j, cap = fs_cap ? fs_cap : 256;

@@ -81,7 +81,10 @@ make_container() {
            -v "$SHARE:/home/k4510/k4510/fs/MNT/SHARE"
     [ -n "$WL" ] && set -- "$@" -v "$WL:/run/user/$UIDN/$WLNAME"
     [ -n "$X11" ] && set -- "$@" -v /tmp/.X11-unix:/tmp/.X11-unix --ipc=host
-    [ -n "$XAUTH" ] && set -- "$@" -v "$XAUTH:/home/k4510/.Xauthority:ro"
+    # NOT the Xwayland auth file: mutter names it afresh at every login
+    # (.mutter-Xwaylandauth.AZPDV3, then .OUSUV3), and a container whose mount
+    # source has gone does not start at all -- "container state improper" on the
+    # Dell, 2026-09-18, one logout after it was made.  up() copies it in instead.
     [ -S "$RUNDIR/pipewire-0" ] && set -- "$@" -v "$RUNDIR/pipewire-0:/run/user/$UIDN/pipewire-0"
     [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -v "$RUNDIR/pulse:/run/user/$UIDN/pulse"
     [ -d /dev/dri ] && set -- "$@" --device /dev/dri
@@ -95,11 +98,23 @@ make_container() {
     if have_display; then echo "container created with a screen ($([ -n "$WL" ] && echo "Wayland $WLNAME" || echo "X11 $X11"))"
     else echo "container created WITHOUT a screen: no display socket on this host; run  $0  again from a desktop"; fi
 }
+# every host path the container mounts is still there?  (a socket of a session that ended, a folder moved)
+binds_ok() {
+    podman inspect "$NAME" --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' 2>/dev/null | while read -r src; do
+        [ -z "$src" ] || [ -e "$src" ] || { echo "$src"; exit 1; }
+    done
+}
 container_has_display() { podman inspect "$NAME" --format '{{.HostConfig.Binds}}' 2>/dev/null | grep -q -e wayland -e X11-unix; }
-up() { podman start "$NAME" >/dev/null 2>&1 || true; }
+up() {
+    gone=$(binds_ok) || { echo "podman.sh: $gone is gone from this host (a new login?); recreating the container -- what apt installed in it goes with it"; make_container; }
+    [ "$(podman inspect "$NAME" --format '{{.State.Running}}' 2>/dev/null)" = true ] || podman start "$NAME" >/dev/null \
+        || { echo "podman.sh: the container did not start (above is why)"; exit 1; }
+    # this login's Xwayland key, copied and not mounted (see make_container)
+    if [ -n "$XAUTH" ]; then podman cp "$XAUTH" "$NAME:/home/k4510/.Xauthority" && podman exec -u 0 "$NAME" chown "$UIDN" /home/k4510/.Xauthority; fi
+}
 
 case "${1:-create}" in
-run)
+run|start)
     podman image exists "$IMAGE" 2>/dev/null || { echo "podman.sh: no image yet; run  $0  first"; exit 1; }
     if ! podman container exists "$NAME" 2>/dev/null; then make_container
     elif have_display && ! container_has_display; then echo "podman.sh: this container has no screen; recreating it with this host's display"; make_container
@@ -132,7 +147,7 @@ rm)
     rm -f "$HOME/.local/share/applications/k4510-box.desktop"
     echo "podman.sh: removed $NAME${2:+ and the image}; $SHARE is untouched"; exit 0 ;;
 create) ;;
-*) echo "podman.sh [create|run|shell|update|rm [--all]]"; exit 1 ;;
+*) echo "podman.sh [create|run (or start)|shell|update|rm [--all]]"; exit 1 ;;
 esac
 
 # the stick's package list minus what only a bootable machine needs

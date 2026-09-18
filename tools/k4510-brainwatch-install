@@ -1,0 +1,16 @@
+#!/bin/sh
+# Install (or, with --remove, take away) the brainshot watcher's user timer.
+set -e
+here=$(cd "$(dirname "$0")" && pwd)
+units=${XDG_CONFIG_HOME:-$HOME/.config}/systemd/user
+if [ "$1" = "--remove" ]; then
+    systemctl --user disable --now k4510-brainwatch.timer 2>/dev/null || true
+    rm -f "$units/k4510-brainwatch.service" "$units/k4510-brainwatch.timer"
+    systemctl --user daemon-reload
+    echo "brainshot watcher removed"; exit 0
+fi
+mkdir -p "$units"
+cp "$here/k4510-brainwatch.service" "$here/k4510-brainwatch.timer" "$units/"
+systemctl --user daemon-reload
+systemctl --user enable --now k4510-brainwatch.timer
+systemctl --user list-timers k4510-brainwatch.timer --no-pager

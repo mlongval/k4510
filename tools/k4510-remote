@@ -17,6 +17,15 @@
     k4510-remote ideas [--all]      the brainshots IDEA wrote since last asked, then moved into
                                     /SYSTEM/BRAINSHOTS/PROCESSED on the machine (--all: every
                                     one), kept in ~/k4510-remote/brainshots/
+    k4510-remote peek [-q]          is there a brainshot not read yet?  One ssh, nothing moved,
+                                    nothing marked: each new one is staged in
+                                    ~/k4510-remote/brainshots/ and named in its NEW file, which
+                                    `ideas' empties.  A machine that is away is not an error
+                                    (the timer: tools/k4510-brainwatch.timer).  -q: say nothing
+                                    unless there is one
+    k4510-remote watch [S] [MAX]    peek every S seconds (default 60) until there is one, then
+                                    show it; give up after MAX seconds (default: never).  What
+                                    a session leaves running in the background
     k4510-remote reboot [-y]        reboot the machine and wait for it
     k4510-remote tui                all of it from a menu, with the screen live above
 
@@ -213,10 +222,58 @@ def c_ideas(every=False):
                "rmdir ~/k4510/fs/BRAINSHOTS 2>/dev/null; true")   # touched: the 48 hours count from here, not from IDEA
     remote("find ~/k4510/fs/SYSTEM/BRAINSHOTS/PROCESSED -maxdepth 1 -name '*.TXT' -mmin +2880 -delete 2>/dev/null; true")   # 48 hours after processing (Doc); the copies here stay
     seen_f.write_text("\n".join(sorted(seen | set(where) | done)) + "\n")
+    NEW.unlink(missing_ok=True)                                   # read: nothing is waiting any more
     log(f"ideas: {len(new)} new, {len(where)} moved to PROCESSED")
     if not out:
         return f"no new brainshots ({len(where) + len(done)} in all, in PROCESSED now; --all shows every one)"
     return "\n\n".join(out)
+
+NEW = BRAIN / "NEW"
+
+
+def c_peek(quiet=False):
+    """Doc, 2026-09-18: "a watcher that scans the k4510 on Dell at interval to notice
+    these BRAINSHOTS as soon as possible, without overloading the system".  So: ONE
+    ssh that lists two folders, and a second only when there is something to fetch.
+    Nothing on the machine is moved and .seen is not written -- reading is `ideas',
+    and it must still find them new.  What was found is staged here and named in NEW
+    once, so the timer does not announce the same brainshot every two minutes."""
+    BRAIN.mkdir(parents=True, exist_ok=True)
+    seen_f = BRAIN / ".seen"
+    seen = set(seen_f.read_text().split()) if seen_f.exists() else set()
+    staged = set(NEW.read_text().split()) if NEW.exists() else set()
+    try:
+        names = remote("cd ~/k4510/fs 2>/dev/null && ls -1 BRAINSHOTS SYSTEM/BRAINSHOTS 2>/dev/null; true", timeout=15).split()
+    except Fail as e:
+        return "" if quiet else f"peek: the machine is away ({e})"
+    fresh = sorted(set(n for n in names if n.upper().endswith(".TXT")) - seen - staged)
+    if not fresh:
+        waiting = f"; {len(staged)} staged and not read yet" if staged else ""
+        return "" if quiet else f"no new brainshots{waiting}"
+    q = " ".join(shlex.quote(n) for n in fresh)
+    text = remote("cd ~/k4510/fs && for n in " + q + "; do for d in SYSTEM/BRAINSHOTS BRAINSHOTS; do "
+                  "[ -f $d/$n ] && { printf '\\036%s\\n' $n; cat $d/$n; break; }; done; done", timeout=20)
+    out = []
+    for part in text.split("\x1e")[1:]:
+        n, _, body = part.partition("\n")
+        (BRAIN / n).write_text(body)
+        out.append(f"=== {n}\n{body.rstrip()}")
+    with open(NEW, "a") as f:
+        f.write("".join(n + "\n" for n in fresh))
+    log(f"peek: {len(fresh)} new, staged")
+    return "\n\n".join(out)
+
+
+def c_watch(every=60.0, most=0.0):
+    t0 = time.time()
+    while True:
+        out = c_peek(quiet=True)
+        if out:
+            return out
+        if most and time.time() - t0 + every > most:
+            raise Fail(f"no brainshot in {int(most)} s")
+        time.sleep(every)
+
 
 def c_reboot(ask=True):
     if ask and input(f"reboot {HOST}? [y/N] ").strip().lower() != "y":
@@ -426,6 +483,10 @@ def main(argv):
             out = c_logs()
         elif cmd == "ideas":
             out = c_ideas("--all" in args)
+        elif cmd == "peek":
+            out = c_peek("-q" in args)
+        elif cmd == "watch":
+            out = c_watch(float(args[0]) if args else 60.0, float(args[1]) if len(args) > 1 else 0.0)
         elif cmd == "reboot":
             out = c_reboot(ask="-y" not in args)
         elif cmd == "tui":

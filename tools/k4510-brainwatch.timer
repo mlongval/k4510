@@ -1,0 +1,11 @@
+# Every two minutes: the cost is an `ls' on the Dell and an ssh handshake here.
+[Unit]
+Description=K4510: look for new brainshots every two minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=15s
+
+[Install]
+WantedBy=timers.target

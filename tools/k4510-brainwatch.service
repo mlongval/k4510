@@ -1,0 +1,13 @@
+# The brainshot watcher (Doc, 2026-09-18).  One `k4510-remote peek': a single ssh
+# that lists two folders on the Dell; what is new is staged in
+# ~/k4510-remote/brainshots/ and named in its NEW file.  Nothing is moved on the
+# machine, and a Dell that is away is not a failure.  Install:
+#   tools/k4510-brainwatch-install
+[Unit]
+Description=K4510: look for new brainshots on the Dell
+
+[Service]
+Type=oneshot
+ExecStart=%h/Projects/K4510/guide-build/k4510/tools/k4510-remote peek -q
+TimeoutStartSec=45
+Nice=10

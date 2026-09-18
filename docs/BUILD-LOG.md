@@ -10367,3 +10367,75 @@ or "the sound starving") went to a terminal.  If it is PipeWire through the
 container's socket starving at startup, the gaps trigger wants a grace
 period; the next first boot will say, now that it costs five minutes and not
 the afternoon.
+
+## 2026-09-18, evening — MARK: one benchmark
+
+Doc gave five links -- the 6502.org benchmarking thread (t=6323), Gordon
+Henderson's BASIC Mandelbrot behind it, gfoot's mandelbrot6502, and the two
+CPU test suites (Klaus Dormann's, Tom Seddon's) -- and asked for "a
+comprehensive test (one program, not a bunch of little ones)"; then, while it
+was being written: "must test the k4510 at different Mhz values between 10
+and 60, and also redo those same tests ... with and without using the MATH
+unit."  We had ten little ones already (RF1-8, SIEVE, AHL, and a shell script
+to run them).
+
+What the links are.  Henderson's listing and the thread are the yardstick
+that exists: one BASIC program, seconds, a long table of real machines -- and
+it measures an interpreter's floating point far more than a CPU.  gfoot's is
+the same picture in assembly, 8.8 fixed point, a 24-bit shift-and-add
+multiply: the CPU and nothing else.  The two suites are not benchmarks; they
+are why MARK's first lines are a check and not a time.  Both are GPL-3 and
+this is GPL-2-or-later, and Klaus's are 64 KB images that own the machine, so
+nothing of theirs is in here: the BCD check is ours (every valid pair, both
+carries, ADC and SBC, against binary).  gfoot's is the Unlicense, and his
+loop is in demo/mark-asm.s instruction for instruction.
+
+MARK (demo/mark.c the stopwatch, demo/mark-asm.s the measured loops -- in
+assembly so that cc65 improving does not move the figures).  At each clock
+from 10 to 60: a DEX/BNE loop of exactly counted NMOS cycles ("the work of a
+6502 at N MHz"), the Byte Sieve, 2 MB through (zp),Y, and gfoot's Mandelbrot
+twice, the second time with its three multiplies an iteration given to the
+MATH unit's multiplier at $D770.  The first three do nothing the unit could
+take, so they are run once a clock; MANDEL is the pair.  The picture must
+sum to 16897 both ways -- the figure a Python model of gfoot's arithmetic
+gives -- or the row is marked ! and the report says these are not speeds.
+
+Every figure is machine time (the frame counter, which is the emulated
+CPU's cycles and nothing else); the last column is wall time over machine
+time.  That pair is the answer to what Doc asked this afternoon -- is the MHz
+real? -- made into a column: the first is what a K4510 IS, the second what
+this host delivered.
+
+In the real frontend under Xvfb, ubuntu-s1, 100 seconds for the lot:
+
+     clock  as a 6502    SIEVE    COPY    MANDEL    +MATH     host
+      10.0     12.47     1.46      699     14.35      5.16     100%
+      15.0     18.71     0.96     1047      9.56      3.45     100%
+      20.0     24.95     0.73     1398      7.16      2.58     100%
+      30.0     37.62     0.48     2105      4.78      1.71     100%
+      40.5     50.73     0.35     2857      3.53      1.26     100%
+      60.0     75.25     0.23     4347      2.38      0.85     100%
+
+Linear in the clock, as an honest emulator must be.  A 45GS10 cycle is worth
+1.25 of a 6502's on that loop (DEX is one cycle, not two).  The MATH unit is
+2.8 times on the Mandelbrot and no more, because a multiply was only ever
+two thirds of an iteration.  The clock came back to 40.5 and the governor
+did not speak during the sweep (SYS+$29, as for SETUP).
+
+Henderson's listing is fs/LANG/EHBASIC/EX/DROGON.BAS, lines 130-310 his and
+untouched, the clock ours: 9.2 s at 40.5 MHz.  It is NOT set beside the
+thread's table in the program or the book: the thread speaks of 64 x 48 and
+38 x 21 runs and his page's listing is 79 x 25, and which listing made which
+figure could not be established from the pages.  A ratio against the wrong
+program is worse than no ratio.  Why it is a separate file and not a section
+of MARK: EhBASIC takes no program on its command line, and teaching it to
+was not today's job.
+
+Traps: the first link put 22 KB of BSS 580 bytes under a 1 KB C stack (the
+map said so before anything ran; MARK loads at $2000 now, as VI does); the
+key pipe is made unasked only on the K4510 Linux -- on a desktop the
+EMULATOR needs K4510_KEYPIPE too, not just k4510-type.
+
+test/marktest.sh (in make test) is MARK 40 headless: the checks, a row with
+no !, MATH the faster.  The sweep itself cannot be tested headless -- there
+the clock is the harness's.

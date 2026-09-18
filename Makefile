@@ -31,7 +31,7 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # make expands prerequisite lists at once, so a later definition left both
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
-BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall
+BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall mark
 APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
 C_EX_NAMES = hello sieve
@@ -234,6 +234,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/vitest.sh
 	./test/walltest.sh
 	$(MAKE) -s test/govtest && ./test/govtest
+	./test/marktest.sh
 	./test/dirtest.sh
 	./test/logotest.sh
 	./test/ttypetest.sh
@@ -298,6 +299,12 @@ fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h d
 	ca65 --cpu 65c02 -o demo/vi.o demo/vi.s
 	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
 fs/SYSTEM/BIN/edit.prg: demo/renum.h
+# MARK: the stopwatch in C, the measured loops in assembly (so cc65 getting better does not move the figures)
+fs/SYSTEM/BIN/mark.prg: demo/mark.c demo/mark-asm.s demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/mark.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/mark.s demo/mark.c
+	ca65 --cpu 65c02 -o demo/mark.o demo/mark.s
+	ca65 --cpu 65c02 -o demo/mark-asm.o demo/mark-asm.s
+	ld65 -C demo/mark.cfg -o $@ demo/prg0.o demo/romcalls.o demo/mark.o demo/mark-asm.o none.lib -m demo/mark.map
 # PROG: VI's engine and a front end -- loaded at $2000, variables at $0800 (demo/prog.cfg)
 fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/prog.s demo/prog.c

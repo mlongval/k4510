@@ -2019,6 +2019,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
                 char rel[256];
                 if (!strchr(cmd, '/') && !strchr(cmd, '\\')) { snprintf(disk, sizeof disk, "%s/DISK/APPLE/%s", fs_root, cmd); fs_casefix(disk, sizeof disk); }
                 if ((!disk[0] || stat(disk, &asb)) && !fs_resolve(cmd, rel, sizeof rel, disk, sizeof disk)) fs_casefix(disk, sizeof disk);   /* not in /DISK/APPLE: as a path */
+                { char *rp = realpath(disk, NULL); if (rp) { snprintf(disk, sizeof disk, "%s", rp); free(rp); } }   /* ABSOLUTE, before the chdir below: fs_root is relative ("fs"), and a relative disk path was then read against fs_root/fs -- the //e splash hung (Doc, 2026-09-18) */
             }
             if (disk[0]) {                        /* a hard-disk image (a ProDOS volume, .hdv, or any image bigger than a floppy) goes in slot 7, not the floppy in slot 6 */
                 struct stat sb; size_t l = strlen(disk);

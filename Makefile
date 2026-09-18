@@ -105,6 +105,10 @@ test/romtest: test/romtest.c $(CORE_OBJS)
 test/bench: test/bench.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+# the governor's rules alone: no core, no window (core/governor.h)
+test/govtest: test/govtest.c core/governor.h
+	$(CC) -O2 -Wall -Wextra -o $@ test/govtest.c
+
 test/headless: test/headless.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -229,6 +233,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/keytest.sh
 	./test/vitest.sh
 	./test/walltest.sh
+	$(MAKE) -s test/govtest && ./test/govtest
 	./test/dirtest.sh
 	./test/logotest.sh
 	./test/ttypetest.sh

@@ -136,6 +136,44 @@ clock is not one number per host: the shell is fine at 81 on a laptop where
 BENCH's polling loop starves at 60. No boot-time measurement can know which
 program is coming, and only the program can say what it needs.
 
+## The governor steps back up (2026-09-18)
+
+For three weeks it could only step down, and saved what it did.  On the Dell,
+in a fresh podman container, it walked 40.5 -> 30 -> 20 -> 15 -> 10 in the
+machine's first 83 seconds and stayed there: `test/bench` in the same
+container, on battery at 1.9 GHz, says 40.5 MHz costs 9.9 ms a frame and 81
+costs 19.2.  One bad minute had become a slow machine for ever.  What made
+the minute bad was not found -- the governor's lines went to a terminal
+nobody kept.  (`cpu.measured = 15 MHz` with `cpu.host = 0` in that file is
+NOT a measurement: those are the two defaults, saved with the rest.  A real
+one has a fingerprint.  It was misread as SETUP's answer for half an hour.)
+
+The rules are in `core/governor.h`, apart from the frontend so that
+`test/govtest.c` can feed them windows by hand:
+
+- up one step after ten quiet windows in a row (thirty seconds), no audio gap
+  in any of them;
+- quiet means the cost projected at the next step -- the whole frame scaled by
+  the clock ratio, fixed work and all, so wrong in the safe direction -- is
+  under 10 ms.  Down is at 14: the difference is the hysteresis;
+- never above the ceiling: SETUP's measurement where this host has one, the
+  compiled-in 40.5 where it has not.  The governor gets back what was lost.
+  Finding more is SETUP's business, as it was;
+- the step it last had to leave, and every step above it, is closed for five
+  minutes; ten if that same step fails again, doubling to eighty.
+
+The last rule is the answer to the finding above, that the governor only has
+an opinion while a program is running: an idle shell is cheap at any clock
+and would vote the clock up every thirty seconds, for the next program to
+vote it down.  It still can -- once per backoff, one late window each time,
+and rarer every time.  Why not remember the failure in k4510.cfg: a failure
+is about that afternoon (a battery, a hot room, a compile in the next
+window), and the file is about the host.
+
+Seen in the real frontend under Xvfb, from a scratch copy with the clock
+forced to 10: 2.3 ms at 10, 3.0 at 15, 3.9 at 20, 4.6 at 30, and it stopped
+at 40.5.
+
 ## Proposal 2: let software ask for a clock
 
 A title should be able to say what it needs, and the machine should

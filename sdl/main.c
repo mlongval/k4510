@@ -302,10 +302,12 @@ static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / 480;
 static int frame_lines = 480;                 /* this frame's lines: 480, or an HD mode's height (vicky_glass_h) */
 /* what the guest reads at SYS+$36: the wall clock, not the frame count */
 static uint32_t sdl_ms_now(void) { return (uint32_t)SDL_GetTicks(); }
-/* the governor steps down above this much of the frame spent inside the
+/* the governor steps down above GOV_LATE_MS of the frame spent inside the
  * machine: 14 ms of 16.67 leaves the frontend its texture and its present,
- * and a machine costing more than that is not holding 60 frames a second */
-#define GOV_LATE_MS 14.0
+ * and a machine costing more than that is not holding 60 frames a second.
+ * It steps back up too (2026-09-18): the rules are in core/governor.h, where
+ * they can be tested without a window. */
+#include "../core/governor.h"
 /* The next step down the ladder, by clock rather than by index: the enum's
  * order is the menu's business and has been changed once already. */
 static int clock_step_below(int cur)
@@ -314,6 +316,15 @@ static int clock_step_below(int cur)
     for (int i = 0; i < CPUCLK_COUNT; i++) {
         unsigned h = settings_cpu_hz_of(i);
         if (h < cur_hz && h > best_hz) { best_hz = h; best = i; }
+    }
+    return best;
+}
+static int clock_step_above(int cur)
+{
+    unsigned cur_hz = settings_cpu_hz_of(cur), best_hz = 0; int best = -1;
+    for (int i = 0; i < CPUCLK_COUNT; i++) {
+        unsigned h = settings_cpu_hz_of(i);
+        if (h > cur_hz && (!best_hz || h < best_hz)) { best_hz = h; best = i; }
     }
     return best;
 }
@@ -1160,7 +1171,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     const int ring_log = getenv("K4510_RINGLOG") != NULL;
     /* the governor's window: how long the machine's own half of the frame has
      * been costing, and how many callbacks ran dry, since it last decided */
-    Uint64 gov_t0 = 0, gov_mach = 0; unsigned gov_frames = 0, gaps_seen = 0;
+    Uint64 gov_t0 = 0, gov_mach = 0; unsigned gov_frames = 0, gaps_seen = 0; gov_state gov = { 0, 0, 0, 0 }; int gov_own = 0;
     /* ---- where the frame goes -------------------------------------------
      * The Pi runs at about a tenth of the speed it was measured at on 22
      * August and nothing in the shared code is slower on the desktop, so
@@ -1767,15 +1778,26 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * on purpose at the top of it.  Stepping down under the program that is
          * measuring us corrupts its answer -- it did, 2026-08-27 -- so stand
          * down entirely until it says it has finished. */
-        if (!settings_get(SET_CPU_AUTO) || open || paused || io_measuring()) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
+        if (!settings_get(SET_CPU_AUTO) || open || paused || io_measuring()) { gov_t0 = 0; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; gov_restart(&gov); }
         else {
             Uint64 nowc = SDL_GetPerformanceCounter(), hzc = SDL_GetPerformanceFrequency();
             if (!gov_t0) { gov_t0 = nowc; gov_mach = 0; gov_frames = 0; gaps_seen = io_audio_gaps; }
             else if (nowc - gov_t0 >= hzc * 3 && gov_frames >= 30) {
                 double ms = (double)gov_mach * 1000.0 / (double)hzc / gov_frames;
                 unsigned g = io_audio_gaps >= gaps_seen ? io_audio_gaps - gaps_seen : 0;   /* the guest can clear $D524 mid-window: that is not four billion gaps */
-                int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s);
-                if ((ms > GOV_LATE_MS || g >= 3) && down >= 0) {
+                int s = settings_get(SET_CPU_CLOCK), down = clock_step_below(s), up = clock_step_above(s);
+                /* the ceiling for the way back up: what SETUP measured on this host, or
+                 * the step an unmeasured machine starts at -- never more than that */
+                unsigned ceiling = io_clock_measured() ? settings_cpu_hz_of(settings_get(SET_CPU_MEASURED)) : (unsigned) CPU_HZ;
+                int way = gov_decide(&gov, ms, g, settings_cpu_hz_of(s), up >= 0 ? settings_cpu_hz_of(up) : 0,
+                                     down >= 0 ? settings_cpu_hz_of(down) : 0, ceiling, SDL_GetTicks());
+                if (way > 0) {
+                    settings_set(SET_CPU_CLOCK, up); settings_save(cfg); gov_own = 1;
+                    fprintf(stderr, "clock: %.1f ms a frame at %.1f MHz for thirty seconds and no gap, stepping up to %.1f\n",
+                            ms, settings_cpu_hz_of(s) / 1e6, settings_cpu_hz_of(up) / 1e6);
+                }
+                if (way < 0) {
+                    gov_own = 1;
                     /* The clock, and only the clock.  cpu.measured and cpu.host
                      * belong to SETUP: they mean "this host was measured, and
                      * this is what it came to", and the banner asks for SETUP
@@ -1807,6 +1829,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
              * K4510_CPU_HZ on the card, only the menu. */
             p_n = 0; p_last = 0;
             gov_t0 = 0;                                  /* and a new machine to judge: the governor's window restarts */
+            if (!gov_own) gov_restart(&gov);             /* somebody else's change (the menu, SETUP): the quiet count was about another clock */
+            gov_own = 0;
         }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
         /* the menu takes the machine's own row grid: 30 rows over a 240-line

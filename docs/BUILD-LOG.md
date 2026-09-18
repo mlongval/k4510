@@ -10338,3 +10338,32 @@ Verified: test/vitest.sh, test/walltest.sh (both in make test), keytest and
 msbasictest still pass; wall end to end against a headless machine, with
 accents, by hand.  Not verified: anything on the Dell -- it was on its
 Fedora side all day.
+
+## 2026-09-18, later — podman on the Dell; the governor finds its way back up
+
+Doc, on the Dell's Fedora side: "remove the old one ... and reinstall a newer
+updated version so that I can try it."  There was no old one -- no container,
+image, volume, checkout or launcher; the four *-k4510.sh files in his home
+are the DUAL-BOOT installer and were left alone.  A clone, `linux/podman.sh`,
+1.61 GB, and then `run` answered "container state improper": the container
+mounted mutter's Xwayland auth file by name, mutter names it afresh at every
+login, he had logged out and in, and up() had thrown crun's real complaint
+away.  Copied in at every start now, never mounted (d83a75e).
+
+Then: "It says 10 mhz."  The governor had walked the whole ladder down in 83
+seconds and could not come back.  I told him SETUP had measured 15 MHz; it
+had not -- `cpu.measured = 15 MHz`, `cpu.host = 0` are the defaults, and a
+real measurement carries a fingerprint.  Read the file for what it cannot
+say as well as what it says.  test/bench in his container: 40.5 MHz is 9.9
+ms a frame on battery.  So: core/governor.h, test/govtest.c, and
+docs/CPU-CLOCK-POLICY.md for the rules and the why-nots.  The test earned
+its keep before it passed: it showed that after a fall down the whole ladder
+the step remembered is the LAST one left, so everything above the floor is
+closed for five minutes and then opens a step every thirty seconds -- which
+is right, and was not what I had assumed I had written.
+
+Not known: what made those 83 seconds bad.  The lines that say (slow frames,
+or "the sound starving") went to a terminal.  If it is PipeWire through the
+container's socket starving at startup, the gaps trigger wants a grace
+period; the next first boot will say, now that it costs five minutes and not
+the afternoon.

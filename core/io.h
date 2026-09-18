@@ -232,6 +232,11 @@ void    io_tube_frame(void);              /* the host, once a frame: DOOM's pict
                                            * NOT tube_pump's job -- that only runs when the pty has
                                            * traffic, and DOOM can go minutes without sending a byte. */
 int     io_tube_doom(void);               /* is the Tube running DOOM right now? */
+unsigned io_apple_status(void);           /* the Apple's status word (shm->pad): video mode in byte 0, paused/disk bits above */
+const char *io_apple_cur_disk(void);      /* the disk the running Apple was launched with (basename), or "" */
+int     io_apple_disk_count(void);        /* how many images are in /DISK/APPLE (the panel's disk shelf) */
+const char *io_apple_disk_name(int i);    /* the i-th image's name */
+void    io_apple_load_disk(const char *name);   /* relaunch the Apple with that image (the panel's disk selector) */
 void    io_tube_shutdown(void);           /* the host, on a clean quit: end any Tube session and free DOOM's segment */
 /* The mouse, $D108-$D10F, read-only, fed by the host once a frame.  Position is
  * in the pixels of the mode VICKY is in (0-639 x 0-479 at full size, 0-319 x

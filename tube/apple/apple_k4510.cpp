@@ -62,12 +62,35 @@ struct tube_shm {
 };
 /* a key event: bits 0-7 the code, 8-15 flags (1 shift, 2 ctrl, 4 down),
  * 16-23 what it is, 24-31 a value */
-enum { KE_KEY = 0, KE_OPEN_APPLE = 1, KE_CLOSED_APPLE = 2, KE_JOY_AXIS = 3, KE_JOY_BUTTON = 4, KE_RESET = 5, KE_ALL_UP = 6, KE_VIDEO = 7 };
+enum { KE_KEY = 0, KE_OPEN_APPLE = 1, KE_CLOSED_APPLE = 2, KE_JOY_AXIS = 3, KE_JOY_BUTTON = 4, KE_RESET = 5, KE_ALL_UP = 6, KE_VIDEO = 7, KE_BOOT = 8, KE_PAUSE = 9 };
+/* status the control panel reads back, in shm->pad (unused by the picture):
+ * byte 0 the video mode (g_videotype), bit 8 paused, bit 9 a disk in drive 1 */
+#define ST_PAUSED  0x100u
+#define ST_DISK1   0x200u
 #define KF_SHIFT 1
 #define KF_CTRL  2
 #define KF_DOWN  4
 
 static tube_shm *shm;
+static AppConfig_t g_config;        /* kept so a cold boot can re-insert the same media */
+static bool g_paused;               /* the panel's Pause: the CPU is frozen, keys still taken */
+
+/* A cold boot from the panel: the same dance main() does at start -- a hard
+ * reset (which remakes the peripherals), the disk and spindle queued, both
+ * worked before the CPU's first instruction.  The disk stays in because
+ * load_initial_media re-inserts it from g_config. */
+static void cold_boot(void)
+{
+    linapple_reset_hard();
+    peripheral_manager_think(0);
+    app_controller_load_initial_media(&g_config);
+    peripheral_command(disk_default_slot, disk_cmd_boot, nullptr, 0);
+    peripheral_command(0, JOY_CMD_RESET, nullptr, 0);
+    peripheral_manager_think(0);
+    cpu_reset();
+    linapple_set_caps_lock_state(true);
+    g_paused = false;
+}
 
 /* ---- the picture ------------------------------------------------------------- */
 static uint32_t pal_rgb[256]; static int pal_n;
@@ -161,6 +184,8 @@ static void take_keys(void)
         case KE_JOY_BUTTON:   linapple_set_joystick_button((int) code, down); break;
         case KE_RESET:        if (down) linapple_reset_soft(); break;   /* Ctrl-Reset: the CPU only, as on the machine -- a hard reset would empty the drive */
         case KE_VIDEO:        if (down) { g_videotype = (g_videotype + 1) % VT_NUM_MODES; video_reinitialize(); } break;   /* Ctrl+Alt+V: cycle the colour rendering.  g_videotype only picks which source tiles are built, so rebuild them (create_identity_palette + video_init_buffers) or the change never shows */
+        case KE_BOOT:         if (down) cold_boot(); break;                       /* the panel's Boot: a full cold start, disk back in */
+        case KE_PAUSE:        if (down) g_paused = !g_paused; break;              /* the panel's Pause: freeze/thaw the CPU */
         }
     }
 }
@@ -170,7 +195,7 @@ static uint64_t now_us(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC,
 int main(int argc, char **argv)
 {
     const char *name = getenv("K4510_DOOM_SHM");         /* the same name for every co-processor with a picture: it is the segment's, not the game's */
-    AppConfig_t config = {};
+    AppConfig_t &config = g_config;                      /* file scope: cold_boot re-inserts from it */
     if (name && *name) {
         int fd = open(name, O_RDWR);
         if (fd >= 0) { shm = (tube_shm *) mmap(NULL, sizeof *shm, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0); close(fd); }
@@ -208,7 +233,13 @@ int main(int argc, char **argv)
     { const uint64_t frame_us = 1000000u / 60u; uint64_t next = now_us();
       for (;;) {
           take_keys();
-          linapple_run_frame(17030);
+          if (!g_paused) linapple_run_frame(17030);              /* Pause freezes the CPU; keys are still taken so the panel can thaw it */
+          if (shm) {                                             /* the panel reads this back: mode, paused, disk present */
+              uint32_t st = (uint32_t)(g_videotype & 0xFFu) | (g_paused ? ST_PAUSED : 0u);
+              DiskStatus_t ds = {}; size_t dn = sizeof ds;
+              if (peripheral_query(disk_default_slot, disk_query_status, &ds, &dn) == peripheral_ok && ds.drive0_loaded) st |= ST_DISK1;
+              shm->pad = st;
+          }
           if (shm && shm->quit) break;
           next += frame_us;
           { uint64_t now = now_us(); if (next > now) usleep((useconds_t)(next - now)); else if (now - next > 250000u) next = now; } }

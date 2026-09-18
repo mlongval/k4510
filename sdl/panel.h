@@ -27,4 +27,22 @@ void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t
 int  panel_scale(int w, int h, int rows);
 /* one instruction as text, "1234 A900   LDA #$00"; returns its length in bytes */
 int  panel_disasm(uint16_t pc, char *out, int outmax);
+
+/* ---- the Apple IIe control panel ---------------------------------------------
+ * A clickable panel shown beside the picture only while the Apple has the Tube.
+ * apple_panel_render draws it and remembers where each button is; a click that
+ * the event loop routes here through apple_panel_hit becomes one of these
+ * actions (which sdl/main.c turns into Tube key events / a disk relaunch). */
+enum { APB_NONE = 0, APB_RESET, APB_BOOT, APB_VIDEO, APB_OPEN, APB_CLOSED, APB_PAUSE, APB_EXIT, APB_DISK0 = 64 };   /* a disk row is APB_DISK0 + its index */
+#define APPLE_PANEL_MAXDISK 24
+typedef struct {
+    const char *mode;                 /* the video mode's name, shown on the Video button */
+    int paused;                       /* the CPU is frozen */
+    int disk_in;                      /* a disk is in drive 1 */
+    const char *disk;                 /* its name, or "" */
+    int open_held, closed_held;       /* the two Apple keys, latched by the panel */
+    const char **disks; int ndisks; int cur_disk;   /* the /DISK/APPLE list and which is running (-1 none) */
+} apple_panel_info;
+void apple_panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t *font, int rows, const apple_panel_info *info);
+int  apple_panel_hit(int px, int py);   /* panel-local device pixel -> an APB_* action, or APB_NONE */
 #endif

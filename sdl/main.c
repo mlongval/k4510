@@ -496,11 +496,33 @@ static uint8_t cp437_of(unsigned long cp)                /* Unicode -> the K4510
  * frame code each frame; the picture cannot move between them. */
 static int geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1.0;   /* Placement: the picture's device offset and scale (1, 0, 0 when SDL maps) */
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
+/* the Apple IIe control panel (sdl/panel.c): its on-screen device rectangle,
+ * remembered at render time for the click handler, and the two Apple keys it
+ * latches.  apple_vmode names the frontend's g_videotype (Video.h order). */
+static int apple_panel_on, apple_pd_x, apple_pd_y, apple_pd_w, apple_pd_h;
+static int apple_open_held, apple_closed_held;
+static const char *const apple_vmode[] = { "Mono", "Color", "Text", "TV", "HalfDim", "Amber", "Green", "White" };
 static int to_machine(int v, int full) { int m = (v - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 /* the menu is drawn at 640x480 whatever the glass: the pointer is taken there */
 static int ui_mx(int x) { return x * UI_W / vicky_glass_w(); }
 static int ui_my(int y) { return y * UI_H / vicky_glass_h(); }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(ui_mx(mouse_x), ui_my(mouse_y), mouse_btn, wheel_acc); }
+/* A click on the Apple control panel: its button becomes a Tube key event (the
+ * same io_apple_key the keyboard uses) or a disk relaunch.  Open/Closed Apple
+ * latch, so a game can hold them; the frontend gets a fresh press or release. */
+static void apple_panel_click(int act)
+{
+    switch (act) {
+    case APB_RESET:  io_apple_key(4u << 8 | 5u << 16); break;                                                        /* KE_RESET, down */
+    case APB_BOOT:   io_apple_key(4u << 8 | 8u << 16); break;                                                        /* KE_BOOT */
+    case APB_VIDEO:  io_apple_key(4u << 8 | 7u << 16); break;                                                        /* KE_VIDEO */
+    case APB_OPEN:   apple_open_held = !apple_open_held;     io_apple_key((apple_open_held ? 4u : 0u) << 8 | 1u << 16); break;
+    case APB_CLOSED: apple_closed_held = !apple_closed_held; io_apple_key((apple_closed_held ? 4u : 0u) << 8 | 2u << 16); break;
+    case APB_PAUSE:  io_apple_key(4u << 8 | 9u << 16); break;                                                        /* KE_PAUSE */
+    case APB_EXIT:   apple_open_held = apple_closed_held = 0; io_write(IO_TUBE + 3, 2); break;                       /* Stop the Tube */
+    default: if (act >= APB_DISK0) { apple_open_held = apple_closed_held = 0; io_apple_load_disk(io_apple_disk_name(act - APB_DISK0)); } break;
+    }
+}
 /* The pointer stays on the machine (Doc, 2026-09-14: "limit mouse to k4510
  * screen only ... it doesnt go into sidebars, or above or below active screen
  * ... it can however go into side bars if the processor info sidebar is
@@ -1222,6 +1244,15 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
                 int bit = e.button.button == SDL_BUTTON_LEFT ? 1 : e.button.button == SDL_BUTTON_RIGHT ? 2 : e.button.button == SDL_BUTTON_MIDDLE ? 4 : 0;
+                /* a left click on the Apple control panel: the button acts, and the
+                 * click is consumed (no pointer grab, nothing to the machine) */
+                if (e.type == SDL_MOUSEBUTTONDOWN && bit == 1 && apple_panel_on && !menu_is_open()) {
+                    int px = e.button.x - apple_pd_x, py = e.button.y - apple_pd_y;
+                    if (px >= 0 && py >= 0 && px < apple_pd_w && py < apple_pd_h) {
+                        int act = apple_panel_hit(px, py);
+                        if (act != APB_NONE) { apple_panel_click(act); break; }
+                    }
+                }
                 if (e.type == SDL_MOUSEBUTTONDOWN && !menu_is_open() && settings_get(SET_INPUT_MOUSE_GRAB)) { grab_wanted = 1; grab(1); }
                 if (e.type == SDL_MOUSEBUTTONDOWN) mouse_btn |= bit; else mouse_btn &= ~bit;
                 mouse_to_menu(); break; }
@@ -1895,12 +1926,12 @@ tex_done:
            * background -- the border, the gradient -- becomes that game's side panel.
            * A scene somebody chose on purpose (the ant farm, the rain) keeps its
            * place, and so does the register panel. */
-          if (io_tube_doom() && sbar != SIDEBAR_REGISTERS)
+          if (io_tube_kind() == 6 && sbar != SIDEBAR_REGISTERS)   /* DOOM's gamebar art, not the Apple's (it has a control panel instead) */
               for (int s2 = 0; s2 < 2; s2++) if (sb_side[s2] == SIDEBAR_BORDER || sb_side[s2] == SIDEBAR_GRADIENT) sb_side[s2] = SIDEBAR_DOOM;
           if (sbar == SIDEBAR_REGISTERS) sb_side[0] = sb_side[1] = SIDEBAR_BORDER;   /* the panel is drawn on its own, below */
           int grad = sb_side[0] == SIDEBAR_GRADIENT || sb_side[1] == SIDEBAR_GRADIENT, knot = sb_side[0] == SIDEBAR_KNOT || sb_side[1] == SIDEBAR_KNOT;
           Uint32 gclk = (Uint32) vclk[sb_side[0] == SIDEBAR_GRADIENT || sb_side[0] == SIDEBAR_KNOT ? 0 : 1];   /* the gradient's and the knot's clock */
-          int place = settings_get(SET_VIDEO_PLACE), panel_kind = sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;
+          int place = settings_get(SET_VIDEO_PLACE), panel_kind = io_tube_kind() == 7 ? PANEL_APPLE : sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;
           if (panel_kind != PANEL_OFF && place == PLACE_CENTRE) place = PLACE_LEFT;
           /* for the host shell's children: tek40xx places its page the same
            * way (Doc, 2026-09-09: "the tek programs should respect the
@@ -2202,6 +2233,7 @@ tex_done:
               if (mtex && !done) { SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_BLEND); SDL_RenderCopy(ren, mtex, NULL, &dr); }
           }
           /* the side panel: the device pixels beside the picture, at the picture's rows */
+          apple_panel_on = 0;                                     /* set below only while the Apple's panel is on the glass, so a stale rect never eats a click */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {
                 /* the whole window's height, not the picture's: a 16:9 screen
@@ -2215,13 +2247,28 @@ tex_done:
                 }
                 if (ptex) { void *pp; int ppitch;
                     if (SDL_LockTexture(ptex, NULL, &pp, &ppitch) == 0) {
-                        panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz(),
-                                          paused, m_line, trace_n, trace_f != NULL, dump_n };
-                        panel_render((uint32_t *)pp, ppitch / 4, pw, coh, panel_scale(pw, coh, font_panel_rows), font_panel, font_panel_rows, &pi);
+                        int g = panel_scale(pw, coh, font_panel_rows);
+                        if (panel_kind == PANEL_APPLE) {
+                            unsigned st = io_apple_status();
+                            const char *cur = io_apple_cur_disk();
+                            static char apple_last_disk[96];
+                            if (strcmp(cur, apple_last_disk)) { apple_open_held = apple_closed_held = 0; snprintf(apple_last_disk, sizeof apple_last_disk, "%s", cur); }   /* a new launch: the keys are up */
+                            const char *dl[APPLE_PANEL_MAXDISK]; int nd = io_apple_disk_count(); if (nd > APPLE_PANEL_MAXDISK) nd = APPLE_PANEL_MAXDISK;
+                            int curi = -1;
+                            for (int i = 0; i < nd; i++) { dl[i] = io_apple_disk_name(i); if (!strcmp(dl[i], cur)) curi = i; }
+                            apple_panel_info ai = { apple_vmode[st & 7u], (st & 0x100u) != 0, (st & 0x200u) != 0, cur,
+                                                    apple_open_held, apple_closed_held, dl, nd, curi };
+                            apple_panel_render((uint32_t *)pp, ppitch / 4, pw, coh, g, font_panel, font_panel_rows, &ai);
+                        } else {
+                            panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz(),
+                                              paused, m_line, trace_n, trace_f != NULL, dump_n };
+                            panel_render((uint32_t *)pp, ppitch / 4, pw, coh, g, font_panel, font_panel_rows, &pi);
+                        }
                         SDL_UnlockTexture(ptex);
                     }
                     SDL_Rect pd = { place == PLACE_RIGHT ? 0 : pic_w, 0, pw, coh };
                     SDL_RenderCopy(ren, ptex, NULL, &pd);
+                    if (panel_kind == PANEL_APPLE) { apple_panel_on = 1; apple_pd_x = pd.x; apple_pd_y = pd.y; apple_pd_w = pd.w; apple_pd_h = pd.h; }
                 }
             } }
           /* the key pipe's echo: a bar at the foot of the window, in device

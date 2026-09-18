@@ -1227,6 +1227,8 @@ static int tube_refused;
  * Linux beside the machine is the user's, on a desktop as on the appliance
  * (Doc, 2026-09-08: "drop restrictions on host access"). */
 static uint8_t tube_cmd[4], tube_rows, tube_cols;     /* $D804-7 the command string's address, $D808/9 the window */
+static char apple_disk_override[96];                  /* the control panel's disk selector: a name for the next APPLE launch, in place of tube_cmd */
+static char apple_cur_disk[96];                       /* the disk name the running Apple was launched with (basename), for the panel */
 /* Program 5: a UCI chess engine (Stockfish) on the pty, for CHESS.PRG.  Fitted
  * where a binary is found -- K4510_UCI names one, else the usual places -- and
  * said so in $D800 bit 3.  Not gated like the shell: it is one program, not a
@@ -1740,6 +1742,55 @@ void io_apple_key(uint32_t ev)
     doom_map->key_w++;
 }
 int io_tube_kind(void) { return tube_pid ? tube_prog_now : 0; }
+
+/* ---- what the Apple IIe control panel reads (sdl/panel.c) -------------------- */
+/* The frontend leaves status in shm->pad: the video mode in byte 0, paused and
+ * disk-present bits above it (tube/apple/apple_k4510.cpp). */
+unsigned io_apple_status(void) { return (io_tube_kind() == 7 && doom_map) ? doom_map->pad : 0; }
+const char *io_apple_cur_disk(void) { return io_tube_kind() == 7 ? apple_cur_disk : ""; }
+
+/* The shelf: the disk images in /DISK/APPLE, scanned on demand into a static
+ * list the panel points at.  Names only; the launch resolves them (tube_start). */
+#define APPLE_MAXDISK 24
+static char apple_disks[APPLE_MAXDISK][80]; static int apple_ndisks; static int apple_disks_scanned;
+static int apple_disk_ext(const char *n)
+{
+    const char *d = strrchr(n, '.'); if (!d) return 0;
+    static const char *const ok[] = { ".hdv", ".dsk", ".do", ".po", ".nib", ".woz", ".2mg", ".bin", NULL };
+    for (int i = 0; ok[i]; i++) if (!strcasecmp(d, ok[i])) return 1;
+    return 0;
+}
+static int apple_disk_cmp(const void *a, const void *b) { return strcasecmp((const char *) a, (const char *) b); }
+static void apple_scan_disks(void)
+{
+    apple_ndisks = 0;
+    char dir[600]; snprintf(dir, sizeof dir, "%s/DISK/APPLE", fs_root);
+    DIR *d = opendir(dir); if (!d) return;
+    struct dirent *e;
+    while ((e = readdir(d)) && apple_ndisks < APPLE_MAXDISK)
+        if (e->d_name[0] != '.' && apple_disk_ext(e->d_name)) snprintf(apple_disks[apple_ndisks++], 80, "%s", e->d_name);
+    closedir(d);
+    qsort(apple_disks, apple_ndisks, 80, apple_disk_cmp);
+}
+int io_apple_disk_count(void)
+{
+    if (io_tube_kind() != 7) { apple_disks_scanned = 0; return 0; }
+    if (!apple_disks_scanned) { apple_scan_disks(); apple_disks_scanned = 1; }   /* once per Apple session: the shelf does not change under it */
+    return apple_ndisks;
+}
+const char *io_apple_disk_name(int i) { return (i >= 0 && i < apple_ndisks) ? apple_disks[i] : ""; }
+
+/* The panel's disk selector: relaunch the Apple with a chosen image, the way
+ * the machine's own $D803 write does -- stop, then start kind 7 with the name
+ * queued in apple_disk_override.  Called from the SDL thread, as the menu's
+ * Stop the Tube is (io_write(IO_TUBE+3, 2)); the CPU is not stepping then. */
+void io_apple_load_disk(const char *name)
+{
+    if (io_tube_kind() != 7 || !name || !name[0]) return;
+    snprintf(apple_disk_override, sizeof apple_disk_override, "%s", name);
+    io_write(IO_TUBE + 3, 2);                    /* stop the running Apple */
+    io_write(IO_TUBE + 3, 7);                    /* and start it again -- tube_start reads the override */
+}
 /* The machine's own key -- an ASCII character with kbd_mods, or a KEY_* code
  * -- as the Apple's: ASCII is ASCII (an Apple IIe keyboard is one), the
  * arrows are its four (8 21 11 10), Delete is 127.  The frontend sends the
@@ -1926,6 +1977,8 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         if (fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd)) cmd[0] = 0;
         while (cmd[0] == ' ') memmove(cmd, cmd + 1, strlen(cmd));
         { size_t l = strlen(cmd); while (l && cmd[l - 1] == ' ') cmd[--l] = 0; }
+        if (apple_disk_override[0]) { snprintf(cmd, sizeof cmd, "%s", apple_disk_override); apple_disk_override[0] = 0; }   /* the panel's disk selector wins */
+        { const char *b = strrchr(cmd, '/'); snprintf(apple_cur_disk, sizeof apple_cur_disk, "%s", cmd[0] ? (b ? b + 1 : cmd) : "(DOS 3.3)"); }
     }
     if (prog == 4) {
         /* Refused, not run short: fs_guest_str fills the buffer and THEN reports the

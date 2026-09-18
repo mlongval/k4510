@@ -178,3 +178,70 @@ void panel_render(uint32_t *px, int pitch_px, int w, int h, int g, const uint8_t
         snprintf(t, sizeof t, "gaps %u  volume %d", io_audio_gaps, settings_get(SET_AUDIO_VOLUME)); put(r++, 1, t, C_TEXT);
     }
 }
+
+/* ---- the Apple IIe control panel --------------------------------------------
+ * Buttons are one text row each, a filled bar with a bracketed label; the row's
+ * action is remembered in ap_hit[] so a click the event loop routes here (by
+ * panel-local pixel) becomes an APB_*.  The disk shelf below the buttons lists
+ * /DISK/APPLE, the running one marked; clicking one relaunches with it. */
+#define C_BTN 0xFF243244u
+#define C_ON  0xFF7CE0A0u
+static int ap_hit[128]; static int ap_rows_used; static int ap_cellh;
+
+static void fill(int x0, int y0, int fw, int fh, uint32_t c)
+{
+    if (x0 < 0) { fw += x0; x0 = 0; }
+    if (y0 < 0) { fh += y0; y0 = 0; }
+    if (x0 + fw > bw) fw = bw - x0;
+    if (y0 + fh > bh) fh = bh - y0;
+    for (int y = 0; y < fh; y++)
+        for (int x = 0; x < fw; x++) buf[(y0 + y) * bpitch + x0 + x] = c;
+}
+
+void apple_panel_render(uint32_t *px, int pitch_px, int w, int h, int g,
+                        const uint8_t *font, int frows, const apple_panel_info *info)
+{
+    buf = px; bw = w; bh = h; bpitch = pitch_px; gscale = g > 0 ? g : 1; gfont = font; grows = frows;
+    int cell = 8 * gscale, cellh = grows * gscale;
+    int cols = w / cell, rows = h / cellh;
+    ap_cellh = cellh; ap_rows_used = rows < 128 ? rows : 128;
+    for (int y = 0; y < h; y++) for (int x = 0; x < w; x++) px[y * pitch_px + x] = C_BG;
+    for (int i = 0; i < 128; i++) ap_hit[i] = APB_NONE;
+    if (cols < 10 || rows < 12) return;
+    if (cols > PANEL_COLS) cols = PANEL_COLS;
+    char t[96];
+
+    put(0, 1, "APPLE //e", C_HEAD);
+    rule(1, 1, "CONTROLS", cols - 2);
+#define BTN(row, act, label, colour) do { \
+        fill(cell / 2, (row) * cellh + 1, w - cell, cellh - 2, C_BTN); \
+        put((row), 1, (label), (colour)); \
+        if ((row) >= 0 && (row) < 128) ap_hit[(row)] = (act); } while (0)
+    int r = 2;
+    BTN(r, APB_RESET, "[ Reset ]", C_TEXT); r++;
+    BTN(r, APB_BOOT,  "[ Cold boot ]", C_TEXT); r++;
+    snprintf(t, sizeof t, "[ Video: %.10s ]", info->mode ? info->mode : ""); BTN(r, APB_VIDEO, t, C_TEXT); r++;
+    snprintf(t, sizeof t, "[ %c Open Apple ]", info->open_held ? '*' : ' '); BTN(r, APB_OPEN, t, info->open_held ? C_ON : C_TEXT); r++;
+    snprintf(t, sizeof t, "[ %c Closed Apl ]", info->closed_held ? '*' : ' '); BTN(r, APB_CLOSED, t, info->closed_held ? C_ON : C_TEXT); r++;
+    snprintf(t, sizeof t, "[ %s ]", info->paused ? "Resume" : "Pause "); BTN(r, APB_PAUSE, t, info->paused ? C_ON : C_TEXT); r++;
+    BTN(r, APB_EXIT, "[ Exit to K/OS ]", C_TEXT); r++;
+    r++;
+    if (r < rows - 1) { rule(r, 1, "DISK", cols - 2); r++; }
+    for (int i = 0; i < info->ndisks && r < rows - 1 && r < 128; i++, r++) {
+        int cur = i == info->cur_disk;
+        if (cur) fill(cell / 2, r * cellh + 1, w - cell, cellh - 2, C_BTN);
+        snprintf(t, sizeof t, "%c%.20s", cur ? '>' : ' ', info->disks[i]);
+        put(r, 1, t, cur ? C_ON : C_TEXT);
+        ap_hit[r] = APB_DISK0 + i;
+    }
+#undef BTN
+}
+
+int apple_panel_hit(int px, int py)
+{
+    (void) px;
+    if (ap_cellh <= 0) return APB_NONE;
+    int row = py / ap_cellh;
+    if (row < 0 || row >= ap_rows_used || row >= 128) return APB_NONE;
+    return ap_hit[row];
+}

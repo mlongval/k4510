@@ -14,7 +14,7 @@ static const char *const vmode_names[] = { "640x480", "640x480x60", "640x240", "
 const unsigned char vmode_number[VMODE_COUNT] = { 0, 0, 1, 2, 5, 6, 7, 3, 4 };   /* both 640x480 screens are MODE 0 */
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
-static const char *const panel_names[] = { "off", "registers" };
+static const char *const panel_names[] = { "off", "registers", "apple" };
 /* the sidebars when there are no zips to list them (core/sidebars.c): SIDEBAR_* order */
 /* This array must have SIDEBAR_COUNT entries: the row below declares that many
  * labels, and settings_text indexes the array with the value, so one name

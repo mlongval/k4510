@@ -115,7 +115,7 @@ extern const unsigned char vmode_number[VMODE_COUNT];
  * The old names still load: sharp-fit is Integer, sharp and soft are Fit. */
 enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
-enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
+enum { PANEL_OFF, PANEL_REGS, PANEL_APPLE, PANEL_COUNT };   /* PANEL_APPLE: the Apple IIe's control panel, shown only while it has the Tube (sdl/panel.c) */
 /* the sidebars the emulator draws itself (Doc's brainshot, 2026-09-14): what
  * a zip in /SYSTEM/SIDEBARS names with draw = builtin NAME (core/sidebars.c).
  * The setting's choices are the zips; with none, these, in this order. */

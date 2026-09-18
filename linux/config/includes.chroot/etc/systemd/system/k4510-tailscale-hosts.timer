@@ -6,7 +6,10 @@ Description=Keep /etc/hosts in step with the tailnet
 # is running is reachable by name a minute later; then every five minutes,
 # which costs one local query to tailscaled and nothing on the network.
 OnBootSec=30s
-OnUnitActiveSec=5min
+# Every minute, not five: at 30 s after boot tailscaled had no peers yet, the
+# block came out with one name, and the radio could not find the server until
+# the next run (Doc, 2026-09-17, "first try -> nothing").  It is one rename.
+OnUnitActiveSec=1min
 AccuracySec=30s
 
 [Install]

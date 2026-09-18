@@ -68,7 +68,7 @@ static volatile int level[BANDS];                 /* 0..255, decaying */
 static void set_note(const char *s) { pthread_mutex_lock(&meta_mu); snprintf(meta.note, sizeof meta.note, "%s", s); pthread_mutex_unlock(&meta_mu); }
 
 /* ---- the frontend's side -------------------------------------------------- */
-static volatile int gain_pct = 100;               /* RADIO VOLUME, and the options file's gain= */
+static volatile int gain_pct = 150;               /* RADIO VOLUME, and the options file's gain=: a song is quieter than the OPL at full tilt, so a half again */
 static volatile unsigned dropouts;                 /* samples wanted with the ring empty: what a crackle is, counted */
 void navi_mix(int16_t *out, int n)
 {

@@ -4,11 +4,14 @@
 # desktop mixer here to have set it, and the emulator's own volume is the
 # only volume the user has (Doc's brainshot, 2026-09-17: "volume too low").
 Description=ALSA master volume to maximum
+# It ran a second before the card appeared, the first time: so it waits for it.
 After=sound.target
+Wants=dev-snd-controlC0.device
+After=dev-snd-controlC0.device
 
 [Service]
 Type=oneshot
-ExecStart=/bin/sh -c 'for c in Master Speaker Headphone PCM; do amixer -q sset "$c" 100% unmute 2>/dev/null; done; true'
+ExecStart=/bin/sh -c 'for i in $(seq 1 30); do [ -e /dev/snd/controlC0 ] && break; sleep 1; done; for c in Master Speaker Headphone PCM; do amixer -q sset "$c" 100% unmute 2>/dev/null; done; true'
 
 [Install]
 WantedBy=multi-user.target

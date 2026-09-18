@@ -2010,8 +2010,16 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             }
         } else if (prog == 7) {                   /* the Apple IIe (tube/apple): LinApple's core behind this frontend */
             char *bin = realpath("tube/apple/apple_k4510", NULL);
-            char disk[900]; const char *slot = "--d1"; disk[0] = 0;
-            if (cmd[0]) { char rel[256]; if (!fs_resolve(cmd, rel, sizeof rel, disk, sizeof disk)) fs_casefix(disk, sizeof disk); }   /* APPLE NAME.DSK: a machine path, from where the shell is */
+            char disk[900]; const char *slot = "--d1"; struct stat asb; disk[0] = 0;
+            /* APPLE NAME: a bare name is a disk in /DISK/APPLE (where the images
+             * live, as DOOM's WADs are in /DISK/DOOM); a name with a slash is a
+             * path from where the shell is.  The bare name was resolved against
+             * /HOME and came up missing -- the //e splash hung (Doc, 2026-09-17). */
+            if (cmd[0]) {
+                char rel[256];
+                if (!strchr(cmd, '/') && !strchr(cmd, '\\')) { snprintf(disk, sizeof disk, "%s/DISK/APPLE/%s", fs_root, cmd); fs_casefix(disk, sizeof disk); }
+                if ((!disk[0] || stat(disk, &asb)) && !fs_resolve(cmd, rel, sizeof rel, disk, sizeof disk)) fs_casefix(disk, sizeof disk);   /* not in /DISK/APPLE: as a path */
+            }
             if (disk[0]) {                        /* a hard-disk image (a ProDOS volume, .hdv, or any image bigger than a floppy) goes in slot 7, not the floppy in slot 6 */
                 struct stat sb; size_t l = strlen(disk);
                 if ((l > 4 && !strcasecmp(disk + l - 4, ".hdv")) || (!stat(disk, &sb) && sb.st_size > 900000)) slot = "--hd1";

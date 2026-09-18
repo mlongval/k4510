@@ -28,3 +28,8 @@ At the Apple's keyboard:
 
 Nothing of the Apple's is on the machine's side of the Tube: it is a
 program on the Linux beneath, borrowing the glass and the speaker.
+
+The colours are NTSC "TV emulation" (the softened artifact colour a real
+Apple II showed on a colour TV), not the sharp per-column artifact striping.
+K4510_APPLE_VIDEO in the emulator's environment picks another rendering:
+1 standard, 2 text-optimised, 3 TV (the default), 5-7 amber/green/white.

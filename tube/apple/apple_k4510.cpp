@@ -40,6 +40,7 @@
 #include "frontends/common/AppConfig.h"
 #include "frontends/common/AppController.h"
 #include "apple2/peripherals/joystick/JoystickCommands.h"
+#include "apple2/Video.h"                     /* g_videotype: the colour rendering (NTSC TV vs the raw artifact striping) */
 #include "apple2/peripherals/disk/DiskCommands.h"
 #include "core/ProgramLoader.h"
 #include "apple2/CPU.h"
@@ -178,6 +179,7 @@ int main(int argc, char **argv)
     if (app_args_parse(argc, argv, &config) != 0) return 1;
     config.is_boot = false;                               /* the boot is done below, once the disk is in; is_boot would reset the peripherals with the insert still queued */
     if (app_controller_initialize(&config) != 0) { fprintf(stderr, "apple: LinApple would not start\r\n"); return 1; }
+    { const char *v = getenv("K4510_APPLE_VIDEO"); g_videotype = (v && *v) ? (uint32_t) atoi(v) : VT_COLOR_TVEMU; }   /* AppController leaves NTSC at VT_COLOR_STANDARD -- sharp artifact stripes; TVEMU blends the columns as a real TV did, which is how these games looked (Doc, 2026-09-18: "colors are wrong") */
     linapple_set_video_callback(video_callback);
     linapple_set_audio_channel_callback(audio_callback);
     /* peripheral_command only QUEUES a command; the queue is worked in

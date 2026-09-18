@@ -37,6 +37,7 @@
  * Make the server a user of its own for this.
  */
 #include "canvas.h"
+#include "../../core/io.h"                 /* io_audio_gaps: the machine's own underruns */
 #include <stdio.h>
 #include <pthread.h>
 #include <unistd.h>
@@ -93,7 +94,11 @@ void navi_mix(int16_t *out, int n)
         while (phase >= 1.0) { unsigned r = ring_r; if (r != ring_w) { prev_s = ring[r & (RING_N - 1)]; ring_r = r + 1; played++; } else { dropouts++; prev_s = (int16_t)(prev_s * 7 / 8); } phase -= 1.0; }
         s = prev_s;
         { int v = out[i] + s * gain_pct / 100; out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }
-        { float x = (float) s, prev = x;
+        /* The one-poles, with a hair of DC so they never decay into denormal
+         * floats: a denormal is a hundred times slower on x86, and this runs
+         * on the emulation thread, once a sample -- the machine's own sound
+         * starved and crackled (Doc, 2026-09-17: "VERY scratchy"). */
+        { float x = (float) s + 1e-3f, prev = x;
           for (int k = 0; k <= BANDS; k++) { lp[k] += coef[k] * (x - lp[k]); if (k) { float d = prev - lp[k]; acc[k - 1] += d < 0 ? -d : d; } prev = lp[k]; } }
         if (++cnt >= 1024) {
             for (int k = 0; k < BANDS; k++) {
@@ -481,7 +486,7 @@ void navi_command(const char *cmd, char *reply, size_t max)
         if (!running) radio_line(reply, max, "the radio is off (RADIO PLAY starts it; or choose the Navidrome sidebar)");
         else if (title[0]) { radio_line(reply, max, "%s %s", paused ? "paused: " : "playing:", title); radio_line(reply, max, "         %s -- %s   %u:%02u/%d:%02d", artist, album, el / 60, el % 60, dur / 60, dur % 60); }
         if (note[0]) radio_line(reply, max, "%s", note);
-        if (running) radio_line(reply, max, "volume %d%%   buffer %u%%   dropouts %u", gain_pct, (ring_w - ring_r) * 100u / RING_N, dropouts);
+        if (running) radio_line(reply, max, "volume %d%%   buffer %u%%   dropouts %u   machine sound gaps %u (since power-on: crackle that is not the radio's)", gain_pct, (ring_w - ring_r) * 100u / RING_N, dropouts, (unsigned) io_audio_gaps);
         if (!word[0] || !strcmp(word, "HELP")) {
             radio_line(reply, max, "RADIO PLAY            start (random songs, or what PLAY last chose)");
             radio_line(reply, max, "RADIO PLAY name       a playlist    RADIO ALBUM name    RADIO ARTIST name");

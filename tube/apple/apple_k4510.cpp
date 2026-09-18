@@ -62,7 +62,7 @@ struct tube_shm {
 };
 /* a key event: bits 0-7 the code, 8-15 flags (1 shift, 2 ctrl, 4 down),
  * 16-23 what it is, 24-31 a value */
-enum { KE_KEY = 0, KE_OPEN_APPLE = 1, KE_CLOSED_APPLE = 2, KE_JOY_AXIS = 3, KE_JOY_BUTTON = 4, KE_RESET = 5, KE_ALL_UP = 6 };
+enum { KE_KEY = 0, KE_OPEN_APPLE = 1, KE_CLOSED_APPLE = 2, KE_JOY_AXIS = 3, KE_JOY_BUTTON = 4, KE_RESET = 5, KE_ALL_UP = 6, KE_VIDEO = 7 };
 #define KF_SHIFT 1
 #define KF_CTRL  2
 #define KF_DOWN  4
@@ -160,6 +160,7 @@ static void take_keys(void)
         case KE_JOY_AXIS: { JoystickAxisPayload_t p = { 0, (uint8_t) code, (uint8_t) value, 0 }; peripheral_command(0, JOY_CMD_SET_AXIS, &p, sizeof p); break; }
         case KE_JOY_BUTTON:   linapple_set_joystick_button((int) code, down); break;
         case KE_RESET:        if (down) linapple_reset_soft(); break;   /* Ctrl-Reset: the CPU only, as on the machine -- a hard reset would empty the drive */
+        case KE_VIDEO:        if (down) g_videotype = (g_videotype + 1) % VT_NUM_MODES; break;   /* Ctrl+Alt+V: cycle the colour rendering; no one mode is right for every Apple game */
         }
     }
 }
@@ -179,7 +180,7 @@ int main(int argc, char **argv)
     if (app_args_parse(argc, argv, &config) != 0) return 1;
     config.is_boot = false;                               /* the boot is done below, once the disk is in; is_boot would reset the peripherals with the insert still queued */
     if (app_controller_initialize(&config) != 0) { fprintf(stderr, "apple: LinApple would not start\r\n"); return 1; }
-    { const char *v = getenv("K4510_APPLE_VIDEO"); g_videotype = (v && *v) ? (uint32_t) atoi(v) : VT_COLOR_TVEMU; }   /* AppController leaves NTSC at VT_COLOR_STANDARD -- sharp artifact stripes; TVEMU blends the columns as a real TV did, which is how these games looked (Doc, 2026-09-18: "colors are wrong") */
+    { const char *v = getenv("K4510_APPLE_VIDEO"); g_videotype = (v && *v) ? (uint32_t) atoi(v) : VT_COLOR_STANDARD;   /* black stays black; TVEMU tinted it (Doc, 2026-09-18).  Ctrl+Alt+V cycles them */ }   /* AppController leaves NTSC at VT_COLOR_STANDARD -- sharp artifact stripes; TVEMU blends the columns as a real TV did, which is how these games looked (Doc, 2026-09-18: "colors are wrong") */
     linapple_set_video_callback(video_callback);
     linapple_set_audio_channel_callback(audio_callback);
     /* peripheral_command only QUEUES a command; the queue is worked in

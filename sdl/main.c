@@ -1302,6 +1302,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     if (kc == SDLK_KP_8 || kc == SDLK_KP_2) { io_apple_key((uint32_t)(down ? (kc == SDLK_KP_8 ? 0 : 255) : 128) << 24 | 3u << 16 | fl << 8 | 1); break; }
                     if (kc == SDLK_KP_5 && down) { io_apple_key(128u << 24 | 3u << 16 | fl << 8 | 0); io_apple_key(128u << 24 | 3u << 16 | fl << 8 | 1); break; }
                     if (kc == SDLK_r && (m & KMOD_CTRL) && (m & KMOD_ALT)) { if (down) io_apple_key(4u << 8 | 5u << 16); break; }
+                    if (kc == SDLK_v && (m & KMOD_CTRL) && (m & KMOD_ALT)) { if (down) io_apple_key(4u << 8 | 7u << 16); break; }   /* Ctrl+Alt+V: cycle the Apple's colour rendering (no one mode suits every game) */
                     if (!down) { io_apple_key(6u << 16); break; }                /* any release: the key that was down is up */
                 }
                 if (e.type != SDL_KEYDOWN) break;

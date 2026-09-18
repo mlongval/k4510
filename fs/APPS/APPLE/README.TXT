@@ -29,7 +29,10 @@ At the Apple's keyboard:
 Nothing of the Apple's is on the machine's side of the Tube: it is a
 program on the Linux beneath, borrowing the glass and the speaker.
 
-The colours are NTSC "TV emulation" (the softened artifact colour a real
-Apple II showed on a colour TV), not the sharp per-column artifact striping.
-K4510_APPLE_VIDEO in the emulator's environment picks another rendering:
-1 standard, 2 text-optimised, 3 TV (the default), 5-7 amber/green/white.
+The colours are the "colour monitor" rendering, faithful to how these games
+looked on a colour TV -- which for many hi-res games means blue or coloured
+backgrounds, not black; a real Apple II showed black backgrounds only on a
+monochrome (green/amber/white) monitor.  Ctrl+Alt+V cycles the modes live so
+you can pick per game -- colour, or a monochrome that puts everything on
+black.  K4510_APPLE_VIDEO in the emulator's environment sets the starting mode
+(1 standard colour, 2 text-optimised, 3 TV, 5 amber, 6 green, 7 white).

@@ -1634,6 +1634,8 @@ static int doom_pal_saved;
  * missing, and with the layer off it can no longer bleed into the game. */
 static uint8_t doom_text_layer;
 static int doom_text_saved;
+static uint8_t doom_bgcol_saved_val;
+static int doom_bgcol_saved;
 static void doom_pal_snap(void)
 {
     for (int i = 0; i < 256; i++) {
@@ -1646,6 +1648,7 @@ static void doom_pal_snap(void)
 }
 static void doom_text_put_back(void)
 {
+    if (doom_bgcol_saved) { vicky_write(VR_BGCOL, doom_bgcol_saved_val); doom_bgcol_saved = 0; }   /* the console's blue backdrop back */
     if (!doom_text_saved) return;
     doom_text_saved = 0;
     vicky_write(0x10, doom_text_layer);           /* the console comes back */
@@ -1843,6 +1846,12 @@ static void doom_bitmap_on(void)
 {
     doom_pal_snap();                             /* what the console was wearing, to give back after */
     doom_text_layer = vicky_read(0x10); doom_text_saved = 1;
+    doom_bgcol_saved_val = vicky_read(VR_BGCOL); doom_bgcol_saved = 1;
+    vicky_write(VR_BGCOL, 0);                     /* palette 0 is black: what a transparent bitmap pixel shows.
+                                                  * DOOM fills the whole glass so never revealed it; the Apple's
+                                                  * 560x384 is centred and its black (index 0, transparent) pixels
+                                                  * showed the console's blue BGCOL through -- white-on-blue in the
+                                                  * mono modes (Doc, 2026-09-18).  Black background now, both games. */
     vicky_write(0x10, 0);                        /* the text layer off: nothing shows through the black */
     vicky_write(0x21, 0); tula_vw16(0x22, 0); tula_vw16(0x24, 0);   /* palofs, scroll -- as tula_mode */
     tula_vw16(0x26, TULA_W); tula_vw32(0x28, TULA_GFXB);            /* stride, data */

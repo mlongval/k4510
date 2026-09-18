@@ -1,0 +1,14 @@
+[Unit]
+# The sound card's master control, all the way up, once a boot.  The Dell's
+# sat at 69% (-20 dB) and capped everything the machine put out; there is no
+# desktop mixer here to have set it, and the emulator's own volume is the
+# only volume the user has (Doc's brainshot, 2026-09-17: "volume too low").
+Description=ALSA master volume to maximum
+After=sound.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'for c in Master Speaker Headphone PCM; do amixer -q sset "$c" 100% unmute 2>/dev/null; done; true'
+
+[Install]
+WantedBy=multi-user.target

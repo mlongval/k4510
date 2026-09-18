@@ -68,17 +68,31 @@ static volatile int level[BANDS];                 /* 0..255, decaying */
 static void set_note(const char *s) { pthread_mutex_lock(&meta_mu); snprintf(meta.note, sizeof meta.note, "%s", s); pthread_mutex_unlock(&meta_mu); }
 
 /* ---- the frontend's side -------------------------------------------------- */
+static volatile int gain_pct = 100;               /* RADIO VOLUME, and the options file's gain= */
+static volatile unsigned dropouts;                 /* samples wanted with the ring empty: what a crackle is, counted */
 void navi_mix(int16_t *out, int n)
 {
     static const float coef[BANDS + 1] = { 0.90f, 0.55f, 0.30f, 0.16f, 0.085f, 0.045f, 0.024f, 0.012f, 0.006f };
     static float acc[BANDS]; static int cnt;
+    /* Two clocks.  The song arrives at the server's pace, which is real time;
+     * the machine takes samples at ITS 48 kHz, which runs a few percent off
+     * real time (the CPU clock is a setting; the sound follows it).  Eaten
+     * faster than it comes, the ring ran dry for a moment every minute or so
+     * -- Doc's brainshot, 2026-09-17: "crackling".  So the ring is read
+     * through a resampler that SLOWS when the ring runs low: down to 2% under
+     * pitch at a quarter full, back to true at half.  Never faster: a full
+     * ring only means the player is waiting, which is what it does.  A
+     * listener cannot hear 2%; a listener can hear a gap. */
+    static double phase, step = 1.0; static int16_t prev_s;
     if (!running || paused) return;
-    if (skip_req) ring_r = ring_w;                 /* a skip is heard NOW: whatever the player is still pushing of the old song is dropped here until it has let go of it */
+    if (skip_req) { ring_r = ring_w; phase = 0; }  /* a skip is heard NOW: whatever the player is still pushing of the old song is dropped here until it has let go of it */
+    { unsigned fill = ring_w - ring_r; double want = fill >= RING_N / 2 ? 1.0 : fill <= RING_N / 4 ? 0.98 : 1.0 - 0.02 * ((double)(RING_N / 2 - fill) / (RING_N / 4)); step += (want - step) * 0.001; }
     for (int i = 0; i < n; i++) {
-        unsigned r = ring_r;
         int s = 0;
-        if (r != ring_w) { s = ring[r & (RING_N - 1)]; ring_r = r + 1; played++; }
-        { int v = out[i] + s * 3 / 4; out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }   /* under the machine's own sound, not over it */
+        phase += step;
+        while (phase >= 1.0) { unsigned r = ring_r; if (r != ring_w) { prev_s = ring[r & (RING_N - 1)]; ring_r = r + 1; played++; } else { dropouts++; prev_s = (int16_t)(prev_s * 7 / 8); } phase -= 1.0; }
+        s = prev_s;
+        { int v = out[i] + s * gain_pct / 100; out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }
         { float x = (float) s, prev = x;
           for (int k = 0; k <= BANDS; k++) { lp[k] += coef[k] * (x - lp[k]); if (k) { float d = prev - lp[k]; acc[k - 1] += d < 0 ? -d : d; } prev = lp[k]; } }
         if (++cnt >= 1024) {
@@ -98,6 +112,7 @@ void navi_option(const char *key, const char *value)
     char *dst = NULL; size_t max = 0;
     if (!key) return;
     if (!value) value = "";
+    if (!strcmp(key, "gain")) { int g = atoi(value); if (g >= 10 && g <= 300) gain_pct = g; return; }
     if (!strcmp(key, "server")) { dst = o_server; max = sizeof o_server; }
     else if (!strcmp(key, "user")) { dst = o_user; max = sizeof o_user; }
     else if (!strcmp(key, "password")) { dst = o_pass; max = sizeof o_pass; }
@@ -328,6 +343,7 @@ static void play_song(const song_t *s, int gen)
         if (info.frame_bytes <= 0) { if (eof) break; if (have == sizeof in) have = 0; continue; }   /* no frame in sight: more, or give up on a bufferful of noise */
         memmove(in, in + info.frame_bytes, have - (size_t) info.frame_bytes); have -= (size_t) info.frame_bytes;
         if (n <= 0 || info.hz <= 0) continue;
+        if (!got_any) dropouts = 0;                                  /* the silence before a song's first byte is not a dropout */
         got_any = 1;
         { double step = (double) info.hz / 48000.0;                  /* to the machine's rate: a straight line between neighbours */
           while (pos < n - 1) {
@@ -465,13 +481,19 @@ void navi_command(const char *cmd, char *reply, size_t max)
         if (!running) radio_line(reply, max, "the radio is off (RADIO PLAY starts it; or choose the Navidrome sidebar)");
         else if (title[0]) { radio_line(reply, max, "%s %s", paused ? "paused: " : "playing:", title); radio_line(reply, max, "         %s -- %s   %u:%02u/%d:%02d", artist, album, el / 60, el % 60, dur / 60, dur % 60); }
         if (note[0]) radio_line(reply, max, "%s", note);
+        if (running) radio_line(reply, max, "volume %d%%   buffer %u%%   dropouts %u", gain_pct, (ring_w - ring_r) * 100u / RING_N, dropouts);
         if (!word[0] || !strcmp(word, "HELP")) {
             radio_line(reply, max, "RADIO PLAY            start (random songs, or what PLAY last chose)");
             radio_line(reply, max, "RADIO PLAY name       a playlist    RADIO ALBUM name    RADIO ARTIST name");
             radio_line(reply, max, "RADIO SONG words      songs whose names match   RADIO SEARCH words  look only");
-            radio_line(reply, max, "RADIO NEXT / PAUSE / RESUME / OFF     (Ctrl+Alt+N is also NEXT)");
+            radio_line(reply, max, "RADIO NEXT / PAUSE / RESUME / OFF / VOLUME n     (Ctrl+Alt+N is also NEXT)");
         }
         return;
+    }
+    if (!strcmp(word, "VOLUME") || !strcmp(word, "VOL") || !strcmp(word, "GAIN")) {
+        int g = atoi(rest);
+        if (g < 10 || g > 300) { radio_line(reply, max, "RADIO VOLUME 10..300 (percent; 100 is the song as it is; the machine's own volume is on top)"); return; }
+        gain_pct = g; radio_line(reply, max, "volume %d%%", g); return;
     }
     if (!strcmp(word, "NEXT")) { if (!running) { radio_line(reply, max, "the radio is off"); return; } skip_req = 1; radio_line(reply, max, "next"); return; }
     if (!strcmp(word, "PAUSE")) { paused = 1; radio_line(reply, max, "paused"); return; }

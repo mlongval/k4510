@@ -1873,8 +1873,8 @@ tex_done:
                     }
                 }
                 { int ni = sidebars_find("navidrome");           /* the radio's options, whether or not it is on the glass: RADIO at the prompt plays without the sidebar */
-                  if (ni >= 0) { static const char *const nk[] = { "server", "user", "password", "play" }; sidebars_prepare(ni);
-                                 for (int q = 0; q < 4; q++) saver_option(SAVER_NAVIDROME, nk[q], sidebars_opt(ni, nk[q])); } }
+                  if (ni >= 0) { static const char *const nk[] = { "server", "user", "password", "play", "gain" }; sidebars_prepare(ni);
+                                 for (int q = 0; q < 5; q++) saver_option(SAVER_NAVIDROME, nk[q], sidebars_opt(ni, nk[q])); } }
                 navi_active(sidebars_builtin(shown[0]) == SIDEBAR_NAVIDROME || sidebars_builtin(shown[1]) == SIDEBAR_NAVIDROME);   /* it plays while it is on the glass */
                 if (!state_at) state_at = tn;
                 if (tn - state_at >= 300000) { state_at = tn; sidebar_save_states(); }

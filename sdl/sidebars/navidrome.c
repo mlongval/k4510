@@ -71,7 +71,7 @@ static void set_note(const char *s) { pthread_mutex_lock(&meta_mu); snprintf(met
 /* ---- the frontend's side -------------------------------------------------- */
 static volatile int gain_pct = 150;               /* RADIO VOLUME, and the options file's gain=: a song is quieter than the OPL at full tilt, so a half again */
 static volatile unsigned dropouts;                 /* samples wanted with the ring empty: what a crackle is, counted */
-void navi_mix(int16_t *out, int n)
+void navi_mix(int16_t *out, int n, int master_q15)   /* master_q15: the machine's own volume (F12 / the volume keys), 0..32768 */
 {
     static const float coef[BANDS + 1] = { 0.90f, 0.55f, 0.30f, 0.16f, 0.085f, 0.045f, 0.024f, 0.012f, 0.006f };
     static float acc[BANDS]; static int cnt;
@@ -93,7 +93,8 @@ void navi_mix(int16_t *out, int n)
         phase += step;
         while (phase >= 1.0) { unsigned r = ring_r; if (r != ring_w) { prev_s = ring[r & (RING_N - 1)]; ring_r = r + 1; played++; } else { dropouts++; prev_s = (int16_t)(prev_s * 7 / 8); } phase -= 1.0; }
         s = prev_s;
-        { int v = out[i] + s * gain_pct / 100; out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }
+        { int r = (int)((int64_t) s * gain_pct / 100 * master_q15 >> 15);   /* the radio's own gain, then the machine's volume: the keys govern it again */
+          int v = out[i] + r; out[i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v); }
         /* The one-poles, with a hair of DC so they never decay into denormal
          * floats: a denormal is a hundred times slower on x86, and this runs
          * on the emulation thread, once a sample -- the machine's own sound

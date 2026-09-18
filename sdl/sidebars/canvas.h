@@ -139,7 +139,7 @@ void s_navidrome(cv_t *c, uint32_t t, int side);
  * it is on the glass, its music added to n samples of the machine's, the next song */
 void navi_option(const char *key, const char *value);
 void navi_active(int on);
-void navi_mix(int16_t *out, int n);
+void navi_mix(int16_t *out, int n, int master_q15);
 void navi_next(void);
 void navi_command(const char *cmd, char *reply, size_t max);
 /* the ant farm's option and its colony across a power cycle (sdl/savers.c) */

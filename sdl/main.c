@@ -288,7 +288,8 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
     int gap = 0;
     for (int i = 0; i < n; i++) { if (ring_h != ring_w) out[i] = ring[ring_h++ & RING_MASK]; else { out[i] = 0; gap = 1; } }
     if (gap && io_audio_gaps != 0xFFFF) io_audio_gaps++;     /* one per callback that ran dry: what "choppy" is, counted */
-    navi_mix(out, n);                                        /* the Navidrome radio, decoded elsewhere, mixed HERE on the audio
+    { int mv = settings_get(SET_AUDIO_VOLUME); int q = (int)((int64_t) mv * mv * mv * 32768 / 1000000);   /* the same cube as vol_gain, computed here without its shared cache (the audio thread must not touch it) */
+      navi_mix(out, n, q); }                                 /* the Navidrome radio, decoded elsewhere, mixed HERE on the audio
                                                              * thread (near idle) -- not on the emulation thread, which is at
                                                              * 80% of a core running the machine and starved the radio to a
                                                              * scratch (Doc, 2026-09-17: aplay alone was clean, so it is the

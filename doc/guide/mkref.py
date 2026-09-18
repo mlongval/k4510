@@ -112,6 +112,7 @@ DESC = {
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),
     "VI":        (7, "VI [name]", "The modal editor (Chapter 11)."),
+    "WALL":      (7, "WALL", "What was sent to this machine from outside (tools/k4510-remote wall, on another computer): each message waiting, oldest first, answered as it asks --- a key for a notice, a digit for one of its choices, a line of text --- and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you."),
     "STATUS":    (7, "STATUS", "The whole machine at a glance: its display and clock, how much of the 256 MB holds anything, the memory of the Linux beneath, where the system and your files really are and how much room is left, what is mounted, and the network by name and address."),
     "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run (Chapter 13)."),
     "PROG":      (7, "PROG [name]", "The programmer's front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler's messages under the text (Chapter 11)."),

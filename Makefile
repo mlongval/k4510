@@ -31,7 +31,7 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # make expands prerequisite lists at once, so a later definition left both
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
-BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status
+BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall
 APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
 C_EX_NAMES = hello sieve
@@ -228,6 +228,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/radiotest.sh
 	./test/keytest.sh
 	./test/vitest.sh
+	./test/walltest.sh
 	./test/dirtest.sh
 	./test/logotest.sh
 	./test/ttypetest.sh

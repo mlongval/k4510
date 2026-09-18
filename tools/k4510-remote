@@ -26,6 +26,11 @@
     k4510-remote watch [S] [MAX]    peek every S seconds (default 60) until there is one, then
                                     show it; give up after MAX seconds (default: never).  What
                                     a session leaves running in the background
+    k4510-remote wall 'text'        a notice on the machine (its WALL command shows it).  --ask: the
+      [--ask | --choices 'a|b|c']   answer is a line of free text; --choices: one of these.  If the
+      [--wait S]                    prompt is idle WALL is typed there, otherwise the message waits.
+                                    --wait S: wait up to S seconds for the answer and print it
+    k4510-remote wall --replies     the answers given since last asked (and taken off the machine)
     k4510-remote reboot [-y]        reboot the machine and wait for it
     k4510-remote tui                all of it from a menu, with the screen live above
 
@@ -68,10 +73,10 @@ def log(what):
         f.write(f"{datetime.datetime.now():%Y-%m-%d %H:%M:%S}  {HOST}  {what}\n")
 
 
-def remote(cmd, timeout=30, binary=False):
-    """run a shell command on the machine; its stdout (bytes if binary)"""
+def remote(cmd, timeout=30, binary=False, stdin=None):
+    """run a shell command on the machine; its stdout (bytes if binary); stdin: bytes for it to read"""
     try:
-        r = subprocess.run(["sh", "-c", cmd] if LOCAL else SSH + [HOST, cmd], capture_output=True, timeout=timeout)
+        r = subprocess.run(["sh", "-c", cmd] if LOCAL else SSH + [HOST, cmd], capture_output=True, timeout=timeout, input=stdin)
     except subprocess.TimeoutExpired:
         raise Fail(f"{HOST} did not answer within {timeout} s")
     if r.returncode:
@@ -273,6 +278,73 @@ def c_watch(every=60.0, most=0.0):
         if most and time.time() - t0 + every > most:
             raise Fail(f"no brainshot in {int(most)} s")
         time.sleep(every)
+
+
+WALLDIR = "~/k4510/fs/SYSTEM/WALL"
+
+
+def k4510_encode(text):
+    """the other way from k4510_decode: a character the code page has not got is a ?"""
+    back = {ch: b for b, ch in enumerate(K4510_TABLE) if b >= 0x20}
+    return bytes(10 if ch == "\n" else back.get(ch, 0x3F) for ch in text)
+
+
+def prompt_idle():
+    """is the machine sitting at an empty K/OS prompt?  The last row with anything on it,
+    between the clock's row and the status row, is `/SOMEWHERE] ' and nothing typed."""
+    rows = [r.rstrip() for r in c_screen().split("\n")]
+    rows = [r for r in rows[1:-1] if r]
+    return bool(rows) and rows[-1].startswith("/") and rows[-1].endswith("]")
+
+
+def c_wall_replies():
+    names = [n for n in remote(f"ls -1 {WALLDIR}/OUTBOX 2>/dev/null || true").split() if n.upper().endswith(".TXT")]
+    out = []
+    for n in sorted(names):
+        q = shlex.quote(n)
+        text = k4510_decode(remote(f"cat {WALLDIR}/OUTBOX/{q}", binary=True)).strip()
+        (HOME / "wall").mkdir(parents=True, exist_ok=True)
+        (HOME / "wall" / n).write_text(text + "\n")
+        remote(f"rm -f {WALLDIR}/OUTBOX/{q}")
+        out.append(f"{n}: {text}")
+    log(f"wall: {len(out)} replies collected")
+    return "\n".join(out) or "no replies waiting"
+
+
+def c_wall(text, choices="", ask=False, wait=0.0):
+    """Doc, 2026-09-18: "a WALL type program, but interactive ... Either multiple choice or
+    free text", so that he need not leave the K4510 for his phone.  A message is a file in
+    /SYSTEM/WALL/INBOX (demo/wall.c reads the format); the answer comes back in OUTBOX under
+    the same name.  WALL is typed for him only at an idle prompt: typing into VI, or into
+    a command he is half way through, is worse than a message that waits."""
+    import textwrap
+    opts = [o.strip() for o in choices.split("|") if o.strip()][:9]
+    if any("\n" in o for o in opts):
+        raise Fail("a choice is one line")
+    head = "WALL C " + "|".join(opts) if opts else "WALL T" if ask else "WALL N"
+    body = "\n".join(textwrap.fill(para, 78) if para.strip() else "" for para in text.split("\n"))
+    name = f"W-{datetime.datetime.now():%Y%m%d-%H%M%S}.TXT"
+    remote(f"mkdir -p {WALLDIR}/INBOX {WALLDIR}/OUTBOX && cat > {WALLDIR}/INBOX/.{name} && mv {WALLDIR}/INBOX/.{name} {WALLDIR}/INBOX/{name}",
+           stdin=k4510_encode(head + "\n" + body.rstrip("\n") + "\n"))    # written whole, then named: WALL never reads half a message
+    log(f"wall {name}: {head!r} {text!r}")
+    try:
+        typed = prompt_idle()
+        if typed:
+            c_type("WALL\n")
+    except Fail:
+        typed = False
+    where = "WALL typed at the prompt" if typed else "the prompt is not idle (or no emulator): it waits for WALL"
+    if not wait:
+        return f"{name}: sent; {where}"
+    end = time.time() + wait
+    while time.time() < end:
+        if remote(f"[ -f {WALLDIR}/OUTBOX/{name} ] && echo y || true").strip():
+            reply = k4510_decode(remote(f"cat {WALLDIR}/OUTBOX/{name}", binary=True)).strip()
+            remote(f"rm -f {WALLDIR}/OUTBOX/{name}")
+            log(f"wall {name}: answered {reply!r}")
+            return reply
+        time.sleep(2)
+    raise Fail(f"{name}: no answer in {int(wait)} s ({where}); `wall --replies' collects it later")
 
 
 def c_reboot(ask=True):
@@ -487,6 +559,23 @@ def main(argv):
             out = c_peek("-q" in args)
         elif cmd == "watch":
             out = c_watch(float(args[0]) if args else 60.0, float(args[1]) if len(args) > 1 else 0.0)
+        elif cmd == "wall":
+            if "--replies" in args:
+                out = c_wall_replies()
+            else:
+                val = {}
+                for flag in ("--choices", "--wait"):
+                    if flag in args:
+                        i = args.index(flag)
+                        if i + 1 >= len(args):
+                            raise Fail(f"{flag} what?")
+                        val[flag] = args[i + 1]; del args[i:i + 2]
+                ask = "--ask" in args
+                words = [a for a in args if a != "--ask"]
+                if not words:
+                    raise Fail("wall what?")
+                out = c_wall(" ".join(words).replace("\\n", "\n"),              # a typed \n is a new line; unicode_escape would mangle an é
+                             val.get("--choices", ""), ask, float(val.get("--wait", 0)))
         elif cmd == "reboot":
             out = c_reboot(ask="-y" not in args)
         elif cmd == "tui":

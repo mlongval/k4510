@@ -145,6 +145,8 @@ test/bench
 # fs/BRAINSHOTS.  Personal, like shots/ and dumps/: never into a public repo.
 /fs/BRAINSHOTS/
 /fs/SYSTEM/BRAINSHOTS/
+# WALL's messages and the answers to them (tools/k4510-remote wall): as personal as a brainshot
+/fs/SYSTEM/WALL/
 fs/APPS/TETRIS/HISCORE.DAT
 fs/APPS/SNAKE/HISCORE.DAT
 fs/APPS/BREAKOUT/HISCORE.DAT

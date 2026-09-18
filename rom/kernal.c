@@ -1215,7 +1215,9 @@ static void shell_copy(const char *p);    /* resident (below k_shell): IDEA, in 
 static void banner(void);                 /* the logo: sideways window, not resident */
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
-static void cmd_doom(void);               /* DOOM on the Tube: kind 6, and its own road for pixels */
+static void cmd_doom(uint8_t kind, const char *arg);   /* DOOM (6) and the Apple IIe (7) on the Tube: their own road for pixels */
+static void cmd_doom_go(const char *p);
+static void cmd_apple(const char *p);
 static void cmd_compile(const char *tool, const char *p);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
@@ -1969,7 +1971,7 @@ static void mon_copy(const char *p) { mon_prg("COPY", p); }
 N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
 N(XD) N(HEX) N(EXEC) N(HUSH) N(RUN) N(FILL) N(COPY) N(DUMP) N(INFO) N(TIME)
 N(COLOR) N(COLOUR) N(PALETTE) N(MODE) N(SWAP) N(ALIAS) N(CLG) N(CAPSLOCK)
-N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA)
+N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA) N(DOOM) N(APPLE)
 #undef N
 static const shcmd_t shcmds[] = {
     { n_DIR, 0, cmd_dir },       { n_LS, 0, cmd_dir },
@@ -1985,7 +1987,7 @@ static const shcmd_t shcmds[] = {
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
-    { n_IDEA, 0, cmd_idea },
+    { n_IDEA, 0, cmd_idea },     { n_DOOM, 0, cmd_doom_go },  { n_APPLE, 0, cmd_apple },   /* the Tube's games: in the table, not the if-chain -- ROM2 was 19 bytes over when APPLE came */
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)
@@ -2015,7 +2017,6 @@ static void shell_line(const char *p)
      * addresses hold RAM, so a tail left in ROM would read as garbage. */
     if (is_cmd(&p, "HELP"))  { shell_copy("TYPE /SYSTEM/ETC/HELP"); shell_line(line); return; }
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
-    if (is_cmd(&p, "DOOM")) { cmd_doom(); return; }
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {                              /* only a .prg as typed: TRACE.TXT typed alone loaded 5 MB over the machine (review 2026-09-12) */
@@ -2165,7 +2166,7 @@ static void cmd_bbcbasic(uint8_t prog)
     uint8_t c, esc = 0, oi = 0, ofg = fg, obg = bg;
     REG(TUBE + 3) = prog;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
-    if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
+    if (!(REG(TUBE) & 1)) { error("no Tube here"); return; }
     if (prog != 4) { puts_(prog == 3 ? "CP/M 2.2 on the Z80 second processor. EXIT returns to the shell."
                                      : "BBC BASIC on the Tube co-processor. *QUIT returns to the shell."); newline(); }
     tube_term();
@@ -2232,7 +2233,7 @@ static void cmd_bbcbasic(uint8_t prog)
     else { cx = REG(TERM + 9); cy = REG(TERM + 10); }
     fg = ofg; bg = obg;
     if (prog == 4) { if (cx) newline(); if (REG(TUBE + 10)) SHELL_RC = REG(TUBE + 10); return; }   /* a host command: back to the prompt, no ceremony; its exit status is the RC */
-    newline(); puts_("the Tube co-processor has left."); newline();
+    newline(); puts_("the co-processor has left."); newline();
 }
 /* `!cmd` / `!`: the host's shell on the Tube (program 4), in the machine's own
  * colours -- the same loop as BBC BASIC, a different child.  Only where the
@@ -2253,7 +2254,9 @@ static void cmd_bang(const char *p)
  * that merely slept would never drain the child's output and never notice it
  * had ended.  Anything the co-processor says -- "no game data", most likely --
  * comes up the ring and is printed here. */
-static void cmd_doom(void)
+static void cmd_doom_go(const char *p) { cmd_doom(6, p); }
+static void cmd_apple(const char *p)   { cmd_doom(7, p); }   /* APPLE [disk]: an Apple IIe (tube/apple), the image in drive 1 */
+static void cmd_doom(uint8_t kind, const char *arg)
 {
     uint8_t c;
     /* The classic glass FIRST, and only then the co-processor.
@@ -2275,9 +2278,10 @@ static void cmd_doom(void)
      * bitmap, so the mode has to change before it, not after. */
     if (!bgon) { oldvm = vmode; bgon = 1; }
     vmode = 0; video_init(); cls();
-    REG(TUBE + 3) = 6;
+    w32(TUBE + 4, (uint16_t) arg);                       /* the argument, as `!` passes its command: APPLE's disk image */
+    REG(TUBE + 3) = kind;
     { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
-    if (!(REG(TUBE) & 1)) { error("no Tube (desktop host only)"); return; }
+    if (!(REG(TUBE) & 1)) { error("no Tube here"); return; }
     for (;;) {
         uint8_t st = REG(TUBE);
         if (!(st & 0x81)) break;                         /* it ended, and its last bytes are shown */
@@ -2287,7 +2291,7 @@ static void cmd_doom(void)
     REG(TUBE + 3) = 2;                                   /* the bitmap goes, the segment with it */
     if (bgon) { bgon = 0; vmode = oldvm; }               /* and the mode the machine was in comes back */
     video_init(); cls();
-    newline(); puts_("the Tube co-processor has left."); newline();
+    newline(); puts_("the co-processor has left."); newline();
 }
 /* PAS name / CC name: the compilers on the Linux beside the machine,
  * tools/k4510-pas and tools/k4510-cc, which compile name.PAS / name.C in the

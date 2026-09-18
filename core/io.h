@@ -219,7 +219,9 @@ void    kbd_held(uint8_t mask);           /* the host, once a frame: which of th
 #define K4DOOM_WEAPDN   0x2000
 #define K4DOOM_YES      0x4000
 #define K4DOOM_NO       0x8000
-void    io_doom_input(uint32_t held);     /* the host, once a frame, while DOOM has the Tube */
+void    io_doom_input(uint32_t held);
+void    io_apple_key(uint32_t ev);        /* the Apple IIe on the Tube: one key event (tube/apple/apple_k4510.cpp says the bits) */
+int     io_tube_kind(void);               /* what the Tube is running: 0 nothing, 6 DOOM, 7 the Apple IIe, ... */     /* the host, once a frame, while DOOM has the Tube */
 int     io_fs_hostpath(const char *name, char *out, size_t max);   /* a machine path as the host's (JIM's pictures): 1 ok */
 void    io_tube_opl_drain(void);           /* the host, per SCANLINE: DOOM's music onto MELODY */
 void    io_tube_frame(void);              /* the host, once a frame: DOOM's picture onto VICKY's bitmap.

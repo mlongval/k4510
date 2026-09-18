@@ -162,6 +162,9 @@ doc/guide/__pycache__/
 # not vendored -- 28.8 MB against a 5.9 MB machine layer; tools/get-freedoom.sh)
 tube/doom/build/
 tube/doom/doomk4510
+# the Apple IIe on the Tube, likewise; its disk images live in /DISK/APPLE
+tube/apple/build/
+tube/apple/apple_k4510
 fs/APPS/DOOM/*.wad
 fs/APPS/DOOM/*.WAD
 fs/APPS/DOOM/DOOM.CFG

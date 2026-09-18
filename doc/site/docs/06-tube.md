@@ -1,6 +1,6 @@
 # The Tube
 
-The BBC Micro’s most elegant idea was the Tube: a fast port through which a *second processor* — another CPU with its own memory — could take over the computation while the Beeb kept the keyboard, the screen and the discs. The K4510 has a Tube of its own at `$D800`, and the first thing fitted to it was Richard Russell’s BBC BASIC, running on the host machine with a flat 256 MB of its own. Others have followed: CP/M on a Z80 ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)), the host’s own shell behind `!`, a chess engine, and — since 2026 — DOOM.
+The BBC Micro’s most elegant idea was the Tube: a fast port through which a *second processor* — another CPU with its own memory — could take over the computation while the Beeb kept the keyboard, the screen and the discs. The K4510 has a Tube of its own at `$D800`, and the first thing fitted to it was Richard Russell’s BBC BASIC, running on the host machine with a flat 256 MB of its own. Others have followed: CP/M on a Z80 ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)), the host’s own shell behind `!`, a chess engine, and — since 2026 — DOOM, and an Apple IIe.
 
     BBC
 
@@ -17,12 +17,21 @@ both just work. Type `*QUIT` to hand the console back to the shell.
 
 takes the Tube, and the machine’s bitmap fills with something no 8-bit computer ever showed. Arrows turn, `W` and `S` walk, `A` and `D` strafe, Ctrl fires, Space opens doors, Shift runs, Tab is the map, `[` and `]` change weapons, and Escape is the menu. Quitting from DOOM’s own menu hands the console back.
 
-The game data does not ship with the machine: an IWAD is 28 MB and the whole machine layer an update carries is under 6. On the host, `tools/ get-freedoom.sh` fetches *Freedoom* — a BSD-licensed replacement for id’s data, built over twenty years to run on this engine — into `/APPS/DOOM`. Any IWAD the engine accepts will do, including your own.
+The game data does not ship with the machine: an IWAD is 28 MB and the whole machine layer an update carries is under 6. `WADCHOOSER`, in `/APPS/DOOM`, fetches a game into `/DISK/DOOM` — *Freedoom*, a BSD-licensed replacement for id’s data built over twenty years to run on this engine, or id’s own shareware episode — and picks which one `DOOM` plays. Any IWAD the engine accepts will do, including your own, put in `/DISK/DOOM`.
 
 !!! note ""
     **This is DOOM *displayed on* VICKY, not DOOM *running on* a 45GS10.** Like everything on the Tube it runs on the host beneath the machine: the co-processor draws DOOM’s own 320×200 paletted frame, the machine shows it doubled on its bitmap, and the keys travel back the other way. A 45GS10 at 60 MHz could not run DOOM, and nothing here claims it can. What is genuinely the machine’s is the screen it appears on — the same 8-bit bitmap and the same 256-entry palette that BBC BASIC’s `PLOT` draws into.
 
 The pixels take a different road from everything else on the Tube. BBC BASIC’s graphics arrive as escape sequences and the Tube ULA executes them; DOOM cannot work that way, because a frame is 64 KB and there are 35 of them a second. So the co-processor and the host share a piece of memory: the frames go up it, and — this is the part that matters — the keys go *down* it. A terminal carries keystrokes but never releases, and a player who cannot stop walking is a player who walks into a wall for ever.
+
+## An Apple IIe
+
+    APPLE
+    APPLE GAME.DSK
+
+takes the Tube with an Enhanced Apple IIe on it — 128 KB, 80 columns, a Disk II in slot 6, a Mockingboard in slot 4, a joystick — drawn on VICKY’s bitmap and heard through the DigiMAX, exactly as DOOM is. Alone it boots DOS 3.3’s master disk; with a name it boots that image, in any of the formats an Apple emulator reads (`.dsk`, `.do`, `.po`, `.nib`, `.woz`, `.2mg`). Images live in `/DISK/APPLE`, on the disk side of the machine. The emulation is LinApple’s, which is AppleWin’s core on Linux; the ROMs are the Enhanced IIe’s own.
+
+At the keyboard the keys are the Apple’s keys: Delete is its DELETE, the arrows its four arrows. The left and right Alt keys are Open-Apple and Closed-Apple, which are also the joystick’s two buttons, as they were on the real machine; the keypad’s 8, 2, 4 and 6 are the joystick and 5 centres it; Ctrl+Alt+R is Ctrl-Reset. To leave, stop the Tube from the F12 menu.
 
 ## Graphics and sound
 

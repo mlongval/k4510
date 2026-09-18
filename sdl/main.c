@@ -1281,6 +1281,22 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (settings_get(SET_INPUT_CAPS_CTRL)) m = (SDL_Keymod)((m & ~KMOD_CAPS) | (caps_ctrl_down ? KMOD_LCTRL : 0));
                 else caps_ctrl_down = 0;                         /* the setting went off while the key was held */
                 kbd_modifiers(m & KMOD_SHIFT, m & KMOD_CTRL, m & KMOD_ALT);
+                /* The Apple IIe on the Tube (tube/apple): what the machine's key
+                 * queue cannot carry.  Releases, so a game holding a key sees it
+                 * let go; the two Apple keys on the two Alts (they are also the
+                 * joystick's buttons, as on the IIe); a joystick on the keypad
+                 * (8 2 4 6, 5 to centre); Ctrl+Alt+R is Ctrl-Reset.  Everything
+                 * typed goes the usual way and is handed over in core/io.c. */
+                if (io_tube_kind() == 7 && !menu_is_open()) {
+                    int down = e.type == SDL_KEYDOWN, kc = e.key.keysym.sym; uint32_t fl = (uint32_t)(down ? 4 : 0);
+                    if (kc == SDLK_LALT) { io_apple_key(fl << 8 | 1u << 16); break; }
+                    if (kc == SDLK_RALT) { io_apple_key(fl << 8 | 2u << 16); break; }
+                    if (kc == SDLK_KP_4 || kc == SDLK_KP_6) { io_apple_key((uint32_t)(down ? (kc == SDLK_KP_4 ? 0 : 255) : 128) << 24 | 3u << 16 | fl << 8 | 0); break; }
+                    if (kc == SDLK_KP_8 || kc == SDLK_KP_2) { io_apple_key((uint32_t)(down ? (kc == SDLK_KP_8 ? 0 : 255) : 128) << 24 | 3u << 16 | fl << 8 | 1); break; }
+                    if (kc == SDLK_KP_5 && down) { io_apple_key(128u << 24 | 3u << 16 | fl << 8 | 0); io_apple_key(128u << 24 | 3u << 16 | fl << 8 | 1); break; }
+                    if (kc == SDLK_r && (m & KMOD_CTRL) && (m & KMOD_ALT)) { if (down) io_apple_key(4u << 8 | 5u << 16); break; }
+                    if (!down) { io_apple_key(6u << 16); break; }                /* any release: the key that was down is up */
+                }
                 if (e.type != SDL_KEYDOWN) break;
                 SDL_Keycode k = e.key.keysym.sym;
                 { /* the reset chord: a modifier + PageUp ("Commodore + Restore"), or Ctrl+Alt+Del */

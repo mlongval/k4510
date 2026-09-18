@@ -50,11 +50,13 @@ static void kbd_enqueue(uint16_t ent)
     kbd_fifo[kbd_tail] = ent;
     kbd_tail = next;
 }
+static void apple_take_key(uint16_t ent);
 static void kbd_in(uint16_t ent)
 {
     uint8_t ascii = (uint8_t)ent;
     if (menu_is_open()) { menu_key(ascii); return; }
     if ((ent & KBD_KEY) && ascii == menu_key_code() && !(kbd_mods & 1)) { menu_open(); return; }
+    if (io_tube_kind() == 7) { apple_take_key(ent); return; }   /* the Apple IIe has the keyboard while it runs: the machine's queue would only pile up */
     dbg_key(ascii);
     kbd_enqueue(ent);
 }
@@ -1562,17 +1564,22 @@ static void tube_utf8_done(void) { if (tube_utf8 && !tube_pid && tube_w == tube_
  * because the child is a separate process and cannot read a register at all. */
 #define DOOM_W 320
 #define DOOM_H 200
-#define DOOM_MAGIC 0x4D344D44u                   /* "DM4M" -- bumped with the OPL ring, then the PCM ring */
+#define DOOM_MAGIC 0x4E344D44u                   /* "DM4N" -- bumped with the OPL ring, the PCM ring, then (2026-09-17, the Apple IIe) a frame size and a key ring */
 #define OPL_RING_N 2048
 #define PCM_RING_N 8192
+#define KEY_RING_N 256
+#define FB_MAX_W 560                             /* the Apple IIe's frame; DOOM's 320x200 sits in the same space */
+#define FB_MAX_H 384
 struct doom_shm {
-    uint32_t magic, seq, held, quit, pal_seq, pad[3];
+    uint32_t magic, seq, held, quit, pal_seq, fb_w, fb_h, pad;
     uint8_t  pal[256 * 3];
-    uint8_t  fb[DOOM_W * DOOM_H];
+    uint8_t  fb[FB_MAX_W * FB_MAX_H];
     uint32_t opl_w, opl_r;                       /* DOOM's music, as OPL2 register writes */
     uint16_t opl_ring[OPL_RING_N];               /* (reg << 8) | val */
-    uint32_t pcm_w, pcm_r;                       /* DOOM's effects: one stream, unsigned 8-bit, 11025 Hz */
+    uint32_t pcm_w, pcm_r;                       /* DOOM's effects at 11025 Hz, the Apple's speaker at 44100: one stream, unsigned 8-bit */
     uint8_t  pcm_ring[PCM_RING_N];
+    uint32_t key_w, key_r;                       /* the Apple's keys, DOWN the segment: events, not a held mask (tube/apple/apple_k4510.cpp says the bits) */
+    uint32_t key_ring[KEY_RING_N];
 };
 static struct doom_shm *doom_map;
 /* The console's colours, kept while DOOM wears its own.
@@ -1680,7 +1687,7 @@ static void doom_shm_close(void)
     if (doom_shm_name[0]) { shm_unlink(doom_shm_name); doom_shm_name[0] = 0; }
     doom_active = 0; doom_seq_seen = doom_pal_seen = 0;
 }
-static int doom_shm_make(void)
+static int doom_shm_make(int kind)
 {
     int fd;
     snprintf(doom_shm_name, sizeof doom_shm_name, "/k4510-doom-%d", (int) getpid());
@@ -1694,10 +1701,38 @@ static int doom_shm_make(void)
     memset(doom_map, 0, sizeof *doom_map);
     doom_map->magic = DOOM_MAGIC;
     doom_seq_seen = doom_pal_seen = 0;
-    digimax_stream(doom_pcm_pull, 11025);        /* DOOM's effects into DAC 0 */
+    digimax_stream(doom_pcm_pull, kind == 7 ? 44100 : 11025);   /* DOOM's effects, or the Apple's speaker, into DAC 0 */
     return 1;
 }
 void io_doom_input(uint32_t held) { if (doom_map) doom_map->held = held; }
+/* The Apple IIe's keys: events down the segment (the bits: tube/apple/apple_k4510.cpp).
+ * A full ring drops the event; a game that cannot keep up with a keyboard has
+ * bigger problems. */
+void io_apple_key(uint32_t ev)
+{
+    if (!doom_map || tube_prog_now != 7) return;
+    if (doom_map->key_w - doom_map->key_r >= KEY_RING_N) return;
+    doom_map->key_ring[doom_map->key_w % KEY_RING_N] = ev;
+    __sync_synchronize();
+    doom_map->key_w++;
+}
+int io_tube_kind(void) { return tube_pid ? tube_prog_now : 0; }
+/* The machine's own key -- an ASCII character with kbd_mods, or a KEY_* code
+ * -- as the Apple's: ASCII is ASCII (an Apple IIe keyboard is one), the
+ * arrows are its four (8 21 11 10), Delete is 127.  The frontend sends the
+ * releases and the Apple keys separately (io_apple_key). */
+static void apple_take_key(uint16_t ent)
+{
+    uint8_t c = (uint8_t) ent; uint32_t code = 0;
+    if (ent & KBD_KEY) {
+        switch (c) { case KEY_UP: code = 11; break; case KEY_DOWN: code = 10; break; case KEY_LEFT: code = 8; break; case KEY_RIGHT: code = 21; break;
+                     case KEY_DEL: code = 127; break; case KEY_HOME: code = 1; break; case KEY_END: code = 5; break; default: return; }   /* the rest have no Apple key */
+    } else code = c;
+    { uint32_t mods = (kbd_mods & 1 ? 1u : 0u) | (kbd_mods & 2 ? 2u : 0u);
+      io_apple_key(code | (mods | 4u) << 8);       /* down, shift and ctrl as held... */
+      io_apple_key(code | mods << 8); }            /* ...and up at once: LinApple's keyboard wants every press let go before the next
+                                                    * is taken, and the machine's queue carries presses only.  A tap, as the pipe types. */
+}
 /* shm_open takes "/name"; the child opens a file, and that name lives under
  * /dev/shm on Linux.  One place to say so. */
 static const char *doom_shm_path(void)
@@ -1767,13 +1802,21 @@ void io_tube_frame(void)
      * a memcpy of the row just written rather than the doubling loop again. */
     { if ((size_t) TULA_H * TULA_W > TULA_ARENA) return;   /* belt and braces, as before */
       uint8_t *dst = k4510_ram + TULA_GFXB;
-      int prev = -1;
-      for (int y = 0; y < TULA_H; y++, dst += TULA_W) {
-          int sy = y * DOOM_H / TULA_H;
-          if (sy == prev) { memcpy(dst, dst - TULA_W, TULA_W); continue; }
-          { const uint8_t *src = doom_map->fb + (size_t) sy * DOOM_W;
-            for (int x = 0; x < DOOM_W; x++) { dst[x * 2] = src[x]; dst[x * 2 + 1] = src[x]; } }
-          prev = sy;
+      int fw = (int) doom_map->fb_w, fh = (int) doom_map->fb_h;
+      if (fw <= 0 || fh <= 0 || fw > FB_MAX_W || fh > FB_MAX_H) return;
+      if (fw == DOOM_W && fh == DOOM_H) {                    /* DOOM: doubled and stretched, as above */
+          int prev = -1;
+          for (int y = 0; y < TULA_H; y++, dst += TULA_W) {
+              int sy = y * DOOM_H / TULA_H;
+              if (sy == prev) { memcpy(dst, dst - TULA_W, TULA_W); continue; }
+              { const uint8_t *src = doom_map->fb + (size_t) sy * DOOM_W;
+                for (int x = 0; x < DOOM_W; x++) { dst[x * 2] = src[x]; dst[x * 2 + 1] = src[x]; } }
+              prev = sy;
+          }
+      } else {                                               /* the Apple IIe's 560x384, pixel for pixel, centred: its pixels are already the glass's shape */
+          int x0 = (TULA_W - fw) / 2, y0 = (TULA_H - fh) / 2;
+          if (x0 < 0 || y0 < 0) return;
+          for (int y = 0; y < fh; y++) memcpy(dst + (size_t)(y0 + y) * TULA_W + x0, doom_map->fb + (size_t) y * fw, (size_t) fw);
       } }
 }
 static void doom_bitmap_on(void)
@@ -1845,10 +1888,15 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     pid_t parent = getpid ();                     /* NOT 1: in a container the emulator IS pid 1, and "getppid() == 1" then killed every child (2026-09-07) */
     if (tube_pid) return;
     if (prog == 5 && !uci_path()) return;
-    if (prog == 6) {                              /* DOOM: the segment must exist before the fork */
-        if (!doom_shm_make()) { const char *m = "doom: no shared memory for the frame buffer\r\n";
+    if (prog == 6 || prog == 7) {                 /* DOOM and the Apple IIe: the segment must exist before the fork */
+        if (!doom_shm_make(prog)) { const char *m = "doom: no shared memory for the frame buffer\r\n";
                                 while (*m) ring_put((uint8_t) *m++); tube_refused = 1; return; }
         doom_active = 1;
+    }
+    if (prog == 7) {                              /* APPLE [disk]: the argument, if any, as `!` gets its command line */
+        if (fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd)) cmd[0] = 0;
+        while (cmd[0] == ' ') memmove(cmd, cmd + 1, strlen(cmd));
+        { size_t l = strlen(cmd); while (l && cmd[l - 1] == ' ') cmd[--l] = 0; }
     }
     if (prog == 4) {
         /* Refused, not run short: fs_guest_str fills the buffer and THEN reports the
@@ -1940,6 +1988,16 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
                                 "      (or tools/get-freedoom.sh on the host: Freedoom, 28 MB, BSD licensed).\r\n";
                 ssize_t n = write(1, m, strlen(m)); (void) n;
             }
+        } else if (prog == 7) {                   /* the Apple IIe (tube/apple): LinApple's core behind this frontend */
+            char *bin = realpath("tube/apple/apple_k4510", NULL);
+            char disk[900]; disk[0] = 0;
+            if (cmd[0]) { char rel[256]; if (!fs_resolve(cmd, rel, sizeof rel, disk, sizeof disk)) fs_casefix(disk, sizeof disk); }   /* APPLE NAME.DSK: a machine path, from where the shell is */
+            if (!disk[0]) { char *m = realpath("tube/apple/linapple/res/Master.dsk", NULL); if (m) snprintf(disk, sizeof disk, "%s", m); free(m); }   /* nothing named: DOS 3.3's master, so a IIe with an empty drive does not sit there spinning */
+            setenv("K4510_DOOM_SHM", doom_shm_path(), 1);
+            setenv("HOME", "/tmp", 1);            /* LinApple keeps a registry under $HOME/.local/share; the machine's home is not the place for it */
+            if (chdir(fs_root) != 0) { }
+            if (bin) execl(bin, "apple_k4510", "--d1", disk, (char *) NULL);
+            { const char *m = "apple: tube/apple/apple_k4510 is not built (make -C tube/apple -f Makefile.k4510)\r\n"; ssize_t n = write(1, m, strlen(m)); (void) n; }
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);
             char dir[800]; snprintf (dir, sizeof dir, "%.511s/CPM", fs_root);   /* the configured root, as BASIC below, not ./fs */
@@ -1963,7 +2021,8 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     fcntl (tube_fd, F_SETFL, O_NONBLOCK);
     if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* the ROM's JIM reset (tube_term) follows, and leaves it */
     tube_log("start prog %d pid %d%s%s", prog, (int) tube_pid, cmd[0] ? " cmd: " : "", cmd);
-    if (prog == 6) { char w[900]; doom_wad_path(w, sizeof w); tube_log("doom: playing %s", w); }   /* the same answer the child just reached: which WAD, for the log */
+    if (prog == 6) { char w[900]; doom_wad_path(w, sizeof w); tube_log("doom: playing %s", w); }
+    if (prog == 7) tube_log("apple: %s", cmd[0] ? cmd : "the master disk");   /* the same answer the child just reached: which WAD, for the log */
 }
 /* The frontend's clean exit does not come through here: it ends its frame
  * loop, tears SDL down and returns from main (sdl/main.c).  DOOM's shared
@@ -2314,7 +2373,7 @@ void io_write(uint16_t addr, uint8_t v)
     }
     case IO_TUBE:
         if ((addr & 0xFF) == 2) tube_write(v);
-        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5 || v == 6) {
+        if ((addr & 0xFF) == 3) { if (v == 1 || v == 3 || v == 4 || v == 5 || v == 6 || v == 7) {
                 /* Only the write that STARTED a session owns it.  tube_start returns at once
                  * when a co-processor is already up, and a second `6` then re-snapped the
                  * "console" palette from DOOM's own colours and saved a text layer that was
@@ -2322,7 +2381,7 @@ void io_write(uint16_t addr, uint8_t v)
                  * its console.  (Review, 2026-09-17.) */
                 int was = tube_pid != 0;
                 tube_start(v);
-                if (!was) { tube_prog_now = v; tube_prog_at = title_depth; if (v == 6 && tube_pid) doom_bitmap_on(); } } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
+                if (!was) { tube_prog_now = v; tube_prog_at = title_depth; if ((v == 6 || v == 7) && tube_pid) doom_bitmap_on(); } } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
         if ((addr & 0xFF) >= 4 && (addr & 0xFF) < 8) tube_cmd[(addr & 0xFF) - 4] = v;
         if ((addr & 0xFF) == 8) tube_rows = v;
         if ((addr & 0xFF) == 9) tube_cols = v;

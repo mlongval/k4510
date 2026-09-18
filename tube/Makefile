@@ -10,10 +10,13 @@ OBJ = bbmain.o bbexec.o bbeval.o bbasmb.o bbdata.o bbccos.o bbccon.o
 # is what linux/build-live.sh runs, so the image gets both co-processors from
 # one line.  DOOM is built without game data -- tools/get-freedoom.sh fetches
 # the WAD, which is not vendored.
-all: bbcbasic doom
+# ...and the Apple IIe (tube/apple, LinApple's core; its ALTERED-K4510.md).
+all: bbcbasic doom apple
 
 doom:
 	$(MAKE) -C doom -f Makefile.k4510
+apple:
+	$(MAKE) -C apple -f Makefile.k4510
 
 bbmain.o: src/bbmain.c include/BBC.h
 	$(CC) -c -O2 -ffast-math -fno-finite-math-only $< -o $@
@@ -36,4 +39,4 @@ clean:
 	rm -f *.o bbcbasic
 	$(MAKE) -C doom -f Makefile.k4510 clean
 
-.PHONY: all doom clean
+.PHONY: apple all doom clean

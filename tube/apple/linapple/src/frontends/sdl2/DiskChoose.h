@@ -1,0 +1,45 @@
+// SPDX-License-Identifier: GPL-2.0-only
+#pragma once
+
+#include <SDL2/SDL.h>
+#include <SDL2/SDL_events.h>
+
+#include <cstddef>
+#include <string>
+
+#include "frontends/common/FileBrowser.h"
+#include "frontends/sdl2/SdlPtr.h"
+
+struct DiskChooseState_t {
+  int slot;
+  std::string current_dir;
+  FileList_t* list_handle;  // Opaque handle from C API
+  size_t act_file;
+  size_t first_file;
+  bool active;
+
+  // Surface for background
+  SdlSurfacePtr_t bg_screen;
+
+  // Callback or storage for result
+  std::string result_filename;
+  bool result_isdir;
+  bool finished;
+  bool cancelled;
+
+  // For returning results to the original caller (which is still blocking for
+  // now)
+  size_t* index_file_out;
+};
+
+void disk_choose_tick(SDL_Event* event);
+void disk_choose_draw();
+
+auto choose_an_image(int sx, int sy, const std::string& incoming_dir, int slot,
+                     std::string& filename, bool& isdir, size_t& index_file)
+    -> bool;
+
+auto choose_image_dialog(int sx, int sy, const std::string& dir, int slot,
+                         FileListGenerator_t* file_list_generator,
+                         std::string& filename, bool& isdir, size_t& index_file)
+    -> bool;

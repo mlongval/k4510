@@ -1,0 +1,442 @@
+// SPDX-License-Identifier: GPL-2.0-only
+#include "frontends/common/AppController.h"
+
+#include <unistd.h>
+
+#include <cstddef>
+#include <cstdint>
+#include <cstdio>
+#include <string>
+#include <vector>
+
+#include "apple2/Apple2Types.h"
+#include "apple2/CPU.h"
+#include "apple2/Memory.h"
+#include "apple2/Video.h"
+#include "apple2/peripherals/disk/DiskCommands.h"
+#include "apple2/peripherals/harddisk/HarddiskCommands.h"
+#include "core/Asset.h"
+#include "core/BasicLiveSync.h"
+#include "core/LinAppleCore.h"
+#include "core/Log.h"
+#include "apple2/peripherals/Peripheral.h"
+#include "apple2/peripherals/Peripheral_Internal.h"
+#include "core/ProgramLoader.h"
+#include "core/Registry.h"
+#include "core/Util_Path.h"
+#include "core/Util_Text.h"
+#include "frontends/common/AppArgs.h"
+#include "frontends/common/AppConfig.h"
+#include "frontends/common/AppEnvironment.h"
+#include "frontends/common/SaveStateManager.h"
+
+void frontend_update_keyboard_mapping();
+void keyboard_set_caps_mode(int mode);
+
+static bool s_initialized = false;
+
+static void initialize_directory(const char* reg_key, char* target_buffer,
+                                 size_t buffer_size) {
+  std::string path =
+      Configuration_t::instance().get_string("Preferences", reg_key);
+  if (path.empty()) {
+    path = Path::get_user_data_dir();
+  }
+
+  if (!path.empty()) {
+    while (path.size() > 1 && path.back() == '/') {
+      path.pop_back();
+    }
+    util_safe_strcpy(target_buffer, path.c_str(), buffer_size);
+    Path::ensure_dir_exists(path);
+  }
+}
+
+auto app_controller_initialize(AppConfig_t* config) -> int {
+  if (config == nullptr) {
+    return -1;
+  }
+
+  // Idempotency: ensure we start from a clean state if called multiple times
+  if (s_initialized) {
+    app_controller_shutdown();
+  }
+
+  // 1. Resolve paths and init Registry/Logger
+  app_env_resolve_paths(config);
+
+  // 2. Set Hardware Type before initializing core memory
+  uint32_t emul_type = 0;
+  if (!config->apple2_type_explicit &&
+      (config_load_int("Configuration", "Computer Emulation", &emul_type) ||
+       config_load_int("Preferences", "Computer Emulation", &emul_type))) {
+    switch (emul_type) {
+      case 0:
+        g_apple2_type = A2TYPE_APPLE2;
+        break;
+      case 1:
+        g_apple2_type = A2TYPE_APPLE2PLUS;
+        break;
+      case 2:
+        g_apple2_type = A2TYPE_APPLE2E;
+        break;
+      case 3:
+      default:
+        g_apple2_type = A2TYPE_APPLE2EENHANCED;
+        break;
+    }
+  } else {
+    g_apple2_type = config->apple2_type;
+  }
+
+  if (config->rom_path.at(0) != '\0') {
+    std::string rom_path = config->rom_path.data();
+    std::string path_to_open = rom_path;
+    FilePtr_t f{std::fopen(path_to_open.c_str(), "rb"), std::fclose};
+    if (!f) {
+      std::string resolved = Path::find_data_file(rom_path);
+      if (!resolved.empty()) {
+        path_to_open = resolved;
+        f = FilePtr_t{std::fopen(path_to_open.c_str(), "rb"), std::fclose};
+      }
+    }
+    if (!f) {
+      Logger::error("\nError: Unable to open custom ROM file: %s\n\n",
+                    rom_path.c_str());
+      mem_set_custom_rom_data(nullptr, 0);
+      return -1;
+    }
+    constexpr int64_t max_rom_file_size = 65536;
+    int64_t fsize = Path::file_size(f.get());
+    if (fsize < static_cast<int64_t>(APPLE2_ROM_SIZE) ||
+        fsize > max_rom_file_size) {
+      Logger::error(
+          "\nError: Invalid custom ROM file size (%ld bytes, expected at least "
+          "%u bytes): %s\n\n",
+          static_cast<long>(fsize), static_cast<unsigned int>(APPLE2_ROM_SIZE),
+          rom_path.c_str());
+      mem_set_custom_rom_data(nullptr, 0);
+      return -1;
+    }
+    std::vector<uint8_t> custom_rom_buffer(static_cast<size_t>(fsize));
+    if (std::fread(custom_rom_buffer.data(), 1, custom_rom_buffer.size(),
+                   f.get()) != custom_rom_buffer.size()) {
+      Logger::error("\nError: Failed to read custom ROM file: %s\n\n",
+                    rom_path.c_str());
+      mem_set_custom_rom_data(nullptr, 0);
+      return -1;
+    }
+    mem_set_custom_rom_data(custom_rom_buffer.data(), custom_rom_buffer.size());
+  } else {
+    mem_set_custom_rom_data(nullptr, 0);
+  }
+
+  // 3. Init Core
+  if (linapple_init() != 0) {
+    mem_set_custom_rom_data(nullptr, 0);
+    return -1;
+  }
+  s_initialized = true;
+
+  constexpr float MIN_SCREEN_FACTOR = 0.25f;
+  constexpr float MAX_SCREEN_FACTOR = 8.0f;
+  constexpr uint32_t CLKS_PER_FRAME_PAL = 20280;
+  constexpr uint32_t CLKS_PER_FRAME_NTSC = 17030;
+  constexpr uint8_t HARDDISK_DEFAULT_SLOT = 7;
+
+  std::string factor_str;
+  if (config_load_string("Configuration", "Screen factor", &factor_str) ||
+      config_load_string("Configuration", "Screen Factor", &factor_str) ||
+      config_load_string("Preferences", "Screen factor", &factor_str) ||
+      config_load_string("Preferences", "Screen Factor", &factor_str)) {
+    try {
+      float factor = std::stof(factor_str);
+      if (factor >= MIN_SCREEN_FACTOR && factor <= MAX_SCREEN_FACTOR) {
+        g_state.screen_width =
+            static_cast<int>(static_cast<float>(SCREEN_WIDTH) * factor);
+        g_state.screen_height =
+            static_cast<int>(static_cast<float>(SCREEN_HEIGHT) * factor);
+      }
+    } catch (...) {
+    }
+  }
+
+  if (config->is_pal) {
+    g_videotype = VT_COLOR_TVEMU;
+    g_state.video_scanner_ntsc = false;
+    g_state.clks_per_frame = CLKS_PER_FRAME_PAL;
+    g_current_clk_6502 = CLOCK_6502_PAL;
+  } else {
+    g_videotype = VT_COLOR_STANDARD;
+    g_state.video_scanner_ntsc = true;
+    g_state.clks_per_frame = CLKS_PER_FRAME_NTSC;
+    g_current_clk_6502 = CLOCK_6502_NTSC;
+  }
+
+  int config_speed = Configuration_t::instance().get_int(
+      "Configuration", "Emulation Speed", SPEED_NORMAL);
+  if (config_speed >= SPEED_MIN && config_speed <= emulation_speed_max) {
+    g_state.speed = static_cast<uint32_t>(config_speed);
+  }
+
+  // 4. Init Snapshots
+  if (config->snapshot_path.at(0) != '\0') {
+    save_state_set_filename(config->snapshot_path.data());
+  }
+  save_state_startup();
+
+  // 5. Initialize directories
+  initialize_directory(REGVALUE_PREF_START_DIR, &g_state.current_dir[0],
+                       sizeof(g_state.current_dir));
+  initialize_directory(REGVALUE_PREF_HDD_START_DIR, &g_state.hdd_dir[0],
+                       sizeof(g_state.hdd_dir));
+  initialize_directory(REGVALUE_PREF_SAVESTATE_DIR, &g_state.save_state_dir[0],
+                       sizeof(g_state.save_state_dir));
+
+  frontend_update_keyboard_mapping();
+  if (config->caps_lock_mode >= 0) {
+    keyboard_set_caps_mode(config->caps_lock_mode);
+  }
+
+  if (config->debugger_script.at(0) != '\0') {
+    util_safe_strcpy(&g_state.debugger_script[0],
+                     config->debugger_script.data(), path_max_len);
+  }
+
+  g_state.mode = MODE_RUNNING;
+  g_state.restart = false;
+  g_state.fullscreen = config->is_fullscreen;
+
+  bool disable_dbg_config = false;
+  if (config_load_bool("Configuration", REGVALUE_DISABLE_DEBUGGER,
+                       &disable_dbg_config)) {
+    g_state.disable_debugger = config->disable_debugger || disable_dbg_config;
+  } else {
+    g_state.disable_debugger = config->disable_debugger;
+  }
+
+  if (!config->tui_render_mode_explicit) {
+    std::string render_mode_str;
+    if (config_load_string("Configuration", REGVALUE_TUI_RENDER_MODE,
+                           &render_mode_str)) {
+      if (render_mode_str == "block" || render_mode_str == "simple") {
+        config->tui_render_mode = TUI_RENDER_BLOCK;
+      } else if (render_mode_str == "smart" || render_mode_str == "shape") {
+        config->tui_render_mode = TUI_RENDER_SMART;
+      }
+    }
+  }
+
+  if (config->harddisk_path.at(0).at(0) != '\0' ||
+      config->harddisk_path.at(1).at(0) != '\0') {
+    hdd_enabled = true;
+    Configuration_t::instance().set_int("Preferences", "Harddisk Enable", 1);
+    if (config->harddisk_path.at(0).at(0) != '\0') {
+      Configuration_t::instance().set_string(
+          "Preferences", "Harddisk Image 1",
+          config->harddisk_path.at(0).data());
+    }
+    if (config->harddisk_path.at(1).at(0) != '\0') {
+      Configuration_t::instance().set_string(
+          "Preferences", "Harddisk Image 2",
+          config->harddisk_path.at(1).data());
+    }
+    Peripheral_t* p = peripheral_find_internal("linapple.harddisk");
+    if (p != nullptr) {
+      peripheral_register(p, HARDDISK_DEFAULT_SLOT);
+    }
+  }
+
+  std::string sync_file = config->basic_sync_file.data();
+  if (sync_file.empty()) {
+    config_load_string("Configuration", REGVALUE_BASIC_SYNC_FILE, &sync_file);
+  }
+  int line_mode = config->basic_line_mode;
+  if (line_mode < 0) {
+    uint32_t mode_cfg = 0;
+    if (config_load_int("Configuration", REGVALUE_BASIC_LINE_MODE, &mode_cfg)) {
+      line_mode = static_cast<int>(mode_cfg);
+    } else {
+      line_mode = 0;
+    }
+  }
+  if (!sync_file.empty()) {
+    basic_sync_init(sync_file.c_str(), line_mode == 1
+                                           ? basic_line_mode_positional
+                                           : basic_line_mode_explicit);
+  }
+
+  // Check Slot 6 Autoload and Master.dsk fallback
+  uint32_t autoload = 0;
+  bool has_autoload =
+      config_load_int("Configuration", REGVALUE_SLOT6_AUTOLOAD, &autoload) ||
+      config_load_int("Preferences", REGVALUE_SLOT6_AUTOLOAD, &autoload) ||
+      config_load_int("Slots", REGVALUE_SLOT6_AUTOLOAD, &autoload);
+
+  std::string disk1;
+  bool has_disk1 =
+      (config->disk_path.at(0).at(0) != '\0') ||
+      config_load_string("Slots", REGVALUE_DISK_IMAGE1, &disk1) ||
+      config_load_string("Configuration", REGVALUE_DISK_IMAGE1, &disk1) ||
+      config_load_string("Preferences", REGVALUE_DISK_IMAGE1, &disk1);
+
+  if (config->disk_path.at(0).at(0) == '\0') {
+    if (!has_autoload || autoload == 0 || !has_disk1 || disk1.empty()) {
+      asset_insert_master_disk();
+    } else if (has_autoload && autoload != 0 && has_disk1 && !disk1.empty()) {
+      DiskInsertCmd_t cmd{};
+      cmd.drive = disk_drive_0;
+      util_safe_strcpy(cmd.path, disk1.c_str(), disk_insert_path_max);
+      cmd.write_protected = 0;
+      cmd.create_if_necessary = 0;
+      peripheral_command(disk_default_slot, disk_cmd_insert, &cmd, sizeof(cmd));
+
+      std::string disk2;
+      if (config_load_string("Slots", REGVALUE_DISK_IMAGE2, &disk2) ||
+          config_load_string("Configuration", REGVALUE_DISK_IMAGE2, &disk2) ||
+          config_load_string("Preferences", REGVALUE_DISK_IMAGE2, &disk2)) {
+        if (!disk2.empty()) {
+          DiskInsertCmd_t cmd2{};
+          cmd2.drive = disk_drive_1;
+          util_safe_strcpy(cmd2.path, disk2.c_str(), disk_insert_path_max);
+          cmd2.write_protected = 0;
+          cmd2.create_if_necessary = 0;
+          peripheral_command(disk_default_slot, disk_cmd_insert, &cmd2,
+                             sizeof(cmd2));
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
+auto app_controller_handle_diagnostic_commands(const AppConfig_t* config)
+    -> bool {
+  if (config == nullptr) {
+    return false;
+  }
+
+  if (config->intent == INTENT_HELP) {
+    app_args_print_help();
+    return true;
+  }
+
+  if (config->intent == INTENT_DIAGNOSTIC) {
+    if (config->is_list_hardware) {
+      linapple_list_hardware();
+      return true;
+    }
+    if (config->hardware_info_name.at(0) != '\0') {
+      Peripheral_t* p =
+          peripheral_find_internal(config->hardware_info_name.data());
+      if (p != nullptr) {
+        printf("Hardware info: %s\n", p->name);
+        printf("ABI Version: %d\n", p->abi_version);
+        printf("Compatible Slots: ");
+        bool first = true;
+        for (int i = 0; i < NUM_SLOTS; ++i) {
+          if ((p->compatible_slots & (1u << static_cast<uint32_t>(i))) != 0) {
+            if (!first) printf(", ");
+            printf("%d", i);
+            first = false;
+          }
+        }
+        printf("\n");
+        const char* path =
+            peripheral_get_plugin_path(config->hardware_info_name.data());
+        if (path != nullptr) {
+          printf("Plugin Path: %s\n", path);
+        }
+      } else {
+        fprintf(stderr, "error: Unknown hardware '%s'\n",
+                config->hardware_info_name.data());
+      }
+      return true;
+    }
+    if (config->test_cpu_file.at(0) != '\0') {
+      linapple_cpu_test(config->test_cpu_file.data(), config->test_cpu_trap);
+      return true;
+    }
+  }
+
+  return false;
+}
+
+void app_controller_load_initial_media(const AppConfig_t* config) {
+  if (config == nullptr) return;
+
+  // 1. Load Disks or Programs via probing
+  for (int i = 0; i < 2; ++i) {
+    const char* path = (i == 0) ? config->disk_path.at(0).data()
+                                : config->disk_path.at(1).data();
+    if (path != nullptr && *path != '\0') {
+      std::string actual_path = path;
+      if (access(actual_path.c_str(), R_OK) != 0) {
+        size_t pos = actual_path.find_last_of('/');
+        std::string filename = (pos != std::string::npos)
+                                   ? actual_path.substr(pos + 1)
+                                   : actual_path;
+        std::string found = Path::find_data_file(filename.c_str());
+        if (!found.empty()) {
+          actual_path = found;
+        }
+      }
+      int res = linapple_load_program(actual_path.c_str());
+      if (res == program_load_not_a_program) {
+        // It's a disk image (or at least not a program)
+        DiskInsertCmd_t cmd = {};
+        cmd.drive = static_cast<uint8_t>(i);
+        util_safe_strcpy(&cmd.path[0], actual_path.c_str(),
+                         disk_insert_path_max);
+        peripheral_command(disk_default_slot, disk_cmd_insert, &cmd,
+                           sizeof(cmd));
+      }
+    }
+  }
+
+  // 2. Load explicit program path
+  if (config->program_path.at(0) != '\0') {
+    if (linapple_load_program(config->program_path.data()) != 0) {
+      fprintf(stderr, "error: Could not load program '%s'\n",
+              config->program_path.data());
+    }
+  }
+
+  // 3. Load Hard Disks
+  for (int i = 0; i < 2; ++i) {
+    const char* path = config->harddisk_path.at(static_cast<size_t>(i)).data();
+    if (path != nullptr && *path != '\0') {
+      HarddiskInsertCmd_t hcmd{};
+      hcmd.drive = static_cast<uint8_t>(i);
+      util_safe_strcpy(&hcmd.path[0], path, sizeof(hcmd.path));
+      peripheral_command(harddisk_default_slot, harddisk_cmd_insert, &hcmd,
+                         sizeof(hcmd));
+    }
+  }
+
+  // 4. Handle Boot
+  if (config->is_boot) {
+    // Reset the system to boot from disk
+    cpu_reset();
+    peripheral_manager_reset();
+    // Redraw to clear splash
+    video_redraw_screen();
+  }
+}
+
+void app_controller_shutdown() {
+  mem_set_custom_rom_data(nullptr, 0);
+  if (!s_initialized) return;
+
+  basic_sync_shutdown();
+  save_state_shutdown();
+  linapple_shutdown();
+  Logger::destroy();
+
+  s_initialized = false;
+}
+
+auto app_controller_should_restart() -> bool { return g_state.restart; }
+
+void app_controller_set_restart(bool restart) { g_state.restart = restart; }

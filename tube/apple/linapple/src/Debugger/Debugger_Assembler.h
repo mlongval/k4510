@@ -1,0 +1,210 @@
+// SPDX-License-Identifier: GPL-2.0-only
+#pragma once
+
+#include <string>
+#include <vector>
+
+#include "Debugger_Types.h"
+#include "Util_MemoryTextFile.h"
+
+// Directives
+
+// Assemblers
+//     A = Acme
+//     B = Big Mac            S= S-C Macro Assembler
+//     D = DOS Tool Kit       T = TED II
+//     L = Lisa               W = Weller's Assembler
+//     M = Merlin
+//     u = MicroSparc
+//     O = ORCA/M
+enum Assemblers_e {
+  ASM_ACME,
+  ASM_BIG_MAC,
+  ASM_DOS_TOOL_KIT,
+  ASM_LISA,
+  ASM_MERLIN,
+  ASM_MICROSPARC,
+  ASM_ORCA,
+  ASM_SC,
+  ASM_TED,
+  ASM_WELLERS,
+  ASM_CUSTOM,
+  NUM_ASSEMBLERS
+};
+
+enum AsmAcmeDirective_e { ASM_A_DEFINE_BYTE, NUM_ASM_A_DIRECTIVES };
+
+enum AsmBigMacDirective_e { ASM_B_DEFINE_BYTE, NUM_ASM_B_DIRECTIVES };
+
+enum AsmDosToolKitDirective_e { ASM_D_DEFINE_BYTE, NUM_ASM_D_DIRECTIVES };
+
+enum AsmLisaDirective_e { ASM_L_DEFINE_BYTE, NUM_ASM_L_DIRECTIVES };
+
+enum AsmMerlinDirective_e {
+  ASM_M_ASCII,
+  ASM_M_DEFINE_WORD,
+  ASM_M_DEFINE_BYTE,
+  ASM_M_DEFINE_STORAGE,
+  ASM_M_HEX,
+  ASM_M_ORIGIN,
+  NUM_ASM_M_DIRECTIVES,
+  ASM_M_DEFINE_BYTE_ALIAS,
+  ASM_M_DEFINE_WORD_ALIAS
+};
+
+enum AsmMicroSparcDirective_e { ASM_u_DEFINE_BYTE, NUM_ASM_u_DIRECTIVES };
+
+enum AsmOrcamDirective_e { ASM_O_DEFINE_BYTE, NUM_ASM_O_DIRECTIVES };
+
+enum AsmSCMacroDirective_e {
+  ASM_S_ORIGIN,
+  ASM_S_TARGET_ADDRESS,
+  ASM_S_END_PROGRAM,
+  ASM_S_EQUATE,
+  ASM_S_DATA,
+  ASM_S_ASCII_STRING,
+  ASM_S_HEX_STRING,
+  NUM_ASM_S_DIRECTIVES
+};
+
+enum AsmTedDirective_e { ASM_T_DEFINE_BYTE, NUM_ASM_T_DIRECTIVES };
+
+enum AsmWellersDirective_e { ASM_W_DEFINE_BYTE, NUM_ASM_W_DIRECTIVES };
+
+enum AsmCustomDirective_e {
+  ASM_DEFINE_BYTE,
+  ASM_DEFINE_WORD
+  //		,ASM_DEFINE_ADDRESS_8
+  ,
+  ASM_DEFINE_ADDRESS_16
+  // String/Text/Ascii
+  ,
+  ASM_DEFINE_ASCII_TEXT,
+  ASM_DEFINE_APPLE_TEXT,
+  ASM_DEFINE_TEXT_HI_LO  // i.e. Applesoft Basic Tokens
+  // FAC
+  ,
+  ASM_DEFINE_FLOAT  // Applesoft float
+  ,
+  ASM_DEFINE_FLOAT_X  // Applesoft float unpacked/expanded
+  ,
+  NUM_ASM_Z_DIRECTIVES
+};
+
+// NOTE: Keep in sync AsmDirectives_e g_assembler_directives !
+enum AsmDirectives_e {
+  FIRST_A_DIRECTIVE = 1,                                         // Acme
+  FIRST_B_DIRECTIVE = FIRST_A_DIRECTIVE + NUM_ASM_A_DIRECTIVES,  // Big Mac
+  FIRST_D_DIRECTIVE = FIRST_B_DIRECTIVE + NUM_ASM_B_DIRECTIVES,  // DOS Tool Kit
+  FIRST_L_DIRECTIVE = FIRST_D_DIRECTIVE + NUM_ASM_D_DIRECTIVES,  // Lisa
+  FIRST_M_DIRECTIVE = FIRST_L_DIRECTIVE + NUM_ASM_L_DIRECTIVES,  // Merlin
+  FIRST_u_DIRECTIVE = FIRST_M_DIRECTIVE + NUM_ASM_M_DIRECTIVES,  // MicroSparc
+  FIRST_O_DIRECTIVE = FIRST_u_DIRECTIVE + NUM_ASM_u_DIRECTIVES,  // Orca
+  FIRST_S_DIRECTIVE = FIRST_O_DIRECTIVE + NUM_ASM_O_DIRECTIVES,  // SC
+  FIRST_T_DIRECTIVE = FIRST_S_DIRECTIVE + NUM_ASM_S_DIRECTIVES,  // Ted
+  FIRST_W_DIRECTIVE = FIRST_T_DIRECTIVE + NUM_ASM_T_DIRECTIVES,  // Weller
+  FIRST_Z_DIRECTIVE = FIRST_W_DIRECTIVE + NUM_ASM_W_DIRECTIVES,  // Custom
+  NUM_ASM_DIRECTIVES = FIRST_Z_DIRECTIVE + NUM_ASM_Z_DIRECTIVES
+
+  //		NUM_ASM_DIRECTIVES =  1 +  // Opcode ... rest are psuedo opcodes
+  //			NUM_ASM_A_DIRECTIVES + // Acme
+  //			NUM_ASM_B_DIRECTIVES + // Big Mac
+  //			NUM_ASM_D_DIRECTIVES + // DOS Tool Kit
+  //			NUM_ASM_L_DIRECTIVES + // Lisa
+  //			NUM_ASM_M_DIRECTIVES + // Merlin
+  //			NUM_ASM_u_DIRECTIVES + // MicroSparc
+  //			NUM_ASM_O_DIRECTIVES + // Orca
+  //			NUM_ASM_S_DIRECTIVES + // SC
+  //			NUM_ASM_T_DIRECTIVES + // Ted
+  //			NUM_ASM_W_DIRECTIVES   // Weller
+};
+
+extern int g_assembler_syntax;
+extern int g_assembler_first_directive[NUM_ASSEMBLERS];
+
+// Addressing
+// _____________________________________________________________________________________
+
+extern AddressingMode_t g_opmodes[NUM_ADDRESSING_MODES];
+
+// Assembler
+// ______________________________________________________________________________________
+
+// Hashing for Assembler
+typedef uint32_t Hash_t;
+
+struct HashOpcode_t {
+  int opcode;
+  Hash_t value;
+
+  // functor
+  auto operator()(const HashOpcode_t& rLHS, const HashOpcode_t& rRHS) const
+      -> bool {
+    bool bLessThan = (rLHS.value < rRHS.value);
+    return bLessThan;
+  }
+};
+
+struct AssemblerDirective_t {
+  const char* mnemonic;
+  Hash_t hash;
+};
+
+extern int g_assembler_opcodes_hashed;      // = false;
+extern Hash_t g_opcodes_hash[NUM_OPCODES];  // for faster mnemonic lookup, for
+                                            // the assembler
+extern bool g_assembler_input;              // = false;
+extern int g_assembler_address;             // = 0;
+
+extern const Opcodes_t* g_opcodes;  // = nullptr; // & g_opcodes65_c02[ 0 ];
+
+extern const Opcodes_t g_opcodes65_c02[NUM_OPCODES];
+extern const Opcodes_t g_opcodes6502[NUM_OPCODES];
+
+extern AssemblerDirective_t g_assembler_directives[NUM_ASM_DIRECTIVES];
+
+// Prototypes _______________________________________________________________
+
+auto GetOpmodeOpbyte(const int iAddress, int& iOpmode_, int& nOpbytes_,
+                     const DisasmData_t** data = nullptr) -> int;
+auto GetOpcodeOpmodeOpbyte(int& iOpcode_, int& iOpmode_, int& nOpbytes_)
+    -> void;
+auto GetStackReturnAddress(uint16_t& nAddress_) -> bool;
+auto GetTargets(uint16_t address, int* pTargetPartial_, int* pTargetPartial2_,
+                int* pTargetPointer_, int* pBytes_, bool bIgnoreBranch = true,
+                bool bIncludeNextOpcodeAddress = true) -> bool;
+auto GetTargetAddress(const uint16_t& address, uint16_t& nTarget_) -> bool;
+auto IsOpcodeBranch(int nOpcode) -> bool;
+auto IsOpcodeValid(int nOpcode) -> bool;
+
+auto AssemblerHashMnemonic(const char* pMnemonic) -> uint32_t;
+auto CmdAssembleHashDump() -> void;
+
+auto AssemblerDelayedTargetsSize() -> int;
+auto AssemblerStartup() -> void;
+auto Assemble(int iArg, int nArgs, uint16_t address) -> bool;
+
+auto AssemblerOn() -> void;
+auto AssemblerOff() -> void;
+
+auto debugger_get_file_size(FILE* file) -> size_t;
+auto CmdAssemble(uint16_t address, int iArg, int nArgs) -> Update_t;
+
+auto CmdAssemble(int nArgs) -> Update_t;
+auto CmdSource(int nArgs) -> Update_t;
+auto CmdUnassemble(int nArgs) -> Update_t;
+
+extern bool g_source_level_debugging;
+extern bool g_source_add_symbols;
+extern bool g_source_add_memory;
+extern std::string g_source_file_name;
+extern MemoryTextFile_t g_assembler_source_buffer;
+extern int g_source_display_start;
+extern int g_source_assemble_bytes;
+extern int g_source_assembly_symbols;
+extern SourceAssembly_t g_source_debug;
+
+auto BufferAssemblyListing(const std::string& pFileName) -> bool;
+auto ParseAssemblyListing(bool bBytesToMemory, bool bAddSymbols) -> bool;
+auto FindAddressFromSourceLine(int nLine) -> int;
+auto FindSourceLineFromAddress(uint16_t address) -> int;

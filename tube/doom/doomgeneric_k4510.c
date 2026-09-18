@@ -55,9 +55,12 @@
 /* Bumped when the segment's shape changed to carry the OPL ring (2026-09-17).
  * A host and a child built either side of that change must refuse each other
  * rather than read past one another's ends, and the magic is what says so. */
-#define DOOM_MAGIC 0x4D344D44u        /* "DM4M": bumped again with the PCM ring, the same day */
+#define DOOM_MAGIC 0x4E344D44u        /* "DM4N": bumped for the PCM ring, then again when the Apple IIe joined (a frame size, a key ring) */
 #define OPL_RING_N 2048               /* (reg << 8) | val; a burst of music is dozens */
 #define PCM_RING_N 8192               /* unsigned 8-bit at 11025 Hz: three quarters of a second */
+#define KEY_RING_N 256
+#define FB_MAX_W 560                  /* the segment is sized for the Apple IIe's frame; DOOM uses the first 64000 bytes */
+#define FB_MAX_H 384
 
 struct doom_shm {
     uint32_t magic;
@@ -65,9 +68,9 @@ struct doom_shm {
     uint32_t held;                    /* the emulator writes; we read */
     uint32_t quit;                    /* the emulator asks us to stop */
     uint32_t pal_seq;                 /* bumped when the palette below changes */
-    uint32_t pad[3];
+    uint32_t fb_w, fb_h, pad;         /* how big fb is this time: DOOM says 320x200 */
     uint8_t  pal[256 * 3];            /* R,G,B per entry, as DOOM has them */
-    uint8_t  fb[DOOM_W * DOOM_H];     /* one byte a pixel, palette indices */
+    uint8_t  fb[FB_MAX_W * FB_MAX_H]; /* one byte a pixel, palette indices */
     /* MELODY's register writes: we push, the emulator drains from its
      * scanline hook and performs them on the real chip.  One way only --
      * a read could never be the answer to a write across this. */
@@ -77,6 +80,8 @@ struct doom_shm {
      * emulator clocks them into the DigiMAX's DAC 0 at 11025 a second. */
     uint32_t pcm_w, pcm_r;
     uint8_t  pcm_ring[PCM_RING_N];
+    uint32_t key_w, key_r;            /* the Apple IIe's key events; DOOM reads `held` instead */
+    uint32_t key_ring[KEY_RING_N];
 };
 
 /* The held-key bits.  These are the emulator's; core/io.h names them
@@ -150,7 +155,8 @@ void DG_Init(void)
     shm = mmap(NULL, sizeof *shm, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
     close(fd);
     if (shm == MAP_FAILED) { shm = NULL; fprintf(stderr, "doom: cannot map the frame buffer\r\n"); return; }
-    if (shm->magic != DOOM_MAGIC) { fprintf(stderr, "doom: the frame buffer is not ours\r\n"); munmap(shm, sizeof *shm); shm = NULL; }
+    if (shm->magic != DOOM_MAGIC) { fprintf(stderr, "doom: the frame buffer is not ours\r\n"); munmap(shm, sizeof *shm); shm = NULL; return; }
+    shm->fb_w = DOOM_W; shm->fb_h = DOOM_H;
 }
 
 void DG_DrawFrame(void)
@@ -162,7 +168,7 @@ void DG_DrawFrame(void)
      * straight copy -- no colour conversion, and none wanted: VICKY's
      * bitmap is 8 bpp with a palette of its own, which is the same shape
      * DOOM has drawn in since 1993. */
-    memcpy(shm->fb, DG_ScreenBuffer, sizeof shm->fb);
+    memcpy(shm->fb, DG_ScreenBuffer, (size_t) DOOM_W * DOOM_H);
 
     if (palette_changed) {
         for (int i = 0; i < 256; i++) {

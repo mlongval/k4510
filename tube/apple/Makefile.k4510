@@ -1,0 +1,70 @@
+# tube/apple/Makefile.k4510 -- the Apple IIe co-processor: LinApple's core with
+# the K4510's frontend, built the way DOOM is (tube/doom/Makefile.k4510): a
+# plain makefile, no CMake, so that the K4510 Linux -- which has g++ and make
+# and nothing else of LinApple's build -- can compile it in the image.
+#
+# What CMake would have made is checked in under generated/: the charset .xpm
+# files ImageMagick converts from res/*.png, and EmbeddedRoms.cpp from
+# res/roms/ (tools: `cmake -B build -DFRONTEND=headless` in an upstream
+# checkout; copy build/gen and build/generated/roms).  ALTERED-K4510.md has
+# the provenance and every edit to the vendored tree.
+CXX     ?= g++
+CC      ?= gcc
+L        = linapple
+CXXFLAGS += -O2 -std=c++17 -Wall -Wno-unused-parameter -Wno-unused-variable -Wno-sign-compare -Wno-unused-but-set-variable \
+            -I$(L)/src -I$(L)/src/core -I$(L)/src/apple2 -I$(L)/src/apple2/chips -I$(L)/src/apple2/peripherals -I$(L)/src/apple2/peripherals/disk -I$(L)/src/apple2/peripherals/harddisk -I$(L)/src/apple2/peripherals/mouse -I$(L)/src/frontends/common -I$(L)/src/Debugger -Itui -Igenerated/gen -Igenerated/roms -I$(L)/res -I$(L)/src/frontends/headless \
+            -DHEADLESS -DLINAPPLE_NO_COMPRESSED_IMAGES -DLINAPPLE_NO_CURL \
+            -DASSET_DIR=\"/nonexistent\" -DVERSIONSTRING=\"k4510\" \
+            -DENABLE_PERIPHERAL_CLOCK -DENABLE_PERIPHERAL_DISK -DENABLE_PERIPHERAL_HARDDISK -DENABLE_PERIPHERAL_JOYSTICK \
+            -DENABLE_PERIPHERAL_KEYBOARD -DENABLE_PERIPHERAL_MOCKINGBOARD -DENABLE_PERIPHERAL_MOUSE -DENABLE_PERIPHERAL_PRINTER \
+            -DENABLE_PERIPHERAL_SPEAKER -DENABLE_PERIPHERAL_SUPER_SERIAL -DENABLE_RIFF \
+            -DENABLE_ROM_APPLE2=1 -DENABLE_ROM_APPLE2E=1 -DENABLE_ROM_APPLE2ENHANCED=1 -DENABLE_ROM_APPLE2PLUS=1 -DENABLE_ROM_APPLE2_JPLUS=1 \
+            -DENABLE_ROM_CLOCK=1 -DENABLE_ROM_CLONE_BASE64A=0 -DENABLE_ROM_CLONE_PRAVETS=0 -DENABLE_ROM_CLONE_TK3000E=0 \
+            -DENABLE_ROM_DISK2=1 -DENABLE_ROM_MOCKINGBOARD=1 -DENABLE_ROM_MOUSE=1 -DENABLE_ROM_PRINTER=1 -DENABLE_ROM_SSC=1
+CFLAGS  += -O2 -Wall
+LDLIBS  += -lm -lpthread
+
+OBJDIR  = build
+OUTPUT  = apple_k4510
+
+SRC_CXX = generated/roms/EmbeddedRoms.cpp \
+  $(L)/src/Debugger/Debugger_Stubs.cpp $(L)/src/apple2/CPU.cpp $(L)/src/apple2/Memory.cpp $(L)/src/apple2/Snapshot.cpp $(L)/src/apple2/Video.cpp \
+  $(L)/src/apple2/chips/6821.cpp $(L)/src/apple2/chips/AY8910.cpp \
+  $(L)/src/apple2/peripherals/Peripheral.cpp $(L)/src/apple2/peripherals/Peripheral_Internal.cpp $(L)/src/apple2/peripherals/clock/Clock.cpp \
+  $(L)/src/apple2/peripherals/disk/Disk.cpp $(L)/src/apple2/peripherals/disk/DiskEncoding.cpp $(L)/src/apple2/peripherals/disk/DiskLoader.cpp \
+  $(L)/src/apple2/peripherals/disk/formats/BitstreamDiskImage.cpp $(L)/src/apple2/peripherals/disk/formats/DiskContainer.cpp \
+  $(L)/src/apple2/peripherals/disk/formats/DoDriver.cpp $(L)/src/apple2/peripherals/disk/formats/IieDriver.cpp $(L)/src/apple2/peripherals/disk/formats/Nb2Driver.cpp \
+  $(L)/src/apple2/peripherals/disk/formats/NibDriver.cpp $(L)/src/apple2/peripherals/disk/formats/PoDriver.cpp $(L)/src/apple2/peripherals/disk/formats/SectorDiskImage.cpp \
+  $(L)/src/apple2/peripherals/disk/formats/Woz2Driver.cpp \
+  $(L)/src/apple2/peripherals/harddisk/Harddisk.cpp $(L)/src/apple2/peripherals/harddisk/HarddiskLoader.cpp \
+  $(L)/src/apple2/peripherals/harddisk/formats/BlockDiskImage.cpp $(L)/src/apple2/peripherals/harddisk/formats/RawHdDriver.cpp $(L)/src/apple2/peripherals/harddisk/formats/TwoImgDriver.cpp \
+  $(L)/src/apple2/peripherals/joystick/Joystick.cpp $(L)/src/apple2/peripherals/keyboard/Keyboard.cpp \
+  $(L)/src/apple2/peripherals/mockingboard/Mockingboard.cpp $(L)/src/apple2/peripherals/mouse/Mouse.cpp $(L)/src/apple2/peripherals/printer/Printer.cpp \
+  $(L)/src/apple2/peripherals/speaker/Speaker.cpp $(L)/src/apple2/peripherals/super_serial_card/SuperSerial.cpp \
+  $(L)/src/core/Asset.cpp $(L)/src/core/BasicLiveSync.cpp $(L)/src/core/LinAppleCore.cpp $(L)/src/core/Log.cpp $(L)/src/core/ProgramLoader.cpp \
+  $(L)/src/core/Registry.cpp $(L)/src/core/Resource.cpp \
+  $(L)/src/frontends/common/AppArgs.cpp $(L)/src/frontends/common/AppController.cpp $(L)/src/frontends/common/AppEnvironment.cpp \
+  $(L)/src/frontends/common/AudioDumper.cpp $(L)/src/frontends/common/AudioMixer.cpp $(L)/src/frontends/common/FileBrowser.cpp \
+  $(L)/src/frontends/common/KeyboardTranslator.cpp $(L)/src/frontends/common/PrinterFrontend.cpp $(L)/src/frontends/common/SaveStateManager.cpp \
+  $(L)/src/frontends/common/SuperSerialFrontend.cpp $(L)/src/frontends/common/Util_Hash.cpp $(L)/src/frontends/common/VideoStretch.cpp \
+  $(L)/src/frontends/common/VideoSurface.cpp $(L)/src/frontends/headless/Headless_Path.cpp $(L)/src/frontends/headless/Stubs.cpp \
+  apple_k4510.cpp
+SRC_C   = $(L)/src/apple2/peripherals/keyboard/Keyboard_Maps.c
+
+OBJS = $(addprefix $(OBJDIR)/, $(SRC_CXX:.cpp=.o) $(SRC_C:.c=.o))
+
+all: $(OUTPUT)
+
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(dir $@)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(dir $@)
+	$(CC) $(CFLAGS) -I$(L)/src -c $< -o $@
+
+$(OUTPUT): $(OBJS)
+	$(CXX) $(OBJS) $(LDLIBS) -o $@
+
+clean:
+	rm -rf $(OBJDIR) $(OUTPUT)
+.PHONY: all clean

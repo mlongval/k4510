@@ -10197,3 +10197,57 @@ shell's text carrying on beneath it. Not on the Dell yet: it was offline.
 
 Not done: t=s shared memory, animation, z-order under the text, unicode
 placeholders; a save state does not carry the pictures.
+
+## 2026-09-17 — an Apple IIe on the Tube
+
+Doc: "can you have a look at making an apple IIe emulator ... Tube
+co-processor ... games should work", and, when I leaned towards writing one:
+"tell me why we just dont port an existing apple iie emulator". No reason
+that survived being said out loud: DOOM is vendored GPL on the Tube already,
+and the games are the hard part -- exactly the part a mature emulator has
+spent years on. So: a port.
+
+**LinApple**, not the one I remembered. It has been rebuilt around a
+frontend-neutral core (`linapple_run_frame`, a video callback with RGBA, an
+audio callback with samples, `linapple_set_key_state`) with a headless
+frontend in the tree, GPL-2, commits the same day. That interface IS the
+Tube's shape. Vendored at `bbe6aa6` into tube/apple/linapple with two
+`[K4510]` guards -- compressed disk images (zlib, libzip) and the curl
+include, neither library being on the K4510 Linux -- and a plain
+Makefile.k4510 in place of CMake, with the two things CMake generates (the
+charset XPMs, the embedded ROMs) checked in under generated/. So the image
+builds it with g++ and make, as it builds DOOM, and no base rebuild.
+
+Doc's own ROM dumps from his Enhanced IIe are byte for byte what LinApple
+embeds (SHA-256 aab38a03..., 52c3b879...). They live in /DISK/APPLE, outside
+the repo, and are not needed by the build.
+
+**apple_k4510.cpp** is the frontend: 60 frames a second by the wall clock,
+the 560x384 frame as palette indices with each new colour given the next
+VICKY entry (exact colours; a IIe has a few dozen), the speaker at 44100 Hz
+into the DigiMAX's stream, key events with the Apple keys on the Alts and a
+joystick on the keypad. The shared segment grew a frame size and a key ring
+(magic "DM4N"); DOOM's copy of the struct moved with it. The ROM got APPLE
+[disk] by putting DOOM and APPLE in the command table instead of the
+if-chain, which is what made room: ROM2 was 19 bytes over.
+
+Three hours of it were two things that deserve their sentences. (1)
+`peripheral_command` only QUEUES; the queue is worked in
+`peripheral_manager_think`, so the disk app_controller inserts arrived one
+frame after the boot ROM had already found an empty drive and dropped into
+BASIC -- and a hard reset re-makes the peripherals, throwing away a disk
+inserted before it. Reset, think(0), insert, boot the spindle, think(0),
+then the first frame. (2) The Disk II's ROM was never installed because I had
+guessed the tail of CMake's define list from a printout cut at 600
+characters: it is ENABLE_ROM_DISK2, not ENABLE_ROM_DISK. $C600 read as zeros
+was what finally said so. Read the whole output. Again.
+
+And one more: LinApple's keyboard wants every press let go before the next
+is taken, and the machine's key queue carries presses only -- so a typed
+CATALOG came out as a column of empty prompts. The emulator now taps.
+
+Verified: alone, DOS 3.3 boots from the master disk and CATALOG lists it
+(test/appletest.sh, through test/apple_harness.py); in the real emulator,
+APPLE at the prompt, CATALOG and a PRINT typed through the machine's own
+keys, and thirty Applesoft beeps measured in the machine's audio output.
+Not tried yet: a game, a .woz, the joystick, and the Dell -- offline.

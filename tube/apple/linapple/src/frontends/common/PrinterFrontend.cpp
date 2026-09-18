@@ -1,0 +1,70 @@
+// SPDX-License-Identifier: GPL-2.0-only
+#include "frontends/common/PrinterFrontend.h"
+
+#include <cstdint>
+#include <cstdio>
+
+#include "core/LinAppleCore.h"
+#include "core/Util_Path.h"
+
+constexpr uint32_t DEFAULT_PRINTER_IDLE_LIMIT = 10;
+constexpr uint32_t CYCLES_PER_SEC = 1000000;
+constexpr uint8_t ASCII_7BIT_MASK = 0x7F;
+
+static uint32_t inactivity = 0;
+static uint32_t g_printer_idle_limit = DEFAULT_PRINTER_IDLE_LIMIT;
+static FilePtr_t file(nullptr, fclose);
+bool g_printer_append = true;
+
+static auto check_print() -> bool {
+  inactivity = 0;
+  if (!file) {
+    file.reset(fopen(g_state.parallel_printer_file.data(),
+                     (g_printer_append) ? "ab" : "wb"));
+  }
+  return (file != nullptr);
+}
+
+static void close_print() {
+  file.reset();
+  inactivity = 0;
+}
+
+void printer_frontend_initialize() {
+  // Initialization logic if any
+}
+
+void printer_frontend_destroy() { close_print(); }
+
+void printer_frontend_reset() { close_print(); }
+
+void printer_frontend_update(uint32_t totalcycles) {
+  if (!file) {
+    return;
+  }
+  if ((inactivity += totalcycles) >
+      (printer_get_idle_limit() * CYCLES_PER_SEC)) {
+    // inactive, so close the file (next print will overwrite it)
+    close_print();
+  }
+}
+
+void printer_frontend_send_char(uint8_t value) {
+  if (!check_print()) {
+    return;
+  }
+  char c = static_cast<char>(value & ASCII_7BIT_MASK);
+  fwrite(&c, 1, 1, file.get());
+}
+
+auto printer_frontend_check_status() -> uint8_t {
+  constexpr uint8_t status_ready = 0x7F;
+  constexpr uint8_t status_offline = 0xFF;
+  return check_print() ? status_ready : status_offline;
+}
+
+auto printer_get_idle_limit() -> uint32_t { return g_printer_idle_limit; }
+
+void printer_set_idle_limit(uint32_t Duration) {
+  g_printer_idle_limit = Duration;
+}

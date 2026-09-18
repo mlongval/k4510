@@ -179,3 +179,8 @@ fs/DISK/*
 # includes.chroot is swept into the machine layer (OVERLAY_FILES) -- so this
 # would deploy bytecode onto the Dell.
 linux/config/includes.chroot/**/__pycache__/
+
+# >>> nuked (tools/nuke.py; from SHIPPING.CFG) >>>
+/fs/APPS/ANSIDEMO/
+/fs/APPS/SEGDEMO/
+# <<< nuked <<<

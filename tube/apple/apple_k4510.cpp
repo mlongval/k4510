@@ -160,7 +160,7 @@ static void take_keys(void)
         case KE_JOY_AXIS: { JoystickAxisPayload_t p = { 0, (uint8_t) code, (uint8_t) value, 0 }; peripheral_command(0, JOY_CMD_SET_AXIS, &p, sizeof p); break; }
         case KE_JOY_BUTTON:   linapple_set_joystick_button((int) code, down); break;
         case KE_RESET:        if (down) linapple_reset_soft(); break;   /* Ctrl-Reset: the CPU only, as on the machine -- a hard reset would empty the drive */
-        case KE_VIDEO:        if (down) g_videotype = (g_videotype + 1) % VT_NUM_MODES; break;   /* Ctrl+Alt+V: cycle the colour rendering; no one mode is right for every Apple game */
+        case KE_VIDEO:        if (down) { g_videotype = (g_videotype + 1) % VT_NUM_MODES; video_reinitialize(); } break;   /* Ctrl+Alt+V: cycle the colour rendering.  g_videotype only picks which source tiles are built, so rebuild them (create_identity_palette + video_init_buffers) or the change never shows */
         }
     }
 }

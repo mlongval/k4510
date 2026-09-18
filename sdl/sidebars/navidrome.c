@@ -386,7 +386,8 @@ static void *player(void *unused)
 /* the frontend, once a second: is this sidebar on the glass? */
 void navi_active(int on)
 {
-    if (forced) on = 1;                                              /* RADIO ON / PLAY: it plays whether or not the sidebar is on the glass */
+    if (forced > 0) on = 1;                                          /* RADIO ON / PLAY: it plays whether or not the sidebar is on the glass */
+    if (forced < 0) on = 0;                                          /* RADIO OFF: and stays off even with the sidebar up, until RADIO PLAY (it said "off" and played on, 2026-09-17) */
     if (on && !running) { want_on = 1; running = 1; if (pthread_create(&th, NULL, player, NULL)) { running = 0; want_on = 0; } else pthread_detach(th); }
     else if (!on && want_on) want_on = 0;                            /* the thread notices, empties the ring and ends */
 }
@@ -503,7 +504,7 @@ void navi_command(const char *cmd, char *reply, size_t max)
     if (!strcmp(word, "NEXT")) { if (!running) { radio_line(reply, max, "the radio is off"); return; } skip_req = 1; radio_line(reply, max, "next"); return; }
     if (!strcmp(word, "PAUSE")) { paused = 1; radio_line(reply, max, "paused"); return; }
     if (!strcmp(word, "RESUME")) { paused = 0; radio_line(reply, max, "playing"); return; }
-    if (!strcmp(word, "OFF") || !strcmp(word, "STOP")) { forced = 0; paused = 0; navi_active(0); radio_line(reply, max, "off"); return; }
+    if (!strcmp(word, "OFF") || !strcmp(word, "STOP")) { forced = -1; paused = 0; navi_active(0); radio_line(reply, max, "off"); return; }
     if (!strcmp(word, "ON")) { forced = 1; paused = 0; navi_active(1); radio_line(reply, max, "on"); return; }
     if (!strcmp(word, "PLAY") || !strcmp(word, "ALBUM") || !strcmp(word, "ARTIST") || !strcmp(word, "SONG")) {
         char want[96];

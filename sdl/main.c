@@ -288,6 +288,11 @@ static void audio_cb(void *ud, Uint8 *stream, int len)
     int gap = 0;
     for (int i = 0; i < n; i++) { if (ring_h != ring_w) out[i] = ring[ring_h++ & RING_MASK]; else { out[i] = 0; gap = 1; } }
     if (gap && io_audio_gaps != 0xFFFF) io_audio_gaps++;     /* one per callback that ran dry: what "choppy" is, counted */
+    navi_mix(out, n);                                        /* the Navidrome radio, decoded elsewhere, mixed HERE on the audio
+                                                             * thread (near idle) -- not on the emulation thread, which is at
+                                                             * 80% of a core running the machine and starved the radio to a
+                                                             * scratch (Doc, 2026-09-17: aplay alone was clean, so it is the
+                                                             * thread, not the audio path). */
 }
 #define CPU_HZ 40500000           /* MEGA65-class; the ceiling is ours, per the design */
 /* the emulated clock is a setting (cpu.clock): full on the desktop, 20 MHz on
@@ -691,7 +696,7 @@ static void line_end(int vol)                 /* the scanline's picture and soun
      * so the frame hook would be far too coarse.  Cheap and silent otherwise. */
     io_tube_opl_drain();
     if (sndq_owner() == SNDQ_OWNER_CPU)
-    { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256); navi_mix(tmp, n);   /* the Navidrome sidebar's music, when it is playing: before the volume, so the volume governs it */
+    { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
       for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */ }
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
@@ -1622,7 +1627,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             int vol = settings_get(SET_AUDIO_VOLUME);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
-                int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256); navi_mix(tmp, n);   /* the Navidrome sidebar's music, when it is playing: before the volume, so the volume governs it */
+                int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
                 for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */

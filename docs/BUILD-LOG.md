@@ -10280,3 +10280,61 @@ Verified against the stand-in server in the real emulator: SEARCH lists an
 artist, an album and a song; ALBUM plays track one; NEXT plays track two;
 PAUSE is two seconds of silence in the audio output and RESUME is not. The
 Dell, against the real Navidrome, next.
+
+## 2026-09-18 — four brainshots: the marks, VI's wrap, a watcher, WALL
+
+Doc left four with IDEA between 12:15 and 12:20.  The session that read them
+committed his SHIPPING.CFG marks, nuked ANSIDEMO and SEGDEMO, moved nvim's
+swap files beside the file -- and then its login expired in the middle of the
+second one.  This entry is the rest, picked up from its transcript.  The
+lesson is the old one: what is only in a session is not anywhere.
+
+**The watcher.**  "scans the k4510 on Dell at interval to notice these
+BRAINSHOTS as soon as possible, without overloading the system."
+`k4510-remote peek` is one ssh that lists two folders, and a second only when
+there is something to fetch; it moves nothing and does not write .seen, so
+`ideas` still finds them new.  What it finds is staged and named in NEW once.
+A Dell that is away is exit 0, so the two-minute user timer
+(tools/k4510-brainwatch-install) is never a failed unit: 61 ms of CPU a run,
+measured.  A timer cannot interrupt a chat, so `watch` is the other half --
+peek in a loop until one arrives, for a session to leave in the background.
+
+**VI: :set wrap.**  "definable line wrap like nvim."  Folded by default, as
+vim; `set nowrap` in VI.RC for the old sideways scroll; `:set wrap!` changes
+over; gj gk by a screen row.  `top` stays a file line and a row is the sum of
+the heights above it -- a length byte each from far memory, a screenful at
+most -- and only a line whose HEIGHT changed asks for the full redraw, so
+the flicker the one-line redraw was written to stop does not come back.
+The test found a bug three weeks older than the feature: draw_row erased to
+end of line after a row full to its last cell, and JIM, like a VT100, keeps
+the cursor ON that cell until the next character (pending wrap) -- so the
+erase took the 80th character of every long line VI ever showed.
+
+**WALL.**  "interactive ... Either multiple choice or free text ... avoid
+having to switch between the k4510 and my phone."  A message is a file in
+/SYSTEM/WALL/INBOX, the answer a file of the same name in OUTBOX;
+`k4510-remote wall 'text' [--ask | --choices 'a|b|c'] [--wait S]` on one end,
+WALL (demo/wall.c, 3 KB) on the other.  Nothing in the ROM -- ROM2 was 19
+bytes over last week -- and nothing that polls.  The sender types WALL for
+him only when the prompt is idle; into VI, or into half a command, a typed
+WALL is worse than a message that waits.  The answer is written before the
+message is deleted.  Text goes through the code page both ways.
+
+**The terminal to Claude.**  He asked whether a permanent terminal and a task
+switch were feasible.  The session before this one told him it meant
+suspending the app.  It does not: Ctrl+Alt+F2 has been a second console
+since the Tektronix, and the emulator does not stop when it is not looked
+at.  tty2 running ssh into a tmux on ubuntu-s1 is the whole feature, and the
+cost is a key on a machine that boots from a stick -- which is why it is a
+note (docs/notes/host-terminal-design.md) and not a commit.
+
+**What his marks broke.**  chapter:05-msbasic and chapter:09-cpm are the
+first chapters ever marked nope, and ten references point into them: mkweb
+stops, rightly, and wrongly has already emptied doc/site/docs by then.  Not
+patched over: what a sentence says about a chapter that is not there is his
+to write.  docs/TODO.md has the ten places.
+
+Verified: test/vitest.sh, test/walltest.sh (both in make test), keytest and
+msbasictest still pass; wall end to end against a headless machine, with
+accents, by hand.  Not verified: anything on the Dell -- it was on its
+Fedora side all day.

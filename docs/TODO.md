@@ -20,6 +20,33 @@ Pi port was removed 2026-09-07, the SIDs 2026-09-05, the names settled
 - [ ] **The T480 stick** is still on a build from before the line editor.
       A full `linux/build-live.sh` on the laptop (sudo needs Doc's password).
 
+## From the 2026-09-18 marks (SHIPPING.CFG: two chapters `nope`, two demos `nuke`)
+
+- [ ] **The handbook does not build.**  `make-guide.sh` stops in mkweb on
+      `\ref{cha:cpm}`: chapter:09-cpm and chapter:05-msbasic are `nope` and ten
+      references in seven chapters still point into them (01-machine:241,
+      02-shell:50,122,124, 04-ehbasic:11, 06-tube:9, 10-pascal:27,45,
+      11-editors:336, z2-thanks:44).  Each is a sentence to rewrite or wrap in
+      `\shipif` -- Doc's words, so Doc's decision.  Until then the three
+      editions are at their 2026-09-17 state: VI's `:set wrap` and WALL are in
+      the source (11-editors.tex, mkref.py) and in no edition.
+- [ ] **mkweb empties doc/site/docs before it knows it can finish.**  A failed
+      build leaves the web edition deleted (git checkout brings it back).
+      Build into a temporary folder, move on success.
+- [ ] **mkweb's `nope` is not mkship's**: mkship hides `nope` and `nuke`,
+      mkweb.py:57 only `nope`.  A nuked chapter would stay on the web.
+- [ ] **ANSIDEMO and SEGDEMO are still described**: 02-shell.tex:146-147,
+      20-memory.tex:124, docs/CAPABILITIES.md; test/jimtest.sh:42-49 runs
+      ANSIDEMO and the Makefile lists both (APP_C_NAMES, APP_SEG_NAMES, the
+      segdemo rule).  They pass here because the untracked .prg files are
+      still on this disk; a fresh clone without cc65 will not.
+- [ ] **Deploy**: VI's wrap, WALL, the nvim swap setting -- one layer, the
+      Dell was on its Fedora side all of 2026-09-18.  Then on the Dell:
+      `test/remote` smoke, `k4510-remote wall --choices 'yes|no' --wait 120
+      'Can you read this?'`, and a long line in VI.
+- [ ] **The terminal to Claude on tty2/tty3** -- docs/notes/host-terminal-design.md.
+      Waits on Doc: a restricted key for the k4510 user, and which console.
+
 ## From the 2026-09-05 review (`docs/notes/review-2026-09-05.md`)
 
 All thirteen closed on 2026-09-11; how each landed is at the top of the

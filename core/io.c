@@ -2010,13 +2010,17 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             }
         } else if (prog == 7) {                   /* the Apple IIe (tube/apple): LinApple's core behind this frontend */
             char *bin = realpath("tube/apple/apple_k4510", NULL);
-            char disk[900]; disk[0] = 0;
+            char disk[900]; const char *slot = "--d1"; disk[0] = 0;
             if (cmd[0]) { char rel[256]; if (!fs_resolve(cmd, rel, sizeof rel, disk, sizeof disk)) fs_casefix(disk, sizeof disk); }   /* APPLE NAME.DSK: a machine path, from where the shell is */
+            if (disk[0]) {                        /* a hard-disk image (a ProDOS volume, .hdv, or any image bigger than a floppy) goes in slot 7, not the floppy in slot 6 */
+                struct stat sb; size_t l = strlen(disk);
+                if ((l > 4 && !strcasecmp(disk + l - 4, ".hdv")) || (!stat(disk, &sb) && sb.st_size > 900000)) slot = "--hd1";
+            }
             if (!disk[0]) { char *m = realpath("tube/apple/linapple/res/Master.dsk", NULL); if (m) snprintf(disk, sizeof disk, "%s", m); free(m); }   /* nothing named: DOS 3.3's master, so a IIe with an empty drive does not sit there spinning */
             setenv("K4510_DOOM_SHM", doom_shm_path(), 1);
             setenv("HOME", "/tmp", 1);            /* LinApple keeps a registry under $HOME/.local/share; the machine's home is not the place for it */
             if (chdir(fs_root) != 0) { }
-            if (bin) execl(bin, "apple_k4510", "--d1", disk, (char *) NULL);
+            if (bin) execl(bin, "apple_k4510", slot, disk, (char *) NULL);
             { const char *m = "apple: tube/apple/apple_k4510 is not built (make -C tube/apple -f Makefile.k4510)\r\n"; ssize_t n = write(1, m, strlen(m)); (void) n; }
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);

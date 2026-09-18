@@ -11,7 +11,9 @@ through the DigiMAX, the way DOOM is.  The emulation is LinApple's, which
 is AppleWin's core on Linux (GPL-2; tube/apple/ALTERED-K4510.md says what
 was changed, which is little).  The ROMs are the Enhanced IIe's.
 
-Disk images -- .dsk .do .po .nib .woz .2mg -- go in /DISK/APPLE, on the
+Disk and hard-disk images -- .dsk .do .po .nib .woz .2mg, and .hdv or any
+image bigger than a floppy (a ProDOS hard disk, like Total Replay) -- go in
+/DISK/APPLE.  A hard-disk image is put in slot 7 and booted from there, on the
 disk side of the machine (never in the image; see /DISK/README.TXT).  A
 name without a path is looked for where the shell is.
 

@@ -33,6 +33,12 @@ o.ignorecase = true
 o.smartcase = true
 o.fileformats = "unix,dos"
 o.shortmess:append("I")
+-- recovery files beside the file, not in a central store (Doc, 2026-09-18): a
+-- crash's swap/backup/undo lands where the file is, so there is never a stale
+-- one hiding under ~/.local/state to nag about opening the file again.
+o.directory = "."
+o.backupdir = "."
+o.undodir = "."
 -- only characters CP437 has: JIM draws the rest as a likeness
 o.fillchars = { vert = "│", fold = "-", eob = "~" }
 o.listchars = { tab = "» ", trail = "·", nbsp = "+" }

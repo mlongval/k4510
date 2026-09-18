@@ -10439,3 +10439,42 @@ EMULATOR needs K4510_KEYPIPE too, not just k4510-type.
 test/marktest.sh (in make test) is MARK 40 headless: the checks, a row with
 no !, MATH the faster.  The sweep itself cannot be tested headless -- there
 the clock is the harness's.
+
+## 2026-09-18, night — MARK against other machines: the cycles, counted
+
+Doc: "Do we have any comparisons to other machines for these tests?"  For one
+column, by construction; for the rest, no -- they are our loops, and nobody
+has published times for them.  But the loops are plain 65C02, so a
+cycle-exact simulator can run THEM: tools/mark-cycles.py puts the routines of
+the built mark.prg through py65 and counts.  A time and a cycle count is a
+clock: "=65C02", the MHz a real 65C02 would need to match each figure -- the
+comparison with every such machine at once (an Apple IIe is 1, a BBC Master
+2, a Commander X16 8; their times are ours multiplied up).  "yes go ahead and
+add it to MARK."
+
+Three agreements nobody arranged: SPIN came to 16 435 562, the figure counted
+by hand in mark-asm.s, to the cycle; the simulated chip finds 1899 primes and
+a picture summing to 16897; and the Mandelbrot is 158.0 million cycles where
+gfoot's own published profile of his (prof_mandel2.txt, with his printing in
+it) is 158.96 -- half a per cent, so the port is his program.
+
+And one disagreement, which is the reason to count rather than reckon.
+Between two builds COPY moved by exactly 256 000 cycles.  LDA (zp),Y costs a
+cycle more when the index crosses a page; the buffers sat after the C
+program's data; so editing mark.c moved a page boundary through the picture,
+250 passes x 32 pages x 32 crossings.  The measured code is linked first now
+and the buffers have a memory area of their own, page-aligned at $5000
+(demo/mark.cfg): nothing edited elsewhere can move what is measured.  The
+header carries the sha256 of the mark-asm.s it counted, and test/marktest.sh
+fails when that is not the file's.
+
+At 40.5 MHz the K4510 is a 65C02 at 50.7 (SPIN), 43.4 (SIEVE), 46.2 (COPY),
+44.7 (MANDEL) -- the spread is the instruction mix: the 45GS10 saves its
+cycle on the short instructions.  With the MATH unit the Mandelbrot is a
+65C02 at 124.7.  The short tests are repeated until two seconds of machine
+time have gone, because at 60 MHz the sieve is fourteen frames.
+
+Not claimed: times on real hardware.  The =65C02 figures are nominal clocks;
+a real machine gives cycles to its video, and an NMOS 6502 cannot run STZ
+and BRA at all (the same loops written for it would be a per cent or two
+longer).  py65 is not in the project: the tool says how to get it.

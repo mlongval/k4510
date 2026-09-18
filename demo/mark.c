@@ -26,6 +26,14 @@
  * (The first three do no arithmetic the unit could take over: they are the
  * same number either way and are run once a clock.  MANDEL is the pair.)
  *
+ * Beside each time, "=65C02": the clock a real 65C02 would need to do that work
+ * in that time -- the loop's cycles, counted on a cycle-exact simulator from
+ * this very program (demo/mark-cycles.h), over the seconds.  It is the
+ * comparison with every other machine at once: an Apple IIe is 1, a BBC Master
+ * 2, a Commander X16 8, and their times are these times multiplied up.  +MATH
+ * is set against MANDEL's cycles -- the same picture, as if a 65C02 had done it
+ * the long way; there is no 65C02 with a MATH unit to count.
+ *
  * Every figure is MACHINE time: the frame counter at SYS+$0D, sixty to the
  * second, which advances with the emulated CPU's cycles and nothing else.  It
  * is what a K4510 at that clock IS, on any host, on any day.  The last column
@@ -58,7 +66,7 @@ extern unsigned char mk_math;
 #define FS 0xD300u
 #define PICTURE_SUM 16897u
 #define SPIN_N      50
-#define SPIN_CYCLES (328711UL * SPIN_N - 1UL + 20UL)   /* mk_spin(50) in NMOS 6502 cycles, the call and return with it */
+#include "mark-cycles.h"                 /* what each loop costs a real 65C02, to the cycle (tools/mark-cycles.py) */
 
 static char log_[3072]; static unsigned logn;
 static void out(char c) { rom_chrout((uint8_t)c); if (logn < sizeof log_ - 1) log_[logn++] = c; }
@@ -97,11 +105,20 @@ static void next_frame(void) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0
 /* a stopwatch over both clocks; the totals are what the last column is made of */
 static unsigned long f0, w0, tot_f, tot_w;
 static void start(void) { next_frame(); f0 = frames(); w0 = wall_ms(); }
-static unsigned long stop(void)                               /* -> machine time in hundredths of a second */
+static unsigned long so_far(void) { return (frames() - f0) & 0xFFFFFFUL; }
+static unsigned long stop(void)                               /* -> machine time, in frames */
 {
-    unsigned long f = (frames() - f0) & 0xFFFFFFUL, w = wall_ms() - w0;
+    unsigned long f = so_far(), w = wall_ms() - w0;
     tot_f += f; tot_w += w;
-    return f * 5 / 3;
+    return f ? f : 1;
+}
+/* seconds (to a hundredth) for ONE of `calls' runs that took f frames together, and the 65C02 that would match it:
+ * cycles x calls / (f / 60) / 1e6 MHz, to a tenth.  In thousands of cycles, or 158 million x 60 is past 32 bits. */
+static void figures(unsigned long cyc, unsigned long calls, unsigned long f, uint8_t wt, uint8_t wm)
+{
+    unsigned long m = (cyc / 1000UL) * calls * 6UL / f / 10UL;
+    fix2(f * 5UL / 3UL / calls, wt);
+    num(m / 10, (uint8_t)(wm - 2)); out('.'); out((char)('0' + m % 10));
 }
 
 static unsigned picture_sum(void)
@@ -121,28 +138,31 @@ static uint8_t bad;                                           /* something compu
 
 static void run_clock(void)
 {
-    unsigned long k = khz(), t, calls = 0, f;
-    unsigned primes;
+    unsigned long k = khz(), calls, f, m;
+    unsigned primes = 1899u;
     tot_f = tot_w = 0;
     num(k / 1000, 4); out('.'); out((char)('0' + (k % 1000) / 100));
 
-    start();                                                  /* 6502: whole calls until two seconds of machine time have gone */
-    do { mk_spin(SPIN_N); calls++; f = (frames() - f0) & 0xFFFFFFUL; } while (f < 120);
-    stop();
-    fix2((SPIN_CYCLES / 10000UL) * calls * 60UL / f, 10);     /* cycles / seconds / 1e6, in hundredths */
+    /* the short ones are run again and again until two seconds of machine time have gone: at 60 MHz the sieve
+     * is fourteen frames, and a figure made of fourteen of anything is good to one part in fourteen */
+    calls = 0; start(); do { mk_spin(SPIN_N); calls++; } while (so_far() < 120); f = stop();
+    m = (MK_CYC_SPIN / 1000UL) * calls * 6UL / f / 10UL;
+    num(m / 10, 6); out('.'); out((char)('0' + m % 10));
 
-    start(); primes = mk_sieve(); t = stop();
-    fix2(t, 9); if (primes != 1899u) { out('!'); bad = 1; } else out(' ');
+    calls = 0; start(); do { if (mk_sieve() != 1899u) primes = 0; calls++; } while (so_far() < 120); f = stop();
+    figures(MK_CYC_SIEVE, calls, f, 7, 7); if (!primes) { out('!'); bad = 1; } else out(' ');
 
-    start(); mk_copy(250); t = stop();                        /* 250 x 8192 bytes */
-    if (t) num(2000UL * 100UL / t, 8); else say("       -");   /* KB a second */
+    calls = 0; start(); do { mk_copy(250); calls++; } while (so_far() < 120); f = stop();   /* 250 x 8192 bytes a call */
+    num(2000UL * 60UL * calls / f, 6);                         /* KB a second */
+    m = (MK_CYC_COPY / 1000UL) * calls * 6UL / f / 10UL;
+    num(m / 10, 5); out('.'); out((char)('0' + m % 10)); out(' ');
 
-    mk_math = 0; start(); mk_mandel(); t = stop();
-    fix2(t, 10); if (picture_sum() != PICTURE_SUM) { out('!'); bad = 1; } else out(' ');
-    mk_math = 1; start(); mk_mandel(); t = stop();
-    fix2(t, 9); if (picture_sum() != PICTURE_SUM) { out('!'); bad = 1; } else out(' ');
+    mk_math = 0; start(); mk_mandel(); f = stop();
+    figures(MK_CYC_MANDEL, 1, f, 7, 7); if (picture_sum() != PICTURE_SUM) { out('!'); bad = 1; } else out(' ');
+    mk_math = 1; start(); mk_mandel(); f = stop();
+    figures(MK_CYC_MANDEL, 1, f, 6, 7); if (picture_sum() != PICTURE_SUM) { out('!'); bad = 1; } else out(' ');
 
-    if (tot_f) { num(tot_w * 6UL / tot_f, 7); out('%'); }     /* wall ms over machine ms: a frame is 16.67 ms, and 100 / 16.67 is 6 */
+    num(tot_w * 6UL / tot_f, 4); out('%');                     /* wall ms over machine ms: a frame is 16.67 ms, and 100 / 16.67 is 6 */
     out('\n');
 }
 
@@ -170,8 +190,8 @@ void main(void)
     if (n != PICTURE_SUM || picture_sum() != PICTURE_SUM) bad = 1;
     picture();
 
-    say("\n clock  as a 6502    SIEVE    COPY    MANDEL    +MATH     host\n");
-    say("  MHz      at MHz        s    KB/s         s        s     took\n");
+    say("\n clock    SPIN    SIEVE           COPY        MANDEL         +MATH         host\n");
+    say("  MHz   =65C02      s  =65C02   KB/s =65C02      s  =65C02     s  =65C02   took\n");
 
     was = REG(SYS + 0x23); steps = REG(SYS + 0x27);
     REG(SYS + 0x29) = 1;                                      /* the governor stands down, as for SETUP */
@@ -193,7 +213,8 @@ void main(void)
     REG(SYS + 0x23) = was; next_frame(); next_frame();
     REG(SYS + 0x29) = 0;
 
-    say("\nhost took: wall time over machine time.  100% = this host kept up;\nabove it, what was on the glass was that much slower than these figures.\n");
+    say("\n=65C02: the MHz a real 65C02 needs to match it (Apple IIe 1, BBC Master 2,\nCommander X16 8): their times are these, multiplied up.\n");
+    say("host took: wall over machine time.  100% = this host kept up; above it, what\nwas on the glass was that much slower than these figures.\n");
     if (bad) say("\n*** SOMETHING COMPUTED WRONGLY (marked !): these are not speeds ***\n");
 
     REG(FS + 4) = (uint8_t)(unsigned)"/SYSTEM/LOG/MARK.TXT"; REG(FS + 5) = (uint8_t)((unsigned)"/SYSTEM/LOG/MARK.TXT" >> 8); REG(FS + 6) = 0; REG(FS + 7) = 0;

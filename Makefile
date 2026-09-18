@@ -300,11 +300,13 @@ fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h d
 	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
 fs/SYSTEM/BIN/edit.prg: demo/renum.h
 # MARK: the stopwatch in C, the measured loops in assembly (so cc65 getting better does not move the figures)
-fs/SYSTEM/BIN/mark.prg: demo/mark.c demo/mark-asm.s demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/mark.cfg
+# mark-asm.o is linked FIRST so that editing mark.c moves nothing that is measured: a page crossed is a cycle,
+# and demo/mark-cycles.h (tools/mark-cycles.py, from the built program) counts them.
+fs/SYSTEM/BIN/mark.prg: demo/mark.c demo/mark-asm.s demo/mark-cycles.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/mark.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/mark.s demo/mark.c
 	ca65 --cpu 65c02 -o demo/mark.o demo/mark.s
 	ca65 --cpu 65c02 -o demo/mark-asm.o demo/mark-asm.s
-	ld65 -C demo/mark.cfg -o $@ demo/prg0.o demo/romcalls.o demo/mark.o demo/mark-asm.o none.lib -m demo/mark.map
+	ld65 -C demo/mark.cfg -o $@ demo/prg0.o demo/romcalls.o demo/mark-asm.o demo/mark.o none.lib -m demo/mark.map
 # PROG: VI's engine and a front end -- loaded at $2000, variables at $0800 (demo/prog.cfg)
 fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/prog.s demo/prog.c

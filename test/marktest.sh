@@ -17,11 +17,17 @@ echo "$out" | grep -q "against binary: all right"            || fail "the decima
 echo "$out" | grep -q "16897 by shift and add, 16897 by the MATH unit: right" || fail "the Mandelbrot does not sum to 16897 both ways"
 row=$(echo "$out" | grep "^ *40\.5 ")                        || fail "no row for 40.5 MHz"
 case "$row" in *!*) fail "a figure is marked wrong: $row" ;; esac
-set -- $row                                                  # clock 6502 sieve copy mandel +math host
-[ $# -eq 7 ]                                                 || fail "the row has not seven columns: $row"
-awk -v a="$5" -v b="$6" 'BEGIN { exit !(b > 0 && b < a) }'   || fail "the MATH unit was not the faster: $5 s without, $6 s with"
-awk -v m="$2" 'BEGIN { exit !(m > 40 && m < 70) }'           || fail "as a 6502: $2 MHz at a 40.5 MHz clock is not believable"
-echo "$out" | grep -q "^/HOME\]"                             || fail "the shell did not come back"
+set -- $row    # clock | SPIN =65C02 | SIEVE s, =65C02 | COPY KB/s, =65C02 | MANDEL s, =65C02 | +MATH s, =65C02 | host
+[ $# -eq 11 ]                                                || fail "the row has not eleven columns: $row"
+awk -v a="$7" -v b="$9" 'BEGIN { exit !(b > 0 && b < a) }'   || fail "the MATH unit was not the faster: $7 s without, $9 s with"
+# a 45GS10 at 40.5 MHz is a 65C02 at 45 to 51 on all four; one far from the rest is a cycle count gone stale
+for m in "$2" "$4" "$6" "$8"; do
+    awk -v m="$m" 'BEGIN { exit !(m > 40 && m < 56) }'       || fail "=65C02 of $m MHz at a 40.5 MHz clock is not believable: $row"
+done
+# the counts are of THIS assembly: tools/mark-cycles.py writes the hash it counted
+grep -q "sha256 $(sha256sum demo/mark-asm.s | cut -d' ' -f1)" demo/mark-cycles.h \
+    || fail "demo/mark-asm.s has changed since its cycles were counted: build, run tools/mark-cycles.py, build again"
+echo "$out" | grep -q "written to /SYSTEM/LOG/MARK.TXT"         || fail "MARK did not reach its last line"   # (the screen is read the moment that line lands: the prompt after it may not be drawn yet)
 [ -s $L ] && grep -q "^ *40\.5 " $L                          || fail "the report is not in /SYSTEM/LOG/MARK.TXT"
 rm -f $L
-echo "marktest: OK (BCD, 1899 primes, the picture 16897 both ways, MATH the faster: $5 s -> $6 s, as a 6502 at $2 MHz, the report on disk)"
+echo "marktest: OK (BCD, 1899 primes, the picture 16897 both ways, MATH the faster: $7 s -> $9 s; a 65C02 at $2 / $4 / $6 / $8 MHz; the counts are of this assembly; the report on disk)"

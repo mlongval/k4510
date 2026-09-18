@@ -62,7 +62,7 @@ zp_ycount: .res 1
 _mk_math:  .res 1              ; 0: the multiplies by shift and add, as gfoot wrote them; 1: by the MATH unit
 mk_end_of_zp:
 
-        .bss
+        .segment "MKBUF"         ; demo/mark.cfg: fixed at $5000, so that no edit elsewhere moves a page boundary through them
 _mk_img:   .res 134 * 80        ; the Mandelbrot: iterations LEFT at each point (0 = never escaped)
 _mk_flags: .res 8192            ; the sieve's flags (8191 of them), and where COPY copies to
 _mk_tobcd: .res 200             ; n -> n mod 100 in BCD; filled in by mark.c

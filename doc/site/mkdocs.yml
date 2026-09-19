@@ -30,18 +30,16 @@ nav:
       - "2. The Shell": 02-shell.md
       - "3. Every Command": 03-commands.md
       - "4. EhBASIC": 04-ehbasic.md
-      - "5. Microsoft BASIC, 1977": 05-msbasic.md
-      - "6. The Tube": 06-tube.md
-      - "7. Forth": 07-forth.md
-      - "8. LOGO": 08-logo.md
-      - "9. CP/M: the Z80 Second Processor": 09-cpm.md
-      - "10. Pascal": 10-pascal.md
-      - "11. The Editors": 11-editors.md
-      - "12. RX: the Machine's REXX": 12-rx.md
-      - "13. The Linux Underneath": 13-linux.md
+      - "5. The Tube": 06-tube.md
+      - "6. Forth": 07-forth.md
+      - "7. LOGO": 08-logo.md
+      - "8. Pascal": 10-pascal.md
+      - "9. The Editors": 11-editors.md
+      - "10. RX: the Machine's REXX": 12-rx.md
+      - "11. The Linux Underneath": 13-linux.md
   - "Programmer's Guide":
-      - "14. Memory": 20-memory.md
-      - "15. The I/O Page": 21-io.md
+      - "12. Memory": 20-memory.md
+      - "13. The I/O Page": 21-io.md
   - "Appendices":
       - "A. The Registers": a1-registers.md
       - "B. Filing an Issue": a2-issues.md

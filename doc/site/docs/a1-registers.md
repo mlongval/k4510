@@ -6,7 +6,7 @@ Nothing in it is reworded: every word below is a word from a header. What the ge
 
 The voice is still the voice of working code: terse, occasionally opinionated, and using the machine’s own shorthand — `LE` for little-endian, `R:` and `W:` for a register that reads and writes differently, `$` for hex. Addresses are given as an offset inside the device’s block where the block’s base is obvious, and in full where it is not.
 
-[Chapter 15, The I/O Page](21-io.md) is the map of which device lives where; this is what is inside each one.
+[Chapter 13, The I/O Page](21-io.md) is the map of which device lives where; this is what is inside each one.
 
 ## The I/O page
 

@@ -36,9 +36,12 @@ run "$(printf 'BOOK 2\n~/MOUNT\r~')" 900 '02-SHELL.GMI' "a search"
 echo "$out" | grep -q "MOUNT"                                    || fail "/ did not find MOUNT"
 echo "$out" | grep -q "Chapter 2. The Shell"                     && fail "/ did not scroll to what it found"
 
-# the LOGO chapter's first link is its screenshot: shown, then a key back
+# the LOGO chapter's first link is its screenshot: shown, then a key back.
+# The heading comes from the page itself: hiding a chapter renumbers the ones
+# after it (SHIPPING.CFG, 2026-09-19), and a number typed in here went stale.
+LOGOHEAD=$(sed -n 's/^# //p' fs/SYSTEM/DOC/08-LOGO.GMI | head -1)
 run "$(printf 'BOOK LOGO\n~\t\r~~ ~')" 1500 '08-LOGO.GMI' "a picture"
-echo "$out" | grep -q "Chapter 8. LOGO"                          || fail "the page did not come back after the picture"
+echo "$out" | grep -q "$LOGOHEAD"                                || fail "the page did not come back after the picture (looked for \"$LOGOHEAD\")"
 
 run 'BOOK
 ~q~ECHO BACK

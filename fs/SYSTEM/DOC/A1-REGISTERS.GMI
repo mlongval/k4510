@@ -20,10 +20,10 @@ register that reads and writes differently, $ for hex. Addresses are given as
 an offset inside the device's block where the block's base is obvious, and in
 full where it is not.
 
-Chapter 15, The I/O Page is the map of which device lives where; this is what
+Chapter 13, The I/O Page is the map of which device lives where; this is what
 is inside each one.
 
-=> 21-IO.GMI Chapter 15, The I/O Page
+=> 21-IO.GMI Chapter 13, The I/O Page
 
 ## The I/O page
 
@@ -615,5 +615,5 @@ The page $FF00-$FFFF always reads the ROM, whatever is banked: the system-call
 stub and the vectors live there.
 
 => INDEX.GMI Contents
-=> 21-IO.GMI Previous: 15. The I/O Page
+=> 21-IO.GMI Previous: 13. The I/O Page
 => A2-ISSUES.GMI Next: B. Filing an Issue

@@ -1,6 +1,6 @@
 # The Tube
 
-The BBC Micro’s most elegant idea was the Tube: a fast port through which a *second processor* — another CPU with its own memory — could take over the computation while the Beeb kept the keyboard, the screen and the discs. The K4510 has a Tube of its own at `$D800`, and the first thing fitted to it was Richard Russell’s BBC BASIC, running on the host machine with a flat 256 MB of its own. Others have followed: CP/M on a Z80 ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)), the host’s own shell behind `!`, a chess engine, and — since 2026 — DOOM, and an Apple IIe.
+The BBC Micro’s most elegant idea was the Tube: a fast port through which a *second processor* — another CPU with its own memory — could take over the computation while the Beeb kept the keyboard, the screen and the discs. The K4510 has a Tube of its own at `$D800`, and the first thing fitted to it was Richard Russell’s BBC BASIC, running on the host machine with a flat 256 MB of its own. Others have followed: CP/M on a Z80, the host’s own shell behind `!`, a chess engine, and — since 2026 — DOOM, and an Apple IIe.
 
     BBC
 

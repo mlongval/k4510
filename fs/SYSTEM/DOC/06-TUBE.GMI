@@ -1,15 +1,12 @@
-# Chapter 6. The Tube
+# Chapter 5. The Tube
 
 The BBC Micro's most elegant idea was the Tube: a fast port through which a
 second processor -- another CPU with its own memory -- could take over the
 computation while the Beeb kept the keyboard, the screen and the discs. The
 K4510 has a Tube of its own at $D800, and the first thing fitted to it was
 Richard Russell's BBC BASIC, running on the host machine with a flat 256 MB of
-its own. Others have followed: CP/M on a Z80 (Chapter 9, CP/M: the Z80 Second
-Processor), the host's own shell behind !, a chess engine, and -- since 2026
--- DOOM, and an Apple IIe.
-
-=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
+its own. Others have followed: CP/M on a Z80, the host's own shell behind !, a
+chess engine, and -- since 2026 -- DOOM, and an Apple IIe.
 
 ```
 BBC
@@ -187,5 +184,5 @@ With a name (*VI NOTES.TXT) it is the ordinary star command.
 > plain; VDU 5 text prints as text.
 
 => INDEX.GMI Contents
-=> 05-MSBASIC.GMI Previous: 5. Microsoft BASIC, 1977
-=> 07-FORTH.GMI Next: 7. Forth
+=> 04-EHBASIC.GMI Previous: 4. EhBASIC
+=> 07-FORTH.GMI Next: 6. Forth

@@ -6,11 +6,9 @@ graphics statements that ride the blitter, floating point on the MATH unit,
 and an escape hatch to the shell. It has no sound keyword: a program that
 wants a note pokes the sound sequencer at $D5E0 or the OPL2 at $D480 directly,
 which on a machine with a friendly memory map is not much of a hardship
-(Chapter 15, The I/O Page). The other BASIC, Microsoft's own, has none of this
-and is proud of it (Chapter 5, Microsoft BASIC, 1977).
+(Chapter 13, The I/O Page).
 
-=> 21-IO.GMI Chapter 15, The I/O Page
-=> 05-MSBASIC.GMI Chapter 5, Microsoft BASIC, 1977
+=> 21-IO.GMI Chapter 13, The I/O Page
 
 ```
 RUN EHBASIC
@@ -116,4 +114,4 @@ which is occasionally a useful accident.
 
 => INDEX.GMI Contents
 => 03-COMMANDS.GMI Previous: 3. Every Command
-=> 05-MSBASIC.GMI Next: 5. Microsoft BASIC, 1977
+=> 06-TUBE.GMI Next: 5. The Tube

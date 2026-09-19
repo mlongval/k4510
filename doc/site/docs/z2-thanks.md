@@ -14,11 +14,11 @@ The K4510 is a machine that never existed. Almost everything in it that *does* e
 
 **Lee Davison** (1966–2013) wrote EhBASIC, the machine’s first BASIC and still the one that comes up in ROM. He is not here to be asked about the graphics and sound words bolted onto it; the machine carries his name in its `README` and its startup banner instead.
 
-**Richard T. Russell** wrote BBC BASIC, and has kept writing it for forty years. The console edition of his BBC BASIC for SDL 2.0 (BBCTTY) is what runs on the Tube co-processor in [Chapter 6, The Tube](06-tube.md), under the zlib licence he publishes it with. “BBC BASIC” is the name of his interpreter; this book uses it only to say what is running, and claims nothing in it.
+**Richard T. Russell** wrote BBC BASIC, and has kept writing it for forty years. The console edition of his BBC BASIC for SDL 2.0 (BBCTTY) is what runs on the Tube co-processor in [Chapter 5, The Tube](06-tube.md), under the zlib licence he publishes it with. “BBC BASIC” is the name of his interpreter; this book uses it only to say what is running, and claims nothing in it.
 
-**Marcelo Dantas** (“Mockba the Borg”) wrote [RunCPM](https://github.com/MockbaTheBorg/RunCPM), which is the whole of [Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md): a complete CP/M 2.2 with its own CCP, vendored here unmodified and simply handed a Z80’s worth of address space.
+**Marcelo Dantas** (“Mockba the Borg”) wrote [RunCPM](https://github.com/MockbaTheBorg/RunCPM), which is the whole of the machine’s CP/M: a complete CP/M 2.2 with its own CCP, vendored here unmodified and simply handed a Z80’s worth of address space.
 
-**Scot W. Stevenson**, **Sam Colwell** and **Patrick Surry** wrote [Tali Forth 2](https://github.com/SamCoVT/TaliForth2) and put it in the public domain — a Forth written to be read, which is why [Chapter 7, Forth](07-forth.md) can be honest about how it works.
+**Scot W. Stevenson**, **Sam Colwell** and **Patrick Surry** wrote [Tali Forth 2](https://github.com/SamCoVT/TaliForth2) and put it in the public domain — a Forth written to be read, which is why [Chapter 6, Forth](07-forth.md) can be honest about how it works.
 
 **Tomasz Biela** (“tebe”) wrote [Mad Pascal](https://github.com/tebe6502/Mad-Pascal) and [MADS](https://github.com/tebe6502/Mad-Assembler); the K4510 target in `pascal/` is a guest in his compiler. **Wojciech Bociański** (“bocianu”), whose Neo6502 target showed how such a guest should behave.
 
@@ -38,7 +38,7 @@ Fonts are the part of a computer you look at longest, and clean ones with a clea
 
 **Kenney** makes game art and puts it in the public domain, at a scale and a standard that has quietly furnished a decade of small games. The dungeon in the `TINY` demo — every tile, every little person, and the map they stand on — is his [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon), CC0. The demo exists because the art did. Two more games stand on the same ground: `SKYFIRE` flies Kenney’s [Pixel Shmup](https://kenney.nl/assets/pixel-shmup) ships, and `FLUFFY` is drawn with **Chloe Wolfe**’s Game Boy platformer set, also CC0. In both cases the art came first and the game was written around it, which is the reverse of the usual order and a much better way to spend an evening.
 
-**Ian Schofield** wrote [Tek40xx](https://github.com/ijschofield/Tek40xx), a Tektronix 4010/4014 storage tube on SDL2 that is also a telnet client. It rides along on the machine’s Linux as the second terminal ([Chapter 13, The Linux Underneath](13-linux.md)), built from upstream with one patch of ours.
+**Ian Schofield** wrote [Tek40xx](https://github.com/ijschofield/Tek40xx), a Tektronix 4010/4014 storage tube on SDL2 that is also a telnet client. It rides along on the machine’s Linux as the second terminal ([Chapter 11, The Linux Underneath](13-linux.md)), built from upstream with one patch of ours.
 
 ## The bare metal, which the machine no longer stands on
 

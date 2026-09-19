@@ -66,10 +66,10 @@ them.}
 \verb|SPLIT| is the demonstration, and it has two twins that draw the
 same ribbon of lines --- endpoints bouncing, the line sixteen behind
 erased --- as fast as they can, and say how fast in the text band:
-\pth{/LANG/EHBASIC/EX/SPLIT.BAS}, with EhBASIC's own \verb|LINE|, and
-\pth{/LANG/MSBASIC/SPLIT.BAS}, where Microsoft BASIC, which has no
-graphics words, sets the blitter's registers with \verb|POKE|. At the
-40.5\,MHz a host starts at:
+\pth{/LANG/EHBASIC/EX/SPLIT.BAS}, with EhBASIC's own
+\verb|LINE|\shipif{lang:MSBASIC}{, and \pth{/LANG/MSBASIC/SPLIT.BAS}, where
+Microsoft BASIC, which has no graphics words, sets the blitter's registers
+with \texttt{POKE}}. At the 40.5\,MHz a host starts at:
 
 \begin{center}
 \small
@@ -79,7 +79,7 @@ graphics words, sets the blitter's registers with \verb|POKE|. At the
 \midrule
 C (\verb|SPLIT|) & 7400 & fifteen register writes \\
 EhBASIC & 330 & \verb|LINE|, one blitter operation \\
-Microsoft BASIC & 140 & ten \verb|POKE|s in a subroutine \\
+\shipif{lang:MSBASIC}{Microsoft BASIC & 140 & ten \texttt{POKE}s in a subroutine \\}
 \bottomrule
 \end{tabular}
 \end{center}

@@ -1,4 +1,4 @@
-# Chapter 7. Forth
+# Chapter 6. Forth
 
 The machine's third language is native: no Tube, no co-processor, just 45GS10
 machine code loaded at $8C00, with the dictionary below it. It is Tali Forth 2
@@ -21,10 +21,10 @@ disassembling itself.
 ## The machine at your fingertips
 
 Forth's oldest habit is poking hardware, and this machine is one large,
-friendly memory map. C@ and C! reach every register of Chapter 15, The I/O
+friendly memory map. C@ and C! reach every register of Chapter 13, The I/O
 Page directly:
 
-=> 21-IO.GMI Chapter 15, The I/O Page
+=> 21-IO.GMI Chapter 13, The I/O Page
 
 ```
 hex
@@ -55,5 +55,5 @@ with the screen and the session exactly as you left them.
 > INCLUDED that reads through the machine's storage device is on the list.
 
 => INDEX.GMI Contents
-=> 06-TUBE.GMI Previous: 6. The Tube
-=> 08-LOGO.GMI Next: 8. LOGO
+=> 06-TUBE.GMI Previous: 5. The Tube
+=> 08-LOGO.GMI Next: 7. LOGO

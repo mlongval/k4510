@@ -1,4 +1,4 @@
-# Chapter 14. Memory
+# Chapter 12. Memory
 
 ## The 64 KB view and the 256 MB behind it
 
@@ -118,9 +118,8 @@ is mapped; unmap before far calls.)
 
 The K4SG executable format loads segments to any physical address and the
 far-call gate ($DF00) calls between them: a plain JSR into slot n banks
-descriptor n's code in, and the callee's RTS banks it back out. SEGDEMO shows
-two overlays sharing one address.
+descriptor n's code in, and the callee's RTS banks it back out.
 
 => INDEX.GMI Contents
-=> 13-LINUX.GMI Previous: 13. The Linux Underneath
-=> 21-IO.GMI Next: 15. The I/O Page
+=> 13-LINUX.GMI Previous: 11. The Linux Underneath
+=> 21-IO.GMI Next: 13. The I/O Page

@@ -1,4 +1,4 @@
-# Chapter 8. LOGO
+# Chapter 7. LOGO
 
 LOGO is the language that taught a generation of children that a computer does
 what it is told, and it did it with a turtle: a small arrow on the screen that
@@ -94,12 +94,12 @@ taking the machine with it.
 
 LOAD "TREE runs TREE.LGO from the directory you are in, or from the examples
 in /LANG/LOGO/EX: SQUARE, SPIRAL, TREE and SNOW. EDIT "MINE opens MINE.LGO in
-VI (Chapter 11, The Editors) and runs it when you leave the editor, which is
+VI (Chapter 9, The Editors) and runs it when you leave the editor, which is
 the way to write anything longer than a line. A .LGO file is plain text, one
 line as you would type it after another.
 
-=> 11-EDITORS.GMI Chapter 11, The Editors
+=> 11-EDITORS.GMI Chapter 9, The Editors
 
 => INDEX.GMI Contents
-=> 07-FORTH.GMI Previous: 7. Forth
-=> 09-CPM.GMI Next: 9. CP/M: the Z80 Second Processor
+=> 07-FORTH.GMI Previous: 6. Forth
+=> 10-PASCAL.GMI Next: 8. Pascal

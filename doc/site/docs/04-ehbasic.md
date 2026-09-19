@@ -1,6 +1,6 @@
 # EhBASIC
 
-The machine has two BASICs, and this is the one with the machine in it: EhBASIC 2.22 — Lee Davison’s Enhanced BASIC — with this machine’s additions: graphics statements that ride the blitter, floating point on the MATH unit, and an escape hatch to the shell. It has no sound *keyword*: a program that wants a note pokes the sound sequencer at `$D5E0` or the OPL2 at `$D480` directly, which on a machine with a friendly memory map is not much of a hardship ([Chapter 15, The I/O Page](21-io.md)). The other BASIC, Microsoft’s own, has none of this and is proud of it ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)).
+The machine has two BASICs, and this is the one with the machine in it: EhBASIC 2.22 — Lee Davison’s Enhanced BASIC — with this machine’s additions: graphics statements that ride the blitter, floating point on the MATH unit, and an escape hatch to the shell. It has no sound *keyword*: a program that wants a note pokes the sound sequencer at `$D5E0` or the OPL2 at `$D480` directly, which on a machine with a friendly memory map is not much of a hardship ([Chapter 13, The I/O Page](21-io.md)).
 
     RUN EHBASIC
 

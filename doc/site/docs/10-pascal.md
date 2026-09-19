@@ -47,13 +47,13 @@ Nothing carries over between them — not the source, not the toolchain, not the
 
 ## Turbo Pascal 3, on CP/M
 
-Borland’s Turbo Pascal 3 is a CP/M program, so it runs where CP/M runs: on the Tube’s Z80 ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)), in its own world, exactly as it did on a Kaypro. You write, compile and run without leaving it, and what it produces is a CP/M program that runs under CP/M on the Z80 — it cannot see VICKY, the OPL2 or anything else on the K4510 side of the Tube, any more than a Kaypro could.
+Borland’s Turbo Pascal 3 is a CP/M program, so it runs where CP/M runs: on the Tube’s Z80, in its own world, exactly as it did on a Kaypro. You write, compile and run without leaving it, and what it produces is a CP/M program that runs under CP/M on the Z80 — it cannot see VICKY, the OPL2 or anything else on the K4510 side of the Tube, any more than a Kaypro could.
 
 It is not shipped, because it is Borland’s. Put `TURBO.COM` and `TURBO.MSG` into `fs/CPM/H/3` — the folder that CP/M’s drive `P:` is a shortcut to — and install it for a “VT100” or “ANSI” terminal, which is what JIM is. Then, from the K/OS prompt:
 
     TURBO
 
-`TURBO` is an alias that `/SYSTEM/ETC/STARTUP.SAMPLE` defines, for `CPM K-TURBO`: boot CP/M, go to `P:`, start Turbo, and — because the submit ends in `EXIT` — come all the way back to the K/OS prompt when you leave it. [Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md) explains that arrangement.
+`TURBO` is an alias that `/SYSTEM/ETC/STARTUP.SAMPLE` defines, for `CPM K-TURBO`: boot CP/M, go to `P:`, start Turbo, and — because the submit ends in `EXIT` — come all the way back to the K/OS prompt when you leave it.
 
 ![](img/turbo.png)
 
@@ -64,7 +64,7 @@ Inside, it is 1985. The editor is WordStar’s: Ctrl-E, S, D and X move (the arr
 
 ## Mad Pascal, the cross-compiler
 
-*Mad Pascal* is the other kind entirely — a cross-compiler, like the cc65 this machine’s ROM is built with. You write on the desktop, `mp` compiles to 6502 assembly, MADS assembles it, and the result is a `.prg` beside the source in `/LANG/PASCAL` that the shell’s `RUN` loads like any other program — and, since 2026-09-08, one the machine can make for itself: `PAS HELLO` compiles `HELLO.PAS` in the directory you are standing in ([Chapter 13, The Linux Underneath](13-linux.md)). It is Tomasz Biela’s compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed and floating point, strings, records, pointers, units and inline assembly, made for the Atari and since taught the C64, the X16 and the Neo6502. The K4510 is its newest target.
+*Mad Pascal* is the other kind entirely — a cross-compiler, like the cc65 this machine’s ROM is built with. You write on the desktop, `mp` compiles to 6502 assembly, MADS assembles it, and the result is a `.prg` beside the source in `/LANG/PASCAL` that the shell’s `RUN` loads like any other program — and, since 2026-09-08, one the machine can make for itself: `PAS HELLO` compiles `HELLO.PAS` in the directory you are standing in ([Chapter 11, The Linux Underneath](13-linux.md)). It is Tomasz Biela’s compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed and floating point, strings, records, pointers, units and inline assembly, made for the Atari and since taught the C64, the X16 and the Neo6502. The K4510 is its newest target.
 
     PMANDEL
 
@@ -86,7 +86,7 @@ A new program is a file in `fs/LANG/PASCAL`; `make` finds it, and so does `PAS` 
 
 ### The target
 
-Everything a Pascal program needs from the machine is in `pascal/` of the repository, laid out as it lives inside a Mad-Pascal checkout: the runtime base (`base/rtl6502_k4510.asm` and `base/k4510/`), where `@putchar` writes to JIM, the terminal ([Chapter 6, The Tube](06-tube.md)); the SYSTEM and CRT units’ machine halves (`lib/*_k4510.inc`); and a `k4510` unit. The consequences for the programmer:
+Everything a Pascal program needs from the machine is in `pascal/` of the repository, laid out as it lives inside a Mad-Pascal checkout: the runtime base (`base/rtl6502_k4510.asm` and `base/k4510/`), where `@putchar` writes to JIM, the terminal ([Chapter 5, The Tube](06-tube.md)); the SYSTEM and CRT units’ machine halves (`lib/*_k4510.inc`); and a `k4510` unit. The consequences for the programmer:
 
 - `Write` and `WriteLn` go through JIM, so the CRT unit is the real thing: `GotoXY`, `TextColor` and `TextBackground` (the palette’s constants: `BLUE`, `YELLOW`, `LIGHT_GREEN`…), `ClrScr`, `ClrEol`, `InsLine`/`DelLine`, `WhereX`/`WhereY`, `CursorOn`/`CursorOff`, `ReadKey` and `KeyPressed` on the keyboard device, `Delay` and `Pause` on the frame counter, and `Sound` on the machine’s sound sequencer — which changed its contract when the OPL2 became the machine’s chip: `Sound` takes a channel and a pitch in quarter-semitones and holds the note until `NoSound`. `TextMode(0)` puts the ROM’s screen back.
 
@@ -98,7 +98,7 @@ Everything a Pascal program needs from the machine is in `pascal/` of the reposi
 
 ### Floating point on the MATH unit
 
-`single` (IEEE-754, 32-bit) does not run in software here. The runtime’s add, subtract, multiply, divide, compare, `Trunc`, `Round` and `Frac` are the MATH unit at `$D700` ([Chapter 15, The I/O Page](21-io.md)): each is a few register moves and one write to FOP, and the unit answers in the next cycle. `PFLOAT` times five thousand rounds of multiply, divide, add and subtract: 5 frames on the unit, 24 with the software library (assemble with `mads -d:SOFTFLOAT=1` to get it back for comparison). The transcendentals are in the `k4510` unit — `MathSqrt`, `MathSin`, `MathCos`, `MathTan`, `MathAtan`, `MathAtan2`, `MathExp`, `MathLn`, `MathPow`, `MathFloor` — one register write each. SYSTEM’s own `Sqrt`/`Sin`/`Cos`/`ArcTan`/`Exp`/`Ln` on `single` run on the unit too: the installer patches `system.pas` under `{$ifdef k4510}`.
+`single` (IEEE-754, 32-bit) does not run in software here. The runtime’s add, subtract, multiply, divide, compare, `Trunc`, `Round` and `Frac` are the MATH unit at `$D700` ([Chapter 13, The I/O Page](21-io.md)): each is a few register moves and one write to FOP, and the unit answers in the next cycle. `PFLOAT` times five thousand rounds of multiply, divide, add and subtract: 5 frames on the unit, 24 with the software library (assemble with `mads -d:SOFTFLOAT=1` to get it back for comparison). The transcendentals are in the `k4510` unit — `MathSqrt`, `MathSin`, `MathCos`, `MathTan`, `MathAtan`, `MathAtan2`, `MathExp`, `MathLn`, `MathPow`, `MathFloor` — one register write each. SYSTEM’s own `Sqrt`/`Sin`/`Cos`/`ArcTan`/`Exp`/`Ln` on `single` run on the unit too: the installer patches `system.pas` under `{$ifdef k4510}`.
 
 ### Graphics on VICKY
 

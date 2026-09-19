@@ -121,5 +121,5 @@ while block 6 is mapped; unmap before far calls.)
 The \texttt{K4SG} executable format loads segments to any physical address
 and the far-call gate (\verb|$DF00|) calls between them: a plain \verb|JSR|
 into slot $n$ banks descriptor $n$'s code in, and the callee's \verb|RTS|
-banks it back out. \verb|SEGDEMO| shows two overlays sharing one
-address.
+banks it back out.\shipif{app:SEGDEMO}{ \texttt{SEGDEMO} shows two overlays
+sharing one address.}

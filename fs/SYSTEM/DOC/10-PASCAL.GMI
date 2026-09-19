@@ -1,4 +1,4 @@
-# Chapter 10. Pascal
+# Chapter 8. Pascal
 
 The machine has two Pascals, and they share nothing but the language. Keep
 them apart in your head from the start:
@@ -22,13 +22,10 @@ the programs they produce. The first section is one, the second is the other.
 ## Turbo Pascal 3, on CP/M
 
 Borland's Turbo Pascal 3 is a CP/M program, so it runs where CP/M runs: on the
-Tube's Z80 (Chapter 9, CP/M: the Z80 Second Processor), in its own world,
-exactly as it did on a Kaypro. You write, compile and run without leaving it,
-and what it produces is a CP/M program that runs under CP/M on the Z80 -- it
-cannot see VICKY, the OPL2 or anything else on the K4510 side of the Tube, any
-more than a Kaypro could.
-
-=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
+Tube's Z80, in its own world, exactly as it did on a Kaypro. You write,
+compile and run without leaving it, and what it produces is a CP/M program
+that runs under CP/M on the Z80 -- it cannot see VICKY, the OPL2 or anything
+else on the K4510 side of the Tube, any more than a Kaypro could.
 
 It is not shipped, because it is Borland's. Put TURBO.COM and TURBO.MSG into
 fs/CPM/H/3 -- the folder that CP/M's drive P: is a shortcut to -- and install
@@ -41,10 +38,7 @@ TURBO
 
 TURBO is an alias that /SYSTEM/ETC/STARTUP.SAMPLE defines, for CPM K-TURBO:
 boot CP/M, go to P:, start Turbo, and -- because the submit ends in EXIT --
-come all the way back to the K/OS prompt when you leave it. Chapter 9, CP/M:
-the Z80 Second Processor explains that arrangement.
-
-=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
+come all the way back to the K/OS prompt when you leave it.
 
 => IMG/TURBO.PIC Turbo Pascal 3 starting on the Z80, its terminal drawn by JIM
 
@@ -63,13 +57,13 @@ machine's ROM is built with. You write on the desktop, mp compiles to 6502
 assembly, MADS assembles it, and the result is a .prg beside the source in
 /LANG/PASCAL that the shell's RUN loads like any other program -- and, since
 2026-09-08, one the machine can make for itself: PAS HELLO compiles HELLO.PAS
-in the directory you are standing in (Chapter 13, The Linux Underneath). It is
+in the directory you are standing in (Chapter 11, The Linux Underneath). It is
 Tomasz Biela's compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16-
 and 32-bit integers, fixed and floating point, strings, records, pointers,
 units and inline assembly, made for the Atari and since taught the C64, the
 X16 and the Neo6502. The K4510 is its newest target.
 
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 ```
 PMANDEL
@@ -109,10 +103,10 @@ runs HELLO and PSIEVE through the ROM.
 Everything a Pascal program needs from the machine is in pascal/ of the
 repository, laid out as it lives inside a Mad-Pascal checkout: the runtime
 base (base/rtl6502_k4510.asm and base/k4510/), where @putchar writes to JIM,
-the terminal (Chapter 6, The Tube); the SYSTEM and CRT units' machine halves
+the terminal (Chapter 5, The Tube); the SYSTEM and CRT units' machine halves
 (lib/*_k4510.inc); and a k4510 unit. The consequences for the programmer:
 
-=> 06-TUBE.GMI Chapter 6, The Tube
+=> 06-TUBE.GMI Chapter 5, The Tube
 
 *
 
@@ -146,7 +140,7 @@ with the ROM's state intact.
 
 single (IEEE-754, 32-bit) does not run in software here. The runtime's add,
 subtract, multiply, divide, compare, Trunc, Round and Frac are the MATH unit
-at $D700 (Chapter 15, The I/O Page): each is a few register moves and one
+at $D700 (Chapter 13, The I/O Page): each is a few register moves and one
 write to FOP, and the unit answers in the next cycle. PFLOAT times five
 thousand rounds of multiply, divide, add and subtract: 5 frames on the unit,
 24 with the software library (assemble with mads -d:SOFTFLOAT=1 to get it back
@@ -156,7 +150,7 @@ MathFloor -- one register write each. SYSTEM's own Sqrt/Sin/Cos/ArcTan/Exp/Ln
 on single run on the unit too: the installer patches system.pas under {$ifdef
 k4510}.
 
-=> 21-IO.GMI Chapter 15, The I/O Page
+=> 21-IO.GMI Chapter 13, The I/O Page
 
 ### Graphics on VICKY
 
@@ -177,5 +171,5 @@ PGRAPH: bars, a star and triangles by the blitter, circles by pixel, text from
 the ROM's font -- and the console's own line still on top.
 
 => INDEX.GMI Contents
-=> 09-CPM.GMI Previous: 9. CP/M: the Z80 Second Processor
-=> 11-EDITORS.GMI Next: 11. The Editors
+=> 08-LOGO.GMI Previous: 7. LOGO
+=> 11-EDITORS.GMI Next: 9. The Editors

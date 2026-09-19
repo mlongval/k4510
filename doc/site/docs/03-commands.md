@@ -8,7 +8,7 @@ ROM
 in the resident part of the operating system, always there.
 
 ROM, bank *n*  
-in one of the sideways banks ([Chapter 14, Memory](20-memory.md)), paged in for the moment it runs.
+in one of the sideways banks ([Chapter 12, Memory](20-memory.md)), paged in for the moment it runs.
 
 runs MONITOR, runs TYPE  
 a word the ROM still answers to, which hands its line to a program on the disk. The work moved out of the ROM in September 2026 to make room; the word did not change.
@@ -20,7 +20,7 @@ a program. Programs run by name from anywhere, and take their arguments the same
 a language: its folder, with its examples.
 
 ROM, on the Linux  
-a word the ROM answers to by starting something on the Linux the machine runs on ([Chapter 13, The Linux Underneath](13-linux.md)).
+a word the ROM answers to by starting something on the Linux the machine runs on ([Chapter 11, The Linux Underneath](13-linux.md)).
 
 Every word below also works from a BASIC, Forth or the monitor with a `*` in front, and a bare name that is not here is tried as a program, then as a CP/M program if F12 allows it, then as an alias, then as an RX script — in that order, so an alias never hides a command. Capitals are the convention; the shell does not mind either way.
 
@@ -139,31 +139,28 @@ The machine monitor, Wozmon’s grammar with 28-bit addresses. With a line, runs
 ## Languages
 
 **`APPLE [disk]`** — *ROM*  
-An Apple IIe on the Tube (Chapter 6): LinApple’s emulation, drawn on VICKY’s bitmap. With a disk image (.dsk, .woz and the rest, kept in `/DISK/APPLE`) it boots that; alone, DOS 3.3’s master. The Alts are the Apple keys, the keypad the joystick, Ctrl+Alt+R is Reset.
+An Apple IIe on the Tube ([Chapter 5, The Tube](06-tube.md)): LinApple’s emulation, drawn on VICKY’s bitmap. With a disk image (.dsk, .woz and the rest, kept in `/DISK/APPLE`) it boots that; alone, DOS 3.3’s master. The Alts are the Apple keys, the keypad the joystick, Ctrl+Alt+R is Reset.
 
 **`BBC`** — *ROM*  
-BBC BASIC on the Tube (Chapter 6). Also BBC.
+BBC BASIC on the Tube ([Chapter 5, The Tube](06-tube.md)). Also BBC.
 
 **`CPM [command]`** — *ROM*  
-CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot.
+CP/M 2.2 on the Z80. A command runs at boot.
 
 **`DOOM`** — *ROM*  
-DOOM on the Tube, drawn on VICKY’s bitmap and heard through MELODY and the DigiMAX (Chapter 6). Its game data lives in `/DISK/DOOM`: WADCHOOSER in `/APPS/DOOM` fetches a game and picks the one to play.
+DOOM on the Tube, drawn on VICKY’s bitmap and heard through MELODY and the DigiMAX ([Chapter 5, The Tube](06-tube.md)). Its game data lives in `/DISK/DOOM`: WADCHOOSER in `/APPS/DOOM` fetches a game and picks the one to play.
 
 **`EHBASIC`** — */LANG/EHBASIC*  
-Enhanced BASIC with the machine’s graphics (Chapter 4).
+Enhanced BASIC with the machine’s graphics ([Chapter 4, EhBASIC](04-ehbasic.md)).
 
 **`FORTH`** — */LANG/FORTH*  
-Tali Forth 2 (Chapter 7).
+Tali Forth 2 ([Chapter 6, Forth](07-forth.md)).
 
 **`LOGO`** — */LANG/LOGO*  
-Turtle graphics (Chapter 8).
-
-**`MSBASIC`** — */LANG/MSBASIC*  
-Microsoft’s 6502 BASIC of 1977 (Chapter 5).
+Turtle graphics ([Chapter 7, LOGO](08-logo.md)).
 
 **`RX name`** — */LANG/RX*  
-Run a REXX script (Chapter 12); a bare HELLO runs HELLO.RX.
+Run a REXX script ([Chapter 10, RX: the Machine’s REXX](12-rx.md)); a bare HELLO runs HELLO.RX.
 
 ## The Linux beneath
 
@@ -203,7 +200,7 @@ Alone, say which code page the machine speaks. 437 is IBM’s, the default; K451
 The trash: list it, put a file back, empty it, or send a file there.
 
 **`EDIT [name]`** — */SYSTEM/BIN*  
-The modeless editor (Chapter 11).
+The modeless editor ([Chapter 9, The Editors](11-editors.md)).
 
 **`FONTED [name.FNT] | -L name`** — */SYSTEM/BIN*  
 The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT.
@@ -217,6 +214,9 @@ Asks for every key and checks what arrives.
 **`KOMMANDER`** — */SYSTEM/BIN*  
 The two-panel file manager.
 
+**`MARK [MHz]`** — */SYSTEM/BIN*  
+The benchmark, for setting this machine beside others: at every clock from 10 to 60 MHz (or the one nearest the number given) a loop of known length (the work of a 6502 at so many MHz), the Byte Sieve, a copy, and a fixed-point Mandelbrot twice — its multiplies by shift and add, then by the MATH unit. Beside each time is the clock a real 65C02 would need to match it (an Apple IIe is 1 MHz, a BBC Master 2), from the loops’ cycles counted on a cycle-exact simulator. Figures are machine time; the last column says whether this host kept up. It first checks that the CPU computes correctly. The report is kept in `/SYSTEM/LOG/MARK.TXT`.
+
 **`MONITOR`** — */SYSTEM/BIN*  
 The monitor as a program: MON, WOZ, FILL and COPY run it.
 
@@ -224,7 +224,7 @@ The monitor as a program: MON, WOZ, FILL and COPY run it.
 The mouse registers, live, with a sprite pointer.
 
 **`NVIM [name]`** — */SYSTEM/BIN*  
-Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run (Chapter 13).
+Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run ([Chapter 11, The Linux Underneath](13-linux.md)).
 
 **`PADTEST`** — */SYSTEM/BIN*  
 The held-keys register, live: a gamepad’s first test.
@@ -233,7 +233,7 @@ The held-keys register, live: a gamepad’s first test.
 JIM, the terminal, speaking PETSCII.
 
 **`PROG [name]`** — */SYSTEM/BIN*  
-The programmer’s front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler’s messages under the text (Chapter 11).
+The programmer’s front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler’s messages under the text ([Chapter 9, The Editors](11-editors.md)).
 
 **`RADIO [words]`** — *ROM*  
 The Navidrome sidebar’s player, from the prompt: alone, what is playing and the words; PLAY \[playlist\], ALBUM name, ARTIST name, SONG words, SEARCH words, NEXT, PAUSE, RESUME, OFF. It plays whether or not the sidebar is on the glass; the volume is the machine’s.
@@ -263,4 +263,7 @@ A terminal on a TCP connection. F12 hangs up.
 A file, a screenful at a time; Esc or Q stops. A URL works.
 
 **`VI [name]`** — */SYSTEM/BIN*  
-The modal editor (Chapter 11).
+The modal editor ([Chapter 9, The Editors](11-editors.md)).
+
+**`WALL`** — */SYSTEM/BIN*  
+What was sent to this machine from outside (tools`/k4510-remote` wall, on another computer): each message waiting, oldest first, answered as it asks — a key for a notice, a digit for one of its choices, a line of text — and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you.

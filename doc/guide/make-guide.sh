@@ -117,6 +117,20 @@ awk '
     [ -n "$OVERFULL_OK" ] || exit 1
 }
 rm -f "$HERE/.overfull"
+
+# A reference to something that is not in this edition. It prints as ?? in the
+# book, which is worse than a build that stops: a chapter marked `nope' in
+# SHIPPING.CFG is no longer input (2026-09-19), so every cross-reference into
+# one has to be wrapped in \shipif{chapter:NN-name}{...} as well.
+if grep -q "Reference .* undefined" k4510-guide.log; then
+    echo
+    echo "REFERENCES: this book points at something it does not contain:"
+    grep -o "Reference \`[^']*' on page [0-9]*" k4510-guide.log | sort -u | sed 's/^/  /'
+    echo
+    echo "Wrap each one in \\shipif{<the key that hides it>}{...}, or put the"
+    echo "chapter back.  (SHIPPING.CFG hides: $(sed -n 's/^\\shipnope{\(.*\)}$/\1/p' "$HERE/generated/shipping.tex" | tr '\n' ' '))"
+    exit 1
+fi
 echo "-> $HERE/k4510-guide.pdf"
 
 # The same book as a web site (doc/site, for Read the Docs): made from the

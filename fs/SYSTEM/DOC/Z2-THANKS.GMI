@@ -33,25 +33,24 @@ startup banner instead.
 
 Richard T. Russell wrote BBC BASIC, and has kept writing it for forty years.
 The console edition of his BBC BASIC for SDL 2.0 (BBCTTY) is what runs on the
-Tube co-processor in Chapter 6, The Tube, under the zlib licence he publishes
+Tube co-processor in Chapter 5, The Tube, under the zlib licence he publishes
 it with. "BBC BASIC" is the name of his interpreter; this book uses it only to
 say what is running, and claims nothing in it.
 
-=> 06-TUBE.GMI Chapter 6, The Tube
+=> 06-TUBE.GMI Chapter 5, The Tube
 
-Marcelo Dantas ("Mockba the Borg") wrote RunCPM, which is the whole of Chapter
-9, CP/M: the Z80 Second Processor: a complete CP/M 2.2 with its own CCP,
-vendored here unmodified and simply handed a Z80's worth of address space.
+Marcelo Dantas ("Mockba the Borg") wrote RunCPM, which is the whole of the
+machine's CP/M: a complete CP/M 2.2 with its own CCP, vendored here unmodified
+and simply handed a Z80's worth of address space.
 
 => https://github.com/MockbaTheBorg/RunCPM RunCPM
-=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
 
 Scot W. Stevenson, Sam Colwell and Patrick Surry wrote Tali Forth 2 and put it
-in the public domain -- a Forth written to be read, which is why Chapter 7,
+in the public domain -- a Forth written to be read, which is why Chapter 6,
 Forth can be honest about how it works.
 
 => https://github.com/SamCoVT/TaliForth2 Tali Forth 2
-=> 07-FORTH.GMI Chapter 7, Forth
+=> 07-FORTH.GMI Chapter 6, Forth
 
 Tomasz Biela ("tebe") wrote Mad Pascal and MADS; the K4510 target in pascal/
 is a guest in his compiler. Wojciech Bocianski ("bocianu"), whose Neo6502
@@ -106,11 +105,11 @@ the usual order and a much better way to spend an evening.
 
 Ian Schofield wrote Tek40xx, a Tektronix 4010/4014 storage tube on SDL2 that
 is also a telnet client. It rides along on the machine's Linux as the second
-terminal (Chapter 13, The Linux Underneath), built from upstream with one
+terminal (Chapter 11, The Linux Underneath), built from upstream with one
 patch of ours.
 
 => https://github.com/ijschofield/Tek40xx Tek40xx
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 ## The bare metal, which the machine no longer stands on
 

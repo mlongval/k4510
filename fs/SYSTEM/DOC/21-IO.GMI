@@ -1,4 +1,4 @@
-# Chapter 15. The I/O Page
+# Chapter 13. The I/O Page
 
 One page, $D000-$DFFF, always visible. The authoritative register-level
 reference is the machine's own headers, and Appendix A, The Registers is
@@ -67,15 +67,12 @@ holding the line between them.
 SPLIT is the demonstration, and it has two twins that draw the same ribbon of
 lines -- endpoints bouncing, the line sixteen behind erased -- as fast as they
 can, and say how fast in the text band: /LANG/EHBASIC/EX/SPLIT.BAS, with
-EhBASIC's own LINE, and /LANG/MSBASIC/SPLIT.BAS, where Microsoft BASIC, which
-has no graphics words, sets the blitter's registers with POKE. At the 40.5 MHz
-a host starts at:
+EhBASIC's own LINE. At the 40.5 MHz a host starts at:
 
 ```
-Language         lines/s  how it draws one
-C (SPLIT)        7400     fifteen register writes
-EhBASIC          330      LINE, one blitter operation
-Microsoft BASIC  140      ten POKEs in a subroutine
+Language   lines/s  how it draws one
+C (SPLIT)  7400     fifteen register writes
+EhBASIC    330      LINE, one blitter operation
 ```
 
 The blitter draws a line in no time at all, so the numbers are the languages:
@@ -85,5 +82,5 @@ for. The split itself costs every one of them nothing. A faster clock (F12, or
 SETUP) scales all three.
 
 => INDEX.GMI Contents
-=> 20-MEMORY.GMI Previous: 14. Memory
+=> 20-MEMORY.GMI Previous: 12. Memory
 => A1-REGISTERS.GMI Next: A. The Registers

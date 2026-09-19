@@ -14,19 +14,17 @@ needs neither a printer nor a browser.
 => 02-SHELL.GMI 2. The Shell
 => 03-COMMANDS.GMI 3. Every Command
 => 04-EHBASIC.GMI 4. EhBASIC
-=> 05-MSBASIC.GMI 5. Microsoft BASIC, 1977
-=> 06-TUBE.GMI 6. The Tube
-=> 07-FORTH.GMI 7. Forth
-=> 08-LOGO.GMI 8. LOGO
-=> 09-CPM.GMI 9. CP/M: the Z80 Second Processor
-=> 10-PASCAL.GMI 10. Pascal
-=> 11-EDITORS.GMI 11. The Editors
-=> 12-RX.GMI 12. RX: the Machine's REXX
-=> 13-LINUX.GMI 13. The Linux Underneath
+=> 06-TUBE.GMI 5. The Tube
+=> 07-FORTH.GMI 6. Forth
+=> 08-LOGO.GMI 7. LOGO
+=> 10-PASCAL.GMI 8. Pascal
+=> 11-EDITORS.GMI 9. The Editors
+=> 12-RX.GMI 10. RX: the Machine's REXX
+=> 13-LINUX.GMI 11. The Linux Underneath
 
 ## Programmer's Guide
-=> 20-MEMORY.GMI 14. Memory
-=> 21-IO.GMI 15. The I/O Page
+=> 20-MEMORY.GMI 12. Memory
+=> 21-IO.GMI 13. The I/O Page
 
 ## Appendices
 => A1-REGISTERS.GMI A. The Registers

@@ -1,4 +1,4 @@
-# Chapter 12. RX: the Machine's REXX
+# Chapter 10. RX: the Machine's REXX
 
 /STARTUP.BAT is a list of commands, and a list of commands is enough right up
 to the moment something has to be decided. RX is the answer to that: a REXX
@@ -98,5 +98,5 @@ CHESS.RX     a game of chess played through the port
 => 02-SHELL.GMI Chapter 2, The Shell
 
 => INDEX.GMI Contents
-=> 11-EDITORS.GMI Previous: 11. The Editors
-=> 13-LINUX.GMI Next: 13. The Linux Underneath
+=> 11-EDITORS.GMI Previous: 9. The Editors
+=> 13-LINUX.GMI Next: 11. The Linux Underneath

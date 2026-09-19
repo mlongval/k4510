@@ -24,7 +24,7 @@ second is the other.
 
 \section{Turbo Pascal 3, on CP/M}
 Borland's Turbo Pascal~3 is a CP/M program, so it runs where CP/M runs:
-on the Tube's Z80 (Chapter~\ref{cha:cpm}), in its own world, exactly as
+on the Tube's Z80\shipif{chapter:09-cpm}{ (Chapter~\ref{cha:cpm})}, in its own world, exactly as
 it did on a Kaypro. You write, compile and run without leaving it, and
 what it produces is a CP/M program that runs under CP/M on the Z80 ---
 it cannot see VICKY, the OPL2 or anything else on the K4510 side of the
@@ -42,8 +42,8 @@ TURBO
 \noindent \verb|TURBO| is an alias that \pth{/SYSTEM/ETC/STARTUP.SAMPLE}
 defines, for \verb|CPM K-TURBO|: boot CP/M, go to \verb|P:|, start Turbo,
 and --- because the submit ends in \verb|EXIT| --- come all the way back
-to the K/OS prompt when you leave it. Chapter~\ref{cha:cpm} explains
-that arrangement.
+to the K/OS prompt when you leave it.\shipif{chapter:09-cpm}{ Chapter~\ref{cha:cpm}
+explains that arrangement.}
 
 \screen{shots/turbo.png}{Turbo Pascal~3 starting on the Z80, its
 terminal drawn by JIM.}

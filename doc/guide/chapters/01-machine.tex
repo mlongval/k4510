@@ -50,9 +50,9 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   which the BASICs and LOGO lean on. (The machine had four SID chips
   until September 2026. Appendix~\ref{cha:sound} is the whole story.)
 \item \textbf{K/OS}: a shell with directories, in ROM --- and on the disk,
-  one word away each, seven languages: EhBASIC with graphics and sprites,
-  Microsoft's own BASIC of 1977, BBC BASIC on the Tube, Forth, LOGO, CP/M
-  on a Z80, and RX, the machine's REXX. Two compilers are one word away
+  one word away each, a shelf of languages: EhBASIC with graphics and
+  sprites,\shipif{lang:MSBASIC}{ Microsoft's own BASIC of 1977,} BBC BASIC on
+  the Tube, Forth, LOGO, CP/M on a Z80, and RX, the machine's REXX. Two compilers are one word away
   as well: \verb|PAS| and \verb|CC| turn a Pascal or C source in the
   directory you are standing in into a program beside it
   (Chapter~\ref{cha:linux}).
@@ -238,7 +238,7 @@ page on the right.}
   uses what \verb|SETUP| measured on this host. On the K4510's own Linux
   there is a last row, \emph{Shut down the computer}.
 \item[Shell] whether an unknown word at the prompt may run a CP/M
-  \texttt{.COM} (Chapter~\ref{cha:cpm}) --- off to begin with, on
+  \texttt{.COM}\shipif{chapter:09-cpm}{ (Chapter~\ref{cha:cpm})} --- off to begin with, on
   purpose: \verb|D| typed for \verb|DIR| should not start a Z80 program;
   and whether \texttt{/STARTUP.BAT} runs at power-on, which is the way
   out of a bad one (Section~\ref{sec:badstartup}).

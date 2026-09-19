@@ -1,4 +1,4 @@
-# Chapter 13. The Linux Underneath
+# Chapter 11. The Linux Underneath
 
 Every emulated machine sits on a real one. On most of them that fact is
 carefully hidden; here it is a feature, because the real machine has compilers
@@ -22,7 +22,7 @@ runs that command on the Linux the machine is standing on, with its output
 drawn on the machine's screen. A bare ! with nothing after it gives you an
 interactive shell there; leave it the way you leave any shell.
 
-It is carried on the Tube (Chapter 6, The Tube), which is the part of this
+It is carried on the Tube (Chapter 5, The Tube), which is the part of this
 machine already built to have another processor's console on the glass: the
 host's shell is started on the same pty the co-processors use, JIM renders it,
 and the ROM's own key loop feeds it. So the colours stay the machine's,
@@ -32,7 +32,7 @@ xterm-color, and it speaks UTF-8: JIM draws what it can in the machine's
 character set and a near likeness of the rest, and an accented letter you type
 arrives as one.
 
-=> 06-TUBE.GMI Chapter 6, The Tube
+=> 06-TUBE.GMI Chapter 5, The Tube
 
 JIM also draws pictures. It speaks the Kitty terminal's graphics protocol, so
 a program that can show an image in a terminal that way shows it here, among
@@ -133,11 +133,11 @@ unit beside the program is found whatever case its name was saved in (Mad
 Pascal on Linux looks for myunit.pas; the machine writes MYUNIT.PAS).
 Intermediates go to a scratch directory and never appear on your disk. The
 compiler's errors appear on the screen, one to a line as FILE:LINE: Error:
-..., and in /SYSTEM/LOG/MAKE.ERR, which is what VI's :make reads (Chapter 11,
+..., and in /SYSTEM/LOG/MAKE.ERR, which is what VI's :make reads (Chapter 9,
 The Editors); the exit status comes back as the result code, so a script can
 test it -- as any ! command's does.
 
-=> 11-EDITORS.GMI Chapter 11, The Editors
+=> 11-EDITORS.GMI Chapter 9, The Editors
 
 That is the loop the machine owns: edit the source on the machine, compile it
 from the machine's prompt, run it on the machine. The compiler itself still
@@ -309,5 +309,5 @@ above it and a pass-through mode in which what you type goes straight to the
 machine (Ctrl-] leaves).
 
 => INDEX.GMI Contents
-=> 12-RX.GMI Previous: 12. RX: the Machine's REXX
-=> 20-MEMORY.GMI Next: 14. Memory
+=> 12-RX.GMI Previous: 10. RX: the Machine's REXX
+=> 20-MEMORY.GMI Next: 12. Memory

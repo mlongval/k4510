@@ -72,16 +72,16 @@ DESC = {
     "FILL":    (4, "FILL from.to value", "Fill memory with a byte, by DMA."),
     "COPY":    (4, "COPY from.to dest", "Copy memory, by DMA. Not files: that is CP."),
     # languages
-    "BBCBASIC":(5, "BBC", "BBC BASIC on the Tube (Chapter 6)."),
-    "DOOM":    (5, "DOOM", "DOOM on the Tube, drawn on VICKY's bitmap and heard through MELODY and the DigiMAX (Chapter 6). Its game data lives in /DISK/DOOM: WADCHOOSER in /APPS/DOOM fetches a game and picks the one to play."),
+    "BBCBASIC":(5, "BBC", "BBC BASIC on the Tube@cha:tube@."),
+    "DOOM":    (5, "DOOM", "DOOM on the Tube, drawn on VICKY's bitmap and heard through MELODY and the DigiMAX@cha:tube@. Its game data lives in /DISK/DOOM: WADCHOOSER in /APPS/DOOM fetches a game and picks the one to play."),
     "RADIO":   (7, "RADIO [words]", "The Navidrome sidebar's player, from the prompt: alone, what is playing and the words; PLAY [playlist], ALBUM name, ARTIST name, SONG words, SEARCH words, NEXT, PAUSE, RESUME, OFF. It plays whether or not the sidebar is on the glass; the volume is the machine's."),
-    "APPLE":   (5, "APPLE [disk]", "An Apple IIe on the Tube (Chapter 6): LinApple's emulation, drawn on VICKY's bitmap. With a disk image (.dsk, .woz and the rest, kept in /DISK/APPLE) it boots that; alone, DOS 3.3's master. The Alts are the Apple keys, the keypad the joystick, Ctrl+Alt+R is Reset."),
-    "CPM":     (5, "CPM [command]", "CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot."),
-    "EHBASIC": (5, "EHBASIC", "Enhanced BASIC with the machine's graphics (Chapter 4)."),
-    "MSBASIC": (5, "MSBASIC", "Microsoft's 6502 BASIC of 1977 (Chapter 5)."),
-    "FORTH":   (5, "FORTH", "Tali Forth 2 (Chapter 7)."),
-    "LOGO":    (5, "LOGO", "Turtle graphics (Chapter 8)."),
-    "RX":      (5, "RX name", "Run a REXX script (Chapter 12); a bare HELLO runs HELLO.RX."),
+    "APPLE":   (5, "APPLE [disk]", "An Apple IIe on the Tube@cha:tube@: LinApple's emulation, drawn on VICKY's bitmap. With a disk image (.dsk, .woz and the rest, kept in /DISK/APPLE) it boots that; alone, DOS 3.3's master. The Alts are the Apple keys, the keypad the joystick, Ctrl+Alt+R is Reset."),
+    "CPM":     (5, "CPM [command]", "CP/M 2.2 on the Z80@cha:cpm@. A command runs at boot."),
+    "EHBASIC": (5, "EHBASIC", "Enhanced BASIC with the machine's graphics@cha:basic@."),
+    "MSBASIC": (5, "MSBASIC", "Microsoft's 6502 BASIC of 1977@cha:msbasic@."),
+    "FORTH":   (5, "FORTH", "Tali Forth 2@cha:forth@."),
+    "LOGO":    (5, "LOGO", "Turtle graphics@cha:logo@."),
+    "RX":      (5, "RX name", "Run a REXX script@cha:rx@; a bare HELLO runs HELLO.RX."),
     # linux
     "!":       (6, "!command  or  !", "Run a command on the Linux beneath, or (alone) open a shell there. Can be locked off."),
     "SSH":     (6, "SSH [user@]host", "An ssh session, through the Linux's ssh. Locked off with !."),
@@ -94,7 +94,7 @@ DESC = {
     "BUG":       (7, "BUG", "Asks seven questions about a fault and writes the report (Appendix B)."),
     "CHROUT":    (7, "CHROUT", "How fast the ROM's console prints."),
     "DELETE":    (7, "DELETE [-l | -r name | -e | name]", "The trash: list it, put a file back, empty it, or send a file there."),
-    "EDIT":      (7, "EDIT [name]", "The modeless editor (Chapter 11)."),
+    "EDIT":      (7, "EDIT [name]", "The modeless editor@cha:editors@."),
     "KEYTEST":   (7, "KEYTEST", "Asks for every key and checks what arrives."),
     "KOMMANDER": (7, "KOMMANDER", "The two-panel file manager."),
     "MONITOR":   (7, "MONITOR", "The monitor as a program: MON, WOZ, FILL and COPY run it."),
@@ -111,12 +111,12 @@ DESC = {
     "SUPERMON":  (7, "SUPERMON", "Jim Butterfield's monitor, grown up: an assembler and a 45GS02 disassembler."),
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),
-    "VI":        (7, "VI [name]", "The modal editor (Chapter 11)."),
+    "VI":        (7, "VI [name]", "The modal editor@cha:editors@."),
     "MARK":      (7, "MARK [MHz]", "The benchmark, for setting this machine beside others: at every clock from 10 to 60 MHz (or the one nearest the number given) a loop of known length (the work of a 6502 at so many MHz), the Byte Sieve, a copy, and a fixed-point Mandelbrot twice --- its multiplies by shift and add, then by the MATH unit. Beside each time is the clock a real 65C02 would need to match it (an Apple IIe is 1 MHz, a BBC Master 2), from the loops' cycles counted on a cycle-exact simulator. Figures are machine time; the last column says whether this host kept up. It first checks that the CPU computes correctly. The report is kept in /SYSTEM/LOG/MARK.TXT."),
     "WALL":      (7, "WALL", "What was sent to this machine from outside (tools/k4510-remote wall, on another computer): each message waiting, oldest first, answered as it asks --- a key for a notice, a digit for one of its choices, a line of text --- and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you."),
     "STATUS":    (7, "STATUS", "The whole machine at a glance: its display and clock, how much of the 256 MB holds anything, the memory of the Linux beneath, where the system and your files really are and how much room is left, what is mounted, and the network by name and address."),
-    "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run (Chapter 13)."),
-    "PROG":      (7, "PROG [name]", "The programmer's front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler's messages under the text (Chapter 11)."),
+    "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run@cha:linux@."),
+    "PROG":      (7, "PROG [name]", "The programmer's front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler's messages under the text@cha:editors@."),
 }
 # words that exist twice: the ROM command wins at the prompt, the program is
 # still there for RUN.  Listed once, under the ROM's.
@@ -135,11 +135,57 @@ def esc(s):
     return "".join(rep.get(c, c) for c in s)
 
 
+def shipkey(where, name):
+    """The SHIPPING.CFG key for a command, from where it lives -- so that a
+    language, app or program left out of the image is left out of the reference
+    as well.  A key that does not exist is simply never declared nope, so a
+    wrong guess here keeps the entry: the safe way round, as \\shipif is."""
+    m = re.fullmatch(r"/LANG/(\w+)", where)
+    if m:
+        return "lang:" + m.group(1)
+    m = re.fullmatch(r"/APPS/(\w+)", where)
+    if m:
+        return "app:" + m.group(1)
+    if where == "/SYSTEM/BIN":
+        return "bin:" + name.lower() + ".prg"
+    return None                                   # the ROM, or an alias that runs another command
+
+
+def chapkeys():
+    """cha:label -> chapter:NN-name, read from the chapters' own \\label lines, so
+    that a reference in a description can be dropped when SHIPPING.CFG drops the
+    chapter it points at."""
+    out = {}
+    for f in sorted((HERE / "chapters").glob("*.tex")):
+        m = re.search(r"\\label\{(cha:[^}]+)\}", f.read_text())
+        if m:
+            out[m.group(1)] = "chapter:" + f.stem
+    return out
+
+
+CHAPKEYS = None
+
+
+def chapref(s):
+    """@cha:label@ -> " (Chapter~\\ref{cha:label})", wrapped so that it disappears
+    with its chapter.  The numbers used to be typed into the descriptions here;
+    hiding two chapters in 2026-09 made thirteen of them wrong at once."""
+    global CHAPKEYS
+    if CHAPKEYS is None:
+        CHAPKEYS = chapkeys()
+    def one(m):
+        lab = m.group(1)
+        ref = " (Chapter~\\ref{" + lab + "})"
+        key = CHAPKEYS.get(lab)
+        return "\\shipif{" + key + "}{" + ref + "}" if key else ref
+    return re.sub(r"@(cha:[\w-]+)@", one, s)
+
+
 def prose(s):
     """esc(), but a path or URL in the text is set with \\pth, which may break
     at / and . -- an A5 line cannot hold /SYSTEM/ETC/PALETTES unbroken."""
     parts = re.split(r"([a-z]+://[A-Za-z0-9_./-]*|/[A-Za-z0-9_][A-Za-z0-9_./-]*[A-Za-z0-9_/])", s)
-    return "".join(f"\\pth{{{p}}}" if i % 2 else esc(p) for i, p in enumerate(parts))
+    return chapref("".join(f"\\pth{{{p}}}" if i % 2 else esc(p) for i, p in enumerate(parts)))
 
 
 def func_body(src, name):
@@ -215,7 +261,9 @@ def commands():
             also = [n for n in names[1:]]
             if also:
                 text += " Also " + ", ".join(also) + "."
-            out.append(f"\\cmdentry{{{esc(usage)}}}{{{esc(where)}}}{{{prose(text)}}}")
+            entry = f"\\cmdentry{{{esc(usage)}}}{{{esc(where)}}}{{{prose(text)}}}"
+            key = shipkey(where, names[0])
+            out.append(f"\\shipif{{{key}}}{{{entry}}}" if key else entry)
         out.append("\\end{cmdblock}")
     (OUT / "commands.tex").write_text("\n".join(out) + "\n")
     return len(found)

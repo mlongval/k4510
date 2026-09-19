@@ -320,8 +320,9 @@ so, \texttt{game.prg: 4211 bytes (1 compiled, 2 kept)}.
 \begin{aside}
 \textbf{Where it is going.} This is PROG's fourth stage: projects came
 third, the mouse and selection fourth, and REXX is already in. Next come
-the other interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on
-the file in front of you, their errors in the same list.
+the other interpreters: EhBASIC\shipif{lang:MSBASIC}{, Microsoft BASIC},
+LOGO and Forth run on the file in front of you, their errors in the same
+list.
 \end{aside}
 
 \section{Editing from inside a BASIC}\label{sec:editfrombasic}
@@ -332,14 +333,15 @@ There are two cases, and they look alike, so here is the rule.
 file, runs the editor on it, and loads it back when you leave --- so what
 you type in the editor is what you \verb|LIST| afterwards. Variables do
 not survive the round trip, exactly as with \verb|LOAD|.
-Section~\ref{sec:basicvi} has the details for EhBASIC; Microsoft BASIC
-does the same with \verb|*VI| (Chapter~\ref{cha:msbasic}), BBC BASIC with
-\verb|*VI| and \verb|*EDIT| (Chapter~\ref{cha:tube}), and LOGO with
+Section~\ref{sec:basicvi} has the details for EhBASIC; BBC BASIC does the
+same with \verb|*VI| and \verb|*EDIT|
+(Chapter~\ref{cha:tube})\shipif{lang:MSBASIC}{, Microsoft BASIC with
+\texttt{*VI} (Chapter~\ref{cha:msbasic})}, and LOGO with
 \verb|EDIT "name| (Chapter~\ref{cha:logo}).
 
 \textbf{To renumber it}, which none of those BASICs could do for itself,
 use \verb|:renum| in VI or Ctrl-R in EDIT. Both know the language from the
-file: a \texttt{.BAS} is EhBASIC's or Microsoft's, a \texttt{.BBC} is BBC
+file: a \texttt{.BAS} is EhBASIC's\shipif{lang:MSBASIC}{ or Microsoft's}, a \texttt{.BBC} is BBC
 BASIC's, with its \verb|ELSE| targets and its lower-case variables (a
 \texttt{goto} there is a name, not a jump). The lines' own numbers change,
 and so does every target after \verb|GOTO|, \verb|GOSUB|, \verb|THEN|,

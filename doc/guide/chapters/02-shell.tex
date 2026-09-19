@@ -47,7 +47,7 @@ else lives one level down:
 \texttt{/LANG/}\emph{name} & one folder per language: its runtime, a \texttt{README} and an \texttt{EX/} of examples. \texttt{PASCAL} and \texttt{C} keep the sources \emph{beside} the programs they compile to \\
 \texttt{/APPS/}\emph{name} & one folder per program, with its data beside it --- \texttt{LODE}'s levels, \texttt{CHESS}'s openings, \texttt{OPLPLAY}'s tunes \\
 \texttt{/HOME} & yours. The prompt starts here \\
-\texttt{/CPM} & the Z80's drives, \texttt{A} to \texttt{P}, one folder each (Chapter~\ref{cha:cpm}) \\
+\texttt{/CPM} & the Z80's drives, \texttt{A} to \texttt{P}, one folder each\shipif{chapter:09-cpm}{ (Chapter~\ref{cha:cpm})} \\
 \texttt{/MNT} & things from outside: \texttt{SHARE}, the folder the container flavour is given, and anything you \verb|MOUNT| \\
 \texttt{/DOCUMENTS} & papers about the machine, kept where the machine can read them. \texttt{SHIPPING.CFG} is the list of everything built, each thing marked \texttt{essential}, \texttt{maybe} or \texttt{nope}: edit it here with \texttt{VI}, and the build reads it \\
 \texttt{/STARTUP.BAT} & yours; run at power-on (Section~\ref{sec:badstartup}) \\
@@ -96,8 +96,8 @@ take \verb|-f| when you mean it --- the host's own habit is to overwrite
 without a word, and that habit has cost this project a file.
 
 \section{Running things}
-\verb|RUN balls.prg| runs a program; so does \verb|RUN balls|, and so does
-plain \verb|BALLS| --- an unknown word is tried as a program on disk before
+\verb|RUN cube.prg| runs a program; so does \verb|RUN cube|, and so does
+plain \verb|CUBE| --- an unknown word is tried as a program on disk before
 the shell gives up, \emph{with its arguments}, the way REXX did it on the
 mainframes. A program reads its arguments through the \texttt{ARGS} system
 call; \verb|SAY| is the demonstration:
@@ -118,11 +118,12 @@ you cannot tell from the prompt which is which, which is the point. The
 disk is the host's (and on the K4510's own Linux, in RAM), so a program
 starts as quickly as a word in the ROM.
 
-Seven words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
-\verb|MSBASIC| (Chapter~\ref{cha:msbasic}), \verb|BBC|
+These words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
+\shipif{lang:MSBASIC}{\texttt{MSBASIC} (Chapter~\ref{cha:msbasic}), }\verb|BBC|
 (Chapter~\ref{cha:tube}), \verb|FORTH| (Chapter~\ref{cha:forth}),
-\verb|LOGO| (Chapter~\ref{cha:logo}), \verb|CPM| (Chapter~\ref{cha:cpm})
-and \verb|RX| (Chapter~\ref{cha:rx}).
+\verb|LOGO| (Chapter~\ref{cha:logo}),
+\verb|RX| (Chapter~\ref{cha:rx}) and
+\verb|CPM|\shipif{chapter:09-cpm}{ (Chapter~\ref{cha:cpm})}.
 
 \subsection*{What is on the disk}
 \pth{/APPS} holds the programs the machine ships with, one folder each,
@@ -137,14 +138,14 @@ and any of them runs by name from anywhere:
 \verb|FLUFFY| & a platformer: variable jump height, stomping, spikes \\
 \verb|BOMBER| & a bomb-party arena \\
 \verb|CHESS| & a chess set with an engine; it can also be driven from a script (Chapter~\ref{cha:rx}) \\
-\verb|TINY| & a dungeon crawl \\
-\verb|OPL2| & the sound chip, all nine voices \\
+\shipif{app:TINY}{\texttt{TINY} & a dungeon crawl \\}
+\shipif{app:OPL2}{\texttt{OPL2} & the sound chip, all nine voices \\}
 \verb|OPLPLAY| & plays \texttt{.OPL} streams from its \texttt{TUNES/} \\
 \verb|MANDEL| & the set, drawn by the machine \\
 \verb|CUBE| & a rotating solid \\
-\verb|BALLS| & the sprites, all of them at once \\
-\verb|ANSIDEMO| & what JIM can draw \\
-\verb|SEGDEMO| & two overlays sharing one address \\
+\shipif{app:BALLS}{\texttt{BALLS} & the sprites, all of them at once \\}
+\shipif{app:ANSIDEMO}{\texttt{ANSIDEMO} & what JIM can draw \\}
+\shipif{app:SEGDEMO}{\texttt{SEGDEMO} & two overlays sharing one address \\}
 \bottomrule
 \end{tabular}
 \end{center}
@@ -193,8 +194,8 @@ out of reach of anything running here.
 \verb|SWAP -k| is the same but \emph{keeps} the screen the program left,
 instead of restoring the caller's. A file manager wants its display
 back; a script that ran a program to read what it printed wants the
-other thing, which is why RX uses this form --- and why Microsoft BASIC
-runs every \verb|*| command through it.
+other thing, which is why RX uses this form\shipif{lang:MSBASIC}{ --- and why
+Microsoft BASIC runs every \texttt{*} command through it}.
 
 \section{At the prompt}
 The line you are typing is editable: Left and Right move through it,

@@ -146,4 +146,4 @@ A `MAP` of block 6 hides `$D000-$DFFF` and exposes RAM: with the ROM also banked
 
 ## Programs bigger than the window
 
-The `K4SG` executable format loads segments to any physical address and the far-call gate (`$DF00`) calls between them: a plain `JSR` into slot n banks descriptor n’s code in, and the callee’s `RTS` banks it back out. `SEGDEMO` shows two overlays sharing one address.
+The `K4SG` executable format loads segments to any physical address and the far-call gate (`$DF00`) calls between them: a plain `JSR` into slot n banks descriptor n’s code in, and the callee’s `RTS` banks it back out.

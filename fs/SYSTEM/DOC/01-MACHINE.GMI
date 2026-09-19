@@ -57,12 +57,12 @@ Sound, and What It Took is the whole story.)
 *
 
  K/OS: a shell with directories, in ROM -- and on the disk, one word away
-each, seven languages: EhBASIC with graphics and sprites, Microsoft's own
-BASIC of 1977, BBC BASIC on the Tube, Forth, LOGO, CP/M on a Z80, and RX, the
-machine's REXX. Two compilers are one word away as well: PAS and CC turn a
-Pascal or C source in the directory you are standing in into a program beside
-it (Chapter 13, The Linux Underneath).
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+each, a shelf of languages: EhBASIC with graphics and sprites, BBC BASIC on
+the Tube, Forth, LOGO, CP/M on a Z80, and RX, the machine's REXX. Two
+compilers are one word away as well: PAS and CC turn a Pascal or C source in
+the directory you are standing in into a program beside it (Chapter 11, The
+Linux Underneath).
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
  
 
@@ -81,17 +81,17 @@ As a whole computer, installed beside another system. linux/install-k4510.sh
 copies the same system from the stick onto a partition of a computer's
 internal disk and adds it to that computer's boot menu, so the machine is one
 choice of two when it starts. The other system is not changed, and the
-computer boots whichever of the two was used last (Chapter 13, The Linux
+computer boots whichever of the two was used last (Chapter 11, The Linux
 Underneath).
 
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 Either way, the Linux underneath is not hidden. The cross-compilers, git, an
 editor and a second terminal are on it, and the machine can reach them
-(Chapter 13, The Linux Underneath); but it is furniture. Switch on and you are
+(Chapter 11, The Linux Underneath); but it is furniture. Switch on and you are
 at the /HOME] prompt.
 
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 As a window. Run the same program on a Linux desktop and you get the same
 machine in a window, which is how it is developed and tested, and how most of
@@ -128,10 +128,10 @@ sudo ./linux/build-live.sh
 makes the bootable image: a small Debian, the machine and its compilers, about
 half an hour the first time. Write it to a USB stick with dd and boot from it;
 to put it on a computer's own disk instead, boot that computer's usual Linux
-with the stick in and run sudo ./install-k4510.sh from it. Chapter 13, The
+with the stick in and run sudo ./install-k4510.sh from it. Chapter 11, The
 Linux Underneath has both.
 
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 ### What it needs
 
@@ -248,11 +248,11 @@ the reset chord; which key opens the menu; whether a click captures the mouse
 pointer, and whether the host's pointer shows over the picture (full screen,
 the pointer stays on the machine's picture, and goes into the side panel only
 when there is one); the keyboard, above; and the key pipe, typing from another
-computer (Chapter 13, The Linux Underneath): off, on, or on, shown -- the one
+computer (Chapter 11, The Linux Underneath): off, on, or on, shown -- the one
 it starts at -- where every key typed that way is echoed in a bar at the foot
 of the window for a few seconds, so nobody types into the machine unseen.
 
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 Machine
 save state and load state, four slots each (the whole machine -- CPU, every
@@ -265,12 +265,11 @@ what SETUP measured on this host. On the K4510's own Linux there is a last
 row, Shut down the computer.
 
 Shell
-whether an unknown word at the prompt may run a CP/M .COM (Chapter 9, CP/M:
-the Z80 Second Processor) -- off to begin with, on purpose: D typed for DIR
-should not start a Z80 program; and whether /STARTUP.BAT runs at power-on,
-which is the way out of a bad one (When STARTUP.BAT is the problem).
+whether an unknown word at the prompt may run a CP/M .COM -- off to begin
+with, on purpose: D typed for DIR should not start a Z80 program; and whether
+/STARTUP.BAT runs at power-on, which is the way out of a bad one (When
+STARTUP.BAT is the problem).
 
-=> 09-CPM.GMI Chapter 9, CP/M: the Z80 Second Processor
 => 02-SHELL.GMI When STARTUP.BAT is the problem
 
 Info

@@ -54,7 +54,7 @@ def nope_keys():
             line = line.split("#", 1)[0].strip()
             if "=" in line:
                 k, v = (x.strip() for x in line.split("=", 1))
-                if v == "nope":
+                if v in ("nope", "nuke"):      # as mkship.py: a nuked thing is not in the image either
                     out.add(k)
     return out
 
@@ -91,8 +91,13 @@ def plain(title):
     return re.sub(r"[{}]", "", t).replace("~", " ").replace("---", "—").strip()
 
 
+ALL = []                     # every chapter in the book's order, dropped ones included
+PUBLISHED = set()            # the stems this edition publishes
+
+
 def chapters():
-    """[(part, file stem)] in the book's order; part is the nav group."""
+    """[(part, file stem)] in the book's order; part is the nav group.
+    Also fills ALL and PUBLISHED, which labels() and prep() read."""
     master = (HERE / "k4510-guide.tex").read_text()
     body = master.split(r"\mainmatter", 1)[1]
     part, out = "User's Guide", []
@@ -110,7 +115,11 @@ def chapters():
     # machine.  labels() still reads every chapter on disk, so a \ref into a
     # dropped chapter does not break the build -- it simply points at a page
     # that is not published, which mkweb turns into plain text below.
-    return [(p, s) for (p, s) in out if f"chapter:{s}" not in nope()]
+    keep = [(p, s) for (p, s) in out if f"chapter:{s}" not in nope()]
+    ALL[:] = out
+    PUBLISHED.clear()
+    PUBLISHED.update(s for _, s in keep)
+    return keep
 
 
 def inline_inputs(tex):
@@ -125,12 +134,15 @@ def inline_inputs(tex):
 def labels(order):
     """label -> (page, anchor, number, title) for every \\chapter and \\section label."""
     table, n, app = {}, 0, 0
-    for part, stem in order:
+    for part, stem in (ALL or order):
+        shown = stem in PUBLISHED or not PUBLISHED
         tex = (HERE / "chapters" / (stem + ".tex")).read_text()
         page = stem + ".md"
         m = re.search(r"\\chapter\{(.*?)\}\\label\{([^}]+)\}", tex)
         if m:
-            if part == "Appendices":
+            if not shown:
+                num = ""                       # not in this edition: no number to print
+            elif part == "Appendices":
                 num = "ABCDEFGHIJ"[app]; app += 1
             elif part == "About the Book":
                 num = ""
@@ -140,6 +152,42 @@ def labels(order):
         for s in re.finditer(r"\\(?:sub)?section\*?\{(.*?)\}\\label\{([^}]+)\}", tex):
             table[s.group(2)] = (page, "#" + slug(plain(s.group(1))), "", plain(s.group(1)))
     return table
+
+
+def expand_shipif(tex):
+    r"""\shipif{key}{content} -> content, or nothing when SHIPPING.CFG says nope.
+
+    Braces are counted rather than matched by a pattern: the content nests as
+    deep as it likes (a whole \cmdentry{}{}{} goes inside one), and a regex with
+    a fixed nesting limit left the macro sitting in the Markdown.  A backslash
+    hides the character after it, so the \\ that ends a table row is two
+    characters and not an escape of the brace behind it (which is what the first
+    version read it as, 2026-09-19).  \verb is not allowed in here -- LaTeX does
+    not allow it in a macro argument either -- so its bars hide nothing.
+    """
+    out, i = [], 0
+    while True:
+        j = tex.find("\\shipif{", i)
+        if j < 0:
+            out.append(tex[i:])
+            return "".join(out)
+        out.append(tex[i:j])
+        k = tex.index("}", j + 8)
+        key = tex[j + 8:k]
+        if k + 1 >= len(tex) or tex[k + 1] != "{":
+            out.append(tex[j:k + 1])                  # not the two-argument form: leave it be
+            i = k + 1
+            continue
+        depth, m = 1, k + 2
+        while m < len(tex) and depth:
+            c = tex[m]
+            if c == "\\":
+                m += 2                                # an escaped anything, \\ included
+                continue
+            depth += (c == "{") - (c == "}")
+            m += 1
+        out.append("" if key in nope() else expand_shipif(tex[k + 2:m - 1]))
+        i = m
 
 
 def fix_tabular(tex):
@@ -161,12 +209,20 @@ def prep(stem, table, link, img):
     tex = (HERE / "chapters" / (stem + ".tex")).read_text()
     tex = inline_inputs(tex)
     tex = re.sub(r"\\markboth\{[^}]*\}\{[^}]*\}|\\setcounter\{[^}]*\}\{[^}]*\}", "", tex)
+    # \shipif{key}{...}: the content stays unless /DOCUMENTS/SHIPPING.CFG says nope.
+    # Kept by default, exactly as the LaTeX macro is: a misspelt key prints.
+    # Braces are counted rather than matched by a pattern: the content nests as
+    # deep as it likes (a whole \cmdentry{}{}{} goes inside one of these), and a
+    # regex with a fixed nesting limit silently left the macro in the Markdown.
+    tex = expand_shipif(tex)
     # cross-references, before pandoc sees them
     def ref(m):
         word, lab = m.group(1), m.group(2)
         if lab not in table:
             die(f"{stem}: \\ref{{{lab}}} has no label")
         page, anchor, num, title = table[lab]
+        if page[:-3] not in PUBLISHED:
+            return title            # a chapter this edition leaves out: name it, do not link it
         # "Chapter 13, The Linux Underneath"; a section is linked by its own title
         text = f"{word} {num}, {title}" if word and num else title
         return r"\href{" + link(page, anchor) + "}{" + text + "}"
@@ -186,11 +242,6 @@ def prep(stem, table, link, img):
         src, cap = m.group(2), m.group(3)
         return r"\begin{figure}\includegraphics{" + img(pathlib.Path(src).name) + r"}\caption{" + cap + r"}\end{figure}"
     tex = re.sub(r"\\(screen|screeninline)\{([^}]+)\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", shot, tex, flags=re.S)
-    # \shipif{key}{...}: the content stays unless /DOCUMENTS/SHIPPING.CFG says nope.
-    # Kept by default, exactly as the LaTeX macro is: a misspelt key prints.
-    def shipif(m):
-        return "" if m.group(1) in nope() else m.group(2)
-    tex = re.sub(r"\\shipif\{([^}]*)\}\{((?:[^{}]|\{(?:[^{}]|\{[^{}]*\})*\})*)\}", shipif, tex, flags=re.S)
     tex = fix_tabular(tex)
     tex = re.sub(r"\\begin\{description\}\[[^\]]*\]", r"\\begin{description}", tex)
     tex = re.sub(r"\\begin\{itemize\}\[[^\]]*\]", r"\\begin{itemize}", tex)
@@ -257,14 +308,19 @@ def main():
     table = labels(order)
     DOCS.mkdir(parents=True, exist_ok=True)
     IMG.mkdir(exist_ok=True)
+    # Convert the lot BEFORE removing anything: until 2026-09-19 the old pages
+    # went first, so a build that died half way (one bad \ref did) left the web
+    # edition deleted and `git checkout doc/site` was the way back.
+    nav, pages = {}, {}
+    for part, stem in order:
+        pages[stem + ".md"] = convert(stem, table)
     keep = {"index.md", "extra.css", "img"}
     for f in DOCS.iterdir():
         if f.name not in keep:
             f.unlink()
-    nav = {}
+    for name, md in pages.items():
+        (DOCS / name).write_text(md)
     for part, stem in order:
-        md = convert(stem, table)
-        (DOCS / (stem + ".md")).write_text(md)
         page, _, num, title = next(v for k, v in table.items() if v[0] == stem + ".md" and not v[1])
         label = f"{num}. {title}" if num and part != "Appendices" else (f"{num}. {title}" if num else title)
         nav.setdefault(part, []).append(f"      - {json.dumps(label)}: {stem}.md")   # JSON quoting is valid YAML: "The Machine's REXX"

@@ -10478,3 +10478,60 @@ Not claimed: times on real hardware.  The =65C02 figures are nominal clocks;
 a real machine gives cycles to its video, and an NMOS 6502 cannot run STZ
 and BRA at all (the same loops written for it would be a per cent or two
 longer).  py65 is not in the project: the tool says how to get it.
+
+## 2026-09-19 — the handbook builds, and says only what ships
+
+Doc: "Go for the handbook build."  It had been stopped since his marks went
+in: mkweb died on \ref{cha:cpm}, and the ten references into the two chapters
+he marked `nope` were called an editorial decision and left for him.  Going
+through them turned up something worse than the ten.
+
+**The PDF never obeyed the marks at all.**  k4510-guide.tex \input its
+twenty-two chapters unconditionally, so `chapter:05-msbasic` and
+`chapter:09-cpm` did nothing to the book; only the web and Gemini editions
+dropped their pages.  Three editions, two of them agreeing.  The inputs are
+wrapped in \shipif now and the book is 136 pages, not 143.
+
+**And the marks renumbered everything.**  doc/guide/mkref.py had thirteen
+chapter numbers TYPED INTO its descriptions ("BBC BASIC on the Tube (Chapter
+6)").  Hiding two chapters made every one of them wrong at once, silently --
+a book that builds clean and lies.  They are `@cha:tube@` placeholders now,
+expanded to a real \ref wrapped in the \shipif of the chapter they point at,
+so they follow renumbering and vanish with their chapter.  mkref also derives
+a shipping key from where a command lives (/LANG/X -> lang:X, /SYSTEM/BIN ->
+bin:x.prg), so a command that is not in the image is not in the reference:
+that is how the MSBASIC entry left.
+
+**Then the prose.**  The ten cross-references, wrapped; and everywhere the
+book described something the image no longer has -- MS BASIC in seven more
+places (a benchmark row, a SPLIT.BAS example, "seven languages", a `.BAS` is
+"EhBASIC's or Microsoft's"), the five dropped demos in the programs table,
+SEGDEMO in the memory chapter, and `RUN balls.prg` as THE example of running
+a program, BALLS being `nope`.  What stays: the licences, the trademark
+notice, and the thanks to Microsoft, Marcelo Dantas and Kenney.  Those are
+about what the repository carries and who wrote it, not about what you can
+type; and a thank-you too many harms nobody.
+
+**Three tools mended on the way.**
+* mkweb resolved \ref BEFORE \shipif, so wrapping a reference in \shipif --
+  the whole remedy -- would still have killed the build.  It is the other way
+  round now.
+* mkweb's \shipif was a regex with a fixed nesting depth; a whole \cmdentry
+  goes inside one of these.  It counts braces now, skipping the character
+  after a backslash -- the `\\` that ends a table row is not an escape of the
+  brace behind it, which is what the first version read it as and what pandoc
+  complained about.
+* mkweb emptied doc/site/docs before it knew it could finish, so a build that
+  died left the web edition deleted.  Everything converts before anything is
+  removed.  And its `nope` now means `nope` or `nuke`, as mkship's always did.
+
+**A guard, tested.**  make-guide.sh fails when the book points at something it
+does not contain, naming the reference and the page -- "??" in a shipped book
+is worse than a build that stops.  Proved by putting one back and watching it
+fail: `Reference 'cha:cpm' on page 43`.
+
+**And a number typed into a test.**  test/booktest.sh looked for "Chapter 8.
+LOGO"; LOGO is 7 now.  It reads the heading out of the page instead.
+
+The three editions agree for the first time: 136 pages, 20 web pages, 20 on
+the machine.  booktest, jimtest and msbasictest pass.

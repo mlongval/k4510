@@ -128,4 +128,4 @@ A procedure’s inputs are its own; `MAKE` writes the nearest variable of that n
 
 ## Files
 
-`LOAD "TREE` runs `TREE.LGO` from the directory you are in, or from the examples in `/LANG/LOGO/EX`: `SQUARE`, `SPIRAL`, `TREE` and `SNOW`. `EDIT "MINE` opens `MINE.LGO` in VI ([Chapter 11, The Editors](11-editors.md)) and runs it when you leave the editor, which is the way to write anything longer than a line. A `.LGO` file is plain text, one line as you would type it after another.
+`LOAD "TREE` runs `TREE.LGO` from the directory you are in, or from the examples in `/LANG/LOGO/EX`: `SQUARE`, `SPIRAL`, `TREE` and `SNOW`. `EDIT "MINE` opens `MINE.LGO` in VI ([Chapter 9, The Editors](11-editors.md)) and runs it when you leave the editor, which is the way to write anything longer than a line. A `.LGO` file is plain text, one line as you would type it after another.

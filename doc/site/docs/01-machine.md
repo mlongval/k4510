@@ -12,7 +12,7 @@ The K4510 is a fantasy computer: a machine that never existed, built the way 198
 
 - **Sound: MELODY** — an OPL2, the Yamaha YM3812, at `$D480`: nine FM voices wired the AdLib’s way, an address port, a data port and a status register you poll. Any AdLib register list or instrument patch therefore means what it says on this machine. A four-channel sound sequencer at `$D5E0` plays through it, in the BBC Micro’s idiom, which is what BBC BASIC’s `SOUND` and Mad Pascal’s `Sound` use. Beside it at `$D4C0` is a **DigiMAX**: four 8-bit DACs for sampled sound, with nothing between a program and the loudspeaker but the register — `$80` is silence, and a sound is that number changing quickly. DOOM’s gunfire comes out of DAC 0. A floating-point MATH unit sits beside it, which the BASICs and LOGO lean on. (The machine had four SID chips until September 2026. [Appendix C, The Sound, and What It Took](a3-sound.md) is the whole story.)
 
-- **K/OS**: a shell with directories, in ROM — and on the disk, one word away each, seven languages: EhBASIC with graphics and sprites, Microsoft’s own BASIC of 1977, BBC BASIC on the Tube, Forth, LOGO, CP/M on a Z80, and RX, the machine’s REXX. Two compilers are one word away as well: `PAS` and `CC` turn a Pascal or C source in the directory you are standing in into a program beside it ([Chapter 13, The Linux Underneath](13-linux.md)).
+- **K/OS**: a shell with directories, in ROM — and on the disk, one word away each, a shelf of languages: EhBASIC with graphics and sprites, BBC BASIC on the Tube, Forth, LOGO, CP/M on a Z80, and RX, the machine’s REXX. Two compilers are one word away as well: `PAS` and `CC` turn a Pascal or C source in the directory you are standing in into a program beside it ([Chapter 11, The Linux Underneath](13-linux.md)).
 
 ## One machine, three ways to run it
 
@@ -20,9 +20,9 @@ The computer is the **K4510**: the 45GS10, VICKY, SHEILA, MELODY and K/OS. There
 
 **As a whole computer, from a stick.** Write the image (`linux/build-live.sh`) to a USB stick, boot a spare laptop from it, and the machine is the machine: a minimal Debian that exists only to hold it up, loaded into RAM, keeping its settings and your files on the stick and never touching the laptop’s own drive.
 
-**As a whole computer, installed beside another system.** `linux/install-k4510.sh` copies the same system from the stick onto a partition of a computer’s internal disk and adds it to that computer’s boot menu, so the machine is one choice of two when it starts. The other system is not changed, and the computer boots whichever of the two was used last ([Chapter 13, The Linux Underneath](13-linux.md)).
+**As a whole computer, installed beside another system.** `linux/install-k4510.sh` copies the same system from the stick onto a partition of a computer’s internal disk and adds it to that computer’s boot menu, so the machine is one choice of two when it starts. The other system is not changed, and the computer boots whichever of the two was used last ([Chapter 11, The Linux Underneath](13-linux.md)).
 
-Either way, the Linux underneath is not hidden. The cross-compilers, git, an editor and a second terminal are on it, and the machine can reach them ([Chapter 13, The Linux Underneath](13-linux.md)); but it is furniture. Switch on and you are at the `/HOME]` prompt.
+Either way, the Linux underneath is not hidden. The cross-compilers, git, an editor and a second terminal are on it, and the machine can reach them ([Chapter 11, The Linux Underneath](13-linux.md)); but it is furniture. Switch on and you are at the `/HOME]` prompt.
 
 **As a window.** Run the same program on a Linux desktop and you get the same machine in a window, which is how it is developed and tested, and how most of the figures in this book were taken. There is also a sandboxed container flavour (`linux/podman.sh`) that is shown nothing of your computer but the display, the sound, the game controllers and one shared folder.
 
@@ -42,7 +42,7 @@ On a **Linux desktop**, three lines build the whole machine:
 
     sudo ./linux/build-live.sh
 
-makes the bootable image: a small Debian, the machine and its compilers, about half an hour the first time. Write it to a USB stick with `dd` and boot from it; to put it on a computer’s own disk instead, boot that computer’s usual Linux with the stick in and run `sudo ./install-k4510.sh` from it. [Chapter 13, The Linux Underneath](13-linux.md) has both.
+makes the bootable image: a small Debian, the machine and its compilers, about half an hour the first time. Write it to a USB stick with `dd` and boot from it; to put it on a computer’s own disk instead, boot that computer’s usual Linux with the stick in and run `sudo ./install-k4510.sh` from it. [Chapter 11, The Linux Underneath](13-linux.md) has both.
 
 ### What it needs
 
@@ -124,13 +124,13 @@ Audio
 volume.
 
 Input  
-the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture (full screen, the pointer stays on the machine’s picture, and goes into the side panel only when there is one); the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 13, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.
+the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture (full screen, the pointer stays on the machine’s picture, and goes into the side panel only when there is one); the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 11, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.
 
 Machine  
 *save state* and *load state*, four slots each (the whole machine — CPU, every used page of the 256 MB, VICKY, the devices, JIM — to `k4510-slotN.k4s` beside the settings file; the Tube co-processor is not in the file and is stopped by a load); reset; power cycle; stop the Tube; quit; *CPU clock* — the steps, live, 60 MHz at the most for now; choosing one switches *Auto clock* off, because a clock chosen by hand is not to be second-guessed. *Auto clock* on uses what `SETUP` measured on this host. On the K4510’s own Linux there is a last row, *Shut down the computer*.
 
 Shell  
-whether an unknown word at the prompt may run a CP/M `.COM` ([Chapter 9, CP/M: the Z80 Second Processor](09-cpm.md)) — off to begin with, on purpose: `D` typed for `DIR` should not start a Z80 program; and whether `/STARTUP.BAT` runs at power-on, which is the way out of a bad one ([When STARTUP.BAT is the problem](02-shell.md#when-startupbat-is-the-problem)).
+whether an unknown word at the prompt may run a CP/M `.COM` — off to begin with, on purpose: `D` typed for `DIR` should not start a Z80 program; and whether `/STARTUP.BAT` runs at power-on, which is the way out of a bad one ([When STARTUP.BAT is the problem](02-shell.md#when-startupbat-is-the-problem)).
 
 Info  
 the version and the exact build, the ROM, the files, the host — the K4510’s own Linux, or a window on a desktop — and the battery, where there is one.

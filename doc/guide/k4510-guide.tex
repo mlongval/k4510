@@ -24,6 +24,11 @@
 % What this build was told to leave out (SHIPPING.cfg -> mkship.py): the
 % \shipnope declarations must be read BEFORE any chapter uses \shipif, so
 % they load here and not where a chapter happens to mention them.
+% They also decide which chapters are INPUT at all: a chapter marked `nope' in
+% SHIPPING.CFG is left out of the book, as it is left out of the web and Gemini
+% editions (2026-09-19 -- until then only those two obeyed the marks, and the
+% PDF quietly kept every chapter).  A reference into a chapter that is not here
+% must be wrapped in \shipif too, or it prints ?? -- make-guide.sh fails on that.
 \IfFileExists{generated/shipping.tex}{\input{generated/shipping}}{}
 \title{The K4510 User's and Programmer's Guide}
 \author{}\date{}
@@ -67,30 +72,30 @@ was made from.
 \tableofcontents
 \mainmatter
 \part{User's Guide}
-\input{chapters/01-machine}
-\input{chapters/02-shell}
-\input{chapters/03-commands}
-\input{chapters/04-ehbasic}
-\input{chapters/05-msbasic}
-\input{chapters/06-tube}
-\input{chapters/07-forth}
-\input{chapters/08-logo}
-\input{chapters/09-cpm}
-\input{chapters/10-pascal}
-\input{chapters/11-editors}
-\input{chapters/12-rx}
-\input{chapters/13-linux}
+\shipif{chapter:01-machine}{\input{chapters/01-machine}}
+\shipif{chapter:02-shell}{\input{chapters/02-shell}}
+\shipif{chapter:03-commands}{\input{chapters/03-commands}}
+\shipif{chapter:04-ehbasic}{\input{chapters/04-ehbasic}}
+\shipif{chapter:05-msbasic}{\input{chapters/05-msbasic}}
+\shipif{chapter:06-tube}{\input{chapters/06-tube}}
+\shipif{chapter:07-forth}{\input{chapters/07-forth}}
+\shipif{chapter:08-logo}{\input{chapters/08-logo}}
+\shipif{chapter:09-cpm}{\input{chapters/09-cpm}}
+\shipif{chapter:10-pascal}{\input{chapters/10-pascal}}
+\shipif{chapter:11-editors}{\input{chapters/11-editors}}
+\shipif{chapter:12-rx}{\input{chapters/12-rx}}
+\shipif{chapter:13-linux}{\input{chapters/13-linux}}
 \part{Programmer's Guide}
-\input{chapters/20-memory}
-\input{chapters/21-io}
+\shipif{chapter:20-memory}{\input{chapters/20-memory}}
+\shipif{chapter:21-io}{\input{chapters/21-io}}
 \appendix
-\input{chapters/a1-registers}
-\input{chapters/a2-issues}
-\input{chapters/a3-sound}
-\input{chapters/a4-codepage}
+\shipif{chapter:a1-registers}{\input{chapters/a1-registers}}
+\shipif{chapter:a2-issues}{\input{chapters/a2-issues}}
+\shipif{chapter:a3-sound}{\input{chapters/a3-sound}}
+\shipif{chapter:a4-codepage}{\input{chapters/a4-codepage}}
 \backmatter
 \setcounter{secnumdepth}{0}  % end matter: unnumbered chapters, unnumbered sections
-\input{chapters/z1-disclaimer}
-\input{chapters/z2-thanks}
-\input{chapters/z3-licences}
+\shipif{chapter:z1-disclaimer}{\input{chapters/z1-disclaimer}}
+\shipif{chapter:z2-thanks}{\input{chapters/z2-thanks}}
+\shipif{chapter:z3-licences}{\input{chapters/z3-licences}}
 \end{document}

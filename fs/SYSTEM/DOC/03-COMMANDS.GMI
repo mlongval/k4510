@@ -17,10 +17,10 @@ ROM
 in the resident part of the operating system, always there.
 
 ROM, bank n
-in one of the sideways banks (Chapter 14, Memory), paged in for the moment it
+in one of the sideways banks (Chapter 12, Memory), paged in for the moment it
 runs.
 
-=> 20-MEMORY.GMI Chapter 14, Memory
+=> 20-MEMORY.GMI Chapter 12, Memory
 
 runs MONITOR, runs TYPE
 a word the ROM still answers to, which hands its line to a program on the
@@ -36,9 +36,9 @@ a language: its folder, with its examples.
 
 ROM, on the Linux
 a word the ROM answers to by starting something on the Linux the machine runs
-on (Chapter 13, The Linux Underneath).
+on (Chapter 11, The Linux Underneath).
 
-=> 13-LINUX.GMI Chapter 13, The Linux Underneath
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 Every word below also works from a BASIC, Forth or the monitor with a * in
 front, and a bare name that is not here is tried as a program, then as a CP/M
@@ -177,36 +177,48 @@ it and returns. Also WOZ.
 ## Languages
 
 APPLE [disk] -- ROM
-An Apple IIe on the Tube (Chapter 6): LinApple's emulation, drawn on VICKY's
-bitmap. With a disk image (.dsk, .woz and the rest, kept in /DISK/APPLE) it
-boots that; alone, DOS 3.3's master. The Alts are the Apple keys, the keypad
-the joystick, Ctrl+Alt+R is Reset.
+An Apple IIe on the Tube (Chapter 5, The Tube): LinApple's emulation, drawn on
+VICKY's bitmap. With a disk image (.dsk, .woz and the rest, kept in
+/DISK/APPLE) it boots that; alone, DOS 3.3's master. The Alts are the Apple
+keys, the keypad the joystick, Ctrl+Alt+R is Reset.
+
+=> 06-TUBE.GMI Chapter 5, The Tube
 
 BBC -- ROM
-BBC BASIC on the Tube (Chapter 6). Also BBC.
+BBC BASIC on the Tube (Chapter 5, The Tube). Also BBC.
+
+=> 06-TUBE.GMI Chapter 5, The Tube
 
 CPM [command] -- ROM
-CP/M 2.2 on the Z80 (Chapter 9). A command runs at boot.
+CP/M 2.2 on the Z80. A command runs at boot.
 
 DOOM -- ROM
 DOOM on the Tube, drawn on VICKY's bitmap and heard through MELODY and the
-DigiMAX (Chapter 6). Its game data lives in /DISK/DOOM: WADCHOOSER in
-/APPS/DOOM fetches a game and picks the one to play.
+DigiMAX (Chapter 5, The Tube). Its game data lives in /DISK/DOOM: WADCHOOSER
+in /APPS/DOOM fetches a game and picks the one to play.
+
+=> 06-TUBE.GMI Chapter 5, The Tube
 
 EHBASIC -- /LANG/EHBASIC
-Enhanced BASIC with the machine's graphics (Chapter 4).
+Enhanced BASIC with the machine's graphics (Chapter 4, EhBASIC).
+
+=> 04-EHBASIC.GMI Chapter 4, EhBASIC
 
 FORTH -- /LANG/FORTH
-Tali Forth 2 (Chapter 7).
+Tali Forth 2 (Chapter 6, Forth).
+
+=> 07-FORTH.GMI Chapter 6, Forth
 
 LOGO -- /LANG/LOGO
-Turtle graphics (Chapter 8).
+Turtle graphics (Chapter 7, LOGO).
 
-MSBASIC -- /LANG/MSBASIC
-Microsoft's 6502 BASIC of 1977 (Chapter 5).
+=> 08-LOGO.GMI Chapter 7, LOGO
 
 RX name -- /LANG/RX
-Run a REXX script (Chapter 12); a bare HELLO runs HELLO.RX.
+Run a REXX script (Chapter 10, RX: the Machine's REXX); a bare HELLO runs
+HELLO.RX.
+
+=> 12-RX.GMI Chapter 10, RX: the Machine's REXX
 
 ## The Linux beneath
 
@@ -252,7 +264,9 @@ DELETE [-l | -r name | -e | name] -- /SYSTEM/BIN
 The trash: list it, put a file back, empty it, or send a file there.
 
 EDIT [name] -- /SYSTEM/BIN
-The modeless editor (Chapter 11).
+The modeless editor (Chapter 9, The Editors).
+
+=> 11-EDITORS.GMI Chapter 9, The Editors
 
 FONTED [name.FNT] | -L name -- /SYSTEM/BIN
 The font, edited where it lives, both sizes, every edit on the screen at once.
@@ -269,6 +283,17 @@ Asks for every key and checks what arrives.
 KOMMANDER -- /SYSTEM/BIN
 The two-panel file manager.
 
+MARK [MHz] -- /SYSTEM/BIN
+The benchmark, for setting this machine beside others: at every clock from 10
+to 60 MHz (or the one nearest the number given) a loop of known length (the
+work of a 6502 at so many MHz), the Byte Sieve, a copy, and a fixed-point
+Mandelbrot twice -- its multiplies by shift and add, then by the MATH unit.
+Beside each time is the clock a real 65C02 would need to match it (an Apple
+IIe is 1 MHz, a BBC Master 2), from the loops' cycles counted on a cycle-exact
+simulator. Figures are machine time; the last column says whether this host
+kept up. It first checks that the CPU computes correctly. The report is kept
+in /SYSTEM/LOG/MARK.TXT.
+
 MONITOR -- /SYSTEM/BIN
 The monitor as a program: MON, WOZ, FILL and COPY run it.
 
@@ -277,7 +302,9 @@ The mouse registers, live, with a sprite pointer.
 
 NVIM [name] -- /SYSTEM/BIN
 Neovim, on the Linux beneath, set up for the machine: its colours, its
-languages, F9 to compile and F10 to run (Chapter 13).
+languages, F9 to compile and F10 to run (Chapter 11, The Linux Underneath).
+
+=> 13-LINUX.GMI Chapter 11, The Linux Underneath
 
 PADTEST -- /SYSTEM/BIN
 The held-keys register, live: a gamepad's first test.
@@ -287,7 +314,10 @@ JIM, the terminal, speaking PETSCII.
 
 PROG [name] -- /SYSTEM/BIN
 The programmer's front end: edit a C or Pascal program, compile it with F9,
-run it with Ctrl-F9, the compiler's messages under the text (Chapter 11).
+run it with Ctrl-F9, the compiler's messages under the text (Chapter 9, The
+Editors).
+
+=> 11-EDITORS.GMI Chapter 9, The Editors
 
 RADIO [words] -- ROM
 The Navidrome sidebar's player, from the prompt: alone, what is playing and
@@ -324,7 +354,16 @@ TYPE name -- /SYSTEM/BIN
 A file, a screenful at a time; Esc or Q stops. A URL works.
 
 VI [name] -- /SYSTEM/BIN
-The modal editor (Chapter 11).
+The modal editor (Chapter 9, The Editors).
+
+=> 11-EDITORS.GMI Chapter 9, The Editors
+
+WALL -- /SYSTEM/BIN
+What was sent to this machine from outside (tools/k4510-remote wall, on
+another computer): each message waiting, oldest first, answered as it asks --
+a key for a notice, a digit for one of its choices, a line of text -- and the
+answer goes back. Esc leaves a message for later. When the prompt is idle the
+sender types WALL for you.
 
 => INDEX.GMI Contents
 => 02-SHELL.GMI Previous: 2. The Shell

@@ -2,7 +2,7 @@
 
 Two of them, because they answer different questions. `EDIT` is the one to reach for when a file wants a line changed and you want to be out again in ten seconds. `VI` is the one for a file too big to think about, and it is modal, so it expects you to have met `vi` before.
 
-Both draw through JIM, the VT100 in hardware ([Chapter 6, The Tube](06-tube.md)), and both take their keys raw from the ROM — an arrow arrives as one byte rather than an escape sequence to unpick, with a bit beside it saying that it *is* an arrow and not the accented letter that shares its code. Neither needs the Tube.
+Both draw through JIM, the VT100 in hardware ([Chapter 5, The Tube](06-tube.md)), and both take their keys raw from the ROM — an arrow arrives as one byte rather than an escape sequence to unpick, with a bit beside it saying that it *is* an arrow and not the accented letter that shares its code. Neither needs the Tube.
 
 ## EDIT
 
@@ -341,6 +341,10 @@ Operators take any motion — `d2w` deletes two words, `y$` yanks to the end of 
 <td style="text-align: left;">message <em>n</em>; the whole list</td>
 </tr>
 <tr class="odd">
+<td style="text-align: left;"><code>:set wrap</code></td>
+<td style="text-align: left;">a line longer than the screen is folded onto the rows under it (so it starts); <code>:set nowrap</code> keeps it to one row that scrolls sideways, and <code>:set wrap!</code> changes it over. Folded, <code>j</code> and <code>k</code> still move by a line of the file, and <code>gj</code> and <code>gk</code> by a row of the screen. <code>set nowrap</code> in VI.RC keeps it</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;"><code>:set ts=</code><em>n</em></td>
 <td style="text-align: left;">Tab’s width: it puts spaces to the next stop, never a tab character (4 unless told; <code>set ts=2</code> in VI.RC keeps it, for PROG too)</td>
 </tr>
@@ -353,7 +357,7 @@ The command word is read in either case, so `:Q` and `:WQ` work with the caps lo
 
 ### Compiling from VI
 
-`:make` is the edit–compile loop without leaving the editor. It saves the file, compiles it with the machine’s own `CC` or `PAS` ([Chapter 13, The Linux Underneath](13-linux.md)) — which one, the name decides — and puts the cursor on the first error, with the message on the status line:
+`:make` is the edit–compile loop without leaving the editor. It saves the file, compiles it with the machine’s own `CC` or `PAS` ([Chapter 11, The Linux Underneath](13-linux.md)) — which one, the name decides — and puts the cursor on the first error, with the message on the status line:
 
     VI HELLO.C
     :make
@@ -476,15 +480,15 @@ For Pascal it is `MAIN=GAME.PAS` instead of `SRC=` — the units come in by `use
 A C project compiles each source once and keeps what it made (on the Linux side, never in your folder): the next F9 compiles only the files that changed — all of them if a `.H` beside them did — and says so, `game.prg: 4211 bytes (1 compiled, 2 kept)`.
 
 !!! note ""
-    **Where it is going.** This is PROG’s fourth stage: projects came third, the mouse and selection fourth, and REXX is already in. Next come the other interpreters: EhBASIC, Microsoft BASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
+    **Where it is going.** This is PROG’s fourth stage: projects came third, the mouse and selection fourth, and REXX is already in. Next come the other interpreters: EhBASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
 
 ## Editing from inside a BASIC
 
 There are two cases, and they look alike, so here is the rule.
 
-**To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; Microsoft BASIC does the same with `*VI` ([Chapter 5, Microsoft BASIC, 1977](05-msbasic.md)), BBC BASIC with `*VI` and `*EDIT` ([Chapter 6, The Tube](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 8, LOGO](08-logo.md)).
+**To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; BBC BASIC does the same with `*VI` and `*EDIT` ([Chapter 5, The Tube](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 7, LOGO](08-logo.md)).
 
-**To renumber it**, which none of those BASICs could do for itself, use `:renum` in VI or Ctrl-R in EDIT. Both know the language from the file: a `.BAS` is EhBASIC’s or Microsoft’s, a `.BBC` is BBC BASIC’s, with its `ELSE` targets and its lower-case variables (a `goto` there is a name, not a jump). The lines’ own numbers change, and so does every target after `GOTO`, `GOSUB`, `THEN`, `RESTORE` and `ON`…`GOTO`; strings, `REM` and `DATA` are left alone. A `GOTO` to a line that does not exist is kept as it is and counted in the message, and a program whose numbers are out of order is refused, not guessed at. LOGO has no line numbers, and says so.
+**To renumber it**, which none of those BASICs could do for itself, use `:renum` in VI or Ctrl-R in EDIT. Both know the language from the file: a `.BAS` is EhBASIC’s, a `.BBC` is BBC BASIC’s, with its `ELSE` targets and its lower-case variables (a `goto` there is a name, not a jump). The lines’ own numbers change, and so does every target after `GOTO`, `GOSUB`, `THEN`, `RESTORE` and `ON`…`GOTO`; strings, `REM` and `DATA` are left alone. A `GOTO` to a line that does not exist is kept as it is and counted in the message, and a program whose numbers are out of order is refused, not guessed at. LOGO has no line numbers, and says so.
 
 **To edit any other file**, put `SWAP` in front:
 

@@ -15,7 +15,7 @@ The machine’s third language is native: no Tube, no co-processor, just 45GS10 
 
 ## The machine at your fingertips
 
-Forth’s oldest habit is poking hardware, and this machine is one large, friendly memory map. `C@` and `C!` reach every register of [Chapter 15, The I/O Page](21-io.md) directly:
+Forth’s oldest habit is poking hardware, and this machine is one large, friendly memory map. `C@` and `C!` reach every register of [Chapter 13, The I/O Page](21-io.md) directly:
 
     hex
     D000 C@ .            read a VICKY register

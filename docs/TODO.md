@@ -47,6 +47,45 @@ Pi port was removed 2026-09-07, the SIDs 2026-09-05, the names settled
 - [ ] **The terminal to Claude on tty2/tty3** -- docs/notes/host-terminal-design.md.
       Waits on Doc: a restricted key for the k4510 user, and which console.
 
+## To discuss: XC=BASIC 3, a compiled BASIC (pinned 2026-09-19)
+
+Doc: "what do you think about porting xcbasic to the k4510?" --
+github.com/neilsf/xc-basic3 -- then "pin it as to discuss later".  Nothing
+is built; this is what the reading found, so it is not read twice.
+
+- [ ] **Decide whether to port it, and what it replaces.**  It would be the
+      ninth language, proposed the day after `nuke` was invented to start
+      jettisoning things, so the question is not only whether it fits.
+
+What it is: a cross-compiler (host side, like C and Pascal -- see
+docs/PROG-LANGUAGES.md), written in D, emitting DASM assembly (Debian
+packages dasm; no prebuilt compiler binaries, so DMD + DUB build it once on
+p15 and we ship the binary).  MIT, alive: v3.1.13, 2026-03-25.  The README
+lists only Commodore 8-bits, but the source already has **mega65** and
+**x16** targets -- and the MEGA65 is this CPU.
+
+Why it fits: the one shape of BASIC the machine has not got (three
+interpreted, none compiled -- and a compiled row in MARK would be worth
+seeing).  The compiler names a target in ~10 places (source/app.d start and
+top addresses, intermediatecode.d, charset/memset/memmove/sprite/poke
+statements); lib/ is 13 600 lines of assembly with ~127 target
+conditionals; it wants ~18 ROM entry points (CHROUT, CHRIN, GETIN, PLOT,
+OPEN/CLOSE/LOAD/SAVE/SETNAM/SETLFS...), and K/OS has most of them.  Carry
+it as a patch applied at build time, as linux/tek40xx does.
+
+What it would cost: the Commodore-shaped half.  Its screen routines write
+straight into screen RAM through KERNAL_SCREEN_ADDR ($0288) -- ours is far
+memory, four bytes a cell; lib/sfx is SID, which went 2026-09-05; strings
+assume PETSCII.  PRINT/INPUT/arithmetic/strings/files port; TEXTAT, SPRITE,
+CHARSET, SOUND are rewrites (VICKY, OPL2) or omissions.  It has its own
+software floats (lib/math/_fplib.asm) -- the MATH unit is a second project.
+
+The order, if yes: (1) console-only target + tools/k4510-xcb + a case in
+tools/k4510-errfmt, so F9 and `:make` work -- a day or two by the reading,
+not by trying; compile the sieve and DROGON.BAS, put a compiled row in MARK,
+and see whether Doc enjoys writing in it.  Stop there if not.  (2) floats on
+the MATH unit.  (3) sprites and graphics on VICKY, only if games in it.
+
 ## From the 2026-09-05 review (`docs/notes/review-2026-09-05.md`)
 
 All thirteen closed on 2026-09-11; how each landed is at the top of the

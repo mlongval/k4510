@@ -39,14 +39,24 @@ PRINT "JIMCR-B"
 echo "$out" | grep -q "^JIMCR-A" || fail "CR is not folded onto newline (output overprints)"
 echo "$out" | grep -q "^JIMCR-B" || fail "second line overprinted the first"
 
-# The two demos, one per mode.  ANSIDEMO drives JIM through CHROUT, which is
-# the point of it: the console is the terminal, so a program needs no special
-# access to use escape sequences.
-out=$(./test/headless rom/kernal.bin 'ANSIDEMO
-' 900 2>&1) || fail "ANSIDEMO did not run"
-echo "$out" | grep -q "^JIM in ANSI"        || fail "ANSIDEMO: no title at column 0"
-echo "$out" | grep -q "a box, drawn"        || fail "ANSIDEMO: DEC line-drawing box missing"
-echo "$out" | grep -q "Attributes"          || fail "ANSIDEMO: attributes line missing"
+# ANSI mode, driven from a program through CHROUT -- which is the point of it:
+# the console IS the terminal, so a program needs no special access to use
+# escape sequences.  This was ANSIDEMO until 2026-09-20, when that demo was
+# nuked and unlisted (SHIPPING.CFG); EhBASIC does the same job and always
+# ships.  The machine folds a typed letter to upper case, so SGR's lower-case
+# terminator has to come from CHR$(109): typed, it arrives as ESC[1;37M, which
+# is a different command altogether and swallows the title.
+out=$(./test/headless rom/kernal.bin 'EHBASIC
+10 E$=CHR$(27):M$=CHR$(109)
+20 PRINT E$;"[2J";E$;"[1;1H";
+30 PRINT E$;"[1;37";M$;"TITLE-AT-ZERO";E$;"[0";M$
+40 PRINT "0123456789";E$;"[5D";E$;"[K";"END"
+50 PRINT E$;"[3C";"INDENTED"
+RUN
+' 2500 2>&1) || fail "EhBASIC did not run"
+echo "$out" | grep -q "^TITLE-AT-ZERO" || fail "ANSI: SGR took columns -- the title is not at column 0"
+echo "$out" | grep -q "^01234END"      || fail "ANSI: cursor back five, then erase to end of line"
+echo "$out" | grep -q "^   INDENTED"   || fail "ANSI: cursor forward three"
 
 # PETSCII.PRG writes straight to $DA00 in PETSCII mode, then must put the
 # terminal back into ANSI -- leave it in PETSCII and the shell comes back to a
@@ -88,4 +98,4 @@ ECHO BANDSBACK
 echo "$out" | grep -q "handed back"  || fail "BANDS: never reached its hand-back"
 echo "$out" | grep -q "BANDSBACK"    || fail "BANDS: the shell did not survive the hand-back"
 
-echo "jimtest: OK (LNM column reset, CR folded onto newline, both demos, PETSCII and BANDS hand back)"
+echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from EhBASIC: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back)"

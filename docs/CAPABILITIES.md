@@ -147,7 +147,10 @@ KEEP  Screen font      one: unscii (PD) -- 8x8 for the 240-line modes, 8x16
 ?  JIM's own cursor (FLAGS bit 0) exists but UNUSED; the ROM still draws one, and
                                   the k_getin workaround for the two of them is
                                   still in the tree
-?  ANSIDEMO.prg / PETSCII.prg     one demo per mode (no ROM)
+CUT   ANSIDEMO.prg                 nuked 2026-09-18 (SHIPPING.CFG): out of the image, and
+                  unlisted from the Makefile 2026-09-20.  Source and rule kept, so it can
+                  be built by hand; jimtest drives ANSI mode from EhBASIC instead (no ROM)
+?  PETSCII.prg                     the other mode's demo (no ROM)
 
 ## 8. Sound
 
@@ -223,7 +226,9 @@ for named keys, so a scripted harness cannot finish it -- it is not faulty).
 ?  LODE        procedural art
 ?  GRAPH2D / GRAPH3D  EhBASIC
 ?  BALLS, CUBE, MANDEL, SIEVE, BENCH, LOGO
-?  SEGDEMO, CHROUT, SAY, BUG, SETUP    all start and hand the shell back
+?  CHROUT, SAY, BUG, SETUP         all start and hand the shell back
+CUT   SEGDEMO                      nuked with ANSIDEMO; the far-call gate it showed is
+                  still described in the memory chapter, without it
 CUT   SIDS, SID6, SID12, SIDPLAY  moved to retired/ 2026-09-01 on Doc's
                   instruction: out of fs/, out of the build, sources kept.
                   They played into a muted chip, so they demonstrated nothing
@@ -239,7 +244,7 @@ CUT   ROMOUT      retired/ too, and **it was BROKEN before today.**  Found by th
                   is fine; this demo eats itself.  Attempted fix reverted
                   rather than half-landed
 ?  OPL2.prg, OPLPLAY.prg
-?  ANSIDEMO, PETSCII
+?  PETSCII
 
 ## 14. Development tooling
 

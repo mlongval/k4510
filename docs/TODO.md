@@ -25,12 +25,6 @@ Pi port was removed 2026-09-07, the SIDs 2026-09-05, the names settled
 The handbook build was fixed 2026-09-19 (Doc: "Go for the handbook build") --
 what is left here is the build system, not the book.
 
-- [ ] **ANSIDEMO and SEGDEMO are still built**: the Makefile lists both
-      (APP_C_NAMES, APP_SEG_NAMES, the segdemo rule) and `test/jimtest.sh`
-      runs ANSIDEMO.  They pass here only because the untracked `.prg` files
-      are still on this disk; a fresh clone with cc65 rebuilds them, one
-      without cc65 fails `make test`.  Unlist them, and give jimtest another
-      program for the ANSI half.  `docs/CAPABILITIES.md` still lists them too.
 - [ ] **Deploy**: VI's wrap, WALL, the governor, the new book pages -- one
       layer, the Dell was on its Fedora side all of 2026-09-18.  Then on the
       Dell: `test/remote` smoke, `k4510-remote wall --choices 'yes|no' --wait

@@ -32,8 +32,14 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
 BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall mark
-APP_C_NAMES = balls cube mandel ansidemo opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
-APP_SEG_NAMES = tiny bomber skyfire chess fluffy segdemo
+APP_C_NAMES = balls cube mandel opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
+APP_SEG_NAMES = tiny bomber skyfire chess fluffy
+# Nuked 2026-09-18 (SHIPPING.CFG, tools/nuke.py): out of every image, and from
+# 2026-09-20 out of `all', `test' and check-artifacts too, so that a fresh clone
+# builds and tests clean without them.  Their sources and their rules stay, because
+# a nuke is meant to be undoable by hand: `make fs/APPS/ANSIDEMO/ansidemo.prg' and
+# `make fs/APPS/SEGDEMO/segdemo.prg' still work (SEGDEMO has its own rule below).
+NUKED_C_NAMES = ansidemo
 C_EX_NAMES = hello sieve
 BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
 APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
@@ -331,7 +337,7 @@ fs/APPS/$(call uc,$1)/$1.prg: demo/$1.c demo/k4510.h demo/far.h demo/prg0.o demo
 	ca65 --cpu 65c02 -o demo/$1.o demo/$1.s
 	ld65 -C demo/prg.cfg -o $$@ demo/prg0.o demo/romcalls.o demo/$1.o none.lib -m demo/$1.map
 endef
-$(foreach n,$(APP_C_NAMES),$(eval $(call APP_C_RULE,$n)))
+$(foreach n,$(APP_C_NAMES) $(NUKED_C_NAMES),$(eval $(call APP_C_RULE,$n)))
 # WADCHOOSER lives in DOOM's folder, not one of its own (Doc, 2026-09-17), so
 # the pattern above -- /APPS/NAME/name.prg -- does not fit it.
 fs/APPS/DOOM/wadchooser.prg: demo/wadchooser.c demo/k4510.h demo/prg0.o demo/romcalls.o demo/prg.cfg
@@ -394,6 +400,7 @@ fs/APPS/FLUFFY/fluffy.prg: demo/fluffy.c demo/fluffy.h demo/fluffy.bin demo/fluf
 	ca65 --cpu 65c02 -o demo/fluffy_c.o demo/fluffy_c.s
 	ca65 --cpu 65c02 -o demo/fluffy_h.o demo/fluffy-header.s
 	ld65 -C demo/fluffy.cfg -o $@ demo/prg0.o demo/romcalls.o demo/fluffy_c.o demo/fluffy_h.o none.lib -m demo/fluffy.map
+# nuked: unlisted from APP_SEG_NAMES, kept so it can be built by hand (above)
 fs/APPS/SEGDEMO/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/seg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/segdemo.s.tmp demo/segdemo.c && mv demo/segdemo.s.tmp demo/segdemo_c.s
 	ca65 --cpu 65c02 -o demo/segdemo_c.o demo/segdemo_c.s

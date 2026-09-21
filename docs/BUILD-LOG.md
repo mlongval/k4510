@@ -10535,3 +10535,42 @@ LOGO"; LOGO is 7 now.  It reads the heading out of the page instead.
 
 The three editions agree for the first time: 136 pages, 20 web pages, 20 on
 the machine.  booktest, jimtest and msbasictest pass.
+
+## 2026-09-20 — ANSIDEMO and SEGDEMO unlisted
+
+Doc: "go ahead and unlist ANSIDEMO and SEGDEMO from the Makefile."  Nuked on
+2026-09-18, they were still in APP_C_NAMES and APP_SEG_NAMES, so `all`,
+`test` and check-artifacts all still wanted them, and test/jimtest.sh still
+ran ANSIDEMO.  On this disk that passed, because the untracked .prg files
+are still here; a clone would have built them again, which is the one thing
+a nuke is for.
+
+Out of the lists, then -- but not out of the Makefile.  nuke.py's design says
+a nuke is undoable by hand, and ANSIDEMO's rule was GENERATED from the list it
+was in, so removing the name would have removed the only way to build it.
+There is a NUKED_C_NAMES list now: it generates the rules and nothing else, so
+`make fs/APPS/ANSIDEMO/ansidemo.prg` still works and `make all` does not.
+SEGDEMO already had a rule of its own; it is marked.  Proved with `make -Bn`
+(recipes forced, or a file that merely exists reads as "up to date" and says
+nothing): nothing for either in `all` or in check-artifacts, a real recipe for
+each by name, and `No rule to make target` for a name that has none.
+
+jimtest ran ANSIDEMO for the ANSI half -- the console IS the terminal, so a
+program needs no special access to use escape sequences, which is worth
+keeping. EhBASIC does it instead, and always ships: SGR at column 0, cursor
+back five with erase to end of line, cursor forward three. It checks JIM
+harder than the demo did (the demo only proved its own strings appeared),
+and it found the machine folding a typed letter to upper case on the way:
+ESC[1;37m typed in arrives as ESC[1;37M, which is a different command and
+eats the line, so the terminator comes from CHR$(109).  Clear the screen
+first, too: an escape inside a line being TYPED is echoed and acted on, which
+scrambles the dump.
+
+docs/CAPABILITIES.md marks both CUT with what happened.
+
+`make test` then stopped at a test that has nothing to do with any of this:
+test/apple_harness.py read `os.environ["CLAUDE_JOB_DIR"]` to give LinApple a
+HOME of its own, and that variable exists only inside one kind of agent
+sandbox -- so appletest had been dying with a KeyError for everybody else
+since the day it landed (8cc41bc), this checkout included.  It makes its own
+temp directory now and removes it afterwards.  Suite green.

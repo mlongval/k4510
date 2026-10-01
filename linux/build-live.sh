@@ -562,6 +562,68 @@ grub-install --target=x86_64-efi --efi-directory=/mnt/live/boot/efi \
 grub-install --target=i386-pc --boot-directory=/mnt/live/boot $LOOP
 EOF
 
+# Secure Boot.  The grub-install above leaves an UNSIGNED grub as BOOTX64.EFI,
+# and a machine with Secure Boot on skips it without a word -- an HP t520 thin
+# client said "no bootable partition" and nothing else (Doc, 2026-09-27).  On
+# the HP firmware of that era "UEFI only" turns Secure Boot on with it.  So the
+# fallback path gets Debian's signed chain instead, the same one an installed
+# Debian boots with: shim (signed by Microsoft) -> grubx64.efi (signed by
+# Debian) -> the kernel (signed by Debian).  Works with Secure Boot on or off.
+# The signed grub is monolithic and reads /EFI/debian/grub.cfg on the ESP, so
+# that file only finds the live partition and hands over to the real menu.
+# BOOTIA32.EFI is for the 32-bit UEFI of small Atom PCs; it boots the same
+# 64-bit kernel (Debian's has EFI mixed mode).
+# The .debs are fetched, unpacked and thrown away -- NOT installed: shim-signed's
+# maintainer scripts want to run grub-install themselves, and the rootfs must
+# not change after it was squashed.  A failed fetch keeps the unsigned grub,
+# which still boots wherever Secure Boot is off.
+# Not done, on purpose: `pmbr_boot` (the active flag on the protective MBR).
+# It looked like the fix for the t520's legacy mode, but strict UEFI firmware
+# reads an active PMBR as "this is an MBR disk" and stops looking for the ESP.
+echo "== Secure Boot: signed shim + grub on the ESP =="
+EFIW="$ROOT/tmp/efi-signed"
+rm -rf "$EFIW"; mkdir -p "$EFIW/lists/partial" "$EFIW/cache/archives/partial" "$EFIW/x"
+cat > "$EFIW/stub.cfg" <<'STUB'
+search --no-floppy --set=root --label k4510-live
+set prefix=($root)/boot/grub
+configfile ($root)/boot/grub/grub.cfg
+STUB
+# The rootfs's own resolv.conf may point at nothing in a chroot; borrow the
+# host's for the fetch and put the original (file or symlink) back after.
+cp -a "$ROOT/etc/resolv.conf" "$EFIW/resolv.orig" 2>/dev/null || true
+rm -f "$ROOT/etc/resolv.conf"; cp -L /etc/resolv.conf "$ROOT/etc/resolv.conf"
+APTO="-o Dir::State::Lists=/tmp/efi-signed/lists -o Dir::Cache=/tmp/efi-signed/cache"
+if $CHROOT_ENV chroot "$ROOT" sh -ec "cd /tmp/efi-signed
+        apt-get -q $APTO update >/dev/null
+        apt-get -q $APTO download shim-signed shim-helpers-amd64-signed grub-efi-amd64-signed grub-efi-ia32-bin
+        for d in *.deb; do dpkg-deb -x \$d x; done"; then
+    SIGNED_OK=1
+else
+    SIGNED_OK=0
+fi
+rm -f "$ROOT/etc/resolv.conf"
+if [ -e "$EFIW/resolv.orig" ] || [ -L "$EFIW/resolv.orig" ]; then mv "$EFIW/resolv.orig" "$ROOT/etc/resolv.conf"; fi
+X="$EFIW/x/usr/lib"
+EB="$MNT/boot/efi/EFI/BOOT"
+if [ "$SIGNED_OK" = 1 ] && [ -f "$X/shim/shimx64.efi.signed" ] && [ -f "$X/grub/x86_64-efi-signed/grubx64.efi.signed" ]; then
+    cp "$X/shim/shimx64.efi.signed"                 "$EB/BOOTX64.EFI"
+    cp "$X/shim/mmx64.efi.signed"                   "$EB/mmx64.efi"
+    cp "$X/grub/x86_64-efi-signed/grubx64.efi.signed" "$EB/grubx64.efi"
+    mkdir -p "$MNT/boot/efi/EFI/debian"
+    cp "$EFIW/stub.cfg" "$MNT/boot/efi/EFI/debian/grub.cfg"
+    cp "$EFIW/stub.cfg" "$EB/grub.cfg"
+    $CHROOT_ENV chroot "$ROOT" grub-mkstandalone -O i386-efi \
+        -d /tmp/efi-signed/x/usr/lib/grub/i386-efi -o /tmp/efi-signed/BOOTIA32.EFI \
+        --modules="part_gpt fat ext2 search search_label linux normal configfile all_video efi_gop" \
+        "boot/grub/grub.cfg=/tmp/efi-signed/stub.cfg" \
+        && cp "$EFIW/BOOTIA32.EFI" "$EB/BOOTIA32.EFI" \
+        || echo "build-live.sh: no BOOTIA32.EFI (32-bit UEFI); everything else boots"
+else
+    echo "build-live.sh: COULD NOT FETCH THE SIGNED SHIM/GRUB -- the stick keeps the"
+    echo "  unsigned grub and will not boot where Secure Boot is on"
+fi
+rm -rf "$EFIW"
+
 # Our own grub.cfg, not update-grub's: there is no installed root here for it
 # to find, and ONE entry is the point.  No recovery line, no second entry with
 # the drives visible -- Doc asked for absolute.
@@ -612,3 +674,7 @@ echo
 echo "build-live.sh: $OUT"
 ls -lh "$OUT"
 echo "Write it with:  sudo dd if=$OUT of=/dev/sdX bs=4M status=progress conv=fsync"
+# dd leaves the backup GPT where the IMAGE ended, in the middle of a bigger
+# stick.  Linux shrugs; strict UEFI firmware may not.  One command moves it to
+# the stick's real end (and fixes the protective MBR's size with it).
+echo "     and then:  sudo sfdisk --relocate gpt-bak-std /dev/sdX"

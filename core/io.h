@@ -67,7 +67,7 @@ extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
  *                    desktop, the browser build).  The frontend reads it from the host
  *                    every ten seconds; K/OS draws "nn%" and an arrow at the right of the bottom band. */
 extern uint8_t io_battery;
-#define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
+#define IO_MATH        0xD700u   /* $D700-$D7FF  FRED, the math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
 /* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.
  *   bytes 0-2  physical base bits 0-23 (little-endian); they only set the base

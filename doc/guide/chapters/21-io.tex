@@ -17,7 +17,7 @@ firmware source. This chapter is the map of what lives where:
 \texttt{\$D480} & OPL2    & the YM3812: address, data, status --- the AdLib's arrangement\\
 \texttt{\$D500} & system  & clock, RTC, frame counter, DUMP, the settings the ROM reads, the sound sequencer at \texttt{\$D5E0}\\
 \texttt{\$D600} & banks   & the eight bank registers, masks at \texttt{\$D620}\\
-\texttt{\$D700} & MATH    & IEEE floats, transcendentals, math lists, mul/div\\
+\texttt{\$D700} & FRED    & the MATH unit: IEEE floats, transcendentals, math lists, mul/div\\
 \texttt{\$D800} & Tube    & the co-processor: status, byte in, byte out, start/stop\\
 \texttt{\$D900} & N:      & the network: four channels, tcp://, http(s):// and tnfs:// (see \texttt{core/net.h})\\
 \texttt{\$DA00} & JIM     & the terminal: a VT100/ANSI in hardware, drawing on the console's screen (see \texttt{core/term.h})\\

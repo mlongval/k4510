@@ -64,6 +64,8 @@ int main(void)
     CHECK(findsub("ROM $A000-$FFFF (24 KB)") >= 0, "INFO -m reports the ROM");
     type("info -t\n");
     CHECK(find("TIME") >= 0 && findsub("frames)") >= 0, "INFO -t");
+    type("info -s\n");
+    CHECK(findsub("FRED -- the MATH unit at $D700") >= 0, "INFO -s names FRED, the MATH unit");
     type("load balls.prg\n");
     CHECK(findsub("4646 bytes at $00006000, run address 6000") >= 0 || findsub("bytes at 00006000, run address 6000") >= 0, "LOAD honours the .prg header");
     CHECK(mem_peek(0x6000) == 0xA9, "program image landed at $6000 without its header");

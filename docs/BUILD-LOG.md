@@ -10611,3 +10611,21 @@ the comparable figure), and the governor moves it on its own.
   corner, not the top band, which it had said since 2026-09-12.
 - README's CPU bullet says the same in short.
 - INFO, F12 and MARK still show the clock; nothing about setting it changed.
+
+## 2026-10-01 — FRED is the MATH unit
+
+The banner has said "CHIPS: MELODY, VICKY, SHEILA, FRED, JIM" since
+2026-09-11, and nothing in the machine was called FRED: the name had been
+reserved for "the MATH unit's future" in August and never handed over.  Doc,
+asked: "give FRED to the MATH unit."  So $D700 is FRED, the MATH unit, the
+way $D480 is MELODY, an OPL2 -- the friendly name, the technical one kept
+beside it.  `INFO -s` gains a line under MELODY ("FRED -- the MATH unit at
+$D700: IEEE floats, mul/div, math lists"; romtest checks it), and the
+handbook (chapter 1, the I/O map in chapter 21), README and io.h say FRED.
+The code, MARK's "+MATH" and the register names stay MATH: it is still what
+the unit is.
+
+While at it, for the record, since Doc asked: SHEILA is not a compositor.
+She is the copper -- a list of WAIT/MOVE instructions run at the start of
+each line, changing VICKY's registers partway down the screen.  The layers
+and sprites are combined by VICKY itself, in vicky_line().

@@ -61,9 +61,9 @@ BBC Micro's idiom, which is what BBC BASIC's SOUND and Mad Pascal's Sound use.
 Beside it at $D4C0 is a DigiMAX: four 8-bit DACs for sampled sound, with
 nothing between a program and the loudspeaker but the register -- $80 is
 silence, and a sound is that number changing quickly. DOOM's gunfire comes out
-of DAC 0. A floating-point MATH unit sits beside it, which the BASICs and LOGO
-lean on. (The machine had four SID chips until September 2026. Appendix C, The
-Sound, and What It Took is the whole story.)
+of DAC 0. FRED, the floating-point MATH unit, sits beside it, which the BASICs
+and LOGO lean on. (The machine had four SID chips until September 2026.
+Appendix C, The Sound, and What It Took is the whole story.)
 => A3-SOUND.GMI Appendix C, The Sound, and What It Took
 
  
@@ -81,8 +81,8 @@ Linux Underneath).
 
 ## One machine, three ways to run it
 
-The computer is the K4510: the 45GS10, VICKY, SHEILA, MELODY and K/OS. There
-is one of it. What changes is what it is standing on.
+The computer is the K4510: the 45GS10, VICKY, SHEILA, MELODY, FRED, JIM and
+K/OS. There is one of it. What changes is what it is standing on.
 
 As a whole computer, from a stick. Write the image (linux/build-live.sh) to a
 USB stick, boot a spare laptop from it, and the machine is the machine: a

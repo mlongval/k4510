@@ -19,7 +19,7 @@
  *                    bit2 PETSCII mode
  *                    bit3 THE STATUS BANDS BELONG TO THE PROGRAM.  While it is set, K/OS lays the
  *                    console around $DA0F/$DA16 instead of the user's F12 heights, and stops drawing
- *                    into the bands at all -- no clock, no MHz, and cls() leaves those rows alone.
+ *                    into the bands at all -- no clock, no battery, and cls() leaves those rows alone.
  *                    The program draws them itself and MUST clear the bit before it exits, the way
  *                    PETSCII mode must be cleared: leave it set and the shell comes back to a screen
  *                    whose furniture nobody is maintaining.

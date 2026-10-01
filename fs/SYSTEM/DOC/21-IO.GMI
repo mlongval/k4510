@@ -18,7 +18,8 @@ $D480  OPL2      the YM3812: address, data, status -- the AdLib's arrangement
 $D500  system    clock, RTC, frame counter, DUMP, the settings the ROM reads,
                  the sound sequencer at $D5E0
 $D600  banks     the eight bank registers, masks at $D620
-$D700  MATH      IEEE floats, transcendentals, math lists, mul/div
+$D700  FRED      the MATH unit: IEEE floats, transcendentals, math lists,
+                 mul/div
 $D800  Tube      the co-processor: status, byte in, byte out, start/stop
 $D900  N:        the network: four channels, tcp://, http(s):// and tnfs://
                  (see core/net.h)

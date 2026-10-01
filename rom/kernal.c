@@ -1125,6 +1125,10 @@ static void info_sound(void)
     label("SOUND"); puts_("MELODY -- an OPL2 (YM3812) at $D480, nine FM voices"); newline();
     for (c = 0; c < 9; c++) { REG(FM) = (uint8_t)(0xB0 + c); if (REG(FM + 1) & 0x20) on++; }   /* key-on bits, from the data readback */
     pad(8); puts_("voices keyed on: "); putdec(on); puts_(" of 9; sequencer at $D5E0, four channels"); newline();
+    /* FRED beside MELODY, as the handbook has it: the banner named FRED from
+     * 2026-09-11 with nothing behind the name, and FRED was the MATH unit's
+     * reserved name since August.  Given to it 2026-10-01 (Doc). */
+    label("MATH"); puts_("FRED -- the MATH unit at $D700: IEEE floats, mul/div, math lists"); newline();
 }
 
 static void info_files(void)

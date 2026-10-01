@@ -13,7 +13,7 @@ the parts it borrows — a 6502-family instruction set, the AdLib's FM
 chip — it borrows openly and then outgrows.
 
 **One machine, two ways to run it.** The computer is the **K4510** — the
-45GS10, VICKY, SHEILA, an OPL2, and K/OS. Boot it from a USB stick on a
+45GS10, VICKY, SHEILA, MELODY (an OPL2), FRED (the MATH unit), JIM and K/OS. Boot it from a USB stick on a
 spare laptop and it is a whole computer: a minimal Debian
 that exists only to hold the machine up, with the cross-compilers, git
 and an editor beside it (`docs/LINUX.md`, built by
@@ -93,7 +93,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   through it too. The machine had four SIDs at $D400 until 2026-09-05;
   they were muted from 2026-09-01 and then removed outright, reSID and
   all. `git log` has them.
-- **MATH unit:** eight IEEE-single registers with in-place ops and the
+- **FRED, the MATH unit:** eight IEEE-single registers with in-place ops and the
   transcendentals, a MEGA65-compatible multiplier/divider, and **math
   lists** — programs the unit runs by itself.
 - **JIM**, the terminal: a VT100/ANSI in hardware at $DA00, drawing on the

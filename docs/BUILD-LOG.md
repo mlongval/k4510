@@ -10574,3 +10574,40 @@ HOME of its own, and that variable exists only inside one kind of agent
 sandbox -- so appletest had been dying with a KeyError for everybody else
 since the day it landed (8cc41bc), this checkout included.  It makes its own
 temp directory now and removes it afterwards.  Suite green.
+
+## 2026-10-01 — the MHz leaves the status band
+
+Doc: "honestly I don't really feel much difference when it says 40 or 15 ...
+that info is somehow imprecise and perhaps misleading."  Measured before
+deciding, with a scratch copy of test/headless whose clock comes from an
+environment variable (the real one is nailed to 40.5):
+
+| | 15 MHz | 40.5 MHz |
+|---|---|---|
+| MARK MANDEL | 9.55 s | 3.53 s |
+| sieve.prg | 2.51 s | 0.93 s |
+| SIEVE.BAS | 13.0 s | 4.8 s |
+| chrout stream | 7185 ch/s | 19354 ch/s |
+| `dir /SYSTEM/BIN` | 24 frames | 21 frames |
+| load + run ehbasic.prg | 33 frames | 28 frames |
+
+So the number is exact -- CPU-bound work scales by the clock ratio, 2.7, to
+the frame -- and nearly irrelevant to what a person feels, because the
+console (JIM), the files, the network, DMA and the MATH unit are host code
+running at host speed whatever the clock says.  A number that big in the
+corner of the screen claimed it mattered more than it does.  It is also not
+another computer's megahertz (MEGA65 cycle counts; MARK's =65C02 column is
+the comparable figure), and the governor moves it on its own.
+
+- rom/kernal.c: the bottom band no longer draws the MHz; the battery moves
+  into the right-hand corner it left.  band_mhz (a uint16 packing the MHz
+  and the battery byte, because BSSR had no byte left) is band_bat, a uint8.
+  The key poll's per-poll 32-bit divide for the MHz is gone with it, and the
+  ROM got room back: ROM1C (CODE) 124 bytes smaller, and ROM2 ($E000-$FEFF,
+  the key poll's segment) 93 smaller -- 156 bytes free there now, from 63
+  (TODO.md still said 16; corrected).
+- The handbook says what the MHz means (01-machine: "What the MHz means"),
+  and 02-shell now puts the battery where it actually is -- the bottom band's
+  corner, not the top band, which it had said since 2026-09-12.
+- README's CPU bullet says the same in short.
+- INFO, F12 and MARK still show the clock; nothing about setting it changed.

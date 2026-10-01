@@ -202,12 +202,13 @@ static uint8_t day_col(void)
     uint8_t k = (uint8_t)((REG(SYS + SYS_CLOCKFMT) >> 1) & 3);
     return (uint8_t)(PCOLS - (k == 1 ? 2 : k == 2 ? 7 : 10));
 }
-/* The host's battery ($D53A) in the bottom band, left of the MHz: "BAT nn%"
- * and an arrow -- up on AC or charging, down on the battery.  A host with no
- * battery ($FF) shows nothing.  Doc, 2026-09-12, for the Dell. */
+/* The host's battery ($D53A) at the right end of the bottom band: "nn%" and an
+ * arrow -- up on AC or charging, down on the battery.  A host with no battery
+ * ($FF) shows nothing.  Doc, 2026-09-12, for the Dell; moved to the corner the
+ * MHz left on 2026-10-01. */
 static void draw_bat(uint8_t b)
 {
-    uint8_t last = PROWS - 1, c = PCOLS - 16;
+    uint8_t last = PROWS - 1, c = PCOLS - 9;
     if (b == 0xFF) return;
     bar_str(c + 3, last, "   ");                                 /* the old digits cleared ("BAT" dropped: Doc) */
     bar_num(c + 6, last, b & 0x7F);
@@ -217,7 +218,6 @@ static void draw_bat(uint8_t b)
 static void draw_bands(void)
 {
     uint8_t i, ofg = fg, obg = bg, last = PROWS - 1;
-    uint16_t mhz = (uint16_t)(((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000);
     fg = BAND_FG; bg = BAND_BG;                                  /* the bars, each only if it has a band */
     if (OY) blank_row(0);
     if (bband) blank_row(last);
@@ -229,11 +229,16 @@ static void draw_bands(void)
      * invisible and what changes without being asked; those two told you what
      * you already knew, never changed, and held the best real estate on the
      * screen between them.  What is left earns its place: the clock, and the
-     * CPU clock -- which the governor steps DOWN on its own when frames run
-     * late, and is the one widget that shows the machine acting behind your
-     * back. */
+     * host's battery.
+     * The CPU clock went too, 2026-10-01 (Doc: "I don't really feel much
+     * difference when it says 40 or 15").  He was right, and measurably: 15
+     * against 40.5 MHz makes a long calculation 2.7 times slower and DIR or a
+     * LOAD a twentieth of a second slower, because the console, the files,
+     * the network, DMA and the MATH unit run at host speed whatever the clock.
+     * A number that big on the glass claims it matters more than it does.
+     * INFO, F12 and MARK still show it, and MARK says what it buys. */
     if (OY) { (void)REG(SYS + 4); draw_clock(); }
-    if (bband) { bar_str(PCOLS - 3, last, "MHz"); bar_num(PCOLS - 5, last, mhz); draw_bat(REG(SYS + 0x3A)); }
+    if (bband) draw_bat(REG(SYS + 0x3A));
 }
 #pragma code-name (pop)
 
@@ -292,16 +297,15 @@ static void cls(void)
     REG(TERM + 9) = 0; REG(TERM + 10) = 0;      /* the cursor is JIM's: moving it means telling it */
 }
 
-static uint16_t band_mhz = 0xFFFF;           /* what the bottom band last showed: the MHz (never past 202)
-                                              * low, the battery byte high -- packed because BSSR has no
-                                              * byte left for a second variable (2026-09-12) */
+static uint8_t band_bat = 0xFF;              /* the battery byte the bottom band last showed (it held the
+                                              * MHz too, packed, until the MHz left the band 2026-10-01) */
 #pragma code-name (push, "CODE")              /* ROM1C, beside draw_bat: ROM2, the key poll's segment, is full */
 /* The battery follows the host: called from the key poll, it redraws only when
- * the byte changed.  The MHz beside it is still checked in the key poll. */
+ * the byte changed. */
 static void bat_refresh(void)
 {
     uint8_t b = REG(SYS + 0x3A);
-    if (b != (uint8_t)(band_mhz >> 8)) { draw_bat(b); band_mhz = (uint16_t)((band_mhz & 0xFF) | ((uint16_t) b << 8)); }
+    if (b != band_bat) { draw_bat(b); band_bat = b; }
 }
 #pragma code-name (pop)
 static uint8_t paging, paged_out;            /* newline() pages while paging is set; paged_out is
@@ -415,18 +419,12 @@ uint8_t k_getin(void)
      * console's cursor would be a second one -- blinking to a different
      * clock, parked on whatever cell the shell last left it on, reversing
      * whatever the program has since drawn there. */
-    /* The band's clock follows the menu.  draw_bands() only runs from cls(), so
-     * a clock changed in F12 used to leave yesterday's number sitting in the bar
-     * until something cleared the screen (Doc, 2026-09-01).  This is the poll
-     * every program already goes through, so it is where the number is kept
-     * honest -- and it costs a compare per key poll, only while the bands are up.
-     * The MHz sits in the BOTTOM band, so this asks for that one specifically:
-     * with a bottom height of zero there is nowhere to put it. */
-    if (bband && !claimed()) {
-        uint8_t m = (uint8_t)((((uint32_t)r16(SYS) | ((uint32_t)REG(SYS + 0x26) << 16)) / 1000));
-        if (m != (uint8_t) band_mhz) { band_mhz = (uint16_t)((band_mhz & 0xFF00) | m); bar_num(PCOLS - 5, (uint8_t)(PROWS - 1), m); }
-        bat_refresh();                           /* the battery beside it, in ROM1C */
-    }
+    /* The bottom band's battery follows the host.  draw_bands() only runs from
+     * cls(), so this is the poll that keeps it current -- a compare per key
+     * poll, only while the bottom band is up (with a height of zero there is
+     * nowhere to put it).  It kept the band's MHz current too, until the MHz
+     * left the band (2026-10-01). */
+    if (bband && !claimed()) bat_refresh();      /* in ROM1C */
     /* And the date, once a day.  The IRQ keeps HH:MM right -- that is the part
      * that has to tick inside a program which never polls -- but it is
      * deliberately not taught the three date orders, because a format-aware

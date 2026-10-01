@@ -59,7 +59,13 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   32-bit flat addressing, 28-bit MAP) plus the K4510 MMU: bank registers,
   a far-call gate, RAM under the ROM. The machine is a fantasy and its
   timings are suggestions, so the clock is whatever the host can hold at
-  60 fps with clean sound. A recent desktop holds 100+ (the sweep is in
+  60 fps with clean sound. **The MHz is how soon a long calculation
+  finishes, not how fast the machine feels**: the console, files,
+  network, DMA and the MATH unit run at host speed whatever the clock,
+  so typing and `DIR` are the same at 15 as at 40.5, while a
+  Mandelbrot takes 2.7 times as long. It is not comparable with another
+  computer's MHz either; `MARK` gives the figure that is (at 40.5, a
+  65C02 at 43-51). A recent desktop holds 100+ (the sweep is in
   `docs/CPU-CLOCK-POLICY.md`). It is a setting (F12 → Machine), capped
   at 60 MHz for now, and the first boot on a host measures it and picks
   the highest step that fits with margin (`core/calib.c`); `BENCH`

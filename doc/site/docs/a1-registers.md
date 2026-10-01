@@ -36,7 +36,7 @@ The status bands and the clock’s format, for the guest at `$D52D-$D52F`. `$D52
 
 `$D53A` R BATTERY the host’s battery, for the status band: charge in % in bits 0-6
 
-(0-100), bit 7 set on AC power or charging, `$FF` = no battery (a desktop, the browser build). The frontend reads it from the host every ten seconds; K/OS draws “BAT nn%” with an arrow beside the MHz.
+(0-100), bit 7 set on AC power or charging, `$FF` = no battery (a desktop, the browser build). The frontend reads it from the host every ten seconds; K/OS draws “nn%” and an arrow at the right of the bottom band.
 
 ### Bank registers and the far gate
 

@@ -125,7 +125,8 @@ Fixed the same day except these:
       save buffer to match) or evict a non-hot crt0 zp var to BSS.
 - [ ] **BSS relief (nearer):** BSSR $0440-$05FF is 448/448.  Rebalance
       against the C stack above it, or audit for evictable statics.
-- [ ] **ROM2 has 16 bytes free.**  New resident code goes in a bank.
+- [ ] **ROM2 has 156 bytes free** (2026-10-01, after the band's MHz went;
+      `rom/kernal.map`, CODE2 end to $FEFF).  New resident code goes in a bank.
 - [ ] **User banks** — document the convention: sideways banks 4-15 are
       user RAM banks; the ROM never claims above bank 3 (bank 3 = the line
       editor and `DIR -l` since 2026-09-08/11).

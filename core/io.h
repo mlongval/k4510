@@ -65,7 +65,7 @@ extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
 /* $D53A R  BATTERY   the host's battery, for the status band: charge in % in bits 0-6
  *                    (0-100), bit 7 set on AC power or charging, $FF = no battery (a
  *                    desktop, the browser build).  The frontend reads it from the host
- *                    every ten seconds; K/OS draws "BAT nn%" with an arrow beside the MHz. */
+ *                    every ten seconds; K/OS draws "nn%" and an arrow at the right of the bottom band. */
 extern uint8_t io_battery;
 #define IO_MATH        0xD700u   /* $D700-$D7FF  math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */

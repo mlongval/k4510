@@ -696,7 +696,7 @@ static void bands_overlay(void)
             band_text(0, 0, maxc, buf, stride, rh, cw, y0);
         }
     }
-    if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* the key pipe's echo, left of the MHz */
+    if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* the key pipe's echo, left of the battery */
         echo_banded = 1;
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
             char buf[64]; snprintf(buf, sizeof buf, " %s%.*s", echo_tag, echo_len, echo_txt);

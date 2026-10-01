@@ -11,9 +11,25 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
 \item \textbf{CPU: the 45GS10} --- the MEGA65's 45GS02 instruction set (a
   4510 with the Q pseudo-register and 32-bit flat addressing) plus this
   machine's own memory management: bank registers, a far-call gate, and RAM
-  under the ROM. Its clock is whatever the host it runs on can hold at
-  sixty frames a second with no gaps in the sound: the machine is a
-  fantasy and its timings are suggestions. The clock is a setting (F12,
+  under the ROM.
+
+  \textbf{What the MHz means.} The clock is how many CPU cycles the
+  machine runs in a second of its own time, and it decides one thing: how
+  soon a long calculation finishes. It does not decide how quickly the
+  machine \emph{answers}. The console, the files, the network, DMA and
+  the MATH unit work at the host's full speed whatever the clock says, so
+  typing, \verb|DIR| and loading a program feel the same at 15 as at
+  40.5 --- measured, \verb|DIR| of a full directory takes a twentieth of
+  a second longer at 15, while a Mandelbrot takes 2.7 times as long.
+  Nor is it another computer's megahertz: the cycles are counted with
+  the MEGA65's timings, and the machine is a fantasy whose timings are
+  suggestions. For a figure that compares, \verb|MARK| prints beside
+  each result the clock a real 65C02 would need to match it --- at 40.5
+  the K4510 is a 65C02 at 43 to 51, and nearly three times that with the MATH
+  unit.
+
+  The clock is whatever the host it runs on can hold at sixty frames a
+  second with no gaps in the sound. It is a setting (F12,
   under Machine --- six steps from 60\,MHz down to 10; the ladder goes on
   to 202.5, and those faster steps are held back for now). A host nobody
   has measured runs at 40.5, the MEGA65's number; \verb|SETUP| measures

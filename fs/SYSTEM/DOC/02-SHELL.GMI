@@ -240,10 +240,12 @@ and that is the only setting.
 
 They are shared, and the split is worth knowing. The top band is yours -- the
 machine draws the clock and the date in it, in whichever formats the Terminal
-page is set to, and on a laptop the battery: its charge, with an arrow up
-while it charges and down while it does not. The bottom band is the running
-program's, and a program that wants it writes there through JIM; BANDS in
-/SYSTEM/BIN is the demonstration.
+page is set to. The bottom band is the running program's, and a program that
+wants it writes there through JIM; BANDS in /SYSTEM/BIN is the demonstration.
+The machine keeps only its right-hand corner: on a laptop, the battery's
+charge, with an arrow up while it charges and down while it does not. The CPU
+clock is not in the bands: what it changes is how soon a long calculation
+ends, which the calculation shows better than a number would. INFO has it.
 
 At its left, the top band says what is running: K/OS at the prompt, EhBASIC
 INVADER2.BAS once a program is loaded, and EhBASIC PROG.BAS > VI EDITTMP.BAS

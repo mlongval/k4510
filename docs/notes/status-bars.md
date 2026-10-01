@@ -263,3 +263,123 @@ That also gives the next three menu settings somewhere to land, which
   shell survives a program which forgot. Not built yet -- there is no
   claiming to hand back from.
 - **The nameplate goes.** Built.
+
+## Proposal, 2026-10-01: VICKY owns the layout
+
+**Status: a proposal for Doc to rule on. Nothing here is built.**
+
+Doc, 2026-10-01: "how about constraining JIM via VICKY? give only VICKY
+control over status bars? allow JIM to draw only to a VICKY-authorised
+window? VICKY can turn on/off status bars and grow/shrink JIM?"
+
+### Who owns the layout today
+
+Four places hold a piece of the same fact -- where the bands are and
+where the console is:
+
+| What | Where it lives | Who writes it |
+|---|---|---|
+| bands on/off (the user's) | `$D521` bit 3, SYSOPT | the frontend, from F12 |
+| band heights (the user's) | `$D52D`/`$D52E`, SYS | the frontend; since 2026-09-14 the ROM ignores them and uses 1+1 |
+| band heights (a program's) | JIM `$DA0F`/`$DA16` | the program; JIM stores them and **never reads them** |
+| who owns the bands | JIM `FLAGS` bit 3 | the program |
+| the console window | JIM `$DA05`-`$DA08`, `$DA0D` | the ROM's `video_init`, from all of the above |
+| the ROM's own copy | `OY`, `ROWS`, `bband` in ROM BSS | `video_init` |
+
+`term.h` says why the program's heights are in JIM: "because this is
+where the console's geometry lives, and because the frontend rewrites the
+user's heights every frame, so a guest request has nowhere else to
+survive." That is the smell: the registers are in JIM because nothing
+owned the layout.
+
+### The proposal
+
+**1. VICKY gets a LAYOUT block** (`$B0`-`$B7` are free):
+
+    $B0  BANDTOP   rows in the top band (0 = none)
+    $B1  BANDBOT   rows in the bottom band
+    $B2  BANDCTL   bit0 bands on; bit1 the bands are the program's
+    $B3  -         reserved
+    $B4  CONCOLS   read: the console window VICKY computed --
+    $B5  CONROWS     everything between the bands, clamped so the
+    $B6  CONOX       console keeps BAND_MIN_ROWS
+    $B7  CONOY
+
+The F12 switch and a program both write `$B0`-`$B2`, and nothing else
+holds the layout. VICKY computes the window and clamps it -- the clamp
+moves out of the ROM. VICKY's registers are already in the save state,
+so states carry the layout with no format change beyond the new bytes.
+
+**2. JIM reads its window from VICKY.** `$DA05`-`$DA08` stay readable
+with the same meanings -- 21 program sources touch them (VI, RANGER,
+KOMMANDER, EDIT, TETRIS...) and none of them change -- but they become mirrors of
+`$B4`-`$B7`. `$DA0F`/`$DA16` and `FLAGS` bit 3 become aliases of
+`$B0`-`$B2` for one release, so BANDS (the only program that claims
+them) keeps working while it moves; then they go.
+
+**3. K/OS only fills in content.** `video_init` stops computing the
+layout; `claimed()`, `bands_on()` and the `t`/`b` arithmetic go; it reads
+VICKY. What stays in the ROM is *what* is drawn in the bands (the clock,
+the battery), not *where*.
+
+**4. The cursor goes the same way** (the TODO under "JIM, the console"):
+JIM owns it, `draw_cursor` and the `k_getin` workaround go.
+
+### What it buys, and what it does not
+
+**Buys:**
+- One owner. The layout is a fact about the display, and VICKY is the
+  display. The four-places table above becomes one row.
+- A smaller ROM. `video_init`'s band arithmetic, `claimed()`, `bands_on()`
+  and the cursor drawing come out of ROM2 and ROM1C; `OY`/`bband` may
+  leave BSSR, which is full.
+- The F12 switch and a program's claim stop being two mechanisms with a
+  precedence rule between them: both write the same register.
+
+**Does not buy -- said plainly, because the question was framed as
+protection:**
+- **JIM already cannot draw outside its window.** Everything it draws is
+  inside COLS x ROWS at OX,OY, so the byte stream can never touch a band
+  today. Moving the window's owner to VICKY does not make that safer.
+- **Direct writes still can.** The bands and the console are rows of the
+  *same* text32 map at `$030000`. A program that pokes that memory --
+  as full-screen programs commonly do -- can write a band row whatever
+  any register says. Real protection needs option B.
+
+### Option B: the bands as their own memory
+
+VICKY draws the band rows from a small cell buffer of their own (one
+text32 row is 320 bytes) instead of from the console's map, and the
+console's map holds only the middle. Then nothing that writes the
+console's memory can reach a band, and "a program claims the bands" is
+just "a program writes the band buffer". It is the stronger design and
+the bigger change: the text layer's renderer grows a split, the IRQ
+clock painter moves to the new buffer, and save states gain a buffer.
+
+Option A (the registers) is a clean first step and does not block B.
+
+### Cost and order
+
+Touches: `core/vicky.c` (registers, the computation), `core/term.c` (the
+window as mirrors; the cursor), `rom/kernal.c` (`video_init`, `cls`, the
+band and cursor code), `sdl/main.c` (F12 writes VICKY, not SYS),
+`demo/bands.c`, `core/vicky.h`/`term.h` (the register docs, and so the
+handbook's appendix), and tests -- `jimtest.sh` (the bands halves),
+`modetest.sh`, `romtest.c`, a new one for the clamp. Several sessions.
+
+Suggested order, each step green before the next:
+1. VICKY's LAYOUT block and its computation, with a test; nothing reads
+   it yet.
+2. The frontend writes it; JIM mirrors it; the ROM reads it instead of
+   computing. `$DA0F`/`$DA16`/bit 3 alias it.
+3. BANDS moves to the VICKY registers; the aliases go.
+4. The cursor to JIM.
+5. Option B, if wanted.
+
+### For Doc to decide
+
+1. Option A, A then B, or leave the layout where it is?
+2. The register addresses -- `$B0`-`$B7` -- or somewhere else in VICKY?
+3. The F12 band heights: since 2026-09-14 the user's bands are one row
+   each, on or off, and `$D52D`/`$D52E` are vestigial. Keep that rule
+   (on/off only) or let F12 set heights again once VICKY owns them?

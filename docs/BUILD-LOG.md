@@ -10629,3 +10629,25 @@ While at it, for the record, since Doc asked: SHEILA is not a compositor.
 She is the copper -- a list of WAIT/MOVE instructions run at the start of
 each line, changing VICKY's registers partway down the screen.  The layers
 and sprites are combined by VICKY itself, in vicky_line().
+
+## 2026-10-01 — CR, LF and CR+LF are each one newline
+
+Doc asked whether the console's special cases were arbitrary, and whether
+JIM could take CR+LF as one.  Testing the edge found a real bug: `TYPE` of a
+DOS or web text file was double-spaced.  CHROUT folded every CR onto a
+newline (CHROUT's old promise: EhBASIC, BBC BASIC and CP/M send a bare CR and
+mean "next line"), so a CR+LF reached JIM as two newlines.  JIM was never
+wrong -- the Tube hands it CR+LF raw and it makes one line -- so the fix is
+in k_chrout, not JIM: an LF straight after a CR is dropped.  One byte of
+state, chr_prev, initialised so cc65 puts it in DATA (BSSR is full; DATA
+had the byte band_bat freed this morning, and is full again).
+
+BANDS printed "\r\n" through CHROUT and so had been double-spaced since it
+was written; it is single-spaced now, and its last line says "the clock and
+the battery" (the MHz left the band).
+
+romtest gains fs/crlf.txt: CR+LF one line, CR then CR+LF two, a bare LF
+one.  It fails on the old ROM (rows 21/23 and 23/26) and passes on this one.
+The handbook's System calls section now states CHROUT's three exceptions to
+JIM in one place -- newline, backspace, form feed -- and that a program
+wanting a terminal's bare CR writes to $DA00 itself.

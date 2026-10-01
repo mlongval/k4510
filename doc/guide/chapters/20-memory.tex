@@ -77,6 +77,24 @@ jump table is the whole of the interface a program needs:
 bytes. \verb|SHELL| copies the line into the shell's own buffer before
 running it, so the program's copy is left alone.
 
+\paragraph{What CHROUT does with control characters.} Everything goes to
+JIM, the terminal, which is a faithful VT100 --- with three exceptions,
+because CHROUT is the machine's own console and keeps the promises 8-bit
+consoles made:
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{A new line} is CR (\texttt{\$0D}), LF (\texttt{\$0A}), or
+  CR followed by LF: each is \emph{one} new line, so a program written
+  for any of the three conventions, and a text file from DOS or the web,
+  comes out single-spaced.
+\item \textbf{Backspace} (\texttt{\$08}) rubs out the character before
+  the cursor; a terminal's backspace only moves.
+\item \textbf{Form feed} (\texttt{\$0C}) clears the console and leaves
+  the status bands alone.
+\end{itemize}
+A program that wants the terminal's own meanings --- a bare CR that
+returns to the start of the line, for a progress counter --- writes its
+bytes to JIM at \texttt{\$DA00} instead, as TELNET does.
+
 \section{RAM under the ROM}
 \verb|rom_out()| (or three pokes to the bank registers) banks blocks 5--7
 onto the RAM beneath the ROM: a program then owns

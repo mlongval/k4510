@@ -72,6 +72,29 @@ is banked in over $A000-$FFFF, and a line kept up there would read as the
 ROM's bytes. SHELL copies the line into the shell's own buffer before running
 it, so the program's copy is left alone.
 
+##### What CHROUT does with control characters.
+
+Everything goes to JIM, the terminal, which is a faithful VT100 -- with three
+exceptions, because CHROUT is the machine's own console and keeps the promises
+8-bit consoles made:
+
+*
+
+ A new line is CR ($0D), LF ($0A), or CR followed by LF: each is one new line,
+so a program written for any of the three conventions, and a text file from
+DOS or the web, comes out single-spaced.
+*
+
+ Backspace ($08) rubs out the character before the cursor; a terminal's
+backspace only moves.
+*
+
+ Form feed ($0C) clears the console and leaves the status bands alone.
+
+A program that wants the terminal's own meanings -- a bare CR that returns to
+the start of the line, for a progress counter -- writes its bytes to JIM at
+$DA00 instead, as TELNET does.
+
 ## RAM under the ROM
 
 rom_out() (or three pokes to the bank registers) banks blocks 5-7 onto the RAM

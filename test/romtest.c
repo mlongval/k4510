@@ -20,6 +20,9 @@ static void fixture(int make)
 {
     if (make) { FILE *f = fopen("fs/hello.txt", "wb"); if (f) { fputs("hello from the host filesystem\n", f); fclose(f); } }
     else remove("fs/hello.txt");
+    /* CR, LF and CR+LF are each one newline; CR then CR+LF is two (2026-10-01) */
+    if (make) { FILE *f = fopen("fs/crlf.txt", "wb"); if (f) { fputs("crlf one\r\ncrlf two\r\r\ncrlf four\ncrlf five\r", f); fclose(f); } }
+    else remove("fs/crlf.txt");
 }
 int main(void)
 {
@@ -59,6 +62,11 @@ int main(void)
     CHECK(mem_peek(0x1000004) == 0x55, "store beyond 64 KB");
     type("type hello.txt\n");
     CHECK(find("hello from") >= 0, "TYPE prints the file");
+    type("type crlf.txt\n");
+    { int a = find("crlf one"), b = find("crlf two"), c = find("crlf four"), d = find("crlf five");
+      CHECK(a >= 0 && b == a + 1, "CR+LF is one newline, not two (rows %d, %d)", a, b);
+      CHECK(b >= 0 && c == b + 2, "CR then CR+LF is two newlines (rows %d, %d)", b, c);
+      CHECK(c >= 0 && d == c + 1, "a bare LF is one newline (rows %d, %d)", c, d); }
     type("info -cm\n");
     CHECK(findsub("measured 40.") >= 0, "INFO -c measures the clock");
     CHECK(findsub("ROM $A000-$FFFF (24 KB)") >= 0, "INFO -m reports the ROM");

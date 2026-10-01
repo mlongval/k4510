@@ -433,7 +433,7 @@ JIM, the terminal (`$DA00`) – the Beeb’s third page, given a job: a VT100 wi
 
 `$DA05-$DA0D`*RW* **`COLS ROWS OX OY CX CY FG BG STRIDE`** the window: origin (OX,OY) cells, STRIDE cells per row
 
-`$DA0E`*RW* **`FLAGS`** bit0 cursor shown (blinking) bit1 read: application cursor keys (DECCKM) bit2 PETSCII mode bit3 THE STATUS BANDS BELONG TO THE PROGRAM. While it is set, K/OS lays the console around `$DA0F`/`$DA16` instead of the user’s F12 heights, and stops drawing into the bands at all – no clock, no MHz, and cls() leaves those rows alone. The program draws them itself and MUST clear the bit before it exits, the way PETSCII mode must be cleared: leave it set and the shell comes back to a screen whose furniture nobody is maintaining.
+`$DA0E`*RW* **`FLAGS`** bit0 cursor shown (blinking) bit1 read: application cursor keys (DECCKM) bit2 PETSCII mode bit3 THE STATUS BANDS BELONG TO THE PROGRAM. While it is set, K/OS lays the console around `$DA0F`/`$DA16` instead of the user’s F12 heights, and stops drawing into the bands at all – no clock, no battery, and cls() leaves those rows alone. The program draws them itself and MUST clear the bit before it exits, the way PETSCII mode must be cleared: leave it set and the shell comes back to a screen whose furniture nobody is maintaining.
 
 `$DA0F`*RW* **`BANDTOP`** rows in the top band while bit3 is set
 

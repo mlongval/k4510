@@ -124,6 +124,6 @@ int main(void)
     T_FLAGS &= (unsigned char)~CLAIM;
     rom_video();
     rom_chrout(12);                          /* CLS, so the console starts clean under K/OS's bands */
-    print("BANDS: handed back.  The clock and the MHz are K/OS's again.\r\n");
+    print("BANDS: handed back.  The clock and the battery are K/OS's again.\r\n");
     return 0;
 }

@@ -329,12 +329,22 @@ static uint8_t page_break(void);
  *        glue, BBC BASIC and CP/M all send a bare CR and mean "next line", and
  *        JIM's own CR is a carriage return only.  Folding it here keeps every
  *        existing program working; not folding it overprints their output.
- * JIM's fg/bg are pushed only when they have actually changed, which is far
+ *        And an LF straight after a CR is dropped: CR, LF and CR+LF are each ONE
+ *        newline.  Folding the CR alone made a CR+LF two, so TYPE of a DOS or
+ *        web text file was double-spaced, and BANDS' "\r\n" was too (Doc,
+ *        2026-10-01).  JIM itself was always right: it gets CR+LF raw from the
+ *        Tube and makes one line of it. */
+static uint8_t chr_prev = 0xFF;   /* the last byte through CHROUT, for the CR+LF rule.  Initialised,
+                                   * so cc65 puts it in DATA: BSSR is full, and DATA had the byte
+                                   * band_bat freed (2026-10-01). */
+/* JIM's fg/bg are pushed only when they have actually changed, which is far
  * cheaper than two stores per character. */
 static uint8_t jim_fg = 0xFF, jim_bg = 0xFF;
 void __fastcall__ k_chrout(uint8_t ch)
 {
     uint8_t oy;
+    if (ch == 10 && chr_prev == 13) { chr_prev = 10; return; }   /* the CR already made the line */
+    chr_prev = ch;
     draw_cursor(0);
     if (ch == 12) { cls(); return; }
     if (fg != jim_fg) { REG(TERM + 11) = fg; jim_fg = fg; }

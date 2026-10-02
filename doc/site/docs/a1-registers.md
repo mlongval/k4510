@@ -315,6 +315,28 @@ Blits are 8 bpp (one byte per pixel) in this version.
 
 `$A0-$AF`**`COLSL`** read: sprite-layer collision bits (sprite n over a non-transparent layer pixel). All 16 cleared on read of `$A0`.
 
+`$B0-$B7`**`LAYOUT`** the status bands and the console between them. VICKY is the one owner of where they are (2026-10-01, Doc: "A then B"; docs/notes/status-bars.md). Writes say what is wanted, reads of `$B5-$B7` say what is in force:
+
+`$B0`**`BANDTOP`** a program’s top band, rows (used while BANDCTL bit1)
+
+`$B1`**`BANDBOT`** a program’s bottom band, rows
+
+`$B2`**`BANDCTL`** bit0 the user’s bands are on – the F12 switch; the host sets it and a guest write cannot change it bit1 the bands are the PROGRAM’s: its heights, and K/OS
+
+    draws nothing in them.  It works with bit0 off.  Set it,
+
+then call VIDEO (`$FF92`); a program MUST clear it and call VIDEO again before it exits (BANDS.PRG is the example).
+
+`$B3`**`TCOLS`** the text grid, columns } written by whoever sets the
+
+`$B4`**`TROWS`** the text grid, rows } mode (K/OS’s VIDEO); 0 = none
+
+`$B5`**`CONOY`** read: the top band in force = the console’s first row
+
+`$B6`**`CONROWS`** read: the console’s rows
+
+`$B7`**`CONBOT`** read: the bottom band in force The rules: bands only on a grid of 40x30 or more; the user’s are one row each; a program’s that would leave the console under VICKY_BAND_MIN_ROWS fall back to one each. JIM’s window (`$DA05-$DA08`) is clamped inside the console.
+
 Sprite attribute entry, 16 bytes, in main RAM:
 
 `+0,1`X (signed 16)
@@ -375,6 +397,10 @@ Map formats:
 
 Layer 0 is bottom. Pixel index 0 is transparent in every layer; BGCOL is the ground (text32 bg is never transparent). Changed 2026-08-22 from “opaque in the lowest layer” so SHEILA backgrounds show under text.
 
+### The layout in force (`$B5-$B7`): top band, console rows, bottom band. rows is
+
+The layout in force (`$B5-$B7`): top band, console rows, bottom band. rows is 0 while no text grid has been declared (`$B4` = 0).
+
 ## The network
 
 Generated from `core/net.h`.
@@ -431,15 +457,15 @@ JIM, the terminal (`$DA00`) – the Beeb’s third page, given a job: a VT100 wi
 
 `$DA04`*W* **`CTRL`** 1 reset (modes, attributes, cursor home; the screen kept) 2 clear the screen and home
 
-`$DA05-$DA0D`*RW* **`COLS ROWS OX OY CX CY FG BG STRIDE`** the window: origin (OX,OY) cells, STRIDE cells per row
+`$DA05-$DA0D`*RW* **`COLS ROWS OX OY CX CY FG BG STRIDE`** the window: origin (OX,OY) cells, STRIDE cells per row. The window is kept inside the console VICKY lays out (`$D0B5`/`$D0B6`): moved, not shrunk, if it would cross a status band (2026-10-01).
 
-`$DA0E`*RW* **`FLAGS`** bit0 cursor shown (blinking) bit1 read: application cursor keys (DECCKM) bit2 PETSCII mode bit3 THE STATUS BANDS BELONG TO THE PROGRAM. While it is set, K/OS lays the console around `$DA0F`/`$DA16` instead of the user’s F12 heights, and stops drawing into the bands at all – no clock, no battery, and cls() leaves those rows alone. The program draws them itself and MUST clear the bit before it exits, the way PETSCII mode must be cleared: leave it set and the shell comes back to a screen whose furniture nobody is maintaining.
+`$DA0E`*RW* **`FLAGS`** bit0 cursor shown (blinking) bit1 read: application cursor keys (DECCKM) bit2 PETSCII mode bit3 the status bands are the program’s – a DOOR onto VICKY’s BANDCTL bit1 (`$D0B2`), which is where the claim lives since 2026-10-01; see core/vicky.h.
 
-`$DA0F`*RW* **`BANDTOP`** rows in the top band while bit3 is set
+`$DA0F`*RW* **`BANDTOP`** a door onto VICKY’s BANDTOP (`$D0B0`)
+
+`$DA16`*RW* **`BANDBOT`** a door onto VICKY’s BANDBOT (`$D0B1`). The three doors are kept for programs written before VICKY owned the layout; new ones use `$D0B0-$D0B2`.
 
 `$DA17`*RW* **`CODEPAGE`** 0 strict CP437 (power-on), 1 the K4510 page: JIM’s table and the fonts follow
-
-`$DA16`*RW* **`BANDBOT`** rows in the bottom band while bit3 is set. Write the two, set bit3, then call VIDEO (`$FF92`): K/OS re-lays the console around them. Clear bit3 and call VIDEO again to hand them back. (JIM stores these and never reads them; the ROM does. They live here because this is where the console’s geometry lives, and because the frontend rewrites the user’s heights every frame, so a guest request has nowhere else to survive.)
 
 `$DA10-$DA13`*RW* **`BASE`** 28-bit address of the text32 map (reset: `$030000`)
 

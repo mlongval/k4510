@@ -243,6 +243,50 @@ int main(void)
       CHECK(fb[39*640] == 3 && fb[440*640] == 3, "the field is still 200 lines");
     }
 
+    /* 10. LAYOUT ($B0-$B7): VICKY owns the bands and the console between them
+     * (2026-10-01).  JIM's window is kept inside, and JIM's old band
+     * registers are doors onto hers. */
+    {
+      #define LAY(t, r, b) (io_read(IO_VICKY + VR_CONOY) == (t) && io_read(IO_VICKY + VR_CONROWS) == (r) && io_read(IO_VICKY + VR_CONBOT) == (b))
+      #define JIM(r) io_read(0xDA00 + (r))
+      vicky_set_user_bands(0); W(VR_BANDCTL, 0); W(VR_TCOLS, 80); W(VR_TROWS, 30);
+      CHECK(LAY(0, 30, 0), "no bands: the console is the whole 80x30 grid");
+      vicky_set_user_bands(1);
+      CHECK(LAY(1, 28, 1), "the user's bands: one row each");
+      W(VR_BANDCTL, 0);
+      CHECK(LAY(1, 28, 1) && (io_read(IO_VICKY + VR_BANDCTL) & VB_USER), "a guest cannot clear the user's switch");
+      W(VR_CONOY, 9);
+      CHECK(LAY(1, 28, 1), "CONOY is read-only");
+      W(VR_BANDTOP, 2); W(VR_BANDBOT, 1); W(VR_BANDCTL, VB_PROGRAM);
+      CHECK(LAY(2, 27, 1), "a program's 2+1");
+      vicky_set_user_bands(0);
+      CHECK(LAY(2, 27, 1), "a claim works with the user's switch off");
+      W(VR_BANDTOP, 15); W(VR_BANDBOT, 6);
+      CHECK(LAY(1, 28, 1), "a claim leaving under ten console rows falls back to 1+1");
+      W(VR_BANDTOP, 0); W(VR_BANDBOT, 0);
+      CHECK(LAY(0, 30, 0), "a program may take the bands away: 0+0");
+      W(VR_BANDCTL, 0); vicky_set_user_bands(1); W(VR_TCOLS, 40); W(VR_TROWS, 25);
+      CHECK(LAY(0, 25, 0), "no bands on a grid under 40x30");
+      W(VR_TCOLS, 80); W(VR_TROWS, 30);
+      /* JIM: its window moves inside the console, never over a band */
+      io_write(0xDA05, 80); io_write(0xDA06, 30); io_write(0xDA07, 0); io_write(0xDA08, 0);
+      CHECK(JIM(0x08) == 1 && JIM(0x06) == 28, "JIM's window is kept off the bands (OY %d, ROWS %d)", JIM(0x08), JIM(0x06));
+      io_write(0xDA08, 29);
+      CHECK(JIM(0x08) == 1, "JIM cannot be moved into the bottom band (OY %d)", JIM(0x08));
+      vicky_set_user_bands(0); io_write(0xDA06, 30); io_write(0xDA08, 0);
+      CHECK(JIM(0x08) == 0 && JIM(0x06) == 30, "bands off: JIM may have the whole screen (OY %d, ROWS %d)", JIM(0x08), JIM(0x06));
+      /* the old doors: JIM's $DA0F/$DA16 and FLAGS bit 3 */
+      io_write(0xDA0F, 3); io_write(0xDA16, 2); io_write(0xDA0E, 8);
+      CHECK(io_read(IO_VICKY + VR_BANDTOP) == 3 && io_read(IO_VICKY + VR_BANDBOT) == 2 && (io_read(IO_VICKY + VR_BANDCTL) & VB_PROGRAM),
+            "JIM's band registers write VICKY's");
+      CHECK(JIM(0x0F) == 3 && JIM(0x16) == 2 && (JIM(0x0E) & 8), "and read them back");
+      io_write(0xDA0E, 0);
+      CHECK(!(io_read(IO_VICKY + VR_BANDCTL) & VB_PROGRAM), "clearing FLAGS bit 3 hands the bands back");
+      vicky_set_user_bands(1); vicky_reset();
+      CHECK(io_read(IO_VICKY + VR_BANDCTL) & VB_USER, "a reset keeps the host's switch");
+      printf("10. layout: user, program, clamp, JIM kept inside, the old doors\n");
+    }
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }

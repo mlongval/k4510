@@ -1,30 +1,33 @@
 /* K4510: BANDS -- a program taking the status bands for itself.
  *
  * The bands are K/OS's furniture: a top band with the clock and a bottom one
- * with the CPU clock, framing the console.  Their heights are the user's, set
- * in F12 -> Terminal.  This is the other half: a PROGRAM asking for them, for
- * as long as it runs, and giving them back on the way out.
+ * with the battery, framing the console, switched on in F12 -> Terminal.
+ * This is the other half: a PROGRAM asking for them, for as long as it runs,
+ * and giving them back on the way out.
  *
- * The whole protocol, and it is three registers:
+ * The whole protocol is three of VICKY's registers -- she owns the layout
+ * (core/vicky.h, $D0B0; since 2026-10-01, before which these were JIM's
+ * $DA0F, $DA16 and FLAGS bit 3, which still answer as doors onto hers):
  *
- *   $DA0F  BANDTOP   rows you want in the top band
- *   $DA16  BANDBOT   rows you want in the bottom band
- *   $DA0E  FLAGS     bit 3: the bands are yours
+ *   $D0B0  BANDTOP   rows you want in the top band
+ *   $D0B1  BANDBOT   rows you want in the bottom band
+ *   $D0B2  BANDCTL   bit 1: the bands are yours
  *
- * Write the two heights, set bit 3, and call VIDEO ($FF92).  K/OS re-lays the
- * console around the heights you asked for, publishes the new window to JIM
- * ($DA05-$DA08, which is how VI and RANGER know where they may draw), and
- * then leaves the band rows completely alone: no clock, no MHz, and a CLS
+ * Write the two heights, set bit 1, and call VIDEO ($FF92).  K/OS re-lays the
+ * console around what VICKY grants -- she keeps the console ten rows at least
+ * -- publishes the new window to JIM ($DA05-$DA08, which is how VI and RANGER
+ * know where they may draw, and which JIM will not let move over a band), and
+ * then leaves the band rows completely alone: no clock, no battery, and a CLS
  * from inside your program clears the console without touching them.
  *
- * To hand them back: clear bit 3 and call VIDEO again.  That is all -- VIDEO
+ * To hand them back: clear bit 1 and call VIDEO again.  That is all -- VIDEO
  * redraws K/OS's own bands when they are not claimed.
  *
- * YOU MUST HAND THEM BACK.  It is the same discipline PETSCII mode has (FLAGS
- * bit 2, see PETSCII.PRG): leave the bit set when you exit and the shell comes
- * back to furniture nobody is maintaining -- a clock that has stopped and a
- * CPU reading that no longer follows the F12 menu.  Nothing enforces it but
- * the program, which is why test/jimtest.sh checks that this one does.
+ * YOU MUST HAND THEM BACK.  It is the same discipline PETSCII mode has (JIM
+ * FLAGS bit 2, see PETSCII.PRG): leave the bit set when you exit and the shell
+ * comes back to furniture nobody is maintaining -- a clock that has stopped.
+ * Nothing enforces it but the program, which is why test/jimtest.sh checks
+ * that this one does.
  *
  * The demo asks for 2 rows on top and 1 at the bottom, draws its own things in
  * them, and scrolls text through the console underneath so you can see that
@@ -39,11 +42,12 @@ static void rom_video(void) { ((void (*)(void))0xFF92)(); }
 #define TERM     0xDA00u
 #define T_ROWS   REG(TERM + 0x06)
 #define T_OY     REG(TERM + 0x08)
-#define T_FLAGS  REG(TERM + 0x0E)
-#define T_BTOP   REG(TERM + 0x0F)
 #define T_PCOLS  REG(TERM + 0x0D)
-#define T_BBOT   REG(TERM + 0x16)
-#define CLAIM    0x08
+#define VICKY    0xD000u
+#define V_BTOP   REG(VICKY + 0xB0)
+#define V_BBOT   REG(VICKY + 0xB1)
+#define V_BANDCTL REG(VICKY + 0xB2)
+#define CLAIM    0x02
 #define SCREEN   0x030000UL
 
 #define BAND_FG  0x01          /* white on grey, as K/OS draws its own */
@@ -86,8 +90,8 @@ int main(void)
     print("drawing in them.  Press a key to hand them back.\r\n\r\n");
 
     /* ---- claim: two heights, one bit, one call ---- */
-    T_BTOP = 2; T_BBOT = 1;
-    T_FLAGS |= CLAIM;
+    V_BTOP = 2; V_BBOT = 1;
+    V_BANDCTL |= CLAIM;
     rom_video();               /* K/OS re-lays the console and leaves the rows to us */
 
     /* The rows are ours and they still hold whatever K/OS last drew there, so
@@ -97,7 +101,7 @@ int main(void)
     row(0, BAND_FG, BAND_BG);
     row(1, BAND_FG, BAND_BG);
     say(1, 0, "BANDS.PRG  --  these two rows belong to this program", BAND_FG, BAND_BG);
-    say(1, 1, "K/OS is not drawing here: no clock, no MHz", BAND_FG, BAND_BG);
+    say(1, 1, "K/OS is not drawing here: no clock, no battery", BAND_FG, BAND_BG);
 
     last = (uint8_t)(T_OY + T_ROWS);       /* the first row below the console: our bottom band */
     row(last, MINE_FG, MINE_BG);
@@ -121,7 +125,7 @@ int main(void)
     }
 
     /* ---- hand them back: one bit, one call ---- */
-    T_FLAGS &= (unsigned char)~CLAIM;
+    V_BANDCTL &= (unsigned char)~CLAIM;
     rom_video();
     rom_chrout(12);                          /* CLS, so the console starts clean under K/OS's bands */
     print("BANDS: handed back.  The clock and the battery are K/OS's again.\r\n");

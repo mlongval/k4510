@@ -1109,7 +1109,11 @@ static void screen_geom(int *cols, int *rows)
 static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
 uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
 static int mode_acked;
-void io_set_opts(uint8_t v) { sys_opts = v; }
+void io_set_opts(uint8_t v)
+{
+    sys_opts = v;
+    vicky_set_user_bands(v & SYSOPT_STATUS);   /* the F12 switch is VICKY's BANDCTL bit0: she owns the layout (2026-10-01) */
+}
 static uint8_t sys_band_top = 1, sys_band_bot = 1, sys_clockfmt;
 static uint8_t sys_mode;                   /* $D53C: the mode the host wants, whole (mode+1; 0 none) -- $D521's three bits stop at MODE 6 */
 void io_set_mode(uint8_t m1) { sys_mode = m1; }

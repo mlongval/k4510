@@ -651,9 +651,10 @@ static void line_begin(void)
  * into the finished frame, not into the machine's memory, in the machine's
  * own font and each band's own colours (read from the band's first cell), so
  * they look like the band and follow its size, the font and the scaling.
- * Not when the bands are off, when a program has claimed them (JIM FLAGS bit
- * 3: they are its to draw), when the console is not the picture, or under
- * the menu.  echo_banded tells the old echo bar it need not draw. */
+ * Not when the bands are off, when a program has claimed them (VICKY's
+ * BANDCTL bit 1: they are its to draw), when the console is not the picture,
+ * or under the menu.  Whether there are bands at all is VICKY's to say
+ * ($D0B5/$D0B7, 2026-10-01) -- this used to repeat the ROM's 40x30 rule.  echo_banded tells the old echo bar it need not draw. */
 const char *io_title(void);
 static int echo_banded;
 static void band_text(int row, int col, int maxc, const char *s, int stride, int rh, int cw, int y0)
@@ -678,15 +679,15 @@ static void band_text(int row, int col, int maxc, const char *s, int stride, int
 static void bands_overlay(void)
 {
     echo_banded = 0;
-    if (menu_is_open() || !settings_get(SET_VIDEO_STATUSBAR)) return;
-    if (io_read(0xDA0E) & 8) return;                                   /* a program has claimed the bands */
+    if (menu_is_open()) return;
+    if ((vicky_read(VR_BANDCTL) & (VB_USER | VB_PROGRAM)) != VB_USER) return;   /* the user's bands, and unclaimed */
+    { uint8_t oy, crows, bot; vicky_layout(&oy, &crows, &bot); if (!oy && !bot) return; }   /* VICKY lays none out */
     uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10);
     if (!(ctrl & 1) || !(l0 & 1) || ((l0 >> 1) & 3) != 3) return;       /* the console (text32) is not the picture */
     int stride = vicky_read(0x16) | (vicky_read(0x17) << 8);
     int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
     int rh = rows == 60 ? 8 : 16, cw = vicky_glass_w() / cols, y0 = (ctrl & 8) ? 40 : 0;
     if (ctrl & 0x20) { rh = (l0 & 0x60) ? 16 : 8; rows = vicky_glass_h() / rh; y0 = -(int16_t)(vicky_read(0x14) | (vicky_read(0x15) << 8)); }   /* the HD family: rows of the mode's own cells, below the ROM's top padding */
-    if (cols < 40 || rows < 30) return;                                /* the ROM's rule: bands in every shell mode, not the 25-row game modes */
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* what is running, left of the clock */
         const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
         if (maxc > 4) {

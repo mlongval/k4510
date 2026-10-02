@@ -10651,3 +10651,34 @@ one.  It fails on the old ROM (rows 21/23 and 23/26) and passes on this one.
 The handbook's System calls section now states CHROUT's three exceptions to
 JIM in one place -- newline, backspace, form feed -- and that a program
 wanting a terminal's bare CR writes to $DA00 itself.
+
+## 2026-10-01 — VICKY owns the layout (option A); the band clock's date
+
+Doc: "how about constraining JIM via VICKY? give only VICKY control over
+status bars?"  Proposed as options A (VICKY holds the layout, JIM and K/OS
+follow) and B (the bands in their own memory); Doc: "A then B".  A is built.
+
+VICKY's LAYOUT block, $D0B0-$D0B7: BANDTOP/BANDBOT (a program's heights),
+BANDCTL (bit0 the user's F12 switch, host-only; bit1 a program's claim),
+TCOLS/TROWS (the text grid, declared by K/OS's VIDEO), and CONOY/CONROWS/
+CONBOT computed on read.  The rules that were scattered -- the 40x30
+minimum, the user's one row each, the ten-row floor, a claim working with
+the switch off -- are hers, in one function.  JIM keeps its window inside
+her console (moving it, not shrinking it, because the ROM writes ROWS
+before OY); its $DA0F/$DA16/FLAGS bit 3 are doors onto her registers, and
+an old save state's values are moved across on load.  K/OS declares the
+grid and reads the layout; claimed() and bands_on() are a register read
+each; the IRQ clock checks BANDCTL.  The frontend's band overlay asks her
+too.  ROM2 99 bytes smaller.  BANDS moved to $D0B0-$D0B2.
+
+On the way: the band clock had shown 00.00.0000 and lost its PM since the
+MHz left the band (0c7998f) this morning.  `(void)REG(SYS + 4)`, the RTC
+latch before draw_clock, compiles to nothing in cc65 -- an unused read is
+dropped, volatile or not, and so is an inline `lda` -- and the MHz's read of
+$D500 had been latching it.  The latch is `rtc_latch` in crt0.s; jimtest
+checks the year is in the band.  Lesson for this ROM: a read for its side
+effect must be in assembler.
+
+Tests: vickytest section 10, jimtest (BANDS through VICKY, the date), the
+frontend under Xvfb.  docs/notes/status-bars.md has the details; step 4
+(the cursor to JIM) and option B are next.

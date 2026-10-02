@@ -12,6 +12,7 @@
                                             ; decides whether the IRQ paints it (a bottom band of zero
                                             ; must not stop the clock -- the heights are independent)
         .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _far_peek, _call_prog
+        .export   _rtc_latch
 
         .zeropage
 cnt:          .res 2
@@ -85,12 +86,10 @@ irq:    pha
         bne @ack
         ; --- the status-bar clock, the machine's own tick: when the minute
         ; rolls, repaint the eight digit cells (in status mode only) ---
-        lda $DA0E               ; has a PROGRAM claimed the bands?  Then they are not ours to paint,
-        and #$08                ; and a clock ticking through somebody else's status line is the
-        bne @curs               ; loudest possible way to get this wrong
-        lda $D521               ; the host's own switch: are the bands up at all?
-        and #$08
-        beq @curs
+        lda $D0B2               ; VICKY's BANDCTL: bit0 the user's bands on, bit1 a PROGRAM has them.
+        and #$03                ; Only "the user's, unclaimed" (= 1) is ours to paint: a clock ticking
+        cmp #$01                ; through somebody else's status line is the loudest possible way
+        bne @curs               ; to get this wrong
         lda _OY                 ; ... and is there a top band to put a clock in?
         beq @curs
         lda $D504               ; latch the RTC
@@ -341,6 +340,12 @@ w_video:  jsr zp_in
 w_args:   jsr zp_in
         jsr _k_args
         jmp zp_out
+
+; Latch the RTC: a read of $D504 copies the host's clock into $D505-$D50C.  In
+; assembler because cc65 drops a read whose value goes unused -- `(void)REG()`
+; and an inline `lda` alike -- so in C the latch compiled to nothing (2026-10-01).
+_rtc_latch: lda $D504
+        rts
 
 ; ---- the stub page $FF00-$FFFF: always the ROM, whatever is banked (K-05) ----
 ; A program may bank blocks 5-7 ($A000-$CFFF, $E000-$FEFF; the I/O page stays)

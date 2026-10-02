@@ -74,7 +74,7 @@ ECHO JIMANSIBACK
 ' 1800 2>&1) || fail "PETSCII did not run (handback)"
 echo "$out" | grep -q "JIMANSIBACK"        || fail "PETSCII: the shell was left in PETSCII mode"
 
-# BANDS.PRG takes the status bands ($DA0F/$DA16 + FLAGS bit 3), draws in them,
+# BANDS.PRG takes the status bands (VICKY $D0B0-$D0B2 since 2026-10-01), draws in them,
 # and hands them back.  The same discipline as PETSCII mode above, and checked
 # the same way, because nothing but the program enforces it.
 #
@@ -98,4 +98,10 @@ ECHO BANDSBACK
 echo "$out" | grep -q "handed back"  || fail "BANDS: never reached its hand-back"
 echo "$out" | grep -q "BANDSBACK"    || fail "BANDS: the shell did not survive the hand-back"
 
-echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from EhBASIC: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back)"
+# The user's band clock carries today's date.  It came up 00.00.0000 for most
+# of 2026-10-01: cc65 had compiled the RTC latch before draw_clock to nothing,
+# and the band's MHz (gone that morning) had been latching it by accident.
+top=$(K4510_SYSOPT=0x0C ./test/headless rom/kernal.bin '' 60 2>/dev/null | head -1)
+case "$top" in *"$(date +%Y)"*) ;; *) fail "the band's clock has no date (the RTC was not latched): $top" ;; esac
+
+echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from EhBASIC: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back; the band clock's date)"

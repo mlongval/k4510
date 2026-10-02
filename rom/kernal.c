@@ -10,6 +10,15 @@
 
 /* ---- hardware (mirrors core/io.h and core/vicky.h) -------------------- */
 #define REG(a) (*(volatile uint8_t *)(a))
+/* Latch the RTC: a read of $D504 copies the host's clock into $D505-$D50C.
+ * A call into crt0.s, NOT `(void)REG(SYS + 4)`: cc65 drops a read whose value
+ * goes unused -- volatile or not, and an inline `lda` too -- so that statement
+ * compiled to nothing.  It went unnoticed because the band's MHz read
+ * $D500/$D501, which latch as well, just before the clock was drawn; when the
+ * MHz left the band (0c7998f) the date came up 00.00.0000 and the hour lost
+ * its PM (found 2026-10-01, the same day). */
+void rtc_latch(void);
+#define RTC_LATCH() rtc_latch()
 #define VICKY  0xD000u
 #define KBD    0xD100u
 #define KBDST  0xD101u
@@ -24,16 +33,20 @@
 #define FS     0xD300u
 #define FM     0xD480u          /* the OPL2: $D480 address port, $D481 data */
 #define SYS    0xD500u
-#define SYSOPT_STATUS 0x08           /* $D521 bit 3: the host's status-bar mode is switched on */
 #define SYSOPT_ROWS60 0x02           /* $D521 bit 1: 640x480 in 8x8 cells, 80x60 (core/io.h has the pair) */
 #define SYS_BANDTOP   0x2D           /* $D52D/$D52E: rows in each band, the F12 Terminal menu's.  $D521 is
                                       * full -- all eight bits -- so these are their own bytes. */
 #define SYS_BANDBOT   0x2E
 #define SYS_CLOCKFMT  0x2F           /* bit0 24-hour; bits1-2 the date order (0 D.M.Y, 1 ISO, 2 M/D/Y) */
-#define BAND_MIN_ROWS 10             /* the console never shrinks below this, whatever is asked for */
-#define T_BANDTOP     0x0F           /* JIM: a PROGRAM's band heights, and FLAGS bit 3 to claim them */
-#define T_BANDBOT     0x16
-#define T_CLAIMED     0x08
+/* VICKY's LAYOUT block (core/vicky.h): she owns where the bands and the
+ * console are (2026-10-01).  K/OS declares the text grid and reads the rest. */
+#define V_BANDCTL     0xB2           /* bit0 the user's bands on, bit1 a PROGRAM has them */
+#define V_PROGRAM     0x02
+#define V_TCOLS       0xB3
+#define V_TROWS       0xB4
+#define V_CONOY       0xB5           /* read: the top band in force */
+#define V_CONROWS     0xB6           /* read: the console's rows */
+#define V_CONBOT      0xB7           /* read: the bottom band in force */
 #define BANK   0xD600u
 #define TUBE   0xD800u
 #define TERM   0xDA00u                /* JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
@@ -175,14 +188,12 @@ static void bands_refresh(void)            /* after a palette change: the pair a
 static void draw_clock(void);         /* the top-right widget.  It lived in ROM2 while ROM1C was full;
                                        * the 2026-09-01/02 savings gave ROM1C the room, and it belongs
                                        * beside bar_str, which is what it draws through. */
-/* Are the bands up?  The host's own switch is the only honest answer, and it
- * costs no state --
- * which matters, BSSR being 447 of 448 bytes used. */
-static uint8_t claimed(void) { return (uint8_t)((REG(TERM + 0x0E) & T_CLAIMED) && PCOLS >= 40 && PROWS >= 30); }
-/* A program that has claimed the bands gets them whether or not the user's F12
- * switch is on -- that is the point of claiming: a program wants the furniture
- * for its own, and asking the user to enable it first would be absurd. */
-static uint8_t bands_on(void) { return (uint8_t)(claimed() || ((REG(SYS + 0x21) & SYSOPT_STATUS) && PCOLS >= 40 && PROWS >= 30)); }   /* every shell mode: 40 columns and 30 rows at least (MODE 2 and 7 too, Doc 2026-09-14) */
+/* Are the bands up, and whose are they?  VICKY says, live, and it costs no
+ * state -- which matters, BSSR being full.  The rules are hers (core/vicky.h,
+ * $D0B0): bands on a 40x30 grid or more, the user's one row each, a claim
+ * that works with the user's switch off. */
+static uint8_t claimed(void) { return (uint8_t)(REG(VICKY + V_BANDCTL) & V_PROGRAM); }
+static uint8_t bands_on(void) { return (uint8_t)(REG(VICKY + V_CONOY) | REG(VICKY + V_CONBOT)); }
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {
@@ -237,7 +248,7 @@ static void draw_bands(void)
      * the network, DMA and the MATH unit run at host speed whatever the clock.
      * A number that big on the glass claims it matters more than it does.
      * INFO, F12 and MARK still show it, and MARK says what it buys. */
-    if (OY) { (void)REG(SYS + 4); draw_clock(); }
+    if (OY) { RTC_LATCH(); draw_clock(); }
     if (bband) draw_bat(REG(SYS + 0x3A));
 }
 #pragma code-name (pop)
@@ -445,7 +456,7 @@ uint8_t k_getin(void)
      * anything else scribbles on the clock. */
     if (OY && !claimed()) {
         uint8_t c = day_col();
-        (void)REG(SYS + 4);                                   /* latch the RTC */
+        RTC_LATCH();
         if (far_peek(SCREEN + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();
     }
     if (REG(TERM + 0x0E) || prog_running) { if (cursor_vis) draw_cursor(0); }   /* a program owns the screen: no console cursor under it */
@@ -2092,24 +2103,15 @@ static void video_init(void)
     if (!rows60_set) rows60 = (uint8_t)((REG(SYS + 0x21) & SYSOPT_ROWS60) != 0);
     if (vmode == 0 && rows60) PROWS = 60;
     tall = (uint8_t)(((0x61 >> vmode) & 1) && !(vmode == 0 && rows60));
-    /* status mode: two static bands frame the console (the 80-column modes only).
-     * The band heights scale with the screen: 640x240 -> 2 top + 3 bottom (25 rows);
-     * 640x480 -> 4 + 6 (50 rows).  bband != 0 is the flag the rest of the ROM reads. */
-    /* The bands are the F12 Terminal menu's now, and independent (Doc,
-     * 2026-09-02): a top height and a bottom height, either of which may be
-     * zero.  They used to be PROWS/15 and PROWS/10 -- 4+6 at 640x480 and 2+3
-     * at 640x240 -- which spent a sixth of the screen on furniture holding
-     * four strings, two of which were a nameplate.  Since 2026-09-14 the
-     * user's bands are one row each, on or off; a program that claims the
-     * console may ask for other heights, and the clamp keeps BAND_MIN_ROWS. */
-    if (bands_on()) {
-        uint8_t t, b;
-        if (claimed()) { t = REG(TERM + T_BANDTOP); b = REG(TERM + T_BANDBOT); }   /* the program's */
-        else           { t = 1; b = 1; }                                         /* the user's: one row each (Doc, 2026-09-14) */
-        if (t + b > PROWS - BAND_MIN_ROWS) { t = 1; b = 1; }
-        OY = t; bband = b;
-    } else                                                { OY = 0;         bband = 0; }
-    COLS = PCOLS; ROWS = PROWS - OY - bband;
+    /* The status bands and the console between them are VICKY's to lay out
+     * (2026-10-01, docs/notes/status-bars.md): K/OS tells her the text grid
+     * and reads back what is in force.  The user's switch, a program's claim
+     * and its heights, the one-row rule and the ten-row floor are all hers.
+     * OY and bband stay as the ROM's copies because cell() and the IRQ's
+     * clock read them on every character. */
+    REG(VICKY + V_TCOLS) = PCOLS; REG(VICKY + V_TROWS) = PROWS;
+    OY = REG(VICKY + V_CONOY); bband = REG(VICKY + V_CONBOT);
+    COLS = PCOLS; ROWS = REG(VICKY + V_CONROWS);
     REG(VICKY + 0) = 0;
     REG(VICKY + 1) = C_BG;                        /* BGCOL stays the console's: a program's transparent bitmap shows it (VICKY paints the HD spare lines itself) */
     /* The palette is deliberately NOT reloaded here.  VICKY comes up with the
@@ -2141,7 +2143,7 @@ static void video_init(void)
     jim_fg = jim_bg = 0xFF;                                                              /* colours re-pushed on the next character */
     /* The bands are part of laying the screen out, so VIDEO ($FF92) draws
      * them -- which makes handing them back one step for a program: clear
-     * FLAGS bit 3, call VIDEO, done.  Claimed, it draws nothing: the rows are
+     * VICKY's BANDCTL bit1, call VIDEO, done.  Claimed, it draws nothing: the rows are
      * the program's and it is about to fill them itself. */
     if (bands_on() && !claimed()) draw_bands();
 }

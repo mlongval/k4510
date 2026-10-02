@@ -266,7 +266,10 @@ That also gives the next three menu settings somewhere to land, which
 
 ## Proposal, 2026-10-01: VICKY owns the layout
 
-**Status: a proposal for Doc to rule on. Nothing here is built.**
+**Status: DECIDED, Doc 2026-10-01: "A then B".  Option A built the same
+day -- see "Option A, as built" at the end.  The addresses are the ones
+proposed; the user's bands stay on/off, one row each (question 3 was not
+answered, so the 2026-09-14 rule stands).  Option B is next.**
 
 Doc, 2026-10-01: "how about constraining JIM via VICKY? give only VICKY
 control over status bars? allow JIM to draw only to a VICKY-authorised
@@ -383,3 +386,50 @@ Suggested order, each step green before the next:
 3. The F12 band heights: since 2026-09-14 the user's bands are one row
    each, on or off, and `$D52D`/`$D52E` are vestigial. Keep that rule
    (on/off only) or let F12 set heights again once VICKY owns them?
+
+### Option A, as built (2026-10-01)
+
+Steps 1-3 of the order above, in one change, all suites green.  What
+building it changed from the sketch:
+
+- **The text grid is declared, not inferred.** VICKY cannot work out the
+  console from her mode bits alone (the HD family pads its rows), so
+  `$B3`/`$B4` became TCOLS/TROWS, written by whoever sets the mode --
+  K/OS's VIDEO -- and `$B5`-`$B7` are CONOY, CONROWS and CONBOT.  There is
+  no CONCOLS/CONOX: the console is always the full width since the margin
+  went (2026-09-14).
+- **BANDCTL bit0 is the host's.** The F12 switch reaches VICKY through
+  `io_set_opts` (the same call that publishes `$D521`); a guest write to
+  `$B2` changes bit1 only, and a reset keeps bit0.
+- **JIM moves, it does not shrink.** Its window is clamped inside VICKY's
+  console on every geometry write, keeping the size asked for and moving
+  the origin.  Shrinking was wrong: the ROM writes ROWS before OY, so at
+  that moment OY still holds the last layout's value.
+- **The doors stay.** `$DA0F`, `$DA16` and FLAGS bit 3 read and write
+  VICKY's registers; JIM's three old fields stay in its struct, unused, so
+  a save state keeps its size, and loading an old state moves their values
+  across to VICKY.
+- **The frontend asks VICKY too.** Its band overlay (the running program's
+  name, the key echo) repeated the ROM's 40x30 rule and read the claim from
+  JIM; it reads BANDCTL and the layout now.
+- **What left the ROM:** the band arithmetic in `video_init`, the 40x30
+  rule, the SYSOPT read in `bands_on()`; `claimed()` and `bands_on()` are a
+  register read each.  CODE2 (ROM2) is 99 bytes smaller.  The IRQ clock
+  painter checks `BANDCTL == 1` (the user's, unclaimed) instead of JIM's
+  flag and `$D521`.
+
+**A regression found on the way, and fixed with it.** The band clock had
+been showing 00.00.0000 and losing its PM since the MHz left the band that
+morning.  cc65 compiles `(void)REG(SYS + 4)` -- the RTC latch before
+`draw_clock` -- to nothing, because the value is unused (an inline `lda`
+went the same way); the MHz had been reading `$D500`, which latches too.
+The latch is `rtc_latch` in `crt0.s` now, and `jimtest.sh` checks the band
+clock carries the year.
+
+Tests: `vickytest` section 10 (the user's bands, a claim, the claim with
+the switch off, the ten-row fallback, 0+0, the 40x30 rule, JIM kept off the
+bands, the doors, a reset keeping the switch); `jimtest` (BANDS through
+VICKY, the date); the real frontend checked under Xvfb with a fake battery.
+
+Still owed from the order: **step 4, the cursor to JIM**, and **step 5,
+option B**.

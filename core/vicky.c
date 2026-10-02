@@ -36,7 +36,9 @@ static const uint32_t c64_palette[16] = {   /* VIC-II colours as the first 16 en
 
 void vicky_reset(void)
 {
+    uint8_t user = reg[VR_BANDCTL] & VB_USER;   /* the host's switch is the host's: a reset keeps it */
     memset(reg, 0, sizeof reg);
+    reg[VR_BANDCTL] = user;
     for (int i = 0; i < 256; i++) pal[i] = (i < 16) ? c64_palette[i] : (uint32_t)(i * 0x010101);
     pal_gen++;
     cur_line = 0;
@@ -47,9 +49,24 @@ static void blit(void);
 uint32_t vicky_palette_rgb(int i) { return pal[i & 0xFF]; }
 uint32_t vicky_palette_gen(void) { return pal_gen; }
 
+void vicky_layout(uint8_t *oy, uint8_t *rows, uint8_t *bot)
+{
+    uint8_t tc = reg[VR_TCOLS], tr = reg[VR_TROWS], ctl = reg[VR_BANDCTL];
+    int t = 0, b = 0;
+    if (tc >= 40 && tr >= 30 && (ctl & (VB_USER | VB_PROGRAM))) {
+        if (ctl & VB_PROGRAM) { t = reg[VR_BANDTOP]; b = reg[VR_BANDBOT]; }
+        else                  { t = 1; b = 1; }                  /* the user's: one row each (Doc, 2026-09-14) */
+        if (t + b > tr - VICKY_BAND_MIN_ROWS) { t = 1; b = 1; }
+    }
+    *oy = (uint8_t) t; *bot = (uint8_t) b; *rows = (uint8_t)(tr - t - b);
+}
+void vicky_set_user_bands(int on) { reg[VR_BANDCTL] = (uint8_t)((reg[VR_BANDCTL] & ~VB_USER) | (on ? VB_USER : 0)); }
+
 uint8_t vicky_read(uint8_t r)
 {
     switch (r) {
+    case VR_CONOY: case VR_CONROWS: case VR_CONBOT:
+        { uint8_t oy, rows, bot; vicky_layout(&oy, &rows, &bot); return r == VR_CONOY ? oy : r == VR_CONROWS ? rows : bot; }
     case VR_RASTER:     return cur_line & 0xFF;
     case VR_RASTER + 1: return cur_line >> 8;
     default:
@@ -68,6 +85,8 @@ void vicky_write(uint8_t r, uint8_t v)
     if (r == VR_BLTCMD)  { blit(); return; }
     if (r == VR_RASTER)     { raster_cmp = (raster_cmp & 0xFF00) | v; return; }
     if (r == VR_RASTER + 1) { raster_cmp = (raster_cmp & 0x00FF) | (v << 8); return; }
+    if (r >= VR_CONOY && r <= VR_CONBOT) return;           /* computed: read-only */
+    if (r == VR_BANDCTL) { reg[r] = (uint8_t)((reg[r] & VB_USER) | (v & VB_PROGRAM)); return; }   /* bit0 is the host's */
     reg[r] = v;
     if (r == VR_PALB) {
         uint8_t i = reg[VR_PALIDX];

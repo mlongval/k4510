@@ -22,12 +22,11 @@ static struct {
                                         * ends its lines with a bare \n and expects column 0 back,
                                         * which is exactly what LNM is for. */
     uint8_t petscii, pet_lower;        /* PETSCII mode (FLAGS bit 2), and its case set ($0E / $8E) */
-    /* The status bands, when a PROGRAM has taken them (FLAGS bit 3).  JIM does
-     * not draw them and never reads these -- the ROM does, in video_init.  They
-     * live here because this is where the console's geometry lives, and the
-     * band heights are what the geometry is made of; and because the frontend
-     * rewrites the USER's heights ($D52D/$D52E) every frame, so a guest has
-     * nowhere else to put a request of its own that would survive. */
+    /* UNUSED since 2026-10-01, kept so a save state keeps its size: a program's
+     * band claim and heights lived here (FLAGS bit 3, $DA0F, $DA16) because
+     * nothing owned the layout.  VICKY does now ($D0B0-$D0B7); those three
+     * JIM addresses are doors onto her registers, and term_state_load moves an
+     * old state's values across. */
     uint8_t bandclaim, bandtop, bandbot;
     uint8_t g0, g1, shift;             /* charsets: 0 ASCII, 1 DEC line drawing; shift = SO */
     uint8_t utf8, u_need, u_nraw, u_raw[4]; uint32_t u_cp;   /* UTF-8 mode (ESC % G .. ESC % @) and a sequence half-read */
@@ -176,6 +175,18 @@ static void soft_reset(void)
 }
 static void clamp_geometry(void)
 {
+    /* The window lives inside the console VICKY lays out (2026-10-01): JIM can
+     * be moved anywhere in it, never over a status band.  Before a text grid
+     * is declared ($D0B4 = 0) there is no layout to keep to. */
+    { uint8_t oy, rows, bot; vicky_layout(&oy, &rows, &bot);
+      if (vicky_read(VR_TROWS) && rows) {
+          /* keep the size asked for (up to the console's) and move the window
+           * to fit, rather than shrink it: the ROM writes ROWS before OY, so
+           * at that moment OY can still be the last layout's */
+          if (T.rows > rows) T.rows = rows;
+          if (T.oy < oy) T.oy = oy;
+          if (T.oy + T.rows > oy + rows) T.oy = (uint8_t)(oy + rows - T.rows);
+      } }
     if (T.cols < 1) T.cols = 1;
     if (T.rows < 1) T.rows = 1;
     if (T.stride < T.cols + T.ox) T.stride = (uint8_t)(T.cols + T.ox);
@@ -769,11 +780,11 @@ uint8_t term_read(uint8_t r)
     case 0x09: return T.cx;    case 0x0A: return T.cy;
     case 0x0B: return T.fg;    case 0x0C: return T.bg;
     case 0x0D: return T.stride;
-    case 0x0E: return (uint8_t)((T.shown ? 1 : 0) | (T.ckm ? 2 : 0) | (T.petscii ? 4 : 0) | (T.bandclaim ? 8 : 0));
-    case 0x0F: return T.bandtop;
+    case 0x0E: return (uint8_t)((T.shown ? 1 : 0) | (T.ckm ? 2 : 0) | (T.petscii ? 4 : 0) | ((vicky_read(VR_BANDCTL) & VB_PROGRAM) ? 8 : 0));
+    case 0x0F: return vicky_read(VR_BANDTOP);
     case 0x10: case 0x11: case 0x12: case 0x13: return (uint8_t)(T.base >> (8 * (r - 0x10)));
     case 0x14: return T.deffg; case 0x15: return T.defbg;
-    case 0x16: return T.bandbot;
+    case 0x16: return vicky_read(VR_BANDBOT);
     case 0x17: return (uint8_t) page_k;                         /* CODEPAGE: 0 CP437, 1 the K4510 page */
     default: return 0;
     }
@@ -819,14 +830,14 @@ void term_write(uint8_t r, uint8_t v)
     case 0x0D: cur_undraw(); T.stride = v; clamp_geometry(); cur_draw(); return;
     case 0x0E: cur_undraw(); T.shown = v & 1;
                if (((v >> 2) & 1) != T.petscii) { T.petscii = (v >> 2) & 1; T.pet_lower = 0; }
-               T.bandclaim = (v >> 3) & 1;
+               vicky_write(VR_BANDCTL, (uint8_t)((vicky_read(VR_BANDCTL) & ~VB_PROGRAM) | ((v & 8) ? VB_PROGRAM : 0)));   /* the claim is VICKY's */
                cur_draw(); return;
-    case 0x0F: T.bandtop = v; return;
+    case 0x0F: vicky_write(VR_BANDTOP, v); return;
     case 0x10: case 0x11: case 0x12: case 0x13:
         cur_undraw(); T.base = (T.base & ~(0xFFu << (8 * (r - 0x10)))) | ((uint32_t) v << (8 * (r - 0x10))); T.base &= K4510_PHYS_MASK; cur_draw(); return;
     case 0x14: T.deffg = v; return;
     case 0x15: T.defbg = v; return;
-    case 0x16: T.bandbot = v; return;
+    case 0x16: vicky_write(VR_BANDBOT, v); return;
     case 0x17: term_set_page(v & 1); page_req = page_k; return;
     default: return;
     }
@@ -846,6 +857,11 @@ void term_cursor_unpark(int was) { if (was) cur_draw(); }
 int  term_state_load(FILE *f)
 {
     if (state_get(f, "JIM ", &T, sizeof T)) return -2;
+    if (T.bandclaim || T.bandtop || T.bandbot) {                /* a state from before VICKY owned the layout */
+        vicky_write(VR_BANDTOP, T.bandtop); vicky_write(VR_BANDBOT, T.bandbot);
+        if (T.bandclaim) vicky_write(VR_BANDCTL, (uint8_t)(vicky_read(VR_BANDCTL) | VB_PROGRAM));
+        T.bandclaim = T.bandtop = T.bandbot = 0;
+    }
     T.cur_on &= 6; T.rh &= 127; T.rt &= 127; clamp_geometry();   /* a hand-edited .k4s must not index out of bounds */
     if (T.npar > NPAR) T.npar = NPAR;                            /* ...nor may the parser's own counters (review 2026-09-17): */
     if (T.u_need > 3 || T.u_nraw + T.u_need > 4) T.u_need = T.u_nraw = 0;   /* u_raw[] is 4, a sequence at most 4 */

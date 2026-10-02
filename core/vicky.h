@@ -50,6 +50,27 @@
  *                  (sprite n hit another sprite this frame). All 16 cleared on read of $90.
  *   $A0-$AF COLSL  read: sprite-layer collision bits (sprite n over a
  *                  non-transparent layer pixel). All 16 cleared on read of $A0.
+ *   $B0-$B7 LAYOUT  the status bands and the console between them.  VICKY is
+ *                  the one owner of where they are (2026-10-01, Doc: "A then
+ *                  B"; docs/notes/status-bars.md).  Writes say what is wanted,
+ *                  reads of $B5-$B7 say what is in force:
+ *     $B0  BANDTOP  a program's top band, rows (used while BANDCTL bit1)
+ *     $B1  BANDBOT  a program's bottom band, rows
+ *     $B2  BANDCTL  bit0 the user's bands are on -- the F12 switch; the host
+ *                   sets it and a guest write cannot change it
+ *                   bit1 the bands are the PROGRAM's: its heights, and K/OS
+ *                   draws nothing in them.  It works with bit0 off.  Set it,
+ *                   then call VIDEO ($FF92); a program MUST clear it and call
+ *                   VIDEO again before it exits (BANDS.PRG is the example).
+ *     $B3  TCOLS    the text grid, columns } written by whoever sets the
+ *     $B4  TROWS    the text grid, rows    } mode (K/OS's VIDEO); 0 = none
+ *     $B5  CONOY    read: the top band in force = the console's first row
+ *     $B6  CONROWS  read: the console's rows
+ *     $B7  CONBOT   read: the bottom band in force
+ *                  The rules: bands only on a grid of 40x30 or more; the
+ *                  user's are one row each; a program's that would leave the
+ *                  console under VICKY_BAND_MIN_ROWS fall back to one each.
+ *                  JIM's window ($DA05-$DA08) is clamped inside the console.
  *
  *   Sprite attribute entry, 16 bytes, in main RAM:
  *   +0,1 X (signed 16)   +2,3 Y (signed 16)   +4..7 DATA 28-bit pointer
@@ -142,6 +163,17 @@
 #define VR_LY2      0x8E
 #define VICKY_SPRITES 128
 #define VR_LAYER(n) (0x10 + (n) * 0x10)
+#define VR_BANDTOP  0xB0
+#define VR_BANDBOT  0xB1
+#define VR_BANDCTL  0xB2
+#define VR_TCOLS    0xB3
+#define VR_TROWS    0xB4
+#define VR_CONOY    0xB5
+#define VR_CONROWS  0xB6
+#define VR_CONBOT   0xB7
+#define VB_USER     0x01      /* BANDCTL: the F12 switch (host only) */
+#define VB_PROGRAM  0x02      /* BANDCTL: a program has the bands */
+#define VICKY_BAND_MIN_ROWS 10
 #define VL_CTRL     0
 #define VL_PALOFS   1
 #define VL_SCROLLX  2
@@ -172,6 +204,10 @@ void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest 
  * reverse bit in the cell itself, as always, and never comes through here. */
 void     vicky_cursor(uint32_t attr_addr, int style, int on);
 int      vicky_irq(void);                             /* nonzero if IRQSTAT & IRQMASK */
+/* The layout in force ($B5-$B7): top band, console rows, bottom band.  rows is
+ * 0 while no text grid has been declared ($B4 = 0). */
+void     vicky_layout(uint8_t *oy, uint8_t *rows, uint8_t *bot);
+void     vicky_set_user_bands(int on);                /* the host: the F12 switch, BANDCTL bit0 */
 uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
 uint32_t vicky_palette_gen(void);                     /* changes whenever any palette entry may have */
 

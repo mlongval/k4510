@@ -11,6 +11,7 @@
  * lines; the register; undo; files; editing; search and substitute; put and
  * join; renumber (renum.h); make (MAKE.ERR, the error list, :run).
  * #include "k4510.h" first. */
+#define K4510_ED_H                          /* demo/dosui.h asks: put(), cols, rows and full come from here */
 
 #define TERM   0xDA00u
 #define SLOTS  ed_slots                   /* one 256-byte slot per line (the current buffer) */

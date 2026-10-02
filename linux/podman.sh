@@ -67,6 +67,9 @@ machine_env() {
     [ -n "$X11" ] && set -- "$@" -e DISPLAY="$X11"
     [ -n "$XAUTH" ] && set -- "$@" -e XAUTHORITY=/home/k4510/.Xauthority
     [ -S "$RUNDIR/pulse/native" ] && set -- "$@" -e PULSE_SERVER="unix:/run/user/$UIDN/pulse/native"
+    # the window's app id = the launcher's name, so GNOME puts the launcher's
+    # icon on the running window and does not show a second, generic one
+    set -- "$@" -e SDL_VIDEO_WAYLAND_WMCLASS=k4510-box -e SDL_VIDEO_X11_WMCLASS=k4510-box
     printf "%s " "$@"   # not echo: echo eats the leading -e
 }
 make_container() {
@@ -165,6 +168,8 @@ Type=Application
 Name=K4510 (container)
 Comment=The K4510 with a sandboxed Debian beside it
 Exec=$HERE/podman.sh run
+Icon=$REPO/data/k4510-icon.png
+StartupWMClass=k4510-box
 Terminal=false
 Categories=Game;Emulator;
 DESK

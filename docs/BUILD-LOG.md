@@ -10717,3 +10717,13 @@ IRQ blink are gone: BSSR 443/448 (from 448), ROM1C -179 bytes, ROM2 -66.
 Checked: the shell's cursor blinks (the reverse bit sampled across frames),
 EhBASIC's still does, all suites green.  statetest now sums the screen with
 the cursor parked.
+
+## 2026-10-02 — a launcher icon
+
+Doc: "Make a cool Icon for the K4510 launcher that matches the splash
+screen".  tools/mkicon.py draws data/k4510-icon.png the way mkbootlogo.py
+draws the splash: the banner's five bars, 4:3:2:3:4, over "K4510" in
+unscii-8, on the console's blue -- in a rounded GNOME tile with a lighter
+rim.  podman.sh's launcher carries it (Icon=), and the machine runs with
+SDL's Wayland/X11 window class set to the launcher's name, so GNOME shows
+the same icon on the running window instead of a generic one.

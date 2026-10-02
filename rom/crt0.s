@@ -159,6 +159,9 @@ clk_paint:
         rol $03
         asl $02
         rol $03
+        lda $03                 ; the top band's row 0 is BANDMAP's first row ($03C000, option B
+        ora #$C0                ; 2026-10-01): the offset is under $400, so OR-ing $C0 into its
+        sta $03                 ; high byte adds $C000
         lda #$03
         sta $04
         lda #$00

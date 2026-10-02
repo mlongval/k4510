@@ -287,6 +287,42 @@ int main(void)
       printf("10. layout: user, program, clamp, JIM kept inside, the old doors\n");
     }
 
+    /* 11. Option B: the band rows are drawn from BANDMAP, not the console's
+     * map, so nothing that writes the map can reach them. */
+    {
+      const uint32_t M = 0x200000, BM = 0x210000, FNT = 0x220000;
+      for (uint32_t i = 0; i < 80 * 60 * 4; i++) mem_poke(M + i, 0);
+      for (uint32_t i = 0; i < 2048; i++) mem_poke(FNT + i, 0);     /* blank glyphs: a cell shows its background */
+      for (int r = 0; r < 60; r++) for (int c = 0; c < 80; c++) mem_poke(M + (r * 80 + c) * 4 + 3, (uint8_t)(20 + r));   /* map row r: bg 20+r */
+      for (int r = 0; r < 2; r++)  for (int c = 0; c < 80; c++) mem_poke(BM + (r * 80 + c) * 4 + 3, (uint8_t)(90 + r));  /* band rows: bg 90, 91 */
+      W(VR_CTRL, 1); for (int n = 1; n < 4; n++) W(VR_LAYER(n) + VL_CTRL, 0); W(VR_SPRCTL, 0); W(VR_SHEILACTL, 0);
+      W(VR_LAYER(0) + VL_CTRL, 1 | (3 << 1)); W(VR_LAYER(0) + VL_PALOFS, 0);
+      W16(VR_LAYER(0) + VL_SCROLLX, 0); W16(VR_LAYER(0) + VL_SCROLLY, 0); W16(VR_LAYER(0) + VL_STRIDE, 80);
+      W32(VR_LAYER(0) + VL_DATA, FNT); W32(VR_LAYER(0) + VL_MAP, M);
+      W(VR_BANDCTL, 0); vicky_set_user_bands(1); W(VR_TCOLS, 80); W(VR_TROWS, 60);   /* 640x480 in 8x8 cells: 60 rows */
+      W32(VR_BANDMAP, BM); W32(VR_CONMAP, M);                         /* $BF written last: the 1+1 layout is latched */
+      vicky_render(fb, 640);
+      printf("11. bands: top px=%d, console px=%d, bottom px=%d\n", fb[0], fb[8 * 640], fb[59 * 8 * 640]);
+      CHECK(fb[0] == 90, "the top band is drawn from BANDMAP (got %d)", fb[0]);
+      CHECK(fb[8 * 640] == 21, "the console's first row is the map's row 1 (got %d)", fb[8 * 640]);
+      CHECK(fb[59 * 8 * 640] == 91, "the bottom band is BANDMAP's second row (got %d)", fb[59 * 8 * 640]);
+      CHECK(vicky_text_cell(5, 0) == BM + 5 * 4 && vicky_text_cell(5, 59) == BM + (80 + 5) * 4 && vicky_text_cell(5, 1) == M + (80 + 5) * 4,
+            "vicky_text_cell answers what the glass shows");
+      vicky_set_user_bands(0); vicky_render(fb, 640);
+      CHECK(fb[0] == 90, "a band switched off is still drawn until K/OS lays the console out again (CONMAP)");
+      W32(VR_CONMAP, M); vicky_render(fb, 640);
+      CHECK(fb[0] == 20 && fb[59 * 8 * 640] == 79, "relaid without bands, every row is the map's (got %d, %d)", fb[0], fb[59 * 8 * 640]);
+      vicky_set_user_bands(1); W32(VR_CONMAP, M); W32(VR_LAYER(0) + VL_MAP, M + 0x8000);
+      for (uint32_t i = 0; i < 60 * 80 * 4; i += 4) mem_poke(M + 0x8000 + i + 3, 7);
+      vicky_render(fb, 640);
+      CHECK(fb[0] == 7, "a layer 0 pointed at a program's own map gets its own rows (got %d)", fb[0]);
+      W32(VR_LAYER(0) + VL_MAP, M); W32(VR_BANDMAP, 0); vicky_render(fb, 640);
+      CHECK(fb[0] == 20, "BANDMAP 0: the bands are the map's rows, as before option B (got %d)", fb[0]);
+      W(VR_BANDTOP, 6); W(VR_BANDBOT, 5); W(VR_BANDCTL, VB_PROGRAM);
+      CHECK(io_read(IO_VICKY + VR_CONOY) == 1 && io_read(IO_VICKY + VR_CONBOT) == 1, "more than ten band rows falls back to 1+1");
+      W(VR_BANDCTL, 0);
+    }
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }

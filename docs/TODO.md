@@ -144,10 +144,6 @@ Fixed the same day except these:
 - [ ] **The cursor.**  JIM can blink its own (`FLAGS` bit 0) but the ROM
       still draws one, so `draw_cursor` and the `k_getin` workaround are
       both still there.  Handing it over closes that bug class.
-- [ ] **Option B: the bands in their own memory** (Doc, 2026-10-01: "A then
-      B"; A is built).  VICKY draws the band rows from a buffer of their own,
-      so nothing that writes the console's map can reach them.
-      docs/notes/status-bars.md, "Option B".
 - [ ] **The widget table** for the status bands: a table of (cell, source,
       format) the IRQ walks, so a program can put a live readout in a band
       without running to paint it.

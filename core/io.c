@@ -2205,7 +2205,7 @@ int dbg_dump(const char *why)
     fprintf(f, "MATH F0..F7:"); for (int i = 0; i < 8; i++) fprintf(f, " %g", mf_get(i)); fprintf(f, "  FI=%d flags=%02X mlstat=%02X\n", (int)m32(0x24), math_reg[0x22], math_reg[0x2D]);
     fprintf(f, "\nSCREEN (text layer at $030000, 80 columns):\n");
     { int sc, sr; screen_geom(&sc, &sr);
-      for (int y = 0; y < sr; y++) { char r[181]; int last = -1; for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[0x30000 + (y * sc + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); } }
+      for (int y = 0; y < sr; y++) { char r[181]; int last = -1; for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[vicky_text_cell(x, y)]; r[x] = (ch >= 0x20 && ch < 0x7F) ? ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; } r[last + 1] = 0; if (last >= 0) fprintf(f, "%2d|%s\n", y, r); } }
     fprintf(f, "\nSHELL LOG (command lines and DUMP notes, oldest first):\n");
     { uint32_t n = dbg_logi < DBG_LOG ? dbg_logi : DBG_LOG, start = dbg_logi - n; for (uint32_t i = 0; i < n; i++) fputc(dbg_log[(start + i) & (DBG_LOG - 1)], f); fprintf(f, "\n"); }
     fprintf(f, "\nKEYS (last %u, oldest first, hex):", dbg_keyi < DBG_KEYS ? dbg_keyi : DBG_KEYS);
@@ -2273,7 +2273,7 @@ static void idea_write(uint8_t how)
     int sc, sr; screen_geom(&sc, &sr);
     for (int y = 0; y < sr; y++) {
         char r[181]; int last = -1;
-        for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[0x30000 + (y * sc + x) * 4]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
+        for (int x = 0; x < sc; x++) { uint8_t ch = k4510_ram[vicky_text_cell(x, y)]; r[x] = (ch >= 0x20 && ch < 0x7F) ? (char) ch : (ch ? '.' : ' '); if (r[x] != ' ') last = x; }
         r[last + 1] = 0;
         if (last >= 0) fprintf(f, "  |%s\n", r);
     }

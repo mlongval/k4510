@@ -104,4 +104,14 @@ echo "$out" | grep -q "BANDSBACK"    || fail "BANDS: the shell did not survive t
 top=$(K4510_SYSOPT=0x0C ./test/headless rom/kernal.bin '' 60 2>/dev/null | head -1)
 case "$top" in *"$(date +%Y)"*) ;; *) fail "the band's clock has no date (the RTC was not latched): $top" ;; esac
 
-echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from EhBASIC: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back; the band clock's date)"
+# Option B: the bands have memory of their own, so a poke into the console's
+# map where the top band's row would be cannot reach the band -- and without
+# the bands the same poke shows, which proves the poke landed.
+top=$(K4510_SYSOPT=0x0C ./test/headless rom/kernal.bin 'mon 30000:58
+' 80 2>/dev/null | head -1)
+case "$top" in X*) fail "a poke into the console's map reached the top band: $top" ;; esac
+top=$(K4510_SYSOPT=0x04 ./test/headless rom/kernal.bin 'mon 30000:58
+' 80 2>/dev/null | head -1)
+case "$top" in X*) ;; *) fail "without the bands the poke at \$030000 should show on row 0: $top" ;; esac
+
+echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from EhBASIC: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back; the band clock's date; the bands out of the console's reach)"

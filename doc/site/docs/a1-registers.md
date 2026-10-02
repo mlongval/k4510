@@ -335,7 +335,11 @@ then call VIDEO (`$FF92`); a program MUST clear it and call VIDEO again before i
 
 `$B6`**`CONROWS`** read: the console’s rows
 
-`$B7`**`CONBOT`** read: the bottom band in force The rules: bands only on a grid of 40x30 or more; the user’s are one row each; a program’s that would leave the console under VICKY_BAND_MIN_ROWS fall back to one each. JIM’s window (`$DA05-$DA08`) is clamped inside the console.
+`$B7`**`CONBOT`** read: the bottom band in force
+
+`$B8-$BB`**`BANDMAP`** 28-bit: the bands’ OWN text32 cells (option B, 2026-10-01): the top band’s rows, then the bottom’s, TCOLS cells a row. While layer 0 shows CONMAP, its band rows are drawn from here and not from the map, so nothing that writes the console’s map can reach a band. 0 = off.
+
+`$BC-$BF`**`CONMAP`** 28-bit: the console’s text32 map, as K/OS declares it. A program that points layer 0 at a map of its own gets its own rows, bands or no bands. Writing `$BF` latches the layout the bands are drawn to: K/OS writes it after it has laid the console out, so a band switched on in F12 covers nothing until K/OS has moved the console for it. The rules: bands only on a grid of 40x30 or more; the user’s are one row each; a program’s that would leave the console under VICKY_BAND_MIN_ROWS, or take more than VICKY_BAND_MAX_ROWS between them, fall back to one each. JIM’s window (`$DA05-$DA08`) is clamped inside the console.
 
 Sprite attribute entry, 16 bytes, in main RAM:
 

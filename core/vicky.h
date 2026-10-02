@@ -67,9 +67,21 @@
  *     $B5  CONOY    read: the top band in force = the console's first row
  *     $B6  CONROWS  read: the console's rows
  *     $B7  CONBOT   read: the bottom band in force
+ *     $B8-$BB BANDMAP  28-bit: the bands' OWN text32 cells (option B,
+ *                   2026-10-01): the top band's rows, then the bottom's,
+ *                   TCOLS cells a row.  While layer 0 shows CONMAP, its band
+ *                   rows are drawn from here and not from the map, so nothing
+ *                   that writes the console's map can reach a band.  0 = off.
+ *     $BC-$BF CONMAP   28-bit: the console's text32 map, as K/OS declares it.
+ *                   A program that points layer 0 at a map of its own gets
+ *                   its own rows, bands or no bands.  Writing $BF latches the
+ *                   layout the bands are drawn to: K/OS writes it after it
+ *                   has laid the console out, so a band switched on in F12
+ *                   covers nothing until K/OS has moved the console for it.
  *                  The rules: bands only on a grid of 40x30 or more; the
  *                  user's are one row each; a program's that would leave the
- *                  console under VICKY_BAND_MIN_ROWS fall back to one each.
+ *                  console under VICKY_BAND_MIN_ROWS, or take more than
+ *                  VICKY_BAND_MAX_ROWS between them, fall back to one each.
  *                  JIM's window ($DA05-$DA08) is clamped inside the console.
  *
  *   Sprite attribute entry, 16 bytes, in main RAM:
@@ -171,9 +183,12 @@
 #define VR_CONOY    0xB5
 #define VR_CONROWS  0xB6
 #define VR_CONBOT   0xB7
+#define VR_BANDMAP  0xB8
+#define VR_CONMAP   0xBC
 #define VB_USER     0x01      /* BANDCTL: the F12 switch (host only) */
 #define VB_PROGRAM  0x02      /* BANDCTL: a program has the bands */
 #define VICKY_BAND_MIN_ROWS 10
+#define VICKY_BAND_MAX_ROWS 10    /* both bands together: Doc's 2026-09-01 limit, and what BANDMAP's 12 KB holds at 180 columns */
 #define VL_CTRL     0
 #define VL_PALOFS   1
 #define VL_SCROLLX  2
@@ -208,6 +223,11 @@ int      vicky_irq(void);                             /* nonzero if IRQSTAT & IR
  * 0 while no text grid has been declared ($B4 = 0). */
 void     vicky_layout(uint8_t *oy, uint8_t *rows, uint8_t *bot);
 void     vicky_set_user_bands(int on);                /* the host: the F12 switch, BANDCTL bit0 */
+/* The address of the text32 cell shown at (col, row) of layer 0's grid: the
+ * console's map, or BANDMAP for a band row.  For the host's screen readers
+ * (the tests, the dumps, the frontend's band overlay), which must see what the
+ * glass shows. */
+uint32_t vicky_text_cell(int col, int row);
 uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
 uint32_t vicky_palette_gen(void);                     /* changes whenever any palette entry may have */
 

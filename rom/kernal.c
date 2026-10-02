@@ -102,6 +102,20 @@ static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1
 
 static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)(y + OY) * PCOLS + x + OX) * 4; }
 #define ROWTPL   0x03F000UL           /* far: one blank text row in the current colours */
+#define BANDMAP  0x03C000UL           /* far: the status bands' own cells, top rows then bottom (VICKY $D0B8,
+                                       * option B, 2026-10-01): 12 KB, ten rows at 180 columns */
+/* The address of physical row py: a band row is in BANDMAP, where VICKY draws
+ * it from, and the console's rows are in SCREEN.  With no bands, OY = 0 and
+ * ROWS = PROWS, so every row is SCREEN's. */
+#pragma code-name (push, "CODE")   /* ROM1C: ROM2 has no room for the 32-bit arithmetic */
+static uint32_t row_addr(uint8_t py)
+{
+    uint32_t base = SCREEN;
+    if (py < OY) base = BANDMAP;
+    else if (py >= OY + ROWS) { base = BANDMAP; py -= ROWS; }
+    return base + (uint16_t)((uint16_t)py * PCOLS * 4);   /* under 64 KB: 67 rows of 180 cells */
+}
+#pragma code-name (pop)
 static uint8_t tpl_fg, tpl_bg, tpl_cols, cellbuf[4];
 #pragma code-name (push, "CODE")   /* resident either way: ROM1C is where the room is */
 static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included */
@@ -114,7 +128,7 @@ static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included
         tpl_fg = fg; tpl_bg = bg; tpl_cols = PCOLS;
     }
     /* a whole physical row (the margin column stays blank because every row is blanked whole) */
-    w32(DMA + 0, ROWTPL); w32(DMA + 4, SCREEN + (uint32_t)y * PCOLS * 4); w32(DMA + 8, PCOLS * 4); REG(DMA + 12) = 1;
+    w32(DMA + 0, ROWTPL); w32(DMA + 4, row_addr(y)); w32(DMA + 8, PCOLS * 4); REG(DMA + 12) = 1;
 }
 
 #pragma code-name (pop)
@@ -197,7 +211,7 @@ static uint8_t bands_on(void) { return (uint8_t)(REG(VICKY + V_CONOY) | REG(VICK
 #pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
 static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
 {
-    uint32_t a = SCREEN + ((uint32_t)py * PCOLS + px) * 4;
+    uint32_t a = row_addr(py) + (uint32_t)px * 4;
     far_poke(a, ch); far_poke(a + 1, 0); far_poke(a + 2, f); far_poke(a + 3, b);
 }
 static void bar_str(uint8_t px, uint8_t py, const char *s)
@@ -457,7 +471,7 @@ uint8_t k_getin(void)
     if (OY && !claimed()) {
         uint8_t c = day_col();
         RTC_LATCH();
-        if (far_peek(SCREEN + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();
+        if (far_peek(BANDMAP + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();   /* row 0: the top band's */
     }
     if (REG(TERM + 0x0E) || prog_running) { if (cursor_vis) draw_cursor(0); }   /* a program owns the screen: no console cursor under it */
     else if (!cursor_vis) draw_cursor(1);
@@ -2125,6 +2139,8 @@ static void video_init(void)
      * 640x480, 8x8 in unscii-8 in the 240-line modes */
     w16(VICKY + 0x16, PCOLS);
     w32(VICKY + 0x1C, SCREEN);
+    w32(VICKY + 0xBC, SCREEN);                 /* CONMAP: this is the console's map...                       */
+    w32(VICKY + 0xB8, BANDMAP);                /* ...and its band rows are drawn from BANDMAP (option B) */
     w32(VICKY + 0x18, tall ? FONT16 : FONT);   /* 8x16 in MODE 0, 5, 6 -- and 8x8 in a 640x480 asked for 60 rows */
     w16(VICKY + 0x12, 0); w16(VICKY + 0x14, (uint16_t)(0 - vpad_of[vmode]));   /* the text centred in an HD glass: scrolled DOWN by half the spare lines */
     REG(VICKY + 0x11) = 0;

@@ -10682,3 +10682,26 @@ effect must be in assembler.
 Tests: vickytest section 10, jimtest (BANDS through VICKY, the date), the
 frontend under Xvfb.  docs/notes/status-bars.md has the details; step 4
 (the cursor to JIM) and option B are next.
+
+## 2026-10-01 — option B: the bands have memory of their own
+
+Doc: "ok, then do option B".  VICKY draws layer 0's band rows from BANDMAP
+($D0B8; K/OS puts it at $03C000) whenever layer 0 shows the console's map
+(CONMAP, $D0BC), so nothing that writes the console -- JIM, CHROUT, a poke
+at $030000 -- can reach a band.  The layout the bands are drawn to is
+latched when K/OS writes CONMAP, so a band switched on mid-program covers
+none of its rows until K/OS relays the screen.  A program's own layer-0 map
+is untouched; BANDMAP 0 is option A again; both bands together are capped
+at ten rows (Doc's 2026-09-01 limit; 12 KB at 180 columns).
+
+ROM: row_addr() sends blank_row/put_at to BANDMAP or SCREEN (in ROM1C --
+ROM2 overflowed by 9 bytes with it there); the day check reads BANDMAP;
+the IRQ clock adds $C000 to its offset and was seen ticking across a
+minute.  BANDS writes its band rows into BANDMAP.  The host's readers
+(headless, romtest, the dumps, the frontend's band overlay) go through
+vicky_text_cell(), so they print what the glass shows.
+
+Tests: vickytest section 11, jimtest's poke (hidden with the bands, on row 0
+without).  Handbook ch. 2 says how a program takes the bands now (it said
+"through JIM", which was never how BANDS did it).  The layout work's last
+step is the cursor to JIM.

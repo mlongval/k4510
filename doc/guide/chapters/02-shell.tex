@@ -235,8 +235,12 @@ the bands are on or off, and that is the only setting.
 They are shared, and the split is worth knowing. \textbf{The top band is
 yours} --- the machine draws the clock and the date in it, in whichever
 formats the Terminal page is set to. \textbf{The bottom band is the
-running program's}, and a program that wants it writes there through JIM;
-\verb|BANDS| in \pth{/SYSTEM/BIN} is the demonstration. The machine keeps
+running program's}: a program that wants the bands asks VICKY for them
+--- she lays the screen out --- and writes into the bands' own memory;
+\verb|BANDS| in \pth{/SYSTEM/BIN} is the demonstration, and Appendix~A has
+the registers (\texttt{\$D0B0}--\texttt{\$D0BF}). The bands are kept apart
+from the console: nothing a program prints or pokes into the console's
+screen can reach them. The machine keeps
 only its right-hand corner: on a laptop, the battery's charge, with an
 arrow up while it charges and down while it does not. The CPU clock is not
 in the bands: what it changes is how soon a long calculation ends, which

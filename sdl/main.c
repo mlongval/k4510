@@ -661,7 +661,8 @@ static void band_text(int row, int col, int maxc, const char *s, int stride, int
 {
     uint32_t map = (uint32_t) vicky_read(0x1C) | ((uint32_t) vicky_read(0x1D) << 8) | ((uint32_t) vicky_read(0x1E) << 16) | ((uint32_t) vicky_read(0x1F) << 24);
     uint32_t font = (uint32_t) vicky_read(0x18) | ((uint32_t) vicky_read(0x19) << 8) | ((uint32_t) vicky_read(0x1A) << 16) | ((uint32_t) vicky_read(0x1B) << 24);
-    uint32_t cell = map + (uint32_t)(row * stride) * 4;
+    uint32_t cell = vicky_text_cell(0, row);   /* the band's own cells (option B), where VICKY draws it from */
+    (void) map; (void) stride;
     uint8_t fg = mem_peek((cell + 2) & 0x0FFFFFFFu), bg = mem_peek((cell + 3) & 0x0FFFFFFFu);
     int gh = (vicky_read(0x10) & 0x60) ? 16 : 8;                      /* 8x8 or 8x16 glyphs */
     for (int i = 0; s[i] && i < maxc; i++) {

@@ -266,10 +266,10 @@ That also gives the next three menu settings somewhere to land, which
 
 ## Proposal, 2026-10-01: VICKY owns the layout
 
-**Status: DECIDED, Doc 2026-10-01: "A then B".  Option A built the same
-day -- see "Option A, as built" at the end.  The addresses are the ones
-proposed; the user's bands stay on/off, one row each (question 3 was not
-answered, so the 2026-09-14 rule stands).  Option B is next.**
+**Status: DECIDED, Doc 2026-10-01: "A then B".  Both built the same day --
+see "Option A, as built" and "Option B, as built" at the end.  The
+addresses are the ones proposed; the user's bands stay on/off, one row each
+(question 3 was not answered, so the 2026-09-14 rule stands).**
 
 Doc, 2026-10-01: "how about constraining JIM via VICKY? give only VICKY
 control over status bars? allow JIM to draw only to a VICKY-authorised
@@ -433,3 +433,48 @@ VICKY, the date); the real frontend checked under Xvfb with a fake battery.
 
 Still owed from the order: **step 4, the cursor to JIM**, and **step 5,
 option B**.
+
+### Option B, as built (2026-10-01)
+
+The bands have memory of their own.  K/OS declares two more things in
+VIDEO: **BANDMAP** (`$D0B8`, 28-bit) -- the bands' cells, the top band's
+rows then the bottom's, TCOLS a row, at `$03C000` (12 KB, inside K/OS's own
+`$030000`-`$03FFFF` block, below ROWTPL) -- and **CONMAP** (`$D0BC`) -- the
+console's map.  While layer 0 is text32 and shows CONMAP, VICKY draws its
+band rows from BANDMAP; the console's map rows under them are simply not
+shown.  So JIM, CHROUT and a program poking `$030000` all write the
+console's map, and none of them can reach a band.  `jimtest` proves it with
+`mon 30000:58`: invisible with the bands, on row 0 without them.
+
+Decisions made while building it:
+
+- **The layout is latched** when CONMAP's last byte is written, and band
+  rows are drawn to the latched layout, not the live one.  K/OS writes
+  CONMAP after it has laid the console out, so a band switched on in F12
+  while a program runs covers none of that program's rows: it appears when
+  K/OS next lays the screen out (the mode request the frontend already
+  sends on that toggle).  The latch lives in the CONOY/CONROWS/CONBOT
+  bytes of VICKY's register file, so it is in a save state with the rest;
+  reads of those addresses are still computed live.
+- **Only CONMAP.** A program that points layer 0 at a map of its own gets
+  all its own rows, bands or no bands -- exactly what it got before.
+- **BANDMAP 0 is option A**: band rows are the map's rows, as they were.
+- **Ten band rows at most**, both bands together (Doc's own limit from
+  2026-09-01), which is what 12 KB holds at MODE 5's 180 columns.  More
+  falls back to one each, like the ten-row console floor.
+- **The host's readers follow the glass.**  `vicky_text_cell(col, row)` is
+  the address of the cell actually shown; `test/headless`, `romtest`, the
+  DUMP and brainshot screens and the frontend's band overlay read through
+  it, so they print what the screen shows rather than the map underneath.
+- In the ROM, `row_addr(py)` (ROM1C; ROM2 had no room for the arithmetic)
+  maps a physical row to BANDMAP or SCREEN for `blank_row` and `put_at`;
+  the day check reads the date from BANDMAP; the IRQ's clock painter adds
+  `$C000` to its row-0 offset.  BANDS draws through the same arithmetic.
+
+Tests: `vickytest` section 11 (top and bottom bands from BANDMAP, the
+console's rows from the map, the latch holding until CONMAP is rewritten,
+a program's own map, BANDMAP 0, the ten-row cap, `vicky_text_cell`);
+`jimtest` (the poke).  The frontend checked under Xvfb, and the IRQ clock
+seen to tick into BANDMAP across a minute.
+
+Left from the order: **step 4, the cursor to JIM.**

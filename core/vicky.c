@@ -56,7 +56,7 @@ void vicky_layout(uint8_t *oy, uint8_t *rows, uint8_t *bot)
     if (tc >= 40 && tr >= 30 && (ctl & (VB_USER | VB_PROGRAM))) {
         if (ctl & VB_PROGRAM) { t = reg[VR_BANDTOP]; b = reg[VR_BANDBOT]; }
         else                  { t = 1; b = 1; }                  /* the user's: one row each (Doc, 2026-09-14) */
-        if (t + b > tr - VICKY_BAND_MIN_ROWS) { t = 1; b = 1; }
+        if (t + b > tr - VICKY_BAND_MIN_ROWS || t + b > VICKY_BAND_MAX_ROWS) { t = 1; b = 1; }
     }
     *oy = (uint8_t) t; *bot = (uint8_t) b; *rows = (uint8_t)(tr - t - b);
 }
@@ -88,6 +88,7 @@ void vicky_write(uint8_t r, uint8_t v)
     if (r >= VR_CONOY && r <= VR_CONBOT) return;           /* computed: read-only */
     if (r == VR_BANDCTL) { reg[r] = (uint8_t)((reg[r] & VB_USER) | (v & VB_PROGRAM)); return; }   /* bit0 is the host's */
     reg[r] = v;
+    if (r == VR_CONMAP + 3) vicky_layout(&reg[VR_CONOY], &reg[VR_CONROWS], &reg[VR_CONBOT]);   /* latch the layout the bands are drawn to */
     if (r == VR_PALB) {
         uint8_t i = reg[VR_PALIDX];
         pal[i] = ((uint32_t)reg[VR_PALR] << 16) | ((uint32_t)reg[VR_PALG] << 8) | v;
@@ -100,6 +101,29 @@ static inline uint32_t rd32(const uint8_t *p) { return (p[0] | (p[1] << 8) | (p[
 static inline uint16_t rd16(const uint8_t *p) { return p[0] | (p[1] << 8); }
 static inline uint8_t  ram(uint32_t a) { return k4510_ram[a & K4510_PHYS_MASK]; }
 #define ram_ptr(a) k4510_ram[(a) & K4510_PHYS_MASK]
+
+/* Option B: which row of BANDMAP a map row cy of layer 0 is drawn from, or
+ * -1 for a console row (or when the bands are not drawn from BANDMAP). */
+static int band_row(int cy, uint32_t map)
+{
+    uint32_t bm = rd32(&reg[VR_BANDMAP]);
+    if (!bm || map != rd32(&reg[VR_CONMAP])) return -1;
+    /* the layout LATCHED when CONMAP was written -- the one K/OS laid the
+     * console out to -- not the live one: a band switched on in F12 must not
+     * cover a running program's rows before K/OS has moved its console */
+    int oy = reg[VR_CONOY], rows = reg[VR_CONROWS], bot = reg[VR_CONBOT];
+    if (cy < oy) return cy;
+    if (cy >= oy + rows && cy < oy + rows + bot) return cy - rows;
+    return -1;
+}
+uint32_t vicky_text_cell(int col, int row)
+{
+    const uint8_t *L = &reg[VR_LAYER(0)];
+    uint32_t map = rd32(&L[VL_MAP]); uint16_t stride = rd16(&L[VL_STRIDE]);
+    int br = (((L[VL_CTRL] >> 1) & 3) == VL_MODE_TEXT32) ? band_row(row, map) : -1;
+    if (br >= 0) return (rd32(&reg[VR_BANDMAP]) + ((uint32_t) br * stride + (uint32_t) col) * 4) & K4510_PHYS_MASK;
+    return (map + ((uint32_t) row * stride + (uint32_t) col) * 4) & K4510_PHYS_MASK;
+}
 
 static uint32_t cur_at; static int cur_style, cur_on;      /* JIM's shaped cursor */
 void vicky_cursor(uint32_t attr_addr, int style, int on) { cur_at = attr_addr; cur_style = style; cur_on = on && style; }
@@ -192,10 +216,12 @@ static void layer_line(int n, int y, uint8_t *line, int w)
         }
         return;
     }
-    /* text32 */
+    /* text32 -- layer 0's band rows from BANDMAP when K/OS has the bands there */
+    uint32_t rowbase = map + (uint32_t)cy * stride * 4;
+    if (n == 0) { int br = band_row(cy, map); if (br >= 0) rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4; }
     for (int x = 0; x < w; ) {
         int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
-        uint32_t e = map + ((uint32_t)cy * stride + cx) * 4;
+        uint32_t e = rowbase + (uint32_t)cx * 4;
         uint16_t g = ram(e) | ((ram(e + 1) & 0x7F) << 8);
         int rev = ram(e + 1) & 0x80;
         uint8_t fg = ram(e + 2), bg = ram(e + 3);

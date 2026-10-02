@@ -5,6 +5,10 @@
  * This is the other half: a PROGRAM asking for them, for as long as it runs,
  * and giving them back on the way out.
  *
+ * Since option B (2026-10-01) the band rows are not part of the console's map:
+ * they are BANDMAP's ($D0B8), and VICKY draws them from there.  cell() below
+ * shows the arithmetic.
+ *
  * The whole protocol is three of VICKY's registers -- she owns the layout
  * (core/vicky.h, $D0B0; since 2026-10-01, before which these were JIM's
  * $DA0F, $DA16 and FLAGS bit 3, which still answer as doors onto hers):
@@ -57,9 +61,21 @@ static void rom_video(void) { ((void (*)(void))0xFF92)(); }
 
 static uint8_t pcols;
 
+/* The bands have memory of their own (VICKY $D0B8, BANDMAP: the top band's
+ * rows, then the bottom's), and VICKY draws them from there, not from the
+ * console's map -- which is why nothing a program writes to the console can
+ * reach them.  So a physical row is either a band row in BANDMAP or a console
+ * row in SCREEN. */
+static uint32_t bandmap(void)
+{
+    return (uint32_t)REG(VICKY + 0xB8) | ((uint32_t)REG(VICKY + 0xB9) << 8) | ((uint32_t)REG(VICKY + 0xBA) << 16) | ((uint32_t)REG(VICKY + 0xBB) << 24);
+}
 static void cell(uint8_t x, uint8_t y, uint8_t ch, uint8_t f, uint8_t b)
 {
-    uint32_t a = SCREEN + ((uint32_t)y * pcols + x) * 4;
+    uint8_t oy = T_OY, rows = T_ROWS;
+    uint32_t a = y < oy         ? bandmap() + ((uint32_t)y * pcols + x) * 4
+               : y >= oy + rows ? bandmap() + ((uint32_t)(y - rows) * pcols + x) * 4
+               :                  SCREEN + ((uint32_t)y * pcols + x) * 4;
     far_poke(a, ch); far_poke(a + 1, 0); far_poke(a + 2, f); far_poke(a + 3, b);
 }
 static void row(uint8_t y, uint8_t f, uint8_t b)

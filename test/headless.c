@@ -26,7 +26,8 @@ static int scr_rows(void) { int h = vicky_glass_h(), cell = (io_read(IO_VICKY + 
 static void row(int r, char *out)
 {
     int n = scr_cols(); uint32_t map = scr_map();
-    for (int c = 0; c < n; c++) { uint8_t ch = mem_peek(map + ((uint32_t) r * n + c) * 4); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : ' '; }
+    (void) map;   /* vicky_text_cell knows the map, and a band row's BANDMAP (option B) */
+    for (int c = 0; c < n; c++) { uint8_t ch = mem_peek(vicky_text_cell(c, r)); out[c] = (ch >= 0x20 && ch < 0x7F) ? ch : ' '; }
     out[n] = 0;
     for (int i = n - 1; i >= 0 && out[i] == ' '; i--) out[i] = 0;
 }

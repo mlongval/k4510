@@ -484,6 +484,51 @@ A C project compiles each source once and keeps what it made (on the Linux side,
 !!! note ""
     **Where it is going.** This is PROG’s fourth stage: projects came third, the mouse and selection fourth, and REXX is already in. Next come the other interpreters: EhBASIC, LOGO and Forth run on the file in front of you, their errors in the same list.
 
+## WORD
+
+`WORD name` reads a Microsoft Word document — a `.DOCX`, what Word has saved since 2007 — in the same clothes as `EDIT`: the menu bar, the frame with the name in it, the scroll bar, the status line with where you are and how many words there are. It reads; it does not write a `.DOCX`. *File* → *Save As Text* (Ctrl+S) writes what it shows as a plain text file, a paragraph to a line, which `EDIT` can then take.
+
+The page is laid out to the window. Each paragraph is wrapped at a word, centred or set right where Word had it so, with a blank line between paragraphs; lists keep their bullets, and numbered lists their numbers; a table comes out a row to a line, with its cells between bars. A text cell has a colour and nothing else, so emphasis is colour: **bold** is white, *italic* cyan, both yellow, underlined green, a link light blue; the title and the first headings yellow, the next white, then cyan. Accented letters come through as far as the machine’s code page has them — *é* and *ç* do; most accented capitals lose the accent.
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Key</strong></th>
+<th style="text-align: left;"><strong>Does</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Up, Down, PgUp, PgDn, Space</td>
+<td style="text-align: left;">a line, a screen</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ctrl+Home, Ctrl+End</td>
+<td style="text-align: left;">the beginning, the end</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Ctrl+F, F3</td>
+<td style="text-align: left;">find (in any case), find again</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Ctrl+O, Ctrl+S, Ctrl+Q <em>or</em> Esc</td>
+<td style="text-align: left;">open, save as text, leave</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F10, Alt and a letter</td>
+<td style="text-align: left;">the menus; F1 the keys; the mouse works the menus, the scroll bar and the wheel</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+`WORD -s name` is in the console’s own colours, as `EDIT -s`.
+
+**How it reads one.** A `.DOCX` is a zip of XML files, and the machine can already `MOUNT` a zip ([Chapter 2, The Shell](02-shell.md)): WORD mounts the document, reads `word/document.xml` — and the styles and list definitions beside it — into far memory, unmounts it, and parses the XML itself, on the 45GS10. Pictures, text boxes, footnotes, headers and footers, fonts and sizes are passed over. A Word 97–2003 `.DOC` is another kind of file altogether and WORD says so rather than guessing; save it as `.DOCX` in Word first. A `.TXT` opens too.
+
 ## Editing from inside a BASIC
 
 There are two cases, and they look alike, so here is the rule.

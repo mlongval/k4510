@@ -94,6 +94,7 @@ DESC = {
     "BUG":       (7, "BUG", "Asks seven questions about a fault and writes the report (Appendix B)."),
     "CHROUT":    (7, "CHROUT", "How fast the ROM's console prints."),
     "DELETE":    (7, "DELETE [-l | -r name | -e | name]", "The trash: list it, put a file back, empty it, or send a file there."),
+    "WORD":      (7, "WORD [-s] [name]", "A reader for Microsoft Word's .DOCX, in EDIT's manner: the document laid out to the window, emphasis in colour, lists and tables; Save As Text@sec:word@."),
     "EDIT":      (7, "EDIT [-s] [name]", "The editor, in MS-DOS EDIT's manner: menus, the mouse, dialogs; -s in the console's colours@cha:editors@."),
     "KEYTEST":   (7, "KEYTEST", "Asks for every key and checks what arrives."),
     "KOMMANDER": (7, "KOMMANDER", "The two-panel file manager."),

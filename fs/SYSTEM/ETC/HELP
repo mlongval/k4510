@@ -11,11 +11,13 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          DELETE -r name puts one back, DELETE -e
          empties it)
          TYPE name     XD name
-         EDIT [name]   VI [name]
+         EDIT [name]   VI [name]   WORD [name]
          (EDIT: MS-DOS's -- F10 or Alt+letter for
          the menus, the mouse, Ctrl-S saves,
          Ctrl-Q leaves, F1 its keys; -s in the
          console's colours.
+         WORD: reads a Word .DOCX, Ctrl-S saves
+         it as text;
          VI: hjkl 0 $ gg G, i a I A o O, x dd,
          :w :q :q! :wq, Esc leaves insert;
          /SYSTEM/ETC/VI.RC runs at startup --

@@ -366,6 +366,10 @@ a key for a notice, a digit for one of its choices, a line of text -- and the
 answer goes back. Esc leaves a message for later. When the prompt is idle the
 sender types WALL for you.
 
+WORD [-s] [name] -- /SYSTEM/BIN
+A reader for Microsoft Word's .DOCX, in EDIT's manner: the document laid out
+to the window, emphasis in colour, lists and tables; Save As Text@sec:word@.
+
 => INDEX.GMI Contents
 => 02-SHELL.GMI Previous: 2. The Shell
 => 04-EHBASIC.GMI Next: 4. EhBASIC

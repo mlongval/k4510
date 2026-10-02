@@ -350,6 +350,51 @@ LOGO and Forth run on the file in front of you, their errors in the same
 list.
 \end{aside}
 
+\section{WORD}\label{sec:word}
+\verb|WORD name| reads a Microsoft Word document --- a \texttt{.DOCX}, what
+Word has saved since 2007 --- in the same clothes as \verb|EDIT|: the menu
+bar, the frame with the name in it, the scroll bar, the status line with
+where you are and how many words there are. It reads; it does not write a
+\texttt{.DOCX}. \emph{File} $\rightarrow$ \emph{Save As Text} (Ctrl+S)
+writes what it shows as a plain text file, a paragraph to a line, which
+\verb|EDIT| can then take.
+
+The page is laid out to the window. Each paragraph is wrapped at a word,
+centred or set right where Word had it so, with a blank line between
+paragraphs; lists keep their bullets, and numbered lists their numbers;
+a table comes out a row to a line, with its cells between bars. A text
+cell has a colour and nothing else, so emphasis is colour: \textbf{bold}
+is white, \emph{italic} cyan, both yellow, underlined green, a link light
+blue; the title and the first headings yellow, the next white, then cyan.
+Accented letters come through as far as the machine's code page has them
+--- \emph{é} and \emph{ç} do; most accented capitals lose the accent.
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.33\linewidth} >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Does} \\
+\midrule
+Up, Down, PgUp, PgDn, Space & a line, a screen \\
+Ctrl+Home, Ctrl+End & the beginning, the end \\
+Ctrl+F, F3 & find (in any case), find again \\
+Ctrl+O, Ctrl+S, Ctrl+Q \emph{or} Esc & open, save as text, leave \\
+F10, Alt and a letter & the menus; F1 the keys; the mouse works the menus, the scroll bar and the wheel \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent \verb|WORD -s name| is in the console's own colours, as \verb|EDIT -s|.
+
+\textbf{How it reads one.} A \texttt{.DOCX} is a zip of XML files, and
+the machine can already \verb|MOUNT| a zip (Chapter~\ref{cha:shell}): WORD
+mounts the document, reads \texttt{word/document.xml} --- and the styles and
+list definitions beside it --- into far memory, unmounts it, and parses the
+XML itself, on the 45GS10. Pictures, text boxes, footnotes, headers and
+footers, fonts and sizes are passed over. A Word 97--2003 \texttt{.DOC} is
+another kind of file altogether and WORD says so rather than guessing; save
+it as \texttt{.DOCX} in Word first. A \texttt{.TXT} opens too.
+
 \section{Editing from inside a BASIC}\label{sec:editfrombasic}
 There are two cases, and they look alike, so here is the rule.
 

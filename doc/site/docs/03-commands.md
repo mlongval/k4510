@@ -267,3 +267,6 @@ The modal editor ([Chapter 9, The Editors](11-editors.md)).
 
 **`WALL`** — */SYSTEM/BIN*  
 What was sent to this machine from outside (tools`/k4510-remote` wall, on another computer): each message waiting, oldest first, answered as it asks — a key for a notice, a digit for one of its choices, a line of text — and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you.
+
+**`WORD [-s] [name]`** — */SYSTEM/BIN*  
+A reader for Microsoft Word’s .DOCX, in EDIT’s manner: the document laid out to the window, emphasis in colour, lists and tables; Save As Text@sec:word@.

@@ -10804,3 +10804,38 @@ Checked headless: tabs, the Open dialog over a second tab, the Build menu,
 F9 on a broken C file (Messages (1), the cursor on line 5), save and quit.
 test/remote/{prog,prog2,proj,sel,rexx}.k4r follow the new labels and
 dialogs (not run here: they need a live machine).
+
+## 2026-10-02 — WORD reads .DOCX
+
+Doc: "can you write a 'WORD' version, using the same visual language, that
+can at least READ MS-WORD files.  SAVING would be a perhaps more
+complicated question."  demo/word.c, 28 KB: EDIT's clothes (dosui.h), a
+reader underneath.
+
+A .DOCX is a zip of XML, and MOUNT already serves a zip as a folder,
+inflating on the host as the file device always has.  WORD mounts the file
+at /MNT/WORDDOC, LOADs word/styles.xml, word/numbering.xml and
+word/document.xml into far memory ($09000000), unmounts (and removes the
+folder MOUNT made), and parses the XML on the 45GS10: a byte at a time
+through a 255-byte window, tags cut to their first 100 bytes of attributes
+(a <w:document> carries kilobytes of namespaces).  Kept: paragraphs, runs,
+bold / italic / underline, links, headings and the title by their style's
+NAME (styles.xml: "heading 1", whatever the id), lists bulleted or numbered
+by numbering.xml (ids looked up, not indexed: pandoc's are 1000 and up),
+tables a row to a line, tabs, line and page breaks, centred and right
+alignment, entities, UTF-8 to code page 437.  Passed over: pictures, text
+boxes, footnotes, headers, fonts.  A Word 97-2003 .DOC (D0 CF 11 E0) is
+refused by name.  A .TXT opens a line to a paragraph.
+
+The layout wraps each paragraph to the window at a word, a blank line
+between paragraphs -- except around empty ones, which are a blank line
+themselves: Doc's own letters space with empty paragraphs and came out
+double-spaced.  Emphasis is colour (bold white, italic cyan, both yellow,
+underline green, links light blue; headings yellow, white, cyan).  File >
+Save As Text writes what is shown, a paragraph to a line, in the machine's
+code page.  It does not write .DOCX: that is the question Doc left open.
+
+Read on the machine: test/word-sample.docx (pandoc, from word-sample.md)
+and, by hand and only in a scratch copy of fs/, two of Doc's own letters --
+accents, a drawing and a hyperlink among them, all read cleanly.
+test/wordtest.sh in make test.  SHIPPING.CFG: word.prg = maybe.

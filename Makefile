@@ -31,7 +31,7 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # make expands prerequisite lists at once, so a later definition left both
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
-BIN_NAMES = ranger kommander vi prog edit delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall mark
+BIN_NAMES = ranger kommander vi prog edit word delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall mark
 APP_C_NAMES = balls cube mandel opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
 APP_SEG_NAMES = tiny bomber skyfire chess fluffy
 # Nuked 2026-09-18 (SHIPPING.CFG, tools/nuke.py): out of every image, and from
@@ -224,6 +224,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/msbasictest.sh
 	./test/jimtest.sh
 	./test/edittest.sh
+	./test/wordtest.sh
 	./test/opltest.sh
 	./test/palettetest.sh
 	./test/typetest.sh
@@ -305,6 +306,11 @@ fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h d
 	cc65 -O -t none --cpu 65c02 -o demo/vi.s demo/vi.c
 	ca65 --cpu 65c02 -o demo/vi.o demo/vi.s
 	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
+# WORD: the .DOCX reader in EDIT's clothes -- variables at $0800, its big buffers after the image (demo/word.cfg)
+fs/SYSTEM/BIN/word.prg: demo/word.c demo/dosui.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/word.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/word.s demo/word.c
+	ca65 --cpu 65c02 -o demo/word.o demo/word.s
+	ld65 -C demo/word.cfg -o $@ demo/prg0.o demo/romcalls.o demo/word.o none.lib -m demo/word.map
 # EDIT: VI's engine and MS-DOS EDIT's front end -- PROG's layout, $2000 and variables at $0800 (demo/edit.cfg)
 fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/edit.s demo/edit.c

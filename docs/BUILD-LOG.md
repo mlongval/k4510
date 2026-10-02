@@ -10767,3 +10767,14 @@ Xvfb with xdotool (menus by click, Select All, click and drag in the text,
 the scroll bar's arrow, Exit's question answered by click) -- a click must
 be held across a frame (the machine samples the button once a frame), which
 a hand always does and xdotool's `click` does not.
+
+## 2026-10-02 — one pointer, not two
+
+Doc, on t480i5: "EDIT shows 2 mouse cursors" -- the host's own pointer (F12's
+"Mouse pointer", on by default since 2026-09-11) and EDIT's sprite arrow, a
+little apart.  The machine could not know the host was drawing one.  $D110
+(IO_MOUSEPTR) bit 0 says so now, set by the frontend every frame (the
+setting, and not captured); EDIT and PROG turn their sprite off while it is
+set, frame by frame, so switching the setting or capturing the mouse brings
+theirs back.  HEXED and FONTED draw none; PAINT and MOUSETEST keep theirs
+(a brush and a test).  Checked under Xvfb: the sprite gone, the host's left.

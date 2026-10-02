@@ -200,6 +200,7 @@ static uint8_t event(void)
         x = REG(MOUSEX) | ((unsigned)REG(MOUSEX + 1) << 8); y = REG(MOUSEY) | ((unsigned)REG(MOUSEY + 1) << 8);
         far_poke(SPRTAB + 0, (uint8_t)x); far_poke(SPRTAB + 1, (uint8_t)(x >> 8));
         far_poke(SPRTAB + 2, (uint8_t)y); far_poke(SPRTAB + 3, (uint8_t)(y >> 8));
+        REG(V_SPRCTL) = (uint8_t)!(REG(0xD110) & 1);     /* our arrow only when the host shows none of its own ($D110) */
         b = (uint8_t)(REG(MOUSEB) & 1); w = (int8_t)REG(MOUSEW);
         { int ty = (int) y + (int16_t)(REG(0xD014) | (REG(0xD015) << 8));   /* the console's row: its layer is scrolled down by the HD padding */
           r = (uint8_t)(ty < 0 ? 0 : ty / chh); }

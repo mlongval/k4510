@@ -87,9 +87,8 @@ static uint8_t cx, cy, fg = C_FG, bg = C_BG;
 static uint8_t mode_note;                  /* an F12 mode/status change was performed: the shell repaints (BANNER) at its next prompt */
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
-extern volatile uint8_t ticks, cursor_vis;       /* crt0.s */
-static uint8_t prog_running;                     /* set around call_prog: no console cursor under a program (RANGER's stray block) */
-extern uint32_t cursor_far;                      /* crt0.s: far address of the cell attribute under the cursor */
+extern volatile uint8_t ticks;                   /* crt0.s */
+static uint8_t prog_running;                     /* set around call_prog: K/OS leaves the cursor to the program (RANGER's stray block) */
 uint16_t speed_loop(void);                       /* crt0.s */
 void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS10 flat store */
 unsigned char __fastcall__ far_peek(unsigned long a);           /* crt0.s: 45GS10 flat load, ~10 cycles */
@@ -133,25 +132,20 @@ static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included
 
 #pragma code-name (pop)
 
-/* The cursor is the reverse bit of the attribute byte under it, flipped; the
- * IRQ blinks it by XOR.  cursor_vis bit 7 keeps what that bit was, so taking
- * the cursor away puts the cell back as it was drawn -- it used to write 0,
- * which lost a program's reversed character and the glyph's high bits (review
- * 2026-09-05, 2).  The IRQ only asks whether cursor_vis is zero.  In ROM1C:
- * ROM2 has no room for the extra bytes. */
-#pragma code-name (push, "CODE")
-static void draw_cursor(uint8_t on)
+/* The cursor is JIM's (2026-10-01, the last step of the layout work in
+ * docs/notes/status-bars.md).  K/OS drew a cursor of its own -- a reverse bit
+ * flipped in the cell, blinked by the IRQ -- beside JIM's, and the two had to
+ * keep out of each other's way: hidden on every character printed, hidden
+ * when a key came, never shown while JIM's FLAGS were set, its own state in
+ * BSSR.  Now K/OS only says whether there should be one: FLAGS bit 0 on at
+ * the shell, off when it hands the machine to a program.  JIM draws it where
+ * its cursor is, keeps it out of the way of what it prints, and blinks it. */
+#define T_CURSOR 0x01
+static void jim_cursor(uint8_t on)
 {
-    uint8_t was = cursor_vis, v;
-    cursor_vis = 0;                          /* the IRQ stops first */
-    if (was) { v = far_peek(cursor_far); far_poke(cursor_far, (uint8_t)((v & 0x7F) | (was & 0x80))); }
-    if (!on) return;
-    cursor_far = cell(cx, cy) + 1;
-    v = far_peek(cursor_far);
-    far_poke(cursor_far, (uint8_t)(v ^ 0x80));
-    cursor_vis = (uint8_t)(1 | (v & 0x80));
+    uint8_t f = REG(TERM + 0x0E);
+    REG(TERM + 0x0E) = (uint8_t)(on ? (f | T_CURSOR) : (f & ~T_CURSOR));
 }
-#pragma code-name (pop)
 
 /* ---- the status bands -------------------------------------------------- *
  * Two static bars frame the console when status mode is on.  The console is
@@ -370,7 +364,6 @@ void __fastcall__ k_chrout(uint8_t ch)
     uint8_t oy;
     if (ch == 10 && chr_prev == 13) { chr_prev = 10; return; }   /* the CR already made the line */
     chr_prev = ch;
-    draw_cursor(0);
     if (ch == 12) { cls(); return; }
     if (fg != jim_fg) { REG(TERM + 11) = fg; jim_fg = fg; }
     if (bg != jim_bg) { REG(TERM + 12) = bg; jim_bg = bg; }
@@ -443,17 +436,11 @@ static void mode_do(void)
 #pragma code-name (pop)
 
 /* GETIN shows the cursor while a program waits for a key (BASIC reads this way) */
-static void draw_cursor(uint8_t on);
 uint8_t k_getin(void)
 {
     if (REG(SYS + 0x21) & 0x10) { mode_do(); return 27; }   /* rare: the F12 menu asked for a mode; ESC unsticks
                                                               * readline (a CR ran the half-typed line) */
-    if (REG(KBDST) & 0x80) { if (cursor_vis) draw_cursor(0); return caps(REG(KBD)); }
-    /* Not while JIM is showing its own: a program that draws through the
-     * terminal (VI, EDIT, anything under CP/M) polls this for keys, and the
-     * console's cursor would be a second one -- blinking to a different
-     * clock, parked on whatever cell the shell last left it on, reversing
-     * whatever the program has since drawn there. */
+    if (REG(KBDST) & 0x80) return caps(REG(KBD));
     /* The bottom band's battery follows the host.  draw_bands() only runs from
      * cls(), so this is the poll that keeps it current -- a compare per key
      * poll, only while the bottom band is up (with a height of zero there is
@@ -473,8 +460,7 @@ uint8_t k_getin(void)
         RTC_LATCH();
         if (far_peek(BANDMAP + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();   /* row 0: the top band's */
     }
-    if (REG(TERM + 0x0E) || prog_running) { if (cursor_vis) draw_cursor(0); }   /* a program owns the screen: no console cursor under it */
-    else if (!cursor_vis) draw_cursor(1);
+    if (!prog_running) jim_cursor(1);   /* the shell waits: JIM's cursor.  Under a program it is the program's */
     return 0;
 }
 
@@ -528,11 +514,10 @@ static uint8_t readline(char *buf, uint8_t max)
 {
     uint8_t n = 0, p = 0, k, i, key, hv = hist_n;      /* hv: the history entry shown; hist_n = none, the line being typed */
     for (;;) {
-        draw_cursor(1);
-        k = k_chrin();
+        k = k_chrin();                          /* k_getin shows JIM's cursor while it waits */
         key = (uint8_t)(k >= 0x80 && (REG(KBDST) & 0x40));   /* a KEY_* code, not a character that shares its byte */
         if (k == 13) {
-            draw_cursor(0); for (i = p; i < n; i++) k_chrout((uint8_t)buf[i]); buf[n] = 0; newline();
+            for (i = p; i < n; i++) k_chrout((uint8_t)buf[i]); buf[n] = 0; newline();
             if (n && (!hist_n || strcmp(hist[hist_n - 1], buf))) {   /* remember it, unless it repeats the last */
                 if (hist_n == HIST_N) { memmove(hist[0], hist[1], (HIST_N - 1) * HIST_L); hist_n--; }
                 strcpy(hist[hist_n++], buf);
@@ -957,7 +942,7 @@ static void run_at(uint16_t a)
         slot[2] = 0xD6;
     }
     t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
-    draw_cursor(0);
+    jim_cursor(0);                               /* the program shows one if it wants one */
     REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 11) = fg; REG(TERM + 12) = bg;   /* JIM starts where the console is */
     sw_call(2, pal_snap, 0);                     /* the shell's palette, to come back to */
     { uint8_t cl = capslock; capslock = 0;       /* a program wants the keys as they were typed:
@@ -2202,7 +2187,6 @@ static void bbg_mode22(uint8_t n)
 static void tube_keys(void) { while (REG(TERM + 1) & 0x80) REG(TUBE + 2) = REG(TERM + 2); }
 static void tube_term(void)
 {
-    draw_cursor(0);
     REG(TERM + 4) = 1;                                   /* JIM: modes and attributes to defaults, home */
     REG(TERM + 9) = cx; REG(TERM + 10) = cy;
     REG(TERM + 0x0E) = 1;                                /* its cursor shown */

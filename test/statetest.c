@@ -6,6 +6,7 @@
 #include "../core/xemu/cpu65.h"
 #include "../core/mem.h"
 #include "../core/io.h"
+#include "../core/term.h"
 #include "../core/vicky.h"
 #include "../core/audio.h"
 #include "../core/state.h"
@@ -22,7 +23,10 @@ static void frames(int n)
     }
 }
 static void type(const char *s) { while (*s) { kbd_push(*s == '\n' ? 0x0D : (uint8_t) *s); s++; frames(1); } }
-static uint32_t screen_sum(void) { uint32_t h = 0; for (int i = 0; i < 80 * 60 * 4; i++) h = h * 31 + k4510_ram[0x30000 + i]; return h; }
+/* With JIM's cursor parked: it is the cell's reverse bit, blinking, and since
+ * 2026-10-01 it is JIM's at the shell too -- a sum taken mid-blink would
+ * differ from one taken after a load, which starts with the cursor off. */
+static uint32_t screen_sum(void) { int was = term_cursor_park(); uint32_t h = 0; for (int i = 0; i < 80 * 60 * 4; i++) h = h * 31 + k4510_ram[0x30000 + i]; term_cursor_unpark(was); return h; }
 int main(void)
 {
     const char *path = "test/statetest.k4s";

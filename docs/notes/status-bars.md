@@ -477,4 +477,24 @@ a program's own map, BANDMAP 0, the ten-row cap, `vicky_text_cell`);
 `jimtest` (the poke).  The frontend checked under Xvfb, and the IRQ clock
 seen to tick into BANDMAP across a minute.
 
-Left from the order: **step 4, the cursor to JIM.**
+Left from the order: step 4, the cursor to JIM -- done the same day,
+below.
+
+### Step 4, the cursor to JIM (2026-10-01)
+
+K/OS drew a console cursor of its own -- the reverse bit of the cell under
+it, blinked by the IRQ, with five bytes of state in BSSR -- beside JIM's,
+and the two kept out of each other's way by rule: K/OS's hidden on every
+character printed and on every key, never shown while JIM's FLAGS were set.
+Now there is one cursor, JIM's.  K/OS only says whether there should be
+one: `jim_cursor(1)` when the shell waits for a key (in `k_getin`, outside a
+program), `jim_cursor(0)` when it hands the machine to a program, which then
+shows its own as it always did (EhBASIC, VI, the Tube).  JIM draws it at its
+cursor, moves it out of the way of what it prints, and blinks it.
+
+Gone: `draw_cursor`, `cursor_vis`/`cursor_far`, the IRQ's blink.  BSSR is
+443 of 448 (five bytes back); ROM1C 179 bytes smaller, ROM2 66.
+`statetest` sums the screen with JIM's cursor parked, since a state is
+loaded with the cursor off and the shell's cursor is now JIM's, mid-blink.
+
+The layout work this note proposed is complete.

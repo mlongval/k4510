@@ -11,7 +11,7 @@
         .import   _OY                       ; top-band height: the clock lives there, so this is what
                                             ; decides whether the IRQ paints it (a bottom band of zero
                                             ; must not stop the clock -- the heights are independent)
-        .export   _ticks, _cursor_far, _cursor_vis, _speed_loop, _far_poke, _far_peek, _call_prog
+        .export   _ticks, _speed_loop, _far_poke, _far_peek, _call_prog
         .export   _rtc_latch
 
         .zeropage
@@ -20,8 +20,6 @@ fp:           .res 4           ; far pointer for the flat forms
 
         .bss
 _ticks:       .res 1
-_cursor_vis:  .res 1           ; nonzero while the ROM wants a cursor shown
-_cursor_far:  .res 4           ; far address of the attribute byte under the cursor
 t0:           .res 1
 zp_rom:       .res 32          ; the ROM's zero page $02-$21 while a program runs
 zp_tmp:       .res 32
@@ -70,7 +68,7 @@ _speed_loop:
 
 ; IRQ: pure assembly -- cc65 C code must never run here (it would clobber
 ; the zero-page temporaries of whatever was interrupted).
-; The cursor cell is in far memory; the IRQ borrows $02-$05 for the flat
+; The clock cells are in far memory; the IRQ borrows $02-$05 for the flat
 ; pointer and restores them, so it is safe whatever program owns the zero page.
 irq:    pha
         .byte $DB               ; PHZ
@@ -100,27 +98,7 @@ irq:    pha
         phy                     ; the stub saved A and X for us; Y is ours to keep
         jsr clk_paint
         ply
-@curs:  lda _cursor_vis
-        beq @ack
-        phx
-        ldx #3
-@sv:    lda $02,x
-        sta zp_save,x
-        lda _cursor_far,x
-        sta $02,x
-        dex
-        bpl @sv
-        .byte $EA               ; NOP prefix: 32-bit flat
-        lda ($02)               ; LDA [$02],Z   (Z = 0)
-        eor #$80
-        .byte $EA
-        sta ($02)
-        ldx #3
-@rs:    lda zp_save,x
-        sta $02,x
-        dex
-        bpl @rs
-        plx
+@curs:                          ; (the console cursor's blink lived here until 2026-10-01: the cursor is JIM's now)
 @ack:   pla
         sta $D004               ; acknowledge what we saw
         .byte $FB               ; PLZ
@@ -131,7 +109,7 @@ irq:    pha
 ; cells of HH:MM DD.MM straight into the text map at $030100 (row 0, column
 ; 64 = SCREEN + 64*4; status mode is always 80 columns).  The separators and
 ; the year are the C code's (draw_clock); only the digits change each minute.
-; Borrows $02-$05 in zp_save, the way the cursor blink borrows them.  A and X
+; Borrows $02-$05 in zp_save (the cursor blink did too, until it went to JIM).  A and X
 ; are the stub's to restore; the caller kept Y.
 clk_paint:
         cld                     ; the sbc below must be binary, whatever ran before

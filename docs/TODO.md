@@ -123,7 +123,8 @@ Fixed the same day except these:
 - [ ] **Zero page relief (not urgent, fail-loud):** ROM ZP slice $02-$21
       is 32/32.  When convenient, widen into $22-$3F (grow crt0's zp_rom
       save buffer to match) or evict a non-hot crt0 zp var to BSS.
-- [ ] **BSS relief (nearer):** BSSR $0440-$05FF is 448/448.  Rebalance
+- [ ] **BSS relief (nearer):** BSSR $0440-$05FF is 443/448 since the cursor
+      went to JIM (2026-10-01; it was 448/448).  Rebalance
       against the C stack above it, or audit for evictable statics.
 - [ ] **ROM2 has 156 bytes free** (2026-10-01, after the band's MHz went;
       `rom/kernal.map`, CODE2 end to $FEFF).  New resident code goes in a bank.
@@ -141,9 +142,6 @@ Fixed the same day except these:
       render as spaces.  The real repertoire means a second glyph page --
       from unscii, whose .hex has the Symbols for Legacy Computing block,
       since unscii is the one font (2026-09-14) -- switched with the mode.
-- [ ] **The cursor.**  JIM can blink its own (`FLAGS` bit 0) but the ROM
-      still draws one, so `draw_cursor` and the `k_getin` workaround are
-      both still there.  Handing it over closes that bug class.
 - [ ] **The widget table** for the status bands: a table of (cell, source,
       format) the IRQ walks, so a program can put a live readout in a band
       without running to paint it.

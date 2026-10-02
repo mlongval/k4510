@@ -10705,3 +10705,15 @@ Tests: vickytest section 11, jimtest's poke (hidden with the bands, on row 0
 without).  Handbook ch. 2 says how a program takes the bands now (it said
 "through JIM", which was never how BANDS did it).  The layout work's last
 step is the cursor to JIM.
+
+## 2026-10-01 — one cursor: JIM's
+
+The last step of the layout work.  K/OS had its own console cursor (a
+reverse bit flipped in the cell and blinked by the IRQ) beside JIM's, and a
+set of rules to keep them apart.  Now K/OS sets JIM's FLAGS bit 0 when the
+shell waits for a key and clears it when it starts a program; JIM draws,
+moves and blinks the one cursor.  draw_cursor, cursor_vis/cursor_far and the
+IRQ blink are gone: BSSR 443/448 (from 448), ROM1C -179 bytes, ROM2 -66.
+Checked: the shell's cursor blinks (the reverse bit sampled across frames),
+EhBASIC's still does, all suites green.  statetest now sums the screen with
+the cursor parked.

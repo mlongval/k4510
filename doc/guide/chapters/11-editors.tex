@@ -1,47 +1,68 @@
 \chapter{The Editors}\label{cha:editors}
 
 Two of them, because they answer different questions. \verb|EDIT| is the
-one to reach for when a file wants a line changed and you want to be out
-again in ten seconds. \verb|VI| is the one for a file too big to think
-about, and it is modal, so it expects you to have met \texttt{vi} before.
+one to reach for first: it looks and works like the editor MS-DOS shipped
+from version 5 on, menus, mouse and all, so there is nothing to learn.
+\verb|VI| is for the file too big to think about, and it is modal, so it
+expects you to have met \texttt{vi} before. Under both is the same engine
+--- and \verb|PROG| (below) is the third front end on it.
 
-Both draw through JIM, the VT100 in hardware (Chapter~\ref{cha:tube}), and
-both take their keys raw from the ROM --- an arrow arrives as one byte
-rather than an escape sequence to unpick, with a bit beside it saying
+All of them take their keys raw from the ROM --- an arrow arrives as one
+byte rather than an escape sequence to unpick, with a bit beside it saying
 that it \emph{is} an arrow and not the accented letter that shares its
-code. Neither needs the Tube.
+code. None needs the Tube: they are programs of this machine.
 
 \section{EDIT}
-\verb|EDIT name| opens a file, or starts an empty one if there is no such
-file yet. The whole text sits in memory below the program, so it holds
-about 22\,KB --- ample for a \texttt{STARTUP.BAT}, a \texttt{.SUB}, a
-BASIC listing or a letter. There are no modes: what you type goes in,
-and everything else is a control key.
+\verb|EDIT name| opens a file, or starts a new one by that name; \verb|EDIT|
+alone starts an untitled one. The screen is MS-DOS~5's: the menu bar along
+the top, the text in a framed window with the file's name in its top
+border, a scroll bar down the right and another along the foot, and the
+status line at the bottom with the line and column. The colours are
+EDIT's too --- grey menus, the text on blue, the status line in cyan.
+\verb|EDIT -s name| uses the console's own colours instead, and the
+\emph{Options} menu switches between the two while you work.
+
+The text lives in far memory, not in the 64\,KB: a file may run to 16\,384
+lines of up to 255 characters, and undo goes back as far as the session
+does. Files are saved with a newline at the end of each line; a DOS file's
+carriage returns are read and dropped.
 
 \begin{center}
 \small
-\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.33\linewidth} >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
 \toprule
 \textbf{Key} & \textbf{Does} \\
 \midrule
-arrows & move by a character or a line \\
-Home, End & start and end of the line \\
-PgUp, PgDn & a screenful \\
-Enter & split the line at the cursor \\
-Backspace & rub out to the left; at the start of a line, join it to the one above \\
-Delete & rub out under the cursor \\
-Ctrl-O \emph{or} Ctrl-S & save \\
-Ctrl-X & leave --- twice on a changed file, to throw the changes away \\
-Ctrl-R & renumber a BASIC program: 10, 20, 30\ldots, and every \texttt{GOTO} with it \\
+arrows, Home, End, PgUp, PgDn & move; with Ctrl, a word at a time and the ends of the file \\
+Shift with a moving key, Ctrl+A & select; typing, Enter, Backspace and Del replace what is selected \\
+Ctrl+X, Ctrl+C, Ctrl+V & cut, copy, paste --- DOS's Shift+Del, Ctrl+Ins and Shift+Ins too. With nothing selected, the line \\
+Ctrl+Z, Ctrl+Y & undo, redo \\
+Insert & insert or overwrite (an underline cursor or a block) \\
+Enter, Tab & a new line that keeps the indent; spaces to the next tab stop --- Tab and Shift+Tab indent and outdent a selection \\
+Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q & a new file, open, save, leave --- asking first about unsaved changes \\
+Ctrl+F, F3, Ctrl+G & find, find again, go to a line \\
+Ctrl+R & renumber a BASIC program: 10, 20, 30\ldots, and every \texttt{GOTO} with it \\
+F10, or Alt and a letter & the menus: Alt+F is \emph{File}, Alt+S \emph{Search}; then the arrows, Enter, or an entry's letter; Esc closes \\
+F1 & the keys \\
 \bottomrule
 \end{tabular}
 \end{center}
 
-Accented letters type as themselves. The bar along the bottom carries
-the name, a \verb|*| while there are
-unsaved changes, where the cursor is, and the keys to save and leave ---
-and Ctrl-R too, on a BASIC file --- so there is nothing to remember. Long
-lines slide sideways rather than wrap.
+\textbf{The mouse} does what it did in DOS. A click puts the cursor in the
+text, a drag selects, Shift and a click selects from the cursor, and the
+wheel scrolls. A click on a menu's name opens it and a click on an entry
+runs it. The scroll bars take clicks too: the arrows move a line or a
+column, the bar on either side of its thumb a page, and the thumb can be
+dragged.
+
+\textbf{The dialogs} --- \emph{Open}, \emph{Save As}, \emph{Find},
+\emph{Change}, \emph{Go To Line} --- are boxes with a shadow, in the DOS
+way: Tab goes from one field or button to the next, Enter is the first
+button, Esc cancels, and the mouse clicks any of them. \emph{Open} lists
+the directory you are in; Enter or a second click on a directory goes into
+it (and the shell's current directory goes with it, as DOS's did), on a
+file opens it. \emph{Change} replaces every match in the file at once, and
+one Ctrl+Z takes all of it back.
 
 \section{VI}
 \verb|VI name| is modal in the old way. In \emph{normal} mode the keys

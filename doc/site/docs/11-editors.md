@@ -1,12 +1,14 @@
 # The Editors
 
-Two of them, because they answer different questions. `EDIT` is the one to reach for when a file wants a line changed and you want to be out again in ten seconds. `VI` is the one for a file too big to think about, and it is modal, so it expects you to have met `vi` before.
+Two of them, because they answer different questions. `EDIT` is the one to reach for first: it looks and works like the editor MS-DOS shipped from version 5 on, menus, mouse and all, so there is nothing to learn. `VI` is for the file too big to think about, and it is modal, so it expects you to have met `vi` before. Under both is the same engine — and `PROG` (below) is the third front end on it.
 
-Both draw through JIM, the VT100 in hardware ([Chapter 5, The Tube](06-tube.md)), and both take their keys raw from the ROM — an arrow arrives as one byte rather than an escape sequence to unpick, with a bit beside it saying that it *is* an arrow and not the accented letter that shares its code. Neither needs the Tube.
+All of them take their keys raw from the ROM — an arrow arrives as one byte rather than an escape sequence to unpick, with a bit beside it saying that it *is* an arrow and not the accented letter that shares its code. None needs the Tube: they are programs of this machine.
 
 ## EDIT
 
-`EDIT name` opens a file, or starts an empty one if there is no such file yet. The whole text sits in memory below the program, so it holds about 22 KB — ample for a `STARTUP.BAT`, a `.SUB`, a BASIC listing or a letter. There are no modes: what you type goes in, and everything else is a control key.
+`EDIT name` opens a file, or starts a new one by that name; `EDIT` alone starts an untitled one. The screen is MS-DOS 5’s: the menu bar along the top, the text in a framed window with the file’s name in its top border, a scroll bar down the right and another along the foot, and the status line at the bottom with the line and column. The colours are EDIT’s too — grey menus, the text on blue, the status line in cyan. `EDIT -s name` uses the console’s own colours instead, and the *Options* menu switches between the two while you work.
+
+The text lives in far memory, not in the 64 KB: a file may run to 16 384 lines of up to 255 characters, and undo goes back as far as the session does. Files are saved with a newline at the end of each line; a DOS file’s carriage returns are read and dropped.
 
 <div class="center">
 
@@ -19,47 +21,57 @@ Both draw through JIM, the VT100 in hardware ([Chapter 5, The Tube](06-tube.md))
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">arrows</td>
-<td style="text-align: left;">move by a character or a line</td>
+<td style="text-align: left;">arrows, Home, End, PgUp, PgDn</td>
+<td style="text-align: left;">move; with Ctrl, a word at a time and the ends of the file</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Home, End</td>
-<td style="text-align: left;">start and end of the line</td>
+<td style="text-align: left;">Shift with a moving key, Ctrl+A</td>
+<td style="text-align: left;">select; typing, Enter, Backspace and Del replace what is selected</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">PgUp, PgDn</td>
-<td style="text-align: left;">a screenful</td>
+<td style="text-align: left;">Ctrl+X, Ctrl+C, Ctrl+V</td>
+<td style="text-align: left;">cut, copy, paste — DOS’s Shift+Del, Ctrl+Ins and Shift+Ins too. With nothing selected, the line</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Enter</td>
-<td style="text-align: left;">split the line at the cursor</td>
+<td style="text-align: left;">Ctrl+Z, Ctrl+Y</td>
+<td style="text-align: left;">undo, redo</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Backspace</td>
-<td style="text-align: left;">rub out to the left; at the start of a line, join it to the one above</td>
+<td style="text-align: left;">Insert</td>
+<td style="text-align: left;">insert or overwrite (an underline cursor or a block)</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Delete</td>
-<td style="text-align: left;">rub out under the cursor</td>
+<td style="text-align: left;">Enter, Tab</td>
+<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop — Tab and Shift+Tab indent and outdent a selection</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Ctrl-O <em>or</em> Ctrl-S</td>
-<td style="text-align: left;">save</td>
+<td style="text-align: left;">Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q</td>
+<td style="text-align: left;">a new file, open, save, leave — asking first about unsaved changes</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Ctrl-X</td>
-<td style="text-align: left;">leave — twice on a changed file, to throw the changes away</td>
+<td style="text-align: left;">Ctrl+F, F3, Ctrl+G</td>
+<td style="text-align: left;">find, find again, go to a line</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Ctrl-R</td>
+<td style="text-align: left;">Ctrl+R</td>
 <td style="text-align: left;">renumber a BASIC program: 10, 20, 30…, and every <code>GOTO</code> with it</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">F10, or Alt and a letter</td>
+<td style="text-align: left;">the menus: Alt+F is <em>File</em>, Alt+S <em>Search</em>; then the arrows, Enter, or an entry’s letter; Esc closes</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">F1</td>
+<td style="text-align: left;">the keys</td>
 </tr>
 </tbody>
 </table>
 
 </div>
 
-Accented letters type as themselves. The bar along the bottom carries the name, a `*` while there are unsaved changes, where the cursor is, and the keys to save and leave — and Ctrl-R too, on a BASIC file — so there is nothing to remember. Long lines slide sideways rather than wrap.
+**The mouse** does what it did in DOS. A click puts the cursor in the text, a drag selects, Shift and a click selects from the cursor, and the wheel scrolls. A click on a menu’s name opens it and a click on an entry runs it. The scroll bars take clicks too: the arrows move a line or a column, the bar on either side of its thumb a page, and the thumb can be dragged.
+
+**The dialogs** — *Open*, *Save As*, *Find*, *Change*, *Go To Line* — are boxes with a shadow, in the DOS way: Tab goes from one field or button to the next, Enter is the first button, Esc cancels, and the mouse clicks any of them. *Open* lists the directory you are in; Enter or a second click on a directory goes into it (and the shell’s current directory goes with it, as DOS’s did), on a file opens it. *Change* replaces every match in the file at once, and one Ctrl+Z takes all of it back.
 
 ## VI
 

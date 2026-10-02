@@ -266,6 +266,7 @@ void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /
 #define KEY_INS   0x88
 #define KEY_DEL   0x89
 #define KEY_F1    0x90                    /* F1..F12 = $90..$9B */
+#define KEY_ALT_A 0xC1                    /* Alt+A..Z = $C1..$DA, key codes: menus (EDIT's Alt+F); JIM sends ESC + the letter */
 
 /* --- storage ($D300): the host filesystem, sandboxed to one directory --- */
 /* Names are NUL-terminated, at NAMEPTR. Transfers go straight to RAM. */

@@ -223,6 +223,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/basictest.sh
 	./test/msbasictest.sh
 	./test/jimtest.sh
+	./test/edittest.sh
 	./test/opltest.sh
 	./test/palettetest.sh
 	./test/typetest.sh
@@ -304,7 +305,11 @@ fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h d
 	cc65 -O -t none --cpu 65c02 -o demo/vi.s demo/vi.c
 	ca65 --cpu 65c02 -o demo/vi.o demo/vi.s
 	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
-fs/SYSTEM/BIN/edit.prg: demo/renum.h
+# EDIT: VI's engine and MS-DOS EDIT's front end -- PROG's layout, $2000 and variables at $0800 (demo/edit.cfg)
+fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg
+	cc65 -O -t none --cpu 65c02 -o demo/edit.s demo/edit.c
+	ca65 --cpu 65c02 -o demo/edit.o demo/edit.s
+	ld65 -C demo/edit.cfg -o $@ demo/prg0.o demo/romcalls.o demo/edit.o none.lib -m demo/edit.map
 # MARK: the stopwatch in C, the measured loops in assembly (so cc65 getting better does not move the figures)
 # mark-asm.o is linked FIRST so that editing mark.c moves nothing that is measured: a page crossed is a cycle,
 # and demo/mark-cycles.h (tools/mark-cycles.py, from the built program) counts them.

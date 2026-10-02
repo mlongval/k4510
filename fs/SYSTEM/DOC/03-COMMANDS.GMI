@@ -263,8 +263,9 @@ the euro and German quotes. Remembered, as F12 -> Terminal -> Code page.
 DELETE [-l | -r name | -e | name] -- /SYSTEM/BIN
 The trash: list it, put a file back, empty it, or send a file there.
 
-EDIT [name] -- /SYSTEM/BIN
-The modeless editor (Chapter 9, The Editors).
+EDIT [-s] [name] -- /SYSTEM/BIN
+The editor, in MS-DOS EDIT's manner: menus, the mouse, dialogs; -s in the
+console's colours (Chapter 9, The Editors).
 
 => 11-EDITORS.GMI Chapter 9, The Editors
 

@@ -12,8 +12,10 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          empties it)
          TYPE name     XD name
          EDIT [name]   VI [name]
-         (EDIT: arrows Home End PgUp PgDn, Ctrl-O
-         or Ctrl-S saves, Ctrl-X leaves.
+         (EDIT: MS-DOS's -- F10 or Alt+letter for
+         the menus, the mouse, Ctrl-S saves,
+         Ctrl-Q leaves, F1 its keys; -s in the
+         console's colours.
          VI: hjkl 0 $ gg G, i a I A o O, x dd,
          :w :q :q! :wq, Esc leaves insert;
          /SYSTEM/ETC/VI.RC runs at startup --

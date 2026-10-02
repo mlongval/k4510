@@ -10727,3 +10727,43 @@ unscii-8, on the console's blue -- in a rounded GNOME tile with a lighter
 rim.  podman.sh's launcher carries it (Icon=), and the machine runs with
 SDL's Wayland/X11 window class set to the launcher's name, so GNOME shows
 the same icon on the running window instead of a generic one.
+
+## 2026-10-02 — EDIT is MS-DOS EDIT now
+
+Doc: "can you build a WYSIWYG text editor similar to the one on later
+releases of MS-DOS with keyboard shortcuts and mouse controls and screen
+borders etc? ... Should it be another TUBE?"  No Tube: an editor is what the
+machine is for, and PROG had shown a program this size fits.  Then: "replace
+EDIT, use DOS EDIT colours, but offer command line option to use system
+colors."
+
+demo/edit.c is new: VI's and PROG's engine (demo/ed.h) under MS-DOS 5's
+screen -- menu bar (F10, Alt+letter, the mouse), the text in a frame with the
+name in its top border, scroll bars that take clicks and drags, dialogs with
+shadows (Open with a directory list, Save As, Find, Change, Go To Line, the
+unsaved-file question), the status line with line:column.  DOS EDIT's colours
+by palette entry (light grey 15 on blue 6, black on grey menus, black on cyan
+status); `EDIT -s` takes the console's own, and Options switches.  The screen
+is text32 cells DMA'd a row at a time, because JIM's SGR reaches eight
+colours and EDIT needs the grey; JIM keeps the cursor (underline inserting,
+block overwriting).  Far memory $08000000-$0BFFFFFF, unused until now.  The
+old EDIT's Ctrl-R (renumber) is kept; its Ctrl-X (leave) is cut now, DOS's
+way, and Ctrl-Q leaves.  41 KB, PROG's layout (demo/edit.cfg).
+
+Alt+letter had never reached the machine.  It is a key code now, KEY_ALT_A..Z
+($C1-$DA): the frontend sends it for the left Alt alone with a letter, using
+the key event's own modifiers (SDL_GetModState is the state after every
+queued event -- under xdotool Alt was already up, and Alt+S typed an s) and
+dropping the text event that follows; JIM turns it into ESC + letter, the
+xterm Meta convention; the ROM's line editor ignores unknown codes.
+
+A cursor move now ends a run of typing, so Ctrl+Z takes back only what was
+typed since (PROG still groups the whole line).
+
+test/edittest.sh: typing and auto-indent, Change through Alt+S, Find and F3,
+Go to line and undo, Ctrl+R, the unsaved-file question, the screen and two
+cells' colours in both schemes, `-s` before a name.  The mouse checked under
+Xvfb with xdotool (menus by click, Select All, click and drag in the text,
+the scroll bar's arrow, Exit's question answered by click) -- a click must
+be held across a frame (the machine samples the button once a frame), which
+a hand always does and xdotool's `click` does not.

@@ -657,6 +657,7 @@ static void line_begin(void)
  * ($D0B5/$D0B7, 2026-10-01) -- this used to repeat the ROM's 40x30 rule.  echo_banded tells the old echo bar it need not draw. */
 const char *io_title(void);
 static int echo_banded;
+static int alt_ate;                 /* an Alt+letter just went as KEY_ALT_*: its SDL_TEXTINPUT is not typed */
 static void band_text(int row, int col, int maxc, const char *s, int stride, int rh, int cw, int y0)
 {
     uint32_t map = (uint32_t) vicky_read(0x1C) | ((uint32_t) vicky_read(0x1D) << 8) | ((uint32_t) vicky_read(0x1E) << 16) | ((uint32_t) vicky_read(0x1F) << 24);
@@ -1286,6 +1287,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 break;
             case SDL_TEXTINPUT: {
                 if (settings_get(SET_INPUT_KBD_LAYOUT) > 0) break;   /* the machine's own layout typed it at SDL_KEYDOWN */
+                if (alt_ate) { alt_ate = 0; break; }            /* Alt+letter went as a key code at SDL_KEYDOWN: not typed too.
+                                                                  * The flag lives one event: the next key down clears it, so a
+                                                                  * host that sends no text for Alt+letter loses nothing */
                 pend = 0;                                    /* SDL does send text here: the key code is not needed */
                 /* Caps Lock as Ctrl: while it is held a letter is a Ctrl code, and
                  * SDL_KEYDOWN sends that -- the host would type the letter too.  And
@@ -1425,6 +1429,17 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                       { char lg[32]; snprintf(lg, sizeof lg, "volume %d%%", v); mlog(lg); }             /* stderr, so the log has it: stdout is a tty nobody sees on the K4510 Linux */
                       break;
                   } }
+                /* Alt+letter (the left Alt, alone with the letter): a key code of
+                 * its own, KEY_ALT_A..Z, and nothing typed -- the menus of the
+                 * new EDIT (Doc, 2026-10-02: "similar to the one on later releases
+                 * of MS-DOS").  AltGr is the right Alt and still composes; a
+                 * program that does not know the codes ignores them (the ROM's
+                 * line editor does); JIM turns them into ESC + letter. */
+                { SDL_Keymod em = (SDL_Keymod) e.key.keysym.mod;  /* the modifiers AT this key: SDL_GetModState is the
+                                                                    * state after every queued event, Alt already up */
+                  alt_ate = 0;
+                  if ((em & KMOD_LALT) && !(em & (KMOD_CTRL | KMOD_GUI | KMOD_RALT | KMOD_MODE)) && k >= SDLK_a && k <= SDLK_z) {
+                      kbd_push_key((uint8_t)(KEY_ALT_A + (k - SDLK_a))); alt_ate = 1; break; } }
                 { int lay = settings_get(SET_INPUT_KBD_LAYOUT);   /* the machine's own layout: Ctrl by ITS letter (AZERTY's A), then typing */
                   const uint32_t *le = layout_entry(lay, e.key.keysym.scancode);
                   if (le && (m & KMOD_CTRL)) { uint32_t b = le[0] & KBD_CHAR; if (b >= 'a' && b <= 'z') { kbd_push((uint8_t)(b - 'a' + 1)); break; } }

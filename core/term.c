@@ -765,6 +765,7 @@ static void key(uint8_t k)
             static const uint8_t fn[8] = { 15, 17, 18, 19, 20, 21, 23, 24 };
             strcpy(b, "\033["); reply_num(b + 2, fn[k - KEY_F1 - 4]); strcat(b, "~"); reply(b); return;
         }
+        if (k >= KEY_ALT_A && k < KEY_ALT_A + 26) { b[0] = 0x1B; b[1] = (char)('a' + (k - KEY_ALT_A)); b[2] = 0; reply(b); return; }   /* Alt as Meta, xterm's way */
         return;                                                     /* an unknown special key: nothing */
     }
 }

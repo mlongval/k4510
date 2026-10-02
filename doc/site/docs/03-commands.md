@@ -232,8 +232,8 @@ The held-keys register, live: a gamepad’s first test.
 **`PETSCII`** — */SYSTEM/BIN*  
 JIM, the terminal, speaking PETSCII.
 
-**`PROG [name]`** — */SYSTEM/BIN*  
-The programmer’s front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler’s messages under the text ([Chapter 9, The Editors](11-editors.md)).
+**`PROG [-s] [name]`** — */SYSTEM/BIN*  
+The programmer’s front end, in EDIT’s manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler’s messages under the text ([Chapter 9, The Editors](11-editors.md)).
 
 **`RADIO [words]`** — *ROM*  
 The Navidrome sidebar’s player, from the prompt: alone, what is playing and the words; PLAY \[playlist\], ALBUM name, ARTIST name, SONG words, SEARCH words, NEXT, PAUSE, RESUME, OFF. It plays whether or not the sidebar is on the glass; the volume is the machine’s.

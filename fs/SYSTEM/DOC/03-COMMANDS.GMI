@@ -313,10 +313,10 @@ The held-keys register, live: a gamepad's first test.
 PETSCII -- /SYSTEM/BIN
 JIM, the terminal, speaking PETSCII.
 
-PROG [name] -- /SYSTEM/BIN
-The programmer's front end: edit a C or Pascal program, compile it with F9,
-run it with Ctrl-F9, the compiler's messages under the text (Chapter 9, The
-Editors).
+PROG [-s] [name] -- /SYSTEM/BIN
+The programmer's front end, in EDIT's manner: edit a C or Pascal program,
+compile it with F9, run it with Ctrl+F9, the compiler's messages under the
+text (Chapter 9, The Editors).
 
 => 11-EDITORS.GMI Chapter 9, The Editors
 

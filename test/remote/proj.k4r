@@ -15,12 +15,12 @@ type RM -f PJT/pjt.prg\n
 type RMDIR PJT\n
 wait 1
 type PROG\n
-expect "no file yet" 10
+expect "No file yet" 10
 key f10 down enter
 expect "New project" 5
 type PJT\n
-expect "C or Pascal" 5
-type c
+expect "Which language?" 5
+key enter
 expect "a new C project" 10
 shot proj-new
 key f9
@@ -44,7 +44,7 @@ key f6 f6
 key f9
 expect "1 compiled, 1 kept" 40
 key f10 right right right
-expect "Compile and run" 5
+expect "Compile and Run" 5
 key down enter
 expect "Hello from PJT." 40
 expect "a key returns" 10

@@ -22,7 +22,7 @@ expect "pgtest.prg:" 30
 key f10
 expect "Open..." 5
 key right right right
-expect "Compile and run" 5
+expect "Compile and Run" 5
 shot prog-menu
 key down enter
 expect "a key returns" 30

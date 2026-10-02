@@ -10778,3 +10778,29 @@ setting, and not captured); EDIT and PROG turn their sprite off while it is
 set, frame by frame, so switching the setting or capturing the mouse brings
 theirs back.  HEXED and FONTED draw none; PAINT and MOUSETEST keep theirs
 (a brush and a test).  Checked under Xvfb: the sprite gone, the host's left.
+
+## 2026-10-02 — PROG in EDIT's clothes
+
+Doc: "Please modify PROG so that its interface is similar to this new EDIT."
+EDIT was split first (ada2e5e): demo/dosui.h the furniture, demo/dosed.h the
+editing window.  PROG is now those plus its own: the open files as tabs in
+the window's top border (the project's name first), a Messages window under
+the text with its own frame, the Build menu, and dialogs where the status
+row's prompts were -- Open with the directory list, Save As, Find, Change
+(Ctrl+R), Go To Line, Find in Files, New Project (a name, then a C / Pascal
+/ Cancel question), and Yes / No / Cancel for unsaved files.  `PROG -s` and
+Options for the console's colours, as EDIT.
+
+It did not fit.  EDIT's clothes took PROG ~10 KB past $2000-$CFFF, so PROG
+is a K4SG program now (demo/prog-header.s, prog.cfg): the project and file
+code (HICODE) at $E000-$FEFF, the RAM under the ROM a program owns while it
+runs -- SWAP saves physical $0000-$FFFF, so a Ctrl+F9 run gives it back.
+Even so it was 2 KB over: PROG no longer renumbers BASIC (ed.h's
+ED_NO_RENUM; EDIT's Ctrl+R and VI's :renum still do), and the pointer sprite
+is a 128-byte table instead of being drawn at start-up.  HI has 155 bytes
+left, the main image ~2 KB.
+
+Checked headless: tabs, the Open dialog over a second tab, the Build menu,
+F9 on a broken C file (Messages (1), the cursor on line 5), save and quit.
+test/remote/{prog,prog2,proj,sel,rexx}.k4r follow the new labels and
+dialogs (not run here: they need a live machine).

@@ -28,9 +28,9 @@ key f9
 expect "pga.prg:" 30
 key f10
 key right right
-expect "Find in files" 5
+expect "Find in Files" 5
 key down down enter
-expect "Find in files:" 5
+expect "Find What:" 5
 type return\n
 expect "found 1 of 1" 30
 shot prog2-found

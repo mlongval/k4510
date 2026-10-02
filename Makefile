@@ -319,10 +319,11 @@ fs/SYSTEM/BIN/mark.prg: demo/mark.c demo/mark-asm.s demo/mark-cycles.h demo/k451
 	ca65 --cpu 65c02 -o demo/mark-asm.o demo/mark-asm.s
 	ld65 -C demo/mark.cfg -o $@ demo/prg0.o demo/romcalls.o demo/mark-asm.o demo/mark.o none.lib -m demo/mark.map
 # PROG: VI's engine and a front end -- loaded at $2000, variables at $0800 (demo/prog.cfg)
-fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg
+fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg demo/prog-header.s
 	cc65 -O -t none --cpu 65c02 -o demo/prog.s demo/prog.c
 	ca65 --cpu 65c02 -o demo/prog.o demo/prog.s
-	ld65 -C demo/prog.cfg -o $@ demo/prg0.o demo/romcalls.o demo/prog.o none.lib -m demo/prog.map
+	ca65 --cpu 65c02 -o demo/prog_h.o demo/prog-header.s
+	ld65 -C demo/prog.cfg -o $@ demo/prg0.o demo/romcalls.o demo/prog_h.o demo/prog.o none.lib -m demo/prog.map
 fs/SYSTEM/BIN/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s

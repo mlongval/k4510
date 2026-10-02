@@ -116,7 +116,7 @@ DESC = {
     "WALL":      (7, "WALL", "What was sent to this machine from outside (tools/k4510-remote wall, on another computer): each message waiting, oldest first, answered as it asks --- a key for a notice, a digit for one of its choices, a line of text --- and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you."),
     "STATUS":    (7, "STATUS", "The whole machine at a glance: its display and clock, how much of the 256 MB holds anything, the memory of the Linux beneath, where the system and your files really are and how much room is left, what is mounted, and the network by name and address."),
     "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run@cha:linux@."),
-    "PROG":      (7, "PROG [name]", "The programmer's front end: edit a C or Pascal program, compile it with F9, run it with Ctrl-F9, the compiler's messages under the text@cha:editors@."),
+    "PROG":      (7, "PROG [-s] [name]", "The programmer's front end, in EDIT's manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler's messages under the text@cha:editors@."),
 }
 # words that exist twice: the ROM command wins at the prompt, the program is
 # still there for RUN.  Listed once, under the ROM's.

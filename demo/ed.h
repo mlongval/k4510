@@ -422,6 +422,10 @@ static void do_join(unsigned n)                 /* J: pull the next line onto th
  * :renum [start [step]] -- demo/renum.h does the BASIC; the lines are ours.
  * The table of old numbers lives in far memory like everything else, and
  * the change is one undo group, so u puts every number back. */
+static uint8_t rbuf[256];                  /* a line read back (renum, MAKE.ERR) */
+#ifdef ED_NO_RENUM                          /* PROG: no room left for it since 2026-10-02 (EDIT and VI have it) */
+static uint8_t rn_up(uint8_t c) { return (uint8_t)((c >= 'a' && c <= 'z') ? c - 32 : c); }
+#else
 #define RNTAB 0x0EA00000UL                  /* renum's table: each numbered line's old number */
 static unsigned rn_t;
 static void rn_tab_put(unsigned i, unsigned v) { rn_t = v; far_put(&rn_t, RNTAB + ((uint32_t)i << 1), 2); }
@@ -429,7 +433,6 @@ static unsigned rn_tab_get(unsigned i) { far_get(RNTAB + ((uint32_t)i << 1), &rn
 #define RN_TAB_PUT rn_tab_put
 #define RN_TAB_GET rn_tab_get
 #include "renum.h"
-static uint8_t rbuf[256];
 static unsigned rn_arg(const char **c, unsigned dflt)
 {
     unsigned v = 0; uint8_t any = 0;
@@ -462,6 +465,8 @@ static void do_renum(const char *c)
     full = 1;
     note = rn_report();
 }
+
+#endif /* ED_NO_RENUM */
 
 /* ---- make ------------------------------------------------------------------
  * :make compiles the file with the machine's own CC or PAS -- the compilers

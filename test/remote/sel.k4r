@@ -45,11 +45,11 @@ key ctrl-x
 absent "beta" 5
 # the menu bar by the mouse: Edit (column 7 of row 0), then Esc
 click 8 0
-expect "Select all" 5
+expect "Select All" 5
 shot sel-menu
 key esc
 wait 1
 type \x11
-expect "S save" 5
-type d
+expect "Save it now?" 5
+key tab enter
 expect "/HOME]" 10

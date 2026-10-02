@@ -397,7 +397,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 
 ## PROG
 
-`PROG name` is the front end for writing a program in C, Pascal or REXX: the text, a menu bar, and — under the text — what the compiler said about it. It is VI’s engine with modern keys on it, in the spirit of Turbo Pascal: F9 compiles, Ctrl-F9 compiles and runs, and an error puts the cursor on the line it is about.
+`PROG name` is the front end for writing a program in C, Pascal or REXX. It looks and works like `EDIT` — the same menus, dialogs, scroll bars, mouse and colours (`PROG -s` for the console’s own) — with the open files as tabs along the window’s top border and, under the text, a second window with what the compiler said. In the spirit of Turbo Pascal: F9 compiles, Ctrl+F9 compiles and runs, and an error puts the cursor on the line it is about.
 
 <div class="center">
 
@@ -410,73 +410,63 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: left;">arrows, Home, End, PgUp, PgDn</td>
-<td style="text-align: left;">move; with Ctrl, a word at a time and the ends of the file</td>
+<td style="text-align: left;">moving, selecting, the clipboard, undo</td>
+<td style="text-align: left;">as in <code>EDIT</code> (above): the arrows with Ctrl and Shift, Ctrl+A, Ctrl+X/C/V, Ctrl+Z/Y</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;">Enter, Tab</td>
-<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <code>set ts=</code> in VI.RC) — with lines selected, Tab and Shift-Tab indent them and take the indent back</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Shift with a moving key, Ctrl-A</td>
-<td style="text-align: left;">select, by characters, from where the cursor was; Ctrl-A takes the whole file. Typing, Enter, Backspace and Delete replace what is selected</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">the mouse</td>
-<td style="text-align: left;">a click places the cursor, opens a menu, brings a tab forward or goes to a message; a drag selects (Shift-click from the cursor); the wheel scrolls</td>
+<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <code>set ts=</code> in VI.RC) — with lines selected, Tab and Shift+Tab indent them and take the indent back</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Insert</td>
-<td style="text-align: left;">insert or overwrite (the cursor is a bar or a block)</td>
+<td style="text-align: left;">insert or overwrite (an underline cursor or a block)</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Ctrl-S <em>or</em> F2, Ctrl-O, Ctrl-Q</td>
-<td style="text-align: left;">save, open (in a tab of its own), quit — asking first about every file with unsaved changes</td>
+<td style="text-align: left;">Ctrl+S <em>or</em> F2, Ctrl+O, Ctrl+Q</td>
+<td style="text-align: left;">save, open (in a tab of its own), leave — asking first about every file with unsaved changes</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Ctrl-N, Ctrl-W, F6, Shift-F6</td>
+<td style="text-align: left;">Ctrl+N, Ctrl+W, F6, Shift+F6</td>
 <td style="text-align: left;">a new file, close this one, the next and the previous file</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><em>File</em> → <em>New project</em></td>
+<td style="text-align: left;"><em>File</em> → <em>New Project</em></td>
 <td style="text-align: left;">a folder with a <code>PROJECT.K4P</code> and a first file that compiles as it stands</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">Ctrl-Z, Ctrl-Y</td>
-<td style="text-align: left;">undo, redo, as far back as the session goes</td>
+<td style="text-align: left;">Ctrl+F, F3, Ctrl+R, Ctrl+G</td>
+<td style="text-align: left;">find, find again, change (every match), go to a line</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">Ctrl-X, Ctrl-C, Ctrl-V</td>
-<td style="text-align: left;">cut, copy, paste — the selection, or with nothing selected the line</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">Ctrl-F, F3, Ctrl-R, Ctrl-G</td>
-<td style="text-align: left;">find, find again, replace everywhere, go to a line</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Shift-Ctrl-F</td>
+<td style="text-align: left;">Shift+Ctrl+F</td>
 <td style="text-align: left;">find in files: every source file in this file’s directory, into the message list</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">F9, Ctrl-F9</td>
-<td style="text-align: left;">save every changed file, compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it. A <code>.RX</code> has nothing to compile: F9 saves it, Ctrl-F9 runs it, and an error takes you to its line</td>
+<td style="text-align: left;">F9, Ctrl+F9</td>
+<td style="text-align: left;">save every changed file, compile the <code>.C</code> (<code>CC</code>) or <code>.PAS</code> (<code>PAS</code>); and run it. A <code>.RX</code> has nothing to compile: F9 saves it, Ctrl+F9 runs it, and an error takes you to its line</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;">F4, Shift-F4</td>
+<td style="text-align: left;">F4, Shift+F4</td>
 <td style="text-align: left;">the next, the previous message — one about another file opens it</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;">F10, F1</td>
-<td style="text-align: left;">the menu; the keys</td>
+<td style="text-align: left;">F10, or Alt and a letter</td>
+<td style="text-align: left;">the menus: Alt+B is <em>Build</em>; F1 the keys</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">the mouse</td>
+<td style="text-align: left;">the text, a menu, a tab, a message, the scroll bars; a drag selects, the wheel scrolls</td>
 </tr>
 </tbody>
 </table>
 
 </div>
 
-The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.ERR`: an error in the file on screen takes the cursor to its line (and column, from Mad Pascal); one in another file — a unit, a header — is listed with that file’s name. A `}` typed on a line of its own goes back a level. F12 stays the machine’s (its menu; Shift+F12 pauses), so PROG leaves it alone; Ctrl-H is Backspace on this keyboard, which is why replace is Ctrl-R.
+`PROG` does not renumber BASIC: that is `EDIT`’s Ctrl+R and VI’s `:renum`, and since PROG took `EDIT`’s clothes there is no room left in it for a third copy.
 
-Up to eight files are open at once, in the row under the menu bar — the one in front lit, a `*` on each with unsaved changes. F9 saves every changed file before it compiles, because the compilers read the disk: a unit edited in another tab is what `PAS` sees. An error in another file — a unit, a header — opens that file (or brings its tab forward) at the line. Find in files (Shift-Ctrl-F, or *Search*) looks through every source file in the directory of the file in front, and what it finds goes into the message list, where F4 walks it like errors. After Ctrl-F9 the other open files are read back from the disk: a program may use the memory they wait in.
+The messages are the ones `:make` reads in VI, from the same `/SYSTEM/LOG/MAKE.ERR`: an error in the file on screen takes the cursor to its line (and column, from Mad Pascal); one in another file — a unit, a header — is listed with that file’s name. A `}` typed on a line of its own goes back a level. F12 stays the machine’s (its menu; Shift+F12 pauses), so PROG leaves it alone; Ctrl-H is Backspace on this keyboard, which is why change is Ctrl+R.
+
+Up to eight files are open at once, as tabs in the window’s top border — the one in front lit, a `*` on each with unsaved changes; a click on a tab brings it forward. F9 saves every changed file before it compiles, because the compilers read the disk: a unit edited in another tab is what `PAS` sees. An error in another file — a unit, a header — opens that file (or brings its tab forward) at the line. Find in files (Shift+Ctrl+F, or *Search*) looks through every source file in the directory of the file in front, and what it finds goes into the message list, where F4 walks it like errors. After Ctrl-F9 the other open files are read back from the disk: a program may use the memory they wait in.
 
 ### Projects
 

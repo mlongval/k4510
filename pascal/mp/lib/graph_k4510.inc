@@ -136,6 +136,7 @@ xok	mwa y $D770			; y * 640
 	lda GetColor
 	dta $A3,$00			; LDZ #0
 	dta $EA,$92,:bp			; STA [bp],Z
+	stz :bp			; bp's low byte back to 0: Mad Pascal's (:bp),y array code assumes it (2026-10-03)
 done
 end;
 
@@ -196,6 +197,7 @@ xok	mwa y $D770
 	dta $A3,$00			; LDZ #0
 	dta $EA,$B2,:bp			; LDA [bp],Z
 	sta Result
+	stz :bp			; bp's low byte back to 0: Mad Pascal's (:bp),y array code assumes it (2026-10-03)
 done
 end;
 
@@ -315,6 +317,7 @@ asm
 	dta $A3,$00
 	dta $EA,$B2,:bp
 	sta Result
+	stz :bp			; bp's low byte back to 0: Mad Pascal's (:bp),y array code assumes it (2026-10-03)
 end;
 
 

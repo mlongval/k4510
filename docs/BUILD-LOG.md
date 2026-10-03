@@ -11052,3 +11052,25 @@ Bugs found on the way:
   bytes; smallint div and * are slow.
 The installed toolchain's copies (~/Projects/K4510/toolchain/Mad-Pascal/
 lib) were updated by hand on ubuntu-s1; elsewhere `make pascal-install`.
+
+## 2026-10-03 — a bank window from Pascal; the units' :bp bug
+
+Doc: "try the bank window from Pascal."  fs/LANG/PASCAL/BANKWIN.PAS: an
+array ABSOLUTE $8000 (block 4) and block 4's bank register at $D610
+written as one cardinal -- the fourth byte switches it on.  Four 8 KB
+pages of far memory at $400000 read through it, a write through it
+lands out there, shut it and the RAM at $8000 is back; 8 of 8.  Summing
+64 KB: 8 frames through the window, 17 through FarPeek.  Block 4 because
+a Mad Pascal program is at $0800 upward and small ones end well short
+of $8000, and 5-7 are the ROM stub's.
+
+It found a bug that every Pascal program had: FarPeek, FarPoke (k4510
+unit) and PutPixel, GetPixel and the font read (GRAPH) used Mad
+Pascal's zero-page pointer :bp for the 32-bit address and left its low
+byte set; the compiler's code for any array over 256 bytes indexes
+through (:bp),y on the understanding that the low byte is 0.  So after
+one FarPoke or one pixel, big[i] read big[i + that byte] (BANKWIN's
+first run: the last 255 bytes of the window came from past its end).
+Each now ends with stz :bp.  Every .prg rebuilt; TEST still 30 of 30,
+the EX demos look as they did.  (Also: a parameter named page in a
+program with a const PAGE is the same name -- Pascal ignores case.)

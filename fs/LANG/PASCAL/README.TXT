@@ -12,4 +12,5 @@ PGRAPH.PAS   the GRAPH unit on VICKY
 PMANDEL.PAS  a Mandelbrot
 ANIMAL.PAS   guess the animal: it learns from every miss (ANIMAL.DAT)
 FUNCS.PAS    BBC BASIC's "= value" functions, as Pascal's Result
+BANKWIN.PAS  far memory as an ordinary array, through a bank window
 EX/          the Tube demos of /LANG/BBCBASIC/EX ported, with the BBC unit they share (EX/README.TXT)

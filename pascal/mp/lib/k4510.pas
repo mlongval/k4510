@@ -114,6 +114,7 @@ asm
 	dta $A3,$00		; LDZ #0
 	dta $EA,$B2,:bp		; NOP prefix + LDA (bp),Z = LDA [bp],Z: the 45GS02's flat 32-bit load
 	sta Result
+	stz :bp			; bp's low byte back to 0: Mad Pascal's (:bp),y array code assumes it (2026-10-03)
 end;
 
 procedure FarPoke(a: cardinal; v: byte); assembler;
@@ -129,6 +130,7 @@ asm
 	lda v
 	dta $A3,$00		; LDZ #0
 	dta $EA,$92,:bp		; NOP prefix + STA (bp),Z = STA [bp],Z
+	stz :bp			; bp's low byte back to 0: Mad Pascal's (:bp),y array code assumes it (2026-10-03)
 end;
 
 procedure DmaCopy(src, dst, len: cardinal);

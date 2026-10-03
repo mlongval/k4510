@@ -11089,3 +11089,26 @@ command, it lasts until power-off; STARTUP.BAT keeps one.  Last row, so
 uitest's walk is unchanged; mkref.py describes the run-time rows.
 Checked under Xvfb: F12, Video, Palette, AMBER -> "palette: 16 entries
 from /SYSTEM/ETC/PALETTES/AMBER.PAL", amber on black.
+
+## 2026-10-03 — hot letters in any palette; the banner after PALETTE LOAD
+
+Doc, on the Dell: "amber green and grey make the alt letter in menus in
+edit disappear", and the banner should come back after a palette change.
+
+dosui.h's colour tables name palette entries; DOS EDIT's hot letter is 1
+(white) on 15 (light grey), and in a ramp palette 1 and 15 are two bright
+shades of one colour.  scheme() now ends with hot_fix(): brightness as the
+ROM's COLOR weighs it (Rec. 709, 0-255), and a hot letter closer than 64
+to its bar, or 48 to the plain letters, becomes the entry farthest from
+both.  The VIC-II sixteen keep their white; AMBER's become a mid amber
+between the black letters and the bright bar.  EDIT, PROG and WORD.
+
+PROG's main image had no room for it (48 bytes over): find in files went
+into the VIO2 overlay (dosvi.h's DOSVI_NEXTRA: an editor's own slots
+after the ten), stopping at the list -- going to the first message may
+open another file, and that code is at $E000, out of sight of an overlay.
+578 bytes free in PROG's image now.
+
+ROM: PALETTE LOAD sets mode_note, so the banner comes back at the prompt
+as after MODE; a BANNER typed meanwhile (STARTUP.BAT: PALETTE LOAD, then
+BANNER) clears it, so it is never shown twice.

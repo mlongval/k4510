@@ -61,11 +61,31 @@ enum { K_TEXT, K_SEL, K_FRAME, K_TITLE, K_MENU, K_MHOT, K_MSEL, K_MSELHOT, K_STA
 static const uint8_t dos_f[K_N] = { 15,  6, 15,  6,  0,  1, 15,  1,  0,  0,  0,  1,  1,  0, 15 };
 static const uint8_t dos_b[K_N] = {  6, 15,  6, 15, 15, 15,  0,  0,  3, 15, 15, 15,  0, 15,  0 };
 static uint8_t kf[K_N], kb[K_N], sysc;
+/* The hot letters against the palette in use (Doc, 2026-10-03: in AMBER,
+ * GREEN and GREY "the alt letter in menus ... disappear").  The tables name
+ * palette entries, and a ramp palette makes 1 and 15 two bright shades of one
+ * colour, so the white-on-grey letter was gone.  Brightness as the ROM's
+ * COLOR weighs it (Rec. 709, 0-255); a hot letter too close to its bar or to
+ * the plain letters beside it becomes the entry farthest from both. */
+static uint8_t luma(uint8_t i)
+{
+    uint8_t r, g, b;
+    REG(V_PALIDX) = i; r = REG(V_PALR); g = REG(V_PALG); b = REG(V_PALB);
+    return (uint8_t)(((uint16_t)r * 54 + (uint16_t)g * 183 + (uint16_t)b * 19) >> 8);
+}
+static uint8_t ldiff(uint8_t a, uint8_t b) { a = luma(a); b = luma(b); return (uint8_t)(a > b ? a - b : b - a); }
+static void hot_fix(uint8_t hk, uint8_t plain)
+{
+    uint8_t i, best = kf[hk], bs = 0, s, t;
+    if (ldiff(kf[hk], kb[hk]) >= 64 && ldiff(kf[hk], kf[plain]) >= 48) return;
+    for (i = 0; i < 16; i++) { s = ldiff(i, kb[hk]); t = ldiff(i, kf[plain]); if (t < s) s = t; if (s > bs) { bs = s; best = i; } }
+    kf[hk] = best;
+}
 static void scheme(uint8_t sys)
 {
     uint8_t i, d, b, hot;
     sysc = sys;
-    if (!sys) { for (i = 0; i < K_N; i++) { kf[i] = dos_f[i]; kb[i] = dos_b[i]; } return; }
+    if (!sys) { for (i = 0; i < K_N; i++) { kf[i] = dos_f[i]; kb[i] = dos_b[i]; } goto fix; }
     d = REG(TERM + 0x14); b = REG(TERM + 0x15);        /* the console's own: JIM's defaults are the shell's colours */
     hot = (uint8_t)(d != 2 && b != 2 ? 2 : d != 0 && b != 0 ? 0 : 1);   /* the hot letters: red, else black, else white --
                                                                            * never one of the two colours they sit between */
@@ -77,6 +97,8 @@ static void scheme(uint8_t sys)
     kf[K_FIELD] = d; kb[K_FIELD] = b;
     kf[K_MHOT] = hot; kf[K_DLGHOT] = hot;
     kf[K_MSELHOT] = (uint8_t)(b != 1 && d != 1 ? 1 : 0); kb[K_MSELHOT] = b;
+fix:
+    hot_fix(K_MHOT, K_MENU); hot_fix(K_DLGHOT, K_DLG); hot_fix(K_MSELHOT, K_MSEL);
 }
 
 /* ---- the cells -------------------------------------------------------------

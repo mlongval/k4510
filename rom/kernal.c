@@ -1645,6 +1645,7 @@ static void pal_after(uint8_t n, uint8_t hc, const char *path)
         cls(); fixed = 1;
     }
     bands_refresh();
+    mode_note = 1;                              /* and the banner at the next prompt, as after MODE (Doc, 2026-10-03) */
     puts_("palette: "); putdec(n); puts_(" entries from "); puts_(path); newline();
     if (fixed) { puts_("palette: COLOR "); puthex(fg); k_chrout(' '); puthex(bg); puts_(", to stay readable"); newline(); }
 }
@@ -2048,7 +2049,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
-    if (is_cmd(&p, "BANNER")) { banner(); return; }   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
+    if (is_cmd(&p, "BANNER")) { mode_note = 0; banner(); return; }   /* and the one a MODE or PALETTE LOAD left pending: not twice */   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     /* HELP is TYPE.prg on the help file -- the line copied into line[] first:
      * a program reads its ARGS through a pointer, and while it runs the ROM's

@@ -37,6 +37,10 @@
 static uint8_t vimode;                                /* VI's keys: Options, or -v */
 #define DOSVI_P1 0x0EF00000UL                        /* the two overlays (demo/prog-header.s) */
 #define DOSVI_P2 0x0EF10000UL
+static uint8_t find_files_o(void);                    /* in VIO2 too: slot 10 (dosvi.h's DOSVI_NEXTRA) */
+#define DOSVI_NEXTRA 1
+#define DOSVI_EXTRA_INIT() (vi_tab[10].entry = (uint16_t)find_files_o)
+#define find_files_gate() ((uint8_t (*)(void))VIG(10))()
 #include "dosvi.h"
 
 #define MSGH    4                       /* message rows */
@@ -520,11 +524,16 @@ static void goto_msg(unsigned i)
     nb_t(ebuf + 6, ebuf[5]);
     note = nbuf;
 }
-static void find_files(void)                          /* Shift-Ctrl-F: tools/k4510-grep, into the message pane */
+/* Shift-Ctrl-F: tools/k4510-grep, into the message pane.  An overlay in
+ * VIO2 since 2026-10-03 (the main image was full): it may not reach PROG's
+ * $E000 code, so it stops at the list, and find_files() -- here -- goes to
+ * the first message, which may open another file (open_path, at $E000). */
+#pragma code-name (push, "VIO2")
+static uint8_t find_files_o(void)
 {
     const char *e = base_of(name), *s; uint8_t k = 0, i = 0;
     ibuf[0] = 0;
-    if (!form1("Find in Files", "Find What:", ibuf, NAMEMAX, "OK") || !ibuf[0]) return;
+    if (!form1("Find in Files", "Find What:", ibuf, NAMEMAX, "OK") || !ibuf[0]) return 0;
     t_end();
     for (s = name; s < e && k < NAMEMAX - 1; ) ed_mkdir[k++] = *s++;   /* this file's directory, "" for here */
     ed_mkdir[k] = 0;
@@ -539,6 +548,12 @@ static void find_files(void)                          /* Shift-Ctrl-F: tools/k45
     rom_shell(gline);
     screen_back();
     err_load();
+    return 1;
+}
+#pragma code-name (pop)
+static void find_files(void)
+{
+    if (!find_files_gate()) return;
     msgs_due = 1;
     if (nerr) goto_msg(0);
     else note = info[0] ? info : "nothing found";

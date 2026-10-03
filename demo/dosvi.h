@@ -216,8 +216,14 @@ static void vi_toggle_o(void)                           /* Options > VI Keys */
 }
 #pragma code-name (pop)
 
-/* the table: slots 0-4 VIO2's, 5-9 VIO1's (the order of the macros above) */
-static struct { uint32_t base; uint8_t block, flags; uint16_t entry; } vi_tab[10];
+/* the table: slots 0-4 VIO2's, 5-9 VIO1's (the order of the macros above);
+ * an editor may put code of its own in VIO2 too, DOSVI_NEXTRA slots from 10
+ * (PROG: find in files), filled by its DOSVI_EXTRA_INIT */
+#ifndef DOSVI_NEXTRA
+#define DOSVI_NEXTRA 0
+#define DOSVI_EXTRA_INIT()
+#endif
+static struct { uint32_t base; uint8_t block, flags; uint16_t entry; } vi_tab[10 + DOSVI_NEXTRA];
 static void vi_setup(void)
 {
     uint8_t i;
@@ -226,7 +232,8 @@ static void vi_setup(void)
         vi_tab[3].entry = (uint16_t)vi_init_o;   vi_tab[4].entry = (uint16_t)vi_toggle_o;
         vi_tab[5].entry = (uint16_t)vi_normal;   vi_tab[6].entry = (uint16_t)map_feed;    vi_tab[7].entry = (uint16_t)map_timeout;
         vi_tab[8].entry = (uint16_t)do_map;      vi_tab[9].entry = (uint16_t)do_sub;
-        for (i = 0; i < 10; i++) { vi_tab[i].base = i < 5 ? DOSVI_P2 : DOSVI_P1; vi_tab[i].block = 7; }
+        DOSVI_EXTRA_INIT();
+        for (i = 0; i < 10 + DOSVI_NEXTRA; i++) { vi_tab[i].base = (i < 5 || i >= 10) ? DOSVI_P2 : DOSVI_P1; vi_tab[i].block = 7; }
     }
     REG(0xDF80) = (uint8_t)(uint16_t)vi_tab; REG(0xDF81) = (uint8_t)((uint16_t)vi_tab >> 8); REG(0xDF82) = 0; REG(0xDF83) = 0;
 }

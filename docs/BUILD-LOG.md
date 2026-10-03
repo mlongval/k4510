@@ -11007,3 +11007,16 @@ Also: the BBC BASIC ports another session made (ANIMAL, FUNCS) were in
 ~/bbcbasic on ubuntu-s1, off the machine's disk; they are in /LANG/PASCAL
 now (0b4cfe4).  The eleven Tube demos in /LANG/BBCBASIC/EX were not
 ported: that session ported the two programs pasted into it.
+
+## 2026-10-03 — the container gets a /STARTUP.BAT
+
+Doc: "There is one in the project on T480i5 but it does not seem to be
+used."  It was not: fs/STARTUP.BAT is .gitignore'd (yours, not the
+repo's), podman.sh update copies only what is committed (git archive
+HEAD), and only the stick (build-live.sh) wrote a default -- so the
+container had no /STARTUP.BAT, and nothing ran at power-on.
+
+podman.sh's seed_startup, on create and on update: a container that has
+a /STARTUP.BAT keeps it, untouched.  One without gets this checkout's
+fs/STARTUP.BAT if there is one, else /SYSTEM/ETC/STARTUP.SAMPLE with its
+HOST alias commented out (no telnet server in the container).

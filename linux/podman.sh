@@ -24,6 +24,7 @@
 #   linux/podman.sh run          start the machine
 #   linux/podman.sh shell        a shell in the container
 #   linux/podman.sh update       put this checkout's HEAD into the container and rebuild there
+#                                 (and a /STARTUP.BAT if it has none: seed_startup)
 #                                 (the kept container only: apt installs survive; the IMAGE
 #                                 is untouched -- run  podman.sh  again to rebuild it too)
 #   linux/podman.sh rm           delete the container (the image and the share folder stay)
@@ -72,6 +73,24 @@ machine_env() {
     set -- "$@" -e SDL_VIDEO_WAYLAND_WMCLASS=k4510-box -e SDL_VIDEO_X11_WMCLASS=k4510-box
     printf "%s " "$@"   # not echo: echo eats the leading -e
 }
+# /STARTUP.BAT, for a machine that has none (Doc, 2026-10-03: the checkout's
+# never got in -- fs/STARTUP.BAT is .gitignore'd, and update copies only
+# what is committed).  The container's own is never touched; without one,
+# this checkout's fs/STARTUP.BAT goes in, and without that the sample does
+# (/SYSTEM/ETC/STARTUP.SAMPLE), its HOST alias off: the container has no
+# telnet server on the loopback (the stick does; build-live.sh writes its
+# own default with HOST in it).  The container must be running.
+seed_startup() {
+    podman exec "$NAME" test -f /home/k4510/k4510/fs/STARTUP.BAT && return 0
+    if [ -f "$REPO/fs/STARTUP.BAT" ]; then
+        podman cp "$REPO/fs/STARTUP.BAT" "$NAME:/home/k4510/k4510/fs/STARTUP.BAT"
+        podman exec -u 0 "$NAME" chown "$UIDN" /home/k4510/k4510/fs/STARTUP.BAT
+        echo "podman.sh: /STARTUP.BAT -- this checkout's fs/STARTUP.BAT"
+    else
+        podman exec "$NAME" sh -c 'cd ~/k4510/fs && sed "s/^ALIAS HOST /# (no telnet in the container) ALIAS HOST /" SYSTEM/ETC/STARTUP.SAMPLE > STARTUP.BAT'
+        echo "podman.sh: /STARTUP.BAT -- the sample (/SYSTEM/ETC/STARTUP.SAMPLE)"
+    fi
+}
 make_container() {
     # the container: idle (sleep) so the machine can be exec'd into it with today's
     # display, and so update/shell work whether or not there is a screen.
@@ -97,6 +116,7 @@ make_container() {
     # your settings, if this checkout has some (the status bands stay on either way)
     if [ -f "$REPO/k4510.cfg" ]; then podman cp "$REPO/k4510.cfg" "$NAME:/home/k4510/k4510/k4510.cfg"; fi
     podman exec "$NAME" sh -c 'grep -q "^term.bands" ~/k4510/k4510.cfg || echo "term.bands = on" >> ~/k4510/k4510.cfg'
+    seed_startup
     podman stop -t 1 "$NAME" >/dev/null
     if have_display; then echo "container created with a screen ($([ -n "$WL" ] && echo "Wayland $WLNAME" || echo "X11 $X11"))"
     else echo "container created WITHOUT a screen: no display socket on this host; run  $0  again from a desktop"; fi
@@ -135,6 +155,7 @@ update)
     up
     echo "== this checkout's HEAD into the container =="
     git -C "$REPO" archive --format=tar HEAD | podman exec -i "$NAME" tar -x -C /home/k4510/k4510
+    seed_startup
     # the container has no .git, so hand it the commit for K4510_BUILD (the Info
     # menu); the version number comes from the Makefile, the copy kept current
     BUILD="$(build_id)"

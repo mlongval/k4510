@@ -10,3 +10,5 @@ PSIEVE.PAS   the Byte Sieve
 PFLOAT.PAS   reals on the MATH unit
 PGRAPH.PAS   the GRAPH unit on VICKY
 PMANDEL.PAS  a Mandelbrot
+ANIMAL.PAS   guess the animal: it learns from every miss (ANIMAL.DAT)
+FUNCS.PAS    BBC BASIC's "= value" functions, as Pascal's Result

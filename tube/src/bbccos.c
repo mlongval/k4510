@@ -1132,7 +1132,16 @@ void oscli (char *cmd)
 			for (q = path + strlen (path) ; (q > path) && (q[-1] == ' ') ; ) *--q = 0 ;
 			if ((strcasecmp (path, "vi") == 0) || (strcasecmp (path, "edit") == 0))
 			    {
-				k4_editprog (tolower (path[0]) == 'v' ? "VI" : "EDIT") ;
+				k4_editprog (tolower (path[0]) == 'v' ? "VI" : "EDIT -u") ;
+				return ;
+			    }
+			// [K4510] *EDIT name: EDIT -u, so what is typed in lower
+			// case is saved with the keywords in capitals, as BBC
+			// BASIC reads them (Doc, 2026-10-02)
+			if ((strncasecmp (path, "edit ", 5) == 0) && (path[5] != '-'))
+			    {
+				printf ("\033]K4510;EDIT -u %s\007", path + 5) ;
+				fflush (stdout) ;
 				return ;
 			    }
 			printf ("\033]K4510;%s\007", path) ;

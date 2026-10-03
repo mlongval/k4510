@@ -1,4 +1,4 @@
-/* K4510: EDIT [-s] [name] -- the editor, in the manner of MS-DOS 5's EDIT.
+/* K4510: EDIT [-s] [-u] [name] -- the editor, in the manner of MS-DOS 5's EDIT.
  *
  * Doc, 2026-10-02: "a WYSIWYG text editor similar to the one on later
  * releases of MS-DOS with keyboard shortcuts and mouse controls and screen
@@ -8,6 +8,11 @@
  * the top border, scroll bars that take the mouse, dialog boxes with
  * shadows, and the status line along the bottom -- in EDIT's blue, grey and
  * cyan, or with -s in the console's own colours.
+ *
+ * And for BBC BASIC, which knows its keywords only in capitals (print is a
+ * variable to it, PRINT the statement): Edit > Uppercase Keywords (Ctrl+U)
+ * puts every keyword in the file in capitals, and with -u each save does it
+ * first, so a program may be typed in lower case.  BBC's *EDIT passes -u.
  *
  * Three layers, so PROG and WORD look the same: the text engine is VI's
  * (demo/ed.h), the editing window EDIT's and PROG's (demo/dosed.h), the
@@ -30,7 +35,7 @@
 #include "dosed.h"
 
 enum { C_NEW = 1, C_OPEN, C_SAVE, C_SAVEAS, C_EXIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
-       C_CLEAR, C_SELALL, C_RENUM, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_HELP, C_ABOUT };
+       C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_HELP, C_ABOUT };
 
 /* ---- the screen ----------------------------------------------------------- */
 /* the top band names the file (core/io.c's title stack, SYS+$44), as PROG */
@@ -51,6 +56,86 @@ static void draw(void)
     window_cursor();
 }
 
+#pragma code-name (push, "HICODE")                   /* at $E000 (demo/edit.cfg): the keywords and the help */
+#pragma rodata-name (push, "HICODE")
+/* ---- BBC BASIC's keywords, in capitals --------------------------------------
+ * Only a whole word that IS a keyword changes (BBC BASIC's own table,
+ * tube/src/bbmain.c): print -> PRINT, left$( -> LEFT$(, procdraw -> PROCdraw,
+ * but total, count% and name$ stay the variables they are.  Strings, the
+ * rest of a REM or DATA, a star command and an assembler comment are left
+ * as typed. */
+static const char kw[] = " AND ABS ACS ADVAL ASC ASN ATN BGET BPUT BY COLOUR COLOR CALL CASE CHAIN CHR$ CLEAR CLOSE CLG CLS COS COUNT"
+    " CIRCLE DATA DEG DEF DIV DIM DRAW ENDPROC ENDWHILE ENDCASE ENDIF END ENVELOPE ELSE EVAL ERL ERROR EOF EOR ERR EXIT EXP EXT"
+    " ELLIPSE FOR FALSE FILL FN GOTO GET$ GET GOSUB GCOL HIMEM INPUT IF INKEY$ INKEY INT INSTR( INSTALL LINE LOMEM LOCAL LEFT$( LEN"
+    " LET LOG LN MID$( MODE MOD MOVE MOUSE NEXT NOT ON OFF OF ORIGIN OR OPENIN OPENOUT OPENUP OSCLI OTHERWISE PRINT PAGE PRIVATE PTR"
+    " PI PLOT POINT( PROC POS QUIT RETURN REPEAT REPORT READ REM RUN RAD RESTORE RIGHT$( RND RECTANGLE STEP SGN SIN SQR SPC STR$"
+    " STRING$( SOUND STOP SUM SWAP SYS TAN TAB( THEN TIME TINT TO TRACE TRUE UNTIL USR VDU VAL VPOS WHILE WHEN WAIT WIDTH ";
+static uint8_t kwb[24], upflag;
+static uint8_t kw_is(uint8_t n)                       /* kwb[0..n) one of them? */
+{
+    const char *k;
+    uint8_t i;
+    for (k = kw; k[1]; k++) {
+        if (*k != ' ') continue;
+        for (i = 0; i < n && (uint8_t)k[1 + i] == kwb[i]; i++) ;
+        if (i == n && k[1 + n] == ' ') return 1;
+    }
+    return 0;
+}
+static uint8_t is_al(uint8_t c) { c = rn_up(c); return (uint8_t)(c >= 'A' && c <= 'Z'); }
+static uint8_t is_an(uint8_t c) { return (uint8_t)(is_al(c) || (c >= '0' && c <= '9') || c == '_'); }
+static uint8_t up_line(uint8_t *l)                    /* l: a length, then the text; answers how many words changed */
+{
+    uint8_t i = 1, e = l[0], s, n, m, c, p, q = 0, asmb = 0, st = 1, hits = 0;
+    while (i <= e) {
+        c = l[i];
+        if (c == '"') { q ^= 1; i++; continue; }
+        if (q) { i++; continue; }
+        if (c == ':') { st = 1; i++; continue; }
+        if (c == '*' && st && !asmb) break;            /* a star command: the OS's, as typed */
+        if (c == '[') asmb = 1; else if (c == ']') asmb = 0;
+        if (asmb && (c == ';' || c == '\\')) { while (i <= e && l[i] != ':') i++; continue; }
+        if (c == '&') { do i++; while (i <= e && is_an(l[i])); st = 0; continue; }   /* hex */
+        if (!is_al(c)) { if (c != ' ' && (c < '0' || c > '9')) st = 0; i++; continue; }
+        for (s = i; i <= e && is_an(l[i]); i++) ;
+        n = (uint8_t)(i - s); st = 0;
+        if (n > 20 || (i <= e && (l[i] == '%' || l[i] == '&'))) continue;   /* an integer variable */
+        for (m = 0; m < n; m++) kwb[m] = rn_up(l[s + m]);
+        if (i <= e && l[i] == '$') kwb[m++] = '$';
+        p = 0;
+        if (s + m <= e && l[s + m] == '(') { kwb[m] = '('; if (kw_is((uint8_t)(m + 1))) p = n; }
+        if (!p && kw_is(m)) p = n;
+        if (!p) {                                     /* PROCname, FNname, DEFPROC..., DEFFN... */
+            c = (uint8_t)(kwb[0] == 'D' && kwb[1] == 'E' && kwb[2] == 'F' ? 3 : 0);
+            if (kwb[c] == 'P' && kwb[c + 1] == 'R' && kwb[c + 2] == 'O' && kwb[c + 3] == 'C' && n > c + 4) p = (uint8_t)(c + 4);
+            else if (kwb[c] == 'F' && kwb[c + 1] == 'N' && n > c + 2) p = (uint8_t)(c + 2);
+        }
+        for (c = 0, m = 0; m < p; m++) if (l[s + m] != kwb[m]) { l[s + m] = kwb[m]; c = 1; }
+        hits += c;
+        if (p == n && ((n == 3 && kwb[0] == 'R' && kwb[1] == 'E' && kwb[2] == 'M') || (n == 4 && kwb[0] == 'D' && kwb[1] == 'A' && kwb[2] == 'T' && kwb[3] == 'A'))) break;
+    }
+    return hits;
+}
+static char unote[40];
+static void up_all(void)                              /* the whole file, one undo */
+{
+    unsigned n, hits = 0; uint8_t h;
+    t_end(); line_out(cy); u_begin();
+    for (n = 0; n < nlines; n++) {
+        far_get(SLOT(n), tmp, 256);
+        far_get(SLOT(n), ln, 256);
+        if ((h = up_line(ln)) != 0) { u_push(1, n, tmp); far_put(ln, SLOT(n), 256); hits += h; }
+    }
+    u_end(); line_in(cy);
+    if (hits) { dirty = 1; full = 1; }
+    nb_reset(); nb_n(hits); nb_s(hits == 1 ? " keyword put in capitals" : " keywords put in capitals");
+    for (h = 0; nbuf[h] && h < sizeof unote - 1; h++) unote[h] = nbuf[h];
+    unote[h] = 0; note = unote;
+}
+
+#pragma rodata-name (pop)
+#pragma code-name (pop)
+
 /* ---- files -------------------------------------------------------------- */
 static char fbuf[NAMEMAX];
 static void fresh(void) { ujp = ujn = 0; useq = 0; tgline = 0xFFFFu; cx = 0; top = 0; hoff = 0; dirty = 0; full = 1; wantx = 0; selon = 0; }
@@ -67,6 +152,7 @@ static uint8_t save_as(void)
     if (!form1("Save As", "File Name:", fbuf, NAMEMAX, "OK") || !fbuf[0]) return 0;
     for (i = 0; fbuf[i]; i++) name[i] = fbuf[i];
     name[i] = 0;
+    if (upflag) up_all();
     t_end(); save_file();
     full = 1;
     return saved();
@@ -74,6 +160,7 @@ static uint8_t save_as(void)
 static uint8_t save(void)
 {
     if (!name[0]) return save_as();
+    if (upflag) up_all();
     t_end(); save_file();
     return saved();
 }
@@ -96,6 +183,7 @@ static void load_name(const char *nm)
     if (note[0] == 'n') note = "A new file";
 }
 
+#pragma rodata-name (push, "HICODE")
 /* ---- help --------------------------------------------------------------- */
 static const char *const helptext[] = {
     "Moving        arrows, Home, End, PgUp, PgDn; with Ctrl: words, the ends",
@@ -107,12 +195,15 @@ static const char *const helptext[] = {
     "Files         Ctrl+N new, Ctrl+O open, Ctrl+S save, Ctrl+Q exit",
     "Search        Ctrl+F find, F3 again, Ctrl+G go to a line",
     "BASIC         Ctrl+R renumbers (10, 20, 30 and every GOTO)",
+    "              Ctrl+U puts BBC BASIC's keywords in capitals",
     "Menus         F10, or Alt and the letter; Esc closes",
     "Mouse         click the text, a menu, a scroll bar; the wheel scrolls",
     "",
     "EDIT -s FILE  starts in the console's own colours (Options)",
+    "EDIT -u FILE  keywords in capitals at every save (BBC's *EDIT)",
     0 };
 static const char *const abouttext[] = { "K4510 Editor", "", "MS-DOS EDIT's manner, VI's engine.", 0 };
+#pragma rodata-name (pop)
 
 /* ---- the commands ---------------------------------------------------------
  * Every key and every menu entry is a command number, run by one switch, so
@@ -134,6 +225,7 @@ static void run_cmd(uint8_t c)
     case C_CLEAR:  do_clear(); break;
     case C_SELALL: select_all(); break;
     case C_RENUM:  t_end(); do_renum(""); break;
+    case C_UPPER:  up_all(); break;
     case C_FIND:   find_dlg(); break;
     case C_NEXT:   find_next(); break;
     case C_CHANGE: change_dlg(); break;
@@ -153,7 +245,8 @@ static const struct item m_file[]   = { { "New", 0, C_NEW, "Ctrl+N" }, { "Open..
 static const struct item m_edit[]   = { { "Undo", 0, C_UNDO, "Ctrl+Z" }, { "Redo", 0, C_REDO, "Ctrl+Y" }, { "", 0, C_SEP, "" },
                                         { "Cut", 2, C_CUT, "Shift+Del" }, { "Copy", 0, C_COPY, "Ctrl+Ins" }, { "Paste", 0, C_PASTE, "Shift+Ins" },
                                         { "Clear", 2, C_CLEAR, "Del" }, { "Select All", 7, C_SELALL, "Ctrl+A" }, { "", 0, C_SEP, "" },
-                                        { "Renumber BASIC", 2, C_RENUM, "Ctrl+R" }, { 0, 0, 0, 0 } };
+                                        { "Renumber BASIC", 2, C_RENUM, "Ctrl+R" },
+                                        { "Uppercase Keywords", 10, C_UPPER, "Ctrl+U" }, { 0, 0, 0, 0 } };
 static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "Repeat Last Find", 0, C_NEXT, "F3" },
                                         { "Change...", 0, C_CHANGE, "" }, { "Go To Line...", 0, C_GOTO, "Ctrl+G" }, { 0, 0, 0, 0 } };
 static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { 0, 0, 0, 0 } };
@@ -185,6 +278,7 @@ static void do_key(uint8_t k)
         case 0x06: run_cmd(C_FIND); return;          /* ^F */
         case 0x07: run_cmd(C_GOTO); return;          /* ^G */
         case 0x12: run_cmd(C_RENUM); return;         /* ^R: renumber a BASIC file, as the old EDIT did */
+        case 0x15: run_cmd(C_UPPER); return;         /* ^U: BBC BASIC's keywords in capitals */
     }
     if (window_key(k)) return;
     switch (k) {
@@ -197,9 +291,12 @@ static void do_key(uint8_t k)
 void main(void)
 {
     uint8_t k, na = rom_args(), j = 0, sys = 0; const char *a = *(const char **)0xF0;
-    for (;;) {                                        /* EDIT [-s] [name] */
+    for (;;) {                                        /* EDIT [-s] [-u] [name] */
         while (na && *a == ' ') { a++; na--; }
-        if (na >= 2 && a[0] == '-' && (a[1] == 's' || a[1] == 'S') && (na == 2 || a[2] == ' ')) { sys = 1; a += 2; na -= 2; continue; }
+        if (na >= 2 && a[0] == '-' && (na == 2 || a[2] == ' ')) {
+            if (a[1] == 's' || a[1] == 'S') { sys = 1; a += 2; na -= 2; continue; }
+            if (a[1] == 'u' || a[1] == 'U') { upflag = 1; a += 2; na -= 2; continue; }
+        }
         break;
     }
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }

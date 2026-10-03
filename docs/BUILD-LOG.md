@@ -10878,3 +10878,37 @@ Checked: edittest, wordtest, jimtest, vitest, romtest, statetest, uitest;
 captures of EDIT's and PROG's menus opened, moved along and closed; under
 Xvfb with xdotool, a click opens File, another on the title closes it,
 and Open... by mouse brings up its dialog.
+
+## 2026-10-02 — EDIT puts BBC BASIC's keywords in capitals
+
+Doc: "an option in EDIT to change the case of all text to UPPER ...
+because BBC basic expects programs ... in all uppercase", and from BBC's
+*EDIT "default to UPPERCASE ... or automatically save to UPPERCASE".
+"It could just be a command line flag on EDIT."
+
+Not all the text: that would shout every string and REM, and does not
+help names -- BBC BASIC reads TOTAL as TO and TAL either way (tried on
+tube/bbcbasic: TOTAL=5 is a syntax error, and so is total=5 under
+*LOWERCASE ON).  So only the keywords: a whole word that is one of BBC
+BASIC's own (tube/src/bbmain.c's keywds, 138 of them), with its $ and its
+( where the keyword has them -- print, left$(, endproc -- and the PROC/FN
+prefix of a name (procdraw -> PROCdraw, def fnx -> DEF FNx).  total,
+count%, name$ stay variables.  Strings, the rest of a REM or a DATA, a
+star command, hex after &, an assembler comment: as typed.  A keyword run
+into a name (fori%=1to10) is not found.
+
+  Ctrl+U, Edit > Uppercase Keywords   the whole file, one undo group
+  EDIT -u                             the same at every save
+  *EDIT (bare, or *EDIT name)          runs EDIT -u (tube/src/bbccos.c)
+
+Checked with test/edittest.sh 8 (Ctrl+U, Ctrl+U then Ctrl+Z, -u at the
+save), and a lower-case program with FOR, PROC, LEFT$(, READ/DATA, IF THEN
+ELSE: after -u it runs under tube/bbcbasic as written.
+
+EDIT did not fit.  The image ran to $CFC1, and the C stack starts at
+$D000 and grows down into it -- nothing stopped that: edit.cfg let PRG
+run to $CFFF.  EDIT is a K4SG program now, as PROG is (PROG's header,
+demo/prog-header.s, serves both): the keyword table, its pass and the
+help text are HICODE at $E000 (2.5 KB); the image ends at $C5AE.  And
+edit.cfg, prog.cfg and word.cfg stop PRG at $CC00, so an image that would
+run into the stack's 1 KB fails to link instead of overwriting itself.

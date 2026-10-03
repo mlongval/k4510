@@ -42,6 +42,7 @@ Enter, Tab & a new line that keeps the indent; spaces to the next tab stop --- T
 Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q & a new file, open, save, leave --- asking first about unsaved changes \\
 Ctrl+F, F3, Ctrl+G & find, find again, go to a line \\
 Ctrl+R & renumber a BASIC program: 10, 20, 30\ldots, and every \texttt{GOTO} with it \\
+Ctrl+U & BBC BASIC's keywords in capitals (\texttt{print} becomes \texttt{PRINT}); Ctrl+Z puts them back \\
 F10, or Alt and a letter & the menus: Alt+F is \emph{File}, Alt+S \emph{Search}; then the arrows, Enter, or an entry's letter; Esc closes \\
 F1 & the keys \\
 \bottomrule
@@ -420,6 +421,21 @@ and so does every target after \verb|GOTO|, \verb|GOSUB|, \verb|THEN|,
 kept as it is and counted in the message, and a program whose numbers are
 out of order is refused, not guessed at. LOGO has no line numbers, and says
 so.
+
+\textbf{BBC BASIC wants its keywords in capitals}: to it \verb|print| is a
+variable and only \verb|PRINT| prints, so a program typed in lower case
+stops with \emph{Mistake}. EDIT's Ctrl+U (\emph{Edit}, \emph{Uppercase
+Keywords}) puts every keyword in the file in capitals --- only a whole word
+that is one: \verb|left$(| becomes \verb|LEFT$(| and \verb|procdraw|
+\verb|PROCdraw|, but \verb|total|, \verb|count%| and \verb|name$| stay
+the variables they are, and strings, the rest of a \verb|REM| or
+\verb|DATA| and a star command are left as typed. \verb|EDIT -u name|
+does it at every save, so you can type in lower case throughout; BBC's
+\verb|*EDIT| starts EDIT that way. (A keyword run into a name, as in
+\verb|fori%=1to10|, is not found: leave the spaces in. And BBC BASIC's own
+\verb|*LOWERCASE ON| is the other way round the problem: it takes the
+keywords in lower case, at the price of every lower-case variable that
+happens to be one.)
 
 \textbf{To edit any other file}, put \verb|SWAP| in front:
 

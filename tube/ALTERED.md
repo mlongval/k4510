@@ -74,4 +74,6 @@ Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.
   and k4_ack_then() waits for the console's ACK (0x06, sent once the
   machine's command has finished -- the W is the request for it) before
   typing `LOAD "EDITTMP.BBC"` into the input queue; LOAD reads text and
-  tokenises it. Escape abandons the wait.
+  tokenises it. Escape abandons the wait. `*EDIT` (bare, or with a file
+  name) runs `EDIT -u`, which saves with BBC BASIC's keywords in capitals,
+  so a program may be typed in lower case.

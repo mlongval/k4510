@@ -8,7 +8,7 @@
 set -e
 cd "$(dirname "$0")/.."
 H=fs/HOME
-fail() { echo "edittest: FAILED: $1"; rm -f $H/ZZED*.TXT $H/ZZED.BAS; exit 1; }
+fail() { echo "edittest: FAILED: $1"; rm -f $H/ZZED*.TXT $H/ZZED.BAS $H/ZZED6.BBC; exit 1; }
 run() { ./test/headless rom/kernal.bin "$1" "${2:-900}" 2>/dev/null; }
 rm -f $H/ZZED*.TXT $H/ZZED.BAS
 
@@ -53,5 +53,28 @@ sys=$(K4510_DUMP=030000,4 run "$(printf 'edit -s ZZED2.TXT\n~~')" 200)
 echo "$sys" | grep -q "ZZED2.TXT" || fail "-s did not take the name after it"
 case "$(echo "$sys" | tail -1)" in *" 0F") fail "-s still DOS's grey menu bar" ;; esac
 
+# 8. BBC BASIC's keywords in capitals: Ctrl+U (and Ctrl+Z takes it back as one), and
+#    -u at every save; strings, REM, DATA, a star command and variables stay as typed
+B='10 for i%=1 to 3: print "hi ";i%: next
+20 rem print me
+30 total=5: procshow(total): print left$("abcd",2): *fx 15
+40 data print
+50 def procshow(x): print "x=";x: endproc'
+U='10 FOR i%=1 TO 3: PRINT "hi ";i%: NEXT
+20 REM print me
+30 total=5: PROCshow(total): PRINT LEFT$("abcd",2): *fx 15
+40 DATA print
+50 DEF PROCshow(x): PRINT "x=";x: ENDPROC'
+echo "$B" > $H/ZZED6.BBC
+run "$(printf 'edit ZZED6.BBC\n~~\025~\023~\021~~')" >/dev/null
+echo "$U" | cmp -s - $H/ZZED6.BBC || fail "Ctrl+U: $(cat $H/ZZED6.BBC)"
+echo "$B" > $H/ZZED6.BBC
+run "$(printf 'edit ZZED6.BBC\n~~\025~\032~\023~\021~~')" >/dev/null
+echo "$B" | cmp -s - $H/ZZED6.BBC || fail "Ctrl+U then Ctrl+Z did not put it all back: $(cat $H/ZZED6.BBC)"
+echo "$B" > $H/ZZED6.BBC
+run "$(printf 'edit -u ZZED6.BBC\n~~\023~\021~~')" >/dev/null
+echo "$U" | cmp -s - $H/ZZED6.BBC || fail "-u did not capitalise at the save: $(cat $H/ZZED6.BBC)"
+rm -f $H/ZZED6.BBC
+
 rm -f $H/ZZED*.TXT $H/ZZED.BAS
-echo "edittest: OK (typing and indent, Change, Find and F3, Go to line and undo, renumber, Exit asks, the screen in both colour schemes)"
+echo "edittest: OK (typing and indent, Change, Find and F3, Go to line and undo, renumber, Exit asks, the screen in both colour schemes, BBC keywords in capitals by Ctrl+U and -u)"

@@ -57,6 +57,10 @@ The text lives in far memory, not in the 64 KB: a file may run to 16 384 lin
 <td style="text-align: left;">renumber a BASIC program: 10, 20, 30…, and every <code>GOTO</code> with it</td>
 </tr>
 <tr class="even">
+<td style="text-align: left;">Ctrl+U</td>
+<td style="text-align: left;">BBC BASIC’s keywords in capitals (<code>print</code> becomes <code>PRINT</code>); Ctrl+Z puts them back</td>
+</tr>
+<tr class="even">
 <td style="text-align: left;">F10, or Alt and a letter</td>
 <td style="text-align: left;">the menus: Alt+F is <em>File</em>, Alt+S <em>Search</em>; then the arrows, Enter, or an entry’s letter; Esc closes</td>
 </tr>
@@ -536,6 +540,8 @@ There are two cases, and they look alike, so here is the rule.
 **To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; BBC BASIC does the same with `*VI` and `*EDIT` ([Chapter 5, The Tube](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 7, LOGO](08-logo.md)).
 
 **To renumber it**, which none of those BASICs could do for itself, use `:renum` in VI or Ctrl-R in EDIT. Both know the language from the file: a `.BAS` is EhBASIC’s, a `.BBC` is BBC BASIC’s, with its `ELSE` targets and its lower-case variables (a `goto` there is a name, not a jump). The lines’ own numbers change, and so does every target after `GOTO`, `GOSUB`, `THEN`, `RESTORE` and `ON`…`GOTO`; strings, `REM` and `DATA` are left alone. A `GOTO` to a line that does not exist is kept as it is and counted in the message, and a program whose numbers are out of order is refused, not guessed at. LOGO has no line numbers, and says so.
+
+**BBC BASIC wants its keywords in capitals**: to it `print` is a variable and only `PRINT` prints, so a program typed in lower case stops with *Mistake*. EDIT’s Ctrl+U (*Edit*, *Uppercase Keywords*) puts every keyword in the file in capitals — only a whole word that is one: `left$(` becomes `LEFT$(` and `procdraw` `PROCdraw`, but `total`, `count%` and `name$` stay the variables they are, and strings, the rest of a `REM` or `DATA` and a star command are left as typed. `EDIT -u name` does it at every save, so you can type in lower case throughout; BBC’s `*EDIT` starts EDIT that way. (A keyword run into a name, as in `fori%=1to10`, is not found: leave the spaces in. And BBC BASIC’s own `*LOWERCASE ON` is the other way round the problem: it takes the keywords in lower case, at the price of every lower-case variable that happens to be one.)
 
 **To edit any other file**, put `SWAP` in front:
 

@@ -311,11 +311,13 @@ fs/SYSTEM/BIN/word.prg: demo/word.c demo/dosui.h demo/k4510.h demo/far.h demo/pr
 	cc65 -O -t none --cpu 65c02 -o demo/word.s demo/word.c
 	ca65 --cpu 65c02 -o demo/word.o demo/word.s
 	ld65 -C demo/word.cfg -o $@ demo/prg0.o demo/romcalls.o demo/word.o none.lib -m demo/word.map
-# EDIT: VI's engine and MS-DOS EDIT's front end -- PROG's layout, $2000 and variables at $0800 (demo/edit.cfg)
-fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg
+# EDIT: VI's engine and MS-DOS EDIT's front end -- PROG's layout, a K4SG program with its cold code at $E000 (demo/edit.cfg);
+# its two-segment header is PROG's own (demo/prog-header.s says nothing PROG-only)
+fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg demo/prog-header.s
 	cc65 -O -t none --cpu 65c02 -o demo/edit.s demo/edit.c
 	ca65 --cpu 65c02 -o demo/edit.o demo/edit.s
-	ld65 -C demo/edit.cfg -o $@ demo/prg0.o demo/romcalls.o demo/edit.o none.lib -m demo/edit.map
+	ca65 --cpu 65c02 -o demo/edit_h.o demo/prog-header.s
+	ld65 -C demo/edit.cfg -o $@ demo/prg0.o demo/romcalls.o demo/edit_h.o demo/edit.o none.lib -m demo/edit.map
 # MARK: the stopwatch in C, the measured loops in assembly (so cc65 getting better does not move the figures)
 # mark-asm.o is linked FIRST so that editing mark.c moves nothing that is measured: a page crossed is a cycle,
 # and demo/mark-cycles.h (tools/mark-cycles.py, from the built program) counts them.

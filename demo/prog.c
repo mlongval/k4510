@@ -697,7 +697,7 @@ void main(void)
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }
     name[j] = 0;
     ui_init();
-    ui_titles = mtitle; ui_menus = menus; ui_nmenu = 6; ui_marked = marked; ui_dirtab = 0x07F00000UL; ui_name = "PROG ";
+    ui_titles = mtitle; ui_menus = menus; ui_nmenu = 6; ui_marked = marked; ui_dirtab = 0x0EE00000UL;   /* not 0x07F00000: the eighth buffer's undo journal runs to 0x07F77000 */ ui_name = "PROG ";
     eh = (uint8_t)(rows - 5 - MSGH);
     wy = 2; th = eh; tw = (uint8_t)(cols - 2);
     scheme(sys);

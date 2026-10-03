@@ -252,9 +252,14 @@ void    io_tube_shutdown(void);           /* the host, on a clean quit: end any 
 #define IO_MOUSEDY     (IO_INPUT + 0x0F)
 #define IO_MOUSEPTR    (IO_INPUT + 0x10)  /* read: bit0 the host's own pointer shows over the picture (F12's
                                            * "Mouse pointer", and not captured) -- a program then draws none
-                                           * of its own, or there are two (Doc, EDIT, 2026-10-02) */
+                                           * of its own, or there are two (Doc, EDIT, 2026-10-02).
+                                           * write: bit1 keep the host's pointer up even while a click has
+                                           * captured the mouse (EDIT, WORD, PROG: one pointer, the
+                                           * machine's, whatever the capture); cleared when the program
+                                           * ends.  Reads back as bit1. */
 void    mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy);   /* the host, once a frame */
 void    mouse_host_pointer(int shown);    /* the host, once a frame: is its pointer on the picture? */
+int     mouse_host_wanted(void);          /* $D110 bit1: the program wants the host's pointer while captured */
 #define KEY_ENTER 0x0D
 #define KEY_BS    0x08
 #define KEY_TAB   0x09

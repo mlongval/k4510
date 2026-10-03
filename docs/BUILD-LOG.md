@@ -10839,3 +10839,42 @@ Read on the machine: test/word-sample.docx (pandoc, from word-sample.md)
 and, by hand and only in a scratch copy of fs/, two of Doc's own letters --
 accents, a drawing and a hyperlink among them, all read cleanly.
 test/wordtest.sh in make test.  SHIPPING.CFG: word.prg = maybe.
+
+## 2026-10-02 — the menus without flicker; one pointer
+
+Doc, on t480i5: the menus' top-right corner read as a straight line; with
+Alt and the arrows a menu was erased and drawn again; a click "bounced"
+(the menu drawn twice); the mouse tore it on every move.  And EDIT and
+WORD did not show the pointer the rest of the machine shows.
+
+The menus (demo/dosui.h, so EDIT, WORD and PROG alike).  menu() used to
+redraw the whole screen with draw() and then the menu cell by cell, on
+every key and every mouse event -- the release that follows the press
+that opened it included, which was the bounce.  Now the screen is copied
+to far memory when a menu opens (just past ui_dirtab's list), and each of
+the menu's rows is put together in rb -- the copy, the box, the entries,
+the shadow -- and goes out in one DMA.  Nothing is erased first.  It is
+drawn only when the menu or the entry changes, and closing puts the copy
+back.  The mouse works as DOS's did: a press or a drag lights an entry,
+the release runs it, a press on the open title closes it.
+
+The corner: the glyph was right (┐), but the box's top row sits on the
+window frame's row, and the frame's line ran on from the corner, so
+┐─── read as one line.  The line now stops a cell short on both sides,
+as it does round the window's title.
+
+PROG's Open list was at $07F00000, inside the eighth buffer's undo
+journal ($07E00000 + 3000 x 512 runs to $07F77000); it is at $0EE00000.
+
+The pointer.  The host hides its pointer while a click has captured the
+mouse (right for a game), and a program then draws its own sprite, so
+EDIT's pointer changed with the capture.  $D110 bit 1, written, asks the
+host to keep its pointer up even when captured; dosui.h sets it, and it
+is cleared when the program ends (title_cmd 2 and 4).  The pointer is now
+the machine's own the whole time; the sprite (the same arrow) is drawn
+only when F12's Mouse pointer is off.
+
+Checked: edittest, wordtest, jimtest, vitest, romtest, statetest, uitest;
+captures of EDIT's and PROG's menus opened, moved along and closed; under
+Xvfb with xdotool, a click opens File, another on the title closes it,
+and Open... by mouse brings up its dialog.

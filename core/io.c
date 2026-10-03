@@ -73,8 +73,9 @@ static uint8_t kbd_held_mask;
 void kbd_held(uint8_t mask) { kbd_held_mask = mask; }
 static int mouse_x, mouse_y; static uint8_t mouse_btn; static int8_t mouse_wheel, mouse_dx, mouse_dy;
 static int8_t clamp8(int v) { return (int8_t)(v > 127 ? 127 : v < -128 ? -128 : v); }
-static uint8_t mouse_hostptr;
+static uint8_t mouse_hostptr, mouse_wanthost;
 void mouse_host_pointer(int shown) { mouse_hostptr = shown ? 1 : 0; }
+int mouse_host_wanted(void) { return mouse_wanthost; }
 void mouse_set(int x, int y, uint8_t buttons, int wheel, int dx, int dy)
 {
     int gw = vicky_glass_w(), gh = vicky_glass_h();                     /* the glass: 640x480, or an HD mode's own size */
@@ -522,9 +523,9 @@ static void title_cmd(uint8_t c)
             title_stack[title_depth].file[0] = 0; title_depth++;
         }
         title_next[0] = 0;
-    } else if (c == 2) { if (title_depth > 1) title_depth--; }   /* it came back */
+    } else if (c == 2) { if (title_depth > 1) title_depth--; mouse_wanthost = 0; }   /* it came back (and its $D110 wish ends with it) */
     else if (c == 3) { title_stack[title_depth - 1].prog[0] = 0; title_stack[title_depth - 1].file[0] = 0; }
-    else if (c == 4) { title_depth = 1; strcpy(title_stack[0].prog, "K/OS"); title_stack[0].file[0] = 0; title_next[0] = 0; }
+    else if (c == 4) { mouse_wanthost = 0; title_depth = 1; strcpy(title_stack[0].prog, "K/OS"); title_stack[0].file[0] = 0; title_next[0] = 0; }
 }
 /* SYS+$44: a program names the file it has in front -- PROG's tabs switch
  * without loading anything, so title_file() never hears of it.  0 clears
@@ -2365,7 +2366,7 @@ static uint8_t io_read_inner(uint16_t addr)
                                    | (kbd_ready() && (kbd_fifo[kbd_head] & KBD_KEY) ? 0x20 : 0x00) | (kbd_latched ? (kbd_latched & 7) : kbd_mods);
         if (addr == IO_KBDST + 1) return kbd_ready() ? (uint8_t)kbd_fifo[kbd_head] : 0;   /* peek: next key, not popped */
         if (addr == IO_KBDHELD) return menu_is_open() ? 0 : kbd_held_mask;     /* the keys down now; none while the menu has them */
-        if (addr == IO_MOUSEPTR) return mouse_hostptr;
+        if (addr == IO_MOUSEPTR) return mouse_hostptr | (mouse_wanthost ? 2 : 0);
         if (addr >= IO_MOUSEX && addr <= IO_MOUSEDY) {                        /* the mouse; the menu keeps its clicks */
             /* The host reports the glass (640x480); the program wants the pixels
              * of the mode VICKY is in (core/vicky.h CTRL): halve or quarter the
@@ -2516,6 +2517,7 @@ void io_write(uint16_t addr, uint8_t v)
          * the FIFO, not through kbd_push: a program is not allowed to open the
          * menu, and the debugger's key log is for keys a person pressed. */
         if ((addr & 0xFF) == 0) kbd_enqueue(v);
+        if (addr == IO_MOUSEPTR) mouse_wanthost = (uint8_t)((v >> 1) & 1);
         return;
     default:
         return;

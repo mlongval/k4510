@@ -1475,7 +1475,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           if (m && !menu_was) grab(0);
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
           if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
-          { static int cur_shown = -1; int want = (settings_get(SET_INPUT_MOUSE_SHOW) && !grabbed) ? 1 : 0;   /* the host pointer: shown per the setting, hidden while captured */
+          { static int cur_shown = -1; int want = (settings_get(SET_INPUT_MOUSE_SHOW) && (!grabbed || mouse_host_wanted())) ? 1 : 0;   /* the host pointer: shown per the setting, hidden while captured -- unless the program asks ($D110 bit1) */
             mouse_host_pointer(want);                                  /* $D110: so a program's own pointer is not a second one */
             if (want != cur_shown) { SDL_ShowCursor(want ? SDL_ENABLE : SDL_DISABLE); cur_shown = want; } }
           menu_was = m; }

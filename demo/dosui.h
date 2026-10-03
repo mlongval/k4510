@@ -44,7 +44,8 @@ static void far_put(const void *s, uint32_t p, unsigned n) { dma_copy((uint32_t)
 #define MOUSEY  0xD10Au
 #define MOUSEB  0xD10Cu
 #define MOUSEW  0xD10Du
-#define MOUSEPTR 0xD110u                /* bit0: the host draws its own pointer, so we draw none */
+#define MOUSEPTR 0xD110u                /* bit0: the host draws its own pointer, so we draw none; bit1 (written):
+                                         * keep the host's pointer even while the mouse is captured */
 #define SPRTAB  0x123000UL              /* the pointer: sprite 0, MOUSETEST's arrow */
 #define SPRDATA 0x123100UL
 #define KMOUSE  0xFF
@@ -185,8 +186,12 @@ static void cursor_show(uint8_t on) { if (on) REG(TERM + 0x0E) |= 1; else REG(TE
 
 /* ---- keys and the mouse ----------------------------------------------------
  * The machine draws no pointer; the host may (F12's "Mouse pointer"), and
- * says so at $D110.  When it does not, this draws one: sprite 0.  event()
- * waits for a key or for the mouse to do something, a frame at a time. */
+ * says so at $D110.  These programs ask it to keep its pointer up even when
+ * a click has captured the mouse (a game wants it gone then; an editor does
+ * not), so the pointer is the one the rest of the machine shows and does not
+ * change when the mouse is captured.  With the setting off there is no host
+ * pointer, and this draws one: sprite 0, the same arrow.  event() waits for
+ * a key or for the mouse to do something, a frame at a time. */
 static uint8_t mev, mrow, mcol, mheld, dragging, chh = 8;   /* mev: 1 press, 2 drag, 3 release, 4 wheel */
 static int8_t mwheel;
 static const uint8_t arrowspr[128] = {   /* 16x16, 4 bpp: the arrow (1) with a black edge (2) round it */
@@ -205,10 +210,11 @@ static void ptr_on(void)
     pal(17, 255, 255, 255); pal(18, 0, 0, 0);
     far_poke(SPRTAB + 4, (uint8_t)SPRDATA); far_poke(SPRTAB + 5, (uint8_t)(SPRDATA >> 8)); far_poke(SPRTAB + 6, (uint8_t)(SPRDATA >> 16)); far_poke(SPRTAB + 7, 0);
     far_poke(SPRTAB + 8, 0x31); far_poke(SPRTAB + 9, 0x05); far_poke(SPRTAB + 10, 1);
+    REG(MOUSEPTR) = 2;                                 /* the host's pointer, captured or not */
     w32(V_SPRTAB, SPRTAB); REG(V_SPRCTL) = (uint8_t)!(REG(MOUSEPTR) & 1);
     chh = (uint8_t)((REG(0xD010) & 0x60) ? 16 : 8);
 }
-static void ptr_off(void) { REG(V_SPRCTL) = 0; }
+static void ptr_off(void) { REG(V_SPRCTL) = 0; REG(MOUSEPTR) = 0; }
 static uint8_t event(void)
 {
     uint8_t k, b, r, c; unsigned x, y; int8_t w;
@@ -274,20 +280,53 @@ static uint8_t menu_x(uint8_t m, uint8_t *w, uint8_t *n)
     if (x + *w + 2 > cols) x = (uint8_t)(cols - *w - 2);
     return x;
 }
+/* A menu open is drawn row by row over a copy of the screen taken when it
+ * opened (far memory just past ui_dirtab's list): each row is put together
+ * in rb -- what was there, the box, the items, the shadow -- and goes out
+ * in one DMA.  Nothing is erased first, so nothing flickers; closing puts
+ * the copy back.  mn_bot is the lowest row an open menu has covered. */
+static uint32_t ui_dirtab;
+static uint8_t mn_bot;
+static uint32_t snap_at(uint8_t y) { return ui_dirtab + 0x8000UL + (uint32_t)y * cols * 4; }
+static void snap_take(void) { uint8_t y; for (y = 0; y < rows; y++) dma_copy(rowaddr(y), snap_at(y), (unsigned)cols << 2); }
+static void snap_row(uint8_t y) { dma_copy(snap_at(y), (uint32_t)(uint16_t)rb, (unsigned)cols << 2); }
+static void shd(uint8_t x) { if (x < cols) { uint8_t *p = rb + ((unsigned)x << 2); p[2] = 12; p[3] = 0; } }   /* a shadow cell, as shade() */
+static void gap(uint8_t x)                            /* a window frame's line under row 1, cut beside a menu as round a title */
+{
+    uint8_t *p = rb + ((unsigned)x << 2);
+    if (x < cols && p[0] == 0xC4) p[0] = ' ';
+}
 static void menu_draw(uint8_t m, uint8_t sel)
 {
     const struct item *it = ui_menus[m];
-    uint8_t n, w, x = menu_x(m, &w, &n), r, j, k;
+    uint8_t n, w, x = menu_x(m, &w, &n), y, r, j, k, c, bot, e;
+    bot = (uint8_t)(n + 3); e = bot > mn_bot ? bot : mn_bot;
     menubar((int8_t)m);
-    box(x, 1, w, (uint8_t)(n + 2), K_MENU, 0);
-    for (r = 0; r < n; r++) {
-        if (it[r].cmd == C_SEP) { pk(x, (uint8_t)(2 + r), 0xC3, K_MENU); for (j = 1; j < w - 1; j++) pk((uint8_t)(x + j), (uint8_t)(2 + r), 0xC4, K_MENU); pk((uint8_t)(x + w - 1), (uint8_t)(2 + r), 0xB4, K_MENU); continue; }
-        k = r == sel ? K_MSEL : K_MENU;
-        for (j = 1; j < w - 1; j++) pk((uint8_t)(x + j), (uint8_t)(2 + r), ' ', k);
-        if (ui_marked && ui_marked(it[r].cmd)) pk((uint8_t)(x + 1), (uint8_t)(2 + r), 0xFB, k);   /* a check */
-        for (j = 0; it[r].label[j]; j++) pk((uint8_t)(x + 2 + j), (uint8_t)(2 + r), (uint8_t)it[r].label[j], (uint8_t)(j == it[r].hot ? (k == K_MSEL ? K_MSELHOT : K_MHOT) : k));
-        pstr((uint8_t)(x + w - 2 - slen(it[r].keys)), (uint8_t)(2 + r), it[r].keys, k);
+    for (y = 1; y <= e && y < rows; y++) {
+        snap_row(y);
+        if (y == 1 || y == n + 2) {
+            cel(x, y == 1 ? 0xDA : 0xC0, K_MENU);
+            for (j = 1; j < w - 1; j++) cel((uint8_t)(x + j), 0xC4, K_MENU);
+            cel((uint8_t)(x + w - 1), y == 1 ? 0xBF : 0xD9, K_MENU);
+            if (y == 1) { gap((uint8_t)(x - 1)); gap((uint8_t)(x + w)); }   /* the frame's line stops short of the corners */
+        } else if (y < n + 2) {
+            r = (uint8_t)(y - 2);
+            if (it[r].cmd == C_SEP) {
+                cel(x, 0xC3, K_MENU); for (j = 1; j < w - 1; j++) cel((uint8_t)(x + j), 0xC4, K_MENU); cel((uint8_t)(x + w - 1), 0xB4, K_MENU);
+            } else {
+                k = r == sel ? K_MSEL : K_MENU;
+                cel(x, 0xB3, K_MENU); cel((uint8_t)(x + w - 1), 0xB3, K_MENU);
+                for (j = 1; j < w - 1; j++) cel((uint8_t)(x + j), ' ', k);
+                if (ui_marked && ui_marked(it[r].cmd)) cel((uint8_t)(x + 1), 0xFB, k);   /* a check */
+                for (j = 0; it[r].label[j]; j++) cel((uint8_t)(x + 2 + j), (uint8_t)it[r].label[j], (uint8_t)(j == it[r].hot ? (k == K_MSEL ? K_MSELHOT : K_MHOT) : k));
+                for (j = 0, c = (uint8_t)(x + w - 2 - slen(it[r].keys)); it[r].keys[j]; j++) cel((uint8_t)(c + j), (uint8_t)it[r].keys[j], k);
+            }
+        }
+        if (y >= 2 && y < bot) { shd((uint8_t)(x + w)); shd((uint8_t)(x + w + 1)); }
+        else if (y == bot) for (j = 2; j < w + 2; j++) shd((uint8_t)(x + j));
+        flush(y, cols);
     }
+    mn_bot = bot;
 }
 static uint8_t title_at(uint8_t c)
 {
@@ -303,26 +342,34 @@ static uint8_t title_of(uint8_t k)                    /* the menu an Alt+letter 
 }
 static uint8_t mclose(uint8_t c)                      /* the menu away before its command runs: a dialog must not open over it */
 {
-    full = 1; draw(); cursor_show(1);
+    uint8_t y;
+    for (y = 0; y <= mn_bot && y < rows; y++) { snap_row(y); flush(y, cols); }
+    full = 1; cursor_show(1);
     return c;
 }
+/* Drawn again only when the menu or the entry changes.  The mouse: a press
+ * or a drag lights an entry, the release runs it (DOS's way, so the press
+ * that opened a menu from the bar does not also choose in it); a press off
+ * the menu closes it. */
 static uint8_t menu(uint8_t m)                        /* menu m open; the command chosen, or C_NONE */
 {
     const struct item *it;
-    uint8_t sel = 0, n, k, w, x, i;
+    uint8_t sel = 0, n, k, w, x, i, dm = 0xFF, ds = 0xFF;
+    cursor_show(0); snap_take(); mn_bot = 0;
     for (;;) {
         it = ui_menus[m];
         x = menu_x(m, &w, &n);
         while (it[sel].cmd == C_SEP) sel++;
-        full = 1; draw(); cursor_show(0);
-        menu_draw(m, sel);
+        if (m != dm || sel != ds) { menu_draw(m, sel); dm = m; ds = sel; }
         k = event();
         if (kcode == 2) {
             if (mev == 4) continue;
-            if (mrow == 0) { if (mev == 3) continue; i = title_at(mcol); if (i < ui_nmenu) { m = i; sel = 0; } continue; }
+            if (mrow == 0) { if (mev == 3) continue; i = title_at(mcol); if (i < ui_nmenu && i != m) { m = i; sel = 0; } else if (mev == 1) break; continue; }
             if (mrow >= 2 && mrow < 2 + n && mcol > x && mcol < x + w - 1) {
-                sel = (uint8_t)(mrow - 2);
-                if (mev != 2 && it[sel].cmd != C_SEP) return mclose(it[sel].cmd);
+                i = (uint8_t)(mrow - 2);
+                if (it[i].cmd == C_SEP) continue;
+                sel = i;
+                if (mev == 3) return mclose(it[sel].cmd);
                 continue;
             }
             if (mev == 1) break;
@@ -462,7 +509,6 @@ static void text_box(const char *title, const char *const *lines)
  * ui_dirtab (32 bytes an entry, [0] 1 for a directory); choosing a
  * directory goes into it (the shell's current directory moves, as it did in
  * DOS), and choosing a file answers 1 with its name in out. */
-static uint32_t ui_dirtab;
 #define DIRMAX 1000u
 static unsigned dn, dsel, dtop;
 static char cwd[NAMEMAX];

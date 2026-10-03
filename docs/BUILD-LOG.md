@@ -11020,3 +11020,35 @@ podman.sh's seed_startup, on create and on update: a container that has
 a /STARTUP.BAT keeps it, untouched.  One without gets this checkout's
 fs/STARTUP.BAT if there is one, else /SYSTEM/ETC/STARTUP.SAMPLE with its
 HOST alias commented out (no telnet server in the container).
+
+## 2026-10-03 — the BBC BASIC demos in Mad Pascal; the k4510 unit's calls fixed
+
+Doc: "Port the 11 BBC BASIC demos to Mad Pascal."  /LANG/PASCAL/EX now
+mirrors /LANG/BBCBASIC/EX: BOUNCE CIRCLES CLOCK INVADERS KALEID MOUNTAIN
+ROSES SPRITES TEST TUNE TUNNEL, each .PAS with its .prg, on EX/BBC.PAS --
+a unit that is the Tube's ULA in Pascal (core/io.c's mapping: BBC
+coordinates x>>1, 479-(y*15>>5); logical colours in palette 16-31, 0
+transparent; MOVE/DRAW/PLOT with the three-point history; CIRCLE FILL by
+the ULA's scanlines; VDU 19; VDU 23,27 sprites on VICKY's table; SOUND to
+the sequencer at $D5E0; WAIT in centiseconds; RND by xorshift -- Mad
+Pascal's 16-bit LCG put KALEID's lines on a lattice).  Checked against
+captures of the BBC originals (layout, colours, sizes) and, for the
+sound, by the audio energy over time.  Any key leaves (Escape, in BBC).
+TEST passes 30 of 30.  Makefile: PAS_EX_NAMES, in pascal-prgs.
+
+Bugs found on the way:
+- graph_k4510.inc FillBar: hi(x1 - x0 + 1) compiled to 0, so no bar was
+  ever wider than 255 pixels.  Through a word now.
+- k4510.pas LoadFile, SaveFile and Shell gave the ROM "#buf" / "<buf",
+  the address of Mad Pascal's pointer to the local array, not of the
+  array: SaveFile('ANIMAL.DAT') wrote a file called "C#", Shell made K/OS
+  say "?".  adr.buf now.  ANIMAL and TEST carried fixed private copies;
+  both use the unit again (ANIMAL learnt a whale, saved, reloaded).
+- Mad Pascal quirks met (worked round, in the files' headers): a REAL
+  literal times a single is "illegal type conversion"; hi() of a
+  smallint expression is 0; two calls of one function in one argument
+  list go wrong (static locals); an array element in a boolean
+  expression is typed byte; case selectors and Val's position must be
+  bytes; smallint div and * are slow.
+The installed toolchain's copies (~/Projects/K4510/toolchain/Mad-Pascal/
+lib) were updated by hand on ubuntu-s1; elsewhere `make pascal-install`.

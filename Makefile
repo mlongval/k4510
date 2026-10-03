@@ -283,6 +283,16 @@ fs/LANG/PASCAL/$1.prg: fs/LANG/PASCAL/$(call uc,$1).PAS tools/k4510-pas $$(wildc
 	cd fs/LANG/PASCAL && MP_DIR=$$(MP_DIR) MADS=$$(MADS) ../../../tools/k4510-pas $(call uc,$1) >/dev/null
 endef
 $(foreach n,$(PAS_NAMES),$(eval $(call PAS_RULE,$n)))
+# The ports of the BBC BASIC demos (fs/LANG/PASCAL/EX/README.TXT), which
+# share the BBC unit beside them: EX/BBC.PAS is a prerequisite of each.
+PAS_EX_NAMES = kaleid circles roses clock tune bounce mountain sprites invaders tunnel test
+PAS_EX_PRGS = $(foreach n,$(PAS_EX_NAMES),fs/LANG/PASCAL/EX/$n.prg)
+pascal-prgs: $(PAS_EX_PRGS)
+define PAS_EX_RULE
+fs/LANG/PASCAL/EX/$1.prg: fs/LANG/PASCAL/EX/$(call uc,$1).PAS fs/LANG/PASCAL/EX/BBC.PAS tools/k4510-pas $$(wildcard pascal/mp/base/k4510/*) $$(wildcard pascal/mp/lib/*)
+	cd fs/LANG/PASCAL/EX && MP_DIR=$$(MP_DIR) MADS=$$(MADS) ../../../../tools/k4510-pas $(call uc,$1) >/dev/null
+endef
+$(foreach n,$(PAS_EX_NAMES),$(eval $(call PAS_EX_RULE,$n)))
 
 # Programs in C with cc65, .prg files (4-byte header) loaded by the ROM.
 # Where each lands is where it belongs on the machine's disk (fs/HOME/README.TXT):

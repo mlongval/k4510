@@ -141,6 +141,9 @@ begin
 	DMA_SRC := v; DMA_DST := dst; DMA_LEN := len; DMA_CMD := 2;
 end;
 
+(* adr.buf, not buf: a local array's own name is Mad Pascal's pointer TO it,
+   so the ROM was handed that pointer's address -- SaveFile('ANIMAL.DAT')
+   wrote a file called "C#", and Shell made K/OS answer "?" (2026-10-03). *)
 procedure Shell(const cmd: string);
 var buf: array[0..95] of char;
     i: byte;
@@ -148,8 +151,8 @@ begin
 	for i := 1 to length(cmd) do buf[i - 1] := cmd[i];
 	buf[length(cmd)] := #0;
 	asm
-		lda <buf
-		ldx >buf
+		lda <adr.buf
+		ldx >adr.buf
 		jsr k4_shell
 	end;
 end;
@@ -161,7 +164,7 @@ begin
 	for i := 1 to length(name) do buf[i - 1] := name[i];
 	buf[length(name)] := #0;
 	asm
-		mwa #buf $F0
+		mwa #adr.buf $F0
 		lda dest
 		sta $F2
 		lda dest+1
@@ -191,7 +194,7 @@ begin
 	for i := 1 to length(name) do buf[i - 1] := name[i];
 	buf[length(name)] := #0;
 	asm
-		mwa #buf $F0
+		mwa #adr.buf $F0
 		lda src
 		sta $F2
 		lda src+1

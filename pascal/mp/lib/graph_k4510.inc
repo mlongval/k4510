@@ -228,6 +228,7 @@ end;
 
 procedure FillBar(x0, y0, x1, y1: smallint);
 var t: smallint;
+    w, h: word;
 begin
 	if x0 > x1 then begin t := x0; x0 := x1; x1 := t; end;
 	if y0 > y1 then begin t := y0; y0 := y1; y1 := t; end;
@@ -255,8 +256,9 @@ begin
 		sta $D076
 		stz $D077
 	end;
-	VREG[$78] := lo(x1 - x0 + 1); VREG[$79] := hi(x1 - x0 + 1);
-	VREG[$7A] := lo(y1 - y0 + 1); VREG[$7B] := hi(y1 - y0 + 1);
+	w := x1 - x0 + 1; h := y1 - y0 + 1;	(* into a word first: hi(x1 - x0 + 1) compiled to 0, so no bar was wider than 255 (2026-10-03) *)
+	VREG[$78] := lo(w); VREG[$79] := hi(w);
+	VREG[$7A] := lo(h); VREG[$7B] := hi(h);
 	VREG[$7E] := lo(GFX_W); VREG[$7F] := hi(GFX_W);
 	VREG[$80] := 2; VREG[$82] := 1;
 end;

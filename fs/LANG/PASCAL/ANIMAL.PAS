@@ -5,8 +5,8 @@
 //
 // The BASIC kept its tree as strings ("\QDoes it fly\N2\Y3\").  Here
 // it is the same tree as a table of nodes plus a pool of text, all in
-// one byte array, so that one FileSave writes the lot to ANIMAL.DAT
-// and one FileLoad brings it back.
+// one byte array, so that one SaveFile writes the lot to ANIMAL.DAT
+// and one LoadFile brings it back.
 //
 //   store[0..1]  'AN'          magic
 //   store[2]     node count
@@ -133,74 +133,10 @@ begin
   SetLinks(1, 3, 2);
 end;
 
-// LoadFile and SaveFile from the k4510 unit, with one fix: the unit
-// hands the ROM "#buf", the address of Mad Pascal's pointer to the
-// array, not of the array (so ANIMAL.DAT was saved as a file called
-// "C#").  Here the name goes as "#adr.nm", the array itself.
-function FileLoad(const name: string; dest: cardinal): cardinal;
-var nm: array[0..95] of char;
-    i, st: byte;
-begin
-  for i := 1 to length(name) do nm[i - 1] := name[i];
-  nm[length(name)] := #0;
-  asm
-    mwa #adr.nm $F0
-    lda dest
-    sta $F2
-    lda dest+1
-    sta $F3
-    lda dest+2
-    sta $F4
-    lda dest+3
-    sta $F5
-    jsr k4_load
-    sta st
-    lda $F6
-    sta Result
-    lda $F7
-    sta Result+1
-    lda $F8
-    sta Result+2
-    lda $F9
-    sta Result+3
-  end;
-  if st <> 0 then Result := 0;
-end;
-
-function FileSave(const name: string; src, len: cardinal): boolean;
-var nm: array[0..95] of char;
-    i, st: byte;
-begin
-  for i := 1 to length(name) do nm[i - 1] := name[i];
-  nm[length(name)] := #0;
-  asm
-    mwa #adr.nm $F0
-    lda src
-    sta $F2
-    lda src+1
-    sta $F3
-    lda src+2
-    sta $F4
-    lda src+3
-    sta $F5
-    lda len
-    sta $F6
-    lda len+1
-    sta $F7
-    lda len+2
-    sta $F8
-    lda len+3
-    sta $F9
-    jsr k4_save
-    sta st
-  end;
-  Result := st = 0;
-end;
-
 procedure LoadTree;
 var size: cardinal;
 begin
-  size := FileLoad(DATAFILE, word(@store));
+  size := LoadFile(DATAFILE, word(@store));
   if (size >= POOLBASE) and (store[0] = ord('A')) and (store[1] = ord('N')) then
     writeln('Just let me refresh my memory')
   else
@@ -209,7 +145,7 @@ end;
 
 procedure SaveTree;
 begin
-  if FileSave(DATAFILE, word(@store), POOLBASE + PoolTop) then
+  if SaveFile(DATAFILE, word(@store), POOLBASE + PoolTop) then
     writeln('Saved to ', DATAFILE, '.')
   else
     writeln('Could not save ', DATAFILE, '.');

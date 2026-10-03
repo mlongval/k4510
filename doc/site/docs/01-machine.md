@@ -202,6 +202,9 @@ border, gradient, knot, registers, halloween, christmas, space, river, dreamfall
 **`Edit options...`** —   
 does it
 
+**`Palette`** —   
+the VIC-II sixteen, or any .PAL in /SYSTEM/ETC/PALETTES: PALETTE LOAD, typed at the prompt
+
 ### Terminal
 
 **`Status bands`** — *term.bands*  
@@ -328,6 +331,8 @@ does it
 A 4:3 picture on a 16:9 screen leaves a third of the glass empty. *Placement* (centre, left, right) puts the picture against one edge instead of in the middle, and the *Sidebars* row fills what is left. Its choices are the sidebars in `/SYSTEM/SIDEBARS`, one zip each: the border colour, a gradient, a knot, scenes — and *registers*, the machine as the emulator sees it. A register panel beside a centred picture makes no sense, so choosing it puts the picture left.
 
 Below it, *Edit options…* opens the chosen sidebar’s own options in VI: `/SYSTEM/SIDEBARS/ANTFARM/OPTIONS.CFG` for the ant farm — its `speed`, and the length of its day. Save the file and the sidebar changes within a second. `/SYSTEM/SIDEBARS/SIDEBARS.CFG` holds what is for all of them: another sidebar on the right (`right = tetris`), a new one every so often (`change = 1h`), and whether Halloween and Christmas keep to their months. The ant colony is kept across a power cycle, in the same folder.
+
+Last, *Palette* lists the VIC-II sixteen and every `.PAL` in `/SYSTEM/ETC/PALETTES` (one you made with `PALETTE SAVE` shows up the next time the menu opens). Choosing one types `PALETTE LOAD` at the prompt for you; with a program running, it waits until the program has ended. As with the command, it lasts until the next power-on: a `PALETTE LOAD` line in `/STARTUP.BAT` keeps it.
 
 The panel is a strip twenty-six columns wide taking the whole height of the window, one fact to a line: the program counter, A X Y Z, the stack pointer, the B register, the flags, the next few instructions disassembled, VICKY’s mode and the raster line it is on, the eight bank registers with the engaged ones lit, the audio gaps, the frame counter and the frame rate. It never reads through the I/O page — a read of `$D100` would pop a key off the keyboard, and an instrument that changes what it measures is not one.
 

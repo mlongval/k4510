@@ -363,6 +363,8 @@ def menu():
                 ch, key, d = choices(ra)
                 what = f"{ch}" + (f"; to begin with, {d}" if d else "")
                 tag = key
+            elif rk == "MI_SUBMENU" and (rs or ra).lstrip('&') == "pal_menu":   # its rows are the disk's, filled at run time
+                tag, what = "", "the VIC-II sixteen, or any .PAL in /SYSTEM/ETC/PALETTES: PALETTE LOAD, typed at the prompt"
             elif rk == "MI_SUBMENU":
                 sm = items[menus[(rs or ra).lstrip('&')]]
                 tag, what = "", f"{len(sm)} slots, each showing when it was written"

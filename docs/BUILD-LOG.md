@@ -11074,3 +11074,18 @@ first run: the last 255 bytes of the window came from past its end).
 Each now ends with stz :bp.  Every .prg rebuilt; TEST still 30 of 30,
 the EX demos look as they did.  (Also: a parameter named page in a
 program with a const PAGE is the same name -- Pascal ignores case.)
+
+## 2026-10-03 — F12 -> Video -> Palette
+
+Doc: "can we put palette options in f12 menu".  The last row of Video is
+Palette: the VIC-II sixteen (PALETTE RESET), then every .PAL in
+/SYSTEM/ETC/PALETTES, listed afresh each time the menu opens (a PALETTE
+SAVE shows up), up to twelve.  Choosing one types PALETTE LOAD NAME at
+the K/OS prompt -- the ROM does the loading, the file's COLOR line and
+the status bars' readable pair, as the command always has; nothing new
+in the ROM, which has ~300 bytes free.  A program running: it is held
+and typed when the prompt is back (the band says so).  Like the
+command, it lasts until power-off; STARTUP.BAT keeps one.  Last row, so
+uitest's walk is unchanged; mkref.py describes the run-time rows.
+Checked under Xvfb: F12, Video, Palette, AMBER -> "palette: 16 entries
+from /SYSTEM/ETC/PALETTES/AMBER.PAL", amber on black.

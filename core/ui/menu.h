@@ -13,7 +13,7 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT, ACT_SHUTDOWN, ACT_NETSETUP, ACT_TELNET, ACT_SIDEBAR_OPTIONS, ACT_SAVE_SLOT = 16, ACT_LOAD_SLOT = 32 };   /* + slot 0-3 */
+enum { ACT_NONE, ACT_RESET, ACT_POWER_CYCLE, ACT_TUBE_STOP, ACT_QUIT, ACT_SHUTDOWN, ACT_NETSETUP, ACT_TELNET, ACT_SIDEBAR_OPTIONS, ACT_SAVE_SLOT = 16, ACT_LOAD_SLOT = 32, ACT_PALETTE = 48 };   /* + slot 0-3; ACT_PALETTE + 0 the reset, + 1.. the files */
 #define MENU_SLOTS 4
 enum { INFO_VERSION, INFO_BUILD, INFO_ROM, INFO_FS, INFO_HOST, INFO_NAME, INFO_ADDR, INFO_TS, INFO_BATT, INFO_COUNT };
 void menu_open(void);
@@ -31,6 +31,8 @@ int  menu_draw(uint8_t *overlay);             /* 1 if it drew (the overlay chang
 void menu_dirty(void);                        /* redraw next time: the cell grid changed under it */
 int  menu_key_code(void);                     /* the K4510 key code that opens the menu (from the setting) */
 void menu_set_shutdown(int available);        /* the K4510 Linux only: reveal "Shut down the computer" (see menu.c) */
+void menu_set_palettes(const char *const *names, int n);   /* Video -> Palette's rows: the .PAL files there are (upper case, no .PAL) */
+#define MENU_PALETTES 12
 void menu_set_host(int available);            /* the K4510 Linux only: reveal the Host category (name, addresses, Wi-Fi setup, telnet) */
 /* The menu file, k4510-menu.cfg beside k4510.cfg (Doc, 2026-09-13): every row
  * by name, "show" or "hide" -- hidden rows are gone, and a category with

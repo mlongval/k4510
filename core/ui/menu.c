@@ -12,6 +12,14 @@ typedef struct menu_s menu_t;
 typedef struct { const char *label; item_kind kind; int arg; const menu_t *sub; } item_t;
 struct menu_s { const char *title; const item_t *items; int n; };
 
+/* Video -> Palette (Doc, 2026-10-03: "palette options in f12 menu"): the
+ * VIC-II sixteen, then every .PAL in /SYSTEM/ETC/PALETTES -- the host lists
+ * them each time the menu opens (menu_set_palettes), so a PALETTE SAVE shows
+ * up the next time.  Choosing one types PALETTE LOAD at the prompt (the ROM
+ * does the loading, the COLOR line and the bars' colours with it). */
+static char pal_names[MENU_PALETTES][16];
+static item_t pal_items[2 + MENU_PALETTES] = { { "The VIC-II sixteen (reset)", MI_ACTION, ACT_PALETTE }, { "", MI_SEP } };
+static menu_t pal_menu = { "Palette", pal_items, 1 };
 static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
@@ -24,6 +32,8 @@ static const item_t video_items[] = {
      * (Doc, 2026-09-15: "limit the F12 options to 'which one' and 'Edit options'") */
     { "Sidebar",       MI_SETTING, SET_VIDEO_SIDEBARS },
     { "Edit options...", MI_ACTION, ACT_SIDEBAR_OPTIONS },
+    { "",              MI_SEP },
+    { "Palette",       MI_SUBMENU, 0, &pal_menu },   /* last: uitest walks the rows above by counting */
 };
 /* One chip, the OPL2, so there is nothing to choose but the volume. */
 static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME } };
@@ -199,6 +209,17 @@ int  menu_take_action(void) { int a = action; action = ACT_NONE; return a; }
  * would offer to power off Doc's workstation from inside a toy computer. */
 void menu_set_shutdown(int available) { have_shutdown = available; rebuild(); }
 void menu_set_host(int available)     { have_host = available; rebuild(); }
+void menu_set_palettes(const char *const *names, int n)
+{
+    int i;
+    if (n > MENU_PALETTES) n = MENU_PALETTES;
+    for (i = 0; i < n; i++) {
+        snprintf(pal_names[i], sizeof pal_names[i], "%s", names[i]);
+        pal_items[2 + i].label = pal_names[i]; pal_items[2 + i].kind = MI_ACTION; pal_items[2 + i].arg = ACT_PALETTE + 1 + i; pal_items[2 + i].sub = 0;
+    }
+    pal_menu.n = n ? 2 + n : 1;
+    dirty = 1;
+}
 int  menu_closed_pending(void) { int c = closed; closed = 0; return c; }
 void menu_info(int row, const char *text) { if (row >= 0 && row < INFO_COUNT) { snprintf(info[row], sizeof info[row], "%s", text); dirty = 1; } }
 void menu_slot(int n, const char *text) { if (n >= 0 && n < MENU_SLOTS) { snprintf(slot[n], sizeof slot[n], "%s", text); dirty = 1; } }

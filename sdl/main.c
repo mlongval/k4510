@@ -32,6 +32,9 @@
 #include "../core/ui/ui_draw.h"
 #include "../core/state.h"
 #include <sys/stat.h>
+#include <dirent.h>
+#include <ctype.h>
+#include <strings.h>
 #include <time.h>
 #include <signal.h>
 #include <sys/time.h>
@@ -57,6 +60,30 @@ static int shot_flash;              /* frames left of the screenshot's screen in
  * into the machine unseen (Doc, 2026-09-14).  Drawn by the frontend over
  * the picture, never into it: the machine and its screenshots are untouched. */
 static char echo_txt[48]; static int echo_len; static Uint32 echo_until;
+/* F12 -> Video -> Palette: the .PAL files, listed for the menu each time it
+ * opens; the choice is typed at the K/OS prompt (PALETTE LOAD NAME), now or,
+ * if a program is running, as soon as it has ended -- so the ROM does what
+ * PALETTE always does: the entries, a COLOR line, the bars' readable pair. */
+static char pal_list[MENU_PALETTES][16]; static int pal_n;
+static char pal_pending[40];
+static int pal_cmp(const void *a, const void *b) { return strcmp((const char *) a, (const char *) b); }
+static void palettes_scan(void)
+{
+    char dir[600]; DIR *d; struct dirent *e; const char *nm[MENU_PALETTES]; int i;
+    pal_n = 0;
+    if (io_fs_hostpath("/SYSTEM/ETC/PALETTES", dir, sizeof dir) && (d = opendir(dir))) {
+        while ((e = readdir(d)) && pal_n < MENU_PALETTES) {
+            size_t l = strlen(e->d_name);
+            if (l < 5 || l > 4 + 12 || strcasecmp(e->d_name + l - 4, ".pal")) continue;
+            for (i = 0; i < (int) l - 4; i++) pal_list[pal_n][i] = (char) toupper((unsigned char) e->d_name[i]);
+            pal_list[pal_n][l - 4] = 0; pal_n++;
+        }
+        closedir(d);
+    }
+    qsort(pal_list, (size_t) pal_n, sizeof pal_list[0], pal_cmp);
+    for (i = 0; i < pal_n; i++) nm[i] = pal_list[i];
+    menu_set_palettes(nm, pal_n);
+}
 /* The same bar also carries the frontend's own notices -- the volume, so far.
  * Doc, 2026-09-17: "the laptop hardware sound keys do not seem to do
  * anything."  They did: the setting had gone 80 -> 100 under his fingers.
@@ -1472,7 +1499,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         host_poll_input();
         { static int menu_was; int m = menu_is_open();               /* the menu is the machine's outside: it frees the pointer */
-          if (m && !menu_was) grab(0);
+          if (m && !menu_was) { grab(0); palettes_scan(); }   /* the Palette rows: what is on the disk now */
+          if (!m && pal_pending[0]) { extern const char *io_title(void);
+              if (!strcmp(io_title(), "K/OS")) { for (const char *c = pal_pending; *c; c++) kbd_push((uint8_t) *c); pal_pending[0] = 0; } }
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
           if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
           { static int cur_shown = -1; int want = (settings_get(SET_INPUT_MOUSE_SHOW) && (!grabbed || mouse_host_wanted())) ? 1 : 0;   /* the host pointer: shown per the setting, hidden while captured -- unless the program asks ($D110 bit1) */
@@ -1732,6 +1761,16 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 snprintf(echo_txt, sizeof echo_txt, "VI %.44s", path); echo_len = (int) strlen(echo_txt); echo_tag = "remote: "; echo_until = SDL_GetTicks() + 8000;
             }
             break; }
+        default:
+            if (act >= ACT_PALETTE && act <= ACT_PALETTE + pal_n) {          /* F12 -> Video -> Palette */
+                extern const char *io_title(void);
+                if (act == ACT_PALETTE) snprintf(pal_pending, sizeof pal_pending, "PALETTE RESET\r");
+                else snprintf(pal_pending, sizeof pal_pending, "PALETTE LOAD %s\r", pal_list[act - ACT_PALETTE - 1]);
+                if (strcmp(io_title(), "K/OS")) {                              /* a program is running: it goes in when that ends */
+                    snprintf(echo_txt, sizeof echo_txt, "palette: at the prompt, when this ends"); echo_len = (int) strlen(echo_txt); echo_tag = "F12: "; echo_until = SDL_GetTicks() + 5000;
+                }
+            }
+            break;
         case ACT_TELNET: if (menu_lock(MENU_LOCK_LINUX)) break;   /* the row is hidden then; this is belt and braces */
                          { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }

@@ -65,6 +65,21 @@ it (and the shell's current directory goes with it, as DOS's did), on a
 file opens it. \emph{Change} replaces every match in the file at once, and
 one Ctrl+Z takes all of it back.
 
+\textbf{VI's keys}, for fingers that have them: \emph{Options},
+\emph{VI Keys}, or \verb|EDIT -v name|. EDIT then starts in VI's normal
+mode, and everything in the VI section below about moving and changing
+holds --- it is the same code, not a copy of it: counts, \verb|hjkl|,
+\verb|w b e|, \verb|d c y| with a motion or doubled, \verb|x p u|,
+Ctrl-R; \verb|.| is the one thing missing. \verb|i a o| and the rest
+type until Esc, with EDIT's keys while you do (Shift and an arrow still
+selects). \verb|:| \verb|/| and \verb|?| open a line on the status row:
+\verb|:w| \verb|:q| \verb|:q!| \verb|:wq| \verb|:x|, \verb|:12| goes
+to line 12, \verb|:%s/old/new/g|. The menus, the mouse and the dialogs
+stay as they were, and so do the Ctrl keys --- Ctrl+S saves, Ctrl+Q
+leaves --- except Ctrl-R (redo), Ctrl-U and Ctrl-D (half a page), which
+are VI's in normal mode. What you yank or delete is the clipboard, so
+\verb|dw| then Ctrl+V works, and Ctrl+C then \verb|p|.
+
 \section{VI}
 \verb|VI name| is modal in the old way. In \emph{normal} mode the keys
 are commands; a handful of them put you into \emph{insert} mode, where
@@ -117,7 +132,8 @@ A count goes in front of nearly anything: \verb|5j| is five lines down,
 \texttt{\$} & to the end of the line \\
 \texttt{gg} & to the first line \\
 \texttt{G} & to the last line, or to line \emph{n} with a count \\
-PgUp, PgDn & a screenful \\
+PgUp, PgDn & a screenful; Ctrl-D, Ctrl-U half of one \\
+Enter, \texttt{+}, \texttt{-} & the next line, the previous one, at its first non-blank \\
 \texttt{/}\emph{text} & to the next \emph{text} --- a plain substring, not a pattern \\
 \texttt{?}\emph{text} & to the previous one \\
 \texttt{n} & the same search again; \texttt{N} the other way \\

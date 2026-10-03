@@ -15,7 +15,7 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          (EDIT: MS-DOS's -- F10 or Alt+letter for
          the menus, the mouse, Ctrl-S saves,
          Ctrl-Q leaves, F1 its keys; -s in the
-         console's colours.
+         console's colours, -v VI's keys.
          WORD: reads a Word .DOCX, Ctrl-S saves
          it as text;
          VI: hjkl 0 $ gg G, i a I A o O, x dd,

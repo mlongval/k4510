@@ -1,4 +1,4 @@
-/* K4510: EDIT [-s] [-u] [name] -- the editor, in the manner of MS-DOS 5's EDIT.
+/* K4510: EDIT [-s] [-u] [-v] [name] -- the editor, in the manner of MS-DOS 5's EDIT.
  *
  * Doc, 2026-10-02: "a WYSIWYG text editor similar to the one on later
  * releases of MS-DOS with keyboard shortcuts and mouse controls and screen
@@ -13,6 +13,14 @@
  * variable to it, PRINT the statement): Edit > Uppercase Keywords (Ctrl+U)
  * puts every keyword in the file in capitals, and with -u each save does it
  * first, so a program may be typed in lower case.  BBC's *EDIT passes -u.
+ *
+ * And VI's keys, for whoever has them in their fingers (Doc, 2026-10-02:
+ * "supports VI movements and actions ... off by default"): Options > VI
+ * Keys, or -v.  Then EDIT starts in VI's normal mode -- counts, motions,
+ * d c y, x p u and the rest are demo/vikeys.h, the very code VI runs -- i a
+ * o and their kind type until Esc, and : / ? open a line on the status row.
+ * The menus, the mouse, the dialogs and the Ctrl keys stay EDIT's, but for
+ * Ctrl+R, Ctrl+U and Ctrl+D, which are VI's while it is in normal mode.
  *
  * Three layers, so PROG and WORD look the same: the text engine is VI's
  * (demo/ed.h), the editing window EDIT's and PROG's (demo/dosed.h), the
@@ -35,7 +43,7 @@
 #include "dosed.h"
 
 enum { C_NEW = 1, C_OPEN, C_SAVE, C_SAVEAS, C_EXIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
-       C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_HELP, C_ABOUT };
+       C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_VI, C_HELP, C_ABOUT };
 
 /* ---- the screen ----------------------------------------------------------- */
 /* the top band names the file (core/io.c's title stack, SYS+$44), as PROG */
@@ -45,6 +53,8 @@ static void band_file(void)
     REG(0xD544) = 0;
     for (i = 0; b[i]; i++) REG(0xD544) = (uint8_t)b[i];
 }
+static uint8_t vimode;                                /* VI's keys: Options, or -v */
+static void vi_status(void);
 static void draw(void)
 {
     char p[16]; uint8_t i = 0;
@@ -52,12 +62,13 @@ static void draw(void)
     window(); full = 0;
     if (over) { p[0] = 'O'; p[1] = 'V'; p[2] = 'R'; p[3] = ' '; p[4] = ' '; i = 5; }
     where(p + i);
+    if (vimode && !*note) { vi_status(); return; }
     status_line(*note ? note : (const char *)"K4510 Editor  <F1=Help>  <F10 or Alt=Menus>", p);
     window_cursor();
 }
 
-#pragma code-name (push, "HICODE")                   /* at $E000 (demo/edit.cfg): the keywords and the help */
-#pragma rodata-name (push, "HICODE")
+#pragma code-name (push, "LOCODE")                   /* at $1800 (demo/edit.cfg): BBC BASIC's keywords */
+#pragma rodata-name (push, "LOCODE")
 /* ---- BBC BASIC's keywords, in capitals --------------------------------------
  * Only a whole word that IS a keyword changes (BBC BASIC's own table,
  * tube/src/bbmain.c): print -> PRINT, left$( -> LEFT$(, procdraw -> PROCdraw,
@@ -84,6 +95,7 @@ static uint8_t kw_is(uint8_t n)                       /* kwb[0..n) one of them? 
 }
 static uint8_t is_al(uint8_t c) { c = rn_up(c); return (uint8_t)(c >= 'A' && c <= 'Z'); }
 static uint8_t is_an(uint8_t c) { return (uint8_t)(is_al(c) || (c >= '0' && c <= '9') || c == '_'); }
+#pragma code-name (push, "HICODE")                   /* the pass at $E000: $1800 is full */
 static uint8_t up_line(uint8_t *l)                    /* l: a length, then the text; answers how many words changed */
 {
     uint8_t i = 1, e = l[0], s, n, m, c, p, q = 0, asmb = 0, st = 1, hits = 0;
@@ -116,6 +128,7 @@ static uint8_t up_line(uint8_t *l)                    /* l: a length, then the t
     }
     return hits;
 }
+#pragma code-name (pop)
 static char unote[40];
 static void up_all(void)                              /* the whole file, one undo */
 {
@@ -135,8 +148,110 @@ static void up_all(void)                              /* the whole file, one und
 
 #pragma rodata-name (pop)
 #pragma code-name (pop)
+#pragma code-name (push, "HICODE")                   /* at $E000: VI's keys */
+#pragma rodata-name (push, "HICODE")
+/* ---- VI's keys ---------------------------------------------------------------
+ * vikeys.h is VI's normal mode; what is here is how EDIT feeds it: which keys
+ * go to it, the : line, and p and P, which put characters back as well as
+ * lines (EDIT's clipboard is the same register, so Ctrl+C then p works). */
+static uint8_t vik_key;
+#define vik_page (th - 1)
+#define VIK_CHARREG
+static void put_chars(void);
+static void vik_put(uint8_t after)
+{
+    t_end();
+    if (reglinewise || !reglines) { do_put(after); return; }
+    if (after && cx < ln[0]) cx++;
+    put_chars();
+    if (cx) cx--;
+}
+#include "vikeys.h"
+static void vi_clamp(void) { if (mode != 1 && ln[0] && cx >= ln[0]) cx = (uint8_t)(ln[0] - 1); }
+static uint8_t save(void);
+static void vi_ex(void)                               /* the : line, or a / ? search */
+{
+    uint8_t i = 0, w = 0, q = 0, bang = 0; unsigned n = 0;
+    mode = 0;
+    if (cprompt != ':') {
+        for (patlen = 0; cmd[patlen] && patlen < NAMEMAX - 1; patlen++) pat[patlen] = cmd[patlen];
+        lastdir = (uint8_t)(cprompt == '/');
+        if (patlen) search(lastdir ? 1 : -1);
+        return;
+    }
+    if (cmd[0] >= '0' && cmd[0] <= '9') { for (; cmd[i] >= '0' && cmd[i] <= '9'; i++) n = n * 10 + (unsigned)(cmd[i] - '0'); go(n ? n - 1 : 0); cx = 0; return; }
+    if (cmd[0] == '$' && !cmd[1]) { go(nlines - 1); cx = 0; return; }
+    if (cmd[0] == 's' || (cmd[0] == '%' && cmd[1] == 's')) { t_end(); do_sub(cmd); return; }
+    if (rn_up(cmd[0]) == 'S' && rn_up(cmd[1]) == 'E' && rn_up(cmd[2]) == 'T' && cmd[3] == ' ') {
+        const char *v = cmd + 4;
+        if (v[0] == 't' && v[1] == 's' && v[2] == '=') ed_set_tabw(v + 3);
+        return;
+    }
+    if (rn_up(cmd[0]) == 'R' && rn_up(cmd[1]) == 'E' && rn_up(cmd[2]) == 'N') { t_end(); do_renum(cmd + 5); return; }
+    for (; cmd[i] && cmd[i] != ' '; i++) {            /* w q x, either case, and a ! */
+        uint8_t c = rn_up(cmd[i]);
+        if (c == 'W') w = 1; else if (c == 'Q') q = 1; else if (c == 'X') { w = 1; q = 1; } else if (c == '!') bang = 1;
+        else { note = "Not an editor command"; return; }
+    }
+    if (w) {
+        if (cmd[i] == ' ' && cmd[i + 1]) { for (n = 0; cmd[i + 1 + n] && n < NAMEMAX - 1; n++) name[n] = cmd[i + 1 + n]; name[n] = 0; full = 1; }
+        if (!save()) return;
+    }
+    if (q) { if (dirty && !bang) note = "Not saved -- :q! leaves anyway, :wq saves"; else running = 0; }
+}
+/* the key, if VI's mode wants it: 1 taken, 0 for EDIT */
+static uint8_t vi_key(uint8_t k)
+{
+    if (mode == 2) {                                  /* the : line */
+        if (kcode) return 1;
+        if (k == 0x0D) vi_ex();
+        else if (k == 0x1B) mode = 0;
+        else if (k == 0x08) { if (cmdlen) cmd[--cmdlen] = 0; else mode = 0; }
+        else if (k >= 0x20 && k < 0x7F && cmdlen < NAMEMAX - 2) { cmd[cmdlen++] = (char)k; cmd[cmdlen] = 0; }
+        vi_clamp();
+        return 1;
+    }
+    if (mode == 1) {                                  /* insert: EDIT's own keys, Esc back to normal */
+        if (kcode || k != 0x1B) return 0;
+        t_end(); u_end(); sel_clear(); mode = 0; if (cx) cx--;
+        return 1;
+    }
+    if (kcode) {                                      /* the arrows and their kind: EDIT's, unless a d c y or a count waits */
+        if (!op && !pend && !cnt) { if (window_key(k)) vi_clamp(); return 1; }
+        if (k > KPGDN) return 0;
+    } else if (k >= 0x80) return 1;                   /* an accented letter means nothing in normal mode */
+    else if (k < 0x20 && k != 0x1B && k != 0x0D && k != 0x08 && k != 0x12 && k != 0x15 && k != 0x04 && !op && !pend) return 0;   /* EDIT's Ctrl keys */
+    vik_key = (uint8_t)(kcode != 0);
+    sel_clear(); t_end();
+    vi_normal(k);
+    vi_clamp(); wantx = cx;
+    return 1;
+}
+static void vi_status(void)                           /* the status line in VI's modes, and the cursor */
+{
+    uint8_t x;
+    for (x = 0; x < cols; x++) cel(x, ' ', K_STATUS);
+    if (mode == 2) {
+        cel(1, cprompt, K_STATUS);
+        for (x = 0; x < cmdlen; x++) cel((uint8_t)(2 + x), (uint8_t)cmd[x], K_STATUS);
+        flush((uint8_t)(rows - 1), cols);
+        cursor_shape('4'); cursor_at((uint8_t)(2 + cmdlen), (uint8_t)(rows - 1));
+        return;
+    }
+    { const char *s = mode == 1 ? "-- INSERT --" : op ? "-- d c y: a motion --" : "VI keys  <F1=Help>  <F10 or Alt=Menus>  :q leaves";
+      if (op == 'c') s = "-- c: a motion --"; else if (op == 'y') s = "-- y: a motion --"; else if (op == 'd') s = "-- d: a motion --";
+      for (x = 0; s[x]; x++) cel((uint8_t)(1 + x), (uint8_t)s[x], K_STATUS); }
+    { char p[10]; where(p); for (x = 0; x < 9; x++) cel((uint8_t)(cols - 10 + x), (uint8_t)p[x], K_STATUS); }
+    flush((uint8_t)(rows - 1), cols);
+    cursor_shape((uint8_t)(mode == 1 && !over ? '4' : '2'));   /* a block in normal mode, as VI's */
+    cursor_at((uint8_t)(1 + cx - hoff), (uint8_t)(wy + cy - top));
+}
 
-/* ---- files -------------------------------------------------------------- */
+#pragma rodata-name (pop)
+#pragma code-name (pop)
+
+/* ---- files (at $E000, as PROG's) ------------------------------------------ */
+#pragma code-name (push, "HICODE")
 static char fbuf[NAMEMAX];
 static void fresh(void) { ujp = ujn = 0; useq = 0; tgline = 0xFFFFu; cx = 0; top = 0; hoff = 0; dirty = 0; full = 1; wantx = 0; selon = 0; }
 static uint8_t saved(void)
@@ -182,6 +297,7 @@ static void load_name(const char *nm)
     fresh();
     if (note[0] == 'n') note = "A new file";
 }
+#pragma code-name (pop)
 
 #pragma rodata-name (push, "HICODE")
 /* ---- help --------------------------------------------------------------- */
@@ -201,6 +317,7 @@ static const char *const helptext[] = {
     "",
     "EDIT -s FILE  starts in the console's own colours (Options)",
     "EDIT -u FILE  keywords in capitals at every save (BBC's *EDIT)",
+    "EDIT -v FILE  VI's keys (Options): Esc, hjkl w b e, d c y, x p u, :w :q",
     0 };
 static const char *const abouttext[] = { "K4510 Editor", "", "MS-DOS EDIT's manner, VI's engine.", 0 };
 #pragma rodata-name (pop)
@@ -232,6 +349,7 @@ static void run_cmd(uint8_t c)
     case C_GOTO:   goto_dlg(); break;
     case C_DOS:    scheme(0); full = 1; break;
     case C_SYS:    scheme(1); full = 1; break;
+    case C_VI:     vimode = (uint8_t)!vimode; mode = 0; op = pend = 0; cnt = 0; vi_clamp(); note = vimode ? "VI keys: Esc is normal mode, i inserts, :q leaves" : "EDIT's keys"; break;
     case C_HELP:   text_box("Keyboard", helptext); break;
     case C_ABOUT:  text_box("About", abouttext); break;
     }
@@ -249,21 +367,23 @@ static const struct item m_edit[]   = { { "Undo", 0, C_UNDO, "Ctrl+Z" }, { "Redo
                                         { "Uppercase Keywords", 10, C_UPPER, "Ctrl+U" }, { 0, 0, 0, 0 } };
 static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "Repeat Last Find", 0, C_NEXT, "F3" },
                                         { "Change...", 0, C_CHANGE, "" }, { "Go To Line...", 0, C_GOTO, "Ctrl+G" }, { 0, 0, 0, 0 } };
-static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { 0, 0, 0, 0 } };
+static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },
+                                        { "VI Keys", 0, C_VI, "" }, { 0, 0, 0, 0 } };
 static const struct item m_help[]   = { { "Keyboard", 0, C_HELP, "F1" }, { "About...", 0, C_ABOUT, "" }, { 0, 0, 0, 0 } };
 static const struct item *const menus[] = { m_file, m_edit, m_search, m_opt, m_help };
-static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc)); }
+static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc) || (c == C_VI && vimode)); }
 
 /* ---- the keys and the mouse ------------------------------------------------- */
 static void do_key(uint8_t k)
 {
     uint8_t i;
     if (kcode == 2) {
-        if (window_mouse()) return;
+        if (window_mouse()) { if (vimode) vi_clamp(); return; }
         if (mrow == 0 && mev == 1) { i = title_at(mcol); if (i < ui_nmenu) run_cmd(menu(i)); }
         return;
     }
     if (kcode && k >= KALT && k < KALT + 26) { i = title_of(k); if (i < ui_nmenu) run_cmd(menu(i)); return; }
+    if (vimode && (k < KF(1) || k > KF(12) || !kcode) && vi_key(k)) return;
     if (!kcode) switch (k) {
         case 0x01: run_cmd(C_SELALL); return;        /* ^A */
         case 0x0E: run_cmd(C_NEW); return;           /* ^N */
@@ -296,6 +416,7 @@ void main(void)
         if (na >= 2 && a[0] == '-' && (na == 2 || a[2] == ' ')) {
             if (a[1] == 's' || a[1] == 'S') { sys = 1; a += 2; na -= 2; continue; }
             if (a[1] == 'u' || a[1] == 'U') { upflag = 1; a += 2; na -= 2; continue; }
+            if (a[1] == 'v' || a[1] == 'V') { vimode = 1; a += 2; na -= 2; continue; }
         }
         break;
     }

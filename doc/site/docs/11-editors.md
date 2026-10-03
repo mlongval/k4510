@@ -77,6 +77,8 @@ The text lives in far memory, not in the 64 KB: a file may run to 16 384 lin
 
 **The dialogs** — *Open*, *Save As*, *Find*, *Change*, *Go To Line* — are boxes with a shadow, in the DOS way: Tab goes from one field or button to the next, Enter is the first button, Esc cancels, and the mouse clicks any of them. *Open* lists the directory you are in; Enter or a second click on a directory goes into it (and the shell’s current directory goes with it, as DOS’s did), on a file opens it. *Change* replaces every match in the file at once, and one Ctrl+Z takes all of it back.
 
+**VI’s keys**, for fingers that have them: *Options*, *VI Keys*, or `EDIT -v name`. EDIT then starts in VI’s normal mode, and everything in the VI section below about moving and changing holds — it is the same code, not a copy of it: counts, `hjkl`, `w b e`, `d c y` with a motion or doubled, `x p u`, Ctrl-R; `.` is the one thing missing. `i a o` and the rest type until Esc, with EDIT’s keys while you do (Shift and an arrow still selects). `:` `/` and `?` open a line on the status row: `:w` `:q` `:q!` `:wq` `:x`, `:12` goes to line 12, `:%s/old/new/g`. The menus, the mouse and the dialogs stay as they were, and so do the Ctrl keys — Ctrl+S saves, Ctrl+Q leaves — except Ctrl-R (redo), Ctrl-U and Ctrl-D (half a page), which are VI’s in normal mode. What you yank or delete is the clipboard, so `dw` then Ctrl+V works, and Ctrl+C then `p`.
+
 ## VI
 
 `VI name` is modal in the old way. In *normal* mode the keys are commands; a handful of them put you into *insert* mode, where what you type goes into the file; and Escape brings you back. The `:` line at the bottom is the third place, for the ex commands. The cursor says which of the three you are in: a block in normal mode, a bar while inserting, an underline on the `:` line. Accented letters go in like any other, in insert mode and after `r`.
@@ -198,7 +200,11 @@ A count goes in front of nearly anything: `5j` is five lines down, `10G` is line
 </tr>
 <tr class="even">
 <td style="text-align: left;">PgUp, PgDn</td>
-<td style="text-align: left;">a screenful</td>
+<td style="text-align: left;">a screenful; Ctrl-D, Ctrl-U half of one</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">Enter, <code>+</code>, <code>-</code></td>
+<td style="text-align: left;">the next line, the previous one, at its first non-blank</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>/</code><em>text</em></td>

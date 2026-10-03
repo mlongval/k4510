@@ -10912,3 +10912,50 @@ demo/prog-header.s, serves both): the keyword table, its pass and the
 help text are HICODE at $E000 (2.5 KB); the image ends at $C5AE.  And
 edit.cfg, prog.cfg and word.cfg stop PRG at $CC00, so an image that would
 run into the stack's 1 KB fails to link instead of overwriting itself.
+
+## 2026-10-02 — EDIT with VI's keys
+
+Doc: "Can we change EDIT so that it supports VI movements and actions?
+... If yes then can that be extended to PROG?"  Then: "yes, EDIT first,
+off by default."
+
+One copy, not two: VI's normal mode -- counts, motions, d c y, the
+one-key commands -- moved out of demo/vi.c into demo/vikeys.h, and VI and
+EDIT both include it.  vi_normal(k) takes a key; reading keys, drawing and
+the : line stay each editor's own.  The editor supplies vik_page (PgDn's
+reach), vik_put (p and P) and vik_key (was it a key code); VIK_CHARREG
+makes a charwise y, d, c or x fill the register, which EDIT can put back
+as characters (its clipboard is the same register), and VI, whose p puts
+lines only, leaves undefined.  A differential run (41 key strings, the
+old vi.prg against the new) came out the same but for two fixes:
+
+- J lost the end of the joined line -- "four five six seven eight n" --
+  and its undo put back the wrong text: do_join (ed.h) called u_line,
+  which reads the slot through tmp, while tmp held the line being
+  pulled up.  u_line now comes first.
+- cw changed the space after the word too; it is ce now, as in vi.
+
+New in both: Enter, + and - (the next or previous line, at its text),
+Space and Backspace as l and h, Ctrl-D and Ctrl-U (half a page), Esc
+abandons a waiting d c y.
+
+EDIT: Options > VI Keys, or -v.  Normal mode takes the printable keys,
+Esc, Enter, Backspace, Ctrl-R, Ctrl-U, Ctrl-D, and the arrows only while
+an operator or a count waits (otherwise the arrows are EDIT's, Shift
+selecting); every other Ctrl key, the F keys, Alt and the mouse stay
+EDIT's.  Insert mode is EDIT's typing until Esc.  The : line is on the
+status row: :w [name], :q, :q!, :wq, :x, :N, :$, :s and :%s, :set ts=,
+:renum; / and ? search.  The status line says VI keys, -- INSERT -- or
+which operator waits; the cursor is a block in normal mode.
+
+Room: EDIT's two segments were full.  It has a third now (K4SG allows
+eight; demo/edit-header.s): $1800-$1FFB, under the image and above BSS
+(which edit.cfg stops at $17FF), with the BBC keyword table and its
+look-up; VI's keys, the file code and the keyword pass are at $E000.
+Main image to $CA12 of $CC00, $E000 to $FCE9 of $FF00, $1800 to $1D50.
+Not --local-strings, tried for it: cc65 then writes a table's strings
+between the table's own pointers, and the menu bar read nothing.
+
+test/vikeystest.sh: 19 edits in VI and in EDIT -v, file for file, and
+EDIT's own four (x p swaps, :2, Ctrl+S in VI mode, the Options switch).
+PROG next: its memory is full, so VI's keys go to it as an overlay.

@@ -404,12 +404,13 @@ static void do_join(unsigned n)                 /* J: pull the next line onto th
         if (cy + 1 >= nlines) break;
         line_out(cy);
         far_get(SLOT(cy + 1), tmp, 256);
+        if ((unsigned)ln[0] + tmp[0] + 1 > 255) { note = "line would be too long"; break; }
+        u_line(cy);                                 /* before anything changes: it reads the slot through tmp */
+        far_get(SLOT(cy + 1), tmp, 256);
         far_get(SLOT(cy), ln, 256);
         plen = ln[0];
-        if ((unsigned)plen + tmp[0] + 1 > 255) { note = "line would be too long"; break; }
         if (plen && tmp[0]) { ln[plen + 1] = ' '; plen++; }
         for (j = 0; j < tmp[0]; j++) ln[plen + 1 + j] = tmp[j + 1];
-        u_line(cy);
         ln[0] = (uint8_t)(plen + tmp[0]);
         line_out(cy);
         u_del(cy + 1); close_at(cy + 1);

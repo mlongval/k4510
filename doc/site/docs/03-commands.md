@@ -199,8 +199,8 @@ Alone, say which code page the machine speaks. 437 is IBM’s, the default; K451
 **`DELETE [-l | -r name | -e | name]`** — */SYSTEM/BIN*  
 The trash: list it, put a file back, empty it, or send a file there.
 
-**`EDIT [-s] [-u] [name]`** — */SYSTEM/BIN*  
-The editor, in MS-DOS EDIT’s manner: menus, the mouse, dialogs; -s in the console’s colours, -u BBC BASIC’s keywords in capitals at each save ([Chapter 9, The Editors](11-editors.md)).
+**`EDIT [-s] [-u] [-v] [name]`** — */SYSTEM/BIN*  
+The editor, in MS-DOS EDIT’s manner: menus, the mouse, dialogs; -s in the console’s colours, -u BBC BASIC’s keywords in capitals at each save, -v VI’s keys ([Chapter 9, The Editors](11-editors.md)).
 
 **`FONTED [name.FNT] | -L name`** — */SYSTEM/BIN*  
 The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT.

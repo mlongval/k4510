@@ -150,6 +150,126 @@ static void apply_op(uint8_t kind)
     if (op == 'c') mode = 1; else u_end();
 }
 
+/* ---- :s and J --------------------------------------------------------------
+ * Here rather than in ed.h: only the editors with VI's keys use them, and in
+ * PROG this file is an overlay, out of the main image. */
+static void do_sub(const char *c)
+{
+    uint8_t d, all = 0, whole = 0; unsigned l;
+    if (*c == '%') { whole = 1; c++; }
+    if (*c != 's') { note = "?"; return; }
+    c++;
+    d = (uint8_t)*c; if (!d) { note = "usage: :s/old/new/"; return; }
+    c++;
+    soldl = 0; while (*c && (uint8_t)*c != d && soldl < NAMEMAX - 1) sold[soldl++] = *c++;
+    if ((uint8_t)*c == d) c++;
+    snewl = 0; while (*c && (uint8_t)*c != d && snewl < NAMEMAX - 1) snew[snewl++] = *c++;
+    if ((uint8_t)*c == d) c++;
+    while (*c) { if (*c == 'g') all = 1; c++; }
+    if (!soldl) { note = "nothing to replace"; return; }
+    subs = 0; line_out(cy); u_begin();
+    if (whole) { for (l = 0; l < nlines; l++) sub_line(l, all); }
+    else sub_line(cy, all);
+    u_end(); line_in(cy);
+    if (cx > ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
+    full = 1;
+    note = subs ? "substituted" : "not found";
+    patlen = 0;
+}
+
+static void do_join(unsigned n)                 /* J: pull the next line onto this one */
+{
+    unsigned i; uint8_t plen, j;
+    u_begin();
+    for (i = 0; i < n; i++) {
+        if (cy + 1 >= nlines) break;
+        line_out(cy);
+        far_get(SLOT(cy + 1), tmp, 256);
+        if ((unsigned)ln[0] + tmp[0] + 1 > 255) { note = "line would be too long"; break; }
+        u_line(cy);                                 /* before anything changes: it reads the slot through tmp */
+        far_get(SLOT(cy + 1), tmp, 256);
+        far_get(SLOT(cy), ln, 256);
+        plen = ln[0];
+        if (plen && tmp[0]) { ln[plen + 1] = ' '; plen++; }
+        for (j = 0; j < tmp[0]; j++) ln[plen + 1 + j] = tmp[j + 1];
+        ln[0] = (uint8_t)(plen + tmp[0]);
+        line_out(cy);
+        u_del(cy + 1); close_at(cy + 1);
+        cx = plen ? (uint8_t)(plen - 1) : 0;
+    }
+    u_end(); line_in(cy); dirty = 1;
+}
+
+/* ---- mappings ------------------------------------------------------------
+ * :map lhs rhs  in normal mode,  :imap lhs rhs  in insert.  The classic use
+ * is  :imap jk <Esc>.  The editor's key reader holds a partial match back
+ * until it either completes, cannot complete, or the typist stops (a
+ * second: vim's timeoutlen -- half was too short for a deliberate j, k,
+ * Doc 2026-09-09), and hands keys out of qbuf first.
+ * <Esc> and <CR> are spelled out; everything else is literal. */
+#ifndef VIK_MAPMAX
+#define VIK_MAPMAX 16
+#define VIK_MAPRHS 24
+#endif
+#define MAPLHS 8
+static uint8_t mmode[VIK_MAPMAX], mll[VIK_MAPMAX], mrl[VIK_MAPMAX], nmaps;
+static uint8_t mlhs[VIK_MAPMAX][MAPLHS], mrhs[VIK_MAPMAX][VIK_MAPRHS];
+static uint8_t qbuf[VIK_MAPRHS + MAPLHS], qn, qi;   /* keys waiting to be handed out */
+static uint8_t pb[MAPLHS], pbn;             /* a partial match, still growing */
+
+static void q_push(const uint8_t *b, uint8_t n)
+{
+    uint8_t i;
+    if (qi == qn) { qi = qn = 0; }
+    for (i = 0; i < n && qn < sizeof qbuf; i++) qbuf[qn++] = b[i];
+}
+/* 2 = one of the maps IS pb, 1 = one of them starts with pb, 0 = none */
+static uint8_t map_look(uint8_t md, uint8_t *which)
+{
+    uint8_t i, j, pre = 0;
+    for (i = 0; i < nmaps; i++) {
+        if (mmode[i] != md || mll[i] < pbn) continue;
+        for (j = 0; j < pbn; j++) if (mlhs[i][j] != pb[j]) break;
+        if (j < pbn) continue;
+        if (mll[i] == pbn) { *which = i; return 2; }
+        pre = 1;
+    }
+    return pre;
+}
+/* one key k just typed: 0 = it is held (part of a mapping, or the mapping
+ * has gone into qbuf), 1 = it is not part of any, pass it on (qbuf may hold
+ * keys typed before it, which go first: the caller takes from qbuf). */
+static uint8_t map_feed(uint8_t k)
+{
+    uint8_t r, w = 0;
+    if (pbn < MAPLHS) pb[pbn++] = k; else { q_push(pb, pbn); pbn = 0; return 1; }
+    r = map_look(mode == 1 ? 1 : 0, &w);
+    if (r == 2) { q_push(mrhs[w], mrl[w]); pbn = 0; return 0; }
+    if (r == 1) return 0;                    /* could still become one */
+    q_push(pb, pbn); pbn = 0;                /* it cannot: hand the keys over as typed */
+    return 0;
+}
+static void map_timeout(void) { q_push(pb, pbn); pbn = 0; }   /* the typist stopped: the partial match was keys after all */
+static void do_map(const char *c, uint8_t md)
+{
+    uint8_t n = 0;
+    if (nmaps >= VIK_MAPMAX) { note = "map table full"; return; }
+    while (*c == ' ') c++;
+    while (*c && *c != ' ' && n < MAPLHS) mlhs[nmaps][n++] = (uint8_t)*c++;
+    mll[nmaps] = n;
+    while (*c == ' ') c++;
+    n = 0;
+    while (*c && n < VIK_MAPRHS) {
+        if (c[0] == '<' && (c[1] == 'E' || c[1] == 'e') && c[4] == '>') { mrhs[nmaps][n++] = 0x1B; c += 5; }
+        else if (c[0] == '<' && (c[1] == 'C' || c[1] == 'c') && c[3] == '>') { mrhs[nmaps][n++] = 0x0D; c += 4; }
+        else mrhs[nmaps][n++] = (uint8_t)*c++;
+    }
+    mrl[nmaps] = n;
+    if (!mll[nmaps] || !n) { note = "usage: :map lhs rhs"; return; }
+    mmode[nmaps] = md; nmaps++;
+    note = "mapped";
+}
+
 /* ---- one key in normal mode ------------------------------------------------ */
 static void vi_normal(uint8_t k)
 {

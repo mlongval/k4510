@@ -41,6 +41,10 @@
 #include "ed.h"
 #include "dosui.h"
 #include "dosed.h"
+static uint8_t vimode;                                /* VI's keys: Options, or -v */
+#define DOSVI_P1 0x08D00000UL                        /* the two overlays (demo/edit-header.s): beside the Open list's */
+#define DOSVI_P2 0x08D10000UL
+#include "dosvi.h"
 
 enum { C_NEW = 1, C_OPEN, C_SAVE, C_SAVEAS, C_EXIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_VI, C_HELP, C_ABOUT };
@@ -53,8 +57,6 @@ static void band_file(void)
     REG(0xD544) = 0;
     for (i = 0; b[i]; i++) REG(0xD544) = (uint8_t)b[i];
 }
-static uint8_t vimode;                                /* VI's keys: Options, or -v */
-static void vi_status(void);
 static void draw(void)
 {
     char p[16]; uint8_t i = 0;
@@ -67,7 +69,7 @@ static void draw(void)
     window_cursor();
 }
 
-#pragma code-name (push, "LOCODE")                   /* at $1800 (demo/edit.cfg): BBC BASIC's keywords */
+#pragma code-name (push, "LOCODE")                   /* at $1A00 (demo/edit.cfg): BBC BASIC's keywords */
 #pragma rodata-name (push, "LOCODE")
 /* ---- BBC BASIC's keywords, in capitals --------------------------------------
  * Only a whole word that IS a keyword changes (BBC BASIC's own table,
@@ -95,7 +97,7 @@ static uint8_t kw_is(uint8_t n)                       /* kwb[0..n) one of them? 
 }
 static uint8_t is_al(uint8_t c) { c = rn_up(c); return (uint8_t)(c >= 'A' && c <= 'Z'); }
 static uint8_t is_an(uint8_t c) { return (uint8_t)(is_al(c) || (c >= '0' && c <= '9') || c == '_'); }
-#pragma code-name (push, "HICODE")                   /* the pass at $E000: $1800 is full */
+#pragma code-name (push, "HICODE")                   /* the pass at $E000: $1A00 is full */
 static uint8_t up_line(uint8_t *l)                    /* l: a length, then the text; answers how many words changed */
 {
     uint8_t i = 1, e = l[0], s, n, m, c, p, q = 0, asmb = 0, st = 1, hits = 0;
@@ -148,107 +150,7 @@ static void up_all(void)                              /* the whole file, one und
 
 #pragma rodata-name (pop)
 #pragma code-name (pop)
-#pragma code-name (push, "HICODE")                   /* at $E000: VI's keys */
-#pragma rodata-name (push, "HICODE")
-/* ---- VI's keys ---------------------------------------------------------------
- * vikeys.h is VI's normal mode; what is here is how EDIT feeds it: which keys
- * go to it, the : line, and p and P, which put characters back as well as
- * lines (EDIT's clipboard is the same register, so Ctrl+C then p works). */
-static uint8_t vik_key;
-#define vik_page (th - 1)
-#define VIK_CHARREG
-static void put_chars(void);
-static void vik_put(uint8_t after)
-{
-    t_end();
-    if (reglinewise || !reglines) { do_put(after); return; }
-    if (after && cx < ln[0]) cx++;
-    put_chars();
-    if (cx) cx--;
-}
-#include "vikeys.h"
-static void vi_clamp(void) { if (mode != 1 && ln[0] && cx >= ln[0]) cx = (uint8_t)(ln[0] - 1); }
-static uint8_t save(void);
-static void vi_ex(void)                               /* the : line, or a / ? search */
-{
-    uint8_t i = 0, w = 0, q = 0, bang = 0; unsigned n = 0;
-    mode = 0;
-    if (cprompt != ':') {
-        for (patlen = 0; cmd[patlen] && patlen < NAMEMAX - 1; patlen++) pat[patlen] = cmd[patlen];
-        lastdir = (uint8_t)(cprompt == '/');
-        if (patlen) search(lastdir ? 1 : -1);
-        return;
-    }
-    if (cmd[0] >= '0' && cmd[0] <= '9') { for (; cmd[i] >= '0' && cmd[i] <= '9'; i++) n = n * 10 + (unsigned)(cmd[i] - '0'); go(n ? n - 1 : 0); cx = 0; return; }
-    if (cmd[0] == '$' && !cmd[1]) { go(nlines - 1); cx = 0; return; }
-    if (cmd[0] == 's' || (cmd[0] == '%' && cmd[1] == 's')) { t_end(); do_sub(cmd); return; }
-    if (rn_up(cmd[0]) == 'S' && rn_up(cmd[1]) == 'E' && rn_up(cmd[2]) == 'T' && cmd[3] == ' ') {
-        const char *v = cmd + 4;
-        if (v[0] == 't' && v[1] == 's' && v[2] == '=') ed_set_tabw(v + 3);
-        return;
-    }
-    if (rn_up(cmd[0]) == 'R' && rn_up(cmd[1]) == 'E' && rn_up(cmd[2]) == 'N') { t_end(); do_renum(cmd + 5); return; }
-    for (; cmd[i] && cmd[i] != ' '; i++) {            /* w q x, either case, and a ! */
-        uint8_t c = rn_up(cmd[i]);
-        if (c == 'W') w = 1; else if (c == 'Q') q = 1; else if (c == 'X') { w = 1; q = 1; } else if (c == '!') bang = 1;
-        else { note = "Not an editor command"; return; }
-    }
-    if (w) {
-        if (cmd[i] == ' ' && cmd[i + 1]) { for (n = 0; cmd[i + 1 + n] && n < NAMEMAX - 1; n++) name[n] = cmd[i + 1 + n]; name[n] = 0; full = 1; }
-        if (!save()) return;
-    }
-    if (q) { if (dirty && !bang) note = "Not saved -- :q! leaves anyway, :wq saves"; else running = 0; }
-}
-/* the key, if VI's mode wants it: 1 taken, 0 for EDIT */
-static uint8_t vi_key(uint8_t k)
-{
-    if (mode == 2) {                                  /* the : line */
-        if (kcode) return 1;
-        if (k == 0x0D) vi_ex();
-        else if (k == 0x1B) mode = 0;
-        else if (k == 0x08) { if (cmdlen) cmd[--cmdlen] = 0; else mode = 0; }
-        else if (k >= 0x20 && k < 0x7F && cmdlen < NAMEMAX - 2) { cmd[cmdlen++] = (char)k; cmd[cmdlen] = 0; }
-        vi_clamp();
-        return 1;
-    }
-    if (mode == 1) {                                  /* insert: EDIT's own keys, Esc back to normal */
-        if (kcode || k != 0x1B) return 0;
-        t_end(); u_end(); sel_clear(); mode = 0; if (cx) cx--;
-        return 1;
-    }
-    if (kcode) {                                      /* the arrows and their kind: EDIT's, unless a d c y or a count waits */
-        if (!op && !pend && !cnt) { if (window_key(k)) vi_clamp(); return 1; }
-        if (k > KPGDN) return 0;
-    } else if (k >= 0x80) return 1;                   /* an accented letter means nothing in normal mode */
-    else if (k < 0x20 && k != 0x1B && k != 0x0D && k != 0x08 && k != 0x12 && k != 0x15 && k != 0x04 && !op && !pend) return 0;   /* EDIT's Ctrl keys */
-    vik_key = (uint8_t)(kcode != 0);
-    sel_clear(); t_end();
-    vi_normal(k);
-    vi_clamp(); wantx = cx;
-    return 1;
-}
-static void vi_status(void)                           /* the status line in VI's modes, and the cursor */
-{
-    uint8_t x;
-    for (x = 0; x < cols; x++) cel(x, ' ', K_STATUS);
-    if (mode == 2) {
-        cel(1, cprompt, K_STATUS);
-        for (x = 0; x < cmdlen; x++) cel((uint8_t)(2 + x), (uint8_t)cmd[x], K_STATUS);
-        flush((uint8_t)(rows - 1), cols);
-        cursor_shape('4'); cursor_at((uint8_t)(2 + cmdlen), (uint8_t)(rows - 1));
-        return;
-    }
-    { const char *s = mode == 1 ? "-- INSERT --" : op ? "-- d c y: a motion --" : "VI keys  <F1=Help>  <F10 or Alt=Menus>  :q leaves";
-      if (op == 'c') s = "-- c: a motion --"; else if (op == 'y') s = "-- y: a motion --"; else if (op == 'd') s = "-- d: a motion --";
-      for (x = 0; s[x]; x++) cel((uint8_t)(1 + x), (uint8_t)s[x], K_STATUS); }
-    { char p[10]; where(p); for (x = 0; x < 9; x++) cel((uint8_t)(cols - 10 + x), (uint8_t)p[x], K_STATUS); }
-    flush((uint8_t)(rows - 1), cols);
-    cursor_shape((uint8_t)(mode == 1 && !over ? '4' : '2'));   /* a block in normal mode, as VI's */
-    cursor_at((uint8_t)(1 + cx - hoff), (uint8_t)(wy + cy - top));
-}
 
-#pragma rodata-name (pop)
-#pragma code-name (pop)
 
 /* ---- files (at $E000, as PROG's) ------------------------------------------ */
 #pragma code-name (push, "HICODE")
@@ -349,7 +251,7 @@ static void run_cmd(uint8_t c)
     case C_GOTO:   goto_dlg(); break;
     case C_DOS:    scheme(0); full = 1; break;
     case C_SYS:    scheme(1); full = 1; break;
-    case C_VI:     vimode = (uint8_t)!vimode; mode = 0; op = pend = 0; cnt = 0; vi_clamp(); note = vimode ? "VI keys: Esc is normal mode, i inserts, :q leaves" : "EDIT's keys"; break;
+    case C_VI:     vi_toggle(); break;
     case C_HELP:   text_box("Keyboard", helptext); break;
     case C_ABOUT:  text_box("About", abouttext); break;
     }
@@ -374,6 +276,18 @@ static const struct item *const menus[] = { m_file, m_edit, m_search, m_opt, m_h
 static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc) || (c == C_VI && vimode)); }
 
 /* ---- the keys and the mouse ------------------------------------------------- */
+static void vi_do(void)                               /* what a : command asked of EDIT itself (dosvi.h's vi_act) */
+{
+    uint8_t i;
+    switch (vi_act) {
+    case 'w': case 'x':
+        if (*vi_arg) { for (i = 0; vi_arg[i] && i < NAMEMAX - 1; i++) name[i] = vi_arg[i]; name[i] = 0; full = 1; }
+        if (!save() || vi_act == 'w') break;          /* :x saved: on to leaving */
+    case 'q': if (dirty) { note = "Not saved -- :q! leaves anyway, :wq saves"; break; }
+    case 'Q': running = 0; break;
+    case 'm': case 'r': case 'n': case 'p': note = "That is PROG's: EDIT does not compile"; break;
+    }
+}
 static void do_key(uint8_t k)
 {
     uint8_t i;
@@ -383,7 +297,7 @@ static void do_key(uint8_t k)
         return;
     }
     if (kcode && k >= KALT && k < KALT + 26) { i = title_of(k); if (i < ui_nmenu) run_cmd(menu(i)); return; }
-    if (vimode && (k < KF(1) || k > KF(12) || !kcode) && vi_key(k)) return;
+    if (vimode && (k < KF(1) || k > KF(12) || !kcode) && vi_key(k)) { vi_do(); return; }
     if (!kcode) switch (k) {
         case 0x01: run_cmd(C_SELALL); return;        /* ^A */
         case 0x0E: run_cmd(C_NEW); return;           /* ^N */
@@ -432,11 +346,13 @@ void main(void)
     load_file();
     fresh();
     note = name[0] ? (note[0] == 'n' ? "A new file" : "") : "";
+    vi_setup(); vi_init();                            /* VI.RC's maps (:imap jk <Esc>), for when VI's keys are on */
     REG(TERM + 4) = 1; cursor_show(1);
     ptr_on();
     while (running) {
+        vi_setup();                                   /* the gate's table: VI's keys are overlays (dosvi.h) */
         draw();
-        k = event();
+        k = vi_event();
         if (kcode != 2 || mev == 1) note = "";
         do_key(k);
     }

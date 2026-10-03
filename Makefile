@@ -311,9 +311,9 @@ fs/SYSTEM/BIN/word.prg: demo/word.c demo/dosui.h demo/k4510.h demo/far.h demo/pr
 	cc65 -O -t none --cpu 65c02 -o demo/word.s demo/word.c
 	ca65 --cpu 65c02 -o demo/word.o demo/word.s
 	ld65 -C demo/word.cfg -o $@ demo/prg0.o demo/romcalls.o demo/word.o none.lib -m demo/word.map
-# EDIT: VI's engine and MS-DOS EDIT's front end -- a K4SG program, its cold code at $E000 and $1800 (demo/edit.cfg,
+# EDIT: VI's engine and MS-DOS EDIT's front end -- a K4SG program, its cold code at $E000 and $1A00 (demo/edit.cfg,
 # demo/edit-header.s).  Not --local-strings: cc65 then puts a table's strings between its own pointers (mtitle read "File").
-fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/vikeys.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg demo/edit-header.s
+fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/vikeys.h demo/dosvi.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg demo/edit-header.s
 	cc65 -O -t none --cpu 65c02 -o demo/edit.s demo/edit.c
 	ca65 --cpu 65c02 -o demo/edit.o demo/edit.s
 	ca65 --cpu 65c02 -o demo/edit_h.o demo/edit-header.s
@@ -327,7 +327,7 @@ fs/SYSTEM/BIN/mark.prg: demo/mark.c demo/mark-asm.s demo/mark-cycles.h demo/k451
 	ca65 --cpu 65c02 -o demo/mark-asm.o demo/mark-asm.s
 	ld65 -C demo/mark.cfg -o $@ demo/prg0.o demo/romcalls.o demo/mark-asm.o demo/mark.o none.lib -m demo/mark.map
 # PROG: VI's engine and a front end -- loaded at $2000, variables at $0800 (demo/prog.cfg)
-fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg demo/prog-header.s
+fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/vikeys.h demo/dosvi.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg demo/prog-header.s
 	cc65 -O -t none --cpu 65c02 -o demo/prog.s demo/prog.c
 	ca65 --cpu 65c02 -o demo/prog.o demo/prog.s
 	ca65 --cpu 65c02 -o demo/prog_h.o demo/prog-header.s

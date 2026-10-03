@@ -1,4 +1,4 @@
-/* K4510: PROG [-s] [name] -- the programmer's front end: edit, compile, run.
+/* K4510: PROG [-s] [-v] [name] -- the programmer's front end: edit, compile, run.
  *
  * Doc, 2026-09-14: "a small ide/front end that can cover both CC and PAS
  * edit/compile cycle - something like turbo pascal but more modern ...
@@ -6,6 +6,10 @@
  * "modify PROG so that its interface is similar to this new EDIT" -- so it
  * wears MS-DOS EDIT's clothes now (demo/dosui.h) and edits in EDIT's window
  * (demo/dosed.h), on VI's engine (demo/ed.h): three editors, one engine.
+ * And VI's keys, as EDIT's (Doc, 2026-10-03: "make Prog accept vi keys like
+ * EDIT ... I will need :map in PROG -- I rely a lot on JK to ESC"):
+ * Options > VI Keys or -v, demo/dosvi.h, VI.RC's maps included; :make :run
+ * :cn :cp are F9, Ctrl+F9, F4, Shift+F4.
  *
  *   row 0             the menu bar            F10, Alt+letter, or the mouse
  *   row 1             the window's top: the open files as tabs, the one in
@@ -23,18 +27,23 @@
  * own at $04000000 + n * 8 MB: its lines in the first 4 MB (16384 of them),
  * its undo from +6 MB.  $04000000-$07FFFFFF is used by nothing else on the
  * machine (checked 2026-09-14: BOOK is at $0C, SPLIT $0D, VI $0E-$0F; EDIT
- * took $08-$0B on 2026-10-02).  The Open dialog's list is at $07F00000. */
+ * took $08-$0B on 2026-10-02).  The Open dialog's list is at $0EE00000, VI's
+ * keys (two overlays) at $0EF00000. */
 #include "k4510.h"
 #define ED_NO_RENUM                             /* renumbering BASIC is EDIT's and VI's: PROG has no room for it */
 #include "ed.h"
 #include "dosui.h"
 #include "dosed.h"
+static uint8_t vimode;                                /* VI's keys: Options, or -v */
+#define DOSVI_P1 0x0EF00000UL                        /* the two overlays (demo/prog-header.s) */
+#define DOSVI_P2 0x0EF10000UL
+#include "dosvi.h"
 
 #define MSGH    4                       /* message rows */
 
 enum { C_OPEN = 1, C_SAVE, C_SAVEAS, C_QUIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_FIND, C_NEXT, C_REPL, C_GOTO, C_MAKE, C_RUN, C_MNEXT, C_MPREV, C_RENUM, C_HELP, C_ABOUT,
-       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS };
+       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI };
 
 static uint8_t eh, msgs_due = 1;
 static unsigned mtop;
@@ -232,6 +241,7 @@ static void draw(void)
     full = 0;
     if (over) { p[0] = 'O'; p[1] = 'V'; p[2] = 'R'; p[3] = ' '; p[4] = ' '; i = 5; }
     where(p + i);
+    if (vimode && !*note) { vi_status(); return; }
     status_line(*note ? note : (const char *)"F1=Help  F2=Save  F9=Compile  Ctrl+F9=Run  F10=Menus", p);
     window_cursor();
 }
@@ -554,7 +564,8 @@ static const char *const helptext[] = {
     "F10, Alt+letter  the menus                  F1  this page",
     "Mouse: the text, a menu, a tab, a message, the scroll bars; the wheel",
     "",
-    "PROG -s starts in the console's own colours (Options).",
+    "PROG -s starts in the console's own colours, PROG -v with VI's keys (Options):",
+    "Esc, hjkl w b e, d c y, x p u, :w :q :make :run :cn, :imap jk <Esc> (VI.RC)",
     0 };
 static const char *const abouttext[] = { "PROG -- edit, compile, run", "", "MS-DOS EDIT's manner, VI's engine,", "CC and PAS behind F9.", 0 };
 
@@ -595,6 +606,7 @@ static void run_cmd(uint8_t c)
                    break;
     case C_DOS:    scheme(0); full = 1; break;
     case C_SYS:    scheme(1); full = 1; break;
+    case C_VI:     vi_toggle(); break;
     case C_HELP:   text_box("PROG -- the keys", helptext); break;
     case C_ABOUT:  text_box("About", abouttext); break;
     }
@@ -616,10 +628,11 @@ static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "R
 static const struct item m_build[]  = { { "Compile", 0, C_MAKE, "F9" }, { "Compile and Run", 12, C_RUN, "Ctrl+F9" },
                                         { "", 0, C_SEP, "" }, { "Next Message", 0, C_MNEXT, "F4" }, { "Previous Message", 0, C_MPREV, "Shift+F4" },
                                         { 0, 0, 0, 0 } };
-static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { 0, 0, 0, 0 } };
+static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },
+                                        { "VI Keys", 0, C_VI, "" }, { 0, 0, 0, 0 } };
 static const struct item m_help[]   = { { "Keyboard", 0, C_HELP, "F1" }, { "About PROG...", 0, C_ABOUT, "" }, { 0, 0, 0, 0 } };
 static const struct item *const menus[] = { m_file, m_edit, m_search, m_build, m_opt, m_help };
-static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc)); }
+static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc) || (c == C_VI && vimode)); }
 
 /* ---- the mouse's clicks ----------------------------------------------------- */
 static uint8_t tab_at(uint8_t c)                      /* the open file whose tab is at column c, or 0xFF: tabrow's arithmetic */
@@ -646,11 +659,27 @@ static void do_mouse(void)
 }
 
 /* ---- the keys ------------------------------------------------------------ */
+static void vi_do(void)                               /* what a : command asked of PROG itself (dosvi.h's vi_act) */
+{
+    uint8_t i;
+    switch (vi_act) {
+    case 'w': case 'x':
+        if (*vi_arg) { for (i = 0; vi_arg[i] && i < NAMEMAX - 1; i++) name[i] = vi_arg[i]; name[i] = 0; full = 1; }
+        if (!save() || vi_act == 'w') break;          /* :x saved: on to leaving */
+    case 'q': run_cmd(C_QUIT); break;                 /* every changed file asked about, as Ctrl+Q */
+    case 'Q': running = 0; break;
+    case 'm': run_cmd(C_MAKE); break;
+    case 'r': run_cmd(C_RUN); break;
+    case 'n': run_cmd(C_MNEXT); break;
+    case 'p': run_cmd(C_MPREV); break;
+    }
+}
 static void do_key(uint8_t k)
 {
     uint8_t ctrl = (uint8_t)(kmod & 2), shift = (uint8_t)(kmod & 1), i;
-    if (kcode == 2) { do_mouse(); return; }
+    if (kcode == 2) { do_mouse(); if (vimode) vi_clamp(); return; }
     if (kcode && k >= KALT && k < KALT + 26) { i = title_of(k); if (i < ui_nmenu) run_cmd(menu(i)); return; }
+    if (vimode && (k < KF(1) || k > KF(12) || !kcode) && vi_key(k)) { vi_do(); return; }
     if (!kcode) switch (k) {
         case 0x01: run_cmd(C_SELALL); return;        /* ^A */
         case 0x0E: run_cmd(C_NEW); return;           /* ^N */
@@ -689,9 +718,12 @@ static void fresh(void)                               /* the first file: no mess
 void main(void)
 {
     uint8_t k, na = rom_args(), j = 0, sys = 0; const char *a = *(const char **)0xF0;
-    for (;;) {                                        /* PROG [-s] [name] */
+    for (;;) {                                        /* PROG [-s] [-v] [name] */
         while (na && *a == ' ') { a++; na--; }
-        if (na >= 2 && a[0] == '-' && (a[1] == 's' || a[1] == 'S') && (na == 2 || a[2] == ' ')) { sys = 1; a += 2; na -= 2; continue; }
+        if (na >= 2 && a[0] == '-' && (na == 2 || a[2] == ' ')) {
+            if (a[1] == 's' || a[1] == 'S') { sys = 1; a += 2; na -= 2; continue; }
+            if (a[1] == 'v' || a[1] == 'V') { vimode = 1; a += 2; na -= 2; continue; }
+        }
         break;
     }
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }
@@ -715,11 +747,13 @@ void main(void)
         open_path(p);
     }
     if (!name[0]) note = "No file yet -- type, then Ctrl+S names it; Ctrl+O opens one";
+    vi_setup(); vi_init();                                /* VI.RC's maps (:imap jk <Esc>), for when VI's keys are on */
     REG(TERM + 4) = 1; cursor_show(1);
     ptr_on();
     while (running) {
+        vi_setup();                                       /* the gate's table: VI's keys are overlays (dosvi.h); a program run may have moved it */
         draw();
-        k = event();
+        k = vi_event();
         if (kcode != 2 || mev == 1) note = "";
         do_key(k);
     }

@@ -193,6 +193,7 @@ static void cursor_show(uint8_t on) { if (on) REG(TERM + 0x0E) |= 1; else REG(TE
  * pointer, and this draws one: sprite 0, the same arrow.  event() waits for
  * a key or for the mouse to do something, a frame at a time. */
 static uint8_t mev, mrow, mcol, mheld, dragging, chh = 8;   /* mev: 1 press, 2 drag, 3 release, 4 wheel */
+static uint8_t ev_wait;                                       /* frames event() waits before it answers 0 (0: for ever) */
 static int8_t mwheel;
 static const uint8_t arrowspr[128] = {   /* 16x16, 4 bpp: the arrow (1) with a black edge (2) round it */
     0x12, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x11, 0x22, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -222,6 +223,7 @@ static uint8_t event(void)
         k = rom_getin();
         if (k) { kmod = REG(KSTAT); kcode = (uint8_t)((kmod & 0x40) ? 1 : 0); return k; }
         wait_vblank();
+        if (ev_wait && !--ev_wait) { kcode = 0; return 0; }   /* nothing came: dosvi.h's map timeout */
         x = REG(MOUSEX) | ((unsigned)REG(MOUSEX + 1) << 8); y = REG(MOUSEY) | ((unsigned)REG(MOUSEY + 1) << 8);
         far_poke(SPRTAB + 0, (uint8_t)x); far_poke(SPRTAB + 1, (uint8_t)(x >> 8));
         far_poke(SPRTAB + 2, (uint8_t)y); far_poke(SPRTAB + 3, (uint8_t)(y >> 8));

@@ -78,7 +78,11 @@ to line 12, \verb|:%s/old/new/g|. The menus, the mouse and the dialogs
 stay as they were, and so do the Ctrl keys --- Ctrl+S saves, Ctrl+Q
 leaves --- except Ctrl-R (redo), Ctrl-U and Ctrl-D (half a page), which
 are VI's in normal mode. What you yank or delete is the clipboard, so
-\verb|dw| then Ctrl+V works, and Ctrl+C then \verb|p|.
+\verb|dw| then Ctrl+V works, and Ctrl+C then \verb|p|. The maps come too:
+\verb|:map| and \verb|:imap| on the \verb|:| line, and VI.RC's at the start
+--- so \verb|imap jk <Esc>| there (it ships that way) is \verb|jk| out of
+insert mode in VI, EDIT and PROG alike (a lone \verb|j| is typed after a
+second, as vim does).
 
 \section{VI}
 \verb|VI name| is modal in the old way. In \emph{normal} mode the keys
@@ -283,7 +287,11 @@ bars, mouse and colours (\verb|PROG -s| for the console's own) --- with the
 open files as tabs along the window's top border and, under the text, a
 second window with what the compiler said. In the spirit of Turbo Pascal:
 F9 compiles, Ctrl+F9 compiles and runs, and an error puts the cursor on the
-line it is about.
+line it is about. \verb|PROG -v| (or \emph{Options}, \emph{VI Keys}) has
+VI's keys exactly as \verb|EDIT -v| has them, and four more on the
+\verb|:| line: \verb|:make| \verb|:run| \verb|:cn| \verb|:cp| are F9,
+Ctrl+F9, F4 and Shift+F4; \verb|:q| asks about every changed file, as
+Ctrl+Q does, and \verb|:q!| leaves without asking.
 
 \begin{center}
 \small

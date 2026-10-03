@@ -166,43 +166,9 @@ static void scroll_fit(void)
 }
 
 
-/* ---- mappings ------------------------------------------------------------
- * :map lhs rhs  in normal mode,  :imap lhs rhs  in insert.  The classic use
- * is  :imap jk <Esc>.  Keys arrive through getkey(), which holds a partial
- * match back until it either completes, cannot complete, or the typist stops
- * -- the frame counter at $D50D is the second that decides the last one,
- * so a lone j still reaches the editor.
- * <Esc> and <CR> are spelled out; everything else is literal. */
-#define MAPMAX  16
-#define MAPLHS   8
-#define MAPRHS  24
-static uint8_t mmode[MAPMAX], mll[MAPMAX], mrl[MAPMAX], nmaps;
-static uint8_t mlhs[MAPMAX][MAPLHS], mrhs[MAPMAX][MAPRHS];
-static uint8_t qbuf[64], qn, qi;            /* keys waiting to be handed out */
-static uint8_t pb[MAPLHS], pbn;             /* a partial match, still growing */
-
-static void q_push(const uint8_t *b, uint8_t n)
+static uint8_t getkey(void)                      /* a key, through the maps (vikeys.h) */
 {
-    uint8_t i;
-    if (qi == qn) { qi = qn = 0; }
-    for (i = 0; i < n && qn < sizeof qbuf; i++) qbuf[qn++] = b[i];
-}
-/* 2 = one of the maps IS pb, 1 = one of them starts with pb, 0 = none */
-static uint8_t map_look(uint8_t md, uint8_t *which)
-{
-    uint8_t i, j, pre = 0;
-    for (i = 0; i < nmaps; i++) {
-        if (mmode[i] != md || mll[i] < pbn) continue;
-        for (j = 0; j < pbn; j++) if (mlhs[i][j] != pb[j]) break;
-        if (j < pbn) continue;
-        if (mll[i] == pbn) { *which = i; return 2; }
-        pre = 1;
-    }
-    return pre;
-}
-static uint8_t getkey(void)
-{
-    uint8_t k, r, w = 0; uint8_t t0;
+    uint8_t k, t0;
     for (;;) {
         if (qi < qn) return qbuf[qi++];
         if (!pbn) { do { k = rom_getin(); } while (!k); vk = (REG(0xD101) & 0x40) ? 1 : 0; }
@@ -211,37 +177,13 @@ static uint8_t getkey(void)
             for (;;) {
                 k = rom_getin();
                 if (k) { vk = (REG(0xD101) & 0x40) ? 1 : 0; break; }
-                if ((uint8_t)(REG(0xD50D) - t0) > 60) { q_push(pb, pbn); pbn = 0; break; }   /* a second, as vim's timeoutlen: half was too short for a deliberate j, k (Doc, 2026-09-09) */
+                if ((uint8_t)(REG(0xD50D) - t0) > 60) { map_timeout(); break; }   /* a second, as vim's timeoutlen */
             }
             if (!pbn) continue;
         }
-        if (pbn < MAPLHS) pb[pbn++] = k; else { q_push(pb, pbn); pbn = 0; return k; }
-        r = map_look(mode == 1 ? 1 : 0, &w);
-        if (r == 2) { q_push(mrhs[w], mrl[w]); pbn = 0; continue; }
-        if (r == 1) continue;                    /* could still become one */
-        q_push(pb, pbn); pbn = 0;                /* it cannot: hand the keys over as typed */
+        if (map_feed(k)) return k;
     }
 }
-static void do_map(const char *c, uint8_t md)
-{
-    uint8_t n = 0;
-    if (nmaps >= MAPMAX) { note = "map table full"; return; }
-    while (*c == ' ') c++;
-    while (*c && *c != ' ' && n < MAPLHS) mlhs[nmaps][n++] = (uint8_t)*c++;
-    mll[nmaps] = n;
-    while (*c == ' ') c++;
-    n = 0;
-    while (*c && n < MAPRHS) {
-        if (c[0] == '<' && (c[1] == 'E' || c[1] == 'e') && c[4] == '>') { mrhs[nmaps][n++] = 0x1B; c += 5; }
-        else if (c[0] == '<' && (c[1] == 'C' || c[1] == 'c') && c[3] == '>') { mrhs[nmaps][n++] = 0x0D; c += 4; }
-        else mrhs[nmaps][n++] = (uint8_t)*c++;
-    }
-    mrl[nmaps] = n;
-    if (!mll[nmaps] || !n) { note = "usage: :map lhs rhs"; return; }
-    mmode[nmaps] = md; nmaps++;
-    note = "mapped";
-}
-
 static void err_list(void)                           /* :cl -- the whole list, a screenful */
 {
     unsigned i, l; uint8_t r = 0;

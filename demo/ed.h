@@ -360,30 +360,6 @@ static void sub_line(unsigned l, uint8_t all)
     }
     if (hit) { far_put(tmp, SLOT(l), 256); dirty = 1; }
 }
-static void do_sub(const char *c)
-{
-    uint8_t d, all = 0, whole = 0; unsigned l;
-    if (*c == '%') { whole = 1; c++; }
-    if (*c != 's') { note = "?"; return; }
-    c++;
-    d = (uint8_t)*c; if (!d) { note = "usage: :s/old/new/"; return; }
-    c++;
-    soldl = 0; while (*c && (uint8_t)*c != d && soldl < NAMEMAX - 1) sold[soldl++] = *c++;
-    if ((uint8_t)*c == d) c++;
-    snewl = 0; while (*c && (uint8_t)*c != d && snewl < NAMEMAX - 1) snew[snewl++] = *c++;
-    if ((uint8_t)*c == d) c++;
-    while (*c) { if (*c == 'g') all = 1; c++; }
-    if (!soldl) { note = "nothing to replace"; return; }
-    subs = 0; line_out(cy); u_begin();
-    if (whole) { for (l = 0; l < nlines; l++) sub_line(l, all); }
-    else sub_line(cy, all);
-    u_end(); line_in(cy);
-    if (cx > ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
-    full = 1;
-    note = subs ? "substituted" : "not found";
-    patlen = 0;
-}
-
 static void do_put(uint8_t after)               /* p / P: the register's lines back in */
 {
     unsigned at, i;
@@ -396,29 +372,6 @@ static void do_put(uint8_t after)               /* p / P: the register's lines b
     full = 1;
     cy = at; line_in(cy); cx = 0; dirty = 1;
 }
-static void do_join(unsigned n)                 /* J: pull the next line onto this one */
-{
-    unsigned i; uint8_t plen, j;
-    u_begin();
-    for (i = 0; i < n; i++) {
-        if (cy + 1 >= nlines) break;
-        line_out(cy);
-        far_get(SLOT(cy + 1), tmp, 256);
-        if ((unsigned)ln[0] + tmp[0] + 1 > 255) { note = "line would be too long"; break; }
-        u_line(cy);                                 /* before anything changes: it reads the slot through tmp */
-        far_get(SLOT(cy + 1), tmp, 256);
-        far_get(SLOT(cy), ln, 256);
-        plen = ln[0];
-        if (plen && tmp[0]) { ln[plen + 1] = ' '; plen++; }
-        for (j = 0; j < tmp[0]; j++) ln[plen + 1 + j] = tmp[j + 1];
-        ln[0] = (uint8_t)(plen + tmp[0]);
-        line_out(cy);
-        u_del(cy + 1); close_at(cy + 1);
-        cx = plen ? (uint8_t)(plen - 1) : 0;
-    }
-    u_end(); line_in(cy); dirty = 1;
-}
-
 /* ---- renumber ------------------------------------------------------------
  * :renum [start [step]] -- demo/renum.h does the BASIC; the lines are ours.
  * The table of old numbers lives in far memory like everything else, and

@@ -10959,3 +10959,51 @@ between the table's own pointers, and the menu bar read nothing.
 test/vikeystest.sh: 19 edits in VI and in EDIT -v, file for file, and
 EDIT's own four (x p swaps, :2, Ctrl+S in VI mode, the Options switch).
 PROG next: its memory is full, so VI's keys go to it as an overlay.
+
+## 2026-10-03 — PROG with VI's keys and maps; overlays for real
+
+Doc: "Please make Prog accept vi keys like EDIT.  I will need :map in
+PROG -- I rely a lot on JK to ESC."
+
+PROG had no room at all (HICODE full, the main image 1.4 KB from the
+stack), and EDIT's VI keys plus maps came to 9 KB of code.  So VI's keys
+are overlays now, in both: K4SG segments linked for $E000 and loaded into
+far memory, banked in by the far-call gate ($DF00 + 4n, core/mem.c) --
+the first program to use the gate in earnest (SEGDEMO showed it).
+
+  VIO1  vikeys.h: normal mode, :s, J, the maps      6.1 KB
+  VIO2  demo/dosvi.h: the glue -- keys, : line, status, VI.RC   2.4 KB
+  EDIT  at $08D00000 / $08D10000     PROG  at $0EF00000 / $0EF10000
+
+The gate banks block 7 onto the overlay and restores it on the return,
+nested (VIO2 calls VIO1 through it too), and the ROM's stub saves and
+restores blocks 5-7 round every system call and interrupt, so event(),
+loading and saving work from inside an overlay.  What an overlay must not
+do is call the editor's own $E000 code (HICODE), which is out of sight
+while it runs: so a : command that saves, leaves or compiles answers in
+vi_act, and the editor does it when the gate has brought it back.  The
+table is rewritten every time round the editor's loop (vi_setup): a
+program run from PROG may have written its own.
+
+The maps (:map, :imap, VI.RC's -- which ships with imap jk <Esc>) moved
+from vi.c into vikeys.h; VI's getkey and dosvi.h's vi_event both feed
+map_feed().  dosui.h's event() gained ev_wait, a frame count after which
+it answers 0: the second a partial match waits for its next key, as VI's
+timer at $D50D did.  A key code or a click arriving while j waits sends
+the j first, then itself.  :s and J moved from ed.h into vikeys.h too
+(only VI's keys use them), so in PROG they are in the overlay.
+
+PROG's : line: :make :run :cn :cp (F9, Ctrl+F9, F4, Shift+F4); :q runs
+Ctrl+Q's quit (asking about each changed file), :q! leaves.
+
+EDIT's low segment moved to $1A00 (BSS to $19FF): with the maps' tables
+BSS reached $17E6.  Sizes now -- EDIT: main to $C8A5, $E000 to $E6AE,
+$1A00 to $1F50; PROG: main to $CACF, $E000 to $FE80 (of $CC00 and $FF00).
+
+test/vikeystest.sh: 69 edits, the same keys in VI, EDIT -v and PROG -v
+(VI.RC's jk, :map Q dd among them) and the editors' own.
+
+Also: the BBC BASIC ports another session made (ANIMAL, FUNCS) were in
+~/bbcbasic on ubuntu-s1, off the machine's disk; they are in /LANG/PASCAL
+now (0b4cfe4).  The eleven Tube demos in /LANG/BBCBASIC/EX were not
+ported: that session ported the two programs pasted into it.

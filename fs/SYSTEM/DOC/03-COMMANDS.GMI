@@ -263,9 +263,10 @@ the euro and German quotes. Remembered, as F12 -> Terminal -> Code page.
 DELETE [-l | -r name | -e | name] -- /SYSTEM/BIN
 The trash: list it, put a file back, empty it, or send a file there.
 
-EDIT [-s] [name] -- /SYSTEM/BIN
+EDIT [-s] [-u] [-v] [name] -- /SYSTEM/BIN
 The editor, in MS-DOS EDIT's manner: menus, the mouse, dialogs; -s in the
-console's colours (Chapter 9, The Editors).
+console's colours, -u BBC BASIC's keywords in capitals at each save, -v VI's
+keys (Chapter 9, The Editors).
 
 => 11-EDITORS.GMI Chapter 9, The Editors
 
@@ -313,10 +314,10 @@ The held-keys register, live: a gamepad's first test.
 PETSCII -- /SYSTEM/BIN
 JIM, the terminal, speaking PETSCII.
 
-PROG [-s] [name] -- /SYSTEM/BIN
+PROG [-s] [-v] [name] -- /SYSTEM/BIN
 The programmer's front end, in EDIT's manner: edit a C or Pascal program,
 compile it with F9, run it with Ctrl+F9, the compiler's messages under the
-text (Chapter 9, The Editors).
+text; -v VI's keys (Chapter 9, The Editors).
 
 => 11-EDITORS.GMI Chapter 9, The Editors
 

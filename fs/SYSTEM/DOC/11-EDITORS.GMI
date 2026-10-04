@@ -47,6 +47,8 @@ Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q   a new file, open, save, leave -- asking first
 Ctrl+F, F3, Ctrl+G               find, find again, go to a line
 Ctrl+R                           renumber a BASIC program: 10, 20, 30..., and
                                  every GOTO with it
+Ctrl+U                           BBC BASIC's keywords in capitals (print
+                                 becomes PRINT); Ctrl+Z puts them back
 F10, or Alt and a letter         the menus: Alt+F is File, Alt+S Search; then
                                  the arrows, Enter, or an entry's letter; Esc
                                  closes
@@ -66,6 +68,21 @@ the directory you are in; Enter or a second click on a directory goes into it
 (and the shell's current directory goes with it, as DOS's did), on a file
 opens it. Change replaces every match in the file at once, and one Ctrl+Z
 takes all of it back.
+
+VI's keys, for the fingers that have them: Options, VI Keys, or EDIT -v name.
+EDIT then starts in VI's normal mode, and everything in the VI section below
+about moving and changing holds -- it is the same code, not a copy of it:
+counts, hjkl, w b e, d c y with a motion or doubled, x p u, Ctrl-R; . is the
+one thing missing. i a o and the rest type until Esc, with EDIT's keys while
+you do (Shift and an arrow still selects). : / and ? open a line on the status
+row: :w :q :q! :wq :x, :12 goes to line 12, :%s/old/new/g. The menus, the
+mouse and the dialogs stay as they were, and so do the Ctrl keys -- Ctrl+S
+saves, Ctrl+Q leaves -- except Ctrl-R (redo), Ctrl-U and Ctrl-D (half a page),
+which are VI's in normal mode. What you yank or delete is the clipboard, so dw
+then Ctrl+V works, and Ctrl+C then p. The maps come too: :map and :imap on the
+: line, and VI.RC's at the start -- so imap jk <Esc> there (it ships that way)
+is jk out of insert mode in VI, EDIT and PROG alike (a lone j is typed after a
+second, as vim does).
 
 ## VI
 
@@ -100,20 +117,21 @@ A count goes in front of nearly anything: 5j is five lines down, 10G is line
 ten.
 
 ```
-Key         Moves
-h j k l     left, down, up, right -- the arrows do the same
-w           to the next word
-b           back a word
-e           to the end of the word
-0           to the start of the line
-^           to the first non-blank on the line
-$           to the end of the line
-gg          to the first line
-G           to the last line, or to line n with a count
-PgUp, PgDn  a screenful
-/text       to the next text -- a plain substring, not a pattern
-?text       to the previous one
-n           the same search again; N the other way
+Key          Moves
+h j k l      left, down, up, right -- the arrows do the same
+w            to the next word
+b            back a word
+e            to the end of the word
+0            to the start of the line
+^            to the first non-blank on the line
+$            to the end of the line
+gg           to the first line
+G            to the last line, or to line n with a count
+PgUp, PgDn   a screenful; Ctrl-D, Ctrl-U half of one
+Enter, +, -  the next line, the previous one, at its first non-blank
+/text        to the next text -- a plain substring, not a pattern
+?text        to the previous one
+n            the same search again; N the other way
 ```
 
 ### Changing
@@ -249,7 +267,10 @@ looks and works like EDIT -- the same menus, dialogs, scroll bars, mouse and
 colours (PROG -s for the console's own) -- with the open files as tabs along
 the window's top border and, under the text, a second window with what the
 compiler said. In the spirit of Turbo Pascal: F9 compiles, Ctrl+F9 compiles
-and runs, and an error puts the cursor on the line it is about.
+and runs, and an error puts the cursor on the line it is about. PROG -v (or
+Options, VI Keys) has VI's keys exactly as EDIT -v has them, and four more on
+the : line: :make :run :cn :cp are F9, Ctrl+F9, F4 and Shift+F4; :q asks about
+every changed file, as Ctrl+Q does, and :q! leaves without asking.
 
 ```
 Key                                     Does
@@ -406,6 +427,18 @@ and so does every target after GOTO, GOSUB, THEN, RESTORE and ON...GOTO;
 strings, REM and DATA are left alone. A GOTO to a line that does not exist is
 kept as it is and counted in the message, and a program whose numbers are out
 of order is refused, not guessed at. LOGO has no line numbers, and says so.
+
+BBC BASIC wants its keywords in capitals: to it print is a variable and only
+PRINT prints, so a program typed in lower case stops with Mistake. EDIT's
+Ctrl+U (Edit, Uppercase Keywords) puts every keyword in the file in capitals
+-- only a whole word that is one: left( becomes |LEFT(| and procdraw PROCdraw,
+but total, count% and name$ stay the variables they are, and strings, the rest
+of a REM or DATA and a star command are left as typed. EDIT -u name does it at
+every save, so you can type in lower case throughout; BBC's *EDIT starts EDIT
+that way. (A keyword run into a name, as in fori%=1to10, is not found: leave
+the spaces in. And BBC BASIC's own *LOWERCASE ON is the other way round the
+problem: it takes the keywords in lower case, at the price of every lower-case
+variable that happens to be one.)
 
 To edit any other file, put SWAP in front:
 

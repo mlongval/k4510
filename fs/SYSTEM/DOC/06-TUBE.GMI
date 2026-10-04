@@ -178,7 +178,11 @@ tree above it hidden, and *CD .. stops at the root.
 other BASICs: BBC BASIC lists it as text to EDITTMP.BBC in the current
 directory, the editor opens on it, and when you leave, LOAD "EDITTMP.BBC"
 types itself and reads it back. Variables go the way they go with any LOAD.
-With a name (*VI NOTES.TXT) it is the ordinary star command.
+With a name (*VI NOTES.TXT) it is the ordinary star command. *EDIT, with a
+name or without, starts EDIT -u: each save puts BBC BASIC's keywords in
+capitals, so lines may be typed in lower case (Chapter 9, The Editors).
+
+=> 11-EDITORS.GMI Chapter 9, The Editors
 
 > Edges, honestly: POINT( and TINT are not implemented; GCOL modes 1-4 draw
 > plain; VDU 5 text prints as text.

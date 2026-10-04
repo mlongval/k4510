@@ -60,11 +60,11 @@ The text lives in far memory, not in the 64 KB: a file may run to 16 384 lin
 <td style="text-align: left;">Ctrl+U</td>
 <td style="text-align: left;">BBC BASIC’s keywords in capitals (<code>print</code> becomes <code>PRINT</code>); Ctrl+Z puts them back</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;">F10, or Alt and a letter</td>
 <td style="text-align: left;">the menus: Alt+F is <em>File</em>, Alt+S <em>Search</em>; then the arrows, Enter, or an entry’s letter; Esc closes</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">F1</td>
 <td style="text-align: left;">the keys</td>
 </tr>
@@ -77,7 +77,7 @@ The text lives in far memory, not in the 64 KB: a file may run to 16 384 lin
 
 **The dialogs** — *Open*, *Save As*, *Find*, *Change*, *Go To Line* — are boxes with a shadow, in the DOS way: Tab goes from one field or button to the next, Enter is the first button, Esc cancels, and the mouse clicks any of them. *Open* lists the directory you are in; Enter or a second click on a directory goes into it (and the shell’s current directory goes with it, as DOS’s did), on a file opens it. *Change* replaces every match in the file at once, and one Ctrl+Z takes all of it back.
 
-**VI’s keys**, for fingers that have them: *Options*, *VI Keys*, or `EDIT -v name`. EDIT then starts in VI’s normal mode, and everything in the VI section below about moving and changing holds — it is the same code, not a copy of it: counts, `hjkl`, `w b e`, `d c y` with a motion or doubled, `x p u`, Ctrl-R; `.` is the one thing missing. `i a o` and the rest type until Esc, with EDIT’s keys while you do (Shift and an arrow still selects). `:` `/` and `?` open a line on the status row: `:w` `:q` `:q!` `:wq` `:x`, `:12` goes to line 12, `:%s/old/new/g`. The menus, the mouse and the dialogs stay as they were, and so do the Ctrl keys — Ctrl+S saves, Ctrl+Q leaves — except Ctrl-R (redo), Ctrl-U and Ctrl-D (half a page), which are VI’s in normal mode. What you yank or delete is the clipboard, so `dw` then Ctrl+V works, and Ctrl+C then `p`. The maps come too: `:map` and `:imap` on the `:` line, and VI.RC’s at the start — so `imap jk <Esc>` there (it ships that way) is `jk` out of insert mode in VI, EDIT and PROG alike (a lone `j` is typed after a second, as vim does).
+**VI’s keys**, for the fingers that have them: *Options*, *VI Keys*, or `EDIT -v name`. EDIT then starts in VI’s normal mode, and everything in the VI section below about moving and changing holds — it is the same code, not a copy of it: counts, `hjkl`, `w b e`, `d c y` with a motion or doubled, `x p u`, Ctrl-R; `.` is the one thing missing. `i a o` and the rest type until Esc, with EDIT’s keys while you do (Shift and an arrow still selects). `:` `/` and `?` open a line on the status row: `:w` `:q` `:q!` `:wq` `:x`, `:12` goes to line 12, `:%s/old/new/g`. The menus, the mouse and the dialogs stay as they were, and so do the Ctrl keys — Ctrl+S saves, Ctrl+Q leaves — except Ctrl-R (redo), Ctrl-U and Ctrl-D (half a page), which are VI’s in normal mode. What you yank or delete is the clipboard, so `dw` then Ctrl+V works, and Ctrl+C then `p`. The maps come too: `:map` and `:imap` on the `:` line, and VI.RC’s at the start — so `imap jk <Esc>` there (it ships that way) is `jk` out of insert mode in VI, EDIT and PROG alike (a lone `j` is typed after a second, as vim does).
 
 ## VI
 
@@ -206,15 +206,15 @@ A count goes in front of nearly anything: `5j` is five lines down, `10G` is line
 <td style="text-align: left;">Enter, <code>+</code>, <code>-</code></td>
 <td style="text-align: left;">the next line, the previous one, at its first non-blank</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>/</code><em>text</em></td>
 <td style="text-align: left;">to the next <em>text</em> — a plain substring, not a pattern</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>?</code><em>text</em></td>
 <td style="text-align: left;">to the previous one</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>n</code></td>
 <td style="text-align: left;">the same search again; <code>N</code> the other way</td>
 </tr>
@@ -547,7 +547,7 @@ There are two cases, and they look alike, so here is the rule.
 
 **To renumber it**, which none of those BASICs could do for itself, use `:renum` in VI or Ctrl-R in EDIT. Both know the language from the file: a `.BAS` is EhBASIC’s, a `.BBC` is BBC BASIC’s, with its `ELSE` targets and its lower-case variables (a `goto` there is a name, not a jump). The lines’ own numbers change, and so does every target after `GOTO`, `GOSUB`, `THEN`, `RESTORE` and `ON`…`GOTO`; strings, `REM` and `DATA` are left alone. A `GOTO` to a line that does not exist is kept as it is and counted in the message, and a program whose numbers are out of order is refused, not guessed at. LOGO has no line numbers, and says so.
 
-**BBC BASIC wants its keywords in capitals**: to it `print` is a variable and only `PRINT` prints, so a program typed in lower case stops with *Mistake*. EDIT’s Ctrl+U (*Edit*, *Uppercase Keywords*) puts every keyword in the file in capitals — only a whole word that is one: `left$(` becomes `LEFT$(` and `procdraw` `PROCdraw`, but `total`, `count%` and `name$` stay the variables they are, and strings, the rest of a `REM` or `DATA` and a star command are left as typed. `EDIT -u name` does it at every save, so you can type in lower case throughout; BBC’s `*EDIT` starts EDIT that way. (A keyword run into a name, as in `fori%=1to10`, is not found: leave the spaces in. And BBC BASIC’s own `*LOWERCASE ON` is the other way round the problem: it takes the keywords in lower case, at the price of every lower-case variable that happens to be one.)
+**BBC BASIC wants its keywords in capitals**: to it `print` is a variable and only `PRINT` prints, so a program typed in lower case stops with *Mistake*. EDIT’s Ctrl+U (*Edit*, *Uppercase Keywords*) puts every keyword in the file in capitals — only a whole word that is one: `left(` becomes |LEFT(| and `procdraw` `PROCdraw`, but `total`, `count%` and `name$` stay the variables they are, and strings, the rest of a `REM` or `DATA` and a star command are left as typed. `EDIT -u name` does it at every save, so you can type in lower case throughout; BBC’s `*EDIT` starts EDIT that way. (A keyword run into a name, as in `fori%=1to10`, is not found: leave the spaces in. And BBC BASIC’s own `*LOWERCASE ON` is the other way round the problem: it takes the keywords in lower case, at the price of every lower-case variable that happens to be one.)
 
 **To edit any other file**, put `SWAP` in front:
 

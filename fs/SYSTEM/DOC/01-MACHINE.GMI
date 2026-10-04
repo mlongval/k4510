@@ -384,6 +384,10 @@ dreamfall, tetris, antfarm, matrix, doom, navidrome; to begin with, border
 Edit options... --
 does it
 
+Palette --
+the VIC-II sixteen, or any .PAL in /SYSTEM/ETC/PALETTES: PALETTE LOAD, typed
+at the prompt
+
 ### Terminal
 
 Status bands -- term.bands
@@ -523,6 +527,15 @@ length of its day. Save the file and the sidebar changes within a second.
 on the right (right = tetris), a new one every so often (change = 1h), and
 whether Halloween and Christmas keep to their months. The ant colony is kept
 across a power cycle, in the same folder.
+
+Last, Palette lists the VIC-II sixteen and every .PAL in /SYSTEM/ETC/PALETTES
+(one you made with PALETTE SAVE shows up the next time the menu opens).
+Choosing one types PALETTE LOAD at the prompt for you (Chapter 2, The Shell);
+with a program running, it waits until the program has ended. As with the
+command, it lasts until the next power-on: a PALETTE LOAD line in /STARTUP.BAT
+keeps it.
+
+=> 02-SHELL.GMI Chapter 2, The Shell
 
 The panel is a strip twenty-six columns wide taking the whole height of the
 window, one fact to a line: the program counter, A X Y Z, the stack pointer,

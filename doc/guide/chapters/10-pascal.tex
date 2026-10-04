@@ -134,7 +134,8 @@ consequences for the programmer:
   and the rest --- plus \verb|FarPeek|/\verb|FarPoke| into the 256~MB
   through the 45GS02's flat addressing, \verb|DmaCopy|/\verb|DmaFill|,
   \verb|Shell('DIR')|, \verb|LoadFile|/\verb|SaveFile| through the ROM,
-  \verb|WaitVBlank|, and \verb|TermWrite| for raw escape sequences.
+  \verb|WaitVBlank|, and \verb|TermWrite| for raw escape sequences ---
+  each described under \emph{The k4510 unit}, below.
 \item Memory: code from \texttt{\$0800}, the program's own; zero page
   \texttt{\$22--\$3F} for the compiler's registers and
   \texttt{\$64--\$A3} for its expression stack (the ROM keeps
@@ -177,3 +178,131 @@ GRAPH build on those; \verb|OutTextXY| writes with the console's font.
 \screen{shots/pgraph.png}{\texttt{PGRAPH}: bars, a star and triangles by
 the blitter, circles by pixel, text from the ROM's font --- and the
 console's own line still on top.}
+
+\subsection*{The k4510 unit}
+\verb|uses k4510| is the machine itself, for a program that wants more
+than CRT and GRAPH give it. Most of the unit is the chips' registers as
+variables at their addresses (below); the rest is ten routines for memory,
+files and the shell, and ten for the MATH unit. \texttt{KUNIT} in
+\pth{/LANG/PASCAL} runs each of them once, and is the source of the
+examples here.
+
+\paragraph{Far addresses.} The unit's addresses are \texttt{cardinal}s:
+physical addresses in the 256\,MB, \texttt{\$0000000} to
+\texttt{\$FFFFFFF}. The bottom 64\,KB of it is the CPU's own view, so
+\verb|cardinal(@buf)| is the far address of a Pascal variable, and the
+DMA routines move between the two. While a program runs, the far memory
+from \texttt{\$400000} to \texttt{\$FCFFFFF} --- some 249\,MB --- is
+its own. Below that the machine keeps the fonts (\texttt{\$10000}) and
+the console's screen (\texttt{\$30000}), and GRAPH draws at
+\texttt{\$200000}; above it are the ROM, the sideways ROMs and the
+shell's own buffers.
+
+\begin{cmdblock}
+\cmdentry{FarPeek(a: cardinal): byte}{far memory}{The byte at far
+  address \texttt{a}, by the 45GS02's flat addressing.}
+\cmdentry{FarPoke(a: cardinal; v: byte)}{far memory}{Writes \texttt{v}
+  there.}
+\cmdentry{DmaCopy(src, dst, len: cardinal)}{far memory}{Copies
+  \texttt{len} bytes; overlapping is safe. The DMA engine has finished
+  before the call returns.}
+\cmdentry{DmaFill(dst, len: cardinal; v: byte)}{far memory}{Fills
+  \texttt{len} bytes with \texttt{v}.}
+\cmdentry{LoadFile(const name: string; dest: cardinal): cardinal}{files}{Reads
+  the whole file to far address \texttt{dest} and returns its length;
+  0 if it could not (no such file --- or an empty one).}
+\cmdentry{SaveFile(const name: string; src, len: cardinal): boolean}{files}{Writes
+  \texttt{len} bytes from \texttt{src} to the file, replacing it; true if
+  it worked.}
+\cmdentry{Shell(const cmd: string)}{the shell}{Runs one line as if typed
+  at the prompt: \texttt{DIR}, \texttt{CD}, \texttt{COPY}, \texttt{MKDIR},
+  \texttt{ECHO} and the rest. Its output goes to the screen; the result is
+  the byte at \texttt{\$03FF} (Chapter~\ref{cha:memory}), 0 if the
+  command worked --- read it straight after: it is the last byte of the
+  runtime's string buffer, and the next string operation may overwrite it.}
+\cmdentry{WaitVBlank}{timing}{Waits for the next frame, a sixtieth of a
+  second. \texttt{SYS\_FRAMES} is the frame count's low byte, for timing.}
+\cmdentry{TermWrite(const s: string)}{the terminal}{Sends \texttt{s} to
+  JIM unchanged, VT100 escape sequences and all.}
+\cmdentry{MathSqrt, MathSin, MathCos, MathTan, MathAtan, MathExp, MathLn,
+  MathFloor (x: single): single}{MATH unit}{One write to the unit each;
+  angles in radians, \texttt{MathLn} the natural log.}
+\cmdentry{MathAtan2(y, x: single): single}{MATH unit}{The angle of the
+  point (x,\,y), $-\pi$ to $\pi$.}
+\cmdentry{MathPow(x, y: single): single}{MATH unit}{$x^y$.}
+\end{cmdblock}
+
+\noindent Names and command lines are cut at 95 characters, the length
+of the shell's own line; a name is the shell's too, relative to the
+current directory or from \pth{/}.
+
+\begin{verbatim}
+uses k4510;
+const FAR0 = $400000;
+var buf: array[0..255] of byte;
+    RC: byte absolute $03FF;            { the shell's result }
+    len: cardinal;
+begin
+  DmaFill(FAR0, 256, 0);
+  FarPoke(FAR0 + 7, 99);
+  DmaCopy(FAR0, cardinal(@buf), 256);   { far -> buf: buf[7] = 99 }
+  if SaveFile('/HOME/DATA.BIN', FAR0, 256) then
+    len := LoadFile('/HOME/DATA.BIN', FAR0 + $1000);   { 256 }
+  Shell('CD /NO-SUCH-DIR');             { RC <> 0: it failed }
+end.
+\end{verbatim}
+
+\paragraph{The registers.} Every chip is a variable at its address, typed
+to fit, under the names of Appendix~\ref{cha:registers}: \verb|VICKY[]|
+(the 256 bytes at \texttt{\$D000}), the keyboard (\verb|KBD| pops the next
+key, \verb|KBDST| says whether one is waiting and which modifiers are
+down), \verb|DMA_SRC|/\verb|DST|/\verb|LEN|/\verb|CMD|, the file
+system's \verb|FS_CMD| and its friends (with the \verb|FS_OPEN_READ|\ldots
+command constants), \verb|SYS[]| and \verb|SYS_FRAMES|, the MATH unit's
+\verb|MATH_F[0..7]| and \verb|MULTINA|/\verb|MULTINB|/\verb|MULTOUT|,
+\verb|TUBE[]|, \verb|NET[]|, and JIM's \verb|TERM|, \verb|TERM_CX|,
+\verb|TERM_CY|, \verb|TERM_FG|, \verb|TERM_BG| and the rest. Reading or
+writing one is a single load or store.
+
+\paragraph{A bank window.} \verb|FarPeek| is a call per byte. For a
+block of far memory used as an ordinary array --- indexed, at full speed
+--- point an 8\,KB block of the CPU's view at it with a bank register
+(Chapter~\ref{cha:memory}) and declare the array \verb|absolute| there.
+The unit has no names for the bank registers; declare the one you use:
+
+\begin{verbatim}
+var win: array[0..8191] of byte absolute $8000;   { block 4 }
+    BANK4: cardinal absolute $D610;               { $D600 + 4*4 }
+    BANK4HI: byte absolute $D613;
+begin
+  BANK4 := $400000;      { open: win[] is $400000-$401FFF }
+  win[100] := 1;         { lands in far memory }
+  BANK4HI := $FF;        { shut: $8000 is the program's RAM again }
+end.
+\end{verbatim}
+
+\noindent Writing the whole \texttt{cardinal} switches the block on as
+well (its top byte has bit~7 clear); \texttt{\$FF} in that byte switches
+it off. Block $n$ is \texttt{\$2000}$\times n$ to
+\texttt{\$2000}$\times n +$\texttt{\$1FFF}. Use one the program does
+not occupy --- its code and variables run up from \texttt{\$0800}
+(\texttt{BANKWIN}'s end at \texttt{\$137A}, so blocks 1 to 4 are
+free) --- and never 0 (zero page and stack) or 5 to 7, which the ROM
+banks in and out around every system call. \texttt{BANKWIN} is the
+full demonstration, timed against \verb|FarPeek|: the window sums
+64\,KB in 8 frames, \verb|FarPeek| in 17.
+
+\paragraph{The rules.}
+\begin{itemize}
+\item \textbf{Code stays in the 64\,KB}; data does not have to. A
+  program is at most \texttt{\$0800}--\texttt{\$CFFF}, 50\,KB with its
+  variables; everything else goes in far memory.
+\item \textbf{Do not \texttt{Shell} a program.} \verb|RUN| loads the
+  other program over yours (Pascal programs load at \texttt{\$0800},
+  C programs at \texttt{\$6000}) and there is nothing to come back to.
+  The shell's own commands are fine.
+\item \textbf{Inline assembly that borrows \texttt{:bp}} must put its
+  low byte back to 0. Mad Pascal indexes any array over 256 bytes
+  through \verb|(:bp),y| and counts on it; the unit's own routines
+  restore it.
+\end{itemize}

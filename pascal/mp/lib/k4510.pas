@@ -9,7 +9,8 @@ unit k4510;
 * Every device of the machine (core/io.h) as a variable at its address,
 * plus the 45GS02's flat 28-bit memory (FarPeek/FarPoke), the DMA
 * engine, the ROM's system calls (Shell, LoadFile, SaveFile) and JIM,
-* the terminal. Register maps: the guide, chapter 11, and core/*.h.
+* the terminal. Each is described in the handbook: Pascal chapter,
+* "The k4510 unit". Register maps: Appendix A, and core/*.h.
 *)
 
 interface
@@ -145,13 +146,16 @@ end;
 
 (* adr.buf, not buf: a local array's own name is Mad Pascal's pointer TO it,
    so the ROM was handed that pointer's address -- SaveFile('ANIMAL.DAT')
-   wrote a file called "C#", and Shell made K/OS answer "?" (2026-10-03). *)
+   wrote a file called "C#", and Shell made K/OS answer "?" (2026-10-03).
+   A name or command line is cut at 95 characters, the buffer's size (and
+   the shell's own line): a longer one ran over the stack (2026-10-04). *)
 procedure Shell(const cmd: string);
 var buf: array[0..95] of char;
-    i: byte;
+    i, n: byte;
 begin
-	for i := 1 to length(cmd) do buf[i - 1] := cmd[i];
-	buf[length(cmd)] := #0;
+	n := length(cmd); if n > 95 then n := 95;
+	for i := 1 to n do buf[i - 1] := cmd[i];
+	buf[n] := #0;
 	asm
 		lda <adr.buf
 		ldx >adr.buf
@@ -161,10 +165,11 @@ end;
 
 function LoadFile(const name: string; dest: cardinal): cardinal;
 var buf: array[0..95] of char;
-    i, st: byte;
+    i, n, st: byte;
 begin
-	for i := 1 to length(name) do buf[i - 1] := name[i];
-	buf[length(name)] := #0;
+	n := length(name); if n > 95 then n := 95;
+	for i := 1 to n do buf[i - 1] := name[i];
+	buf[n] := #0;
 	asm
 		mwa #adr.buf $F0
 		lda dest
@@ -191,10 +196,11 @@ end;
 
 function SaveFile(const name: string; src, len: cardinal): boolean;
 var buf: array[0..95] of char;
-    i, st: byte;
+    i, n, st: byte;
 begin
-	for i := 1 to length(name) do buf[i - 1] := name[i];
-	buf[length(name)] := #0;
+	n := length(name); if n > 95 then n := 95;
+	for i := 1 to n do buf[i - 1] := name[i];
+	buf[n] := #0;
 	asm
 		mwa #adr.buf $F0
 		lda src

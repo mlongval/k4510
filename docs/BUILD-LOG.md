@@ -11112,3 +11112,20 @@ open another file, and that code is at $E000, out of sight of an overlay.
 ROM: PALETTE LOAD sets mode_note, so the banner comes back at the prompt
 as after MODE; a BANNER typed meanwhile (STARTUP.BAT: PALETTE LOAD, then
 BANNER) clears it, so it is never shown twice.
+
+## 2026-10-04 -- the k4510 unit, documented
+
+Doc asked whether the unit had documentation: one paragraph naming its
+routines, nothing on what they take or return. The Pascal chapter now has
+"The k4510 unit": every routine with its signature and one line, which
+far memory is a program's own ($400000-$FCFFFFF), the registers, a bank
+window (BANKWIN's method), and three rules (code stays in the 64 KB; do
+not Shell a program; inline asm that borrows :bp puts its low byte back).
+KUNIT.PAS runs each routine once -- 11 checks, in pastest -- so the
+reference's examples are known to be true.
+
+Found on the way: Shell, LoadFile and SaveFile copied the string into a
+96-byte local with no length check, so a 200-character line ran over the
+stack. Cut at 95 now, the shell's own line length. Shell's result is
+$03FF, which is also the last byte of Mad Pascal's string buffer: read it
+straight after the call (said in the reference).

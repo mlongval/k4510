@@ -19,4 +19,8 @@ out=$(./test/headless rom/kernal.bin "PGRAPH
 ~ECHO BACK FROM GRAPH
 ~~" 900 2>&1) || { echo "$out"; echo "pastest: FAILED: pgraph"; exit 1; }
 echo "$out" | grep -q "BACK FROM GRAPH" || { echo "$out"; echo "pastest: FAILED: pgraph did not hand the shell back"; exit 1; }
-echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, GRAPH on VICKY, all back to the shell)"
+out=$(./test/headless rom/kernal.bin "CD /LANG/PASCAL
+KUNIT
+~~~~" 900 2>&1); rm -f fs/HOME/KUNIT.DAT
+echo "$out" | grep -q "KUNIT: 11 of 11 checks passed" || { echo "$out"; echo "pastest: FAILED: the k4510 unit (KUNIT)"; exit 1; }
+echo "pastest: OK (hello + ParamStr, sieve 1899 primes, single on the MATH unit, GRAPH on VICKY, the k4510 unit 11/11, all back to the shell)"

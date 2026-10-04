@@ -3,7 +3,8 @@
 Each .PAS here has its .prg beside it.  PAS NAME compiles NAME.PAS in
 the current directory into name.prg (the compiler runs on the Linux
 beside the machine); NAME then runs it.  `uses crt, k4510` brings in the
-screen and the machine (pascal/README.md in the source tree).
+screen and the machine: the handbook's Pascal chapter, "The k4510
+unit", describes every routine in it.
 
 HELLO.PAS    Write, colours, ParamStr
 PSIEVE.PAS   the Byte Sieve
@@ -13,4 +14,5 @@ PMANDEL.PAS  a Mandelbrot
 ANIMAL.PAS   guess the animal: it learns from every miss (ANIMAL.DAT)
 FUNCS.PAS    BBC BASIC's "= value" functions, as Pascal's Result
 BANKWIN.PAS  far memory as an ordinary array, through a bank window
+KUNIT.PAS    every routine of the k4510 unit, checked once
 EX/          the Tube demos of /LANG/BBCBASIC/EX ported, with the BBC unit they share (EX/README.TXT)

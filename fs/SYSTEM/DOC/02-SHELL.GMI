@@ -442,7 +442,8 @@ and PEPTO is the same sixteen as Philip Timmermann measured them off a real
 C64 -- duller, warmer, and what one looked like on a television. A palette
 file is plain text -- an index and three hex bytes to a line, # for a comment
 -- and names only the entries it changes; PALETTE SAVE name writes one of
-yours. PALETTE LOAD in /STARTUP.BAT makes it the machine's.
+yours. PALETTE LOAD in /STARTUP.BAT makes it the machine's. F12 -> Video ->
+Palette lists them all and types the PALETTE LOAD for you.
 
 ## Housekeeping
 

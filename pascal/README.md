@@ -19,9 +19,12 @@ for C with `tools/k4510-cc`); errors come back on the screen.
   ParamStr from the ROM's ARGS call; CRT on JIM (GotoXY and TextColor
   are register stores; the palette constants are the machine's).
 - `lib/k4510.pas` -- the machine as typed absolute variables (VICKY,
-  SID, DMA, FS, SYS, MATH, TERM...), FarPeek/FarPoke through the
-  45GS02's flat 32-bit addressing, DmaCopy/DmaFill, Shell, LoadFile,
-  SaveFile.
+  KBD, DMA, FS, SYS, MATH, TUBE, NET, TERM...), FarPeek/FarPoke through
+  the 45GS02's flat 32-bit addressing, DmaCopy/DmaFill, Shell, LoadFile,
+  SaveFile, WaitVBlank, TermWrite and the MATH unit's transcendentals.
+  The reference for all of it is the handbook's Pascal chapter, "The
+  k4510 unit" (doc/guide/chapters/10-pascal.tex); `KUNIT.PAS` in
+  fs/LANG/PASCAL checks each routine and test/pastest.sh runs it.
 
 `install.py [MP_DIR]` copies these into the checkout, patches
 `src/Targets.pas` and `src/mp.pas` (the target's id, memory layout and

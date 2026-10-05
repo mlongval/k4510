@@ -11129,3 +11129,12 @@ Found on the way: Shell, LoadFile and SaveFile copied the string into a
 stack. Cut at 95 now, the shell's own line length. Shell's result is
 $03FF, which is also the last byte of Mad Pascal's string buffer: read it
 straight after the call (said in the reference).
+
+## 2026-10-05 -- alpha-0.7 'Conduit'
+
+Doc: "save the current version and then create a new branch for any new
+features ... change the Alpha version number (+1)", and the name. The
+Makefile's K4510_BUILD says 0.7; master is tagged alpha-0.7 'Conduit'.
+New work -- every program writing through JIM, then two screens (K/OS and
+a Linux or distant session) -- goes on the branch jim-everywhere, so
+master stays the released machine until that is ready.

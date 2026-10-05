@@ -305,4 +305,316 @@ full demonstration, timed against \verb|FarPeek|: the window sums
   low byte back to 0. Mad Pascal indexes any array over 256 bytes
   through \verb|(:bp),y| and counts on it; the unit's own routines
   restore it.
+
+\section{The library reference}\label{sec:paslib}
+What follows is every routine the K4510 target adds to Mad Pascal, unit by
+unit, with what it does and a small example. (The \verb|k4510| unit, which
+reaches the machine's memory, files and registers, is described above,
+under \emph{The k4510 unit}.) Where a routine is Mad Pascal's
+own and merely runs on this machine (\verb|WriteLn|, \verb|Inc|\ldots) it is
+not repeated; Mad Pascal's own documentation has those.
+
+\medskip\noindent\textbf{Every example in this section is untested.} They were
+written from the units' source, not compiled and run: the Mad Pascal toolchain
+was not to hand when this section was written. Each one is a few lines that
+should compile as shown; if one does not, the source in \pth{pascal/mp/lib}
+is the authority and the example is wrong.
+
+\medskip\noindent A program names the units it wants on its \verb|uses| line.
+\verb|crt|, \verb|graph| and \verb|k4510| are always there to name. The
+\verb|bbc| unit is a program in \pth{/LANG/PASCAL/EX} (\texttt{BBC.PAS}); to
+use it, keep a copy of \texttt{BBC.PAS} beside your own program, because
+\verb|PAS| finds units in the directory it compiles in.
+
+\subsection*{CRT: the screen, the keyboard, the clock and the sound}
+\verb|uses crt|. Everything is drawn through JIM, the terminal
+(Chapter~\ref{cha:tube}), so the screen is the console's own 80 columns by
+30 rows. Columns and rows count from 1, as in Turbo Pascal.
+
+\paragraph{\texttt{ClrScr}} Clears the screen and puts the cursor at the top
+left.
+
+\paragraph{\texttt{GotoXY(x, y: byte)}} Moves the cursor to column \verb|x|,
+row \verb|y|. The next \verb|Write| lands there.
+
+\paragraph{\texttt{WhereX: byte}, \texttt{WhereY: byte}} The cursor's column
+and row.
+
+\paragraph{\texttt{TextColor(c: byte)}, \texttt{TextBackground(c: byte)}} The
+colour of the letters, and of the cell behind them, for everything written
+afterwards. \verb|c| is a palette index 0 to 15. The names are constants:
+\verb|BLACK|, \verb|WHITE|, \verb|RED|, \verb|CYAN|, \verb|PURPLE|,
+\verb|GREEN|, \verb|BLUE|, \verb|YELLOW|, \verb|ORANGE|, \verb|BROWN|,
+\verb|LIGHT_RED|, \verb|DARK_GREY|, \verb|GREY|, \verb|LIGHT_GREEN|,
+\verb|LIGHT_BLUE| and \verb|LIGHT_GREY| --- the Commodore 64's sixteen.
+
+\paragraph{\texttt{ClrEol}} Clears from the cursor to the end of the line.
+
+\paragraph{\texttt{InsLine}, \texttt{DelLine}} Insert an empty line at the
+cursor's row, pushing the rest down; delete the cursor's row, pulling the rest
+up.
+
+\paragraph{\texttt{CursorOn}, \texttt{CursorOff}} Show or hide the cursor.
+
+\paragraph{\texttt{KeyPressed: Boolean}} True when a key is waiting. It does
+not take the key.
+
+\paragraph{\texttt{ReadKey: char}} The next key, waiting for one if there is
+none. Arrow and function keys come as the machine's key codes, not as Turbo
+Pascal's two-character sequences.
+
+\paragraph{\texttt{Delay(ms: word)}} Waits about \verb|ms| milliseconds. The
+clock is the frame counter, so the wait is rounded to frames of 16.7~ms.
+
+\paragraph{\texttt{TextMode(mode: byte)}} Puts the ROM's screen and palette
+back, and resets JIM. \verb|mode| is ignored; \verb|TextMode(0)| is the
+spelling.
+
+\paragraph{\texttt{Sound(chan, freq, dist, vol: byte)}} Starts a note on the
+sound sequencer, which plays it on the OPL2. \verb|chan| is 0 to 2 for the
+three tone channels, 3 for noise. \verb|freq| is the pitch in quarter
+semitones: 53 is middle C and every semitone is 4 more. \verb|dist| is
+ignored (it is there for Turbo Pascal's signature). \verb|vol| is 0 to 15,
+the BBC's \verb|SOUND| amplitude without its minus sign: 15 is loudest. The
+note holds until \verb|NoSound| or the next \verb|Sound| on that channel.
+
+\paragraph{\texttt{NoSound}} Silences every channel.
+
+\noindent\emph{Example (untested):} a coloured menu, a key, and a note.
+
+\begin{verbatim}
+program crtdemo;
+uses crt;
+begin
+  ClrScr;
+  TextColor(YELLOW); TextBackground(BLUE);
+  GotoXY(10, 5);  Write(' K4510 menu ');
+  TextColor(WHITE); TextBackground(BLACK);
+  GotoXY(10, 7);  Write('1  play a note');
+  GotoXY(10, 8);  Write('Q  quit');
+  repeat
+    case UpCase(ReadKey) of
+      '1': begin
+             Sound(0, 53, 0, 12);   { middle C on tone channel 0 }
+             Delay(500);
+             NoSound;
+           end;
+    end;
+  until False;   { Q is handled below in a real program }
+end.
+\end{verbatim}
+
+\subsection*{SYSTEM: time, chance and the command line}
+These are the machine's halves of Mad Pascal's own SYSTEM unit, so they need
+no \verb|uses|.
+
+\paragraph{\texttt{Pause}, \texttt{Pause(n: word)}} Wait one frame, or
+\verb|n| frames (a sixtieth of a second each). Unlike \verb|Delay| it asks
+the frame counter directly, so \verb|Pause(60)| is a second exactly.
+
+\paragraph{\texttt{Randomize}} Seeds the generator from the clock.
+
+\paragraph{\texttt{Random(range: byte): byte}, \texttt{Random(range: smallint): smallint}}
+A random number from 0 up to \verb|range - 1|.
+
+\paragraph{\texttt{Random: Real}, \texttt{RandomF: Float}} A random fraction,
+at least 0 and below 1, as a fixed-point \verb|Real| or a \verb|single|.
+
+\paragraph{\texttt{ParamCount: byte}, \texttt{ParamStr(i: byte): string}} The
+words after the program's name on the shell line. \verb|ParamStr(1)| is the
+first; \verb|ParamStr(0)| is the whole tail, spaces and all.
+
+\noindent\emph{Example (untested):} \verb|DICE 6 3| rolls three six-sided dice.
+
+\begin{verbatim}
+program dice;
+var sides, n, i: byte;
+begin
+  Randomize;
+  sides := 6; n := 1;
+  if ParamCount >= 1 then sides := StrToInt(ParamStr(1));
+  if ParamCount >= 2 then n := StrToInt(ParamStr(2));
+  for i := 1 to n do Write(Random(sides) + 1, ' ');
+  WriteLn;
+end.
+\end{verbatim}
+
+\subsection*{GRAPH: lines, bars and text on VICKY}
+\verb|uses graph|. A 640 by 480 picture, one byte a pixel, on VICKY's layer~1
+over the console. Pixels count from 0, \verb|(0,0)| is the top left, and
+colour~0 is transparent, so the console's text shows through wherever nothing
+is drawn. Colours are palette indexes; 0 to 15 are the same sixteen as CRT's.
+Anything off the screen is quietly dropped.
+
+\paragraph{\texttt{InitGraph(0)}} Switches the video to 480 lines, points the
+layer at the bitmap and clears it. Call it first. (\verb|InitGraph(driver, mode, path)|
+is accepted too, for programs written for other Mad Pascal targets; it does
+the same.)
+
+\paragraph{\texttt{CloseGraph}} Switches the picture off and puts the
+console's video mode back. A program that does not call it leaves the
+picture up after it ends.
+
+\paragraph{\texttt{ClearDevice}} Clears the whole bitmap to transparent, by
+the DMA engine. Instant.
+
+\paragraph{\texttt{SetColor(c: byte)}} The colour of everything drawn next.
+
+\paragraph{\texttt{SetBkColor(c: byte)}} The ground colour VICKY shows where
+neither the picture nor the text has anything.
+
+\paragraph{\texttt{PutPixel(x, y: smallint)}, \texttt{PutPixel(x, y: smallint; c: byte)}}
+One pixel, in the current colour or the colour given.
+
+\paragraph{\texttt{GetPixel(x, y: smallint): byte}} The colour of a pixel;
+0 when it is off the screen.
+
+\paragraph{\texttt{DrawLine(x0, y0, x1, y1: smallint)}} A line between two
+points. The blitter draws it: one register write each, with no loop in
+Pascal.
+
+\paragraph{\texttt{LineTo(x, y: smallint)}, \texttt{LineRel(dx, dy: smallint)}}
+A line from the current position (which starts at 0,0 and is wherever the
+last line ended) to a point, or by a distance.
+
+\paragraph{\texttt{FillBar(x0, y0, x1, y1: smallint)}} A filled rectangle by
+the blitter. The corners may be in any order, and a bar that hangs off the
+edge is clipped.
+
+\paragraph{\texttt{FillTriangle(x0, y0, x1, y1, x2, y2: smallint)}} A filled
+triangle by the blitter.
+
+\paragraph{\texttt{OutTextXY(x, y: smallint; s: string)}} Draws \verb|s| into
+the picture with the console's 8 by 8 font, its top left at \verb|x,y|, in the
+current colour.
+
+\noindent Mad Pascal's own generic routines --- \verb|Circle|,
+\verb|Ellipse|, \verb|Rectangle|, \verb|MoveTo| and the rest --- are built on
+these and work as they do on the other targets.
+
+\noindent\emph{Example (untested):} a frame, a star and a caption.
+
+\begin{verbatim}
+program gdemo;
+uses crt, graph;
+var i: byte;
+begin
+  InitGraph(0);
+  SetColor(BLUE);   FillBar(40, 40, 600, 440);
+  SetColor(YELLOW); FillTriangle(320, 80, 220, 300, 420, 300);
+  SetColor(WHITE);
+  for i := 0 to 15 do DrawLine(320, 240, 40 + i * 35, 440);
+  OutTextXY(240, 450, 'HELLO, VICKY');
+  ReadKey;
+  CloseGraph;
+end.
+\end{verbatim}
+
+\subsection*{BBC: the Tube ULA's drawing and sound, in Pascal}
+\verb|uses bbc|. A port of BBC BASIC's graphics and sound words, so that a
+Pascal program draws and sounds as its \texttt{.BBC} original does. It sits
+on GRAPH and keeps the BBC's own world: coordinates run 1280 by 1024 from the
+\emph{bottom} left, and are scaled onto the 640 by 480 bitmap; logical
+colours are the BBC's, in palette entries 16 to 31; sound is the sequencer
+with the BBC's units. Every routine is the BBC word with a \verb|B| in front.
+The eleven ports in \pth{/LANG/PASCAL/EX} are all written with it.
+
+\paragraph{\texttt{BMode(n: byte)}} \verb|MODE n|. 1 and 5 give four colours, 2
+gives sixteen, any other graphics mode two. 3, 6 and 7 put
+the bitmap away and the console back. It clears the screen and sets the
+mode's default colours and \verb|GCOL|.
+
+\paragraph{\texttt{BGcol(c: byte)}} \verb|GCOL 0,c|: the colour drawn with,
+\verb|c| below 128; 128 and up sets the background that \verb|BClg| clears
+to.
+
+\paragraph{\texttt{BPalette(l, p: byte)}, \texttt{BPaletteRGB(l, r, g, b: byte)}}
+\verb|VDU 19|: logical colour \verb|l| shows physical colour \verb|p| (0 to 7,
+the bits are red, green, blue), or the exact red, green and blue given.
+
+\paragraph{\texttt{BOrigin(x, y: smallint)}} \verb|ORIGIN x,y|.
+
+\paragraph{\texttt{BMove(x, y: smallint)}, \texttt{BDraw(x, y: smallint)}}
+\verb|MOVE| and \verb|DRAW|: put the graphics cursor somewhere without
+drawing, or draw a line to a point from the cursor.
+
+\paragraph{\texttt{BPlot(k: byte; x, y: smallint)}} \verb|PLOT k,x,y|. Of its
+many kinds this one does 4 and 5 (move and draw), 69 (a point), 85 (a triangle
+with the two points before), 101 (a rectangle with the point before) and 237
+(a sprite).
+
+\paragraph{\texttt{BClg}} \verb|CLG|: the bitmap filled with the background.
+
+\paragraph{\texttt{BCircle(x, y, r: smallint)}, \texttt{BCircleFill(x, y, r: smallint)}}
+\verb|CIRCLE| and \verb|CIRCLE FILL|, centre and radius in BBC units.
+
+\paragraph{Sprites} The machine has 128 hardware sprites; VICKY moves them, so
+a program draws once and moves for nothing.
+\verb|BSpriteCapture(n, w, h)| makes sprite \verb|n| from the \verb|w| by
+\verb|h| pixels (8, 16, 32 or 64) whose bottom left is at the graphics cursor
+(\verb|VDU 23,27,1|). \verb|BSpriteSelect(n)| chooses the sprite \verb|PLOT
+237| will move. \verb|BSpritePlot(x, y)| places the selected sprite with its
+bottom left at \verb|x,y|. \verb|BSpriteShow(n, m)| makes sprite \verb|n|
+show sprite \verb|m|'s picture, so one picture serves many sprites.
+\verb|BSpriteFlip(n, f)| flips it (bit~0 across, bit~1 up and down),
+\verb|BSpriteHide(n)| hides it, and \verb|BSpritesOff| turns the layer off.
+
+\paragraph{\texttt{BSound(ch: byte; amp: shortint; pitch, dur: byte)}}
+\verb|SOUND ch,amp,pitch,dur|. \verb|ch| is 0 for noise, 1 to 3 for the
+tones. \verb|amp| is 0 down to $-15$. \verb|pitch| is in quarter semitones, 53
+being middle C. \verb|dur| is in twentieths of a second, and 255 holds the
+note. The notes are queued: the sequencer keeps 64 a channel, so a whole tune
+can be sent at once and it plays while the program goes on or ends.
+\verb|BSoundOff| silences every channel and empties the queues.
+
+\paragraph{\texttt{BWait(cs: word)}} \verb|WAIT|, in centiseconds, rounded to
+frames.
+
+\paragraph{\texttt{BRnd(n: word): word}, \texttt{BRandomize}} \verb|RND(n)|:
+1 to \verb|n|, from a 32-bit generator --- Mad Pascal's own \verb|Random| is
+a 16-bit one whose pairs fall on a lattice, which the lines of \texttt{KALEID}
+showed up. \verb|BRandomize| seeds it from the clock.
+
+\paragraph{\texttt{BSx(x)}, \texttt{BSy(y)}} A BBC coordinate as a bitmap
+column or row, for a program that wants to mix \verb|BDraw| with GRAPH's
+\verb|PutPixel|.
+
+\noindent\emph{Example (untested, except for the sound, which is TUNE's):}
+a mode~2 picture with a held chord.
+
+\begin{verbatim}
+program bbcdemo;
+uses crt, k4510, bbc;
+begin
+  BMode(2);                         { sixteen colours }
+  BGcol(1);  BCircleFill(640, 512, 300);
+  BGcol(7);  BMove(100, 100); BDraw(1180, 924);
+  BPaletteRGB(8, 255, 128, 0);      { colour 8 is orange }
+  BGcol(8);  BPlot(101, 900, 200);  { a rectangle from the cursor }
+  BSound(1, -12, 53, 255);          { C, held }
+  BSound(2, -12, 69, 255);          { an octave above, held }
+  ReadKey;
+  BSoundOff;
+  BMode(7);                         { the console back }
+end.
+\end{verbatim}
+
+\subsection*{Things this Mad Pascal does differently}
+Found while writing the demos; each cost an hour once.
+
+\begin{itemize}
+\item \verb|Result| holds a function's value, and \verb|Exit(value)| sets it
+  and leaves at once --- the BBC's \verb|= value|. \texttt{FUNCS.PAS} is the
+  example.
+\item A function's local variables, \verb|Result| included, are \emph{static}:
+  one copy, shared by every call. So \verb|Join(Join(a, b), c)| gives the outer
+  call the inner one's \verb|Result|. Call them one after the other into
+  variables.
+\item Strings are joined with \verb|Concat(a, b)|, two at a time. \verb|+| on
+  strings is a syntax error with a literal first and, with variables, compiles
+  to an address sum.
+\item Pascal ignores case, so a variable called \verb|page| and a constant
+  called \verb|PAGE| are the same thing.
+\item A local array's own name is a pointer to it. To hand its address to a
+  routine in assembly, write \verb|adr.buf|, not \verb|buf|.
 \end{itemize}

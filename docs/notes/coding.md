@@ -78,12 +78,12 @@ Protocol: `docs/AGENTS.md`. I write only this file.
   shows the letter, and `/PRG/SKYFIRE.CFG` moves the numbers behind Normal
   (DIVEGAP, DIVEMIN, DIVERS, BOMB, DIVE, SWAY).  Hard is what shipped
   first; Doc found it too hard.
-- **K4510x has a third flavour: the podman container** (`k4510x/podman.sh`
+- **K4510x has a third flavour: the podman container** (`linux/podman.sh`
   + `Containerfile`, create/run/shell/update/rm).  The same Debian as a
   rootless container on your own desktop, and a SANDBOX: it sees the
   display and sound sockets, `/dev/dri`, `/dev/input` and one host
-  folder, `~/k4510x-share`, which is `/SHARE` at the machine's prompt —
-  `COPY /SHARE/FOO.BAS /PRG/` brings a file in.  No home, no /tmp, no
+  folder, `~/k4510-share`, which is `/MNT/SHARE` at the machine's prompt —
+  `COPY /MNT/SHARE/FOO.BAS /HOME/` brings a file in.  No home, no /tmp, no
   host root.  The container is kept, so `!sudo apt install` and SAVE
   persist; `update` pushes the checkout's HEAD in and rebuilds.  A
   launcher lands in the desktop's application menu.  (A distrobox was

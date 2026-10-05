@@ -76,5 +76,9 @@ run "$(printf 'edit -u ZZED6.BBC\n~~\023~\021~~')" >/dev/null
 echo "$U" | cmp -s - $H/ZZED6.BBC || fail "-u did not capitalise at the save: $(cat $H/ZZED6.BBC)"
 rm -f $H/ZZED6.BBC
 
+# 8. Options > Tab Width (Alt+O, T): Tab puts spaces, never a tab character, to the width chosen
+run "$(printf 'edit ZZED8.TXT\n~~\317~t~\b2\r~\tx\tyy\tz\023~\021~~')" >/dev/null
+printf '  x yy  z\n' | cmp -s - $H/ZZED8.TXT || fail "Tab Width 2: $(od -c $H/ZZED8.TXT | head -3)"
+
 rm -f $H/ZZED*.TXT $H/ZZED.BAS
-echo "edittest: OK (typing and indent, Change, Find and F3, Go to line and undo, renumber, Exit asks, the screen in both colour schemes, BBC keywords in capitals by Ctrl+U and -u)"
+echo "edittest: OK (typing and indent, Change, Find and F3, Go to line and undo, renumber, Exit asks, the screen in both colour schemes, BBC keywords in capitals by Ctrl+U and -u, Options > Tab Width)"

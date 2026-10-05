@@ -47,7 +47,7 @@ static uint8_t find_files_o(void);                    /* in VIO2 too: slot 10 (d
 
 enum { C_OPEN = 1, C_SAVE, C_SAVEAS, C_QUIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_FIND, C_NEXT, C_REPL, C_GOTO, C_MAKE, C_RUN, C_MNEXT, C_MPREV, C_RENUM, C_HELP, C_ABOUT,
-       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI };
+       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI, C_TABW };
 
 static uint8_t eh, msgs_due = 1;
 static unsigned mtop;
@@ -564,6 +564,7 @@ static const char *const helptext[] = {
     "arrows Home End PgUp PgDn   move        Ctrl+arrows    a word at a time",
     "Ctrl+Home  Ctrl+End         the ends    Insert         insert / overwrite",
     "Enter      a new line, keeping the indent   Tab   spaces to the next stop",
+    "                                        (Options > Tab Width sets how many)",
     "",
     "Ctrl+S  F2   save            Ctrl+O   open (a tab)   Ctrl+N   a new file",
     "F6  Shift+F6 the next / previous file    Ctrl+W close one    Ctrl+Q quit",
@@ -622,6 +623,7 @@ static void run_cmd(uint8_t c)
     case C_DOS:    scheme(0); full = 1; break;
     case C_SYS:    scheme(1); full = 1; break;
     case C_VI:     vi_toggle(); break;
+    case C_TABW:   tabw_dlg(); break;
     case C_HELP:   text_box("PROG -- the keys", helptext); break;
     case C_ABOUT:  text_box("About", abouttext); break;
     }
@@ -644,7 +646,7 @@ static const struct item m_build[]  = { { "Compile", 0, C_MAKE, "F9" }, { "Compi
                                         { "", 0, C_SEP, "" }, { "Next Message", 0, C_MNEXT, "F4" }, { "Previous Message", 0, C_MPREV, "Shift+F4" },
                                         { 0, 0, 0, 0 } };
 static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },
-                                        { "VI Keys", 0, C_VI, "" }, { 0, 0, 0, 0 } };
+                                        { "VI Keys", 0, C_VI, "" }, { "Tab Width...", 0, C_TABW, "" }, { 0, 0, 0, 0 } };
 static const struct item m_help[]   = { { "Keyboard", 0, C_HELP, "F1" }, { "About PROG...", 0, C_ABOUT, "" }, { 0, 0, 0, 0 } };
 static const struct item *const menus[] = { m_file, m_edit, m_search, m_build, m_opt, m_help };
 static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc) || (c == C_VI && vimode)); }

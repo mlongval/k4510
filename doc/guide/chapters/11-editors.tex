@@ -21,6 +21,10 @@ status line at the bottom with the line and column. The colours are
 EDIT's too --- grey menus, the text on blue, the status line in cyan.
 \verb|EDIT -s name| uses the console's own colours instead, and the
 \emph{Options} menu switches between the two while you work.
+\emph{Options}, \emph{Tab Width\ldots} sets how many spaces Tab puts, from 1 to 16 (four
+unless told): Tab always puts spaces up to the next stop and never a tab
+character, so a file looks the same in every editor. PROG has the same menu
+item, and the two (and VI's \texttt{:set ts=}) share one setting.
 
 The text lives in far memory, not in the 64\,KB: a file may run to 16\,384
 lines of up to 255 characters, and undo goes back as far as the session
@@ -300,7 +304,7 @@ Ctrl+Q does, and \verb|:q!| leaves without asking.
 \textbf{Key} & \textbf{Does} \\
 \midrule
 moving, selecting, the clipboard, undo & as in \verb|EDIT| (above): the arrows with Ctrl and Shift, Ctrl+A, Ctrl+X/C/V, Ctrl+Z/Y \\
-Enter, Tab & a new line that keeps the indent; spaces to the next tab stop (four, or \verb|set ts=| in VI.RC) --- with lines selected, Tab and Shift+Tab indent them and take the indent back \\
+Enter, Tab & a new line that keeps the indent; spaces to the next tab stop (four, or \emph{Options}, \emph{Tab Width}, or \verb|set ts=| in VI.RC) --- with lines selected, Tab and Shift+Tab indent them and take the indent back \\
 Insert & insert or overwrite (an underline cursor or a block) \\
 Ctrl+S \emph{or} F2, Ctrl+O, Ctrl+Q & save, open (in a tab of its own), leave --- asking first about every file with unsaved changes \\
 Ctrl+N, Ctrl+W, F6, Shift+F6 & a new file, close this one, the next and the previous file \\
@@ -409,7 +413,7 @@ F10, Alt and a letter & the menus; F1 the keys; the mouse works the menus, the s
 \end{tabular}
 \end{center}
 
-\noindent \verb|WORD -s name| is in the console's own colours, as \verb|EDIT -s|.
+\noindent \verb|WORD -s name| is in the console's own colours, as \verb|EDIT -s|. \emph{View}, \emph{Tab Width\ldots} chooses how many spaces a Tab in the document is drawn as (four unless told, 1 to 16; always spaces, never a tab character), and reads the file again so the change shows.
 
 \textbf{How it reads one.} A \texttt{.DOCX} is a zip of XML files, and
 the machine can already \verb|MOUNT| a zip (Chapter~\ref{cha:shell}): WORD

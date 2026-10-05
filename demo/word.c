@@ -48,7 +48,7 @@ static uint32_t zpr32(uint8_t a) { return (uint32_t)REG(a) | ((uint32_t)REG(a+1)
 #define MNT     "/MNT/WORDDOC"
 #define PMAX    1500u                   /* characters a paragraph keeps */
 
-enum { C_OPEN = 1, C_SAVETXT, C_EXIT, C_FIND, C_NEXT, C_TOP, C_END, C_DOS, C_SYS, C_HELP, C_ABOUT };
+enum { C_OPEN = 1, C_SAVETXT, C_EXIT, C_FIND, C_NEXT, C_TOP, C_END, C_DOS, C_SYS, C_TABW, C_HELP, C_ABOUT };
 /* a paragraph's kind */
 enum { P_TEXT, P_H1, P_H2, P_H3, P_TITLE, P_LIST, P_ROW, P_PAGE };
 /* a character's attributes */
@@ -60,6 +60,7 @@ enum { P_TEXT, P_H1, P_H2, P_H3, P_TITLE, P_LIST, P_ROW, P_PAGE };
 static char name[NAMEMAX], fbuf[NAMEMAX], sbuf[NAMEMAX];
 static const char *note = "";
 static char nbuf[80]; static uint8_t nbn;
+static uint8_t wtabw = 4;                              /* Options > Tab Width: a Tab in the document is this many spaces (never a tab character) */
 static void nb_reset(void) { nbn = 0; nbuf[0] = 0; }
 static void nb_s(const char *s) { while (*s && nbn < sizeof nbuf - 1) nbuf[nbn++] = *s++; nbuf[nbn] = 0; }
 static void nb_n(unsigned long v) { char b[10]; uint8_t k = 0; do { b[k++] = (char)('0' + v % 10); v /= 10; } while (v); while (k && nbn < sizeof nbuf - 1) nbuf[nbn++] = b[--k]; nbuf[nbn] = 0; }
@@ -168,6 +169,7 @@ static unsigned pn;
 static uint8_t pkind, pjc, plvl; static unsigned pnum;
 static uint8_t attrs;
 static void emit(uint8_t c) { if (pn < PMAX) { pb[pn * 2] = c; pb[pn * 2 + 1] = attrs; pn++; } }
+static void emit_tab(void) { uint8_t k; for (k = wtabw; k; k--) emit(' '); }
 static void para_end(void)
 {
     uint8_t h[7];
@@ -289,7 +291,7 @@ static void doc_tag(void)
         else if (is("w:u")) { if (off) attrs &= (uint8_t)~A_U; else attrs |= A_U; }
         return;
     }
-    if (is("w:tab")) { emit(' '); emit(' '); emit(' '); emit(' '); }
+    if (is("w:tab")) emit_tab();
     else if (is("w:br")) {
         if (aval("w:type", "page")) { if (!in_tbl) { para_end(); pkind = P_PAGE; para_end(); } }
         else emit(0x0A);                              /* a line break inside the paragraph */
@@ -345,7 +347,7 @@ static uint8_t open_txt(void)                         /* a text file: a line to 
     xp = XMLBUF; xend = XMLBUF + len; xi = xn = 0;
     while ((c = xget()) >= 0) {
         if (c == '\n') para_end();
-        else if (c == '\t') { emit(' '); emit(' '); emit(' '); emit(' '); }
+        else if (c == '\t') emit_tab();
         else if (c != '\r') emit((uint8_t)c);
     }
     if (pn) para_end();
@@ -586,6 +588,20 @@ static const char *const helptext[] = {
     "WORD -s FILE starts in the console's own colours (View).",
     0 };
 static const char *const abouttext[] = { "WORD -- reads Microsoft Word's .DOCX", "", "In MS-DOS EDIT's manner.  It reads; it does not write .DOCX:", "File > Save As Text writes what it shows.", 0 };
+/* View > Tab Width: a Tab in a document is shown as this many spaces -- spaces,
+ * never a tab character (Doc, 2026-10-05).  WORD reads, so there is no Tab key
+ * to press; the width is how far a Word tab is drawn.  The file is read again
+ * so the change shows. */
+static void tabw_dlg(void)
+{
+    char b[4]; uint8_t o = wtabw, n = 0, i;
+    if (o > 9) { b[0] = '1'; b[1] = (char)('0' + o - 10); b[2] = 0; } else { b[0] = (char)('0' + o); b[1] = 0; }
+    if (!form1("Tab Width", "Spaces per Tab (1-16):", b, 3, "OK")) return;
+    for (i = 0; b[i] >= '0' && b[i] <= '9'; i++) n = (uint8_t)(n * 10 + (b[i] - '0'));
+    if (!i || b[i] || n < 1 || n > 16) { note = "Tab width is 1 to 16 spaces"; return; }
+    wtabw = n;
+    if (name[0]) { strcpy(fbuf, name); open_name(fbuf); }
+}
 static void run_cmd(uint8_t c)
 {
     switch (c) {
@@ -598,6 +614,7 @@ static void run_cmd(uint8_t c)
     case C_END:     top = nlines > th ? nlines - th : 0; break;
     case C_DOS:     scheme(0); full = 1; break;
     case C_SYS:     scheme(1); full = 1; break;
+    case C_TABW:    tabw_dlg(); break;
     case C_HELP:    text_box("WORD -- the keys", helptext); break;
     case C_ABOUT:   text_box("About", abouttext); break;
     }
@@ -607,7 +624,8 @@ static const struct item m_file[]   = { { "Open...", 0, C_OPEN, "Ctrl+O" }, { "S
                                         { "", 0, C_SEP, "" }, { "Exit", 1, C_EXIT, "Ctrl+Q" }, { 0, 0, 0, 0 } };
 static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "Find Next", 5, C_NEXT, "F3" }, { 0, 0, 0, 0 } };
 static const struct item m_view[]   = { { "Beginning", 0, C_TOP, "Ctrl+Home" }, { "End", 0, C_END, "Ctrl+End" }, { "", 0, C_SEP, "" },
-                                        { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { 0, 0, 0, 0 } };
+                                        { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },
+                                        { "Tab Width...", 0, C_TABW, "" }, { 0, 0, 0, 0 } };
 static const struct item m_help[]   = { { "Keyboard", 0, C_HELP, "F1" }, { "About WORD...", 0, C_ABOUT, "" }, { 0, 0, 0, 0 } };
 static const struct item *const menus[] = { m_file, m_search, m_view, m_help };
 static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc)); }

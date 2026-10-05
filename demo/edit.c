@@ -47,7 +47,7 @@ static uint8_t vimode;                                /* VI's keys: Options, or 
 #include "dosvi.h"
 
 enum { C_NEW = 1, C_OPEN, C_SAVE, C_SAVEAS, C_EXIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
-       C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_VI, C_HELP, C_ABOUT };
+       C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_VI, C_TABW, C_HELP, C_ABOUT };
 
 /* ---- the screen ----------------------------------------------------------- */
 /* the top band names the file (core/io.c's title stack, SYS+$44), as PROG */
@@ -210,6 +210,7 @@ static const char *const helptext[] = {
     "              (with nothing selected: the line)",
     "Undo, redo    Ctrl+Z, Ctrl+Y           Insert   insert / overwrite",
     "Tab           spaces to the next stop; Tab, Shift+Tab indent a selection",
+    "              (Options > Tab Width: how many spaces; never a tab character)",
     "Files         Ctrl+N new, Ctrl+O open, Ctrl+S save, Ctrl+Q exit",
     "Search        Ctrl+F find, F3 again, Ctrl+G go to a line",
     "BASIC         Ctrl+R renumbers (10, 20, 30 and every GOTO)",
@@ -252,6 +253,7 @@ static void run_cmd(uint8_t c)
     case C_DOS:    scheme(0); full = 1; break;
     case C_SYS:    scheme(1); full = 1; break;
     case C_VI:     vi_toggle(); break;
+    case C_TABW:   tabw_dlg(); break;
     case C_HELP:   text_box("Keyboard", helptext); break;
     case C_ABOUT:  text_box("About", abouttext); break;
     }
@@ -270,7 +272,7 @@ static const struct item m_edit[]   = { { "Undo", 0, C_UNDO, "Ctrl+Z" }, { "Redo
 static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "Repeat Last Find", 0, C_NEXT, "F3" },
                                         { "Change...", 0, C_CHANGE, "" }, { "Go To Line...", 0, C_GOTO, "Ctrl+G" }, { 0, 0, 0, 0 } };
 static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },
-                                        { "VI Keys", 0, C_VI, "" }, { 0, 0, 0, 0 } };
+                                        { "VI Keys", 0, C_VI, "" }, { "Tab Width...", 0, C_TABW, "" }, { 0, 0, 0, 0 } };
 static const struct item m_help[]   = { { "Keyboard", 0, C_HELP, "F1" }, { "About...", 0, C_ABOUT, "" }, { 0, 0, 0, 0 } };
 static const struct item *const menus[] = { m_file, m_edit, m_search, m_opt, m_help };
 static uint8_t marked(uint8_t c) { return (uint8_t)((c == C_DOS && !sysc) || (c == C_SYS && sysc) || (c == C_VI && vimode)); }

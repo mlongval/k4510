@@ -397,6 +397,21 @@ static uint8_t window_mouse(void)
 /* ---- the keys that edit ------------------------------------------------------
  * Typing, Enter, Backspace, Tab, and the moving keys (with Shift: selecting).
  * Answers 1 if the key was one of them; the program has the rest. */
+/* Options > Tab Width: how many spaces Tab puts (to the next stop).  The same
+ * ed_tabw as VI's `set ts=N` and VI.RC; Doc, 2026-10-05: "an option to prog and
+ * edit and word to change the number of spaces when I hit the tab key.  NEVER
+ * use the Tab CHARACTER" -- so this only ever changes a number of spaces. */
+static void tabw_dlg(void)
+{
+    char b[4]; uint8_t o = ed_tabw;
+    if (o > 9) { b[0] = '1'; b[1] = (char)('0' + o - 10); b[2] = 0; } else { b[0] = (char)('0' + o); b[1] = 0; }
+    if (form1("Tab Width", "Spaces per Tab (1-16):", b, 3, "OK")) {
+        ed_tabw = 0; ed_set_tabw(b);                  /* 0 afterwards: not a number from 1 to 16 */
+        if (!ed_tabw) { ed_tabw = o; note = "Tab width is 1 to 16 spaces"; }
+        else { nb_reset(); nb_s("Tab stops every "); nb_n(ed_tabw); nb_s(" columns, in spaces"); note = nbuf; }
+    }
+    full = 1;
+}
 static uint8_t window_key(uint8_t k)
 {
     uint8_t ctrl = (uint8_t)(kmod & 2), shift = (uint8_t)(kmod & 1);

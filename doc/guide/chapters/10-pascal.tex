@@ -464,8 +464,9 @@ the DMA engine. Instant.
 \paragraph{\texttt{SetBkColor(c: byte)}} The ground colour VICKY shows where
 neither the picture nor the text has anything.
 
-\paragraph{\texttt{PutPixel(x, y: smallint)}, \texttt{PutPixel(x, y: smallint; c: byte)}}
-One pixel, in the current colour or the colour given.
+\paragraph{\texttt{PutPixel(x, y)}, \texttt{PutPixel(x, y, c)}}
+One pixel (\verb|x|, \verb|y| are \verb|smallint|, \verb|c| a \verb|byte|), in the
+current colour or the colour given.
 
 \paragraph{\texttt{GetPixel(x, y: smallint): byte}} The colour of a pixel;
 0 when it is off the screen.
@@ -560,8 +561,8 @@ show sprite \verb|m|'s picture, so one picture serves many sprites.
 \verb|BSpriteFlip(n, f)| flips it (bit~0 across, bit~1 up and down),
 \verb|BSpriteHide(n)| hides it, and \verb|BSpritesOff| turns the layer off.
 
-\paragraph{\texttt{BSound(ch: byte; amp: shortint; pitch, dur: byte)}}
-\verb|SOUND ch,amp,pitch,dur|. \verb|ch| is 0 for noise, 1 to 3 for the
+\paragraph{\texttt{BSound(ch, amp, pitch, dur)}}
+\verb|SOUND ch,amp,pitch,dur| (\verb|amp| is a \verb|shortint|, the rest \verb|byte|). \verb|ch| is 0 for noise, 1 to 3 for the
 tones. \verb|amp| is 0 down to $-15$. \verb|pitch| is in quarter semitones, 53
 being middle C. \verb|dur| is in twentieths of a second, and 255 holds the
 note. The notes are queued: the sequencer keeps 64 a channel, so a whole tune

@@ -6,7 +6,7 @@ All of them take their keys raw from the ROM — an arrow arrives as one byte ra
 
 ## EDIT
 
-`EDIT name` opens a file, or starts a new one by that name; `EDIT` alone starts an untitled one. The screen is MS-DOS 5’s: the menu bar along the top, the text in a framed window with the file’s name in its top border, a scroll bar down the right and another along the foot, and the status line at the bottom with the line and column. The colours are EDIT’s too — grey menus, the text on blue, the status line in cyan. `EDIT -s name` uses the console’s own colours instead, and the *Options* menu switches between the two while you work.
+`EDIT name` opens a file, or starts a new one by that name; `EDIT` alone starts an untitled one. The screen is MS-DOS 5’s: the menu bar along the top, the text in a framed window with the file’s name in its top border, a scroll bar down the right and another along the foot, and the status line at the bottom with the line and column. The colours are EDIT’s too — grey menus, the text on blue, the status line in cyan. `EDIT -s name` uses the console’s own colours instead, and the *Options* menu switches between the two while you work. *Options*, *Tab Width…* sets how many spaces Tab puts, from 1 to 16 (four unless told): Tab always puts spaces up to the next stop and never a tab character, so a file looks the same in every editor. PROG has the same menu item, and the two (and VI’s `:set ts=`) share one setting.
 
 The text lives in far memory, not in the 64 KB: a file may run to 16 384 lines of up to 255 characters, and undo goes back as far as the session does. Files are saved with a newline at the end of each line; a DOS file’s carriage returns are read and dropped.
 
@@ -425,7 +425,7 @@ To have it every time, put the same line, without the colon, in `/SYSTEM/ETC/VI.
 </tr>
 <tr class="even">
 <td style="text-align: left;">Enter, Tab</td>
-<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <code>set ts=</code> in VI.RC) — with lines selected, Tab and Shift+Tab indent them and take the indent back</td>
+<td style="text-align: left;">a new line that keeps the indent; spaces to the next tab stop (four, or <em>Options</em>, <em>Tab Width</em>, or <code>set ts=</code> in VI.RC) — with lines selected, Tab and Shift+Tab indent them and take the indent back</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;">Insert</td>
@@ -535,7 +535,7 @@ The page is laid out to the window. Each paragraph is wrapped at a word, centred
 
 </div>
 
-`WORD -s name` is in the console’s own colours, as `EDIT -s`.
+`WORD -s name` is in the console’s own colours, as `EDIT -s`. *View*, *Tab Width…* chooses how many spaces a Tab in the document is drawn as (four unless told, 1 to 16; always spaces, never a tab character), and reads the file again so the change shows.
 
 **How it reads one.** A `.DOCX` is a zip of XML files, and the machine can already `MOUNT` a zip ([Chapter 2, The Shell](02-shell.md)): WORD mounts the document, reads `word/document.xml` — and the styles and list definitions beside it — into far memory, unmounts it, and parses the XML itself, on the 45GS10. Pictures, text boxes, footnotes, headers and footers, fonts and sizes are passed over. A Word 97–2003 `.DOC` is another kind of file altogether and WORD says so rather than guessing; save it as `.DOCX` in Word first. A `.TXT` opens too.
 

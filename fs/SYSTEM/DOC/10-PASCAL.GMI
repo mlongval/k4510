@@ -313,6 +313,381 @@ to. The shell's own commands are fine.
 indexes any array over 256 bytes through (:bp),y and counts on it; the unit's
 own routines restore it.
 
+## The library reference
+
+What follows is every routine the K4510 target adds to Mad Pascal, unit by
+unit, with what it does and a small example. (The k4510 unit, which reaches
+the machine's memory, files and registers, is described above, under The k4510
+unit.) Where a routine is Mad Pascal's own and merely runs on this machine
+(WriteLn, Inc...) it is not repeated; Mad Pascal's own documentation has
+those.
+
+Every example in this section is untested. They were written from the units'
+source, not compiled and run: the Mad Pascal toolchain was not to hand when
+this section was written. Each one is a few lines that should compile as
+shown; if one does not, the source in pascal/mp/lib is the authority and the
+example is wrong.
+
+A program names the units it wants on its uses line. crt, graph and k4510 are
+always there to name. The bbc unit is a program in /LANG/PASCAL/EX (BBC.PAS);
+to use it, keep a copy of BBC.PAS beside your own program, because PAS finds
+units in the directory it compiles in.
+
+### CRT: the screen, the keyboard, the clock and the sound
+
+uses crt. Everything is drawn through JIM, the terminal (Chapter 5, The Tube),
+so the screen is the console's own 80 columns by 30 rows. Columns and rows
+count from 1, as in Turbo Pascal.
+
+=> 06-TUBE.GMI Chapter 5, The Tube
+
+##### ClrScr
+
+Clears the screen and puts the cursor at the top left.
+
+##### GotoXY(x, y: byte)
+
+Moves the cursor to column x, row y. The next Write lands there.
+
+##### WhereX: byte, WhereY: byte
+
+The cursor's column and row.
+
+##### TextColor(c: byte), TextBackground(c: byte)
+
+The colour of the letters, and of the cell behind them, for everything written
+afterwards. c is a palette index 0 to 15. The names are constants: BLACK,
+WHITE, RED, CYAN, PURPLE, GREEN, BLUE, YELLOW, ORANGE, BROWN, LIGHT_RED,
+DARK_GREY, GREY, LIGHT_GREEN, LIGHT_BLUE and LIGHT_GREY -- the Commodore 64's
+sixteen.
+
+##### ClrEol
+
+Clears from the cursor to the end of the line.
+
+##### InsLine, DelLine
+
+Insert an empty line at the cursor's row, pushing the rest down; delete the
+cursor's row, pulling the rest up.
+
+##### CursorOn, CursorOff
+
+Show or hide the cursor.
+
+##### KeyPressed: Boolean
+
+True when a key is waiting. It does not take the key.
+
+##### ReadKey: char
+
+The next key, waiting for one if there is none. Arrow and function keys come
+as the machine's key codes, not as Turbo Pascal's two-character sequences.
+
+##### Delay(ms: word)
+
+Waits about ms milliseconds. The clock is the frame counter, so the wait is
+rounded to frames of 16.7 ms.
+
+##### TextMode(mode: byte)
+
+Puts the ROM's screen and palette back, and resets JIM. mode is ignored;
+TextMode(0) is the spelling.
+
+##### Sound(chan, freq, dist, vol: byte)
+
+Starts a note on the sound sequencer, which plays it on the OPL2. chan is 0 to
+2 for the three tone channels, 3 for noise. freq is the pitch in quarter
+semitones: 53 is middle C and every semitone is 4 more. dist is ignored (it is
+there for Turbo Pascal's signature). vol is 0 to 15, the BBC's SOUND amplitude
+without its minus sign: 15 is loudest. The note holds until NoSound or the
+next Sound on that channel.
+
+##### NoSound
+
+Silences every channel.
+
+Example (untested): a coloured menu, a key, and a note.
+
+```
+program crtdemo;
+uses crt;
+begin
+  ClrScr;
+  TextColor(YELLOW); TextBackground(BLUE);
+  GotoXY(10, 5);  Write(' K4510 menu ');
+  TextColor(WHITE); TextBackground(BLACK);
+  GotoXY(10, 7);  Write('1  play a note');
+  GotoXY(10, 8);  Write('Q  quit');
+  repeat
+    case UpCase(ReadKey) of
+      '1': begin
+             Sound(0, 53, 0, 12);   { middle C on tone channel 0 }
+             Delay(500);
+             NoSound;
+           end;
+    end;
+  until False;   { Q is handled below in a real program }
+end.
+```
+
+### SYSTEM: time, chance and the command line
+
+These are the machine's halves of Mad Pascal's own SYSTEM unit, so they need
+no uses.
+
+##### Pause, Pause(n: word)
+
+Wait one frame, or n frames (a sixtieth of a second each). Unlike Delay it
+asks the frame counter directly, so Pause(60) is a second exactly.
+
+##### Randomize
+
+Seeds the generator from the clock.
+
+##### Random(range: byte): byte, Random(range: smallint): smallint
+
+A random number from 0 up to range - 1.
+
+##### Random: Real, RandomF: Float
+
+A random fraction, at least 0 and below 1, as a fixed-point Real or a single.
+
+##### ParamCount: byte, ParamStr(i: byte): string
+
+The words after the program's name on the shell line. ParamStr(1) is the
+first; ParamStr(0) is the whole tail, spaces and all.
+
+Example (untested): DICE 6 3 rolls three six-sided dice.
+
+```
+program dice;
+var sides, n, i: byte;
+begin
+  Randomize;
+  sides := 6; n := 1;
+  if ParamCount >= 1 then sides := StrToInt(ParamStr(1));
+  if ParamCount >= 2 then n := StrToInt(ParamStr(2));
+  for i := 1 to n do Write(Random(sides) + 1, ' ');
+  WriteLn;
+end.
+```
+
+### GRAPH: lines, bars and text on VICKY
+
+uses graph. A 640 by 480 picture, one byte a pixel, on VICKY's layer 1 over
+the console. Pixels count from 0, (0,0) is the top left, and colour 0 is
+transparent, so the console's text shows through wherever nothing is drawn.
+Colours are palette indexes; 0 to 15 are the same sixteen as CRT's. Anything
+off the screen is quietly dropped.
+
+##### InitGraph(0)
+
+Switches the video to 480 lines, points the layer at the bitmap and clears it.
+Call it first. (InitGraph(driver, mode, path) is accepted too, for programs
+written for other Mad Pascal targets; it does the same.)
+
+##### CloseGraph
+
+Switches the picture off and puts the console's video mode back. A program
+that does not call it leaves the picture up after it ends.
+
+##### ClearDevice
+
+Clears the whole bitmap to transparent, by the DMA engine. Instant.
+
+##### SetColor(c: byte)
+
+The colour of everything drawn next.
+
+##### SetBkColor(c: byte)
+
+The ground colour VICKY shows where neither the picture nor the text has
+anything.
+
+##### PutPixel(x, y), PutPixel(x, y, c)
+
+One pixel (x, y are smallint, c a byte), in the current colour or the colour
+given.
+
+##### GetPixel(x, y: smallint): byte
+
+The colour of a pixel; 0 when it is off the screen.
+
+##### DrawLine(x0, y0, x1, y1: smallint)
+
+A line between two points. The blitter draws it: one register write each, with
+no loop in Pascal.
+
+##### LineTo(x, y: smallint), LineRel(dx, dy: smallint)
+
+A line from the current position (which starts at 0,0 and is wherever the last
+line ended) to a point, or by a distance.
+
+##### FillBar(x0, y0, x1, y1: smallint)
+
+A filled rectangle by the blitter. The corners may be in any order, and a bar
+that hangs off the edge is clipped.
+
+##### FillTriangle(x0, y0, x1, y1, x2, y2: smallint)
+
+A filled triangle by the blitter.
+
+##### OutTextXY(x, y: smallint; s: string)
+
+Draws s into the picture with the console's 8 by 8 font, its top left at x,y,
+in the current colour.
+
+Mad Pascal's own generic routines -- Circle, Ellipse, Rectangle, MoveTo and
+the rest -- are built on these and work as they do on the other targets.
+
+Example (untested): a frame, a star and a caption.
+
+```
+program gdemo;
+uses crt, graph;
+var i: byte;
+begin
+  InitGraph(0);
+  SetColor(BLUE);   FillBar(40, 40, 600, 440);
+  SetColor(YELLOW); FillTriangle(320, 80, 220, 300, 420, 300);
+  SetColor(WHITE);
+  for i := 0 to 15 do DrawLine(320, 240, 40 + i * 35, 440);
+  OutTextXY(240, 450, 'HELLO, VICKY');
+  ReadKey;
+  CloseGraph;
+end.
+```
+
+### BBC: the Tube ULA's drawing and sound, in Pascal
+
+uses bbc. A port of BBC BASIC's graphics and sound words, so that a Pascal
+program draws and sounds as its .BBC original does. It sits on GRAPH and keeps
+the BBC's own world: coordinates run 1280 by 1024 from the bottom left, and
+are scaled onto the 640 by 480 bitmap; logical colours are the BBC's, in
+palette entries 16 to 31; sound is the sequencer with the BBC's units. Every
+routine is the BBC word with a B in front. The eleven ports in /LANG/PASCAL/EX
+are all written with it.
+
+##### BMode(n: byte)
+
+MODE n. 1 and 5 give four colours, 2 gives sixteen, any other graphics mode
+two. 3, 6 and 7 put the bitmap away and the console back. It clears the screen
+and sets the mode's default colours and GCOL.
+
+##### BGcol(c: byte)
+
+GCOL 0,c: the colour drawn with, c below 128; 128 and up sets the background
+that BClg clears to.
+
+##### BPalette(l, p: byte), BPaletteRGB(l, r, g, b: byte)
+
+VDU 19: logical colour l shows physical colour p (0 to 7, the bits are red,
+green, blue), or the exact red, green and blue given.
+
+##### BOrigin(x, y: smallint)
+
+ORIGIN x,y.
+
+##### BMove(x, y: smallint), BDraw(x, y: smallint)
+
+MOVE and DRAW: put the graphics cursor somewhere without drawing, or draw a
+line to a point from the cursor.
+
+##### BPlot(k: byte; x, y: smallint)
+
+PLOT k,x,y. Of its many kinds this one does 4 and 5 (move and draw), 69 (a
+point), 85 (a triangle with the two points before), 101 (a rectangle with the
+point before) and 237 (a sprite).
+
+##### BClg
+
+CLG: the bitmap filled with the background.
+
+##### BCircle(x, y, r: smallint), BCircleFill(x, y, r: smallint)
+
+CIRCLE and CIRCLE FILL, centre and radius in BBC units.
+
+##### Sprites
+
+The machine has 128 hardware sprites; VICKY moves them, so a program draws
+once and moves for nothing. BSpriteCapture(n, w, h) makes sprite n from the w
+by h pixels (8, 16, 32 or 64) whose bottom left is at the graphics cursor (VDU
+23,27,1). BSpriteSelect(n) chooses the sprite PLOT 237 will move.
+BSpritePlot(x, y) places the selected sprite with its bottom left at x,y.
+BSpriteShow(n, m) makes sprite n show sprite m's picture, so one picture
+serves many sprites. BSpriteFlip(n, f) flips it (bit 0 across, bit 1 up and
+down), BSpriteHide(n) hides it, and BSpritesOff turns the layer off.
+
+##### BSound(ch, amp, pitch, dur)
+
+SOUND ch,amp,pitch,dur (amp is a shortint, the rest byte). ch is 0 for noise,
+1 to 3 for the tones. amp is 0 down to -15. pitch is in quarter semitones, 53
+being middle C. dur is in twentieths of a second, and 255 holds the note. The
+notes are queued: the sequencer keeps 64 a channel, so a whole tune can be
+sent at once and it plays while the program goes on or ends. BSoundOff
+silences every channel and empties the queues.
+
+##### BWait(cs: word)
+
+WAIT, in centiseconds, rounded to frames.
+
+##### BRnd(n: word): word, BRandomize
+
+RND(n): 1 to n, from a 32-bit generator -- Mad Pascal's own Random is a 16-bit
+one whose pairs fall on a lattice, which the lines of KALEID showed up.
+BRandomize seeds it from the clock.
+
+##### BSx(x), BSy(y)
+
+A BBC coordinate as a bitmap column or row, for a program that wants to mix
+BDraw with GRAPH's PutPixel.
+
+Example (untested, except for the sound, which is TUNE's): a mode 2 picture
+with a held chord.
+
+```
+program bbcdemo;
+uses crt, k4510, bbc;
+begin
+  BMode(2);                         { sixteen colours }
+  BGcol(1);  BCircleFill(640, 512, 300);
+  BGcol(7);  BMove(100, 100); BDraw(1180, 924);
+  BPaletteRGB(8, 255, 128, 0);      { colour 8 is orange }
+  BGcol(8);  BPlot(101, 900, 200);  { a rectangle from the cursor }
+  BSound(1, -12, 53, 255);          { C, held }
+  BSound(2, -12, 69, 255);          { an octave above, held }
+  ReadKey;
+  BSoundOff;
+  BMode(7);                         { the console back }
+end.
+```
+
+### Things this Mad Pascal does differently
+
+Found while writing the demos; each cost an hour once.
+
+*
+
+ Result holds a function's value, and Exit(value) sets it and leaves at once
+-- the BBC's = value. FUNCS.PAS is the example.
+*
+
+ A function's local variables, Result included, are static: one copy, shared
+by every call. So Join(Join(a, b), c) gives the outer call the inner one's
+Result. Call them one after the other into variables.
+*
+
+ Strings are joined with Concat(a, b), two at a time. + on strings is a syntax
+error with a literal first and, with variables, compiles to an address sum.
+*
+
+ Pascal ignores case, so a variable called page and a constant called PAGE are
+the same thing.
+*
+
+ A local array's own name is a pointer to it. To hand its address to a routine
+in assembly, write adr.buf, not buf.
+
 => INDEX.GMI Contents
 => 08-LOGO.GMI Previous: 7. LOGO
 => 11-EDITORS.GMI Next: 9. The Editors

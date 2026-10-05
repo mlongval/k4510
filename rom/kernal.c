@@ -85,6 +85,7 @@ uint8_t bband;                                       /* bottom-band height.  NOT
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
 static uint8_t mode_note;                  /* an F12 mode/status change was performed: the shell repaints (BANNER) at its next prompt */
+static uint8_t pal_pend, pal_n, pal_fix;    /* PALETTE LOAD's report, said after that banner: before it, the banner wiped it */
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
 extern volatile uint8_t ticks;                   /* crt0.s */
@@ -1235,6 +1236,7 @@ uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
 static void shell_copy(const char *p);    /* resident (below k_shell): IDEA, in bank 1, hands VI a line through it */
 static void banner(void);                 /* the logo: sideways window, not resident */
+static void banner_note(void);
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
 static void cmd_doom(uint8_t kind, const char *arg);   /* DOOM (6) and the Apple IIe (7) on the Tube: their own road for pixels */
@@ -1646,8 +1648,8 @@ static void pal_after(uint8_t n, uint8_t hc, const char *path)
     }
     bands_refresh();
     mode_note = 1;                              /* and the banner at the next prompt, as after MODE (Doc, 2026-10-03) */
-    puts_("palette: "); putdec(n); puts_(" entries from "); puts_(path); newline();
-    if (fixed) { puts_("palette: COLOR "); puthex(fg); k_chrout(' '); puthex(bg); puts_(", to stay readable"); newline(); }
+    pal_pend = 1; pal_n = n; pal_fix = fixed;   /* what was loaded, said under it (banner_note) */
+    (void)path;
 }
 #pragma rodata-name (pop)
 
@@ -2049,7 +2051,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
-    if (is_cmd(&p, "BANNER")) { mode_note = 0; banner(); return; }   /* and the one a MODE or PALETTE LOAD left pending: not twice */   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
+    if (is_cmd(&p, "BANNER")) { banner_note(); return; }   /* and the one a MODE or PALETTE LOAD left pending: not twice */   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     /* HELP is TYPE.prg on the help file -- the line copied into line[] first:
      * a program reads its ARGS through a pointer, and while it runs the ROM's
@@ -2440,10 +2442,22 @@ int main(void)
         if (!fs_cmd(8)) cmd_exec(line);
     }
     for (;;) {
-        if (mode_note) { mode_note = 0; banner(); }   /* back from an F12 mode or status-bar change */
+        if (mode_note) banner_note();                 /* back from an F12 mode or status-bar change */
         put_cwd(); puts_("] ");
         sw_call(3, readline_sw, line);
         shell_line(line);
     }
     return 0;
+}
+
+/* The banner a MODE or a PALETTE LOAD left pending (or BANNER itself), and
+ * under it what the palette did: said before it, the banner cleared it away
+ * (palettetest, 2026-10-05). */
+static void banner_note(void)
+{
+    mode_note = 0; banner();
+    if (!pal_pend) return;
+    pal_pend = 0;
+    puts_("palette: "); putdec(pal_n); puts_(" entries"); newline();
+    if (pal_fix) { puts_("palette: COLOR "); puthex(fg); k_chrout(' '); puthex(bg); puts_(", to stay readable"); newline(); }
 }

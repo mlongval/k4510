@@ -11138,3 +11138,14 @@ Makefile's K4510_BUILD says 0.7; master is tagged alpha-0.7 'Conduit'.
 New work -- every program writing through JIM, then two screens (K/OS and
 a Linux or distant session) -- goes on the branch jim-everywhere, so
 master stays the released machine until that is ready.
+
+## 2026-10-05 -- PALETTE LOAD's report under the banner
+
+palettetest had failed since bfc681b (2026-10-03): the banner that now
+follows PALETTE LOAD clears the screen, and with it "palette: N entries
+from ..." and, worse, "palette: COLOR f b, to stay readable" -- the line
+that says why the colours just changed. The report is kept and printed
+under the banner instead (banner_note, which BANNER uses too, so a
+STARTUP.BAT's PALETTE LOAD + BANNER still shows one banner and the
+report). The path is no longer in it. Also rebuilt with the current k4510
+unit: ANIMAL and EX/TEST (EX/TEST 30 of 30). The whole suite passes.

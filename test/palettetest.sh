@@ -22,7 +22,10 @@ echo "$out" | grep -q "E 0088FF" || fail "entry E is not the VIC-II light blue"
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD AMBER
 PALETTE
 ' 1500 2>&1) || fail "PALETTE LOAD did not run"
-echo "$out" | grep -q "entries from /SYSTEM/ETC/PALETTES/AMBER.PAL" || fail "AMBER.PAL was not found"
+# (the report comes under the banner, which since 2026-10-03 is drawn
+# again after PALETTE LOAD, as after MODE: banner_note in the ROM;
+# the path is no longer in it)
+echo "$out" | grep -q "palette: 16 entries" || fail "AMBER.PAL was not found (or not reported under the banner)"
 echo "$out" | grep -q "F FFB000" || fail "the amber ramp did not reach entry F"
 # entry 1 is the shell's highlight (C_HI: DIR's header, directories): on a
 # ramp it must be bright, or they print black on black (Doc, 2026-09-12)

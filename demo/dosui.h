@@ -5,8 +5,9 @@
  *
  *   the colours   two schemes, by what a cell is: DOS EDIT's, or (-s) the
  *                 console's own -- palette entries, so the screen is cells
- *   the cells     a row built in rb and DMA'd out whole; single cells, boxes
- *                 with DOS's shadows
+ *   the cells     a row built in rb, kept in the program's own copy of its
+ *                 screen and sent to JIM as a VT100 stream; single cells,
+ *                 boxes with DOS's shadows
  *   the mouse     the pointer (sprite 0, off while the host draws its own:
  *                 $D110), and event(): a key or what the mouse just did
  *   the menus     the bar on row 0, drop-downs, Alt+letter, the mouse
@@ -102,13 +103,66 @@ fix:
 }
 
 /* ---- the cells -------------------------------------------------------------
- * Written as text32 cells straight into the console's map, because the
- * colours are palette entries and JIM's escapes reach only eight of them.
- * JIM keeps the cursor: it blinks it, shapes it, and stays out of the way. */
-static uint8_t ox, oy, stride, kmod, kcode, running = 1;
-static uint32_t scr;
-static uint8_t rb[4 * 184];                           /* one row of cells, DMA'd out whole */
-static uint32_t rowaddr(uint8_t y) { return scr + ((uint32_t)(uint8_t)(oy + y) * stride + ox) * 4; }
+ * Everything on the screen goes to JIM as a stream of bytes, not into the
+ * text map (Doc, 2026-10-05: every program writes through JIM, so that one
+ * day a second screen, or a pty, can carry it).  The menus and the shadows
+ * need to read the screen back, which a terminal cannot do, so the program
+ * keeps its own copy of what it drew -- four bytes a cell, as the text map
+ * has them -- in far memory past ui_dirtab's list and the menus' snapshot.
+ *
+ * The stream is plain VT100 plus JIM's two K4510 modes, set by ui_start():
+ * ESC[?4510h, so 38;5;n is the palette's own entry n (DOS EDIT's light grey
+ * and its shadows' grey are not in SGR's ANSI order), and SGR 11, so the
+ * scroll bar's arrows ($1E $1F) draw as glyphs.  Autowrap is off, so the
+ * last column of the last row does not scroll the screen.  JIM keeps the
+ * cursor: it blinks it and shapes it; cursor_at says where it should rest
+ * and event() puts it there before it waits. */
+static uint8_t oy, kmod, kcode, running = 1;
+static uint32_t ui_dirtab;
+#define SHADOW (ui_dirtab + 0x18000UL)                /* the copy: past the list (32 KB) and the snapshot (+$8000, < 48 KB) */
+static uint8_t rb[4 * 184];                           /* one row of cells */
+static uint8_t jx = 0xFF, jy, jf = 0xFF, jb = 0xFF;   /* where JIM's cursor is and the colours it has ($FF: not known) */
+static uint8_t wcx, wcy;                              /* where the cursor should rest */
+static uint32_t rowaddr(uint8_t y) { return SHADOW + (uint32_t)y * cols * 4; }
+static void jnum(uint8_t n)
+{
+    if (n >= 100) put((char)('0' + n / 100));
+    if (n >= 10) put((char)('0' + n / 10 % 10));
+    put((char)('0' + n % 10));
+}
+static void jstr(const char *t) { while (*t) put(*t++); }
+static void jcsi(void) { jstr("\x1b["); }
+static void jat(uint8_t x, uint8_t y)
+{
+    if (x == jx && y == jy) return;
+    jcsi(); jnum((uint8_t)(y + 1)); put(';'); jnum((uint8_t)(x + 1)); put('H');
+    jx = x; jy = y;
+}
+static void jcol(uint8_t f, uint8_t b)
+{
+    if (f == jf && b == jb) return;
+    jstr("\x1b[38;5;"); jnum(f); jstr(";48;5;"); jnum(b); put('m');
+    jf = f; jb = b;
+}
+static void jch(uint8_t c)
+{
+    if ((c >= 0x08 && c <= 0x0F) || c == 0x1B) c = '?';  /* the controls that act even under SGR 11 */
+    put((char)c);
+    jx = jx < cols - 1 ? (uint8_t)(jx + 1) : 0xFF;    /* the last column: the cursor's place is JIM's business */
+}
+static void ui_start(void)                            /* JIM as this file draws on it */
+{
+    /* DECSTR: modes and colours to their defaults, the screen kept; ?4510: the
+     * palette's own entries; SGR 11: the glyphs below $20; ?7l: no autowrap */
+    jstr("\x1b[!p\x1b[?4510h\x1b[11m\x1b[?7l");
+    jx = jf = jb = 0xFF;
+}
+static void ui_end(void)                              /* and back as the shell wants it */
+{
+    /* the block cursor; DECSTR clears ?4510 and SGR 11 and puts autowrap back;
+     * the cursor hidden, the screen cleared and the cursor home */
+    jstr("\x1b[2 q\x1b[!p\x1b[?25l\x1b[2J\x1b[H");
+}
 static void cel(uint8_t x, uint8_t ch, uint8_t k)
 {
     uint8_t *p = rb + ((unsigned)x << 2);
@@ -119,11 +173,18 @@ static void celc(uint8_t x, uint8_t ch, uint8_t f, uint8_t b)
     uint8_t *p = rb + ((unsigned)x << 2);
     p[0] = ch; p[1] = 0; p[2] = f; p[3] = b;
 }
-static void flush(uint8_t y, uint8_t n) { dma_copy((uint32_t)(uint16_t)rb, rowaddr(y), (unsigned)n << 2); }
-static void pc(uint8_t x, uint8_t y, uint8_t ch, uint8_t f, uint8_t b)     /* one cell, straight to the screen */
+static void flush(uint8_t y, uint8_t n)               /* row y's first n cells, from rb */
+{
+    uint8_t x; const uint8_t *p = rb;
+    dma_copy((uint32_t)(uint16_t)rb, rowaddr(y), (unsigned)n << 2);
+    jat(0, y);
+    for (x = 0; x < n; x++, p += 4) { jcol(p[2], p[3]); jch(p[0]); }
+}
+static void pc(uint8_t x, uint8_t y, uint8_t ch, uint8_t f, uint8_t b)     /* one cell */
 {
     uint32_t a = rowaddr(y) + ((unsigned)x << 2);
     far_poke16(a, ch); far_poke16(a + 2, (uint16_t)f | ((uint16_t)b << 8));
+    jat(x, y); jcol(f, b); jch(ch);
 }
 static void pk(uint8_t x, uint8_t y, uint8_t ch, uint8_t k) { pc(x, y, ch, kf[k], kb[k]); }
 static uint8_t slen(const char *s) { uint8_t n = 0; while (s[n]) n++; return n; }
@@ -190,21 +251,19 @@ static void status_line(const char *s, const char *right)   /* the last row: s, 
     for (x = 0; x < n; x++) cel((uint8_t)(cols - 1 - n + x), (uint8_t)right[x], K_STATUS);
     flush((uint8_t)(rows - 1), cols);
 }
-static void ui_init(void)                             /* the console's window, as JIM has it */
+static void ui_init(void)                             /* the window's size, as JIM has it; oy for the mouse */
 {
-    cols = REG(TERM + 5); rows = REG(TERM + 6); ox = REG(TERM + 7); oy = REG(TERM + 8); stride = REG(TERM + 0x0D);
+    cols = REG(TERM + 5); rows = REG(TERM + 6); oy = REG(TERM + 8);
     if (!cols) cols = 80;
     if (!rows) rows = 30;
-    if (!stride) stride = cols;
     if (cols > 184) cols = 184;
-    scr = (uint32_t)REG(TERM + 0x10) | ((uint32_t)REG(TERM + 0x11) << 8) | ((uint32_t)REG(TERM + 0x12) << 16) | ((uint32_t)REG(TERM + 0x13) << 24);
 }
 static void cursor_shape(uint8_t want)                /* DECSCUSR: '2' a block, '4' an underline */
 {
     if (want != curshape) { curshape = want; put(27); put('['); put((char)want); put(' '); put('q'); }
 }
-static void cursor_at(uint8_t x, uint8_t y) { REG(TERM + 9) = x; REG(TERM + 10) = y; }   /* writing them redraws JIM's cursor */
-static void cursor_show(uint8_t on) { if (on) REG(TERM + 0x0E) |= 1; else REG(TERM + 0x0E) &= (uint8_t)~1; }
+static void cursor_at(uint8_t x, uint8_t y) { wcx = x; wcy = y; jat(x, y); }
+static void cursor_show(uint8_t on) { jat(wcx, wcy); jstr(on ? "\x1b[?25h" : "\x1b[?25l"); }
 
 /* ---- keys and the mouse ----------------------------------------------------
  * The machine draws no pointer; the host may (F12's "Mouse pointer"), and
@@ -241,6 +300,7 @@ static void ptr_off(void) { REG(V_SPRCTL) = 0; REG(MOUSEPTR) = 0; }
 static uint8_t event(void)
 {
     uint8_t k, b, r, c; unsigned x, y; int8_t w;
+    jat(wcx, wcy);                                    /* the cursor where the program left it, not where drawing did */
     for (;;) {
         k = rom_getin();
         if (k) { kmod = REG(KSTAT); kcode = (uint8_t)((kmod & 0x40) ? 1 : 0); return k; }
@@ -309,7 +369,6 @@ static uint8_t menu_x(uint8_t m, uint8_t *w, uint8_t *n)
  * in rb -- what was there, the box, the items, the shadow -- and goes out
  * in one DMA.  Nothing is erased first, so nothing flickers; closing puts
  * the copy back.  mn_bot is the lowest row an open menu has covered. */
-static uint32_t ui_dirtab;
 static uint8_t mn_bot;
 static uint32_t snap_at(uint8_t y) { return ui_dirtab + 0x8000UL + (uint32_t)y * cols * 4; }
 static void snap_take(void) { uint8_t y; for (y = 0; y < rows; y++) dma_copy(rowaddr(y), snap_at(y), (unsigned)cols << 2); }

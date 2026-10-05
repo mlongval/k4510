@@ -11138,3 +11138,34 @@ Makefile's K4510_BUILD says 0.7; master is tagged alpha-0.7 'Conduit'.
 New work -- every program writing through JIM, then two screens (K/OS and
 a Linux or distant session) -- goes on the branch jim-everywhere, so
 master stays the released machine until that is ready.
+
+## 2026-10-05 -- jim-everywhere: EDIT, PROG and WORD draw through JIM
+
+The branch's first step (Doc: "Have everything DEFAULT to writing via JIM",
+so that JIM can later carry a second screen -- K/OS on one, a terminal
+session to the host or a distant machine on the other). The three editors
+wrote text32 cells straight into the console's map; dosui.h's comment said
+it was because "JIM's escapes reach only eight" colours. Not so -- but SGR's
+ANSI order does reach only twelve of the sixteen entries (no orange, brown,
+mid or light grey, and DOS EDIT's menus are light grey), and $1E/$1F (the
+scroll bar's arrows) are controls a terminal swallows.
+
+JIM gains two K4510 modes (core/term.h): ESC[?4510h makes 38;5;n / 48;5;n
+with n < 16 the palette's own entry; SGR 11 / 10 (the Linux console's
+display-control flag) draws $00-$1F as glyphs, all but the ones that act.
+Both are cleared by a reset, and sit at the end of JIM's state so an older
+save state still loads.
+
+dosui.h keeps the cells it draws in a copy in far memory (ui_dirtab +
+$18000) -- the menus' snapshot and the shadows need to read the screen back,
+which a terminal cannot do -- and sends each flushed row or cell to JIM as
+cursor moves, SGR colours (only when they change) and bytes. ui_start() /
+ui_end() set and clear the modes. JIM's registers are now only read (the
+window's size, the default colours). EDIT and PROG were full: their keys and
+About pages moved out of the main image (EDIT's to $E000, PROG's into the
+VIO2 overlay, slot 11), as named arrays because string literals always land
+in the main image.
+
+Checked: edittest, wordtest, vikeystest, jimtest, keytest, vitest; and
+captures of EDIT (menu open, help box) and PROG are pixel-identical to
+master's.

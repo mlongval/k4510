@@ -35,7 +35,13 @@
  * 5-6 bar -- the shape VI changes with its mode). Bytes $80-$FF are glyphs (CP437).
  * UTF-8: ESC % G on, ESC % @ off (CTRL 1 leaves it).  On, a UTF-8 sequence draws as its
  * CP437 glyph (or a near one, or '?'), and a byte that continues no sequence is
- * CP437 as before.  The `!` shell and TELNET turn it on for their sessions. */
+ * CP437 as before.  The `!` shell and TELNET turn it on for their sessions.
+ * Two K4510 additions, for a program that draws its whole screen through JIM
+ * (EDIT, PROG, WORD; demo/jimscr.h), 2026-10-05: ESC[?4510h makes 38;5;n and
+ * 48;5;n with n < 16 the palette's own entry n (SGR's ANSI order reaches only
+ * twelve of the sixteen), ESC[?4510l puts xterm's meaning back; SGR 11 draws
+ * the bytes $00-$1F as their glyphs (all but BS HT LF VT FF CR SO SI ESC: the
+ * Linux console's display-control flag), SGR 10 stops.  A reset clears both. */
 #ifndef K4510_TERM_H
 #define K4510_TERM_H
 #include <stdint.h>

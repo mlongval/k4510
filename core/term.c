@@ -5,6 +5,7 @@
 #include "io.h"
 #include "vicky.h"
 #include "jimgfx.h"                 /* JIM's pictures: the Kitty graphics protocol (2026-09-17) */
+#include <stddef.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -39,6 +40,17 @@ static struct {
     uint8_t rep[128]; uint8_t rh, rt;
     /* the cursor */
     uint8_t cur_on; uint32_t cur_at; uint32_t frames;
+    /* Two K4510 modes (2026-10-05), for programs that draw their screens through
+     * JIM rather than into the text map: Doc wanted every program to write
+     * through JIM, so that a second screen -- or a pty -- could carry them.
+     * They are new at the END, so a save state from before them still loads
+     * (term_state_load reads the shorter record and leaves them 0). */
+    uint8_t paldirect;                 /* ESC [ ? 4510 h: 38;5;n and 48;5;n with n < 16 are the palette's entry n,
+                                        * not xterm's colour n -- the machine's sixteen, all of them (SGR's ANSI
+                                        * order reaches twelve: orange, brown, mid and light grey are not in it) */
+    uint8_t dispctl;                   /* SGR 11 (the Linux console's "display control flag"), SGR 10 off: the
+                                        * bytes $00-$1F draw their CP437 glyphs, all but the ones that act --
+                                        * BS, HT, LF, VT, FF, CR, SO, SI and ESC */
 } T;
 
 static uint8_t *apc; static size_t apc_n, apc_cap;      /* an APC being received (not in T: a save state does not carry a half-sent picture) */
@@ -169,6 +181,7 @@ static void soft_reset(void)
     T.top = 0; T.bot = (uint8_t)(T.rows - 1);
     T.wrap = 1; T.origin = 0; T.ckm = 0; T.insert = 0; T.pending = 0;
     T.g0 = T.g1 = 0; T.shift = 0;
+    T.paldirect = T.dispctl = 0;
     T.st = 0; T.npar = 0;
     reset_tabs();
     memset(&T.saved, 0, sizeof T.saved); T.saved.fg = T.fg; T.saved.bg = T.bg;
@@ -277,6 +290,8 @@ static void sgr(void)
         else if (v == 1) T.bold = 1;
         else if (v == 4) T.uline = 1;
         else if (v == 7) T.rev = 1;
+        else if (v == 10) T.dispctl = 0;
+        else if (v == 11) T.dispctl = 1;
         else if (v == 22) T.bold = 0;
         else if (v == 24) T.uline = 0;
         else if (v == 27) T.rev = 0;
@@ -288,6 +303,7 @@ static void sgr(void)
         else if (v >= 100 && v <= 107) T.bg = apalb[v - 100];
         else if ((v == 38 || v == 48) && i + 2 < T.npar && T.par[i + 1] == 5) {   /* 256 colours: the nearest of the 16 */
             int n = T.par[i + 2], a;
+            if (n < 16 && T.paldirect) { if (v == 38) T.fg = (uint8_t) n; else T.bg = (uint8_t) n; i += 2; continue; }
             if (n < 16) a = n;
             else if (n < 232) { n -= 16; a = ansi16_of(n / 36 ? 55 + 40 * (n / 36) : 0, (n / 6) % 6 ? 55 + 40 * ((n / 6) % 6) : 0, n % 6 ? 55 + 40 * (n % 6) : 0); }
             else { int g = 8 + 10 * (n - 232); a = ansi16_of(g, g, g); }
@@ -313,6 +329,7 @@ static void mode(int on)
             else if (v == 6) { T.origin = (uint8_t) on; move(0, 0); }
             else if (v == 7) T.wrap = (uint8_t) on;
             else if (v == 25) T.shown = (uint8_t) on;
+            else if (v == 4510) T.paldirect = (uint8_t) on;
         } else if (v == 4) T.insert = (uint8_t) on;
         else if (v == 20) T.lnm = (uint8_t) on;          /* LNM */
     }
@@ -711,6 +728,7 @@ static void put_byte(uint8_t c)
     switch (T.st) {
     case 0:
         if (c >= 0x20 && c != 0x7F) { print_char(c); return; }
+        if (T.dispctl && c < 0x20 && !((c >= 0x08 && c <= 0x0F) || c == 0x1B)) { print_char(c); return; }
         switch (c) {
         case 0x1B: T.st = 1; return;
         case '\r': T.cx = 0; T.pending = 0; return;
@@ -857,7 +875,13 @@ int  term_cursor_park(void) { int was = CUR_SHOWN; cur_undraw(); return was; }
 void term_cursor_unpark(int was) { if (was) cur_draw(); }
 int  term_state_load(FILE *f)
 {
-    if (state_get(f, "JIM ", &T, sizeof T)) return -2;
+    /* A state from before paldirect/dispctl has a shorter record: read what it
+     * has, and the two modes start off. */
+    { char t[4]; uint32_t len;
+      if (fread(t, 1, 4, f) != 4 || fread(&len, 4, 1, f) != 1 || memcmp(t, "JIM ", 4)) return -2;
+      if (len != sizeof T && len != offsetof(__typeof__(T), paldirect)) return -2;
+      memset(&T, 0, sizeof T);
+      if (fread(&T, 1, len, f) != len) return -2; }
     if (T.bandclaim || T.bandtop || T.bandbot) {                /* a state from before VICKY owned the layout */
         vicky_write(VR_BANDTOP, T.bandtop); vicky_write(VR_BANDBOT, T.bandbot);
         if (T.bandclaim) vicky_write(VR_BANDCTL, (uint8_t)(vicky_read(VR_BANDCTL) | VB_PROGRAM));

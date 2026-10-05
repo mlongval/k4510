@@ -201,29 +201,46 @@ static void load_name(const char *nm)
 }
 #pragma code-name (pop)
 
+/* ---- help ---------------------------------------------------------------
+ * The keys page and About at $E000, lines and all (2026-10-05: the main image
+ * was full once the furniture drew through JIM).  Each text is one array --
+ * lines ended by NUL, the whole by $FF -- because a string literal goes to
+ * the main image whatever the pragma says, and a named array does not. */
+#pragma code-name (push, "HICODE")
 #pragma rodata-name (push, "HICODE")
-/* ---- help --------------------------------------------------------------- */
-static const char *const helptext[] = {
-    "Moving        arrows, Home, End, PgUp, PgDn; with Ctrl: words, the ends",
-    "Selecting     Shift with a moving key; drag, Shift+click; Ctrl+A all",
-    "Clipboard     Ctrl+X Ctrl+C Ctrl+V, or Shift+Del Ctrl+Ins Shift+Ins",
-    "              (with nothing selected: the line)",
-    "Undo, redo    Ctrl+Z, Ctrl+Y           Insert   insert / overwrite",
-    "Tab           spaces to the next stop; Tab, Shift+Tab indent a selection",
-    "              (Options > Tab Width: how many spaces; never a tab character)",
-    "Files         Ctrl+N new, Ctrl+O open, Ctrl+S save, Ctrl+Q exit",
-    "Search        Ctrl+F find, F3 again, Ctrl+G go to a line",
-    "BASIC         Ctrl+R renumbers (10, 20, 30 and every GOTO)",
-    "              Ctrl+U puts BBC BASIC's keywords in capitals",
-    "Menus         F10, or Alt and the letter; Esc closes",
-    "Mouse         click the text, a menu, a scroll bar; the wheel scrolls",
-    "",
-    "EDIT -s FILE  starts in the console's own colours (Options)",
-    "EDIT -u FILE  keywords in capitals at every save (BBC's *EDIT)",
-    "EDIT -v FILE  VI's keys (Options): Esc, hjkl w b e, d c y, x p u, :w :q",
-    0 };
-static const char *const abouttext[] = { "K4510 Editor", "", "MS-DOS EDIT's manner, VI's engine.", 0 };
+static const char helpall[] =
+    "Moving        arrows, Home, End, PgUp, PgDn; with Ctrl: words, the ends\0"
+    "Selecting     Shift with a moving key; drag, Shift+click; Ctrl+A all\0"
+    "Clipboard     Ctrl+X Ctrl+C Ctrl+V, or Shift+Del Ctrl+Ins Shift+Ins\0"
+    "              (with nothing selected: the line)\0"
+    "Undo, redo    Ctrl+Z, Ctrl+Y           Insert   insert / overwrite\0"
+    "Tab           spaces to the next stop; Tab, Shift+Tab indent a selection\0"
+    "              (Options > Tab Width: how many spaces; never a tab character)\0"
+    "Files         Ctrl+N new, Ctrl+O open, Ctrl+S save, Ctrl+Q exit\0"
+    "Search        Ctrl+F find, F3 again, Ctrl+G go to a line\0"
+    "BASIC         Ctrl+R renumbers (10, 20, 30 and every GOTO)\0"
+    "              Ctrl+U puts BBC BASIC's keywords in capitals\0"
+    "Menus         F10, or Alt and the letter; Esc closes\0"
+    "Mouse         click the text, a menu, a scroll bar; the wheel scrolls\0"
+    "\0"
+    "EDIT -s FILE  starts in the console's own colours (Options)\0"
+    "EDIT -u FILE  keywords in capitals at every save (BBC's *EDIT)\0"
+    "EDIT -v FILE  VI's keys (Options): Esc, hjkl w b e, d c y, x p u, :w :q\0"
+    "\xFF";
+static const char aboutall[] =
+    "K4510 Editor\0"
+    "\0"
+    "MS-DOS EDIT's manner, VI's engine.\0"
+    "\xFF";
+static void help(uint8_t about)
+{
+    const char *l[24], *p = about ? aboutall : helpall; uint8_t n = 0;
+    while (*p != '\xFF' && n < 23) { l[n++] = p; while (*p++) ; }
+    l[n] = 0;
+    text_box(about ? "About" : "Keyboard", l);
+}
 #pragma rodata-name (pop)
+#pragma code-name (pop)
 
 /* ---- the commands ---------------------------------------------------------
  * Every key and every menu entry is a command number, run by one switch, so
@@ -254,8 +271,8 @@ static void run_cmd(uint8_t c)
     case C_SYS:    scheme(1); full = 1; break;
     case C_VI:     vi_toggle(); break;
     case C_TABW:   tabw_dlg(); break;
-    case C_HELP:   text_box("Keyboard", helptext); break;
-    case C_ABOUT:  text_box("About", abouttext); break;
+    case C_HELP:   help(0); break;
+    case C_ABOUT:  help(1); break;
     }
     wantx = cx;
 }
@@ -349,7 +366,7 @@ void main(void)
     fresh();
     note = name[0] ? (note[0] == 'n' ? "A new file" : "") : "";
     vi_setup(); vi_init();                            /* VI.RC's maps (:imap jk <Esc>), for when VI's keys are on */
-    REG(TERM + 4) = 1; cursor_show(1);
+    ui_start(); cursor_show(1);
     ptr_on();
     while (running) {
         vi_setup();                                   /* the gate's table: VI's keys are overlays (dosvi.h) */
@@ -359,7 +376,6 @@ void main(void)
         do_key(k);
     }
     ptr_off();
-    put(27); put('['); put('2'); put(' '); put('q');     /* the block back for the shell */
-    REG(TERM + 0x0E) = 0; REG(TERM + 4) = 1; REG(TERM + 4) = 2;
+    ui_end();                                         /* the block cursor, JIM's modes and an empty screen for the shell */
     rom_video();
 }

@@ -38,9 +38,11 @@ static uint8_t vimode;                                /* VI's keys: Options, or 
 #define DOSVI_P1 0x0EF00000UL                        /* the two overlays (demo/prog-header.s) */
 #define DOSVI_P2 0x0EF10000UL
 static uint8_t find_files_o(void);                    /* in VIO2 too: slot 10 (dosvi.h's DOSVI_NEXTRA) */
-#define DOSVI_NEXTRA 1
-#define DOSVI_EXTRA_INIT() (vi_tab[10].entry = (uint16_t)find_files_o)
+static void __fastcall__ help_o(uint8_t about);       /* and slot 11 */
+#define DOSVI_NEXTRA 2
+#define DOSVI_EXTRA_INIT() (vi_tab[10].entry = (uint16_t)find_files_o, vi_tab[11].entry = (uint16_t)help_o)
 #define find_files_gate() ((uint8_t (*)(void))VIG(10))()
+#define help_gate(a) ((void (__fastcall__ *)(uint8_t))VIG(11))(a)
 #include "dosvi.h"
 
 #define MSGH    4                       /* message rows */
@@ -559,31 +561,52 @@ static void find_files(void)
     else note = info[0] ? info : "nothing found";
 }
 
-/* ---- help --------------------------------------------------------------- */
-static const char *const helptext[] = {
-    "arrows Home End PgUp PgDn   move        Ctrl+arrows    a word at a time",
-    "Ctrl+Home  Ctrl+End         the ends    Insert         insert / overwrite",
-    "Enter      a new line, keeping the indent   Tab   spaces to the next stop",
-    "                                        (Options > Tab Width sets how many)",
-    "",
-    "Ctrl+S  F2   save            Ctrl+O   open (a tab)   Ctrl+N   a new file",
-    "F6  Shift+F6 the next / previous file    Ctrl+W close one    Ctrl+Q quit",
-    "Ctrl+Z  Ctrl+Y  undo, redo    Ctrl+X Ctrl+C Ctrl+V  cut, copy, paste",
-    "Shift+move, a drag or Ctrl+A select; typing replaces; Tab Shift+Tab indent",
-    "Ctrl+F  F3   find, again     Ctrl+R   change         Ctrl+G   go to line",
-    "Shift+Ctrl+F find in files: every source file in this file's directory",
-    "A PROJECT.K4P beside the file: F9 builds the project (File > New Project)",
-    "",
-    "F9           save what changed, compile .C (CC) or .PAS (PAS); a .RX: saved",
-    "Ctrl+F9      compile, then run it (a .RX: RX runs it); a key comes back",
-    "F4  Shift+F4 the next / previous message -- another file's opens in a tab",
-    "F10, Alt+letter  the menus                  F1  this page",
-    "Mouse: the text, a menu, a tab, a message, the scroll bars; the wheel",
-    "",
-    "PROG -s starts in the console's own colours, PROG -v with VI's keys (Options):",
-    "Esc, hjkl w b e, d c y, x p u, :w :q :make :run :cn, :imap jk <Esc> (VI.RC)",
-    0 };
-static const char *const abouttext[] = { "PROG -- edit, compile, run", "", "MS-DOS EDIT's manner, VI's engine,", "CC and PAS behind F9.", 0 };
+/* ---- help ---------------------------------------------------------------
+ * The keys page and About, in VIO2 since 2026-10-05: the main image was full
+ * once EDIT's furniture drew through JIM.  Each text is one array -- lines
+ * ended by NUL, the whole by $FF -- because a string literal goes to the
+ * main image whatever the pragma says, and a named array does not; help_o
+ * makes text_box's list of lines from it while VIO2 is banked in. */
+#pragma code-name (push, "VIO2")
+#pragma rodata-name (push, "VIO2")
+static const char helpall[] =
+    "arrows Home End PgUp PgDn   move        Ctrl+arrows    a word at a time\0"
+    "Ctrl+Home  Ctrl+End         the ends    Insert         insert / overwrite\0"
+    "Enter      a new line, keeping the indent   Tab   spaces to the next stop\0"
+    "                                        (Options > Tab Width sets how many)\0"
+    "\0"
+    "Ctrl+S  F2   save            Ctrl+O   open (a tab)   Ctrl+N   a new file\0"
+    "F6  Shift+F6 the next / previous file    Ctrl+W close one    Ctrl+Q quit\0"
+    "Ctrl+Z  Ctrl+Y  undo, redo    Ctrl+X Ctrl+C Ctrl+V  cut, copy, paste\0"
+    "Shift+move, a drag or Ctrl+A select; typing replaces; Tab Shift+Tab indent\0"
+    "Ctrl+F  F3   find, again     Ctrl+R   change         Ctrl+G   go to line\0"
+    "Shift+Ctrl+F find in files: every source file in this file's directory\0"
+    "A PROJECT.K4P beside the file: F9 builds the project (File > New Project)\0"
+    "\0"
+    "F9           save what changed, compile .C (CC) or .PAS (PAS); a .RX: saved\0"
+    "Ctrl+F9      compile, then run it (a .RX: RX runs it); a key comes back\0"
+    "F4  Shift+F4 the next / previous message -- another file's opens in a tab\0"
+    "F10, Alt+letter  the menus                  F1  this page\0"
+    "Mouse: the text, a menu, a tab, a message, the scroll bars; the wheel\0"
+    "\0"
+    "PROG -s starts in the console's own colours, PROG -v with VI's keys (Options):\0"
+    "Esc, hjkl w b e, d c y, x p u, :w :q :make :run :cn, :imap jk <Esc> (VI.RC)\0"
+    "\xFF";
+static const char aboutall[] =
+    "PROG -- edit, compile, run\0"
+    "\0"
+    "MS-DOS EDIT's manner, VI's engine,\0"
+    "CC and PAS behind F9.\0"
+    "\xFF";
+static void __fastcall__ help_o(uint8_t about)
+{
+    const char *l[24], *p = about ? aboutall : helpall; uint8_t n = 0;
+    while (*p != '\xFF' && n < 23) { l[n++] = p; while (*p++) ; }
+    l[n] = 0;
+    text_box(about ? "About" : "PROG -- the keys", l);
+}
+#pragma rodata-name (pop)
+#pragma code-name (pop)
 
 /* ---- the commands ------------------------------------------------------- */
 static void run_cmd(uint8_t c)
@@ -624,8 +647,8 @@ static void run_cmd(uint8_t c)
     case C_SYS:    scheme(1); full = 1; break;
     case C_VI:     vi_toggle(); break;
     case C_TABW:   tabw_dlg(); break;
-    case C_HELP:   text_box("PROG -- the keys", helptext); break;
-    case C_ABOUT:  text_box("About", abouttext); break;
+    case C_HELP:   help_gate(0); break;
+    case C_ABOUT:  help_gate(1); break;
     }
     wantx = cx;
 }
@@ -765,7 +788,7 @@ void main(void)
     }
     if (!name[0]) note = "No file yet -- type, then Ctrl+S names it; Ctrl+O opens one";
     vi_setup(); vi_init();                                /* VI.RC's maps (:imap jk <Esc>), for when VI's keys are on */
-    REG(TERM + 4) = 1; cursor_show(1);
+    ui_start(); cursor_show(1);
     ptr_on();
     while (running) {
         vi_setup();                                       /* the gate's table: VI's keys are overlays (dosvi.h); a program run may have moved it */
@@ -775,7 +798,6 @@ void main(void)
         do_key(k);
     }
     ptr_off();
-    put(27); put('['); put('2'); put(' '); put('q');     /* the block back for the shell */
-    REG(TERM + 0x0E) = 0; REG(TERM + 4) = 1; REG(TERM + 4) = 2;
+    ui_end();                                         /* the block cursor, JIM's modes and an empty screen for the shell */
     rom_video();
 }

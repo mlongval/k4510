@@ -248,10 +248,11 @@ EDITTMP.BAS while *VI has it, and BBC BASIC > VI EDITTMP.BBC from the Tube --
 a trail of who started whom, with the file each one has open, LOGO's .LGO,
 BOOK's page and CP/M or the Linux prompt on the Tube included. While the
 second screen (below) is up it says Terminal. The bottom band has, at its
-right, on a laptop, the battery's charge, with an arrow up while it charges
-and down while it does not; at its left whatever a program last asked JIM to
-put there, and, while somebody types into the machine from another computer
-(Chapter 11, The Linux Underneath), the keys they send.
+right, the network the computer has -- LAN for a cable, Wi-Fi and its signal's
+quality, offline -- and, on a laptop, the battery's charge, with an arrow up
+while it charges and down while it does not; at its left whatever a program
+last asked JIM to put there, and, while somebody types into the machine from
+another computer (Chapter 11, The Linux Underneath), the keys they send.
 
 => 13-LINUX.GMI Chapter 11, The Linux Underneath
 

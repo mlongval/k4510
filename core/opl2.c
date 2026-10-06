@@ -65,6 +65,15 @@ static FM_OPL *opl;
 static int     opl_rate = 48000;
 static uint8_t opl_addr;             /* the address port's latch */
 static uint8_t opl_shadow[256];      /* what was last written where, so DATA reads back */
+/* Asleep (2026-10-06): half a second of exact silence and no write since, and
+ * the chip is not rendered -- its output would be zeros, and rendering them
+ * was half a millisecond of every frame on the Dell, sound or none.  Any
+ * write wakes it.  (Its timers are the alarms', not the render's: they run
+ * on.  What does not advance while it sleeps is the LFO's phase, which no
+ * silence can show.) */
+static unsigned opl_quiet;           /* samples of exact silence in a row */
+static int      opl_asleep;
+#define OPL_WAKE() (opl_quiet = 0, opl_asleep = 0)
 
 void opl2_init(int rate)
 {
@@ -74,7 +83,7 @@ void opl2_init(int rate)
     fmopl_set_machine_parameter(K4510_VICE_CLK_HZ);   /* the timers count microseconds */
     opl = ym3812_init((uint32_t)OPL2_HZ, (uint32_t)rate);
     memset(opl_shadow, 0, sizeof opl_shadow);
-    opl_addr = 0;
+    opl_addr = 0; OPL_WAKE();
 }
 void opl2_reset(void)
 {
@@ -82,7 +91,7 @@ void opl2_reset(void)
      * alarms.  Zeroing it here left the timers dead after every power cycle
      * (review 2026-09-12, 4); opl2_init rebuilds both chip and alarms. */
     memset(opl_shadow, 0, sizeof opl_shadow);
-    opl_addr = 0;
+    opl_addr = 0; OPL_WAKE();
     if (opl) ym3812_reset_chip(opl);
 }
 
@@ -93,6 +102,7 @@ void opl2_apply(uint8_t reg, uint8_t v)
 {
     if (!opl) opl2_init(opl_rate);
     if (!opl) return;
+    OPL_WAKE();
     if (reg < 2) ym3812_write(opl, reg, v);
 }
 
@@ -105,6 +115,7 @@ void opl2_write(uint8_t reg, uint8_t v)
     if (!opl) opl2_init(opl_rate);
     if (!opl) return;
     if (reg > 1) return;
+    OPL_WAKE();
     /* The shadow and the address latch are this side's own bookkeeping: they
      * answer the readback at $D481 and must be right here, now, whoever is
      * doing the rendering. */
@@ -147,16 +158,19 @@ int opl2_render(int n, int16_t *out, int max)
     int done = 0;
     if (n > max) n = max;
     if (n <= 0) return 0;
-    if (!opl) { for (int i = 0; i < n; i++) out[i] = 0; return n; }
+    if (!opl || opl_asleep) { for (int i = 0; i < n; i++) out[i] = 0; return n; }
     while (done < n) {
-        int want = n - done;
+        int want = n - done, loud = 0;
         if (want > OPL2_BLOCK) want = OPL2_BLOCK;
         ym3812_update_one(opl, tmp, want);
         for (int i = 0; i < want; i++) {
             int v = tmp[i] / 2;                            /* headroom */
+            loud |= tmp[i];
             out[done + i] = (int16_t)(v > 32767 ? 32767 : v < -32768 ? -32768 : v);
         }
+        opl_quiet = loud ? 0 : opl_quiet + (unsigned) want;
         done += want;
     }
+    if (opl_quiet >= (unsigned) opl_rate / 2) opl_asleep = 1;   /* half a second of nothing: asleep until a write */
     return done;
 }

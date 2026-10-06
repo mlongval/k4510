@@ -11490,3 +11490,14 @@ InitGraph, in an HD mode, asks the shell for MODE 0 and CloseGraph for the
 mode again.  Checked in MODE 5 from the shell and from PROG's Compile and
 Run.  test/capture draws an HD frame whole now (its 640x480 buffer was
 overrun -- a synchronized update's repaint draws every line).
+
+## 2026-10-06 -- the OPL2 sleeps through silence
+
+After the idle frames the biggest idle cost on the Dell was the OPL2: 0.5 ms
+of every frame rendering a silent chip.  Now half a second of exact zeros
+with no register write puts it to sleep (core/opl2.c): the render hands back
+zeros without running fmopl, and any write -- from a program, the sound
+sequencer, the queue another core drains -- wakes it.  Its timers are the
+alarms', so they run on; only the LFO's phase stands still, which silence
+cannot show.  1 s of silence: 2.2 ms of host time awake, 0.004 ms asleep; a
+note written after the sleep sounds at once (7999 of 8000 samples).

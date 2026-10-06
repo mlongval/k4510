@@ -1,10 +1,11 @@
 # K4510
 
-**Alpha, September 2026.** The machine boots from a USB stick (or a
-second partition) as the K4510x appliance, or runs in a window on a
-Linux desktop; the handbook is `doc/guide/k4510-guide.pdf`, and on the
-web at Read the Docs. The last release with the bare-metal Raspberry Pi
-image was alpha-0.5 ('Timbre'); that port is retired (below).
+**Alpha 0.7 ('Conduit'), October 2026.** The machine boots from a USB
+stick (or a second partition) as the K4510x appliance, or runs in a
+window on a Linux desktop; the handbook is `doc/guide/k4510-guide.pdf`,
+and on the web at Read the Docs. The last release with the bare-metal
+Raspberry Pi image was alpha-0.5 ('Timbre'); that port is retired
+(below).
 
 A fantasy 8/16-bit computer, built from scratch in August 2026. Project
 orchestrator: Michael Longval. It is not an emulation of any real
@@ -29,7 +30,7 @@ reasoning; the last tree with the port is tag `alpha-0.5`. A Pi still
 runs the machine — under Linux, the same way the laptop does.
 
 **Read the handbook first**: `doc/guide/k4510-guide.pdf`, the User's and
-Programmer's Guide, 103 pages, every screenshot captured from the running
+Programmer's Guide, 158 pages, every screenshot captured from the running
 machine at build time. This README is the short version. Both are alpha
 documentation of an alpha machine: things change, and the handbook's
 first page says so.
@@ -70,16 +71,27 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   at 60 MHz for now, and the first boot on a host measures it and picks
   the highest step that fits with margin (`core/calib.c`); `BENCH`
   shows the whole ladder. The
-  instruction core is Xemu's, byte for byte; everything around it is ours.
+  instruction core is Xemu's, unchanged but for two hooks (the stack
+  fence and WAIT, below); everything around it is ours. **WAIT**
+  (`$D545`) puts the CPU to sleep until the next frame or a key, and the
+  shell, the BASICs and the editors use it while they wait, so an idle
+  machine costs the computer beneath it next to nothing; a window whose
+  picture has not changed is not drawn again either.
 - **Memory: 256 MB**, flat, 28-bit. The CPU sees 64 KB at a time and
   everything else is one instruction away. Byte-pokeable **bank
   registers** ($D600) and a **far-call gate** ($DF00) make programs
   bigger than the window overlays rather than a puzzle; **sideways ROM**,
   Beeb-style, pages 8 KB banks of operating system through $A000-$BFFF;
-  programs own $0800-$CFFF and $E000-$FEFF by default. EhBASIC boots with
-  46335 bytes free.
-- **VICKY**, the video chip: 640×480, 640×240 and 320×240 (and two
-  smaller fields a program may ask for), 256 colours from 24-bit, four
+  programs own $0800-$CFFF and $E000-$FEFF by default (C and Pascal
+  programs load at $0800), and the zero page and the stack page are the
+  program's own: K/OS runs on a base page and a 6502 stack of its own
+  (pages 6 and 7), with its C stack in a kilobyte of RAM in the I/O page,
+  watched by a **stack fence** (`INFO -m` shows the margin). EhBASIC
+  boots with 46335 bytes free. The handbook's Memory chapter maps every
+  byte the system uses, in the 64 KB and in the 256 MB.
+- **VICKY**, the video chip: 640×480, 640×240, 320×240, 320×200 and
+  160×200, and three HD modes (1440×1080, 720×540, 360×270); 256 colours
+  from 24-bit, four
   layers (bitmap / tile / text), 128 sprites with no per-line limit, a
   blitter with copy/fill/logic/line/triangle ops, and **SHEILA**, a
   display-list coprocessor in the Amiga copper's tradition. No video RAM:
@@ -97,47 +109,53 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   transcendentals, a MEGA65-compatible multiplier/divider, and **math
   lists** — programs the unit runs by itself.
 - **JIM**, the terminal: a VT100/ANSI in hardware at $DA00, drawing on the
-  console's screen. CP/M programs, BBC BASIC, the editors and `TELNET`
-  all write to it.
+  console's screen. Everything that writes text writes it to JIM — the
+  shell, both BASICs, Pascal's CRT, CP/M, the editors, `TELNET` — so a
+  screen is a stream that can go anywhere. JIM owns the **status bands**
+  (what is running, the clock, the network, the battery) and has a
+  **second screen**: a terminal session on the Linux beneath (`TERMINAL`,
+  or Alt+1 / Alt+2; tmux at the far end gives as many as you like).
 - **The network:** a URL is a file name (the Meatloaf rule) — `TYPE`,
   `LOAD`, `CP`, `RUN` and both BASICs' `LOAD` take `http://` and
   `https://`; `CD tnfs://host/dir` puts the current directory on a TNFS
   server (FujiNet, Meatloaf); the **N: device** at $D900 gives programs
   four channels (`tcp://`, `http://`), and `TELNET host port` is the
-  demonstration — ANSI BBSes with their art and colours. No FTP. `https`
-  is desktop-only (no TLS on the Pi); the Pi's Ethernet port is untested.
+  demonstration — ANSI BBSes with their art and colours. No FTP.
 
 ## The software
 
 - **K/OS** (pronounced 'chaos'), the operating system, in the ROM: a
   shell with directories, `HELP` for the whole command set (the text is
-  `/.HELP`), `MON`/`WOZ` the Wozmon-style monitor, `INFO`, `MODE 0-2`,
+  `/SYSTEM/ETC/HELP`), `MON` the monitor, `INFO`, `MODE 0-7`, `TERMINAL`,
   `ALIAS`, `SWAP` (run a program on a clean machine and get this one
   back), `EXEC` scripts and `/STARTUP.BAT` at power-on (skip it from the
   F12 menu, Shell → Run STARTUP.BAT, or with `--no-startup.bat`). An
   unknown word runs `name.prg` from disk with its arguments — the REXX
   rule; `SAY` is the demo. Files live in `fs/`, one directory per
   language; bare names are searched across them.
-- **Four tongues:** **EhBASIC 2.22** in ROM with graphics, sprites, the
+- **The languages:** **EhBASIC 2.22** with graphics, sprites, the
   MATH unit and `*command` for any shell command (`*VI` edits the program
-  in memory); **BBC BASIC** — Richard Russell's interpreter (BBCTTY, zlib)
+  in memory); **Microsoft BASIC**; **LOGO**; **RX**, a REXX; **C**, compiled
+  on the machine's own Linux with cc65 (`fs/LANG/C`); **BBC BASIC** — Richard Russell's interpreter (BBCTTY, zlib)
   on **the Tube**, a co-processor port of Acorn heritage, with its own flat
   256 MB; **Forth** — Tali Forth 2, native 45GS10 code; and **CP/M 2.2**
   on the Tube's Z80 (RunCPM, MIT) — drives `A:`-`P:` are folders under
   `fs/CPM/`, `K:` is the machine's own filesystem, `CPM command` runs a
   program or a `.SUB` at boot, and the arrow keys arrive as the WordStar
-  diamond so 1984's software can use them. The Tube runs on the desktop
-  and on the Pi's core 3.
+  diamond so 1984's software can use them. The Tube also runs an Apple
+  IIe and DOOM.
 - **Two Pascals**, kept apart: Turbo Pascal 3 on CP/M (yours to supply,
   it is Borland's; drive `P:` is where it goes), and **Mad Pascal**, a
   cross-compiler — `pascal/` holds the K4510 target, `make pascal` turns
   `fs/LANG/PASCAL/*.PAS` into `.prg` files beside them; Write/CRT go through JIM, `uses
   k4510` gives every chip as a typed variable, `single` runs on the MATH
   unit, `uses graph` draws with the blitter.
-- **Two editors:** `EDIT`, the nano of this machine, and `VI`, modal,
-  with counts, operators, unlimited undo, `:s`, `:map`/`:imap`, a
-  `/SYSTEM/ETC/VI.RC` startup file, and the whole file in far memory — 32000
-  lines. `*SWAP EDIT name` edits from inside a BASIC.
+- **The editors:** `EDIT`, MS-DOS EDIT's look with menus and the mouse;
+  `PROG`, the same window as a programmer's editor that compiles and runs
+  what it holds; `WORD`, for prose; and `VI`, modal, with counts,
+  operators, unlimited undo, `:s`, `:map`/`:imap`, a `/SYSTEM/ETC/VI.RC`
+  startup file, and the whole file in far memory — 32000 lines. `*EDIT`
+  and `*VI` edit from inside a BASIC.
 - **Two file managers,** because they are two different ideas about what
   one is for: `KOMMANDER`, two panels and function keys, and `RANGER`,
   three miller columns and vi's fingers. Enter on a directory descends;
@@ -180,7 +198,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
 
 ## Layout
 
-    core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged
+    core/xemu/   the CPU core from Xemu (GPL-2.0-or-later), unchanged but for two marked hooks
     core/        memory, I/O devices, VICKY, the OPL2 and the audio seam, MATH unit, JIM, the network, host seam
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend + POSIX host glue
@@ -195,7 +213,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
     pascal/      the Mad Pascal target
     fs/          the machine's filesystem: /SYSTEM /LANG /APPS /HOME /CPM /MNT (fs/HOME/README.TXT)
     test/        tests, headless capture and benchmark tools
-    tools/       romfree.py, which measures what is left in each ROM bank
+    tools/       the build's generators, romfree.py (what is left in each ROM bank), the k4510-* helpers
     data/        the screen font (unscii, 8x8 and 8x16), tiles, sprites
     doc/guide/   the handbook: source, style, generators, and the built PDF
     docs/        design records and the build diary (docs/README.md maps them)

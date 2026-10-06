@@ -698,13 +698,14 @@ stub and the vectors live there.
 
 K/OS's workspace - 1 KB of RAM in the I/O page, $DB00-$DEFF (2026-10-06),
 where no device is. Visible wherever the I/O is - so whenever the ROM runs,
-whatever a program has banked. The ROM keeps its base page and its C stack
-there. The bytes are the RAM under the I/O page at the same addresses,
-physical $00DB00-$00DEFF: a buffer on the ROM's C stack has the same address
-for the CPU as for DMA and the devices, which take physical ones (the first
-try put the workspace elsewhere, and every file name the shell built on its
-stack was read by the file device as empty), and SWAP's 64 KB image includes
-it, as it included the old stack at $0600.
+whatever a program has banked. The ROM keeps its C stack there (its base page
+was there too at first, and cost the host 6-7%: it is at $0600). The bytes are
+the RAM under the I/O page at the same addresses, physical $00DB00-$00DEFF: a
+buffer on the ROM's C stack has the same address for the CPU as for DMA and
+the devices, which take physical ones (the first try put the workspace
+elsewhere, and every file name the shell built on its stack was read by the
+file device as empty), and SWAP's 64 KB image includes it, as it included the
+old stack at $0600.
 
 => INDEX.GMI Contents
 => 21-IO.GMI Previous: 13. The I/O Page

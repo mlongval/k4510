@@ -24,7 +24,7 @@ The 45GS10’s program counter is 16 bits: code executes inside a 64 KB window
 <tr class="even">
 <td style="text-align: left;"><code>$0200-$07FF</code></td>
 <td style="text-align: left;">system</td>
-<td style="text-align: left;">the ROM’s data, its 6502 stack (page 7), and two bytes worth knowing (below)</td>
+<td style="text-align: left;">the ROM’s data, its base page (page 6) and 6502 stack (page 7), and two bytes worth knowing (below)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>$0800-$CFFF</code></td>
@@ -126,7 +126,7 @@ The page `$FF00` is always the ROM, whatever is banked, and its jump table is th
 
 </div>
 
-A program has the zero page and the stack page to itself. K/OS runs on a base page and a 6502 stack of its own — the 45GS10 can put both anywhere — and keeps its base page and its C stack in a kilobyte of RAM in the I/O page, `$DB00-$DEFF`, where no device is. The stub switches both on the way in and back on the way out, and for LOAD, SAVE and ARGS copies the caller’s `$F0–$F9` across; nothing else of the program’s is touched.
+A program has the zero page and the stack page to itself. K/OS runs on a base page and a 6502 stack of its own — the 45GS10 can put both anywhere: they are pages `$06` and `$07` — and keeps its C stack in a kilobyte of RAM in the I/O page, `$DB00-$DEFF`, where no device is. The stub switches both on the way in and back on the way out, and for LOAD, SAVE and ARGS copies the caller’s `$F0–$F9` across; nothing else of the program’s is touched.
 
 Anything handed to a system call must lie below `$A000`: during the call the ROM is banked in over `$A000–$FFFF`, and a line kept up there would read as the ROM’s bytes. `SHELL` copies the line into the shell’s own buffer before running it, so the program’s copy is left alone.
 
@@ -156,7 +156,7 @@ The calls go one way, and this is the rule to hold on to if you write code of yo
 
 ## RAM under the I/O page
 
-A `MAP` of block 6 hides `$D000-$DFFF` and exposes RAM: with the ROM also banked away a program owns a contiguous field from `$0800` to `$FEFF` — 61.75 KB of the 64. The trick that makes it safe is that `MAP` is an *instruction*, not a register: the program that hid the I/O can always ask for it back, so there is no way to lock yourself out. (The far-call gate is unreachable while block 6 is mapped; unmap before far calls.)
+A `MAP` of block 6 hides `$D000-$DFFF` and exposes RAM: with the ROM also banked away a program owns a contiguous field from `$0800` to `$FEFF` — 61.75 KB of the 64. The trick that makes it safe is that `MAP` is an *instruction*, not a register: the program that hid the I/O can always ask for it back, so there is no way to lock yourself out. (The far-call gate is unreachable while block 6 is mapped; unmap before far calls.) One kilobyte of that RAM is not free: physical `$DB00-$DEFF` is K/OS’s workspace, and holds the frames of the shell that started the program. A program that maps block 6 straight under itself must leave those bytes alone, or map the block onto RAM somewhere else.
 
 ## Programs bigger than the window
 

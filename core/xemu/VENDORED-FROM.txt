@@ -1,7 +1,9 @@
 commit not determined -- vendored 2026-08-21 (repo commit e3778ae)
 https://github.com/lgblgblgb/xemu (Gábor Lénárt, "LGB"), used unchanged but for
-one hook: cpu65.c _zpi/_zpiy call the K4510 stack fence (core/mem.c) when
-the base-page pointer is the one it watches (2026-10-06).
+two hooks (2026-10-06): cpu65.c _zpi/_zpiy call the K4510 stack fence
+(core/mem.c) when the base-page pointer is the one it watches, and
+cpu65_step does nothing while the K4510's WAIT register has the CPU asleep
+(core/io.c).
 Cycle table from https://github.com/lgblgblgb/megacyc (same author).
 
 The 45GS02/65CE02 CPU core: cpu65.c, cpu65.h, cpu65_mega65_timings.h,

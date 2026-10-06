@@ -418,7 +418,7 @@ static void picture(const char *file)
         o += n;
     }
     while (!rom_getin())
-        ;
+        K_WAIT();
     REG(VIC + 0x20) = 0; REG(VIC + 0x10) = l0; REG(VIC) = ctrl; REG(VIC + 1) = bg;
     for (i = 0; i < nc; i++) { REG(0xD006) = (uint8_t)i; REG(0xD007) = palsave[i * 3]; REG(0xD008) = palsave[i * 3 + 1]; REG(0xD009) = palsave[i * 3 + 2]; }   /* B commits */
     rom_video();
@@ -459,7 +459,7 @@ static void search(uint8_t again)
         at(rows - 1, 0); lim = cols - 1; sgr("7"); says(" find: ");
         find[0] = 0;
         for (;;) {
-            do { k = rom_getin(); } while (!k);
+            while (!(k = rom_getin())) K_WAIT();
             if (k == 13) break;
             if (k == 27) { find[0] = 0; break; }
             if (k == 8) { if (l) { find[--l] = 0; raw(8); raw(' '); raw(8); sx--; } continue; }
@@ -531,7 +531,7 @@ int main(void)
     if (arg[0]) choose(arg);
     for (;;) {
         draw();
-        do { k = rom_getin(); } while (!k);
+        while (!(k = rom_getin())) K_WAIT();
         vk = REG(KBDST) & 0x40; sh = REG(KBDST) & 1;
         if (vk) switch (k) {
             case K_DOWN:  go(1); break;

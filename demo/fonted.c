@@ -174,7 +174,7 @@ static uint8_t ask(const char *q, char *buf, uint8_t max)
     for (;;) {
         rb_str(q, bg0, fg0); rb_str(buf, bg0, fg0); rb_put('_', YELLOW, fg0);
         rb_out((uint8_t)(rows - 1), 1);
-        while ((k = getkey()) == 0) ;
+        while ((k = getkey()) == 0) K_WAIT();
         if (k == 13) return n != 0;
         if (k == 0x1B) return 0;
         if ((k == 8 || k == 0x7F || k == 0x14 || k == K_DEL) && n) buf[--n] = 0;
@@ -253,7 +253,7 @@ static uint8_t leave(void)
     if (!modified) return 1;
     rb_str(" changed: Y save  N leave them in memory  R put back as it was  Esc stay", bg0, fg0); rb_out((uint8_t)(rows - 1), 1);
     for (;;) {
-        while ((k = getkey()) == 0) ;
+        while ((k = getkey()) == 0) K_WAIT();
         if (k == 'y' || k == 'Y') { if (!fname[0]) strcpy(fname, "/HOME/MY.FNT"); if (ask(" save as: ", fname, 60)) save_font(); return !modified; }
         if (k == 'n' || k == 'N') return 1;
         if (k == 'r' || k == 'R') { dma_copy(ORIG, FONT_8, 6144); return 1; }

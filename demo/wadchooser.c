@@ -88,7 +88,7 @@ static uint16_t getkey(void)
     k = REG(KBD);
     return (st & 0x20) ? KY(k) : k;
 }
-static uint16_t waitkey(void) { uint16_t k; while ((k = getkey()) == 0) ; return k; }
+static uint16_t waitkey(void) { uint16_t k; while ((k = getkey()) == 0) K_WAIT(); return k; }
 
 static char up(char c) { return (c >= 'a' && c <= 'z') ? (char)(c - 32) : c; }
 static uint8_t same(const char *a, const char *b)     /* names, whatever their case */

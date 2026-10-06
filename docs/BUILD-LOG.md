@@ -11370,3 +11370,48 @@ So 1-4% now, and variants of the read callback swing it by more than that
 either way (one ran at 4.66 s): code layout.  The physical RAM under the
 I/O page at $DB00-$DEFF is K/OS's (the handbook's RAM-under-I/O section
 says so): a program that MAPs block 6 straight under itself must keep off it.
+
+## 2026-10-06 -- WAIT, and C programs load at $0800
+
+Doc asked whether moving the keyboard polling into the host would save the
+host's CPU.  It would not: the keys already arrive as host events into a
+queue, and a poll is one register read.  What costs is that the emulator
+runs 675,000 cycles a frame whether the machine has work or not, and an
+idle K/OS spends all of them asking for a key.
+
+**WAIT** ($D545, fantasy hardware -- the 45GS02 has no WAI): a write puts
+the CPU to sleep until the next interrupt (the frame's) or a key in the
+queue; a sleep past a frame ends anyway.  cpu65_step, now a wrapper round
+the core's body, returns its cycles without running anything while the CPU
+sleeps; the write ends the current step through the multi_step_stop_trigger
+the loop already tests.  (The test put inside the core's step function cost
+compute 8% -- the compiled switch again -- so it lives in the wrapper.)
+Used by: k_chrin (the shell's prompt and every blocking key read), the
+pager's "-- more --", EhBASIC's line input (LAB_1359), wait_vblank() in
+demo/k4510.h (so EDIT, PROG and WORD's event loop and every game that waits
+for a frame), and the key loops of VI, RANGER, KOMMANDER, BOOK, TYPE,
+CALC, HEXED, FONTED, TRACKER, WALL, NVIM, PETSCII and the WAD chooser.
+A loop of 60 wait_vblank()s with WAIT takes 60 frames, as without.
+
+Host CPU seconds for 1500 frames (25 s of machine time), best of three:
+
+  prompt   before  5.428   after  0.864
+  ehbasic  before  5.530   after  0.885
+  edit     before  5.185   after  1.000
+  vi       before  5.519   after  0.876
+  ranger   before  5.549   after  0.863
+  tetris   before  4.641   after  3.793
+  sieve    before  6.636   after  6.429
+
+What is left at idle (~0.87 s) is VICKY drawing every line of every frame.
+TETRIS's title screen gains less: it waits for a frame only now and then.
+SIEVE computes the whole time and is unchanged.
+
+**C programs at $0800.**  demo/prg.cfg loaded every C program at $6000,
+a layout from 2026-08-22 when programs had only $6000-$9FFF; stage 3
+gave them $0800-$CFFF two days later and the default never moved, so a C
+program had 28 KB of the 50.  It is $0800-$CFFF now (the C stack the top
+of it; the header is read, not loaded).  BUG and KOMMANDER kept buffers in
+the RAM under themselves at $0800 and now have them as arrays.  The MAP
+window at $2000 (map_window, unused by any program on prg.cfg) covers a
+program over 6 KB now; demo/k4510.h says so.

@@ -969,7 +969,10 @@ LAB_1357
 	LDX	#$00			; clear BASIC line buffer pointer
 LAB_1359
 	JSR	V_INPT		; call scan input device
-	BCC	LAB_1359		; loop if no byte
+	BCS	LAB_135A		; K4510: a byte
+	STA	$D545			; K4510: none -- WAIT, asleep until a key or the next frame
+	BCC	LAB_1359		; loop if no byte (STA keeps the carry)
+LAB_135A
 
 	BEQ	LAB_1359		; loop until valid input (ignore NULLs)
 

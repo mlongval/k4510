@@ -412,7 +412,7 @@ static void draw_all(void)
     draw_hints();
 }
 
-static uint8_t getkey(void) { uint8_t k; do { k = rom_getin(); } while (!k); return k; }
+static uint8_t getkey(void) { uint8_t k; while (!(k = rom_getin())) K_WAIT(); return k; }
 
 static void message(const char *m) { draw_status(m); }
 

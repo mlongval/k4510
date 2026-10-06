@@ -69,7 +69,7 @@ static void wait_key(void)
     print(P_RETURN ? "" : "");
     nl();
     put(0x9B); print("  PRESS A KEY");
-    while (!rom_getin()) ;
+    while (!rom_getin()) K_WAIT();
 }
 
 int main(void)

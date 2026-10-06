@@ -468,7 +468,7 @@ static uint8_t ask(const char *q, char *buf, uint8_t max)
     uint16_t k;
     for (;;) {
         rb_str(q, YELLOW, bg0); rb_str(buf, WHITE, bg0); rb_put('_', YELLOW, bg0); rb_out(1, 0);
-        while ((k = getkey()) == 0) ;
+        while ((k = getkey()) == 0) K_WAIT();
         if (k == 13) return n != 0;
         if (k == 0x1B) return 0;
         if ((k == 8 || k == 0x7F || k == 0x14 || k == K_DEL) && n) buf[--n] = 0;
@@ -577,7 +577,7 @@ static uint8_t leave(void)
     if (!modified) return 1;
     rb_str(" not saved -- save first?  Y yes  N no  Esc stay", YELLOW, bg0); rb_out(1, 0);
     for (;;) {
-        while ((k = getkey()) == 0) ;
+        while ((k = getkey()) == 0) K_WAIT();
         if (k == 'y' || k == 'Y') { if (ask(" save as: ", fname, 60)) save_sheet(); return !modified; }
         if (k == 'n' || k == 'N') return 1;
         if (k == 0x1B) return 0;
@@ -597,7 +597,7 @@ static void do_new(void)
 {
     uint16_t k;
     rb_str(" clear the whole sheet?  Y", YELLOW, bg0); rb_out(1, 0);
-    while ((k = getkey()) == 0) ;
+    while ((k = getkey()) == 0) K_WAIT();
     if (k == 'y' || k == 'Y') { dma_fill(0, CELLS, (uint32_t) NCOL * NROW * CELLSZ); memset(kinds, 0, sizeof kinds); modified = 1; cc = cr = lc = tr = 0; }
 }
 static void do_width(void)
@@ -614,7 +614,7 @@ static uint8_t do_menu(void)                 /* F10: the things without a key of
 {
     uint16_t k;
     rb_str(" S save  O open  N new sheet  W column width  F number format  Q quit", YELLOW, bg0); rb_out(1, 0);
-    while ((k = getkey()) == 0) ;
+    while ((k = getkey()) == 0) K_WAIT();
     switch (upper((char) k)) {
     case 'S': do_save(); break;
     case 'O': do_open(); break;

@@ -61,7 +61,7 @@ void main(void)
             if (last == '\n' && !K_SCRIPT && ++lines >= (uint8_t)(rows - 1)) {
                 lines = 0;
                 say("-- more --");
-                do { k = rom_getin(); } while (!k);
+                while (!(k = rom_getin())) K_WAIT();
                 /* the prompt back off the line: backspace, blank, backspace --
                  * not "\r", which the console makes a whole new line */
                 for (e = 0; e < 10; e++) rom_chrout(8);

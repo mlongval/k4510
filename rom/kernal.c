@@ -330,7 +330,7 @@ uint8_t k_getin(void)
 uint8_t k_chrin(void)
 {
     uint8_t k;
-    while (!(k = k_getin())) ;
+    while (!(k = k_getin())) REG(SYS + 0x45) = 1;   /* WAIT: asleep until a key or the next frame (core/io.h) */
     return k;
 }
 
@@ -748,7 +748,7 @@ static uint8_t page_break(void)
     inside = 1;
     typed = 0;
     ofg = fg; fg = C_DIM; puts_("-- more --"); fg = ofg;
-    do { k = k_getin(); } while (!k);
+    while (!(k = k_getin())) REG(SYS + 0x45) = 1;
     cx = 0; REG(TERM) = 13; jraw("\x1b[2K");                     /* take the prompt back off */
     inside = 0;
     return (uint8_t)(k == 27 || k == 'q' || k == 'Q');

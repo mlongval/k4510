@@ -104,12 +104,24 @@ list is free for programs --- in the main \texttt{\$0040000} to
 \section{Programs}
 A \texttt{.prg} begins with two addresses, where it loads and where it
 starts, and the shell honours both. The C programs of \pth{/SYSTEM/BIN}
-load at \texttt{\$6000} (the big ones --- VI, EDIT, PROG, WORD --- at
-\texttt{\$2000}), Mad Pascal's at \texttt{\$0800}, MS BASIC at
+load at \texttt{\$0800}, as Mad Pascal's do (their C stack is the top
+of \texttt{\$0800-\$CFFF}; the big ones --- VI, EDIT, PROG, WORD ---
+have layouts of their own that also use the RAM under the ROM), MS BASIC at
 \texttt{\$7000}, EhBASIC in the RAM under the ROM (it leaves
 \texttt{\$0800-\$BCFF} to BASIC), and \verb|MONITOR| at \texttt{\$E000}, in the
 RAM under the ROM --- so that the memory a monitor is there to look at,
 \texttt{\$0800} to \texttt{\$CFFF}, is left exactly as it was.
+
+\paragraph{Waiting.} A program that waits for a key or for the next
+frame should say so: a write of anything to \texttt{\$D545}, WAIT, puts
+the CPU to sleep until the next interrupt --- the frame's, sixty a second
+--- or a key. Nothing is missed, the loop simply looks again when the CPU
+wakes, and an idle machine stops costing the computer beneath it most of
+a core. The ROM's own key wait, EhBASIC's line input and
+\verb|wait_vblank()| in \pth{demo/k4510.h} all use it:
+\begin{verbatim}
+while (!(k = rom_getin())) K_WAIT();
+\end{verbatim}
 
 \section{System calls}
 The page \texttt{\$FF00} is always the ROM, whatever is banked, and its

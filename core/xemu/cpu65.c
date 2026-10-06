@@ -472,7 +472,13 @@ static XEMU_INLINE Uint16 _abs ( void ) {
 #define _absxi() readWord(_absx())
 #define _zp() (readByte(CPU65.pc++) | ZP_HI)
 
-/* K4510 (2026-10-06, the one change to this file): the stack fence's hook.
+/* K4510 (2026-10-06): WAIT ($D545, core/io.c) -- the CPU stops until an
+ * interrupt or a key, and a step while it waits takes its cycles without
+ * running anything (the cpu65_step wrapper).  The write ends the step it
+ * lands in through multi_step_stop_trigger, which the loop already tests. */
+extern int cpu65_waiting;
+extern int cpu65_wake ( int cycles );
+/* K4510 (2026-10-06): the stack fence's hook.
  * (zp),Y and (zp),Z through the base-page address core/mem.c names --
  * cc65's stack pointer -- tell it the address they reach.  Off, the compare
  * never matches (a 16-bit address against $10000). */
@@ -873,7 +879,10 @@ static XEMU_INLINE void _NEGQ_Q ( void ) {
  * ------------------------------------------------------------------------ */
 
 
-int cpu65_step (
+/* K4510: the body under another name, and cpu65_step a wrapper (below) that
+ * looks at WAIT first -- the test inside this function, however cheap, cost
+ * the compiled switch 8% of its speed (2026-10-06). */
+static __attribute__((noinline)) int cpu65_step_body (
 #ifdef CPU_STEP_MULTI_OPS
 	const int run_for_cycles
 #else
@@ -2850,6 +2859,22 @@ do_not_clear_prefix:
 	return all_cycles;
 #else
 	return CPU65.op_cycles;
+#endif
+}
+
+int cpu65_step (
+#ifdef CPU_STEP_MULTI_OPS
+	const int run_for_cycles
+#else
+	void
+#endif
+) {
+#ifdef CPU_STEP_MULTI_OPS
+	if (XEMU_UNLIKELY(cpu65_waiting) && !cpu65_wake(run_for_cycles))	/* K4510: WAIT, asleep */
+		return run_for_cycles;
+	return cpu65_step_body(run_for_cycles);
+#else
+	return cpu65_step_body();
 #endif
 }
 

@@ -63,6 +63,19 @@ static void kbd_in(uint16_t ent)
     kbd_enqueue(ent);
 }
 void kbd_push(uint8_t ascii)   { kbd_in(ascii); }                    /* a character */
+/* WAIT ($D545, 2026-10-06): a write puts the CPU to sleep until the next
+ * interrupt or a key in the queue -- the 45GS02 has no WAI, so it is a
+ * register.  The loops that wait for a key or a frame (k_chrin, EhBASIC's
+ * line input, wait_vblank, the programs' key loops) say so with it, and an
+ * idle machine stops costing the host a core's fifth.  A sleep longer than
+ * a frame ends anyway: a program that masked the interrupt is not stuck. */
+int cpu65_waiting; static unsigned wait_slept;
+int cpu65_wake(int cycles)
+{
+    if (cpu65.irqLevel || kbd_head != kbd_tail || (wait_slept += (unsigned) cycles) > 700000u) { cpu65_waiting = 0; return 1; }
+    return 0;
+}
+static void wait_start(void) { cpu65_waiting = 1; wait_slept = 0; cpu65.multi_step_stop_trigger = 1; }
 void kbd_push_key(uint8_t code) { kbd_in((uint16_t)code | KBD_KEY); }  /* a KEY_* code */
 void kbd_modifiers(uint8_t sh, uint8_t ct, uint8_t al) { kbd_mods = (sh ? 1 : 0) | (ct ? 2 : 0) | (al ? 4 : 0); kbd_latched = 0; }
 /* A key with its modifiers bound to it, for the key pipe: Shift held live
@@ -2294,7 +2307,7 @@ static void idea_write(uint8_t how)
 
 void io_reset(void)
 {
-    sys_frames = 0;
+    sys_frames = 0; cpu65_waiting = 0;             /* WAIT: a reset wakes it */
     title_cmd(4); tube_prog_now = 0;             /* the title: back to K/OS */
     tube_stop(); fs_cap = 0;                     /* a power cycle left BBC BASIC running and $D800 saying so (review 2026-09-12) */
     net_reset(); fs_remote[0] = 0; fs_cwd[0] = 0; fs_mnt_clear(); fs_net_drop(); term_reset();   /* cwd too: a power cycle from a subdirectory came back in it, where there is no STARTUP.BAT (Doc) */
@@ -2472,6 +2485,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0x41) title_cmd(v);                      /* the title: 1 push, 2 pop, 3 empty the top, 4 K/OS */
         if ((addr & 0xFF) == 0x44) title_file_char(v);                /* the title: the top entry's file -- 0 clears, a character adds */
         if ((addr & 0xFF) >= 0x50 && (addr & 0xFF) <= 0x54) mem_fence_write((uint8_t)((addr & 0xFF) - 0x50), v);   /* the stack fence */
+        if ((addr & 0xFF) == 0x45) wait_start();                      /* WAIT: asleep until an interrupt or a key */
         if ((addr & 0xFF) == 0x42) idea_add(v);                       /* IDEA: a character of the idea */
         if ((addr & 0xFF) == 0x43) idea_write(v);                     /* IDEA: 1 write it, 2 an empty one for VI */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */

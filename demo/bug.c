@@ -17,8 +17,8 @@
 
 #define TERM   0xDA00u
 #define SYS    0xD500u
-#define BUF    ((char *)0x0800)          /* the report as it is built: below us, ours */
 #define BUFMAX 0x4000u
+static char BUF[BUFMAX];                 /* the report as it is built (it was the RAM below us, $0800, until programs loaded there, 2026-10-06) */
 #define ANS    120                       /* longest answer we take */
 
 void __fastcall__ rom_chrout(unsigned char c);

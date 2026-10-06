@@ -642,7 +642,7 @@ static void do_run(void)
     c[i] = 0;
     rc = rom_shell(c);
     at((uint8_t)(rows - 1), 0); sgr("7"); say(" -- a key returns -- "); sgr("0");
-    while (!rom_getin()) ;
+    while (!rom_getin()) (*(volatile unsigned char *)0xD545 = 1);
     rom_video();
     cols = REG(TERM + 5); rows = REG(TERM + 6);
     if (!cols) cols = 80;

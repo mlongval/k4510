@@ -30,7 +30,7 @@ void main(void)
         if (rc != 42) break;                          /* 42: :Run -- anything else, Neovim is done */
         rom_shell("EXEC /SYSTEM/LOG/NVIM.BAT");
         say("\n -- a key returns to Neovim -- ");
-        while (!rom_getin()) ;
+        while (!rom_getin()) K_WAIT();
         say("\n");
         for (n = 0, s = "!k4510-nvim --resume"; *s; ) line[n++] = *s++;
         line[n] = 0;

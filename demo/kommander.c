@@ -269,7 +269,7 @@ static void draw_all(void)
 }
 
 /* ---- modal boxes ------------------------------------------------------- */
-static uint8_t getkey(void) { uint8_t k; do { k = rom_getin(); } while (!k); return k; }
+static uint8_t getkey(void) { uint8_t k; while (!(k = rom_getin())) K_WAIT(); return k; }
 
 static void box(uint8_t bx, uint8_t by, uint8_t bw, uint8_t bh, const char *title)
 {
@@ -323,8 +323,8 @@ static uint8_t prompt(const char *title, char *buf, uint8_t maxlen)
 }
 
 /* ---- the file viewer (F3) ---------------------------------------------- */
-#define VBUF ((char *)0x0800)
-#define VMAX 0x5000UL                   /* $0800-$57FF, everything under the program */
+#define VMAX 0x5000UL                   /* 20 KB (it was $0800-$57FF, the RAM under the program, until programs loaded at $0800, 2026-10-06) */
+static char VBUF[VMAX];
 static unsigned v_bol(char *b, unsigned o) { while (o && b[o - 1] != '\n') o--; return o; }
 static unsigned v_eol(char *b, unsigned n, unsigned o) { while (o < n && b[o] != '\n') o++; return o; }
 
@@ -334,7 +334,7 @@ static void view_file(void)
     uint8_t st, y, running = 1;
     fs_name(names[active][cur[active]]);
     if (fs_do(8) || rr32(FS + 0x10) > VMAX) { message("Too big to view (or not a file)"); return; }   /* STAT: LOAD ignores LEN and would land on this program */
-    fs_addr(0x00000800UL);
+    fs_addr((uint32_t)(uint16_t)VBUF);
     w32(FS_LEN, VMAX);
     st = fs_do(C_LOAD);
     if (st) { message("Cannot open file"); return; }

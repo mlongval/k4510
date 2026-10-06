@@ -56,6 +56,7 @@ TITLES = {
     "The ROM image":       "The ROM window and the stub page",
     "K/OS's workspace":    "K/OS's workspace",
     "--- FENCE":           "The stack fence",
+    "--- WAIT":            "WAIT: sleeping until something happens",
     "The stack fence":     "The stack fence",
     "$D000-":              "The page map",
 }

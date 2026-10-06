@@ -58,7 +58,9 @@
 #define ML_STOPFIGE 0x87
 #define ML_LDF 0x88
 #define ML_LDI 0x89
-#define WINDOW   ((uint8_t *)0x2000) /* the MAP window, 16 KB, see prg0.s */
+#define WINDOW   ((uint8_t *)0x2000) /* the MAP window, 16 KB, see prg0.s.  Programs load at $0800 since
+                                     * 2026-10-06, so it covers a program bigger than 6 KB: such a one
+                                     * must link above $6000 (its own .cfg) to use it, as SEGDEMO does */
 
 void __fastcall__ map_window(unsigned long phys);
 void __fastcall__ far_poke(unsigned long a, unsigned char v);
@@ -70,8 +72,14 @@ static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
 
 static void pal(uint8_t i, uint8_t r, uint8_t g, uint8_t b) { REG(V_PALIDX) = i; REG(V_PALR) = r; REG(V_PALG) = g; REG(V_PALB) = b; }
 
+/* WAIT ($D545, 2026-10-06): the CPU stops until the next interrupt -- the
+ * frame's, at least sixty a second -- or a key.  A loop that waits for a
+ * key or a frame says so with it, and the emulator stops spending the
+ * host's time on the loop.  Nothing is lost: time goes on, and the loop
+ * looks again when the CPU wakes. */
+#define K_WAIT() (REG(SYS + 0x45) = 1)
 /* vblank from the system frame counter ($D50D), since the ROM owns the IRQ */
-static void wait_vblank(void) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; }
+static void wait_vblank(void) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) K_WAIT(); }
 /* any key pressed? consume it and return nonzero */
 static uint8_t key_hit(void) { if (REG(KBDST) & 0x80) { (void)REG(KBD); return 1; } return 0; }
 /* key pressed? return it (0 if none) */

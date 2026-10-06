@@ -172,13 +172,14 @@ static uint8_t getkey(void)                      /* a key, through the maps (vik
     uint8_t k, t0;
     for (;;) {
         if (qi < qn) return qbuf[qi++];
-        if (!pbn) { do { k = rom_getin(); } while (!k); vk = (REG(0xD101) & 0x40) ? 1 : 0; }
+        if (!pbn) { while (!(k = rom_getin())) K_WAIT(); vk = (REG(0xD101) & 0x40) ? 1 : 0; }
         else {                                   /* waiting on the rest of a mapping */
             t0 = REG(0xD50D);
             for (;;) {
                 k = rom_getin();
                 if (k) { vk = (REG(0xD101) & 0x40) ? 1 : 0; break; }
-                if ((uint8_t)(REG(0xD50D) - t0) > 60) { map_timeout(); break; }   /* a second, as vim's timeoutlen */
+                if ((uint8_t)(REG(0xD50D) - t0) > 60) { map_timeout(); break; }
+                K_WAIT();   /* a second, as vim's timeoutlen */
             }
             if (!pbn) continue;
         }
@@ -202,7 +203,7 @@ static void err_list(void)                           /* :cl -- the whole list, a
         clip = 0; eeol();
     }
     at((uint8_t)(rows - 1), 0); sgr("7"); say(" :cc N goes to one -- a key returns "); sgr("0");
-    while (!rom_getin()) ;
+    while (!rom_getin()) K_WAIT();
     screen_back();
     note = "";
 }

@@ -42,7 +42,7 @@ static uint8_t fs_cmd(uint8_t c) { REG(FS) = c; return REG(FS + 1); }
 static uint8_t fs_name(uint8_t c, const char *n) { fs_w32(4, (uint16_t)n); return fs_cmd(c); }
 static void say(const char *s) { while (*s) rom_chrout((uint8_t)*s++); }
 static void sgr(const char *s) { rom_chrout(27); rom_chrout('['); say(s); rom_chrout('m'); }
-static uint8_t key(void) { uint8_t k; do { k = rom_getin(); } while (!k); return k; }
+static uint8_t key(void) { uint8_t k; while (!(k = rom_getin())) K_WAIT(); return k; }
 
 static uint8_t is_txt(const char *n)
 {

@@ -217,7 +217,7 @@ static uint8_t ask(const char *q, char *buf, uint8_t max)
     for (;;) {
         rb_str(q, bg0, fg0); rb_str(buf, bg0, fg0); rb_put('_', YELLOW, fg0);
         rb_fill(bg0, fg0); rb_out((uint8_t)(rows - 1));
-        while ((k = getkey()) == 0) ;
+        while ((k = getkey()) == 0) K_WAIT();
         if (k == 13) return 1;
         if (k == 0x1B) return 0;
         if ((k == 8 || k == 0x7F || k == 0x14 || k == K_DEL) && n) buf[--n] = 0;
@@ -365,7 +365,7 @@ static uint8_t key(uint16_t k)               /* nonzero: leave */
         if (!modified) return 1;
         rb_str(" save the changes?  Y yes  N no  ESC stay", bg0, fg0); rb_fill(bg0, fg0); rb_out((uint8_t)(rows - 1));
         for (;;) {
-            while ((k = getkey()) == 0) ;
+            while ((k = getkey()) == 0) K_WAIT();
             if (k == 'y' || k == 'Y') { save(); return !modified; }
             if (k == 'n' || k == 'N') return 1;
             if (k == 0x1B) return 0;

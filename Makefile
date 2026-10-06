@@ -108,6 +108,9 @@ test/ziptest: test/ziptest.c $(CORE_OBJS)   # MOUNT a zip; its fixtures are made
 test/romtest: test/romtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
+test/kostest: test/kostest.c $(CORE_OBJS)   # K/OS's own base page and stacks, the stack fence
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test/bench: test/bench.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -196,7 +199,7 @@ check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.pr
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest test/termtest test/uitest test/statetest test/romtest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest test/termtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -232,6 +235,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/montest.sh
 	./test/booktest.sh
 	./test/romtest
+	./test/kostest
 	./test/mathtest
 	./test/rangertest.sh
 	./test/deletetest.sh
@@ -260,7 +264,7 @@ GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c)) \
 clean-demos:
 	rm -f $(DEMOS) demo/*.o $(GEN_S) demo/*.map
 
-	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/opl2/*.o test/fstest test/seqtest test/romtest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
+	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/opl2/*.o test/fstest test/seqtest test/romtest test/kostest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 

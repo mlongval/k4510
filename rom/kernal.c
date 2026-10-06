@@ -1242,8 +1242,10 @@ static void cmd_cpm(const char *p)
  * it back. The text screen goes too ($030000), or the caller would return to
  * the callee's output.
  *
- * Nothing needs saving by hand. The bank registers are already on the stack,
- * pushed by the system-call stub, and the stack is inside what is saved. The
+ * Nothing needs saving by hand. The bank registers are already on the
+ * caller's stack, pushed by the system-call stub, and both stacks (page 1,
+ * the caller's; page 7, K/OS's) are inside what is saved, as are K/OS's base
+ * page and C stack ($DB00-$DEFF: physical RAM under the I/O page). The
  * C frame is balanced across the call, so the CPU's own stack pointer is the
  * same on both sides and comes back by arithmetic rather than by memory. The
  * DMA is complete before the next instruction runs, so the restore lands
@@ -1272,7 +1274,8 @@ static void cmd_swap(const char *p)
 static void swap_run(const char *p, uint8_t keep)   /* SWAP's work: save, the line, restore -- in ONE frame (below) */
 {
     /* The save must fire from HERE, not from inside dma_copy: the image
-     * includes the zero page, and the zero page holds cc65's stack pointer.
+     * includes K/OS's base page ($DB00, in the I/O page's RAM), and that
+     * holds cc65's stack pointer.
      * Taken inside a call it records a pointer 12 bytes lower than this
      * function's own, and the restore below then hands that pointer to
      * everything above -- every enclosing frame read 12 bytes out, which is

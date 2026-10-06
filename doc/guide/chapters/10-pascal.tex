@@ -138,8 +138,9 @@ consequences for the programmer:
   each described under \emph{The k4510 unit}, below.
 \item Memory: code from \texttt{\$0800}, the program's own; zero page
   \texttt{\$22--\$3F} for the compiler's registers and
-  \texttt{\$64--\$A3} for its expression stack (the ROM keeps
-  \texttt{\$02--\$21} and \texttt{\$F0--\$F9}); \texttt{\$0300} the string
+  \texttt{\$64--\$A3} for its expression stack (the system calls take
+  their arguments in \texttt{\$F0--\$F9}; the ROM has a zero page of its
+  own); \texttt{\$0300} the string
   buffer. Programs return to the shell with the ROM's state intact.
 \end{itemize}
 

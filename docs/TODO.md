@@ -144,7 +144,22 @@ Fixed the same day except these:
       since unscii is the one font (2026-09-14) -- switched with the mode.
 - [ ] **The widget table** for the status bands: a table of (cell, source,
       format) the IRQ walks, so a program can put a live readout in a band
-      without running to paint it.
+      without running to paint it.  (Since 2026-10-05 the bands are JIM's,
+      drawn by the emulator: such a table would be JIM's too, not the IRQ's.)
+- [ ] **libghostty-vt for the second screen -- once it is beta.**  Doc,
+      2026-10-05: "Put in on a todo list for future consideration once it
+      becomes beta."  Ghostty's terminal engine as a library (zero
+      dependencies, C API; alpha, needs Zig 0.16 to build), behind the second
+      screen's four calls in core/term.c (term2_feed / term2_key /
+      term2_replies / term2_fit) -- the first screen stays JIM, which K/OS
+      depends on.  It would bring Unicode widths, synchronized output, mouse
+      reporting, scrollback and the Kitty keyboard to the tmux / Claude Code
+      session; the glyphs and colours still end in CP437 and the palette.
+      Before building: record a real session (K4510_TERMLOG), replay it into
+      JIM and into libghostty-vt, and compare the screens -- if JIM agrees
+      where it matters, it can wait.  Could run as a Tube-style helper process
+      sharing memory, to keep Zig out of the emulator's build.
+      mitchellh.com/writing/libghostty-is-coming, github.com/ghostty-org/ghostling
 
 ## MS BASIC — what it still owes
 

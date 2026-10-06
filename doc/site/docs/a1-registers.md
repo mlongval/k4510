@@ -193,6 +193,28 @@ bit7 event available; bit0 shift, bit1 ctrl, bit2 alt held; bit6 the byte LAST R
 
 A CPU write to the watched byte – normal, MAPped, banked or a flat 32-bit store – fires a DUMP (dumps/dump-NNN.txt, tagged “watch”) and disarms, so one bug produces one dump. DMA and the host itself do not trip it: the question WATCH answers is “which instruction wrote this”, and the dump’s PC history is the answer.
 
+### The stack fence
+
+— FENCE (`$D550-$D55C`): how deep does the ROM’s C stack go? ———-
+
+`$50`write: the base-page address of the C stack pointer – arms (0 disarms) and starts the measure; read: it
+
+`$51`the base page that pointer lives in (the B the ROM runs with)
+
+`$52,53`the floor, LE: the lowest address the stack may reach
+
+`$54,55`read: the deepest address reached since armed; write `$54`: start again
+
+`$56`read: trips – accesses below the floor (saturates at 255)
+
+`$57,58`read: the lowest 6502 S seen on the ROM’s own stack page
+
+`$59,5A`read: the pointer as it was when armed (the stack’s top)
+
+`$5B,5C`read: the lowest S on page 1 under a program (K4510_FENCE_DEEP only)
+
+The ROM arms it at reset (crt0.s); INFO -m shows it. The first trip writes a DUMP tagged “stack fence”. core/mem.h has the rest.
+
 ### The Tube
 
 The Tube (`$D800`): Acorn’s answer, refitted. The HOST runs Richard Russell’s BBC BASIC interpreter (the vendored BBCTTY console edition, tube/bbcbasic) on a pty; the machine talks to it byte-wise:
@@ -486,3 +508,7 @@ Generated from `core/mem.h`.
 ### The ROM window and the stub page
 
 The ROM image lives in the top 64 KB of physical memory and is seen in the unmapped CPU view from mem_rom_base up; the physical RAM at `$A000-$FFFF` is “RAM under the ROM”, revealed by banking blocks 5/7 onto `$A000`/`$E000` (K-05). The page `$FF00-$FFFF` always reads the ROM, whatever is banked: the system-call stub and the vectors live there.
+
+### K/OS’s workspace
+
+K/OS’s workspace – 1 KB of RAM in the I/O page, `$DB00-$DEFF` (2026-10-06), where no device is. Visible wherever the I/O is – so whenever the ROM runs, whatever a program has banked. The ROM keeps its base page and its C stack there. The bytes are the RAM under the I/O page at the same addresses, physical `$00DB00-$00DEFF`: a buffer on the ROM’s C stack has the same address for the CPU as for DMA and the devices, which take physical ones (the first try put the workspace elsewhere, and every file name the shell built on its stack was read by the file device as empty), and SWAP’s 64 KB image includes it, as it included the old stack at `$0600`.

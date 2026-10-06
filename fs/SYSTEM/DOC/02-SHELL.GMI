@@ -240,19 +240,18 @@ and that is the only setting.
 
 The bands are JIM's, the terminal's, the way tmux's status line is tmux's: the
 machine does not draw in them, and nothing a program prints or pokes into the
-console's screen can reach them. The top band names what is on the screens at
+console's screen can reach them. The top band names what is on the screen at
 its left and has the clock and the date at its right, in whichever formats the
 Terminal page is set to. The first name is what is running: K/OS at the
 prompt, EhBASIC INVADER2.BAS once a program is loaded, EhBASIC PROG.BAS > VI
 EDITTMP.BAS while *VI has it, and BBC BASIC > VI EDITTMP.BBC from the Tube --
 a trail of who started whom, with the file each one has open, LOGO's .LGO,
-BOOK's page and CP/M or the Linux prompt on the Tube included. Once the second
-screen has been opened (below) the names are numbered, 1 for the machine and 2
-TERMINAL, and the one you are looking at is drawn in reverse. The bottom band
-has, at its right, on a laptop, the battery's charge, with an arrow up while
-it charges and down while it does not; at its left whatever a program last
-asked JIM to put there, and, while somebody types into the machine from
-another computer (Chapter 11, The Linux Underneath), the keys they send.
+BOOK's page and CP/M or the Linux prompt on the Tube included. While the
+second screen (below) is up it says Terminal. The bottom band has, at its
+right, on a laptop, the battery's charge, with an arrow up while it charges
+and down while it does not; at its left whatever a program last asked JIM to
+put there, and, while somebody types into the machine from another computer
+(Chapter 11, The Linux Underneath), the keys they send.
 
 => 13-LINUX.GMI Chapter 11, The Linux Underneath
 

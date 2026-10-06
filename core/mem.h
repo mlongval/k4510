@@ -32,7 +32,7 @@ extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed *
 #define K4510_ROM_PHYS   0x0FFF0000u
 extern uint32_t mem_rom_base;        /* first ROM address in the CPU view; set by mem_load_rom */
 #define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
-/* K/OS's workspace (2026-10-06): 1 KB of RAM in the I/O page, $DB00-$DEFF,
+/* K/OS's workspace -- 1 KB of RAM in the I/O page, $DB00-$DEFF (2026-10-06),
  * where no device is.  Visible wherever the I/O is -- so whenever the ROM
  * runs, whatever a program has banked.  The ROM keeps its base page and its
  * C stack there.  The bytes are the RAM under the I/O page at the same

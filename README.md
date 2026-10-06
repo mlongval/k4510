@@ -77,7 +77,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   bigger than the window overlays rather than a puzzle; **sideways ROM**,
   Beeb-style, pages 8 KB banks of operating system through $A000-$BFFF;
   programs own $0800-$CFFF and $E000-$FEFF by default. EhBASIC boots with
-  47103 bytes free.
+  46335 bytes free.
 - **VICKY**, the video chip: 640×480, 640×240 and 320×240 (and two
   smaller fields a program may ask for), 256 colours from 24-bit, four
   layers (bitmap / tile / text), 128 sprites with no per-line limit, a

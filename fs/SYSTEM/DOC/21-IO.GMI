@@ -9,23 +9,25 @@ what lives where:
 => A1-REGISTERS.GMI Appendix A, The Registers
 
 ```
-$D000  VICKY     video: layers, palette, blitter, sprites, SHEILA
-$D100  input     keyboard FIFO and its status, the held keys, the mouse,
-                 break-pending
-$D200  DMA       copy / fill / swap / line / triangle
-$D300  storage   the host filesystem: open, read, dir, chdir...
-$D480  OPL2      the YM3812: address, data, status -- the AdLib's arrangement
-$D500  system    clock, RTC, frame counter, DUMP, the settings the ROM reads,
-                 the sound sequencer at $D5E0
-$D600  banks     the eight bank registers, masks at $D620
-$D700  FRED      the MATH unit: IEEE floats, transcendentals, math lists,
-                 mul/div
-$D800  Tube      the co-processor: status, byte in, byte out, start/stop
-$D900  N:        the network: four channels, tcp://, http(s):// and tnfs://
-                 (see core/net.h)
-$DA00  JIM       the terminal: a VT100/ANSI in hardware, drawing on the
-                 console's screen (see core/term.h)
-$DF00  far gate  call slots, descriptor table pointer, depth
+$D000  VICKY      video: layers, palette, blitter, sprites, SHEILA
+$D100  input      keyboard FIFO and its status, the held keys, the mouse,
+                  break-pending
+$D200  DMA        copy / fill / swap / line / triangle
+$D300  storage    the host filesystem: open, read, dir, chdir...
+$D480  OPL2       the YM3812: address, data, status -- the AdLib's arrangement
+$D500  system     clock, RTC, frame counter, DUMP, the settings the ROM reads,
+                  the sound sequencer at $D5E0
+$D600  banks      the eight bank registers, masks at $D620
+$D700  FRED       the MATH unit: IEEE floats, transcendentals, math lists,
+                  mul/div
+$D800  Tube       the co-processor: status, byte in, byte out, start/stop
+$D900  N:         the network: four channels, tcp://, http(s):// and tnfs://
+                  (see core/net.h)
+$DA00  JIM        the terminal: a VT100/ANSI in hardware, drawing on the
+                  console's screen (see core/term.h)
+$DB00  workspace  not a device: 1 KB of RAM to $DEFF, K/OS's C stack (Chapter
+                  12, Memory)
+$DF00  far gate   call slots, descriptor table pointer, depth
 ```
 
 ## A split screen: SHEILA

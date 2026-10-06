@@ -4,7 +4,7 @@ The machine has two BASICs, and this is the one with the machine in it: EhBASIC�
 
     RUN EHBASIC
 
-It comes up ready: the banner, `47103 Bytes free` — more than twenty-one C64s more than a C64 — and a `Ready` prompt — the traditional `Memory size ?` question is gone; the machine knows.
+It comes up ready: the banner, `46335 Bytes free` — some 7 KB more than a C64’s 38911 — and a `Ready` prompt — the traditional `Memory size ?` question is gone; the machine knows.
 
 ## Ten minutes of it
 

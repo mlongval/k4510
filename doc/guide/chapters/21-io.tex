@@ -21,6 +21,7 @@ firmware source. This chapter is the map of what lives where:
 \texttt{\$D800} & Tube    & the co-processor: status, byte in, byte out, start/stop\\
 \texttt{\$D900} & N:      & the network: four channels, tcp://, http(s):// and tnfs:// (see \texttt{core/net.h})\\
 \texttt{\$DA00} & JIM     & the terminal: a VT100/ANSI in hardware, drawing on the console's screen (see \texttt{core/term.h})\\
+\texttt{\$DB00} & workspace & not a device: 1\,KB of RAM to \texttt{\$DEFF}, K/OS's C stack (Chapter~\ref{cha:memory})\\
 \texttt{\$DF00} & far gate& call slots, descriptor table pointer, depth\\
 \bottomrule
 \end{tabular}

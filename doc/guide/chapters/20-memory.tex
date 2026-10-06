@@ -43,11 +43,71 @@ rely on them:
   script reads as \verb|RC|.
 \end{description}
 
+\subsection{Low memory}\label{sec:lowmem}
+The first two kilobytes, where the machine and its programs meet:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.50\linewidth}@{}}
+\toprule
+\texttt{\$0000-\$00FF} & program & the zero page, all of it; system calls take their arguments in \texttt{\$F0-\$F9}\\
+\texttt{\$0100-\$01FF} & program & the 6502 stack, all of it: a program started at the prompt finds it empty\\
+\texttt{\$0200-\$022D} & K/OS    & the ROM's initialised variables\\
+\texttt{\$022E}         & K/OS    & a script is running (above)\\
+\texttt{\$0230-\$02CF} & EhBASIC & lent to the interpreter: part of its code\\
+\texttt{\$02D8-\$02F5} & K/OS    & the launch trampoline: banks the RAM under the ROM in, calls the program, banks it out\\
+\texttt{\$0300-\$043F} & program & EhBASIC's vectors and input buffer; \texttt{\$03FF} the result (above)\\
+\texttt{\$0440-\$05FF} & K/OS    & the ROM's variables\\
+\texttt{\$0600-\$06FF} & K/OS    & K/OS's own base page: its zero page at \texttt{\$0602-\$062F}, the caller's \texttt{\$F0-\$F9} copied to \texttt{\$0630} during LOAD, SAVE and ARGS; the rest free\\
+\texttt{\$0700-\$07FF} & K/OS    & K/OS's own 6502 stack\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent The 45GS10 can put the zero page and the stack on any page
+(its B register and the stack pointer's high byte), so the ROM runs on
+pages 6 and 7 and the system-call stub switches both on the way in and
+back on the way out. Its C stack is in the I/O page, \texttt{\$DB00} to
+\texttt{\$DEFF}, where no device is: a kilobyte of RAM, growing down
+from \texttt{\$DF00}. \verb|INFO -m| shows how much of it has been
+used --- a fence in the machine watches every access to it, and one
+below \texttt{\$DB00} would write a dump and say so.
+
+\subsection{Who uses the 256\,MB}\label{sec:physmap}
+The 256\,MB behind the window, by 28-bit address. Everything not in the
+list is free for programs --- in the main \texttt{\$0040000} to
+\texttt{\$DFFFFFF}, about 220\,MB.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.62\linewidth}@{}}
+\toprule
+\texttt{\$0000000-\$000FFFF} & the CPU's 64\,KB, unmapped: the RAM under the ROM and under the I/O page included (the workspace is \texttt{\$000DB00}). \verb|SWAP| saves and restores all of it\\
+\texttt{\$0010000-\$0013FFF} & the fonts: 8$\times$8 and 8$\times$16 in use, then the CP437 pair and the K4510 page's pair\\
+\texttt{\$0030000} & the console's text cells, 4 bytes each, up to 180$\times$67\\
+\texttt{\$003C000} & the status bands' own cells, drawn by JIM (12\,KB)\\
+\texttt{\$003F000} & one blank text row in the current colours\\
+\texttt{\$E000000-\$EC00000} & the editors' (VI, EDIT, PROG): document slots, the file as loaded, the unnamed register, RENUM's table, MAKE.ERR\\
+\texttt{\$F000000} & the editors' undo\\
+\texttt{\$FD00000} & \verb|SWAP|'s copy of the caller's 64\,KB\\
+\texttt{\$FD10000} & \verb|SWAP|'s copy of the screen\\
+\texttt{\$FD40000} & the second screen's text cells (Section~\ref{sec:screens})\\
+\texttt{\$FDFF000} & the shell's palette, kept while a program runs\\
+\texttt{\$FE00000} & \verb|EXEC|'s script, loaded whole\\
+\texttt{\$FE10000} & a \texttt{.PAL} being loaded\\
+\texttt{\$FF00000-\$FF1FFFF} & sideways ROM banks 1 to 16, 8\,KB each (1 to 3 are used)\\
+\texttt{\$FFFA000-\$FFFFFFF} & the ROM image, 24\,KB, with a hole where the I/O page covers it\\
+\bottomrule
+\end{tabular}
+\end{center}
+
 \section{Programs}
 A \texttt{.prg} begins with two addresses, where it loads and where it
 starts, and the shell honours both. The C programs of \pth{/SYSTEM/BIN}
-load at \texttt{\$6000}, Mad Pascal's at \texttt{\$0800}, the two
-BASICs at \texttt{\$7000}, and \verb|MONITOR| at \texttt{\$E000}, in the
+load at \texttt{\$6000} (the big ones --- VI, EDIT, PROG, WORD --- at
+\texttt{\$2000}), Mad Pascal's at \texttt{\$0800}, MS BASIC at
+\texttt{\$7000}, EhBASIC in the RAM under the ROM (it leaves
+\texttt{\$0800-\$BCFF} to BASIC), and \verb|MONITOR| at \texttt{\$E000}, in the
 RAM under the ROM --- so that the memory a monitor is there to look at,
 \texttt{\$0800} to \texttt{\$CFFF}, is left exactly as it was.
 

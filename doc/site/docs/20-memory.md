@@ -69,9 +69,147 @@ non-zero while `EXEC` (and so `/STARTUP.BAT`) is feeding the shell. A program th
 `$03FF` — the result  
 the shell’s result code: 0 for success. A program sets it to say it failed, which is what an RX script reads as `RC`.
 
+### Low memory
+
+The first two kilobytes, where the machine and its programs meet:
+
+<div class="center">
+
+<table>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>$0000-$00FF</code></td>
+<td style="text-align: left;">program</td>
+<td style="text-align: left;">the zero page, all of it; system calls take their arguments in <code>$F0-$F9</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$0100-$01FF</code></td>
+<td style="text-align: left;">program</td>
+<td style="text-align: left;">the 6502 stack, all of it: a program started at the prompt finds it empty</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$0200-$022D</code></td>
+<td style="text-align: left;">K/OS</td>
+<td style="text-align: left;">the ROM’s initialised variables</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$022E</code></td>
+<td style="text-align: left;">K/OS</td>
+<td style="text-align: left;">a script is running (above)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$0230-$02CF</code></td>
+<td style="text-align: left;">EhBASIC</td>
+<td style="text-align: left;">lent to the interpreter: part of its code</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$02D8-$02F5</code></td>
+<td style="text-align: left;">K/OS</td>
+<td style="text-align: left;">the launch trampoline: banks the RAM under the ROM in, calls the program, banks it out</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$0300-$043F</code></td>
+<td style="text-align: left;">program</td>
+<td style="text-align: left;">EhBASIC’s vectors and input buffer; <code>$03FF</code> the result (above)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$0440-$05FF</code></td>
+<td style="text-align: left;">K/OS</td>
+<td style="text-align: left;">the ROM’s variables</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$0600-$06FF</code></td>
+<td style="text-align: left;">K/OS</td>
+<td style="text-align: left;">K/OS’s own base page: its zero page at <code>$0602-$062F</code>, the caller’s <code>$F0-$F9</code> copied to <code>$0630</code> during LOAD, SAVE and ARGS; the rest free</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$0700-$07FF</code></td>
+<td style="text-align: left;">K/OS</td>
+<td style="text-align: left;">K/OS’s own 6502 stack</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+The 45GS10 can put the zero page and the stack on any page (its B register and the stack pointer’s high byte), so the ROM runs on pages 6 and 7 and the system-call stub switches both on the way in and back on the way out. Its C stack is in the I/O page, `$DB00` to `$DEFF`, where no device is: a kilobyte of RAM, growing down from `$DF00`. `INFO -m` shows how much of it has been used — a fence in the machine watches every access to it, and one below `$DB00` would write a dump and say so.
+
+### Who uses the 256 MB
+
+The 256 MB behind the window, by 28-bit address. Everything not in the list is free for programs — in the main `$0040000` to `$DFFFFFF`, about 220 MB.
+
+<div class="center">
+
+<table>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>$0000000-$000FFFF</code></td>
+<td style="text-align: left;">the CPU’s 64 KB, unmapped: the RAM under the ROM and under the I/O page included (the workspace is <code>$000DB00</code>). <code>SWAP</code> saves and restores all of it</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$0010000-$0013FFF</code></td>
+<td style="text-align: left;">the fonts: 8×8 and 8×16 in use, then the CP437 pair and the K4510 page’s pair</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$0030000</code></td>
+<td style="text-align: left;">the console’s text cells, 4 bytes each, up to 180×67</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$003C000</code></td>
+<td style="text-align: left;">the status bands’ own cells, drawn by JIM (12 KB)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$003F000</code></td>
+<td style="text-align: left;">one blank text row in the current colours</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$E000000-$EC00000</code></td>
+<td style="text-align: left;">the editors’ (VI, EDIT, PROG): document slots, the file as loaded, the unnamed register, RENUM’s table, MAKE.ERR</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$F000000</code></td>
+<td style="text-align: left;">the editors’ undo</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$FD00000</code></td>
+<td style="text-align: left;"><code>SWAP</code>’s copy of the caller’s 64 KB</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$FD10000</code></td>
+<td style="text-align: left;"><code>SWAP</code>’s copy of the screen</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$FD40000</code></td>
+<td style="text-align: left;">the second screen’s text cells (<a href="02-shell.md#two-screens">Two screens</a>)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$FDFF000</code></td>
+<td style="text-align: left;">the shell’s palette, kept while a program runs</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$FE00000</code></td>
+<td style="text-align: left;"><code>EXEC</code>’s script, loaded whole</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$FE10000</code></td>
+<td style="text-align: left;">a <code>.PAL</code> being loaded</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$FF00000-$FF1FFFF</code></td>
+<td style="text-align: left;">sideways ROM banks 1 to 16, 8 KB each (1 to 3 are used)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$FFFA000-$FFFFFFF</code></td>
+<td style="text-align: left;">the ROM image, 24 KB, with a hole where the I/O page covers it</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
 ## Programs
 
-A `.prg` begins with two addresses, where it loads and where it starts, and the shell honours both. The C programs of `/SYSTEM/BIN` load at `$6000`, Mad Pascal’s at `$0800`, the two BASICs at `$7000`, and `MONITOR` at `$E000`, in the RAM under the ROM — so that the memory a monitor is there to look at, `$0800` to `$CFFF`, is left exactly as it was.
+A `.prg` begins with two addresses, where it loads and where it starts, and the shell honours both. The C programs of `/SYSTEM/BIN` load at `$6000` (the big ones — VI, EDIT, PROG, WORD — at `$2000`), Mad Pascal’s at `$0800`, MS BASIC at `$7000`, EhBASIC in the RAM under the ROM (it leaves `$0800-$BCFF` to BASIC), and `MONITOR` at `$E000`, in the RAM under the ROM — so that the memory a monitor is there to look at, `$0800` to `$CFFF`, is left exactly as it was.
 
 ## System calls
 

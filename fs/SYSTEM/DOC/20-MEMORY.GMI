@@ -44,13 +44,73 @@ $03FF -- the result
 the shell's result code: 0 for success. A program sets it to say it failed,
 which is what an RX script reads as RC.
 
+### Low memory
+
+The first two kilobytes, where the machine and its programs meet:
+
+```
+$0000-$00FF  program  the zero page, all of it; system calls take their
+                      arguments in $F0-$F9
+$0100-$01FF  program  the 6502 stack, all of it: a program started at the
+                      prompt finds it empty
+$0200-$022D  K/OS     the ROM's initialised variables
+$022E        K/OS     a script is running (above)
+$0230-$02CF  EhBASIC  lent to the interpreter: part of its code
+$02D8-$02F5  K/OS     the launch trampoline: banks the RAM under the ROM in,
+                      calls the program, banks it out
+$0300-$043F  program  EhBASIC's vectors and input buffer; $03FF the result
+                      (above)
+$0440-$05FF  K/OS     the ROM's variables
+$0600-$06FF  K/OS     K/OS's own base page: its zero page at $0602-$062F, the
+                      caller's $F0-$F9 copied to $0630 during LOAD, SAVE and
+                      ARGS; the rest free
+$0700-$07FF  K/OS     K/OS's own 6502 stack
+```
+
+The 45GS10 can put the zero page and the stack on any page (its B register and
+the stack pointer's high byte), so the ROM runs on pages 6 and 7 and the
+system-call stub switches both on the way in and back on the way out. Its C
+stack is in the I/O page, $DB00 to $DEFF, where no device is: a kilobyte of
+RAM, growing down from $DF00. INFO -m shows how much of it has been used -- a
+fence in the machine watches every access to it, and one below $DB00 would
+write a dump and say so.
+
+### Who uses the 256 MB
+
+The 256 MB behind the window, by 28-bit address. Everything not in the list is
+free for programs -- in the main $0040000 to $DFFFFFF, about 220 MB.
+
+```
+$0000000-$000FFFF  the CPU's 64 KB, unmapped: the RAM under the ROM and under
+                   the I/O page included (the workspace is $000DB00). SWAP
+                   saves and restores all of it
+$0010000-$0013FFF  the fonts: 8x8 and 8x16 in use, then the CP437 pair and the
+                   K4510 page's pair
+$0030000           the console's text cells, 4 bytes each, up to 180x67
+$003C000           the status bands' own cells, drawn by JIM (12 KB)
+$003F000           one blank text row in the current colours
+$E000000-$EC00000  the editors' (VI, EDIT, PROG): document slots, the file as
+                   loaded, the unnamed register, RENUM's table, MAKE.ERR
+$F000000           the editors' undo
+$FD00000           SWAP's copy of the caller's 64 KB
+$FD10000           SWAP's copy of the screen
+$FD40000           the second screen's text cells (Two screens)
+$FDFF000           the shell's palette, kept while a program runs
+$FE00000           EXEC's script, loaded whole
+$FE10000           a .PAL being loaded
+$FF00000-$FF1FFFF  sideways ROM banks 1 to 16, 8 KB each (1 to 3 are used)
+$FFFA000-$FFFFFFF  the ROM image, 24 KB, with a hole where the I/O page covers
+                   it
+```
+
 ## Programs
 
 A .prg begins with two addresses, where it loads and where it starts, and the
-shell honours both. The C programs of /SYSTEM/BIN load at $6000, Mad Pascal's
-at $0800, the two BASICs at $7000, and MONITOR at $E000, in the RAM under the
-ROM -- so that the memory a monitor is there to look at, $0800 to $CFFF, is
-left exactly as it was.
+shell honours both. The C programs of /SYSTEM/BIN load at $6000 (the big ones
+-- VI, EDIT, PROG, WORD -- at $2000), Mad Pascal's at $0800, MS BASIC at
+$7000, EhBASIC in the RAM under the ROM (it leaves $0800-$BCFF to BASIC), and
+MONITOR at $E000, in the RAM under the ROM -- so that the memory a monitor is
+there to look at, $0800 to $CFFF, is left exactly as it was.
 
 ## System calls
 

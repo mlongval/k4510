@@ -94,7 +94,7 @@ Everything a Pascal program needs from the machine is in `pascal/` of the reposi
 
 - `uses k4510` gives every chip as a typed variable at its address — `VICKY[reg]`, `DMA_SRC`, `FS_CMD`, `SYS_FRAMES`, `MATH_F[]`, `TERM_CX` and the rest — plus `FarPeek`/`FarPoke` into the 256 MB through the 45GS02’s flat addressing, `DmaCopy`/`DmaFill`, `Shell('DIR')`, `LoadFile`/`SaveFile` through the ROM, `WaitVBlank`, and `TermWrite` for raw escape sequences — each described under *The k4510 unit*, below.
 
-- Memory: code from `$0800`, the program’s own; zero page `$22–$3F` for the compiler’s registers and `$64–$A3` for its expression stack (the ROM keeps `$02–$21` and `$F0–$F9`); `$0300` the string buffer. Programs return to the shell with the ROM’s state intact.
+- Memory: code from `$0800`, the program’s own; zero page `$22–$3F` for the compiler’s registers and `$64–$A3` for its expression stack (the system calls take their arguments in `$F0–$F9`; the ROM has a zero page of its own); `$0300` the string buffer. Programs return to the shell with the ROM’s state intact.
 
 ### Floating point on the MATH unit
 

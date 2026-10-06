@@ -472,10 +472,18 @@ static XEMU_INLINE Uint16 _abs ( void ) {
 #define _absxi() readWord(_absx())
 #define _zp() (readByte(CPU65.pc++) | ZP_HI)
 
+/* K4510 (2026-10-06, the one change to this file): the stack fence's hook.
+ * (zp),Y and (zp),Z through the base-page address core/mem.c names --
+ * cc65's stack pointer -- tell it the address they reach.  Off, the compare
+ * never matches (a 16-bit address against $10000). */
+extern Uint32 cpu65_fence_zp;
+extern void cpu65_fence_hook ( Uint16 ea ) __attribute__((cold));
 static XEMU_INLINE Uint16 _zpi ( void ) {
 	Uint8 a = readByte(CPU65.pc++);
 #ifdef CPU_65CE02
-	return (readByte(a | ZP_HI) | (readByte(((a + 1) & 0xFF) | ZP_HI) << 8)) + CPU65.z;
+	Uint16 ea = (readByte(a | ZP_HI) | (readByte(((a + 1) & 0xFF) | ZP_HI) << 8)) + CPU65.z;
+	if (XEMU_UNLIKELY((Uint32)(a | ZP_HI) == cpu65_fence_zp)) cpu65_fence_hook(ea);
+	return ea;
 #else
 	return  readByte(a | ZP_HI) | (readByte(((a + 1) & 0xFF) | ZP_HI) << 8);
 #endif
@@ -490,7 +498,9 @@ static XEMU_INLINE Uint16 _zpi_noz ( void ) {
 
 static XEMU_INLINE Uint16 _zpiy ( void ) {
 	Uint8 a = readByte(CPU65.pc++);
-	return (readByte(a | ZP_HI) | (readByte(((a + 1) & 0xFF) | ZP_HI) << 8)) + CPU65.y;
+	Uint16 ea = (readByte(a | ZP_HI) | (readByte(((a + 1) & 0xFF) | ZP_HI) << 8)) + CPU65.y;
+	if (XEMU_UNLIKELY((Uint32)(a | ZP_HI) == cpu65_fence_zp)) cpu65_fence_hook(ea);
+	return ea;
 }
 
 

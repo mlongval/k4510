@@ -32,6 +32,18 @@ extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed *
 #define K4510_ROM_PHYS   0x0FFF0000u
 extern uint32_t mem_rom_base;        /* first ROM address in the CPU view; set by mem_load_rom */
 #define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
+/* K/OS's workspace -- 1 KB of RAM in the I/O page, $DB00-$DEFF (2026-10-06),
+ * where no device is.  Visible wherever the I/O is -- so whenever the ROM
+ * runs, whatever a program has banked.  The ROM keeps its base page and its
+ * C stack there.  The bytes are the RAM under the I/O page at the same
+ * addresses, physical $00DB00-$00DEFF: a buffer on the ROM's C stack has the
+ * same address for the CPU as for DMA and the devices, which take physical
+ * ones (the first try put the workspace elsewhere, and every file name the
+ * shell built on its stack was read by the file device as empty), and SWAP's
+ * 64 KB image includes it, as it included the old stack at $0600. */
+#define K4510_WS_LO      0xDB00u
+#define K4510_WS_SIZE    0x0400u
+#define K4510_WS_PHYS(a) (a)
 
 int      mem_init(void);                                /* 0 on success */
 void     mem_reset(void);                               /* MAP off, etc. */
@@ -72,5 +84,28 @@ uint8_t  mem_bank_mask(void);                           /* bit n: block n banked
 extern uint32_t far_table;          /* 28-bit phys of the descriptor table ($DF80-$DF83) */
 extern uint8_t  far_depth, far_err; /* nesting depth; last error: 1 overflow, 2 underflow, 3 bad slot */
 
+/* ---- the stack fence (2026-10-06) -------------------------------------
+ * The ROM is C, and C keeps a stack of its own: memory and a pointer in the
+ * base page.  It once overflowed into the ROM's own variables and nothing
+ * said so (*PROG from EhBASIC, 2026-10-05).  The fence is a register the ROM
+ * arms at reset ($D550-$D55A, core/io.h): it names its stack pointer and the
+ * lowest address the stack may reach.  Every instruction the ROM executes
+ * that reaches memory through that pointer -- (sp),Y and (sp),Z -- is
+ * checked (a hook in the CPU's address modes, so it costs next to nothing):
+ * the deepest address is kept (INFO -m shows the margin), and one below the
+ * floor is a trip, said on stderr and written as a dump.  The ROM's 6502
+ * stack is noted as it goes; K4510_FENCE_DEEP=1 notes it, and the programs'
+ * page 1, at every instruction instead -- exact, and half the speed. */
+typedef struct {
+    uint8_t  on, deep, zp, page, trips;   /* deep: K4510_FENCE_DEEP, the 6502 stacks at every instruction (a measuring mode) */   /* armed; the pointer's base-page address; the base page it lives in ($00 or the B the ROM runs with) */
+    uint16_t floor, top, low;       /* the lowest allowed; the pointer when armed; the deepest access seen */
+    uint16_t hw_low;                /* the lowest S (SPH:SPL) seen while ROM code ran on its own stack page */
+    uint16_t hw_page;               /* that page: the one the ROM's stack was on when it armed the fence */
+    uint16_t prog_low;              /* the lowest S on page 1 seen while a program's own code ran */
+} mem_fence_t;
+extern mem_fence_t mem_fence;
+extern uint32_t cpu65_fence_zp;                  /* the watched pointer's CPU address, $10000 off (cpu65.c's hook) */
+void    mem_fence_write(uint8_t r, uint8_t v);   /* r: $00-$0F of the fence's registers */
+uint8_t mem_fence_read(uint8_t r);
 
 #endif

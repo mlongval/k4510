@@ -362,6 +362,19 @@ extern uint16_t io_audio_gaps;                  /* counted by the frontend's aud
 extern uint32_t dbg_watch_addr;
 extern uint8_t  dbg_watch_ctl, dbg_watch_hits;
 void dbg_watch_hit(void);                    /* mem.c reports; io.c dumps and disarms */
+/* --- FENCE ($D550-$D55C): how deep does the ROM's C stack go? ----------
+ *   $50      write: the base-page address of the C stack pointer -- arms
+ *            (0 disarms) and starts the measure; read: it
+ *   $51      the base page that pointer lives in (the B the ROM runs with)
+ *   $52,53   the floor, LE: the lowest address the stack may reach
+ *   $54,55   read: the deepest address reached since armed; write $54: start again
+ *   $56      read: trips -- accesses below the floor (saturates at 255)
+ *   $57,58   read: the lowest 6502 S seen on the ROM's own stack page
+ *   $59,5A   read: the pointer as it was when armed (the stack's top)
+ *   $5B,5C   read: the lowest S on page 1 under a program (K4510_FENCE_DEEP only)
+ * The ROM arms it at reset (crt0.s); INFO -m shows it.  The first trip
+ * writes a DUMP tagged "stack fence".  core/mem.h has the rest. */
+#define IO_FENCE       (IO_SYS + 0x50)
 
 extern uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* the I/O profile, for PERF.TXT */
 extern int      io_prof_on;                  /* frontend: profile only while the PERF window is open */

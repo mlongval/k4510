@@ -19,6 +19,8 @@
 #include "host.h"
 #include "io.h"
 #include <string.h>
+#include <stdio.h>
+#include <stdlib.h>
 
 uint8_t *k4510_ram;
 int cpu_mega65_opcodes = 1;          /* MEGA65-build global: enable Q / 32-bit forms */
@@ -65,6 +67,7 @@ void mem_reset(void)
     memset(&map, 0, sizeof map);
     for (int b = 0; b < 8; b++) { bank_reg[b] = BANK_OFF; bank_on[b] = 0; }
     far_table = 0; far_depth = 0; far_err = 0;
+    memset(&mem_fence, 0, sizeof mem_fence); cpu65_fence_zp = 0x10000;   /* a ROM arms its own, at its reset */
     map_apply();
     io_reset();
 }
@@ -171,6 +174,97 @@ static uint8_t far_gate(uint16_t addr)
  * the program that hid the I/O can always bring it back -- no register
  * deadlock. The far gate is unreachable while block 6 is MAPped. */
 
+/* ---- the stack fence (mem.h) ------------------------------------------- */
+mem_fence_t mem_fence;
+static int rom_phys(uint32_t phys) { return phys >= K4510_ROM_PHYS || (phys >= K4510_SW_PHYS && phys < K4510_SW_PHYS + 16u * 0x2000u); }
+/* The fence proper: the CPU calls this for every (zp),Y and (zp),Z through
+ * the watched pointer (cpu65.c, _zpiy/_zpi) -- only those instructions, so
+ * it costs next to nothing.  A program's own code using the same base-page
+ * address (cc65 programs keep their stack pointer at $08 too) is told
+ * apart by where the instruction is: the ROM's code is the ROM image or a
+ * sideways bank. */
+uint32_t cpu65_fence_zp = 0x10000;   /* Uint32 in cpu65.c: the same type */
+static uint32_t pc_phys(uint16_t pc)
+{
+    uint32_t base = block_base[pc >> 13];
+    return base == UNMAPPED ? (pc >= mem_rom_base ? K4510_ROM_PHYS + pc : pc) : cpu_to_phys(pc);
+}
+void cpu65_fence_hook(Uint16 ea)
+{
+    uint16_t s = (uint16_t)(cpu65.s | cpu65.sphi);
+    if (!rom_phys(pc_phys(cpu65.old_pc))) return;
+    if (cpu65.sphi == mem_fence.hw_page && s < mem_fence.hw_low) mem_fence.hw_low = s;   /* S as the ROM reaches its C stack: a near lower bound */
+    if (ea < mem_fence.low) mem_fence.low = ea;
+    if (ea < mem_fence.floor && mem_fence.trips < 255 && ++mem_fence.trips == 1) {
+        char why[96];
+        snprintf(why, sizeof why, "stack fence: the ROM's C stack reached $%04X, below its floor $%04X (PC $%04X)", ea, mem_fence.floor, cpu65.old_pc);
+        fprintf(stderr, "K4510: %s\n", why);
+        dbg_dump(why);
+    }
+}
+/* K4510_FENCE_DEEP: the 6502 stacks too, exactly -- S at every instruction,
+ * the ROM's on its own page and the programs' on page 1.  A measuring mode:
+ * it costs about half the emulator's speed, so it is not on by itself. */
+static __attribute__((noinline)) void fence_fetch(uint16_t pc)   /* out of line: inlined in the read callback, it slowed every read by a fifth */
+{
+    uint16_t s = (uint16_t)(cpu65.s | cpu65.sphi);
+    if (!rom_phys(pc_phys(pc))) { if (cpu65.sphi == 0x100 && s < mem_fence.prog_low) mem_fence.prog_low = s; return; }   /* a program's own code */
+    if (cpu65.sphi == mem_fence.hw_page && s < mem_fence.hw_low) mem_fence.hw_low = s;
+}
+/* K4510_FENCE_LOG=file: each process appends its deepest at exit, so a whole
+ * test suite can be measured (test/fencetest.sh) */
+static uint16_t fence_min = 0xFFFF, fence_hwmin = 0xFFFF, fence_pmin = 0xFFFF; static unsigned fence_trips_all;
+static void fence_note(void) { if (mem_fence.on) { if (mem_fence.low < fence_min) fence_min = mem_fence.low; if (mem_fence.hw_low < fence_hwmin) fence_hwmin = mem_fence.hw_low;
+                                                   if (mem_fence.prog_low < fence_pmin) fence_pmin = mem_fence.prog_low; fence_trips_all += mem_fence.trips; } }
+static void fence_atexit(void)
+{
+    const char *path = getenv("K4510_FENCE_LOG"); FILE *f; char cmd[160] = ""; FILE *c;
+    fence_note();
+    if (!path || fence_min == 0xFFFF || !(f = fopen(path, "a"))) return;
+    if ((c = fopen("/proc/self/cmdline", "r"))) { size_t n = fread(cmd, 1, sizeof cmd - 1, c); for (size_t i = 0; i < n; i++) if (!cmd[i]) cmd[i] = ' '; cmd[n] = 0; fclose(c);
+                                                  for (char *q = cmd; *q; q++) if (*q == '\n' || *q == '\r' || (unsigned char)*q < 0x20) *q = '.'; }
+    fprintf(f, "%04X %04X %04X %04X %04X %u %.120s\n", fence_min, mem_fence.floor, mem_fence.top, fence_hwmin, fence_pmin, fence_trips_all, cmd);
+    fclose(f);
+}
+void mem_fence_write(uint8_t r, uint8_t v)
+{
+    static int hooked, off = -1, deep;
+    if (!hooked && getenv("K4510_FENCE_LOG")) { hooked = 1; atexit(fence_atexit); }
+    if (off < 0) { off = getenv("K4510_FENCE_OFF") != NULL; deep = getenv("K4510_FENCE_DEEP") != NULL; }   /* the fence's own cost, measured (docs/BUILD-LOG.md 2026-10-06) */
+    if (off && r == 0) v = 0;
+    if (r == 0) fence_note();                                              /* a re-arm (a reset): keep what this process saw so far */
+    switch (r) {
+    case 0: mem_fence.zp = v; mem_fence.on = v != 0; mem_fence.trips = 0; mem_fence.hw_low = mem_fence.prog_low = 0xFFFF; mem_fence.hw_page = cpu65.sphi;
+            mem_fence.top = mem_fence.low = (uint16_t)(cpu65_read_callback((uint16_t)(mem_fence.page << 8 | v)) | cpu65_read_callback((uint16_t)(mem_fence.page << 8 | ((v + 1) & 0xFF))) << 8);
+            mem_fence.deep = (uint8_t)(mem_fence.on && deep);
+            cpu65_fence_zp = mem_fence.on ? (Uint32)(mem_fence.page << 8 | v) : 0x10000u;
+            break;                                                         /* armed: the deepest so far is where the pointer is */
+    case 1: mem_fence.page = v; if (mem_fence.on) cpu65_fence_zp = (Uint32)(v << 8 | mem_fence.zp); break;
+    case 2: mem_fence.floor = (uint16_t)((mem_fence.floor & 0xFF00) | v); break;
+    case 3: mem_fence.floor = (uint16_t)((mem_fence.floor & 0x00FF) | v << 8); break;
+    case 4: mem_fence.low = mem_fence.top; mem_fence.hw_low = mem_fence.prog_low = 0xFFFF; mem_fence.trips = 0; break;   /* any write: start the measure again */
+    }
+}
+uint8_t mem_fence_read(uint8_t r)
+{
+    switch (r) {
+    case 0: return mem_fence.zp;
+    case 1: return mem_fence.page;
+    case 2: return (uint8_t) mem_fence.floor;
+    case 3: return (uint8_t)(mem_fence.floor >> 8);
+    case 4: return (uint8_t) mem_fence.low;
+    case 5: return (uint8_t)(mem_fence.low >> 8);
+    case 6: return mem_fence.trips;
+    case 7: return (uint8_t) mem_fence.hw_low;
+    case 8: return (uint8_t)(mem_fence.hw_low >> 8);
+    case 9: return (uint8_t) mem_fence.top;
+    case 10: return (uint8_t)(mem_fence.top >> 8);
+    case 11: return (uint8_t) mem_fence.prog_low;
+    case 12: return (uint8_t)(mem_fence.prog_low >> 8);
+    }
+    return 0xFF;
+}
+
 int dbg_rec;                             /* the PC recorder costs a store per instruction: armed by DUMP */
 /* the WATCH write hook (core/io.h): armed rarely, checked cheaply */
 #define WATCH_WR(phys) do { if (XEMU_UNLIKELY(dbg_watch_ctl && ((phys) & K4510_PHYS_MASK) == dbg_watch_addr)) dbg_watch_hit(); } while (0)
@@ -178,6 +272,7 @@ Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_UNLIKELY(dbg_rec && addr == cpu65.old_pc)) dbg_pc(addr);   /* opcode fetch: the debug recorder */
+    if (XEMU_UNLIKELY(mem_fence.deep) && addr == cpu65.old_pc) fence_fetch(addr);   /* ...and the stack fence's measuring mode */
     if (XEMU_LIKELY(base == UNMAPPED)) {                          /* the fast path: one compare for I/O, one for ROM */
         if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
             if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */
@@ -201,13 +296,15 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_LIKELY(base == UNMAPPED)) {
-        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }
+        if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) { io_write(addr, data); return; }   /* K/OS's workspace is io_write's first case */
         if (XEMU_UNLIKELY(addr >= mem_rom_base)) return;               /* ROM (I/O page wins: the hole in a big ROM) */
         WATCH_WR(addr);
         k4510_ram[addr] = data;
         return;
     }
-    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE) && bank_on[6]) { io_write(addr, data); return; }   /* K-01 banked: I/O wins; MAPped (K-06): RAM under the I/O */
+    if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE) && bank_on[6]) {                           /* K-01 banked: I/O wins; MAPped (K-06): RAM under the I/O */
+        io_write(addr, data); return;
+    }
     if (XEMU_UNLIKELY(addr >= 0xFF00)) return;                         /* the stub page: ROM even when banked */
     { uint32_t phys = cpu_to_phys(addr); WATCH_WR(phys); k4510_ram[phys] = data; }
 }

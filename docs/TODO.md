@@ -119,25 +119,20 @@ Fixed the same day except these:
 
 ## Code debt
 
-- [ ] **The ROM's C stack is nearly full** (512 bytes, $0600-$07FF).  A
-      program's shell call inside the shell that ran it is the deepest path;
-      one extra helper frame there corrupted the ROM's variables (2026-10-05,
-      the *PROG fix).  First: measure -- a high-water mark the emulator keeps
-      from the ROM's `sp`, shown by INFO, and a fence that dumps the machine
-      when it is crossed.  Then the room: the ROM's code is RAM in this
-      machine, so a ROM-private RAM area banked in with the ROM on every call
-      (ROM1C has ~860 bytes free) could hold a bigger stack; or the 45GS02's
-      own relocatable stack and base page for system calls.  See the
-      2026-10-05 conversation's options.
+- [x] **The ROM's C stack was nearly full** (512 bytes, $0600-$07FF;
+      2026-10-05, the *PROG fix).  Done 2026-10-06 on branch
+      kos-workspace: the stack fence (core/mem.h, INFO -m) measures it, and
+      K/OS now runs on its own base page and 6502 stack (B register, SPH)
+      with its C stack in a 1 KB workspace in the I/O page, $DB00-$DEFF:
+      960 bytes of C stack, and a system call costs ~1000 cycles less.
+      docs/BUILD-LOG.md 2026-10-06 has the numbers.
 
 - [ ] **core/io.c split** into per-chip files (agreed earlier; unblocked).
-- [ ] **Zero page relief (not urgent, fail-loud):** ROM ZP slice $02-$21
-      is 32/32.  When convenient, widen into $22-$3F (grow crt0's zp_rom
-      save buffer to match) or evict a non-hot crt0 zp var to BSS.
-- [ ] **BSS relief (nearer):** BSSR $0440-$05FF is 443/448 since the cursor
-      went to JIM (2026-10-01; it was 448/448).  Rebalance
-      against the C stack above it, or audit for evictable statics.
-- [ ] **ROM2 has 156 bytes free** (2026-10-01, after the band's MHz went;
+- [x] **Zero page relief:** the ROM's base page is its own since
+      2026-10-06: ZP is $02-$2F (46 bytes, was 32), and no copying.
+- [x] **BSS relief:** BSSR is $0440-$06FF since 2026-10-06 (the C stack
+      left $0600); about 380 bytes of 704 used.
+- [ ] **ROM2 has 461 bytes free** (2026-10-06, with the workspace stub; 156 on 2026-10-01, after the band's MHz went;
       `rom/kernal.map`, CODE2 end to $FEFF).  New resident code goes in a bank.
 - [ ] **User banks** — document the convention: sideways banks 4-15 are
       user RAM banks; the ROM never claims above bank 3 (bank 3 = the line

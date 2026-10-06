@@ -18,13 +18,13 @@ The 45GS10’s program counter is 16 bits: code executes inside a 64 KB window
 <tbody>
 <tr class="odd">
 <td style="text-align: left;"><code>$0000-$01FF</code></td>
-<td style="text-align: left;">system</td>
-<td style="text-align: left;">zero page and stack</td>
+<td style="text-align: left;">user</td>
+<td style="text-align: left;">zero page and stack: the program’s own</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><code>$0200-$07FF</code></td>
 <td style="text-align: left;">system</td>
-<td style="text-align: left;">the ROM’s data and C stack, and two bytes worth knowing (below)</td>
+<td style="text-align: left;">the ROM’s data, its 6502 stack (page 7), and two bytes worth knowing (below)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>$0800-$CFFF</code></td>
@@ -44,7 +44,7 @@ The 45GS10’s program counter is 16 bits: code executes inside a 64 KB window
 <tr class="even">
 <td style="text-align: left;"><code>$D000-$DFFF</code></td>
 <td style="text-align: left;">I/O</td>
-<td style="text-align: left;">always I/O, whatever is banked</td>
+<td style="text-align: left;">always I/O, whatever is banked; <code>$DB00-$DEFF</code> is K/OS’s workspace</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>$E000-$FEFF</code></td>
@@ -125,6 +125,8 @@ The page `$FF00` is always the ROM, whatever is banked, and its jump table is th
 </table>
 
 </div>
+
+A program has the zero page and the stack page to itself. K/OS runs on a base page and a 6502 stack of its own — the 45GS10 can put both anywhere — and keeps its base page and its C stack in a kilobyte of RAM in the I/O page, `$DB00-$DEFF`, where no device is. The stub switches both on the way in and back on the way out, and for LOAD, SAVE and ARGS copies the caller’s `$F0–$F9` across; nothing else of the program’s is touched.
 
 Anything handed to a system call must lie below `$A000`: during the call the ROM is banked in over `$A000–$FFFF`, and a line kept up there would read as the ROM’s bytes. `SHELL` copies the line into the shell’s own buffer before running it, so the program’s copy is left alone.
 

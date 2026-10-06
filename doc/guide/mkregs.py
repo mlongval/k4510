@@ -54,6 +54,9 @@ TITLES = {
     "The network, three":  "The N: device",
     "JIM,":                "JIM",
     "The ROM image":       "The ROM window and the stub page",
+    "K/OS's workspace":    "K/OS's workspace",
+    "--- FENCE":           "The stack fence",
+    "The stack fence":     "The stack fence",
     "$D000-":              "The page map",
 }
 

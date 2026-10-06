@@ -133,9 +133,9 @@ below.
 *
 
  Memory: code from $0800, the program's own; zero page $22-$3F for the
-compiler's registers and $64-$A3 for its expression stack (the ROM keeps
-$02-$21 and $F0-$F9); $0300 the string buffer. Programs return to the shell
-with the ROM's state intact.
+compiler's registers and $64-$A3 for its expression stack (the system calls
+take their arguments in $F0-$F9; the ROM has a zero page of its own); $0300
+the string buffer. Programs return to the shell with the ROM's state intact.
 
 ### Floating point on the MATH unit
 

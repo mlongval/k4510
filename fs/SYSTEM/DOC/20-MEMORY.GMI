@@ -21,13 +21,14 @@ block of the window shows that memory. Bytes 0-2 set the base; byte 3 switches
 ## The CPU view, unmapped
 
 ```
-$0000-$01FF  system  zero page and stack
-$0200-$07FF  system  the ROM's data and C stack, and two bytes worth knowing
-                     (below)
+$0000-$01FF  user    zero page and stack: the program's own
+$0200-$07FF  system  the ROM's data, its 6502 stack (page 7), and two bytes
+                     worth knowing (below)
 $0800-$CFFF  user    50 KB for programs, ROM-free at launch
 $A000-$BFFF  ROM     the sideways window; RAM underneath
 $C000-$CFFF  ROM     RAM underneath, bankable
-$D000-$DFFF  I/O     always I/O, whatever is banked
+$D000-$DFFF  I/O     always I/O, whatever is banked; $DB00-$DEFF is K/OS's
+                     workspace
 $E000-$FEFF  ROM     RAM underneath, bankable
 $FF00-$FFFF  stub    always ROM: system-call stub and vectors
 ```
@@ -66,6 +67,13 @@ $FF8F  SHELL   run the line A/X points at, as if it were typed
 $FF92  VIDEO   put the ROM's video mode and palette back after a program drew
 $FF95  ARGS    what followed the program's name: ($F0), length in A
 ```
+
+A program has the zero page and the stack page to itself. K/OS runs on a base
+page and a 6502 stack of its own -- the 45GS10 can put both anywhere -- and
+keeps its base page and its C stack in a kilobyte of RAM in the I/O page,
+$DB00-$DEFF, where no device is. The stub switches both on the way in and back
+on the way out, and for LOAD, SAVE and ARGS copies the caller's $F0-$F9
+across; nothing else of the program's is touched.
 
 Anything handed to a system call must lie below $A000: during the call the ROM
 is banked in over $A000-$FFFF, and a line kept up there would read as the

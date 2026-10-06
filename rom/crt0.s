@@ -16,20 +16,47 @@ fp:           .res 4           ; far pointer for the flat forms
         .bss
 _ticks:       .res 1
 t0:           .res 1
-zp_rom:       .res 32          ; the ROM's zero page $02-$21 while a program runs
-zp_tmp:       .res 32
+
+; K/OS's own base page and stacks (2026-10-06).  The ROM runs on base page
+; KOS_BP -- the 45GS10's B register relocates every zero-page access -- in
+; its workspace in the I/O page ($DB00-$DEFF, core/mem.h), with its C stack
+; there too, and its 6502 stack on page KOS_SP.  A program keeps base page
+; $00 and stack page 1 to itself: the system-call stub switches both, where
+; it used to copy the ROM's 32 bytes of zero page in and out (zp_in/zp_out,
+; ~1400 cycles a call).  Only LOAD, SAVE and ARGS carry arguments in the
+; caller's $F0-$F9; those three copy them through ARGS (args_in/args_out).
+KOS_BP  = $DB                   ; = >__ZP_START__ (k4510.cfg)
+KOS_SP  = $07                   ; the ROM's 6502 stack page
+ARGS    = $DB30                 ; the caller's $F0-$F9, while a call runs (kernal.c P_NAME...)
+        .export ARGS
 
         .segment "STARTUP"
 reset:  sei
         cld
+        lda #KOS_BP
+        .byte $5B               ; TAB: K/OS's base page
+        ldy #KOS_SP
+        .byte $2B               ; TYS: K/OS's stack page
         ldx #$FF
         txs
-        lda #<(__STK_START__ + __STK_SIZE__)      ; cc65 software stack: $0800 down
+        lda #<(__STK_START__ + __STK_SIZE__)      ; cc65 software stack: the workspace's top, down
         sta sp
         lda #>(__STK_START__ + __STK_SIZE__)
         sta sp+1
+        lda #KOS_BP             ; the stack fence (core/mem.h): the pointer is in base page KOS_BP,
+        sta $D551
+        lda #<__STK_START__     ; its stack may not reach below __STK_START__
+        sta $D552
+        lda #>__STK_START__
+        sta $D553
+        lda #<sp                ; and the pointer's address, which arms it
+        sta $D550
         jsr copydata
         jsr zerobss
+        lda #$FF                ; the programs' stack: page 1, empty (after zerobss: it is BSS)
+        sta prog_sl
+        lda #1
+        sta prog_sh
         jsr initlib
         cli
         jsr _main
@@ -119,80 +146,182 @@ _far_peek:
         ldx #0
         rts
 
-; void __fastcall__ call_prog(unsigned addr): run a program that may own the
-; whole zero page. The ROM's $02-$1F is kept in zp_rom and swapped back in
-; around every jump-table call and on return.
+;; void __fastcall__ call_prog(unsigned addr): run a program.  It gets base
+; page $00 and the programs' stack: under the frames of the program whose
+; system call this is, or page 1 empty.  Its own system calls come back to
+; the ROM's stack where this leaves it (rom_sl/sh); nested, the outer
+; call_prog's place is kept on the ROM's stack.
 _call_prog:
         sta prog_addr
         stx prog_addr+1
-        ldx #31
-@s:     lda $02,x
-        sta zp_rom,x
-        dex
-        bpl @s
+        php
+        lda rom_sl              ; an outer call_prog's place, for after
+        pha
+        lda rom_sh
+        pha
+        sei                     ; no interrupt between the two halves of a stack switch
+        tsx
+        stx rom_sl
+        .byte $0B               ; TSY
+        sty rom_sh
+        ldx prog_sl
+        ldy prog_sh
+        .byte $2B               ; TYS
+        txs                     ; the programs' stack
+        lda #0
+        .byte $5B               ; TAB: base page $00
+        cli
         jsr go_prog
-        ldx #31
-@r:     lda zp_rom,x
-        sta $02,x
-        dex
-        bpl @r
+        sei
+        ldx rom_sl
+        ldy rom_sh
+        .byte $2B               ; TYS
+        txs                     ; the ROM's stack, where it was
+        lda #KOS_BP
+        .byte $5B               ; TAB
+        pla
+        sta rom_sh
+        pla
+        sta rom_sl
+        plp
         rts
 go_prog: jmp (prog_addr)
 
-; a jump-table call from a program: program zp -> zp_tmp, ROM zp in, call,
-; ROM zp -> zp_rom, program zp back. A and X carry the argument / result.
-zp_in:  sta zp_a
-        ldx #31
-@a:     lda $02,x
-        sta zp_tmp,x
-        lda zp_rom,x
-        sta $02,x
-        dex
-        bpl @a
-        lda zp_a
+; kos_enter: the second half of rom_push, once the ROM is banked in.  On the
+; caller's stack: [its return][12 bank bytes]; rom_push has its own return
+; (into the s_ entry) in stub_r and A/X in stub_a/stub_x.  Pushes the
+; caller's base page there too, switches to the ROM's stack and base page,
+; and keeps on the ROM's stack the programs' stack of any call this one is
+; nested in.
+kos_enter:
+        php
+        pla
+        sta stub_p              ; the caller's flags: its interrupt mask, for the call
+        sei
+        .byte $7B               ; TBA: the caller's base page
+        pha                     ; ...on its own stack, under the banks
+        sta stub_b
+        tsx
+        stx stub_sl
+        .byte $0B               ; TSY
+        sty stub_sh
+        ldx rom_sl
+        ldy rom_sh
+        .byte $2B               ; TYS
+        txs                     ; the ROM's stack
+        lda #KOS_BP
+        .byte $5B               ; TAB: the ROM's base page
+        lda prog_sl             ; the call this one nests in: its stack and base page
+        pha
+        lda prog_sh
+        pha
+        lda prog_b
+        pha
+        lda stub_sl             ; this caller's, for a program the call runs (call_prog)
+        sta prog_sl
+        lda stub_sh
+        sta prog_sh
+        lda stub_b
+        sta prog_b
+        lda stub_r+1            ; back into the s_ entry, on this stack
+        pha
+        lda stub_r
+        pha
+        lda stub_p
+        pha
+        lda stub_a
+        ldx stub_x
+        plp
         rts
-zp_out: sta zp_a
-        ldx #31
-@b:     lda $02,x
-        sta zp_rom,x
-        lda zp_tmp,x
-        sta $02,x
+; kos_leave: from rom_pop, A/X in stub_a/stub_x.  The caller's stack and base
+; page back, the nesting call's restored, then rom_pop2 (the stub page) takes
+; the banks back off the caller's stack.
+kos_leave:
+        php
+        pla
+        sta stub_p
+        sei
+        ldx prog_sl             ; this caller's stack
+        ldy prog_sh
+        stx stub_sl
+        sty stub_sh
+        pla
+        sta prog_b              ; the nesting call's, back
+        pla
+        sta prog_sh
+        pla
+        sta prog_sl
+        ldx stub_sl
+        ldy stub_sh
+        .byte $2B               ; TYS
+        txs                     ; the caller's stack
+        pla
+        .byte $5B               ; TAB: its base page
+        lda stub_p
+        pha
+        plp
+        jmp rom_pop2
+
+; the caller's $F0-$F9 through ARGS, for the three calls that use them
+args_in:
+        pha
+        lda prog_b
+        .byte $5B               ; TAB: the caller's base page
+        ldx #9
+@i:     lda $F0,x
+        sta ARGS,x
         dex
-        bpl @b
-        lda zp_a
-        ldx #0                  ; X = 0: the loop left $FF, and a C program that calls a
-        rts                     ; byte-returning entry through a cast tests A|X -- every
-                                ; VI, EDIT, CHESS, SETUP save read as failed (2026-09-14)
+        bpl @i
+        lda #KOS_BP
+        .byte $5B
+        pla
+        rts
+args_out:
+        pha
+        lda prog_b
+        .byte $5B
+        ldx #9
+@o:     lda ARGS,x
+        sta $F0,x
+        dex
+        bpl @o
+        lda #KOS_BP
+        .byte $5B
+        pla
+        ldx #0                  ; X = 0: a C program that calls a byte-returning entry
+        rts                     ; through a cast tests A|X (every VI save read as failed, 2026-09-14)
+
         .bss
-zp_a:   .res 1
 prog_addr: .res 2
+rom_sl:    .res 1               ; the ROM's stack where call_prog left it: a program's calls come back here
+rom_sh:    .res 1
+prog_sl:   .res 1               ; the programs' stack: the caller's of the call running now, or page 1 empty
+prog_sh:   .res 1
+prog_b:    .res 1               ; the caller's base page
+stub_p:    .res 1
+stub_b:    .res 1
+stub_sl:   .res 1
+stub_sh:   .res 1
         .segment "CODE"
-w_chrout: jsr zp_in
-        jsr _k_chrout
-        jmp zp_out
-w_chrin:  jsr zp_in
-        jsr _k_chrin
-        jmp zp_out
-w_getin:  jsr zp_in
-        jsr _k_getin
-        jmp zp_out
-w_load:   jsr zp_in
+w_chrout: jmp _k_chrout
+w_chrin:  jsr _k_chrin
+        ldx #0
+        rts
+w_getin:  jsr _k_getin
+        ldx #0
+        rts
+w_load:   jsr args_in
         jsr _k_load
-        jmp zp_out
-w_save:   jsr zp_in
+        jmp args_out
+w_save:   jsr args_in
         jsr _k_save
-        jmp zp_out
-w_shell:  phx                   ; A/X = pointer to a NUL-terminated command line (zp_in uses X)
-        jsr zp_in
-        plx
-        jsr _k_shell
-        jmp zp_out
-w_video:  jsr zp_in
-        jsr _k_video
-        jmp zp_out
-w_args:   jsr zp_in
-        jsr _k_args
-        jmp zp_out
+        jmp args_out
+w_shell:  jsr _k_shell          ; A/X = pointer to a NUL-terminated command line
+        ldx #0
+        rts
+w_video:  jmp _k_video
+w_args:   jsr _k_args
+        jmp args_out
 
 ; Latch the RTC: a read of $D504 copies the host's clock into $D505-$D50C.  In
 ; assembler because cc65 drops a read whose value goes unused -- `(void)REG()`
@@ -205,8 +334,9 @@ _rtc_latch: lda $D504
 ; onto the RAM under the ROM (far.h: rom_out()). Every system call and interrupt passes
 ; through here: the stub saves bank registers 5-7 ($D614-$D61F, 12 bytes) on
 ; the stack, banks the ROM in, calls, restores. Stack-based, so calls nest;
-; the IRQ path uses no temporaries, so it may land anywhere in a call.
-; ~80 cycles per call.
+; the IRQ path uses no temporaries and no base page, so it may land anywhere
+; in a call.  The base page and the stack are switched too (kos_enter,
+; kos_leave): ~190 cycles a call, where copying the zero page cost ~1500.
         .segment "STUB"
 s_chrout: jsr rom_push
         jsr w_chrout
@@ -272,10 +402,8 @@ s_reset: ldx #28                ; a reset clears every bank (F12 does not reset 
         jmp s_load              ; $FF89  LOAD    name ptr in $F0/$F1, dest in $F2..$F5 -> A status, size in $F6..$F9
         jmp s_save              ; $FF8C  SAVE    name ptr $F0/$F1, src $F2..$F5, len $F6..$F9 -> A status
         jmp s_shell             ; $FF8F  SHELL   A/X = pointer to a command line; runs it as if typed
-                                ;        A command that RUNs a second program comes back with $02-$21
-                                ;        as that program's system calls left them (zp_in/zp_out keep
-                                ;        one save), so a caller that lives in $02-$21 must not SHELL a
-                                ;        program -- use SWAP, as RANGER does (review 2026-09-05, 12).
+                                ;        (a command that runs a program from inside a program is
+                                ;        swapped: the shell saves the caller whole, kernal.c swap_run)
         jmp s_video             ; $FF92  VIDEO   restore the ROM's video mode and palette (after a program drew)
         jmp s_args              ; $FF95  ARGS    $F0/$F1 = the command tail the shell saved, A = its length
 
@@ -302,16 +430,11 @@ rom_push: sta stub_a
         sta $D617
         sta $D61B
         sta $D61F
-        lda stub_r+1
-        pha
-        lda stub_r
-        pha
-        lda stub_a
-        ldx stub_x
-        rts
+        jmp kos_enter           ; the ROM is in: the rest is there (CODE)
 rom_pop: sta stub_a
         stx stub_x
-        ldx #0
+        jmp kos_leave
+rom_pop2: ldx #0
 @q:     pla
         sta $D614,x
         inx

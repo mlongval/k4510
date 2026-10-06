@@ -1203,6 +1203,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x34) return dbg_watch_ctl;
     if (r == 0x35) return dbg_watch_hits;
     if (r == 0x3A) return io_battery;        /* the host's battery: % in bits 0-6, bit 7 on AC / charging, $FF none */
+    if (r >= 0x50 && r <= 0x5C) return mem_fence_read((uint8_t)(r - 0x50));   /* the stack fence (core/mem.h) */
     if (r == 0x43) return idea_next();        /* IDEA: the brainshot's name, a byte at a time, then 0 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
@@ -2230,6 +2231,8 @@ int dbg_dump(const char *why)
       }
       fprintf(f, "\n"); }
     fprintf(f, "\nZERO PAGE:\n"); for (int i = 0; i < 256; i += 32) { fprintf(f, "%02X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
+    fprintf(f, "K/OS BASE PAGE $DB00 (its zero page, the B register's; ARGS at $DB30):\n"); for (int i = 0; i < 64; i += 32) { fprintf(f, "%04X:", 0xDB00 + i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[0xDB00 + i + j]); fprintf(f, "\n"); }
+    fprintf(f, "K/OS STACK $0700-$07FF:\n"); for (int i = 0x700; i < 0x800; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fprintf(f, "STACK $0100-$01FF:\n"); for (int i = 0x100; i < 0x200; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fprintf(f, "$0300-$04FF (EhBASIC vectors, input buffer, K4510 glue state):\n"); for (int i = 0x300; i < 0x500; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fclose(f);
@@ -2335,6 +2338,8 @@ uint8_t io_read(uint16_t addr)
 }
 static uint8_t io_read_inner(uint16_t addr)
 {
+    if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) return k4510_ram[K4510_WS_PHYS(addr)];   /* K/OS's workspace (core/mem.h): first, it is the busiest
+                                                                                                   * (tried in mem.c's callbacks instead, it cost more, 2026-10-06) */
     switch (addr & 0xFF00) {
     case IO_VICKY:
         return vicky_read(addr & 0xFF);
@@ -2440,6 +2445,10 @@ const char *io_title(void)
 }
 void io_write(uint16_t addr, uint8_t v)
 {
+    if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) {                       /* K/OS's workspace: RAM (core/mem.h) */
+        if (dbg_watch_ctl && K4510_WS_PHYS(addr) == dbg_watch_addr) dbg_watch_hit();
+        k4510_ram[K4510_WS_PHYS(addr)] = v; return;
+    }
     switch (addr & 0xFF00) {
     case IO_VICKY:
         vicky_write(addr & 0xFF, v); return;
@@ -2462,6 +2471,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0x40) title_char(v);                     /* the title: a character for the top entry's name */
         if ((addr & 0xFF) == 0x41) title_cmd(v);                      /* the title: 1 push, 2 pop, 3 empty the top, 4 K/OS */
         if ((addr & 0xFF) == 0x44) title_file_char(v);                /* the title: the top entry's file -- 0 clears, a character adds */
+        if ((addr & 0xFF) >= 0x50 && (addr & 0xFF) <= 0x54) mem_fence_write((uint8_t)((addr & 0xFF) - 0x50), v);   /* the stack fence */
         if ((addr & 0xFF) == 0x42) idea_add(v);                       /* IDEA: a character of the idea */
         if ((addr & 0xFF) == 0x43) idea_write(v);                     /* IDEA: 1 write it, 2 an empty one for VI */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */

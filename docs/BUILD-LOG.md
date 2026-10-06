@@ -11274,3 +11274,73 @@ rxtest's unknown word came back as garbage: a program's shell call inside the
 shell that ran it is the deepest the ROM's 512-byte C stack ($0600-$07FF)
 goes, and that frame ran it into the ROM's variables.  Inline in the block's
 own name[] it fits.  The stack's margin is now a known risk (docs/TODO.md).
+
+## 2026-10-06 -- K/OS gets its own base page and stacks; the stack fence (branch kos-workspace)
+
+Doc: "Do 1 first and then 2+3 ... create and run some appropriate tests to
+see what the benefits (if any) there are" -- 1 a stack fence, 2 ROM-private
+RAM for a bigger C stack, 3 the 45GS02's relocatable base page and stack for
+system calls.  Also: the top band back to the plain title (no "1 K/OS  2
+TERMINAL" tabs in reverse video), "Terminal" while the second screen is up.
+
+**1. The fence** ($D550-$D55C, core/mem.h).  crt0 names its C stack pointer,
+the pointer's base page and the floor; every (zp),Y / (zp),Z through that
+pointer by ROM code (the ROM image or a sideways bank) is checked -- the
+deepest kept (INFO -m: "K/OS C stack: n of m bytes used at most"), one below
+the floor a trip: stderr and a dump.  First written as a per-instruction
+check in the read callback, it cost 55% of the host's time; it is now a
+hook in the CPU core's two address modes (cpu65.c, the one change to the
+vendored file) and costs nothing measurable.  Exact 6502-stack accounting
+at every instruction is K4510_FENCE_DEEP=1, a measuring mode (~50% slower);
+K4510_FENCE_LOG=file appends each process's figures, so a whole suite can
+be measured.
+
+Measured over the whole suite (176 runs), before anything moved:
+the deepest C stack 382 of 512 bytes (NVIM running an RX script; *PROG
+from EhBASIC 367), no trips; the shared page 1 down to $0143 (RXTEST: the
+interpreter and the ROM under it, 67 bytes from wrapping).
+
+**2+3. K/OS's own base page and stacks.**  The ROM now runs on base page
+$DB (the B register) and 6502 stack page 7 (SPH), with its C stack in a
+1 KB workspace in the I/O page, $DB00-$DEFF, where no device is (fantasy
+hardware: RAM, visible wherever the I/O is).  The bytes are physical
+$00DB00-$00DEFF, the RAM under the I/O page, so a buffer on the C stack has
+one address for the CPU, DMA and the devices -- the first try put them
+elsewhere and every file name the shell built on its stack reached the file
+device empty.  The stub (crt0.s kos_enter/kos_leave) switches base page and
+stack on the way in and back on the way out, keeping the nesting (a
+program's call that runs a program) on the ROM's stack; call_prog gives a
+program base page $00 and page 1 -- under its caller's frames, or empty.
+The zero-page copy (zp_in/zp_out, 64 bytes each way) is gone; LOAD, SAVE
+and ARGS copy the caller's $F0-$F9 through ARGS ($DB30).
+
+  C stack            512 bytes at $0600       960 bytes at $DB40-$DEFF
+  ROM zero page      32 bytes ($02-$21)       46 ($02-$2F), its own page
+  BSS room           $0440-$05FF, 11 free     $0440-$06FF, ~320 free
+  K/OS 6502 stack    shared page 1            page 7, 64 bytes at most
+  deepest C stack    382 of 512 (75%)         382 of 960 (40%)
+  CHROUT, stream     1991 cycles a char       978 (2.0x as fast)
+  CHROUT, lines      1771                     776 (2.3x)
+  EhBASIC PRINT x3000  17 frames              12
+  compute benchmarks   (RF1-8, SIEVE, AHL, sieve.prg) unchanged
+
+A program's zero page is now untouched by the ROM (kostest: $10 survives
+CHROUT, CD and TIME; on the old ROM the shell's own variables were there).
+Page 1 gained less than hoped: a program run from the prompt finds it
+empty (was 14 bytes used), RXTEST bottoms out at $014B (was $0143) -- the
+ROM's frames under a call are only ever 30-60 bytes.
+
+Host cost: K/OS's base page reached through the I/O page makes the
+emulator ~6-7% slower while K/OS is busy (best of three, 1500 frames:
+master 5.26 s, this 5.68-5.77 s); the emulator changes alone ~2-3%.  The
+workspace check tried first in mem.c's callbacks was slower than in
+io_read (code layout); io_read it is.
+
+Found on the way: RUN from inside a program swapped (9809ec4), and RUN
+3000 from MONITOR ran code that the swap's restore then undid -- romtest
+had been failing since.  An address is not swapped now (also on master,
+e67770c).
+
+New: test/kostest (the base page and stacks, the fence's measure, INFO -m,
+a trip and its dump; on the old ROM 7 of its checks fail, as they should).
+The whole suite passes.

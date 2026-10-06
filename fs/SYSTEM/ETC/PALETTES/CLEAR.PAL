@@ -5,9 +5,12 @@
 # blue, as normal eyes see it and as protan eyes do.  The blue is a little
 # darker, which lifts everything on it.  Red goes pink -- to protan eyes a
 # blue-grey, not the VIC-II red's dark olive -- and grey is lighter than it,
-# so the two do not meet.  Orange goes towards yellow, green a little
-# lighter; purple and light blue lighter.  Red and brown stay dark: they
-# are backgrounds (white reads on both).  Load it with PALETTE LOAD CLEAR,
+# so the two do not meet.  Orange goes towards yellow; purple and light
+# blue lighter.  Yellow is a full yellow and light green a cooler one,
+# green towards teal and cyan towards sky blue: to protan eyes the
+# VIC-II's yellow and light green were one colour, and cyan the same as
+# white.  Red and brown stay dark: they are backgrounds (white reads on
+# both).  Load it with PALETTE LOAD CLEAR,
 # or put that line in your /STARTUP.BAT.
 #
 # index rr gg bb, all hex.  A file only changes the entries it names.
@@ -16,16 +19,16 @@ COLOR 7 6
 0 00 00 00
 1 FF FF FF
 2 CC 22 55
-3 AA FF EE
+3 AA EE FF
 4 DD 77 FF
-5 44 DD 88
+5 33 CC 99
 6 00 00 88
-7 EE EE 77
+7 FF EE 00
 8 FF 99 22
 9 66 44 11
 A FF 77 BB
 B 33 33 33
 C AA AA AA
-D AA FF 66
+D 99 FF 99
 E 55 AA FF
 F CC CC CC

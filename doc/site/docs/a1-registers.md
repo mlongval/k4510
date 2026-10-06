@@ -215,6 +215,10 @@ A CPU write to the watched byte – normal, MAPped, banked or a flat 32-bit stor
 
 The ROM arms it at reset (crt0.s); INFO -m shows it. The first trip writes a DUMP tagged “stack fence”. core/mem.h has the rest.
 
+### WAIT: sleeping until something happens
+
+— WAIT (`$D545`): write anything, and the CPU sleeps until the next interrupt (the frame’s, sixty a second) or a key arrives; reads `$FF`. The way to wait for a key or a frame without the host spending its time on the loop. Time goes on while it sleeps.
+
 ### The Tube
 
 The Tube (`$D800`): Acorn’s answer, refitted. The HOST runs Richard Russell’s BBC BASIC interpreter (the vendored BBCTTY console edition, tube/bbcbasic) on a pty; the machine talks to it byte-wise:

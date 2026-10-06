@@ -209,7 +209,13 @@ The 256 MB behind the window, by 28-bit address. Everything not in the list is
 
 ## Programs
 
-A `.prg` begins with two addresses, where it loads and where it starts, and the shell honours both. The C programs of `/SYSTEM/BIN` load at `$6000` (the big ones — VI, EDIT, PROG, WORD — at `$2000`), Mad Pascal’s at `$0800`, MS BASIC at `$7000`, EhBASIC in the RAM under the ROM (it leaves `$0800-$BCFF` to BASIC), and `MONITOR` at `$E000`, in the RAM under the ROM — so that the memory a monitor is there to look at, `$0800` to `$CFFF`, is left exactly as it was.
+A `.prg` begins with two addresses, where it loads and where it starts, and the shell honours both. The C programs of `/SYSTEM/BIN` load at `$0800`, as Mad Pascal’s do (their C stack is the top of `$0800-$CFFF`; the big ones — VI, EDIT, PROG, WORD — have layouts of their own that also use the RAM under the ROM), MS BASIC at `$7000`, EhBASIC in the RAM under the ROM (it leaves `$0800-$BCFF` to BASIC), and `MONITOR` at `$E000`, in the RAM under the ROM — so that the memory a monitor is there to look at, `$0800` to `$CFFF`, is left exactly as it was.
+
+##### Waiting.
+
+A program that waits for a key or for the next frame should say so: a write of anything to `$D545`, WAIT, puts the CPU to sleep until the next interrupt — the frame’s, sixty a second — or a key. Nothing is missed, the loop simply looks again when the CPU wakes, and an idle machine stops costing the computer beneath it most of a core. The ROM’s own key wait, EhBASIC’s line input and `wait_vblank()` in `demo/k4510.h` all use it:
+
+    while (!(k = rom_getin())) K_WAIT();
 
 ## System calls
 

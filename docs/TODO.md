@@ -119,6 +119,17 @@ Fixed the same day except these:
 
 ## Code debt
 
+- [ ] **The ROM's C stack is nearly full** (512 bytes, $0600-$07FF).  A
+      program's shell call inside the shell that ran it is the deepest path;
+      one extra helper frame there corrupted the ROM's variables (2026-10-05,
+      the *PROG fix).  First: measure -- a high-water mark the emulator keeps
+      from the ROM's `sp`, shown by INFO, and a fence that dumps the machine
+      when it is crossed.  Then the room: the ROM's code is RAM in this
+      machine, so a ROM-private RAM area banked in with the ROM on every call
+      (ROM1C has ~860 bytes free) could hold a bigger stack; or the 45GS02's
+      own relocatable stack and base page for system calls.  See the
+      2026-10-05 conversation's options.
+
 - [ ] **core/io.c split** into per-chip files (agreed earlier; unblocked).
 - [ ] **Zero page relief (not urgent, fail-loud):** ROM ZP slice $02-$21
       is 32/32.  When convenient, widen into $22-$3F (grow crt0's zp_rom

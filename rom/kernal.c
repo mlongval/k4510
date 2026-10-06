@@ -834,9 +834,25 @@ static void run_at(uint16_t a)
 #pragma code-name (pop)
 #pragma code-name (push, "SWCODE0")
 #pragma rodata-name (push, "SWRODATA0")
+/* A program that asks the shell to run a program -- EhBASIC's *PROG, MS
+ * BASIC's or a REXX script's -- would have it loaded over itself: PROG takes
+ * $0800-$CFFF and EhBASIC lives at $0800-$BFFF, so the caller came back to
+ * PROG's bytes and ran wild (Doc, 2026-10-05: *PROG from EhBASIC "crashed").
+ * *VI and *EDIT were safe only because EhBASIC sends those as SWAP itself.
+ * So the shell does it for everyone: called from inside a program, a line
+ * that runs a program goes through SWAP -k -- the caller's 64 KB put aside
+ * and given back, the screen left as the program left it. */
+static void cmd_swap(const char *p);
+static uint8_t swapping;
+#pragma code-name (push, "CODE2")                  /* resident: bank 0 has no room left */
+#pragma rodata-name (push, "CODE2")
+static void swap_run(const char *p, uint8_t keep);
+#pragma rodata-name (pop)
+#pragma code-name (pop)
 static void cmd_run(const char *p)
 {
     uint8_t d; uint32_t a; const char *q = p;
+    if (*p && prog_running && !swapping) { swap_run(p, 1); return; }   /* from inside a program: not over it */
     while (ishex(*q)) q++;
     if (*p) {                                     /* a name first (RUN FACE, RUN 2048 are programs if they exist), else hex */
         char name[NAMEMAX]; uint8_t st; const char *q2 = p;
@@ -1229,7 +1245,6 @@ static void cmd_cpm(const char *p)
  * MAP. One level deep. */
 #define SWAPRAM 0x0FD00000UL
 #define SWAPSCR 0x0FD10000UL
-static uint8_t swapping;
 /* SWAP command            run it over this program, then put this one back
  * SWAP -k command         ...and leave on the screen whatever it drew
  *
@@ -1242,6 +1257,10 @@ static void cmd_swap(const char *p)
     if (p[0] == '-' && (p[1] | 0x20) == 'k' && (p[2] == ' ' || !p[2])) { p += 2; skipsp(&p); keep = 1; }
     if (!*p) { error("swap: swap command"); return; }
     if (swapping) { error("swap: no nesting"); return; }
+    swap_run(p, keep);
+}
+static void swap_run(const char *p, uint8_t keep)   /* SWAP's work: save, the line, restore -- in ONE frame (below) */
+{
     /* The save must fire from HERE, not from inside dma_copy: the image
      * includes the zero page, and the zero page holds cc65's stack pointer.
      * Taken inside a call it records a pointer 12 bytes lower than this
@@ -1257,6 +1276,7 @@ static void cmd_swap(const char *p)
     shell_line(p);
     if (!keep) dma_copy(SWAPSCR, SCREEN, 180UL * 67 * 4);
     else jat(cx, cy);                          /* the console kept what the command drew: JIM follows the ROM again */
+    far_poke(SWAPRAM + 0x03FF, SHELL_RC);             /* the command's result survives the restore: a script reads it */
     /* The restore overwrites the stack, so it must not be triggered from
      * inside a call: the returning JSR would find the SAVED return address
      * under it and jump back to the save, round and round. Set the registers
@@ -1924,7 +1944,22 @@ static void shell_line(const char *p)
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
       if (getname(&q, name)) {                              /* only a .prg as typed: TRACE.TXT typed alone loaded 5 MB over the machine (review 2026-09-12) */
-          uint8_t st = is_prg(name) ? do_load(name, USER, 0) : 1;
+          uint8_t st;
+          /* From inside a program, a word that names a program (by STAT: nothing
+           * loaded yet) runs through SWAP -k, not over the caller.  Inline, in
+           * this block's own name[]: this is the deepest the ROM's 512-byte C
+           * stack goes (a program's shell call, inside the shell that ran it),
+           * and a helper with a frame of its own ran it into the ROM's variables
+           * -- a REXX script's unknown word came back as garbage (2026-10-05). */
+          if (prog_running && !swapping) {
+              uint8_t n = (uint8_t) strlen(name);
+              if (!is_prg(name) && n < NAMEMAX - 5) { name[n] = '.'; name[n + 1] = 'p'; name[n + 2] = 'r'; name[n + 3] = 'g'; name[n + 4] = 0; }
+              REG(FS + 4) = (uint8_t)(uint16_t) name; REG(FS + 5) = (uint8_t)((uint16_t) name >> 8); REG(FS + 6) = 0; REG(FS + 7) = 0;
+              st = (uint8_t) !fs_cmd(8);
+              name[n] = 0;
+              if (st) { swap_run(p0, 1); return; }
+          }
+          st = is_prg(name) ? do_load(name, USER, 0) : 1;
           if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }
           if (!st && last_run) { args_tail = q; run_at(last_run); args_tail = 0; return; }
       } }

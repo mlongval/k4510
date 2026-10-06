@@ -32,4 +32,10 @@ BBC
 echo "$out" | grep -q "BBCTEST PASSED" || { echo "$out"; echo "basictest: FAILED: BBC BASIC"; exit 1; }
 echo "$out" | grep -q "STAR OK" || { echo "$out"; echo "basictest: FAILED: BBC BASIC * escape"; exit 1; }
 rm -f fs/TESTOUT.TXT fs/LANG/BBCBASIC/TESTOUT.TXT
-echo "basictest: OK (EhBASIC 34 checks + SAVE + *, BBC BASIC 28 checks + files + ULA graphics/sound + *; both verbose, both PASSED)"
+# *PROG from EhBASIC: PROG takes $0800-$CFFF, over the interpreter, and the
+# BASIC came back to PROG's bytes and ran wild (Doc, the Dell, 2026-10-05).
+# The shell now swaps a program that runs a program out of the way first.
+keys=$(python3 -c "import sys; sys.stdout.write('EHBASIC\n~~10 PRINT \"STILL HERE\"\n~*PROG\n~~~~\x11~~~~PRINT 6*7\n~~RUN\n~~')")
+out=$(./test/headless rom/kernal.bin "$keys" 1200 2>&1)
+echo "$out" | grep -q "^ 42" && echo "$out" | grep -q "^STILL HERE" || { echo "$out"; echo "basictest: FAILED: *PROG did not come back to EhBASIC with its program"; exit 1; }
+echo "basictest: OK (EhBASIC 34 checks + SAVE + *, BBC BASIC 28 checks + files + ULA graphics/sound + *, *PROG and back; both verbose, both PASSED)"

@@ -11252,3 +11252,25 @@ for the many); "do all".
 - test/screentest.sh: the session takes keys and answers, the OSC comes
   back to K/OS with its keys, the bands name both screens with the date, a
   note reaches the bottom band, an ended session says so.
+
+## 2026-10-05 -- *PROG from EhBASIC: the shell swaps a program that runs a program
+
+Doc, on the Dell: GRAPH3D ran, *EDIT renumbered it, then *PROG "crashed the
+same way" -- the 45GS10 found executing BASIC's data ($51xx, $B9xx), read
+out of the running emulator's memory without disturbing it.  PROG takes
+$0800-$CFFF and EhBASIC lives at $0800-$BFFF: *PROG went to the shell as a
+plain line and PROG was loaded over the interpreter.  *VI and *EDIT were
+safe only because EhBASIC sends those as SWAP itself (REXX does the same).
+Not new: alpha-0.7 had it.
+
+The shell now does it for every caller: a line from inside a program
+(prog_running) that runs a program -- RUN name, or a bare word naming a
+.prg (by STAT, nothing loaded) -- goes through SWAP -k (swap_run, cmd_swap's
+body split out).  SWAP also carries the command's result ($03FF) across its
+restore.  basictest: *PROG, Ctrl+Q, and EhBASIC still has its program.
+
+The first version put the check in a helper with a name-sized local, and
+rxtest's unknown word came back as garbage: a program's shell call inside the
+shell that ran it is the deepest the ROM's 512-byte C stack ($0600-$07FF)
+goes, and that frame ran it into the ROM's variables.  Inline in the block's
+own name[] it fits.  The stack's margin is now a known risk (docs/TODO.md).

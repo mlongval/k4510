@@ -4,10 +4,11 @@
 # on EhBASIC, plus the Byte Sieve in C and the CHROUT benchmark, all run
 # headless and timed by the machine's own frame counter (so host speed does
 # not matter).  Usage: test/benchmarks.sh [name ...]   (default: all)
+# K4510_ROM=file runs them on another ROM (a before-and-after).
 cd "$(dirname "$0")/.." || exit 1
 run_bas() {   # $1 = file in fs/
     printf '%-10s ' "$1"
-    test/headless rom/kernal.bin "load ehbasic.prg
+    test/headless "${K4510_ROM:-rom/kernal.bin}" "load ehbasic.prg
 run
 
 LOAD \"$1\"
@@ -16,7 +17,7 @@ RUN
 }
 run_prg() {   # $1 = .prg in fs/
     printf '%-10s ' "$1"
-    test/headless rom/kernal.bin "load $1
+    test/headless "${K4510_ROM:-rom/kernal.bin}" "load $1
 run
 " 36000 DONE 2>/dev/null | grep -E "TIME:|primes|ch/s" | sed 's/^ *//' | tr '\n' ' '; echo
 }

@@ -72,8 +72,8 @@ int main(int argc, char **argv)
     for (int i = 0, n = scr_rows(); i < n; i++) { char r[241]; row(i, r); if (*r) printf("%s\n", r); }
     { const char *d = getenv("K4510_DUMP"); if (d) { unsigned long a, n; if (sscanf(d, "%lx,%lx", &a, &n) == 2) { printf("dump $%06lX:", a); for (unsigned long i = 0; i < n; i++) { uint8_t b = mem_peek(a + i); printf(i % 32 ? " %02X" : "\n%02X", b); } printf("\n"); } } }
     if (getenv("K4510_EXITDUMP")) dbg_dump("headless exit");
-    if (getenv("K4510_FENCE")) fprintf(stderr, "[fence: C stack deepest $%04X of $%04X-$%04X, %u bytes; trips %u; 6502 stack down to $%04X]\n",
-                                       mem_fence.low, mem_fence.floor, mem_fence.top, (unsigned)(mem_fence.top - mem_fence.low), mem_fence.trips, mem_fence.hw_low);
+    if (getenv("K4510_FENCE")) fprintf(stderr, "[fence: C stack deepest $%04X of $%04X-$%04X, %u bytes; trips %u; 6502 stack: K/OS down to $%04X, programs to $%04X]\n",
+                                       mem_fence.low, mem_fence.floor, mem_fence.top, (unsigned)(mem_fence.top - mem_fence.low), mem_fence.trips, mem_fence.hw_low, mem_fence.prog_low);
     fprintf(stderr, "[%d frames%s]\n", fr, marker ? (seen ? ", marker seen" : ", TIMEOUT") : "");
     return marker && !seen ? 2 : 0;
 }

@@ -32,6 +32,18 @@ extern uint8_t *k4510_ram;          /* K4510_PHYS_SIZE bytes, lazily committed *
 #define K4510_ROM_PHYS   0x0FFF0000u
 extern uint32_t mem_rom_base;        /* first ROM address in the CPU view; set by mem_load_rom */
 #define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
+/* K/OS's workspace (2026-10-06): 1 KB of RAM in the I/O page, $DB00-$DEFF,
+ * where no device is.  Visible wherever the I/O is -- so whenever the ROM
+ * runs, whatever a program has banked.  The ROM keeps its base page and its
+ * C stack there.  The bytes are the RAM under the I/O page at the same
+ * addresses, physical $00DB00-$00DEFF: a buffer on the ROM's C stack has the
+ * same address for the CPU as for DMA and the devices, which take physical
+ * ones (the first try put the workspace elsewhere, and every file name the
+ * shell built on its stack was read by the file device as empty), and SWAP's
+ * 64 KB image includes it, as it included the old stack at $0600. */
+#define K4510_WS_LO      0xDB00u
+#define K4510_WS_SIZE    0x0400u
+#define K4510_WS_PHYS(a) (a)
 
 int      mem_init(void);                                /* 0 on success */
 void     mem_reset(void);                               /* MAP off, etc. */
@@ -85,7 +97,9 @@ extern uint8_t  far_depth, far_err; /* nesting depth; last error: 1 overflow, 2 
 typedef struct {
     uint8_t  on, zp, page, trips;   /* armed; the pointer's base-page address; the base page it lives in ($00 or the B the ROM runs with) */
     uint16_t floor, top, low;       /* the lowest allowed; the pointer when armed; the deepest access seen */
-    uint16_t hw_low;                /* the lowest S (16-bit: SPH:SPL) seen while ROM code ran */
+    uint16_t hw_low;                /* the lowest S (SPH:SPL) seen while ROM code ran on its own stack page */
+    uint16_t hw_page;               /* that page: the one the ROM's stack was on when it armed the fence */
+    uint16_t prog_low;              /* the lowest S on page 1 seen while a program's own code ran */
 } mem_fence_t;
 extern mem_fence_t mem_fence;
 void    mem_fence_write(uint8_t r, uint8_t v);   /* r: $00-$0F of the fence's registers */

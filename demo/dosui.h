@@ -260,7 +260,16 @@ static void ptr_on(void)
     chh = (uint8_t)((REG(0xD010) & 0x60) ? 16 : 8);
 }
 static void ptr_off(void) { REG(V_SPRCTL) = 0; REG(MOUSEPTR) = 0; }
-static uint8_t event(void)
+static uint8_t event_wait(void);
+static uint8_t event(void)                              /* what happens next; what it draws is shown whole (jc_hold) */
+{
+    uint8_t k;
+    jc_hold(0);
+    k = event_wait();
+    jc_hold(1);
+    return k;
+}
+static uint8_t event_wait(void)
 {
     uint8_t k, b, r, c; unsigned x, y; int8_t w;
     jc_at(wcx, wcy);                                    /* the cursor where the program left it, not where drawing did */

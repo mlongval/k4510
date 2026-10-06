@@ -1002,6 +1002,7 @@ static const char sys_version[16] = K4510_BUILD;
  * sets it: 0 = a desktop (or a container on one), 1 = the K4510 Linux. */
 int io_host_kind;
 uint8_t io_battery = 0xFF;    /* $D53A: none until the frontend finds one */
+uint8_t io_net = 0xFF, io_net_q;   /* the network, for the bottom band: NET_*, $FF not known; Wi-Fi's link quality, % */
 /* ---- the sound sequencer ($D5E0-$D5E3) ---------------------------------
  * The BBC Micro's four queued sound channels, in K4510 silicon. Write CH
  * ($D5E0: low nibble = channel, bit 4 = flush that channel's queue first,

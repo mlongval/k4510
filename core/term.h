@@ -44,7 +44,10 @@
  * 48;5;n with n < 16 the palette's own entry n (SGR's ANSI order reaches only
  * twelve of the sixteen), ESC[?4510l puts xterm's meaning back; SGR 11 draws
  * the bytes $00-$1F and $7F as their glyphs (all but BS HT LF VT FF CR SO SI ESC: the
- * Linux console's display-control flag), SGR 10 stops.  A reset clears both. */
+ * Linux console's display-control flag), SGR 10 stops.  A reset clears both.
+ * And the terminals' synchronized update, 2026-10-06: ESC[?2026h holds the
+ * glass at the last whole picture while a program redraws, ESC[?2026l shows
+ * the new one at once (half a second at most; a reset ends it). */
 #ifndef K4510_TERM_H
 #define K4510_TERM_H
 #include <stddef.h>
@@ -83,4 +86,5 @@ void    term_cursor_unpark(int was);
 }
 #endif
 int     term_cell_h(void);                      /* 8 or 16: the pty's window size says so in pixels, for programs that draw pictures */
+int  term_hold(void);       /* 1: the screen that is up is mid-update (ESC [ ? 2026 h): VICKY keeps the last frame's lines */
 #endif

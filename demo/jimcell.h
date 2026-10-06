@@ -66,6 +66,11 @@ static void jc_ch(uint8_t c)                           /* a glyph at JIM's curso
 }
 static void jc_cell(uint8_t x, uint8_t y, uint8_t g, uint8_t f, uint8_t b) { jc_at(x, y); jc_col(f, b); jc_ch(g); }
 static void jc_cursor(uint8_t on) { jc_str(on ? "\x1b[?25h" : "\x1b[?25l"); }
+/* A synchronized update (ESC [ ? 2026 h ... l, core/term.c): while it is held
+ * the glass keeps the last whole picture, so a redraw that takes longer than
+ * a frame -- a window of text, scrolled -- is never seen half done.  Hold it
+ * from the moment a key arrives, let go when waiting for the next. */
+static void jc_hold(uint8_t on) { jc_str(on ? "\x1b[?2026h" : "\x1b[?2026l"); }
 static void jc_start(void)
 {
     jc_cols = REG(JC_TERM + 5); jc_rows = REG(JC_TERM + 6);   /* the window's size: read, as a terminal's is asked */

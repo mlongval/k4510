@@ -67,6 +67,14 @@ extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
  *                    desktop, the browser build).  The frontend reads it from the host
  *                    every ten seconds; K/OS draws "nn%" and an arrow at the right of the bottom band. */
 extern uint8_t io_battery;
+/* The network the machine's Linux has, for the bottom band (2026-10-06, Doc:
+ * "a WIFI or Network indicator ... bottom right"): set by the frontend every
+ * ten seconds from /sys/class/net.  $FF: not known (headless). */
+extern uint8_t io_net, io_net_q;
+#define NET_NONE  0               /* nothing up */
+#define NET_WIRED 1               /* a cable */
+#define NET_WIFI  2               /* Wi-Fi, its link quality in io_net_q (%) */
+#define NET_OTHER 3               /* up, but neither: a container's veth, a VPN alone */
 #define IO_MATH        0xD700u   /* $D700-$D7FF  FRED, the math unit: float registers + MEGA65-style mul/div */
 #define IO_FAR         0xDF00u   /* $DF00-$DFFF  far-call gate (K-02)    */
 /* BANK registers: $D600 + 4n, n = 0..7, one per 8 KB block of the CPU view.

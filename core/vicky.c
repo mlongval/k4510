@@ -1,6 +1,7 @@
 #include "vicky.h"
 #include "mem.h"
 #include "io.h"
+#include "term.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -420,6 +421,7 @@ void vicky_line(int y)
     cur_line = y;
     sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
+    if (__builtin_expect(term_hold(), 0)) return;          /* a synchronized update in progress: the line stays as the last frame drew it */
     uint8_t *line = frame_fb + y * frame_pitch;
     uint8_t ctrl = reg[VR_CTRL];
     /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
@@ -486,6 +488,13 @@ void vicky_repaint(uint8_t *fb, int pitch)
     memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16);
     frame_fb = sfb; frame_pitch = spitch; cur_line = sline; sh_wait = swait; sh_pc = spc; raster_cmp = scmp;
 }
+
+/* The end of a synchronized update (ESC [ ? 2026 l, core/term.c): the whole
+ * picture drawn now, from RAM as it stands, into this frame's buffer.  The
+ * lines the hold skipped would otherwise wait for the next frame -- and a
+ * program that holds again at once (the next key is already queued) would
+ * never let one be drawn. */
+void vicky_commit(void) { if (frame_fb) vicky_repaint(frame_fb, frame_pitch); }
 
 void vicky_end_frame(void)
 {

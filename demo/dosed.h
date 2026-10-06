@@ -62,6 +62,28 @@ static void where(char *p)                            /* "00012:034": the line a
     p[5] = ':'; v = (unsigned long)cx + 1; for (i = 0; i < 3; i++) { p[8 - i] = (char)('0' + v % 10); v /= 10; }
     p[9] = 0;
 }
+/* The window's rows moved by d (2026-10-06): JIM shifts them itself -- a
+ * scroll region and SU/SD, done in the host -- and the copy in far memory
+ * follows; only the d rows that came in are drawn.  Redrawing every row
+ * through the stream took PROG five frames a line on a long file. */
+#ifdef DOSED_SCROLL_HI
+#pragma code-name (push, "HICODE")                   /* EDIT: at $E000, its main image is full (PROG's $E000 is) */
+#endif
+static void scroll_rows(int d)
+{
+    uint8_t r, n = (uint8_t)(d < 0 ? -d : d);
+    uint16_t w = (uint16_t)(cols * 4);
+    jc_str("\x1b["); jc_num((uint8_t)(wy + 1)); jc_put(';'); jc_num((uint8_t)(wy + th)); jc_put('r');
+    jc_str("\x1b["); jc_num(n); jc_put(d > 0 ? 'S' : 'T');
+    jc_str("\x1b[r"); jc_x = 0xFF;                    /* the region back to the window; the cursor has moved */
+    if (d > 0) for (r = 0; r < th - n; r++) dma_copy(rowaddr((uint8_t)(wy + r + n)), rowaddr((uint8_t)(wy + r)), w);
+    else for (r = (uint8_t)(th - 1); r >= n; r--) dma_copy(rowaddr((uint8_t)(wy + r - n)), rowaddr((uint8_t)(wy + r)), w);
+    if (d > 0) for (r = (uint8_t)(th - n); r < th; r++) text_row(r);
+    else for (r = 0; r < n; r++) text_row(r);
+}
+#ifdef DOSED_SCROLL_HI
+#pragma code-name (pop)
+#endif
 /* Scroll so the cursor shows; redraw what changed; put JIM's cursor on it.
  * Answers 1 when every row was drawn (the program redraws its own then). */
 static uint8_t window(void)
@@ -71,6 +93,15 @@ static uint8_t window(void)
     while (cy >= top + th) top++;
     if (cx < hoff) hoff = cx;
     if (cx >= (unsigned)hoff + tw) hoff = (uint8_t)(cx - tw + 1);
+    if (!full && !selon && !selshown && hoff == lasthoff && lasttop != 0xFFFF && top != lasttop
+        && (top > lasttop ? top - lasttop : lasttop - top) < th / 2) {   /* a few rows: JIM moves them */
+        scroll_rows((int)top - (int)lasttop);
+        if (lastcy != cy && lastcy >= top && lastcy < top + th) text_row((uint8_t)(lastcy - top));
+        text_row((uint8_t)(cy - top));
+        vbar(); hbar();
+        lasttop = top; lastcy = cy;
+        return 0;
+    }
     if (top != lasttop || hoff != lasthoff) full = 1;
     if (selon || selshown) { full = 1; if (selon) sel_order(); }
     selshown = selon;

@@ -572,6 +572,7 @@ static void apple_panel_click(int act)
  * driver (KMSDRM draws its own cursor): SDL's rect where it works, and a warp
  * back to the edge on any motion that got out anyway. */
 static int confine_on; static SDL_Rect confine_r;
+static int present_force = 1, frame_static;   /* still frames: draw the window again; nothing around the picture moves */
 static int confine_clamp(int *x, int *y)          /* 1 if (x,y) was outside and has been brought to the edge */
 {
     int cx = *x, cy = *y;
@@ -723,7 +724,7 @@ static void bands_overlay(void)
         echo_banded = 1;
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
             char buf[64]; snprintf(buf, sizeof buf, " %s%.*s", echo_tag, echo_len, echo_txt);
-            band_text(rows - 1, 0, cols - 14, buf, stride, rh, cw, y0);
+            band_text(rows - 1, 0, cols - 26, buf, stride, rh, cw, y0);   /* clear of the network and the battery */
         }
     }
 }
@@ -886,6 +887,51 @@ static void host_battery_poll(void)
     }
     io_battery = pct < 0 ? 0xFF : (uint8_t)((pct > 100 ? 100 : pct) | (ac ? 0x80 : 0));
     battery_info();
+}
+/* The network for the bottom band (io_net), every ten seconds: a cable that
+ * is up wins, then Wi-Fi with its link quality (/proc/net/wireless, out of
+ * 70), then anything else up but the loopback (a container's veth, a VPN).
+ * K4510_NET ("wifi:77", "lan", "net", "none") stands in, for a test.
+ * Doc, 2026-10-06: "a WIFI or Network indicator in one of the bars". */
+static void host_net_poll(void)
+{
+    static Uint32 at; static int first = 1;
+    if (!first && SDL_GetTicks() - at < 10000) return;
+    first = 0; at = SDL_GetTicks();
+    const char *fake = getenv("K4510_NET");
+    if (fake) {
+        if (!strncmp(fake, "wifi", 4)) { int q = fake[4] == ':' ? atoi(fake + 5) : 70; io_net = NET_WIFI; io_net_q = (uint8_t)(q < 0 ? 0 : q > 100 ? 100 : q); }
+        else io_net = !strcmp(fake, "lan") ? NET_WIRED : !strcmp(fake, "net") ? NET_OTHER : NET_NONE;
+        return;
+    }
+    int wired = 0, other = 0, wq = -1; char path[300], buf[64];
+    DIR *d = opendir("/sys/class/net");
+    if (!d) { io_net = 0xFF; return; }
+    struct dirent *de;
+    while ((de = readdir(d))) {
+        if (de->d_name[0] == '.' || !strcmp(de->d_name, "lo")) continue;
+        snprintf(path, sizeof path, "/sys/class/net/%s/operstate", de->d_name);
+        FILE *f = fopen(path, "r"); if (!f) continue;
+        if (!fgets(buf, sizeof buf, f)) buf[0] = 0; fclose(f);
+        int up = !strncmp(buf, "up", 2);
+        if (!up && strncmp(buf, "unknown", 7)) continue;                 /* a tun device says unknown while it works */
+        snprintf(path, sizeof path, "/sys/class/net/%s/wireless", de->d_name);
+        int wifi = access(path, F_OK) == 0;
+        snprintf(path, sizeof path, "/sys/class/net/%s/device", de->d_name);
+        int phys = access(path, F_OK) == 0;
+        if (wifi && up) {
+            FILE *w = fopen("/proc/net/wireless", "r"); int q = 0;
+            if (w) { char line[256]; size_t nl = strlen(de->d_name);
+                     while (fgets(line, sizeof line, w)) { char *p = line; while (*p == ' ') p++;
+                         if (!strncmp(p, de->d_name, nl) && p[nl] == ':') { float lq = 0; if (sscanf(p + nl + 1, "%*s %f", &lq) == 1) q = (int)(lq * 100 / 70); } }
+                     fclose(w); }
+            if (q > wq) wq = q;
+        } else if (phys && up) wired = 1;
+        else if (up) other = 1;
+    }
+    closedir(d);
+    io_net = wired ? NET_WIRED : wq >= 0 ? NET_WIFI : other ? NET_OTHER : NET_NONE;
+    io_net_q = (uint8_t)(wq < 0 ? 0 : wq > 100 ? 100 : wq);
 }
 /* F12 -> Host -> Keyboard layout and F12 -> Input -> Caps Lock is Ctrl, for the
  * Linux beside the machine: its consoles at once (k4510-keymap --set writes
@@ -1267,7 +1313,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             case SDL_QUIT: mlog("quit: SDL_QUIT (the window closed, or a SIGTERM)"); running = 0; break;
             case SDL_WINDOWEVENT:
                 if (e.window.event == SDL_WINDOWEVENT_FOCUS_LOST) grab(0);   /* alt-tab always frees the pointer */
+                present_force = 1;                                       /* exposed, resized, moved: draw the window again (still frames) */
                 break;
+            case SDL_RENDER_TARGETS_RESET: case SDL_RENDER_DEVICE_RESET: present_force = 1; break;
             case SDL_MOUSEMOTION:
                 if (confine_on && !SDL_GetRelativeMouseMode()) {        /* off the picture: back to its edge; the warp's own event follows */
                     int wx, wy; SDL_GetMouseState(&wx, &wy);
@@ -1781,6 +1829,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           if (open && (!host_open_was || SDL_GetTicks() - host_read_at >= 2000)) { host_info_refresh(); host_read_at = SDL_GetTicks(); }
           host_open_was = open; host_reap(); }
         host_battery_poll();                                          /* $D53A, every ten seconds */
+        host_net_poll();                                              /* the band's network, the same */
         { static Uint32 beat_at; static unsigned long loops; loops++;  /* the heartbeat: a freeze is the beats stopping */
           if (SDL_GetTicks() - beat_at >= 10000) { char b[96]; beat_at = SDL_GetTicks();
               snprintf(b, sizeof b, "alive: %lu loops, Tube %s, menu %s", loops, (io_read(IO_TUBE) & 1) ? "running" : "idle", open ? "open" : "shut");
@@ -1937,9 +1986,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * and the texture already holds it: skip the 307,200 lookups (review
          * 2026-09-05, 9).  A still screen at the prompt is most frames. */
         const int gw = vicky_glass_w(), gh = vicky_glass_h();   /* the glass: 640x480, or an HD mode's own size */
+        int tex_same = 0;                                       /* the picture is the last frame's (still frames, below) */
         { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1, last_gw, last_gh;
           if (!tex_stale && open == last_open && gw == last_gw && gh == last_gh
-              && !memcmp(fb, last_fb, sizeof fb) && (!open || !memcmp(ov, last_ov, sizeof ov))) goto tex_done;
+              && !memcmp(fb, last_fb, sizeof fb) && (!open || !memcmp(ov, last_ov, sizeof ov))) { tex_same = 1; goto tex_done; }
           tex_stale = 0; last_open = open; last_gw = gw; last_gh = gh;
           memcpy(last_fb, fb, sizeof fb); if (open) memcpy(last_ov, ov, sizeof ov); }
         if (SDL_LockTexture(tex, NULL, &pixels, &pitch) != 0) goto tex_done;   /* checked, as every other lock here is: pixels is garbage otherwise */
@@ -1955,6 +2005,25 @@ tex_done:
         if (screen_req) { screen_req = 0; screen_save(); }                                                         /* the text screen, as text: no flash, it is not a picture */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
+        /* Still frames (2026-10-06).  When the picture is the last frame's and
+         * nothing around it moves -- a plain border, no side panel, no menu,
+         * no key echo, the window and the settings as they were -- the window
+         * already shows this frame: drawing and presenting it again was 3 ms
+         * of every idle frame on the Dell.  Skipped, the display keeps what it
+         * has.  A window event, a screenshot, or a second since the last full
+         * frame (the sidebars' timer lives in there) draws it again. */
+        int echo_vis = echo_len && !echo_banded && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel;
+        { static uint32_t last_sig; static Uint32 last_full; static int captures = -1;
+          int ow = 0, oh = 0; SDL_GetRendererOutputSize(ren, &ow, &oh);
+          uint32_t sig = 2166136261u;
+          #define SIG(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
+          SIG(gw); SIG(gh); SIG(ow); SIG(oh); SIG(open); SIG(echo_vis); SIG(border_lit); SIG(smooth_applied); SIG(fullscreen_applied);
+          SIG(settings_get(SET_VIDEO_BORDER)); SIG(settings_get(SET_VIDEO_SIDEBARS)); SIG(settings_get(SET_VIDEO_PLACE)); SIG(io_tube_kind());
+          #undef SIG
+          if (captures < 0) captures = getenv("K4510_GLASS") || getenv("K4510_SHOT") || getenv("K4510_NOSTILL");   /* NOSTILL: every frame drawn, to measure against */
+          Uint32 tn = SDL_GetTicks();
+          if (tex_same && frame_static && sig == last_sig && !present_force && !shot_flash && !captures && tn - last_full < 1000) goto frame_still;
+          last_sig = sig; present_force = 0; last_full = tn; }
         { int b = settings_get(SET_VIDEO_BORDER) * gw / 640;     /* the border's pixels are 640-glass pixels */
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
           geo_b = b;                                             /* for the mouse */
@@ -2357,7 +2426,9 @@ tex_done:
           /* the key pipe's echo: a bar at the foot of the window, in device
            * pixels (out of the logical mapping, as the glass capture below
            * steps), the panel's CP437 font at 1-3x for the window's height */
-          if (echo_len && !echo_banded && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel) {   /* until four seconds after the last key; the bottom band has it when there is one */
+          /* what moves by itself is drawn every frame; with none of it, a frame can stand still (above) */
+          frame_static = sb_side[0] == SIDEBAR_BORDER && sb_side[1] == SIDEBAR_BORDER && panel_kind == PANEL_OFF && !open && !echo_vis;
+          if (echo_vis) {   /* until four seconds after the last key; the bottom band has it when there is one */
               static SDL_Texture *etex; static int etw, eth;
               char eline[64]; int en = snprintf(eline, sizeof eline, " %s%.*s ", echo_tag, echo_len, echo_txt);
               int tw = en * 8, th = font_panel_rows;
@@ -2425,6 +2496,7 @@ tex_done:
             shot_flash--;
         }
         SDL_RenderPresent(ren);
+frame_still:
         p_pres += SDL_GetPerformanceCounter() - p_a;
         /* The hand pacer runs whether or not vsync is on, and the two cannot
          * fight, because it is a FLOOR and not a cadence: it sleeps only when

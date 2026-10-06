@@ -42,6 +42,7 @@ static void ui_start(void);
 #define ED_SCREEN_BACK() ui_start()
 #include "ed.h"
 #include "dosui.h"
+#define DOSED_SCROLL_HI                                /* dosed.h's scroll_rows at $E000 */
 #include "dosed.h"
 static uint8_t vimode;                                /* VI's keys: Options, or -v */
 #define DOSVI_P1 0x08D00000UL                        /* the two overlays (demo/edit-header.s): beside the Open list's */

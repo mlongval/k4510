@@ -66,6 +66,7 @@ static term_t *tp = &TS[0];
 #define T (*tp)
 static int vis;                                         /* the screen VICKY shows: 0 K/OS, 1 the terminal */
 #define VISIBLE (tp == &TS[vis])
+static uint8_t sync_on[2], sync_age[2];             /* ESC [ ? 2026: a synchronized update, per screen (mode(), below) */
 static uint32_t band_sig;                               /* the bands as last drawn (bands_tick, at the end) */
 static int scr_req = -1;                                /* a screen asked for (OSC, $DA18), for io to act on */
 
@@ -181,6 +182,7 @@ void term_tick(void)
      * at most the last second of the log. */
     { static unsigned n; if (++n % 60 == 0) { FILE *lg = termlog(); if (lg) fflush(lg); } }
     bands_tick(0);                              /* the bands are JIM's (below) */
+    for (int s = 0; s < 2; s++) if (sync_on[s] && ++sync_age[s] >= 30) sync_on[s] = 0;   /* half a second: show it anyway */
     tp = &TS[vis];                              /* the cursor blinks on the screen that is up */
     if (T.shown) {
         T.frames++;
@@ -203,6 +205,7 @@ static void soft_reset(void)
     T.wrap = 1; T.origin = 0; T.ckm = 0; T.insert = 0; T.pending = 0;
     T.g0 = T.g1 = 0; T.shift = 0;
     T.paldirect = T.dispctl = 0;
+    sync_on[tp - TS] = 0;                       /* DECSTR ends a held update too */
     T.st = 0; T.npar = 0;
     reset_tabs();
     memset(&T.saved, 0, sizeof T.saved); T.saved.fg = T.fg; T.saved.bg = T.bg;
@@ -342,6 +345,15 @@ static void sgr(void)
         }
     }
 }
+/* Synchronized update, ESC [ ? 2026 h ... l (2026-10-06): the terminals'
+ * own convention (kitty, foot, WezTerm, tmux) for "hold the screen while I
+ * redraw it".  PROG scrolling a long file redrew the whole window through
+ * JIM's stream, a frame's worth of bytes, and the picture showed it half
+ * done.  While it is set on the screen that is up, VICKY leaves the lines
+ * it has not yet drawn as the last frame had them (term_hold); half a
+ * second without the l, and the screen is shown anyway.  Not in T: a save
+ * state does not carry a redraw in progress. */
+int term_hold(void) { return sync_on[vis]; }
 static void mode(int on)
 {
     for (int i = 0; i < T.npar; i++) {
@@ -352,6 +364,9 @@ static void mode(int on)
             else if (v == 7) T.wrap = (uint8_t) on;
             else if (v == 25) T.shown = (uint8_t) on;
             else if (v == 4510) T.paldirect = (uint8_t) on;
+            else if (v == 2026) { int s = (int)(tp - TS), was = sync_on[s];
+                                  sync_on[s] = (uint8_t) on; sync_age[s] = 0;
+                                  if (was && !on && s == vis) vicky_commit(); }   /* the finished picture, shown whole at once */
         } else if (v == 4) T.insert = (uint8_t) on;
         else if (v == 20) T.lnm = (uint8_t) on;          /* LNM */
     }
@@ -984,7 +999,7 @@ static void bands_tick(int force)
     time_t now = time(NULL); struct tm m; localtime_r(&now, &m);
     uint32_t sig = 2166136261u;
     #define MIX(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
-    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(f); MIX(b);
+    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
     MIX(TS[0].deffg); MIX(TS[0].defbg); MIX(vis); MIX(screen2_shown()); MIX(vicky_palette_gen());
     MIX(m.tm_min); MIX(m.tm_hour); MIX(m.tm_mday); MIX(m.tm_mon); MIX(m.tm_year);
     for (const char *q = band_note; *q; q++) MIX(*q);
@@ -1030,13 +1045,25 @@ static void bands_tick(int force)
     }
     if (bot) {
         bfill(last, cols, f, b);
-        int end = cols - 6;
-        if (band_note[0]) bstr(1, last, end > 1 ? end : cols, band_note, f, b);
+        int right = cols;                                                                /* the first cell the right-hand things take */
         if (io_battery != 0xFF) {                                                        /* "nn%" and up (on mains) or down */
             char bt[8]; int n = snprintf(bt, sizeof bt, "%d%%", io_battery & 0x7F);
             bstr(cols - 1 - n, last, cols, bt, f, b);
             bcell(cols - 1, last, (io_battery & 0x80) ? 0x18 : 0x19, f, b);
+            right = cols - 1 - n;
         }
+        if (io_net != 0xFF) {                                                            /* the network, left of the battery */
+            char nt[16]; int n;
+            switch (io_net) {
+            case NET_WIFI:  n = snprintf(nt, sizeof nt, "Wi-Fi %d%%", io_net_q); break;
+            case NET_WIRED: n = snprintf(nt, sizeof nt, "LAN"); break;
+            case NET_OTHER: n = snprintf(nt, sizeof nt, "Net"); break;
+            default:        n = snprintf(nt, sizeof nt, "offline"); break;
+            }
+            if (right - n - 2 > cols / 2) { bstr(right - n - 2, last, right, nt, f, b); right = right - n - 2; }
+        }
+        { int end = right - 1;                                                           /* the note, left, up to them */
+          if (band_note[0] && end > 1) bstr(1, last, end, band_note, f, b); }
     }
 }
 void term_bands_redraw(void) { band_sig = 0; }

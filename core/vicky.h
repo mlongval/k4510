@@ -210,6 +210,7 @@ void     vicky_render(uint8_t *fb, int pitch);        /* one full frame (tests) 
 void     vicky_begin_frame(uint8_t *fb, int pitch);
 void     vicky_line(int y);                           /* render line y, run SHEILA, raise IRQs */
 void     vicky_end_frame(void);                       /* vblank */
+void     vicky_commit(void);                          /* the picture, whole, now: the end of a synchronized update (core/term.c) */
 int      vicky_glass_w(void);                         /* this frame's glass, latched at its start: 640x480, */
 int      vicky_glass_h(void);                         /* or an HD mode's own size; the frame has vicky_glass_h() lines */
 void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */

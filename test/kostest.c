@@ -31,6 +31,7 @@ int main(void)
     if (!realpath("fs", root) || !mkdtemp(tmp)) { printf("kostest: no fs/ or no temp dir\n"); return 1; }
     io_set_opts(SYSOPT_NOBOOT);
     mem_init(); fs_set_root(root); mem_load(K4510_FONT8_PHYS, font, 2048);
+    { uint8_t f16[4096]; FILE *g16 = fopen("data/fonts/unscii/font16-unscii.bin", "rb"); if (g16) { if (fread(f16, 1, 4096, g16) == 4096) mem_load(K4510_FONT16_PHYS, f16, 4096); fclose(g16); } }   /* MODE 0's 8x16 cells: the pictures below are compared */
     CHECK(mem_load_rom(getenv("K4510_ROM") ? getenv("K4510_ROM") : "rom/kernal.bin") >= 24576, "rom");   /* K4510_ROM: try another (a before-and-after) */
     if (chdir(tmp)) { printf("kostest: chdir\n"); return 1; }   /* the fence's dump lands here, not in the user's dumps/ */
     cpu65_reset(); frames(40);
@@ -77,7 +78,21 @@ int main(void)
       CHECK(mem_fence.trips == 0 && mem_fence.low == mem_fence.top, "the reset did not clear the measure");
       type("cd /\n"); type("time\n"); frames(30);
       CHECK(mem_fence.trips == 0, "the old floor still tripped"); }
+    /* a synchronized update (ESC [ ? 2026 h ... l, core/term.c): held, the glass
+     * keeps the last picture; let go, the new one is drawn at once */
+    { static uint8_t snap[sizeof fb]; const char *s;
+      frames(2); memcpy(snap, fb, sizeof fb);
+      for (s = "\x1b[?2026h\x1b[5;5HHELD HELD HELD"; *s; s++) io_write(0xDA00, (uint8_t) *s);
+      frames(3);
+      CHECK(!memcmp(snap, fb, sizeof fb), "ESC[?2026h did not hold the picture");
+      for (s = "\x1b[?2026l"; *s; s++) io_write(0xDA00, (uint8_t) *s);
+      CHECK(memcmp(snap, fb, sizeof fb), "ESC[?2026l did not show the new picture at once");
+      for (s = "\x1b[?2026h"; *s; s++) io_write(0xDA00, (uint8_t) *s);
+      frames(32); memcpy(snap, fb, sizeof fb);
+      for (s = "XXXX"; *s; s++) io_write(0xDA00, (uint8_t) *s);
+      frames(2);
+      CHECK(memcmp(snap, fb, sizeof fb), "a hold never let go did not end by itself"); }
     remove("dumps/dump-001.txt"); rmdir("dumps"); if (chdir("/")) { } rmdir(tmp);
-    printf(fails ? "kostest: %d FAILED\n" : "kostest: OK (K/OS on base page $06 and stack page 7; a program's zero page and page 1 are its own; the fence measures, shows in INFO -m, trips and dumps)\n", fails);
+    printf(fails ? "kostest: %d FAILED\n" : "kostest: OK (K/OS on base page $06 and stack page 7; a program's zero page and page 1 are its own; the fence measures, shows in INFO -m, trips and dumps; a synchronized update holds, shows at once, and ends by itself)\n", fails);
     return fails ? 1 : 0;
 }

@@ -11415,3 +11415,43 @@ of it; the header is read, not loaded).  BUG and KOMMANDER kept buffers in
 the RAM under themselves at $0800 and now have them as arrays.  The MAP
 window at $2000 (map_window, unused by any program on prg.cfg) covers a
 program over 6 KB now; demo/k4510.h says so.
+
+## 2026-10-06 -- still frames; PROG's scrolling; the network in the bottom band
+
+**Still frames** (sdl/main.c).  The texture was already skipped when the
+picture had not changed, but the window was still drawn and presented every
+frame -- 3 ms of each idle frame on the Dell, after WAIT the biggest cost
+left.  Now, when the picture is the last frame's and nothing around it moves
+(a plain border, no side panel, menu or key echo, the window and the
+settings as they were), the frame is not drawn again: the display keeps
+what it has.  Any window event, a screenshot, or a second since the last
+full frame (the sidebars' timer lives in that code) draws it again.  The
+SDL frontend idle at the prompt under Xvfb (software rendering), 19 s:
+41.1 CPU-seconds drawing every frame, 5.7 with still frames.
+K4510_NOSTILL=1 draws every frame, to measure against.
+
+**PROG's scrolling** (Doc: "scrolling long documents in PROG causes some
+screen artefacting").  Two things.  Since everything draws through JIM,
+EDIT/PROG/WORD redrew the whole text window, row by row through the
+stream, for every line scrolled: about five frames a line on INVADER2.BAS,
+and VICKY drew the screen half-redrawn in between (frame captures showed
+lines with the old text's tail and the scroll bar overwritten).
+- JIM has the terminals' synchronized update: ESC[?2026h holds the glass
+  (VICKY leaves the lines as the last frame drew them, term_hold), and
+  ESC[?2026l repaints the whole picture at once (vicky_commit, through
+  vicky_repaint) -- so a program that holds again straight away, with the
+  next key queued, still shows each finished picture.  Half a second
+  without the l and the screen is shown anyway; DECSTR ends it.
+  dosui.h's event() lets go while it waits and holds once something has
+  happened (jimcell.h jc_hold).
+- dosed.h scrolls the window by moving rows inside JIM (a scroll region and
+  SU/SD, done in the host; the far-memory copy follows by DMA) and draws
+  only the rows that came in.  100 Downs on INVADER2.BAS reach line 100 at
+  frame 245 instead of 508.  (EDIT's main image was full: scroll_rows is in
+  its $E000 part.)
+kostest checks the hold, the immediate commit and the half-second limit.
+
+**The network in the bottom band**, left of the battery: LAN, Wi-Fi and its
+link quality (/proc/net/wireless, out of 70), Net (up, but neither: a
+container, a VPN alone) or offline -- from /sys/class/net every ten
+seconds (sdl/main.c host_net_poll; K4510_NET stands in for a test).

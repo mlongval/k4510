@@ -11625,3 +11625,21 @@ on the charger.  1-5:
 
 The rest of the review (Tailscale's relay, kernel-line housekeeping, the
 frame loop at rest, FBC, the charge limit) is in docs/TODO.md.
+
+## 2026-10-06 -- a screenshot of the whole display too
+
+Doc: "can you fix the screenshots not grabbing the whole display?  Is it a
+good idea to grab all of it?"  The screenshot is the machine's picture, from
+the framebuffer: exact, the same size in every mode, what the handbook and
+the tests want -- and blind to everything the frontend draws round it.  The
+border bug this afternoon (bars 555555, border 333333) could not be seen in
+one.  So both: PrtSc or SIGUSR1 still writes shots/shot-<time>.png, and the
+same frame's render, read back before it is presented (and before the
+flash), goes beside it as shot-<time>-full.png -- border, sides, bands, the
+key echo, at the display's own size (1920x1080 is 6 MB, stored deflate).
+The PNG writer is shared (png_write).  tools/k4510-shot still prints the
+machine's picture, which k4510-remote copies; --full prints the other.
+
+Checked under Xvfb: a 1600x900 fullscreen window with a 24-pixel border
+comes out 1600x900 with the border colour at its edge; k4510-shot and
+k4510-shot --full name the right files.  Not checked: KMSDRM on the Dell.

@@ -54,6 +54,7 @@
 static volatile sig_atomic_t shot_req;
 static int caps_ctrl_down;          /* F12 -> Input -> Caps Lock is Ctrl: the key is held now */
 static int shot_flash;              /* frames left of the screenshot's screen invert */
+static int shot_full;               /* the whole display is to be read back this frame (shot_save_full) */
 /* F12 -> Input -> Key pipe, "on, shown": keys typed from outside (the KEYS
  * pipe, tools/k4510-type) are echoed in a bar at the foot of the window --
  * the last few dozen, gone four seconds after the last -- so nobody types
@@ -245,19 +246,11 @@ static void png_chunk(FILE *f, const char *type, const uint8_t *data, uint32_t l
     if (len) c = png_crc(c, data, len);
     png_be32(b, c ^ 0xFFFFFFFFu); fwrite(b, 1, 4, f);
 }
-static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal, const uint32_t *upal) {
+/* RAW is H rows of 1 + W*3 bytes, each led by its filter byte (none), as PNG
+ * wants them; written to PATH (through PATH.tmp, renamed when whole). */
+static void png_write(const char *path, const uint8_t *raw, int W, int H) {
     enum { BLK = 65535 };
-    const int W = vicky_glass_w(), H = vicky_glass_h(), ROW = 1 + W * 3;   /* the glass, whatever the mode */
-    static uint8_t raw[VICKY_HEIGHT * (1 + VICKY_WIDTH * 3)];
-    const size_t rawlen = (size_t) H * (size_t) ROW;
-    for (int y = 0; y < H; y++) {
-        uint8_t *d = raw + y * ROW; *d++ = 0;                      /* filter: none */
-        for (int x = 0; x < W; x++) {
-            int o = ov ? ov[(y * UI_H / H) * UI_W + x * UI_W / W] : 0;
-            uint32_t p = o ? upal[o] : pal[src[y * VICKY_WIDTH + x]];
-            *d++ = (uint8_t)(p >> 16); *d++ = (uint8_t)(p >> 8); *d++ = (uint8_t) p;
-        }
-    }
+    const size_t rawlen = (size_t) H * (size_t)(1 + W * 3);
     size_t nblk = (rawlen + BLK - 1) / BLK;
     uint8_t *z = malloc(2 + rawlen + nblk * 5 + 4), *q = z;
     if (!z) return;
@@ -271,11 +264,7 @@ static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal
         for (size_t i = 0; i < n; i++) { a = (a + raw[off + i]) % 65521; b = (b + a) % 65521; }
     }
     png_be32(q, b << 16 | a); q += 4;                              /* Adler-32 of the rows */
-    char path[64], tmp[72]; struct timeval tv; struct tm tm;
-    gettimeofday(&tv, NULL); localtime_r(&tv.tv_sec, &tm);
-    mkdir("shots", 0755);
-    size_t l = strftime(path, sizeof path, "shots/shot-%Y%m%d-%H%M%S", &tm);
-    snprintf(path + l, sizeof path - l, "-%03ld.png", (long)(tv.tv_usec / 1000));
+    char tmp[96];
     snprintf(tmp, sizeof tmp, "%s.tmp", path);                    /* renamed when whole: k4510-shot waits for the .png */
     FILE *f = fopen(tmp, "wb");
     if (f) {
@@ -288,6 +277,43 @@ static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal
         else remove(tmp);
     }
     free(z);
+}
+/* The name both pictures of one screenshot share: shots/shot-<date>-<time>-<ms> */
+static char shot_base[64];
+static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal, const uint32_t *upal) {
+    const int W = vicky_glass_w(), H = vicky_glass_h(), ROW = 1 + W * 3;   /* the glass, whatever the mode */
+    static uint8_t raw[VICKY_HEIGHT * (1 + VICKY_WIDTH * 3)];
+    for (int y = 0; y < H; y++) {
+        uint8_t *d = raw + y * ROW; *d++ = 0;                      /* filter: none */
+        for (int x = 0; x < W; x++) {
+            int o = ov ? ov[(y * UI_H / H) * UI_W + x * UI_W / W] : 0;
+            uint32_t p = o ? upal[o] : pal[src[y * VICKY_WIDTH + x]];
+            *d++ = (uint8_t)(p >> 16); *d++ = (uint8_t)(p >> 8); *d++ = (uint8_t) p;
+        }
+    }
+    struct timeval tv; struct tm tm; char path[72];
+    gettimeofday(&tv, NULL); localtime_r(&tv.tv_sec, &tm);
+    mkdir("shots", 0755);
+    size_t l = strftime(shot_base, sizeof shot_base, "shots/shot-%Y%m%d-%H%M%S", &tm);
+    snprintf(shot_base + l, sizeof shot_base - l, "-%03ld", (long)(tv.tv_usec / 1000));
+    snprintf(path, sizeof path, "%s.png", shot_base);
+    png_write(path, raw, W, H);
+}
+/* ...and the whole display beside it, <name>-full.png: the window or screen as
+ * the renderer has it -- border, sides, bars, the key echo -- read back before
+ * it is shown (Doc, 2026-10-06: the border was a different grey from the bars,
+ * and the machine's picture could not show it).  W x H device pixels, ARGB. */
+static void shot_save_full(const uint32_t *px, int W, int H) {
+    uint8_t *raw = malloc((size_t) H * (size_t)(1 + W * 3));
+    char path[80];
+    if (!raw) return;
+    for (int y = 0; y < H; y++) {
+        uint8_t *d = raw + (size_t) y * (size_t)(1 + W * 3); *d++ = 0;
+        for (int x = 0; x < W; x++) { uint32_t p = px[(size_t) y * W + x]; *d++ = (uint8_t)(p >> 16); *d++ = (uint8_t)(p >> 8); *d++ = (uint8_t) p; }
+    }
+    snprintf(path, sizeof path, "%s-full.png", shot_base);
+    png_write(path, raw, W, H);
+    free(raw);
 }
 
 #define SCALE 2
@@ -2032,7 +2058,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         }
         SDL_UnlockTexture(tex);
 tex_done:
-        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); shot_flash = 4; }   /* what the texture holds */
+        if (shot_req) { shot_req = 0; shot_save(fb, open ? ov : NULL, open ? mpal : pal, upal); shot_flash = 4; shot_full = 1; }   /* what the texture holds; the whole display below */
         if (screen_req) { screen_req = 0; screen_save(); }                                                         /* the text screen, as text: no flash, it is not a picture */
         p_tex += SDL_GetPerformanceCounter() - p_a;
         p_a = SDL_GetPerformanceCounter();
@@ -2508,6 +2534,18 @@ tex_done:
           { static Uint64 t0; static unsigned n; Uint64 now = SDL_GetPerformanceCounter(); n++;
             if (!t0) t0 = now;
             else if (now - t0 >= SDL_GetPerformanceFrequency()) { panel_fps = (double)n * SDL_GetPerformanceFrequency() / (double)(now - t0); t0 = now; n = 0; } }
+          if (shot_full) {                     /* the screenshot's second picture: the display, before the flash is drawn over it */
+              shot_full = 0;
+              int fw = 0, fh = 0; SDL_GetRendererOutputSize(ren, &fw, &fh);
+              uint32_t *fp = fw > 0 && fh > 0 ? malloc((size_t) fw * fh * 4) : NULL;
+              if (fp) {
+                  if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);    /* device units, as K4510_GLASS reads them */
+                  int rc = SDL_RenderReadPixels(ren, NULL, SDL_PIXELFORMAT_ARGB8888, fp, fw * 4);
+                  if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                  if (rc == 0) shot_save_full(fp, fw, fh);
+                  free(fp);
+              }
+          }
           /* K4510_GLASS=file.ppm:frames -- the whole window as the renderer has it, panel and bars included */
           { static const char *glass; static int glass_fr, glass_init;
             if (!glass_init) { glass_init = 1; glass = getenv("K4510_GLASS"); if (glass) { const char *c = strrchr(glass, ':'); glass_fr = c ? atoi(c + 1) : 120; } }

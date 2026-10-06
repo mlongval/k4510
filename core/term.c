@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <math.h>
 #include <time.h>
 
 #define NPAR 16
@@ -269,6 +270,46 @@ static void index_up(void)
 static void linefeed(void) { index_down(); T.pending = 0; }
 
 /* ---- printing --------------------------------------------------------------- */
+/* Readable colour from a Unix host (2026-10-06).  Doc is protan -- "the red
+ * looks muddy, like a brown" -- and ANSI red is the VIC-II's 880000, 1.3:1 on
+ * the blue background for anyone and 1.2:1 for him.  Contrast here is WCAG's
+ * ratio, taken as normal eyes see the pair and as protan eyes do (Machado
+ * 2009, full strength; the lower of the two counts), and a character under
+ * 4.5:1 takes the lighter or darker entry of its own hue if that reads
+ * better; under 2.5:1 even so, white or black.  So red on blue draws light
+ * red, and a palette with a clearer light red (CLEAR.PAL) gets it read. */
+#define CONTRAST_GOOD  4.5f
+#define CONTRAST_FLOOR 2.5f
+static const uint8_t pal_lighter[16] = { 11, 1, 10, 3, 4, 13, 14, 7, 8, 8, 10, 12, 15, 13, 14, 1 };
+static const uint8_t pal_darker[16]  = { 0, 15, 2, 3, 4, 5, 6, 7, 9, 9, 2, 0, 11, 5, 6, 12 };
+static float lum_n[16], lum_p[16];
+static uint32_t lum_gen = 0xFFFFFFFFu;
+static float srgb_lin(uint32_t c) { float v = (float)(c & 255) / 255.0f; return v <= 0.04045f ? v / 12.92f : powf((v + 0.055f) / 1.055f, 2.4f); }
+static void lum_update(void)
+{
+    if (lum_gen == vicky_palette_gen()) return;
+    lum_gen = vicky_palette_gen();
+    for (int i = 0; i < 16; i++) {
+        uint32_t c = vicky_palette_rgb(i);
+        float r = srgb_lin(c >> 16), g = srgb_lin(c >> 8), b = srgb_lin(c);
+        lum_n[i] = 0.2126f * r + 0.7152f * g + 0.0722f * b;
+        lum_p[i] = 0.1140f * r + 0.7827f * g + 0.1034f * b;   /* Machado's protan matrix, then the same weights */
+    }
+}
+static float ratio_of(float a, float b) { return a > b ? (a + 0.05f) / (b + 0.05f) : (b + 0.05f) / (a + 0.05f); }
+static float pal_ratio(int f, int b) { float n = ratio_of(lum_n[f], lum_n[b]), p = ratio_of(lum_p[f], lum_p[b]); return n < p ? n : p; }
+static uint8_t readable_fg(uint8_t fg, uint8_t bg)
+{
+    if (fg > 15 || bg > 15) return fg;
+    lum_update();
+    float best = pal_ratio(fg, bg);
+    if (best >= CONTRAST_GOOD) return fg;
+    uint8_t pick = fg, alt[2] = { pal_lighter[fg], pal_darker[fg] };
+    for (int i = 0; i < 2; i++) { float r = pal_ratio(alt[i], bg); if (r > best) { best = r; pick = alt[i]; } }
+    if (best >= CONTRAST_FLOOR) return pick;
+    return pal_ratio(1, bg) >= pal_ratio(0, bg) ? 1 : 0;
+}
+
 static void print_char(uint8_t ch)
 {
     uint8_t fg = T.fg, bg = T.bg, attr = 0;
@@ -278,13 +319,11 @@ static void print_char(uint8_t ch)
     if (T.rev) { uint8_t t = fg; fg = bg; bg = t; }
     /* A Unix program's ANSI blue is the machine's own blue background (both
      * C64 colour 6), so Claude Code's inline code -- ESC[34m -- drew blue on
-     * blue and vanished (the Dell, 2026-09-12).  In a UTF-8 session (a Unix
-     * host) a character whose colour IS its background takes the bright one,
-     * or white/black.  A BBS (CP437) keeps its exact colours: art may mean it. */
-    if (T.utf8 && fg == bg) {
-        for (int i = 0; i < 8; i++) if (apal[i] == fg) { fg = apalb[i]; break; }
-        if (fg == bg) fg = (bg == 1) ? 0 : 1;
-    }
+     * blue and vanished (the Dell, 2026-09-12); its red is not much better.
+     * In a UTF-8 session (a Unix host) a character too close to its
+     * background is made readable (readable_fg, above).  A BBS (CP437) keeps
+     * its exact colours: art may mean it. */
+    if (T.utf8 && ch != ' ') fg = readable_fg(fg, bg);
     if (T.uline) attr |= 0x00;           /* text32 has no underline; kept for the day it does */
     if (T.pending) {                     /* the VT100 way: the wrap happens as the next character lands */
         if (T.wrap) { T.cx = 0; linefeed(); } else T.cx = (uint8_t)(T.cols - 1);

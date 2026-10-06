@@ -1,0 +1,31 @@
+# CLEAR -- the VIC-II sixteen made readable, for protan eyes as well
+# (Doc, 2026-10-06: "the red looks muddy, like a brown").
+#
+# Every colour a program writes text in reads at 4.5:1 or better on the
+# blue, as normal eyes see it and as protan eyes do.  The blue is a little
+# darker, which lifts everything on it.  Red goes pink -- to protan eyes a
+# blue-grey, not the VIC-II red's dark olive -- and grey is lighter than it,
+# so the two do not meet.  Orange goes towards yellow, green a little
+# lighter; purple and light blue lighter.  Red and brown stay dark: they
+# are backgrounds (white reads on both).  Load it with PALETTE LOAD CLEAR,
+# or put that line in your /STARTUP.BAT.
+#
+# index rr gg bb, all hex.  A file only changes the entries it names.
+#
+COLOR 7 6
+0 00 00 00
+1 FF FF FF
+2 CC 22 55
+3 AA FF EE
+4 DD 77 FF
+5 44 DD 88
+6 00 00 88
+7 EE EE 77
+8 FF 99 22
+9 66 44 11
+A FF 77 BB
+B 33 33 33
+C AA AA AA
+D AA FF 66
+E 55 AA FF
+F CC CC CC

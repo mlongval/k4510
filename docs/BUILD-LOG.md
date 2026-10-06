@@ -11511,3 +11511,33 @@ still frames, idle frames, the sidebars at 30, the OPL2 asleep in silence
 C programs at $0800; JIM's synchronized update and EDIT/PROG/WORD scrolling
 in JIM; the network in the bottom band; the plain top band; Pascal's graph
 unit in the HD modes.  The version says 0.8.
+
+## 2026-10-06 -- colour for protan eyes: JIM keeps text readable, CLEAR.PAL
+
+Doc is colour-blind, protan by his own account: "the red looks muddy and
+like a brown", and the green like dark grey.  The numbers agree.  ANSI red is
+the VIC-II's 880000: 1.3:1 on the blue background for anyone, and as Machado
+2009 simulates protan sight, a dark olive at 1.2:1.  Light red (FF7777) and
+orange come out a khaki grey at 3.6-3.7:1; purple 2.5, grey 2.6, light blue
+3.8.  4.5:1 is the usual floor for text.
+
+**JIM** (core/term.c, readable_fg): in a Unix session a character whose
+colour reads under 4.5:1 on its background -- WCAG's ratio, the lower of
+normal and protan sight -- takes the lighter or darker entry of its hue if
+that reads better, and white or black if even that is under 2.5:1.  It
+replaces the blue-on-blue rule of 2026-09-12, which it covers.  Red on blue
+draws light red; dark grey (Claude Code's hints) grey; black white.  A BBS
+keeps its exact colours, as before.  Recomputed only when the palette changes.
+
+**CLEAR.PAL**: the sixteen with every text colour at 4.5:1 or better on the
+blue for both kinds of sight.  The blue darker (000088), which lifts all of
+them; red pink (FF77BB light, CC2255 dark) -- a blue-grey to protan eyes
+instead of olive -- and grey lighter than it (AAAAAA), so the two do not
+meet; orange towards yellow, green, purple and light blue lighter.  Red and
+brown stay dark for white to read on.  Not the default: the machine's
+pictures are the VIC-II's.  `PALETTE LOAD CLEAR`, or that line in
+/STARTUP.BAT.  Handbook ch. 2 says so.
+
+Checked: termtest (red, dark grey, black on blue; green and yellow left
+alone; a light background darkens; a BBS exact), palettetest (CLEAR loads),
+make test.  Not checked: on the Dell, with his eyes.

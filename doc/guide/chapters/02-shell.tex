@@ -484,7 +484,11 @@ in colour~1 (directories in \verb|DIR|, the banner) and they must stay
 brighter than the text. \texttt{C64} is the machine's own sixteen, as
 it boots them, and \texttt{PEPTO} is the same sixteen as Philip
 Timmermann measured them off a real C64 --- duller, warmer, and what one
-looked like on a television. A palette file is
+looked like on a television. \texttt{CLEAR} is the sixteen made
+readable for colour-blind eyes (protan, red-blind, most of all): every
+colour a program writes text in reads at 4.5:1 or better on a slightly
+darker blue, red goes pink, so it no longer passes for a muddy brown,
+and grey sits lighter than it. A palette file is
 plain text --- an index and three hex bytes to a line, \verb|#| for a
 comment --- and names only the entries it changes;
 \verb|PALETTE SAVE name| writes one of yours. \verb|PALETTE LOAD| in \pth{/STARTUP.BAT}

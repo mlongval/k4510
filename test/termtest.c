@@ -140,14 +140,24 @@ int main(void)
     term_host_session(1);
     send("\033[34mA\033[m");
     CHECK(cell(0, 0)[2] == 14 && cell(0, 0)[3] == 6, "blue on blue in a Unix session draws light blue (fg %d bg %d)", cell(0, 0)[2], cell(0, 0)[3]);
-    send("\033[38;5;196mR\033[38;2;0;205;0mG\033[38;5;244mY\033[m");   /* 256-colour red, truecolour green, a 256 grey */
+    send("\033[38;5;196mR\033[38;2;0;205;0mG\033[47;38;5;244mY\033[m");   /* 256-colour red, truecolour green, a 256 grey (on white, to read) */
     CHECK(cell(1, 0)[2] == 10 && cell(2, 0)[2] == 5, "256-colour red -> bright red, truecolour green -> green (%d %d)", cell(1, 0)[2], cell(2, 0)[2]);
     CHECK(cell(3, 0)[2] == apalb_test(0), "a 256-colour grey -> dark grey (%d)", cell(3, 0)[2]);
     send("\033[38;2;0;0;0;1mB\033[m");                          /* truecolour black then bold: the 1 is SGR, not a colour */
     CHECK(cell(4, 0)[0] == 'B', "truecolour consumes its three values");
+    /* Readable for protan eyes too (Doc, 2026-10-06): red on blue is 1.3:1 and
+     * draws light red; dark grey takes grey; black, with nothing of its hue
+     * that reads, white; green and yellow read as they are; a light
+     * background darkens instead. */
+    send("\033[H\033[2B\033[31mr\033[90mg\033[30mk\033[32mG\033[33mY\033[47;93my\033[m");
+    CHECK(cell(0, 2)[2] == 10, "red on blue -> light red (%d)", cell(0, 2)[2]);
+    CHECK(cell(1, 2)[2] == 12, "dark grey on blue -> grey (%d)", cell(1, 2)[2]);
+    CHECK(cell(2, 2)[2] == 1, "black on blue -> white (%d)", cell(2, 2)[2]);
+    CHECK(cell(3, 2)[2] == 5 && cell(4, 2)[2] == 7, "green and yellow on blue unchanged (%d %d)", cell(3, 2)[2], cell(4, 2)[2]);
+    CHECK(cell(5, 2)[2] != 7 && cell(5, 2)[3] == 1, "yellow on white takes a darker entry (%d on %d)", cell(5, 2)[2], cell(5, 2)[3]);
     term_host_session(0);
-    send("\033[34mb\033[m");                                    /* CP437 (a BBS): exact, even blue on blue */
-    CHECK(cell(5, 0)[2] == 6, "outside a Unix session blue on blue stays exact (%d)", cell(5, 0)[2]);
+    send("\033[H\033[5C\033[34mb\033[31mr\033[m");                   /* CP437 (a BBS): exact, even blue on blue */
+    CHECK(cell(5, 0)[2] == 6 && cell(6, 0)[2] == 2, "outside a Unix session blue and red on blue stay exact (%d %d)", cell(5, 0)[2], cell(6, 0)[2]);
     send("\033[>c"); drain(rep); CHECK(!strcmp(rep, "\033[>1;10;0c"), "DA2 answer '%s'", rep + 1);
     send("\033[c");  drain(rep); CHECK(!strncmp(rep, "\033[?62", 5), "DA1 still answers DA1");
     printf("10. host colours, 256/truecolour, DA2: ok\n");

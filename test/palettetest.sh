@@ -31,6 +31,14 @@ echo "$out" | grep -q "F FFB000" || fail "the amber ramp did not reach entry F"
 # ramp it must be bright, or they print black on black (Doc, 2026-09-12)
 echo "$out" | grep -q "1 FFB000" || fail "AMBER entry 1 (the highlight) is not bright"
 
+# CLEAR, for protan eyes (Doc, 2026-10-06): red pink, the blue darker
+out=$(./test/headless rom/kernal.bin 'PALETTE LOAD CLEAR
+PALETTE
+' 1500 2>&1) || fail "PALETTE LOAD CLEAR did not run"
+echo "$out" | grep -q "palette: 16 entries" || fail "CLEAR.PAL was not found"
+echo "$out" | grep -q "A FF77BB" || fail "CLEAR's light red is not FF77BB"
+echo "$out" | grep -q "6 000088" || fail "CLEAR's blue is not 000088"
+
 # ...and survives a mode change, which is the whole point
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD GREY
 MODE 2
@@ -74,4 +82,4 @@ PT
 ' 900 2>&1) || fail "ALIAS did not run"
 echo "$out" | grep -q "alias-intact" || fail "the alias engine broke (bank 2 collision?)"
 
-echo "palettetest: OK (VIC-II at boot, .PAL loads with its COLOR line, survives MODE, RESET restores, COLOR refuses the unreadable, a dim .PAL gets a readable pair, aliases intact)"
+echo "palettetest: OK (VIC-II at boot, .PAL loads with its COLOR line, CLEAR loads, survives MODE, RESET restores, COLOR refuses the unreadable, a dim .PAL gets a readable pair, aliases intact)"

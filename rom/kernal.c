@@ -988,6 +988,10 @@ static void info_mem(void)
           if (!any) { pad(8); puts_("banks:"); any = 1; }
           puts_(" "); putdec(b); puts_("=$"); puthex28(r32(BANK + 4 * b)); }
       if (any) newline(); }
+    { uint16_t lo = r16(SYS + 0x54), top = r16(SYS + 0x59);       /* the stack fence (core/mem.h) */
+      pad(8); puts_("K/OS C stack: "); putdec(top - lo); puts_(" of "); putdec(top - r16(SYS + 0x52)); puts_(" bytes used at most");
+      if (REG(SYS + 0x56)) { puts_(", OVERFLOWED "); putdec(REG(SYS + 0x56)); puts_("x"); }
+      puts_("; 6502 stack down to $"); puthex16(r16(SYS + 0x57)); newline(); }
     if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); if (last_run) { puts_(", run $"); puthex16(last_run); } newline(); }
 }
 

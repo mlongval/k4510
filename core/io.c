@@ -1203,6 +1203,7 @@ static uint8_t sys_read(uint8_t r)
     if (r == 0x34) return dbg_watch_ctl;
     if (r == 0x35) return dbg_watch_hits;
     if (r == 0x3A) return io_battery;        /* the host's battery: % in bits 0-6, bit 7 on AC / charging, $FF none */
+    if (r >= 0x50 && r <= 0x5A) return mem_fence_read((uint8_t)(r - 0x50));   /* the stack fence (core/mem.h) */
     if (r == 0x43) return idea_next();        /* IDEA: the brainshot's name, a byte at a time, then 0 */
     if (r == 0xF0) return (uint8_t)dbg_num;
     if (r == 0xF2) return (uint8_t)dbg_auto;
@@ -2462,6 +2463,7 @@ void io_write(uint16_t addr, uint8_t v)
         if ((addr & 0xFF) == 0x40) title_char(v);                     /* the title: a character for the top entry's name */
         if ((addr & 0xFF) == 0x41) title_cmd(v);                      /* the title: 1 push, 2 pop, 3 empty the top, 4 K/OS */
         if ((addr & 0xFF) == 0x44) title_file_char(v);                /* the title: the top entry's file -- 0 clears, a character adds */
+        if ((addr & 0xFF) >= 0x50 && (addr & 0xFF) <= 0x54) mem_fence_write((uint8_t)((addr & 0xFF) - 0x50), v);   /* the stack fence */
         if ((addr & 0xFF) == 0x42) idea_add(v);                       /* IDEA: a character of the idea */
         if ((addr & 0xFF) == 0x43) idea_write(v);                     /* IDEA: 1 write it, 2 an empty one for VI */
         if ((addr & 0xFF) == 0x28) adopt_req = 1;                     /* SETUP: keep the clock in force as this host's measured clock */

@@ -72,5 +72,23 @@ uint8_t  mem_bank_mask(void);                           /* bit n: block n banked
 extern uint32_t far_table;          /* 28-bit phys of the descriptor table ($DF80-$DF83) */
 extern uint8_t  far_depth, far_err; /* nesting depth; last error: 1 overflow, 2 underflow, 3 bad slot */
 
+/* ---- the stack fence (2026-10-06) -------------------------------------
+ * The ROM is C, and C keeps a stack of its own: memory and a pointer in the
+ * base page.  It once overflowed into the ROM's own variables and nothing
+ * said so (*PROG from EhBASIC, 2026-10-05).  The fence is a register the ROM
+ * arms at reset ($D550-$D55A, core/io.h): it names its stack pointer and the
+ * lowest address the stack may reach.  Every instruction the ROM executes
+ * that reaches memory through that pointer -- (sp),Y and (sp),Z -- is
+ * checked: the deepest address is kept (INFO -m shows the margin), and one
+ * below the floor is a trip, said on stderr and written as a dump.  The
+ * lowest hardware stack pointer seen while the ROM ran is kept too. */
+typedef struct {
+    uint8_t  on, zp, page, trips;   /* armed; the pointer's base-page address; the base page it lives in ($00 or the B the ROM runs with) */
+    uint16_t floor, top, low;       /* the lowest allowed; the pointer when armed; the deepest access seen */
+    uint16_t hw_low;                /* the lowest S (16-bit: SPH:SPL) seen while ROM code ran */
+} mem_fence_t;
+extern mem_fence_t mem_fence;
+void    mem_fence_write(uint8_t r, uint8_t v);   /* r: $00-$0F of the fence's registers */
+uint8_t mem_fence_read(uint8_t r);
 
 #endif

@@ -28,6 +28,13 @@ reset:  sei
         sta sp
         lda #>(__STK_START__ + __STK_SIZE__)
         sta sp+1
+        stz $D551               ; the stack fence (core/mem.h): the pointer is in base page $00,
+        lda #<__STK_START__     ; its stack may not reach below __STK_START__
+        sta $D552
+        lda #>__STK_START__
+        sta $D553
+        lda #<sp                ; and the pointer's address, which arms it
+        sta $D550
         jsr copydata
         jsr zerobss
         jsr initlib

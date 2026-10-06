@@ -2185,7 +2185,7 @@ void dbg_watch_hit(void)
 static uint16_t dbg_pcs[DBG_PCS]; static uint32_t dbg_pci;
 static uint8_t dbg_keys[DBG_KEYS]; static uint32_t dbg_keyi;
 static char dbg_log[DBG_LOG]; static uint32_t dbg_logi;
-void dbg_pc(uint16_t pc) { dbg_pcs[dbg_pci++ & (DBG_PCS - 1)] = pc; }
+void dbg_pc(uint16_t pc) { dbg_pcs[dbg_pci++ & (DBG_PCS - 1)] = pc; if (XEMU_UNLIKELY(mem_fence.deep)) mem_fence_fetch(pc); }   /* ...and the fence's deep mode (core/mem.h) */
 extern int dbg_rec;
 static void dbg_key(uint8_t k) { dbg_keys[dbg_keyi++ & (DBG_KEYS - 1)] = k; }
 static void dbg_logc(uint8_t c) { dbg_log[dbg_logi++ & (DBG_LOG - 1)] = (char)c; }
@@ -2231,7 +2231,7 @@ int dbg_dump(const char *why)
       }
       fprintf(f, "\n"); }
     fprintf(f, "\nZERO PAGE:\n"); for (int i = 0; i < 256; i += 32) { fprintf(f, "%02X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
-    fprintf(f, "K/OS BASE PAGE $DB00 (its zero page, the B register's; ARGS at $DB30):\n"); for (int i = 0; i < 64; i += 32) { fprintf(f, "%04X:", 0xDB00 + i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[0xDB00 + i + j]); fprintf(f, "\n"); }
+    fprintf(f, "K/OS BASE PAGE $0600 (its zero page, the B register's; ARGS at $0630):\n"); for (int i = 0; i < 64; i += 32) { fprintf(f, "%04X:", 0x0600 + i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[0x0600 + i + j]); fprintf(f, "\n"); }
     fprintf(f, "K/OS STACK $0700-$07FF:\n"); for (int i = 0x700; i < 0x800; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fprintf(f, "STACK $0100-$01FF:\n"); for (int i = 0x100; i < 0x200; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fprintf(f, "$0300-$04FF (EhBASIC vectors, input buffer, K4510 glue state):\n"); for (int i = 0x300; i < 0x500; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }

@@ -34,8 +34,8 @@ extern uint32_t mem_rom_base;        /* first ROM address in the CPU view; set b
 #define K4510_IO_PAGE    0xD000u     /* $D000-$DFFF: I/O, see io.h */
 /* K/OS's workspace -- 1 KB of RAM in the I/O page, $DB00-$DEFF (2026-10-06),
  * where no device is.  Visible wherever the I/O is -- so whenever the ROM
- * runs, whatever a program has banked.  The ROM keeps its base page and its
- * C stack there.  The bytes are the RAM under the I/O page at the same
+ * runs, whatever a program has banked.  The ROM keeps its C stack there (its
+ * base page was there too at first, and cost the host 6-7%: it is at $0600).  The bytes are the RAM under the I/O page at the same
  * addresses, physical $00DB00-$00DEFF: a buffer on the ROM's C stack has the
  * same address for the CPU as for DMA and the devices, which take physical
  * ones (the first try put the workspace elsewhere, and every file name the
@@ -105,6 +105,7 @@ typedef struct {
 } mem_fence_t;
 extern mem_fence_t mem_fence;
 extern uint32_t cpu65_fence_zp;                  /* the watched pointer's CPU address, $10000 off (cpu65.c's hook) */
+void    mem_fence_fetch(uint16_t pc);           /* deep mode: every opcode fetch, through dbg_pc */
 void    mem_fence_write(uint8_t r, uint8_t v);   /* r: $00-$0F of the fence's registers */
 uint8_t mem_fence_read(uint8_t r);
 

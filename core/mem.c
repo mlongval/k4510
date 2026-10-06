@@ -205,7 +205,10 @@ void cpu65_fence_hook(Uint16 ea)
 /* K4510_FENCE_DEEP: the 6502 stacks too, exactly -- S at every instruction,
  * the ROM's on its own page and the programs' on page 1.  A measuring mode:
  * it costs about half the emulator's speed, so it is not on by itself. */
-static __attribute__((noinline)) void fence_fetch(uint16_t pc)   /* out of line: inlined in the read callback, it slowed every read by a fifth */
+/* Called from dbg_pc (io.c), the PC recorder's per-fetch hook, which deep
+ * mode arms: a second test of its own in the read callback cost the
+ * emulator 4-5% even off (2026-10-06). */
+void mem_fence_fetch(uint16_t pc)
 {
     uint16_t s = (uint16_t)(cpu65.s | cpu65.sphi);
     if (!rom_phys(pc_phys(pc))) { if (cpu65.sphi == 0x100 && s < mem_fence.prog_low) mem_fence.prog_low = s; return; }   /* a program's own code */
@@ -226,6 +229,7 @@ static void fence_atexit(void)
     fprintf(f, "%04X %04X %04X %04X %04X %u %.120s\n", fence_min, mem_fence.floor, mem_fence.top, fence_hwmin, fence_pmin, fence_trips_all, cmd);
     fclose(f);
 }
+extern int dbg_rec;
 void mem_fence_write(uint8_t r, uint8_t v)
 {
     static int hooked, off = -1, deep;
@@ -237,6 +241,7 @@ void mem_fence_write(uint8_t r, uint8_t v)
     case 0: mem_fence.zp = v; mem_fence.on = v != 0; mem_fence.trips = 0; mem_fence.hw_low = mem_fence.prog_low = 0xFFFF; mem_fence.hw_page = cpu65.sphi;
             mem_fence.top = mem_fence.low = (uint16_t)(cpu65_read_callback((uint16_t)(mem_fence.page << 8 | v)) | cpu65_read_callback((uint16_t)(mem_fence.page << 8 | ((v + 1) & 0xFF))) << 8);
             mem_fence.deep = (uint8_t)(mem_fence.on && deep);
+            if (mem_fence.deep) dbg_rec = 1;                               /* dbg_pc calls mem_fence_fetch */
             cpu65_fence_zp = mem_fence.on ? (Uint32)(mem_fence.page << 8 | v) : 0x10000u;
             break;                                                         /* armed: the deepest so far is where the pointer is */
     case 1: mem_fence.page = v; if (mem_fence.on) cpu65_fence_zp = (Uint32)(v << 8 | mem_fence.zp); break;
@@ -272,7 +277,6 @@ Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_UNLIKELY(dbg_rec && addr == cpu65.old_pc)) dbg_pc(addr);   /* opcode fetch: the debug recorder */
-    if (XEMU_UNLIKELY(mem_fence.deep) && addr == cpu65.old_pc) fence_fetch(addr);   /* ...and the stack fence's measuring mode */
     if (XEMU_LIKELY(base == UNMAPPED)) {                          /* the fast path: one compare for I/O, one for ROM */
         if (XEMU_UNLIKELY((addr & 0xF000) == K4510_IO_PAGE)) {
             if (XEMU_UNLIKELY(addr >= FAR_GATE && addr == cpu65.old_pc)) return far_gate(addr);   /* opcode fetch in the gate page */

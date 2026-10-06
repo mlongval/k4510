@@ -11344,3 +11344,29 @@ e67770c).
 New: test/kostest (the base page and stacks, the fence's measure, INFO -m,
 a trip and its dump; on the old ROM 7 of its checks fail, as they should).
 The whole suite passes.
+
+## 2026-10-06 -- the base page moves to $0600; where the host's 6-9% really went
+
+Doc asked why the change cost the emulator 6-9%.  The explanation given
+(K/OS's base page reached through the I/O page) was an inference -- perf is
+not allowed on ubuntu-s1 -- and it was mostly wrong.  The base page is now
+at $0600 (plain RAM; BSS back to $0440-$05FF, the C stack the whole
+workspace, 1024 bytes).  Counted at the idle prompt over 600 frames: reads
+through the I/O page fell from 40.2 M to 26.6 M (the workspace's from 20.3 M
+to 6.7 M, the C stack alone) -- and the time hardly moved (5.85 -> 5.75 s).
+
+Removing pieces one at a time found it: the fence's measuring mode had its
+own test in the read callback (`mem_fence.deep && addr == old_pc`), the
+hottest function in the emulator, and that one test cost 4-5% even off.  It
+rides on the PC recorder's existing test now (dbg_pc calls
+mem_fence_fetch).  Best of five, 1500 frames:
+
+                       9809ec4    base page $DB00   base page $0600
+  idle at the prompt    5.28 s        5.34 s            5.32 s
+  SIEVE.BAS             5.26          5.49              5.49
+  chrout.prg            5.19          5.32              5.32
+
+So 1-4% now, and variants of the read callback swing it by more than that
+either way (one ran at 4.66 s): code layout.  The physical RAM under the
+I/O page at $DB00-$DEFF is K/OS's (the handbook's RAM-under-I/O section
+says so): a program that MAPs block 6 straight under itself must keep off it.

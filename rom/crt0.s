@@ -18,16 +18,16 @@ _ticks:       .res 1
 t0:           .res 1
 
 ; K/OS's own base page and stacks (2026-10-06).  The ROM runs on base page
-; KOS_BP -- the 45GS10's B register relocates every zero-page access -- in
-; its workspace in the I/O page ($DB00-$DEFF, core/mem.h), with its C stack
-; there too, and its 6502 stack on page KOS_SP.  A program keeps base page
+; KOS_BP -- the 45GS10's B register relocates every zero-page access -- and
+; its 6502 stack on page KOS_SP, with its C stack in its workspace in the I/O
+; page ($DB00-$DEFF, core/mem.h).  A program keeps base page
 ; $00 and stack page 1 to itself: the system-call stub switches both, where
 ; it used to copy the ROM's 32 bytes of zero page in and out (zp_in/zp_out,
 ; ~1400 cycles a call).  Only LOAD, SAVE and ARGS carry arguments in the
 ; caller's $F0-$F9; those three copy them through ARGS (args_in/args_out).
-KOS_BP  = $DB                   ; = >__ZP_START__ (k4510.cfg)
+KOS_BP  = $06                   ; the ROM's base page (k4510.cfg: ZP is linked at $02-$2F)
 KOS_SP  = $07                   ; the ROM's 6502 stack page
-ARGS    = $DB30                 ; the caller's $F0-$F9, while a call runs (kernal.c P_NAME...)
+ARGS    = $0630                 ; the caller's $F0-$F9, while a call runs (kernal.c P_NAME...)
         .export ARGS
 
         .segment "STARTUP"

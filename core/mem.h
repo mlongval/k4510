@@ -91,17 +91,20 @@ extern uint8_t  far_depth, far_err; /* nesting depth; last error: 1 overflow, 2 
  * arms at reset ($D550-$D55A, core/io.h): it names its stack pointer and the
  * lowest address the stack may reach.  Every instruction the ROM executes
  * that reaches memory through that pointer -- (sp),Y and (sp),Z -- is
- * checked: the deepest address is kept (INFO -m shows the margin), and one
- * below the floor is a trip, said on stderr and written as a dump.  The
- * lowest hardware stack pointer seen while the ROM ran is kept too. */
+ * checked (a hook in the CPU's address modes, so it costs next to nothing):
+ * the deepest address is kept (INFO -m shows the margin), and one below the
+ * floor is a trip, said on stderr and written as a dump.  The ROM's 6502
+ * stack is noted as it goes; K4510_FENCE_DEEP=1 notes it, and the programs'
+ * page 1, at every instruction instead -- exact, and half the speed. */
 typedef struct {
-    uint8_t  on, zp, page, trips;   /* armed; the pointer's base-page address; the base page it lives in ($00 or the B the ROM runs with) */
+    uint8_t  on, deep, zp, page, trips;   /* deep: K4510_FENCE_DEEP, the 6502 stacks at every instruction (a measuring mode) */   /* armed; the pointer's base-page address; the base page it lives in ($00 or the B the ROM runs with) */
     uint16_t floor, top, low;       /* the lowest allowed; the pointer when armed; the deepest access seen */
     uint16_t hw_low;                /* the lowest S (SPH:SPL) seen while ROM code ran on its own stack page */
     uint16_t hw_page;               /* that page: the one the ROM's stack was on when it armed the fence */
     uint16_t prog_low;              /* the lowest S on page 1 seen while a program's own code ran */
 } mem_fence_t;
 extern mem_fence_t mem_fence;
+extern uint32_t cpu65_fence_zp;                  /* the watched pointer's CPU address, $10000 off (cpu65.c's hook) */
 void    mem_fence_write(uint8_t r, uint8_t v);   /* r: $00-$0F of the fence's registers */
 uint8_t mem_fence_read(uint8_t r);
 

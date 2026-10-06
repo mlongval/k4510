@@ -2338,7 +2338,8 @@ uint8_t io_read(uint16_t addr)
 }
 static uint8_t io_read_inner(uint16_t addr)
 {
-    if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) return k4510_ram[K4510_WS_PHYS(addr)];   /* K/OS's workspace (core/mem.h) */
+    if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) return k4510_ram[K4510_WS_PHYS(addr)];   /* K/OS's workspace (core/mem.h): first, it is the busiest
+                                                                                                   * (tried in mem.c's callbacks instead, it cost more, 2026-10-06) */
     switch (addr & 0xFF00) {
     case IO_VICKY:
         return vicky_read(addr & 0xFF);
@@ -2444,7 +2445,10 @@ const char *io_title(void)
 }
 void io_write(uint16_t addr, uint8_t v)
 {
-    if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) { k4510_ram[K4510_WS_PHYS(addr)] = v; return; }
+    if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) {                       /* K/OS's workspace: RAM (core/mem.h) */
+        if (dbg_watch_ctl && K4510_WS_PHYS(addr) == dbg_watch_addr) dbg_watch_hit();
+        k4510_ram[K4510_WS_PHYS(addr)] = v; return;
+    }
     switch (addr & 0xFF00) {
     case IO_VICKY:
         vicky_write(addr & 0xFF, v); return;

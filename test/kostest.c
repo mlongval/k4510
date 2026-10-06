@@ -1,6 +1,6 @@
 /* K/OS's own base page and stacks (2026-10-06), and the stack fence.
  *
- * The ROM runs on base page $DB and 6502 stack page 7, with its C stack in
+ * The ROM runs on base page $06 and 6502 stack page 7, with its C stack in
  * the workspace at $DB00-$DEFF (rom/crt0.s, core/mem.h); a program has the
  * zero page and page 1 to itself.  This checks that it is so -- a program's
  * zero page survives the ROM, a program run from the prompt finds page 1
@@ -37,10 +37,10 @@ int main(void)
     CHECK(findsub("/]") >= 0, "prompt");
 
     /* the fence is armed, on K/OS's base page, over the workspace's stack */
-    CHECK(mem_fence.on && mem_fence.page == 0xDB && mem_fence.floor == 0xDB40 && mem_fence.top == 0xDF00,
-          "the fence is armed over $DB40-$DF00 on page $DB (on %d page $%02X floor $%04X top $%04X)", mem_fence.on, mem_fence.page, mem_fence.floor, mem_fence.top);
-    /* at the prompt the CPU is K/OS's: base page $DB, stack page 7 */
-    CHECK(cpu65.bphi == 0xDB00 && cpu65.sphi == 0x0700, "at the prompt B = $%04X and SPH = $%04X, not $DB00 and $0700", cpu65.bphi, cpu65.sphi);
+    CHECK(mem_fence.on && mem_fence.page == 0x06 && mem_fence.floor == 0xDB00 && mem_fence.top == 0xDF00,
+          "the fence is armed over $DB00-$DF00 on page $06 (on %d page $%02X floor $%04X top $%04X)", mem_fence.on, mem_fence.page, mem_fence.floor, mem_fence.top);
+    /* at the prompt the CPU is K/OS's: base page $06, stack page 7 */
+    CHECK(cpu65.bphi == 0x0600 && cpu65.sphi == 0x0700, "at the prompt B = $%04X and SPH = $%04X, not $0600 and $0700", cpu65.bphi, cpu65.sphi);
 
     /* A program: LDA #$5A STA $10 / LDA #'X' JSR CHROUT / LDA $10 STA $5F01 /
      * TSX STX $5F02 / TBA STA $5F03 / TSY STY $5F04 / RTS -- at $3000, run
@@ -54,11 +54,11 @@ int main(void)
     CHECK(mem_peek(0x5F02) >= 0xF8, "a program run from the prompt found page 1 used down to $01%02X (K/OS's frames there?)", mem_peek(0x5F02));
     type("cd /\n"); type("time\n"); frames(30);
     CHECK(mem_peek(0x10) == 0x5A, "K/OS wrote the zero page: $10 = $%02X after CD and TIME", mem_peek(0x10));
-    CHECK(cpu65.bphi == 0xDB00 && cpu65.sphi == 0x0700, "back at the prompt B = $%04X and SPH = $%04X", cpu65.bphi, cpu65.sphi);
+    CHECK(cpu65.bphi == 0x0600 && cpu65.sphi == 0x0700, "back at the prompt B = $%04X and SPH = $%04X", cpu65.bphi, cpu65.sphi);
 
     /* the measure: INFO -m says it, and nothing so far came near */
     type("cls\n"); type("info -m\n"); frames(30);
-    CHECK(findsub("K/OS C stack:") >= 0 && findsub("of 960 bytes") >= 0, "INFO -m does not show the C stack's measure");
+    CHECK(findsub("K/OS C stack:") >= 0 && findsub("of 1024 bytes") >= 0, "INFO -m does not show the C stack's measure");
     CHECK(findsub("6502 stack: K/OS down to $07") >= 0, "INFO -m does not show K/OS's own 6502 stack on page 7");
     CHECK(mem_fence.trips == 0 && mem_fence.low > mem_fence.floor + 256, "ordinary use came near the floor (deepest $%04X, %u trips)", mem_fence.low, mem_fence.trips);
     printf("kostest: deepest C stack so far $%04X (%u of %u bytes); K/OS 6502 stack down to $%04X, programs' to $%04X\n",
@@ -78,6 +78,6 @@ int main(void)
       type("cd /\n"); type("time\n"); frames(30);
       CHECK(mem_fence.trips == 0, "the old floor still tripped"); }
     remove("dumps/dump-001.txt"); rmdir("dumps"); if (chdir("/")) { } rmdir(tmp);
-    printf(fails ? "kostest: %d FAILED\n" : "kostest: OK (K/OS on base page $DB and stack page 7; a program's zero page and page 1 are its own; the fence measures, shows in INFO -m, trips and dumps)\n", fails);
+    printf(fails ? "kostest: %d FAILED\n" : "kostest: OK (K/OS on base page $06 and stack page 7; a program's zero page and page 1 are its own; the fence measures, shows in INFO -m, trips and dumps)\n", fails);
     return fails ? 1 : 0;
 }

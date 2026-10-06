@@ -124,14 +124,16 @@ Fixed the same day except these:
       kos-workspace: the stack fence (core/mem.h, INFO -m) measures it, and
       K/OS now runs on its own base page and 6502 stack (B register, SPH)
       with its C stack in a 1 KB workspace in the I/O page, $DB00-$DEFF:
-      960 bytes of C stack, and a system call costs ~1000 cycles less.
+      1024 bytes of C stack (base page at $0600 since the same day), and a
+      system call costs ~1000 cycles less.
       docs/BUILD-LOG.md 2026-10-06 has the numbers.
 
 - [ ] **core/io.c split** into per-chip files (agreed earlier; unblocked).
 - [x] **Zero page relief:** the ROM's base page is its own since
-      2026-10-06: ZP is $02-$2F (46 bytes, was 32), and no copying.
-- [x] **BSS relief:** BSSR is $0440-$06FF since 2026-10-06 (the C stack
-      left $0600); about 380 bytes of 704 used.
+      2026-10-06 ($0600): ZP is $02-$2F (46 bytes, was 32), no copying.
+- [ ] **BSS relief:** BSSR $0440-$05FF, 381 of 448 bytes (the 64-byte zp
+      save buffers went 2026-10-06).  $063A-$06FF, the rest of the base
+      page, is free for a second BSS segment if it is needed.
 - [ ] **ROM2 has 461 bytes free** (2026-10-06, with the workspace stub; 156 on 2026-10-01, after the band's MHz went;
       `rom/kernal.map`, CODE2 end to $FEFF).  New resident code goes in a bank.
 - [ ] **User banks** — document the convention: sideways banks 4-15 are

@@ -10,7 +10,8 @@
 # green towards teal and cyan towards sky blue: to protan eyes the
 # VIC-II's yellow and light green were one colour, and cyan the same as
 # white.  Red and brown stay dark: they are backgrounds (white reads on
-# both).  Load it with PALETTE LOAD CLEAR,
+# both).  Dark grey, the bands' and the border's colour, is 555555: the
+# VIC-II's 333333 read as black beside the blue (white on it 7.5:1).  Load it with PALETTE LOAD CLEAR,
 # or put that line in your /STARTUP.BAT.
 #
 # index rr gg bb, all hex.  A file only changes the entries it names.
@@ -27,7 +28,7 @@ COLOR 7 6
 8 FF 99 22
 9 66 44 11
 A FF 77 BB
-B 33 33 33
+B 55 55 55
 C AA AA AA
 D 99 FF 99
 E 55 AA FF

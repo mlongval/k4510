@@ -422,7 +422,7 @@ static void picture(const char *file)
     REG(VIC + 0x20) = 0; REG(VIC + 0x10) = l0; REG(VIC) = ctrl; REG(VIC + 1) = bg;
     for (i = 0; i < nc; i++) { REG(0xD006) = (uint8_t)i; REG(0xD007) = palsave[i * 3]; REG(0xD008) = palsave[i * 3 + 1]; REG(0xD009) = palsave[i * 3 + 2]; }   /* B commits */
     rom_video();
-    REG(TERM + 4) = 2;                                        /* clear; the page is redrawn */
+    rawstr("\x1b[2J\x1b[H");                                /* clear; the page is redrawn */
 }
 
 static void follow(void)
@@ -514,7 +514,7 @@ int main(void)
     if (!cols) cols = 80;
     if (rows < 6) rows = 30;
     page = rows - 1;
-    REG(TERM + 4) = 2; REG(TERM + 0x0E) = 0;                 /* clear; no cursor */
+    rawstr("\x1b[2J\x1b[H\x1b[?25l");                     /* clear; no cursor */
     /* Can this JIM draw?  Ask the way any program asks a Kitty terminal: a
      * one-pixel query.  JIM answers at once, in its reply register; a JIM that
      * cannot swallows the question and says nothing. */
@@ -555,7 +555,7 @@ int main(void)
     }
 out:
     sgr("0");
-    REG(TERM + 0x0E) = 0; REG(TERM + 4) = 2;
+    rawstr("\x1b[?25l\x1b[2J\x1b[H");
     rom_video();
     return 0;
 }

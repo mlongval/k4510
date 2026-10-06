@@ -12,8 +12,9 @@
  * run a program and return. So F4 hands the selected file to VI or EDIT and
  * comes home with the panels intact.
  *
- * The screen is drawn straight into VICKY's text32 map at $030000: four bytes
- * a cell (glyph low, glyph high, foreground, background), so every cell gets
+ * The screen is cells, sent through JIM (demo/jimcell.h, 2026-10-05; written
+ * straight into VICKY's text32 map at $030000 before that): a glyph, a
+ * foreground and a background each, so every cell gets
  * its own colour and the panels can carry the blue-and-cyan look a file
  * commander is supposed to have. The frame glyphs are the console font's CP437
  * line-drawing set, the same ones the F12 menu draws its borders with.
@@ -28,6 +29,7 @@
  *   F2 Refresh     re-read both panels            .        show/hide dotfiles
  */
 #include "k4510.h"
+#include "jimcell.h"                        /* the screen, sent through JIM */
 
 /* ---- the storage device at $D300 (core/io.h) --------------------------- */
 #define FS        0xD300u
@@ -73,7 +75,6 @@
 #define K_F1    0x90               /* F1..F12 = $90..$9B; F12 never arrives   */
 
 /* ---- the text32 screen ------------------------------------------------- */
-#define SCREEN  0x00030000UL
 
 /* VIC-II palette indices */
 #define CBG      6                 /* blue: the panel field                   */
@@ -103,12 +104,7 @@ static uint8_t cols, rows, ox, oy, pcols;
 static uint32_t rr32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r+1)<<8) | ((uint32_t)REG(r+2)<<16) | ((uint32_t)REG(r+3)<<24); }
 
 /* two far_poke16s lay a whole cell: glyph (high byte 0) then fg|bg<<8 */
-static void putcell(uint8_t x, uint8_t y, uint8_t g, uint8_t fg, uint8_t bg)
-{
-    uint32_t a = SCREEN + ((uint32_t)((uint16_t)(oy + y)) * pcols + ox + x) * 4;
-    far_poke16(a, g);
-    far_poke16(a + 2, (uint16_t)fg | ((uint16_t)bg << 8));
-}
+static void putcell(uint8_t x, uint8_t y, uint8_t g, uint8_t fg, uint8_t bg) { jc_cell(x, y, g, fg, bg); }   /* through JIM (jimcell.h) */
 /* a string clipped/padded to exactly w cells */
 static void draw_str(uint8_t x, uint8_t y, const char *s, uint8_t w, uint8_t fg, uint8_t bg)
 {
@@ -406,6 +402,7 @@ static void do_edit(void)
     else { draw_all(); return; }
     strcat(CMDLINE, names[active][s]);
     rom_shell(CMDLINE);                     /* out to the editor and back */
+    jc_start();                             /* the editor gave JIM back reset: our modes again */
     relist_both();                          /* the file may have changed size */
     draw_all();
 }
@@ -567,6 +564,7 @@ void main(void)
     uint8_t running = 1;
     (void)rom_args();
     cols = REG(TERM + 5); rows = REG(TERM + 6); ox = REG(TERM + 7); oy = REG(TERM + 8); pcols = REG(TERM + 0x0D);
+    jc_start();                                     /* JIM drawn on through its stream */
     if (!cols) cols = 80; if (!rows) rows = 30; if (!pcols) pcols = 80;
 
     getcwd_into(0); strcpy(ppath[1], ppath[0]);
@@ -599,7 +597,7 @@ void main(void)
         }
     }
 
-    REG(TERM + 4) = 2;                 /* JIM: clear and home, a clean screen for the shell */
+    jc_end();                              /* JIM: its modes back, cleared and home, a clean screen for the shell */
     rom_video();
     if (runline[0]) type_ahead(runline);   /* Enter on a program: the shell types it */
 }

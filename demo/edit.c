@@ -38,6 +38,8 @@
  * dialog's directory.  $08000000-$0BFFFFFF was used by nothing (PROG has
  * $04-$07, BOOK $0C, SPLIT $0D, VI $0E-$0F). */
 #include "k4510.h"
+static void ui_start(void);
+#define ED_SCREEN_BACK() ui_start()
 #include "ed.h"
 #include "dosui.h"
 #include "dosed.h"

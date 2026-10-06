@@ -107,16 +107,16 @@ static void restore(void)
 {
     pal_restore();
     sgr(0);
-    REG(TERM + 0x15) = odefbg; REG(TERM + 0x0C) = ocurbg;
+    REG(TERM + 0x15) = odefbg;                    /* the default is the terminal's setting, not a drawing */
     sgr(0);                                       /* again, so SGR 0 lands on the restored default */
+    say("\x1b[?4510h\x1b[48;5;"); num(ocurbg); put('m');   /* and the background it had, as the palette's entry */
     REG(SYS + 0x29) = 0;                          /* the governor may resume */
-    REG(TERM + 0x0E) = 1;                         /* cursor back */
-    REG(TERM + 4) = 2;                            /* and a clean screen for the shell */
+    say("\x1b[?25h\x1b[2J\x1b[H");                /* cursor back, and a clean screen for the shell */
 }
 static void head(const char *title)
 {
     uint8_t i;
-    REG(TERM + 4) = 2;                       /* clear */
+    say("\x1b[2J\x1b[H");                    /* clear */
     sgr2(1, 44); at(1, 1); for (i = 0; i < cols; i++) put(' ');
     at(3, 1); say("K4510 SETUP  --  "); say(title);
     at((uint8_t)(cols - 20), 1); say(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop");
@@ -431,7 +431,7 @@ void main(void)
     odefbg = REG(TERM + 0x15); ocurbg = REG(TERM + 0x0C);
     if (cols < 40) cols = 40;
     if (rows < 24) rows = 24;
-    REG(TERM + 0x0E) = 0;                             /* cursor off */
+    say("\x1b[?25l");                                 /* cursor off */
     /* The governor steps the clock down when the sound starves, and the
      * sweep starves it deliberately at the top of the ladder.  Hold it off
      * for the whole run: it fought the first sweep on hdieu and made the

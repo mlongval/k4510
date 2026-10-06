@@ -11179,3 +11179,43 @@ in the main image.
 Checked: edittest, wordtest, vikeystest, jimtest, keytest, vitest; and
 captures of EDIT (menu open, help box) and PROG are pixel-identical to
 master's.
+
+## 2026-10-05 -- jim-everywhere: Pascal's CRT, the ROM's prompt, and the rest
+
+Doc: "go ahead with the Pascal CRT and the ROM prompt then all the rest".
+
+- Mad Pascal's CRT (pascal/mp/lib/crt_k4510.inc): GotoXY is ESC[y;xH,
+  TextColor/TextBackground ESC[?4510h + 38;5;n / 48;5;n, ClrScr ESC[2J
+  ESC[H, CursorOn/Off ?25h/l, TextMode DECSTR. Still assembler: crt.pas
+  declares them so (a plain Pascal body was refused, "different
+  modifiers"); numbers go out as three digits, which a VT100 reads as
+  one. WhereX/WhereY read JIM's cursor; the keys still come from the
+  keyboard device. The branch builds with its own Mad Pascal
+  (~/Projects/K4510/toolchain-jim) so master's toolchain keeps master's CRT.
+  PMANDEL draws the same picture; 8 frames to master's 7.
+- The ROM: k_chrout's colours, cls, the line editor's step back over a
+  wrapped line, "-- more --" taken back off, a program's start and end,
+  video_init, the Tube session's reset -- all escapes now (jraw, jnum,
+  jat, jcol, jim_cursor in CODE2). After a program the ROM ends SGR 11 and
+  puts autowrap back. JIM's registers are still written for what
+  configures the terminal rather than draws on it: the window's geometry,
+  the default colours. The status bands are next, as JIM's own (Doc: they
+  belong to JIM "the same way as ... the status bar at the bottom of TMUX").
+- demo/jimcell.h: cells through JIM for C programs, shared by dosui.h.
+  RANGER, KOMMANDER, HEXED, BANNER, CALC, TRACKER, FONTED converted;
+  KOMMANDER and RANGER send their modes again after SWAP brings them back
+  (the editor's exit reset JIM). VI, BOOK, SETUP, TELNET, SPLIT, ed.h's
+  screen_back (EDIT and PROG put their modes back after a compile through
+  ED_SCREEN_BACK), EhBASIC, MS BASIC and Forth (the cursor on) lost their
+  JIM register writes. TELNET sets its black background with ?4510 for
+  that one SGR only: a BBS's 38;5;n are xterm's.
+- JIM: SGR 11 draws DEL ($7F, the house) too -- FONTED's grid showed it
+  blank -- and the nine glyphs whose bytes act (BS..SI, ESC) go as UTF-8
+  for that one character. A `!` session turns ?4510 and SGR 11 off.
+- Left on purpose, writing VICKY's text map: the games (TETRIS, ROCKFALL,
+  SNAKE, BOMBER, BREAKOUT, LODE, PAINT), BANDS (the bands' turn comes),
+  the SWAP save and restore of the screen, REXX's read of it.
+
+Checked: the whole suite; captures of RANGER, KOMMANDER, CALC, HEXED,
+BANNER, TRACKER, DIR and VI pixel-identical to master's, FONTED too after
+the DEL fix.

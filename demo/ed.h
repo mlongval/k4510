@@ -556,9 +556,14 @@ static void err_go(unsigned i)                       /* to entry i: its line and
 }
 static void screen_back(void)                        /* after a command has drawn over us */
 {
-    REG(TERM + 4) = 1;                               /* JIM's attributes too: an error in red left all of VI red */
-    REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
+    /* JIM told, in its stream: DECSTR (its attributes too -- an error in red
+     * left all of VI red), cleared, home, the cursor shown */
+    const char *q = "\x1b[!p\x1b[2J\x1b[H\x1b[?25h";
+    while (*q) put(*q++);
     curshape = 0; full = 1;             /* the front end redraws all of it */
+#ifdef ED_SCREEN_BACK
+    ED_SCREEN_BACK();                   /* EDIT and PROG: JIM's modes for their cells again (dosui.h's ui_start) */
+#endif
 }
 static const char *compiler(void)                    /* the machine's word for this file's language */
 {

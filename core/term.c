@@ -49,7 +49,7 @@ static struct {
                                         * not xterm's colour n -- the machine's sixteen, all of them (SGR's ANSI
                                         * order reaches twelve: orange, brown, mid and light grey are not in it) */
     uint8_t dispctl;                   /* SGR 11 (the Linux console's "display control flag"), SGR 10 off: the
-                                        * bytes $00-$1F draw their CP437 glyphs, all but the ones that act --
+                                        * bytes $00-$1F and $7F draw their CP437 glyphs, all but the ones that act --
                                         * BS, HT, LF, VT, FF, CR, SO, SI and ESC */
 } T;
 
@@ -699,7 +699,7 @@ static uint8_t host_lnm;
 void term_host_session(int on)
 {
     host_session = on != 0;
-    if (on) { host_lnm = T.lnm; T.lnm = 0; utf8_mode(1); }
+    if (on) { host_lnm = T.lnm; T.lnm = 0; utf8_mode(1); T.paldirect = T.dispctl = 0; }   /* a Linux program means xterm's colours */
     else    { T.lnm = host_lnm; utf8_mode(0); }
 }
 
@@ -728,7 +728,7 @@ static void put_byte(uint8_t c)
     switch (T.st) {
     case 0:
         if (c >= 0x20 && c != 0x7F) { print_char(c); return; }
-        if (T.dispctl && c < 0x20 && !((c >= 0x08 && c <= 0x0F) || c == 0x1B)) { print_char(c); return; }
+        if (T.dispctl && (c == 0x7F || (c < 0x20 && !((c >= 0x08 && c <= 0x0F) || c == 0x1B)))) { print_char(c); return; }   /* DEL's glyph too */
         switch (c) {
         case 0x1B: T.st = 1; return;
         case '\r': T.cx = 0; T.pending = 0; return;

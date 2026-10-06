@@ -141,12 +141,29 @@ static void blank_row(uint8_t y)        /* y is a PHYSICAL row: margins included
  * BSSR.  Now K/OS only says whether there should be one: FLAGS bit 0 on at
  * the shell, off when it hands the machine to a program.  JIM draws it where
  * its cursor is, keeps it out of the way of what it prints, and blinks it. */
-#define T_CURSOR 0x01
-static void jim_cursor(uint8_t on)
+/* Since 2026-10-05 (the jim-everywhere branch) K/OS tells JIM all of this in
+ * its stream, as a terminal is told: the cursor shown or hidden, moved, the
+ * colours.  JIM's registers are read (where its cursor is) and set only for
+ * what configures the terminal rather than draws on it: the window's
+ * geometry and the default colours.  ESC[?4510h, sent with every colour,
+ * makes 38;5;n the palette's own entry n (core/term.h). */
+static uint8_t jim_fg = 0xFF, jim_bg = 0xFF;
+#pragma code-name (push, "CODE2")
+static void jraw(const char *s) { while (*s) REG(TERM) = (uint8_t)*s++; }
+static void jnum(uint8_t n)
 {
-    uint8_t f = REG(TERM + 0x0E);
-    REG(TERM + 0x0E) = (uint8_t)(on ? (f | T_CURSOR) : (f & ~T_CURSOR));
+    if (n >= 100) REG(TERM) = (uint8_t)('0' + n / 100);
+    if (n >= 10) REG(TERM) = (uint8_t)('0' + n / 10 % 10);
+    REG(TERM) = (uint8_t)('0' + n % 10);
 }
+static void jat(uint8_t x, uint8_t y) { jraw("\x1b["); jnum((uint8_t)(y + 1)); REG(TERM) = ';'; jnum((uint8_t)(x + 1)); REG(TERM) = 'H'; }
+static void jcol(void)
+{
+    jraw("\x1b[?4510h\x1b[38;5;"); jnum(fg); jraw(";48;5;"); jnum(bg); REG(TERM) = 'm';
+    jim_fg = fg; jim_bg = bg;
+}
+static void jim_cursor(uint8_t on) { jraw(on ? "\x1b[?25h" : "\x1b[?25l"); }
+#pragma code-name (pop)
 
 /* ---- the status bands -------------------------------------------------- *
  * Two static bars frame the console when status mode is on.  The console is
@@ -314,7 +331,8 @@ static void cls(void)
         for (i = 0; i < PROWS; i++) blank_row(i);       /* every physical row, the margins with them */
     }
     cx = cy = 0;
-    REG(TERM + 9) = 0; REG(TERM + 10) = 0;      /* the cursor is JIM's: moving it means telling it */
+    jcol(); jraw("\x1b[2J\x1b[H");                    /* and JIM told: its window cleared in the shell's colours, the cursor home --
+                                                       * on this screen a repeat of the rows just blanked, but the stream is whole */
 }
 
 static uint8_t band_bat = 0xFF;              /* the battery byte the bottom band last showed (it held the
@@ -357,17 +375,14 @@ static uint8_t page_break(void);
 static uint8_t chr_prev = 0xFF;   /* the last byte through CHROUT, for the CR+LF rule.  Initialised,
                                    * so cc65 puts it in DATA: BSSR is full, and DATA had the byte
                                    * band_bat freed (2026-10-01). */
-/* JIM's fg/bg are pushed only when they have actually changed, which is far
- * cheaper than two stores per character. */
-static uint8_t jim_fg = 0xFF, jim_bg = 0xFF;
+/* JIM's fg/bg are pushed only when they have actually changed (jcol, above). */
 void __fastcall__ k_chrout(uint8_t ch)
 {
     uint8_t oy;
     if (ch == 10 && chr_prev == 13) { chr_prev = 10; return; }   /* the CR already made the line */
     chr_prev = ch;
     if (ch == 12) { cls(); return; }
-    if (fg != jim_fg) { REG(TERM + 11) = fg; jim_fg = fg; }
-    if (bg != jim_bg) { REG(TERM + 12) = bg; jim_bg = bg; }
+    if (fg != jim_fg || bg != jim_bg) jcol();
     if (ch == 8) { REG(TERM) = 8; REG(TERM) = ' '; REG(TERM) = 8; cx = REG(TERM + 9); return; }
     if (ch == 13) ch = 10;
     oy = REG(TERM + 10);
@@ -489,7 +504,7 @@ static uint8_t hist_n = 0;                          /* lines kept; hist[hist_n -
  * that is Left from an $82 that is é. */
 static void rl_left(void)                 /* one cell back, up a row if the line wrapped: JIM's own $08 stops at column 0 */
 {
-    if (REG(TERM + 9) == 0) { REG(TERM + 10) = (uint8_t)(REG(TERM + 10) - 1); REG(TERM + 9) = (uint8_t)(REG(TERM + 5) - 1); }
+    if (REG(TERM + 9) == 0) jraw("\x1b[A\x1b[255C");   /* up a row, to its last column */
     else REG(TERM) = 8;
     cx = REG(TERM + 9); cy = REG(TERM + 10);
 }
@@ -885,7 +900,7 @@ static uint8_t page_break(void)
     typed = 0;
     ofg = fg; fg = C_DIM; puts_("-- more --"); fg = ofg;
     do { k = k_getin(); } while (!k);
-    cx = 0; REG(TERM + 9) = 0; blank_row((uint8_t)(cy + OY));   /* take the prompt back off */
+    cx = 0; REG(TERM) = 13; jraw("\x1b[2K");                     /* take the prompt back off */
     inside = 0;
     return (uint8_t)(k == 27 || k == 'q' || k == 'Q');
 }
@@ -944,7 +959,7 @@ static void run_at(uint16_t a)
     }
     t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
     jim_cursor(0);                               /* the program shows one if it wants one */
-    REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 11) = fg; REG(TERM + 12) = bg;   /* JIM starts where the console is */
+    jat(cx, cy); jcol();                         /* JIM starts where the console is */
     sw_call(2, pal_snap, 0);                     /* the shell's palette, to come back to */
     { uint8_t cl = capslock; capslock = 0;       /* a program wants the keys as they were typed:
                                                  * with caps lock on, VI's :q arrives as :Q and
@@ -954,7 +969,8 @@ static void run_at(uint16_t a)
       prog_running = 1; call_prog(TRAMP); prog_running = 0;
       REG(SYS + 0x41) = 2;                      /* ... and back to whoever ran it */
       capslock = cl; }
-    if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0; }   /* and the console follows a program that used it */
+    if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); jim_cursor(0); }   /* and the console follows a program that used it */
+    jraw("\x1b[10m\x1b[?7h"); jim_fg = 0xFF;    /* what a program may have left: glyphs for controls, autowrap off; colours again */
     if (v0 != REG(VICKY + 0) || bgc != REG(VICKY + 1) || l0 != REG(VICKY + 0x10) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
         l3 != REG(VICKY + 0x40) || sc != REG(VICKY + 0x0E)) {
         video_init();
@@ -1393,7 +1409,7 @@ static void cmd_swap(const char *p)
     swapping = 1;                                     /* set after the save, so the restore clears it again */
     shell_line(p);
     if (!keep) dma_copy(SWAPSCR, SCREEN, 180UL * 67 * 4);
-    else { REG(TERM + 9) = cx; REG(TERM + 10) = cy; }   /* the console kept what the command drew: JIM follows the ROM again */
+    else jat(cx, cy);                          /* the console kept what the command drew: JIM follows the ROM again */
     /* The restore overwrites the stack, so it must not be triggered from
      * inside a call: the returning JSR would find the SAVED return address
      * under it and jump back to the save, round and round. Set the registers
@@ -2143,7 +2159,7 @@ static void video_init(void)
     REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;        /* the shell's colours are JIM's defaults: a program's SGR 0 or reset
                                                           * (BBC BASIC's start) lands on them, not on 7 6 (Doc, 2026-09-15, amber) */
     REG(TERM) = 27; REG(TERM) = '['; REG(TERM) = '2'; REG(TERM) = '0'; REG(TERM) = 'h';  /* LNM: \n returns the column */
-    REG(TERM + 9) = cx; REG(TERM + 10) = cy;                                             /* and JIM starts where the console is */
+    jat(cx, cy);                                                                         /* and JIM starts where the console is */
     jim_fg = jim_bg = 0xFF;                                                              /* colours re-pushed on the next character */
     /* The bands are part of laying the screen out, so VIDEO ($FF92) draws
      * them -- which makes handing them back one step for a program: clear
@@ -2190,9 +2206,9 @@ static void bbg_mode22(uint8_t n)
 static void tube_keys(void) { while (REG(TERM + 1) & 0x80) REG(TUBE + 2) = REG(TERM + 2); }
 static void tube_term(void)
 {
-    REG(TERM + 4) = 1;                                   /* JIM: modes and attributes to defaults, home */
-    REG(TERM + 9) = cx; REG(TERM + 10) = cy;
-    REG(TERM + 0x0E) = 1;                                /* its cursor shown */
+    jraw("\x1b[!p");                                    /* JIM: modes and attributes to defaults (DECSTR) */
+    jat(cx, cy);
+    jim_cursor(1);                                       /* its cursor shown */
 }
 static void cmd_bbcbasic(uint8_t prog)
 {
@@ -2231,9 +2247,9 @@ static void cmd_bbcbasic(uint8_t prog)
                     esc = 0; line[oi] = 0;
                     if (oi > 6 && !memcmp(line, "K4510", 5) && (line[5] == ';' || line[5] == 'W')) {  /* a star command, handed over */
                         uint8_t w = line[5] == 'W';          /* K4510W; -- BBC waits for an ACK: its bare *VI loads the file back */
-                        cx = REG(TERM + 9); cy = REG(TERM + 10); REG(TERM + 0x0E) = 0;
+                        cx = REG(TERM + 9); cy = REG(TERM + 10); jim_cursor(0);
                         newline(); shell_line(line + 6 + w);
-                        REG(TERM + 9) = cx; REG(TERM + 10) = cy; REG(TERM + 0x0E) = 1;
+                        jat(cx, cy); jim_cursor(1);
                         if (w) REG(TUBE + 2) = 6;
                     } else if (oi > 7 && !memcmp(line, "K4G;22,", 7)) {     /* MODE, forwarded by the ULA */
                         uint8_t m22 = 0; const char *q = line + 7;
@@ -2261,7 +2277,7 @@ static void cmd_bbcbasic(uint8_t prog)
          * wants the VT sequences and is left alone. */
     }
     REG(TUBE + 3) = 2;                                   /* the ULA silences the sequencer and drops the bitmap */
-    REG(TERM + 0x0E) = 0;
+    jim_cursor(0);
     if (bgon) { bgon = 0; vmode = oldvm; video_init(); cls(); }
     else { cx = REG(TERM + 9); cy = REG(TERM + 10); }
     fg = ofg; bg = obg;

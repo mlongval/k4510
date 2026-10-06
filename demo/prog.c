@@ -31,6 +31,8 @@
  * keys (two overlays) at $0EF00000. */
 #include "k4510.h"
 #define ED_NO_RENUM                             /* renumbering BASIC is EDIT's and VI's: PROG has no room for it */
+static void ui_start(void);
+#define ED_SCREEN_BACK() ui_start()
 #include "ed.h"
 #include "dosui.h"
 #include "dosed.h"

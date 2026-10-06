@@ -36,6 +36,7 @@
 #include "k4510.h"
 
 #include "ed.h"                             /* the engine: lines, undo, files, search, :make (shared with PROG) */
+static void vs(const char *q) { while (*q) put(*q++); }   /* a sequence to JIM: everything VI draws goes in its stream */
 
 static uint8_t vk;                          /* KBDST bit 6 for the last key read: 1 = a KEY_* code, 0 = a character sharing its byte (an é is $82 too) */
 #define vik_key  vk
@@ -188,7 +189,7 @@ static void err_list(void)                           /* :cl -- the whole list, a
 {
     unsigned i, l; uint8_t r = 0;
     if (!nerr) { note = info[0] ? info : "no messages"; return; }
-    REG(TERM + 4) = 2;
+    vs("\x1b[2J\x1b[H");
     for (i = 0; i < nerr && r < (uint8_t)(rows - 1); i++, r++) {
         far_get(ERRTAB + ((uint32_t)i << 7), ebuf, 128);
         at(r, 0); clip = 1; sx = 0;
@@ -308,7 +309,7 @@ void main(void)
     if (!rows) rows = 30;
     load_file();
     run_rc();                                              /* after the file: a mapping applies to a real buffer */
-    REG(TERM + 4) = 2; REG(TERM + 0x0E) = 1;
+    vs("\x1b[2J\x1b[H\x1b[?25h");                            /* cleared, home, the cursor shown */
     while (running) {
         scroll_fit();
         draw();
@@ -354,7 +355,6 @@ void main(void)
         }
         vi_normal(k);
     }
-    put(27); put('['); put('2'); put(' '); put('q');           /* the block back for the shell */
-    REG(TERM + 0x0E) = 0; REG(TERM + 4) = 2;
+    vs("\x1b[2 q\x1b[?25l\x1b[2J\x1b[H");                 /* the block back for the shell; no cursor, cleared */
     rom_video();
 }

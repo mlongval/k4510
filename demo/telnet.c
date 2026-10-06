@@ -71,6 +71,15 @@ static const unsigned int cp437u[128] = {                 /* CP437 $80-$FF -> Un
     0x2261,0x00B1,0x2265,0x2264,0x2320,0x2321,0x00F7,0x2248,0x00B0,0x2219,0x00B7,0x221A,0x207F,0x00B2,0x25A0,0x00A0 };
 
 static void say(const char *s) { while (*s) REG(TERM) = *s++; }
+/* The background JIM paints with now, as the palette's entry b: ?4510 only
+ * for this one SGR, since the far end's own 38;5;n are xterm's colours. */
+static void say_bg(uint8_t b)
+{
+    say("\033[?4510h\033[48;5;");
+    if (b >= 10) REG(TERM) = (uint8_t)('0' + b / 10);
+    REG(TERM) = (uint8_t)('0' + b % 10);
+    say("m\033[?4510l");
+}
 static unsigned char utf8_of(unsigned char k, unsigned char *o)   /* a CP437 letter -> its UTF-8 bytes */
 {
     unsigned int u = cp437u[k - 0x80];
@@ -86,8 +95,7 @@ void main(void)
     unsigned char n = rom_args(), i = 0, k, iac = 0, obg = 0, odbg = 0;
     const char *p = *(const char **)0xF0;
     unsigned int got, j;                              /* j indexes the 256-byte read buffer: a byte would wrap on a full one */
-    REG(TERM + 4) = 1;                                    /* JIM: defaults, home... */
-    REG(TERM + 9) = 0;                                    /* ...at the console's line (run_at handed the row over; the column is 0) */
+    say("\033[!p\033[H");                                 /* JIM: defaults (DECSTR), home */
     tti = 0;                                              /* each session offers the TTYPE list from the top */
     if (!n) { say("telnet: host port  (Ctrl-] hangs up)\r\n"); return; }
     url[i++] = 't'; url[i++] = 'c'; url[i++] = 'p'; url[i++] = ':'; url[i++] = '/'; url[i++] = '/';
@@ -108,16 +116,16 @@ void main(void)
     obg  = REG(V_BGCOL);
     odbg = REG(TERM + 0x15);                              /* JIM's DEFBG: where SGR 0 and 49 land */
     REG(TERM + 0x15) = 0;
-    REG(TERM + 0x0C) = 0;                                 /* and what it paints with now */
+    say_bg(0);                                            /* and what it paints with now */
     REG(V_BGCOL)     = 0;                                 /* the screen behind the terminal */
-    REG(TERM + 4) = 2;                                    /* clear, so no blue is left around the art */
+    say("\033[2J\033[H");                                 /* clear, so no blue is left around the art */
     say("connected to "); say(url + 6); say("  (Ctrl-] hangs up)\r\n");
     u8 = 0;                                               /* CP437 until the far end takes XTERM-COLOR */
     ofont = (unsigned long) REG(L0DATA) | ((unsigned long) REG(L0DATA + 1) << 8) | ((unsigned long) REG(L0DATA + 2) << 16) | ((unsigned long) REG(L0DATA + 3) << 24);
     font_437(1);                                          /* ...drawn with IBM's page */
     say("\033[20l");                                      /* LNM off: a far end's bare LF keeps the column (tmux moves down
                                                            * that way); the ROM console gets its LNM back on the way out */
-    REG(TERM + 0x0E) = 1;                                 /* JIM's cursor */
+    say("\033[?25h");                                     /* JIM's cursor */
     for (;;) {
         k = rom_getin();
         if (k == 0x1D || (k == 0x9B && (REG(KBDST) & 0x40))) break;   /* Ctrl-]; F12 where the menu is on another key (the kind bit: $9B is also a letter) */
@@ -193,8 +201,8 @@ void main(void)
     font_437(0);                                          /* the machine's page back, on every way out */
     if (u8) { say("\033%@"); u8 = 0; }                     /* the machine's own screen is CP437 */
     say("\033[20h");                                      /* and LNM, as the ROM's video_init sets it */
-    REG(TERM + 0x0E) = 0;
+    say("\033[?25l");
     REG(TERM + 0x15) = odbg;                              /* every exit comes through here: Ctrl-], */
-    REG(TERM + 0x0C) = odbg;                              /* a far end that hung up, or a closed */
+    say_bg(odbg);                                         /* a far end that hung up, or a closed */
     REG(V_BGCOL)     = obg;                               /* socket -- so the colours always return */
 }

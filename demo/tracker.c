@@ -23,9 +23,9 @@
  * the order, the instruments and all sixteen patterns.
  */
 #include "k4510.h"
+#include "jimcell.h"                        /* the screen, sent through JIM (2026-10-05) */
 
 #define TERM     0xDA00u
-#define SCREEN   0x00030000UL
 #define FS       0xD300u
 #define OPL_ADDR 0xD480u
 #define OPL_DATA 0xD481u
@@ -208,7 +208,7 @@ static void rb_hex2(uint8_t v, uint8_t fg, uint8_t bg) { rb_put((uint8_t) hexd[v
 static void rb_out(uint8_t r)
 {
     while (rn < cols && rn < 80) rb_put(' ', fg0, bg0);
-    if (r < rows) dma_copy((uint32_t)(uint16_t) rb, SCREEN + ((uint32_t)(r + oy) * stride + ox) * 4, (uint32_t) rn * 4);
+    if (r < rows) { uint8_t x; const uint8_t *p = rb; jc_at(0, r); for (x = 0; x < rn; x++, p += 4) { jc_col(p[2], p[3]); jc_ch(p[0]); } }
     rn = 0;
 }
 static void rb_out_bar(uint8_t r)            /* a row in the bar colours */
@@ -570,8 +570,7 @@ void main(void)
     if (!stride) stride = cols;
     vis_ch = (uint8_t)((cols - 3) / 7); if (vis_ch > NCH) vis_ch = NCH; if (!vis_ch) vis_ch = 1;
     nvis = (uint8_t)(rows - 4);
-    flags_was = REG(TERM + 0x0E);
-    REG(TERM + 0x0E) = (uint8_t)(flags_was & ~1);
+    jc_start(); jc_cursor(0);                       /* JIM through its stream; no blinking cursor over ours */
     if (!opl_ok) strcpy(msg, " no OPL2 answers at $D480: the song is silent here");
 
     redraw();
@@ -589,6 +588,6 @@ void main(void)
     }
     play_stop();
     for (i = 0; i < 0xF6 && opl_ok; i++) { REG(OPL_ADDR) = i; REG(OPL_DATA) = 0; }
-    REG(TERM + 0x0E) = flags_was;
+    jc_end();
     rom_chrout(12);
 }

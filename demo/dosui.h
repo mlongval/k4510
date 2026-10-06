@@ -19,6 +19,7 @@
  * #include "k4510.h" first, and "ed.h" before this when there is one (ed.h
  * has put(), cols, rows and full; a program without it gets them here). */
 
+#include "jimcell.h"                            /* the cells, sent through JIM */
 #ifndef K4510_ED_H
 #define TERM   0xDA00u
 #define NAMEMAX 64
@@ -121,48 +122,10 @@ static uint8_t oy, kmod, kcode, running = 1;
 static uint32_t ui_dirtab;
 #define SHADOW (ui_dirtab + 0x18000UL)                /* the copy: past the list (32 KB) and the snapshot (+$8000, < 48 KB) */
 static uint8_t rb[4 * 184];                           /* one row of cells */
-static uint8_t jx = 0xFF, jy, jf = 0xFF, jb = 0xFF;   /* where JIM's cursor is and the colours it has ($FF: not known) */
 static uint8_t wcx, wcy;                              /* where the cursor should rest */
 static uint32_t rowaddr(uint8_t y) { return SHADOW + (uint32_t)y * cols * 4; }
-static void jnum(uint8_t n)
-{
-    if (n >= 100) put((char)('0' + n / 100));
-    if (n >= 10) put((char)('0' + n / 10 % 10));
-    put((char)('0' + n % 10));
-}
-static void jstr(const char *t) { while (*t) put(*t++); }
-static void jcsi(void) { jstr("\x1b["); }
-static void jat(uint8_t x, uint8_t y)
-{
-    if (x == jx && y == jy) return;
-    jcsi(); jnum((uint8_t)(y + 1)); put(';'); jnum((uint8_t)(x + 1)); put('H');
-    jx = x; jy = y;
-}
-static void jcol(uint8_t f, uint8_t b)
-{
-    if (f == jf && b == jb) return;
-    jstr("\x1b[38;5;"); jnum(f); jstr(";48;5;"); jnum(b); put('m');
-    jf = f; jb = b;
-}
-static void jch(uint8_t c)
-{
-    if ((c >= 0x08 && c <= 0x0F) || c == 0x1B) c = '?';  /* the controls that act even under SGR 11 */
-    put((char)c);
-    jx = jx < cols - 1 ? (uint8_t)(jx + 1) : 0xFF;    /* the last column: the cursor's place is JIM's business */
-}
-static void ui_start(void)                            /* JIM as this file draws on it */
-{
-    /* DECSTR: modes and colours to their defaults, the screen kept; ?4510: the
-     * palette's own entries; SGR 11: the glyphs below $20; ?7l: no autowrap */
-    jstr("\x1b[!p\x1b[?4510h\x1b[11m\x1b[?7l");
-    jx = jf = jb = 0xFF;
-}
-static void ui_end(void)                              /* and back as the shell wants it */
-{
-    /* the block cursor; DECSTR clears ?4510 and SGR 11 and puts autowrap back;
-     * the cursor hidden, the screen cleared and the cursor home */
-    jstr("\x1b[2 q\x1b[!p\x1b[?25l\x1b[2J\x1b[H");
-}
+static void ui_start(void) { jc_start(); }            /* JIM as this file draws on it (jimcell.h) */
+static void ui_end(void) { jc_end(); jc_cursor(0); }  /* and back as the shell wants it */
 static void cel(uint8_t x, uint8_t ch, uint8_t k)
 {
     uint8_t *p = rb + ((unsigned)x << 2);
@@ -177,14 +140,14 @@ static void flush(uint8_t y, uint8_t n)               /* row y's first n cells, 
 {
     uint8_t x; const uint8_t *p = rb;
     dma_copy((uint32_t)(uint16_t)rb, rowaddr(y), (unsigned)n << 2);
-    jat(0, y);
-    for (x = 0; x < n; x++, p += 4) { jcol(p[2], p[3]); jch(p[0]); }
+    jc_at(0, y);
+    for (x = 0; x < n; x++, p += 4) { jc_col(p[2], p[3]); jc_ch(p[0]); }
 }
 static void pc(uint8_t x, uint8_t y, uint8_t ch, uint8_t f, uint8_t b)     /* one cell */
 {
     uint32_t a = rowaddr(y) + ((unsigned)x << 2);
     far_poke16(a, ch); far_poke16(a + 2, (uint16_t)f | ((uint16_t)b << 8));
-    jat(x, y); jcol(f, b); jch(ch);
+    jc_at(x, y); jc_col(f, b); jc_ch(ch);
 }
 static void pk(uint8_t x, uint8_t y, uint8_t ch, uint8_t k) { pc(x, y, ch, kf[k], kb[k]); }
 static uint8_t slen(const char *s) { uint8_t n = 0; while (s[n]) n++; return n; }
@@ -262,8 +225,8 @@ static void cursor_shape(uint8_t want)                /* DECSCUSR: '2' a block, 
 {
     if (want != curshape) { curshape = want; put(27); put('['); put((char)want); put(' '); put('q'); }
 }
-static void cursor_at(uint8_t x, uint8_t y) { wcx = x; wcy = y; jat(x, y); }
-static void cursor_show(uint8_t on) { jat(wcx, wcy); jstr(on ? "\x1b[?25h" : "\x1b[?25l"); }
+static void cursor_at(uint8_t x, uint8_t y) { wcx = x; wcy = y; jc_at(x, y); }
+static void cursor_show(uint8_t on) { jc_at(wcx, wcy); jc_cursor(on); }
 
 /* ---- keys and the mouse ----------------------------------------------------
  * The machine draws no pointer; the host may (F12's "Mouse pointer"), and
@@ -300,7 +263,7 @@ static void ptr_off(void) { REG(V_SPRCTL) = 0; REG(MOUSEPTR) = 0; }
 static uint8_t event(void)
 {
     uint8_t k, b, r, c; unsigned x, y; int8_t w;
-    jat(wcx, wcy);                                    /* the cursor where the program left it, not where drawing did */
+    jc_at(wcx, wcy);                                    /* the cursor where the program left it, not where drawing did */
     for (;;) {
         k = rom_getin();
         if (k) { kmod = REG(KSTAT); kcode = (uint8_t)((kmod & 0x40) ? 1 : 0); return k; }

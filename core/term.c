@@ -1011,22 +1011,19 @@ static void bands_tick(int force)
         }
         clk[n] = 0;
         bfill(0, cols, f, b);
-        /* The screens, like a tmux window list: the first one's tab is what
-         * runs there (io_title: K/OS at the prompt, "EhBASIC INVADER2.BAS",
-         * the trail of who started whom), the second's is TERMINAL, and the
-         * one up is drawn in reverse.  With no second screen yet, the title
-         * alone, as the frontend drew it before the bands were JIM's. */
+        /* What runs on the screen that is up, plain, as the frontend drew it
+         * before the bands were JIM's: K/OS at the prompt, "EhBASIC
+         * INVADER2.BAS", the trail of who started whom; on the second screen,
+         * Terminal.  (2026-10-05 it was a tmux-like tab list, " 1 K/OS  2
+         * TERMINAL " with the one up in reverse -- Doc: "a bit too heavy".) */
         {
-            const char *t = io_title(); char tab[168]; int room = cols - n - 2, tl;
-            int two = screen2_shown(), w2 = two ? 12 : 0;                                 /* " 2 TERMINAL " */
-            int max = room - w2 - (two ? 3 : 1);                                        /* the title's cells */
+            const char *t = vis == 1 ? "Terminal" : io_title(); char tab[168];
+            int max = cols - n - 3;                                                     /* the title's cells */
             if (max > 4) {
                 int len = (int) strlen(t);
-                if (len > max) snprintf(tab, sizeof tab, "%s\xAE%s ", two ? " 1 " : " ", t + len - (max - 1));   /* the end is the news */
-                else snprintf(tab, sizeof tab, "%s%s ", two ? " 1 " : " ", t);
-                tl = (int) strlen(tab);
-                bstr(0, 0, cols, tab, two && vis == 0 ? b : f, two && vis == 0 ? f : b);
-                if (two) bstr(tl + 1, 0, cols, " 2 TERMINAL ", vis == 1 ? b : f, vis == 1 ? f : b);
+                if (len > max) snprintf(tab, sizeof tab, " \xAE%s", t + len - (max - 1));   /* the end is the news */
+                else snprintf(tab, sizeof tab, " %s", t);
+                bstr(0, 0, cols, tab, f, b);
             }
         }
         if (n < cols) bstr(cols - n, 0, cols, clk, f, b);                                /* right-anchored, as the ROM drew it */

@@ -11501,3 +11501,13 @@ sequencer, the queue another core drains -- wakes it.  Its timers are the
 alarms', so they run on; only the LFO's phase stands still, which silence
 cannot show.  1 s of silence: 2.2 ms of host time awake, 0.004 ms asleep; a
 note written after the sleep sounds at once (7999 of 8000 samples).
+
+## 2026-10-06 -- alpha-0.8 'Quiescence'
+
+The machine that rests: K/OS on its own base page and stacks with its C
+stack in the I/O page's workspace and the stack fence watching it; WAIT;
+still frames, idle frames, the sidebars at 30, the OPL2 asleep in silence
+(the Dell at the prompt: 44% of a core -> about 8%); CHROUT twice as fast;
+C programs at $0800; JIM's synchronized update and EDIT/PROG/WORD scrolling
+in JIM; the network in the bottom band; the plain top band; Pascal's graph
+unit in the HD modes.  The version says 0.8.

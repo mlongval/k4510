@@ -1,6 +1,6 @@
 # K4510
 
-**Alpha 0.7 ('Conduit'), October 2026.** The machine boots from a USB
+**Alpha 0.8 ('Quiescence'), October 2026.** The machine boots from a USB
 stick (or a second partition) as the K4510x appliance, or runs in a
 window on a Linux desktop; the handbook is `doc/guide/k4510-guide.pdf`,
 and on the web at Read the Docs. The last release with the bare-metal

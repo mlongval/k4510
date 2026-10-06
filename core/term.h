@@ -25,6 +25,9 @@
  *   $DA16 RW BANDBOT a door onto VICKY's BANDBOT ($D0B1).  The three doors are kept for programs
  *                    written before VICKY owned the layout; new ones use $D0B0-$D0B2.
  *   $DA17 RW CODEPAGE 0 strict CP437 (power-on), 1 the K4510 page: JIM's table and the fonts follow
+ *   $DA18 RW SCREEN  which screen JIM shows: 0 K/OS, 1 the terminal (a session on the Linux beneath or
+ *                    beyond, /SYSTEM/ETC/TERMINAL.CFG; the TERMINAL command writes 1).  Alt+1 / Alt+2,
+ *                    F12 > Screen and ESC ] 4510 ; kos BEL from the session switch too (2026-10-05)
  *   $DA10-$DA13 RW   BASE  28-bit address of the text32 map (reset: $030000)
  *   $DA14,$DA15 RW   DEFFG DEFBG   the colours SGR 0 / 39 / 49 return to
  * Sequences: the VT100 set (cursor, ED/EL, DECSTBM, DECSC/DECRC, IND/RI/NEL,
@@ -35,9 +38,16 @@
  * 5-6 bar -- the shape VI changes with its mode). Bytes $80-$FF are glyphs (CP437).
  * UTF-8: ESC % G on, ESC % @ off (CTRL 1 leaves it).  On, a UTF-8 sequence draws as its
  * CP437 glyph (or a near one, or '?'), and a byte that continues no sequence is
- * CP437 as before.  The `!` shell and TELNET turn it on for their sessions. */
+ * CP437 as before.  The `!` shell and TELNET turn it on for their sessions.
+ * Two K4510 additions, for a program that draws its whole screen through JIM
+ * (EDIT, PROG, WORD; demo/jimscr.h), 2026-10-05: ESC[?4510h makes 38;5;n and
+ * 48;5;n with n < 16 the palette's own entry n (SGR's ANSI order reaches only
+ * twelve of the sixteen), ESC[?4510l puts xterm's meaning back; SGR 11 draws
+ * the bytes $00-$1F and $7F as their glyphs (all but BS HT LF VT FF CR SO SI ESC: the
+ * Linux console's display-control flag), SGR 10 stops.  A reset clears both. */
 #ifndef K4510_TERM_H
 #define K4510_TERM_H
+#include <stddef.h>
 #include <stdint.h>
 #ifdef __cplusplus
 extern "C" {
@@ -49,6 +59,20 @@ void    term_write(uint8_t reg, uint8_t v);
 void    term_tick(void);           /* once a frame: the cursor blink */
 void    term_host_session(int on); /* the `!` shell's session: UTF-8 on and LNM off; off gives LNM back */
 int     term_cp437_utf8(uint8_t b, char *out);   /* a CP437 byte as UTF-8 (1-3 bytes), for a Unix host */
+/* The bands (JIM's since 2026-10-05) and the second screen (core/io.c runs its
+ * session).  Screen 0 is the machine's terminal, the one at $DA00; screen 1 a
+ * terminal of JIM's own, shown in the console's place while it is up. */
+void    term_bands_redraw(void);                 /* draw the bands again at the next frame */
+int     term_screen(void);                       /* 0 K/OS, 1 the terminal */
+void    term_screen_show(int n);
+int     term_screen_request(void);               /* ESC ] 4510 ; kos / term asked for a screen: 0 or 1, -1 none */
+void    term2_open(void);
+int     term2_fit(int *cols, int *rows);         /* follows the console's geometry: 1 if it changed */
+int     term2_size(int *cols, int *rows);
+void    term2_feed(const uint8_t *b, size_t n);  /* the session's output */
+size_t  term2_replies(uint8_t *out, size_t max); /* what it answers, and the keys turned into bytes */
+void    term2_key(uint8_t k);                    /* a K4510 key code (or a plain byte), as JIM translates them */
+void    term2_say(const char *s);
 const uint16_t *term_page_table(void);   /* the code page in use, 256 Unicode values (core/codepage.h) */
 void    term_set_page(int k4510);      /* 0 strict CP437 (the default), 1 the K4510 page: table and fonts */
 int     term_get_page(void);

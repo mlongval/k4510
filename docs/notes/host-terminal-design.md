@@ -67,3 +67,18 @@ WALL is for a question that has a short answer, asked while Doc is doing
 something else on the machine.  The terminal is for a conversation.  The
 brainshot watcher (tools/k4510-brainwatch.timer) is the third leg: what Doc
 writes with IDEA is on ubuntu-s1 within two minutes, without anyone asking.
+
+## Built, 2026-10-05: way 2
+
+Doc chose the second way after all, on the jim-everywhere branch, once every
+text program had been moved onto JIM's stream: "JIM can choose to display ...
+The current K/OS K4510 program, or ... one terminal connection.  Via that
+terminal connection ... TMUX can be run there".  core/term.c keeps two
+terminals (TS[0] the machine's, TS[1] the second screen's, in a map of its
+own at $0FD40000 that VICKY shows in the console's place); core/io.c runs the
+session on a pty (/SYSTEM/ETC/TERMINAL.CFG, or K4510_TERMINAL); Alt+1/Alt+2,
+F12 > Terminal, TERMINAL and ESC ] 4510 ; kos|term BEL switch.  It took an
+evening, not a week, because the week's worth -- making every program speak
+the stream -- had been done first.  Way 1 (tty2) stays possible beside it.
+The key question above (a restricted key for the k4510 user) is unchanged:
+the ssh in TERMINAL.CFG needs one, on the persistent partition only.

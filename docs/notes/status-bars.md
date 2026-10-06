@@ -498,3 +498,16 @@ Gone: `draw_cursor`, `cursor_vis`/`cursor_far`, the IRQ's blink.  BSSR is
 loaded with the cursor off and the shell's cursor is now JIM's, mid-blink.
 
 The layout work this note proposed is complete.
+
+## 2026-10-05: the bands are JIM's
+
+Doc: "the status bands are PART OF and OWNED BY JIM ... the same way as ...
+the status bar at the bottom of TMUX or NVIM".  The ROM no longer draws
+them (draw_bands, draw_clock, draw_bat, the IRQ's clock painter: gone, about
+900 bytes of ROM back); core/term.c's bands_tick fills BANDMAP from the host,
+redrawing when anything on them changes: the first screen's tab (io_title's
+trail), the second screen's tab, the clock; a note (ESC ] 4510 ; note ; text
+BEL) and the battery below.  The layout stays VICKY's (option A), the memory
+BANDMAP (option B), and a program's claim still keeps JIM out.  The
+frontend's pixel overlay of the title went with it; its key-echo overlay on
+the bottom band stays.

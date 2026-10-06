@@ -126,7 +126,7 @@ int main(void)
     REG(VIC + 0x80) = 6;                                           /* LINE */
 
     /* the text band: the console's last four rows, the only ones the list shows */
-    REG(TERM + 0x0E) = 0;                                          /* no cursor */
+    say("\x1b[?25l");                                              /* no cursor */
     row(0); say("SPLIT -- a bitmap above, four rows of text below.");
     row(1); say("SHEILA holds the split: eight instructions a frame, no CPU at all.");
     row(3); say("Any key leaves.");
@@ -157,7 +157,7 @@ int main(void)
     REG(VIC + 0x64) = 0;                /* SHEILA off: nothing else will */
     REG(VIC + 0x20) = 0;
     REG(VIC + 0x10) = l0;
-    REG(TERM + 4) = 2;
+    say("\x1b[2J\x1b[H");
     rom_video();
     return 0;
 }

@@ -54,9 +54,12 @@ TALI_OPTION_TERSE := 0
 
 kernel_init:
         .byte $a3, $00          ; LDZ #0: pin the 45GS10's Z register
-        lda $DA0E               ; the console cursor back on: the ROM hides it for programs (2026-09-11)
-        ora #1
-        sta $DA0E
+        ldx #0                  ; the console cursor back on: the ROM hides it for programs (2026-09-11);
+_cur:   lda cursor_on,x         ; told to JIM in its stream, ESC [ ? 2 5 h (2026-10-05)
+        sta $DA00
+        inx
+        cpx #6
+        bne _cur
         tsx
         stx run_sp              ; remember K/OS's stack pointer for BYE
         ldy #0                  ; save the stack bytes above the entry SP:
@@ -74,6 +77,9 @@ _saved: ldx #0
         bra -
 _done:  jmp forth
 
+cursor_on:                      ; ESC [ ? 2 5 h, for kernel_init (after a jmp: never run into)
+        .byte 27
+        .text "[?25h"
 kernel_bye:
         ldx run_sp
         txs

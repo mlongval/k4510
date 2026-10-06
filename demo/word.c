@@ -699,7 +699,7 @@ void main(void)
     ui_titles = mtitle; ui_menus = menus; ui_nmenu = 4; ui_marked = marked; ui_dirtab = 0x0BF00000UL; ui_name = "WORD ";
     th = (uint8_t)(rows - 4); tw = (uint8_t)(cols - 2);
     scheme(sys);
-    REG(TERM + 4) = 1; cursor_show(0);
+    ui_start(); cursor_show(0);
     ptr_on();
     open_name(nm);
     if (!nm[0]) note = "Ctrl+O opens a Word document (.DOCX)";
@@ -711,7 +711,6 @@ void main(void)
         do_key(k);
     }
     ptr_off();
-    put(27); put('['); put('2'); put(' '); put('q');
-    REG(TERM + 0x0E) = 0; REG(TERM + 4) = 1; REG(TERM + 4) = 2;
+    ui_end();                                         /* the block cursor, JIM's modes and an empty screen for the shell */
     rom_video();
 }

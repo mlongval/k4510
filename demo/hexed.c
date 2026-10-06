@@ -16,12 +16,13 @@
  * A file is changed in place, and typing at its end makes it longer, which
  * is also how a new file is started.  The screen is the console as it stands,
  * in any MODE (16 bytes a row where there is room, 8 or 4 where there is
- * not), written as text32 cells a row at a time by DMA.
+ * not), sent through JIM a row at a time (demo/jimcell.h; before 2026-10-05
+ * written as text32 cells by DMA).
  */
 #include "k4510.h"
+#include "jimcell.h"
 
 #define TERM   0xDA00u
-#define SCREEN 0x00030000UL
 #define FS     0xD300u
 #define HBUF   0x0D000000UL                  /* the file (far memory nothing else uses) */
 #define MAXSZ  0x00800000UL
@@ -96,7 +97,7 @@ static void rb_hex(uint32_t v, uint8_t digits, uint8_t fg, uint8_t bg)
 static void rb_out(uint8_t r)                /* a whole row, from column 0; the cell under the mouse lit */
 {
     if (r == mrow && mcol < rn) { rb[mcol * 4 + 2] = WHITE; rb[mcol * 4 + 3] = LBLUE; }
-    if (r < rows && rn) dma_copy((uint32_t)(uint16_t) rb, SCREEN + ((uint32_t)(r + oy) * stride + ox) * 4, (uint32_t) rn * 4);
+    if (r < rows && rn) { uint8_t x; const uint8_t *p = rb; jc_at(0, r); for (x = 0; x < rn; x++, p += 4) { jc_col(p[2], p[3]); jc_ch(p[0]); } }
     rn = 0;
 }
 static void rb_fill(uint8_t fg, uint8_t bg) { while (rn < cols && rn < 80) rb_put(' ', fg, bg); }
@@ -426,8 +427,7 @@ void main(void)
     tx = (uint8_t)(9 + bpr * 3 + gap + 1);
     nrows = (uint8_t)(rows - 2);
     if ((uint16_t) nrows * bpr > sizeof win) nrows = (uint8_t)(sizeof win / bpr);
-    flags_was = REG(TERM + 0x0E);
-    REG(TERM + 0x0E) = (uint8_t)(flags_was & ~1);   /* no blinking cursor over ours */
+    jc_start(); jc_cursor(0);                       /* JIM through its stream; no blinking cursor over ours */
     top_off = pos - pos % bpr; go(pos);                     /* the address asked for on the top line */
 
     redraw();
@@ -440,6 +440,6 @@ void main(void)
         if (memmode && (uint8_t)(REG(SYS + 0x0D) - lf) >= 15) { lf = REG(SYS + 0x0D); f = 1; }   /* memory moves by itself: look again */
         if (f) redraw();
     }
-    REG(TERM + 0x0E) = flags_was;
+    jc_end();
     rom_chrout(12);
 }

@@ -229,6 +229,11 @@ void     vicky_set_user_bands(int on);                /* the host: the F12 switc
  * glass shows. */
 uint32_t vicky_text_cell(int col, int row);
 uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
+/* JIM's (core/term.c): the second screen's map shown in the console's place
+ * (0: the console's own), and the bands as they are drawn -- the layout
+ * latched with CONMAP, TCOLS, whether a program has them.  0 if BANDMAP is off. */
+void     vicky_screen_map(uint32_t map);
+int      vicky_bands(uint8_t *oy, uint8_t *rows, uint8_t *bot, uint8_t *cols, int *claimed);
 uint32_t vicky_palette_gen(void);                     /* changes whenever any palette entry may have */
 
 #endif

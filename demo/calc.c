@@ -27,9 +27,9 @@
  * A1...B3) are brought over to this spelling as they load.
  */
 #include "k4510.h"
+#include "jimcell.h"                        /* the screen, sent through JIM (2026-10-05) */
 
 #define TERM    0xDA00u
-#define SCREEN  0x00030000UL
 #define FS      0xD300u
 #define MATHR   0xD700u
 #define CELLS   0x0E100000UL                 /* 26 x 99 cells (far memory nothing else uses) */
@@ -361,7 +361,7 @@ static void rb_str(const char *s, uint8_t fg, uint8_t bg) { while (*s) rb_put((u
 static void rb_out(uint8_t r, uint8_t bar)
 {
     while (rn < cols && rn < 80) rb_put(' ', bar ? bg0 : fg0, bar ? fg0 : bg0);
-    if (r < rows) dma_copy((uint32_t)(uint16_t) rb, SCREEN + ((uint32_t)(r + oy) * stride + ox) * 4, (uint32_t) rn * 4);
+    if (r < rows) { uint8_t x; const uint8_t *p = rb; jc_at(0, r); for (x = 0; x < rn; x++, p += 4) { jc_col(p[2], p[3]); jc_ch(p[0]); } }
     rn = 0;
 }
 static char cname[4];
@@ -730,8 +730,7 @@ void main(void)
     if (!rows) rows = 25;
     if (!stride) stride = cols;
     layout();
-    flags_was = REG(TERM + 0x0E);
-    REG(TERM + 0x0E) = (uint8_t)(flags_was & ~1);
+    jc_start(); jc_cursor(0);                       /* JIM through its stream; no blinking cursor over ours */
 
     redraw();
     for (;;) {
@@ -742,6 +741,6 @@ void main(void)
         if (only_entry) draw_entry();              /* typing: one line, not the sheet */
         else { keep_visible(); redraw(); }
     }
-    REG(TERM + 0x0E) = flags_was;
+    jc_end();
     rom_chrout(12);
 }

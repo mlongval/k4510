@@ -11149,3 +11149,106 @@ under the banner instead (banner_note, which BANNER uses too, so a
 STARTUP.BAT's PALETTE LOAD + BANNER still shows one banner and the
 report). The path is no longer in it. Also rebuilt with the current k4510
 unit: ANIMAL and EX/TEST (EX/TEST 30 of 30). The whole suite passes.
+## 2026-10-05 -- jim-everywhere: EDIT, PROG and WORD draw through JIM
+
+The branch's first step (Doc: "Have everything DEFAULT to writing via JIM",
+so that JIM can later carry a second screen -- K/OS on one, a terminal
+session to the host or a distant machine on the other). The three editors
+wrote text32 cells straight into the console's map; dosui.h's comment said
+it was because "JIM's escapes reach only eight" colours. Not so -- but SGR's
+ANSI order does reach only twelve of the sixteen entries (no orange, brown,
+mid or light grey, and DOS EDIT's menus are light grey), and $1E/$1F (the
+scroll bar's arrows) are controls a terminal swallows.
+
+JIM gains two K4510 modes (core/term.h): ESC[?4510h makes 38;5;n / 48;5;n
+with n < 16 the palette's own entry; SGR 11 / 10 (the Linux console's
+display-control flag) draws $00-$1F as glyphs, all but the ones that act.
+Both are cleared by a reset, and sit at the end of JIM's state so an older
+save state still loads.
+
+dosui.h keeps the cells it draws in a copy in far memory (ui_dirtab +
+$18000) -- the menus' snapshot and the shadows need to read the screen back,
+which a terminal cannot do -- and sends each flushed row or cell to JIM as
+cursor moves, SGR colours (only when they change) and bytes. ui_start() /
+ui_end() set and clear the modes. JIM's registers are now only read (the
+window's size, the default colours). EDIT and PROG were full: their keys and
+About pages moved out of the main image (EDIT's to $E000, PROG's into the
+VIO2 overlay, slot 11), as named arrays because string literals always land
+in the main image.
+
+Checked: edittest, wordtest, vikeystest, jimtest, keytest, vitest; and
+captures of EDIT (menu open, help box) and PROG are pixel-identical to
+master's.
+
+## 2026-10-05 -- jim-everywhere: Pascal's CRT, the ROM's prompt, and the rest
+
+Doc: "go ahead with the Pascal CRT and the ROM prompt then all the rest".
+
+- Mad Pascal's CRT (pascal/mp/lib/crt_k4510.inc): GotoXY is ESC[y;xH,
+  TextColor/TextBackground ESC[?4510h + 38;5;n / 48;5;n, ClrScr ESC[2J
+  ESC[H, CursorOn/Off ?25h/l, TextMode DECSTR. Still assembler: crt.pas
+  declares them so (a plain Pascal body was refused, "different
+  modifiers"); numbers go out as three digits, which a VT100 reads as
+  one. WhereX/WhereY read JIM's cursor; the keys still come from the
+  keyboard device. The branch builds with its own Mad Pascal
+  (~/Projects/K4510/toolchain-jim) so master's toolchain keeps master's CRT.
+  PMANDEL draws the same picture; 8 frames to master's 7.
+- The ROM: k_chrout's colours, cls, the line editor's step back over a
+  wrapped line, "-- more --" taken back off, a program's start and end,
+  video_init, the Tube session's reset -- all escapes now (jraw, jnum,
+  jat, jcol, jim_cursor in CODE2). After a program the ROM ends SGR 11 and
+  puts autowrap back. JIM's registers are still written for what
+  configures the terminal rather than draws on it: the window's geometry,
+  the default colours. The status bands are next, as JIM's own (Doc: they
+  belong to JIM "the same way as ... the status bar at the bottom of TMUX").
+- demo/jimcell.h: cells through JIM for C programs, shared by dosui.h.
+  RANGER, KOMMANDER, HEXED, BANNER, CALC, TRACKER, FONTED converted;
+  KOMMANDER and RANGER send their modes again after SWAP brings them back
+  (the editor's exit reset JIM). VI, BOOK, SETUP, TELNET, SPLIT, ed.h's
+  screen_back (EDIT and PROG put their modes back after a compile through
+  ED_SCREEN_BACK), EhBASIC, MS BASIC and Forth (the cursor on) lost their
+  JIM register writes. TELNET sets its black background with ?4510 for
+  that one SGR only: a BBS's 38;5;n are xterm's.
+- JIM: SGR 11 draws DEL ($7F, the house) too -- FONTED's grid showed it
+  blank -- and the nine glyphs whose bytes act (BS..SI, ESC) go as UTF-8
+  for that one character. A `!` session turns ?4510 and SGR 11 off.
+- Left on purpose, writing VICKY's text map: the games (TETRIS, ROCKFALL,
+  SNAKE, BOMBER, BREAKOUT, LODE, PAINT), BANDS (the bands' turn comes),
+  the SWAP save and restore of the screen, REXX's read of it.
+
+Checked: the whole suite; captures of RANGER, KOMMANDER, CALC, HEXED,
+BANNER, TRACKER, DIR and VI pixel-identical to master's, FONTED too after
+the DEL fix.
+
+## 2026-10-05 -- jim-everywhere: the bands are JIM's, and JIM has two screens
+
+Doc: the bands "are PART OF and OWNED BY JIM"; JIM shows "The current K/OS
+K4510 program, or ... one terminal connection" (with tmux at the far end
+for the many); "do all".
+
+- The bands: core/term.c bands_tick draws BANDMAP from the host once a
+  frame when anything on them changed -- the screens' tabs (the first is
+  io_title's trail of who started whom, as the frontend's overlay drew it;
+  the second TERMINAL; the one up in reverse), the clock in the Terminal
+  page's formats, a note a program sends (ESC ] 4510 ; note ; text BEL),
+  the battery.  A program's claim still keeps JIM out.  The ROM lost
+  draw_bands, draw_clock, draw_bat, bat_refresh, the day check in k_getin
+  and the IRQ's clock painter (crt0.s now only counts frames).
+- Two screens: TS[0] is the machine's terminal (the registers, the save
+  state), TS[1] the second screen's, drawn in its own map at $0FD40000
+  (free: the ROM's SWAPSCR ends at $0FD1BC70) and shown by VICKY in the
+  console's rows (vicky_screen_map); the bands are shared.  core/io.c runs
+  its session on a pty: TERMINAL.CFG's command (K4510_TERMINAL overrides)
+  or a login shell, TERM xterm-color, UTF-8, the machine's backspace; keys
+  go to it through JIM's own translation while it is up (kbd_in); a MODE
+  change reaches it as TIOCSWINSZ; an ended session says so and Enter
+  starts another.  Switches: Alt+1 / Alt+2 (the frontend), F12 > Terminal,
+  TERMINAL (JIM's new $DA18 SCREEN register), ESC ] 4510 ; kos / term
+  BEL from either screen -- tmux's `bind K run-shell "printf
+  '\033]4510;kos\007' > #{client_tty}"`.  Locked machines have none.
+- k_getin no longer sends ESC[?25h at every key poll: it reads JIM's FLAGS
+  and says it once (the previous step had made the prompt's idle loop a
+  flood of sequences).
+- test/screentest.sh: the session takes keys and answers, the OSC comes
+  back to K/OS with its keys, the bands name both screens with the date, a
+  note reaches the bottom band, an ended session says so.

@@ -37,12 +37,14 @@
  * overwriting what is there -- a trash that eats the thing you deleted
  * yesterday is not a trash.
  *
- * The screen is drawn straight into VICKY's text32 map, four bytes a cell, the
+ * The screen is cells sent through JIM (demo/jimcell.h, 2026-10-05; drawn
+ * straight into VICKY's text32 map before that), four bytes a cell, the
  * same way KOMMANDER does it -- and, like KOMMANDER, the console's origin is
  * read from JIM at $DA07/$DA08 rather than assumed, because the F12 menu can
  * turn the one-cell margin off underneath us.
  */
 #include "k4510.h"
+#include "jimcell.h"                        /* the screen, sent through JIM */
 
 /* ---- the storage device at $D300 (core/io.h) --------------------------- */
 #define FS        0xD300u
@@ -67,7 +69,6 @@
 #define C_DIRALL  18
 
 #define TERM      0xDA00u
-#define SCREEN    0x00030000UL
 #define TRASH     "/.TRASH"
 
 /* ---- keys -------------------------------------------------------------- */
@@ -105,12 +106,7 @@ static uint8_t cols, rows, ox, oy, pcols;
 
 static uint32_t rr32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r+1)<<8) | ((uint32_t)REG(r+2)<<16) | ((uint32_t)REG(r+3)<<24); }
 
-static void putcell(uint8_t x, uint8_t y, uint8_t g, uint8_t fg, uint8_t bg)
-{
-    uint32_t a = SCREEN + ((uint32_t)((uint16_t)(oy + y)) * pcols + ox + x) * 4;
-    far_poke16(a, g);
-    far_poke16(a + 2, (uint16_t)fg | ((uint16_t)bg << 8));
-}
+static void putcell(uint8_t x, uint8_t y, uint8_t g, uint8_t fg, uint8_t bg) { jc_cell(x, y, g, fg, bg); }   /* through JIM (jimcell.h) */
 static void draw_str(uint8_t x, uint8_t y, const char *s, uint8_t w, uint8_t fg, uint8_t bg)
 {
     uint8_t i;
@@ -674,6 +670,7 @@ static void open_file(void)
     strcpy(CMDLINE, "SWAP VI ");
     strcat(CMDLINE, names[cur]);
     rom_shell(CMDLINE);
+    jc_start();                             /* the editor gave JIM back reset: our modes again */
     chdir_to(path);
     refresh(); draw_all();
 }
@@ -688,6 +685,8 @@ int main(void)
       if (na && *a >= '1' && *a <= '3') ncols = (uint8_t)(*a - '0'); else ncols = 0; }
 
     cols = REG(TERM + 5); rows = REG(TERM + 6); ox = REG(TERM + 7); oy = REG(TERM + 8); pcols = REG(TERM + 0x0D);
+
+    jc_start();                                     /* JIM drawn on through its stream */
     if (!cols) cols = 80; if (!rows) rows = 30; if (!pcols) pcols = 80;
     /* No argument: two columns -- where you are and the preview.  The parent
      * column is ranger's classic third, but Doc (the Dell, 2026-09-11) never
@@ -750,7 +749,7 @@ int main(void)
     /* Leave the shell in the directory we ended up in -- the whole point of
      * driving a file manager rather than typing CD. */
     chdir_to(path);
-    REG(TERM + 4) = 2;                     /* JIM: clear and home, a clean screen for the shell */
+    jc_end();                              /* JIM: its modes back, cleared and home, a clean screen for the shell */
     rom_video();
     if (runline[0]) type_ahead(runline);   /* Enter on a program: the shell types it */
     return 0;

@@ -20,10 +20,10 @@
  * rest of the machine uses.
  */
 #include "k4510.h"
+#include "jimcell.h"                        /* the screen, sent through JIM (2026-10-05) */
 #include "../core/codepage.h"
 
 #define TERM    0xDA00u
-#define SCREEN  0x00030000UL
 #define FS      0xD300u
 #define FONT_8  0x00010000UL
 #define FONT_16 0x00010800UL
@@ -108,7 +108,7 @@ static void rb_out(uint8_t r, uint8_t bar)
 {
     while (rn < cols && rn < 80) rb_put(' ', bar ? bg0 : fg0, bar ? fg0 : bg0);
     if (r == mrow && mcol < rn) { rb[mcol * 4 + 2] = WHITE; rb[mcol * 4 + 3] = LBLUE; }
-    if (r < rows) dma_copy((uint32_t)(uint16_t) rb, SCREEN + ((uint32_t)(r + oy) * stride + ox) * 4, (uint32_t) rn * 4);
+    if (r < rows) { uint8_t x; const uint8_t *p = rb; jc_at(0, r); for (x = 0; x < rn; x++, p += 4) { jc_col(p[2], p[3]); jc_ch(p[0]); } }
     rn = 0;
 }
 static void rb_hex(uint16_t v, uint8_t digits, uint8_t fg, uint8_t bg) { while (digits--) rb_put((uint8_t) hexd[(v >> (digits * 4)) & 15], fg, bg); }
@@ -343,8 +343,7 @@ void main(void)
     gw = cols >= 60 ? 2 : 1;
     ex = (uint8_t)(3 + 16 * gw + 3);
     tall = (REG(0xD010) & 0x60) ? 1 : 0;       /* start on the size this MODE shows */
-    flags_was = REG(TERM + 0x0E);
-    REG(TERM + 0x0E) = (uint8_t)(flags_was & ~1);
+    jc_start(); jc_cursor(0);                       /* JIM through its stream; no blinking cursor over ours */
     fetch();
 
     redraw();
@@ -355,6 +354,6 @@ void main(void)
         if (mouse()) f = 1;
         if (f) redraw();
     }
-    REG(TERM + 0x0E) = flags_was;
+    jc_end();
     rom_chrout(12);
 }

@@ -153,9 +153,8 @@ K4510_NAMEMAX   = 40             ; the file name, NUL and ".BAS" included
 
 k4510_start:
         cld
-        lda     $DA0E                    ; the ROM hides the console cursor for every program;
-        ora     #1                       ; a BASIC prompt wants it back (Doc, 2026-09-11: "does NOT show a cursor")
-        sta     $DA0E
+        jsr     k4510_cursor             ; the ROM hides the console cursor for every program;
+                                         ; a BASIC prompt wants it back (Doc, 2026-09-11: "does NOT show a cursor")
 ; ---- the way back ----------------------------------------------------------
 ; Copy the live hardware stack out before COLD_START overwrites it.  The
 ; bytes from $0101+S to $01FF are the shell's frames -- the JSR in the RAM
@@ -595,11 +594,20 @@ k4510_star:
 ; one ends, hands the shell a console with it off -- so after a *command that
 ; ran a program (*VI, *SAY) BASIC's prompt had no cursor (Doc, 2026-09-12).
 ; SWAP puts RAM back, not this register.
-k4510_cursor:
-        lda     $DA0E
-        ora     #1
-        sta     $DA0E
+k4510_cursor:                            ; told to JIM in its stream: ESC [ ? 2 5 h (2026-10-05)
+        txa
+        pha
+        ldx     #0
+@l:     lda     k4510_curseq,x
+        sta     $DA00
+        inx
+        cpx     #6
+        bne     @l
+        pla
+        tax
         rts
+k4510_curseq:
+        .byte   27,"[?25h"
 
 ; Does k4510_line say exactly the word at k4510_words+X?  The comparison
 ; folds case on both sides and both must end at the same place, so "*BYES"

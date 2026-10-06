@@ -295,11 +295,19 @@ k_ed_sn_done
 ; All three live here in the tail: the $C000 slice is full to the byte, so its
 ; two callers (k4510_go, the @/* shell escape) swap a jump target for one of
 ; these and grow not at all.
-k_curon
-	LDA	$DA0E
-	ORA	#1
-	STA	$DA0E
+k_curon					; the cursor on, told to JIM in its stream: ESC [ ? 2 5 h (2026-10-05)
+	PHX
+	LDX	#0
+k_curon1
+	LDA	k_curon_seq,X
+	STA	$DA00
+	INX
+	CPX	#6
+	BNE	k_curon1
+	PLX
 	RTS
+k_curon_seq
+	.byte	27,"[?25h"
 k_cold_cur				; k4510_go: the cursor on, then EhBASIC's cold start
 	JSR	k_curon
 	JMP	LAB_COLD

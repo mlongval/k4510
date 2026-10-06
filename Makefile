@@ -223,6 +223,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/basictest.sh
 	./test/msbasictest.sh
 	./test/jimtest.sh
+	./test/screentest.sh
 	./test/edittest.sh
 	./test/wordtest.sh
 	./test/opltest.sh

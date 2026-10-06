@@ -219,6 +219,12 @@ DD.MM.YYYY, YYYY-MM-DD, MM/DD/YYYY; to begin with, DD.MM.YYYY
 **`Code page`** — *text.codepage*  
 CP437, K4510; to begin with, CP437
 
+**`K/OS screen (Alt+1)`** —   
+does it
+
+**`Terminal screen (Alt+2)`** —   
+does it
+
 ### Audio
 
 **`Volume`** — *audio.volume*  

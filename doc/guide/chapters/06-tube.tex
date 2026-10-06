@@ -174,6 +174,40 @@ natively, so \verb|COLOUR|, \verb|CLS| and \verb|PRINT TAB(x,y)| land
 where they should. Bytes \texttt{\$80}--\texttt{\$FF} are drawn as CP437
 glyphs, which is what BBS ANSI art is made of.
 
+\subsection*{Everything through JIM}
+JIM is not only for the Tube. The machine's own programs
+draw through it too: the shell's prompt and its colours, Mad Pascal's CRT
+unit (\verb|GotoXY|, \verb|TextColor|), EDIT, PROG and WORD, RANGER,
+KOMMANDER, HEXED, CALC, FONTED, the TRACKER and the rest send JIM the
+byte stream a terminal reads, instead of writing into the screen's memory.
+Games and the graphics layers still go to VICKY directly; that is what
+they are for. Two additions let a K4510 program say everything it needs
+in that stream:
+
+\begin{description}[leftmargin=1.4em,style=nextline]
+\item[\texttt{ESC [ ? 4510 h} --- the palette's own colours]
+  \verb|ESC[38;5;|$n$\verb|m| and \verb|ESC[48;5;|$n$\verb|m| with $n$
+  below 16 are then the palette's entry $n$. Without it they mean xterm's
+  colour $n$, and xterm's order reaches only twelve of the machine's
+  sixteen: no orange, brown, mid grey or light grey.
+  \verb|ESC[?4510l| puts xterm's meaning back.
+\item[\texttt{ESC [ 11 m} --- glyphs for control bytes]
+  The bytes \texttt{\$00}--\texttt{\$1F} and \texttt{\$7F} draw their
+  CP437 glyphs (arrows, card suits, the little house) instead of being
+  swallowed, as on the Linux console; the nine that must still act ---
+  backspace, tab, the line feeds, carriage return, SO, SI, Escape --- are
+  sent as their Unicode characters in UTF-8 if their glyph is wanted.
+  \verb|ESC[10m| ends it.
+\end{description}
+
+\noindent A reset (\verb|ESC[!p| or \verb|ESC c|) clears both. C programs
+get all of this from \texttt{demo/jimcell.h}: \verb|jc_cell(x, y, glyph,|
+\verb|fg, bg)| sends a cell, moving the cursor and changing the colours
+only when it has to. Why it matters: a screen made of a stream can be sent
+anywhere, and it is what lets JIM own the status bands and keep a second
+screen, a session on the Linux underneath or on a distant machine
+(Section~\ref{sec:screens}).
+
 \section{Star commands}
 A line starting with \verb|*| goes to the machine: \verb|*DIR|, \verb|*CD|,
 any shell command --- and BBC BASIC's own file words (\verb|LOAD|,

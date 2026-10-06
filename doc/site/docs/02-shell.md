@@ -182,9 +182,27 @@ Whatever you type after the alias is added to the end, so a definition takes arg
 
 Turn on *status bands* (F12, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band is one row high: the bands are on or off, and that is the only setting.
 
-They are shared, and the split is worth knowing. **The top band is yours** — the machine draws the clock and the date in it, in whichever formats the Terminal page is set to. **The bottom band is the running program’s**: a program that wants the bands asks VICKY for them — she lays the screen out — and writes into the bands’ own memory; `BANDS` in `/SYSTEM/BIN` is the demonstration, and Appendix A has the registers (`$D0B0`–`$D0BF`). The bands are kept apart from the console: nothing a program prints or pokes into the console’s screen can reach them. The machine keeps only its right-hand corner: on a laptop, the battery’s charge, with an arrow up while it charges and down while it does not. The CPU clock is not in the bands: what it changes is how soon a long calculation ends, which the calculation shows better than a number would. `INFO` has it.
+The bands are JIM’s, the terminal’s, the way tmux’s status line is tmux’s: the machine does not draw in them, and nothing a program prints or pokes into the console’s screen can reach them. **The top band** names what is on the screens at its left and has the clock and the date at its right, in whichever formats the Terminal page is set to. The first name is what is running: `K/OS` at the prompt, `EhBASIC INVADER2.BAS` once a program is loaded, `EhBASIC PROG.BAS > VI EDITTMP.BAS` while `*VI` has it, and `BBC BASIC > VI EDITTMP.BBC` from the Tube — a trail of who started whom, with the file each one has open, LOGO’s `.LGO`, BOOK’s page and CP/M or the Linux prompt on the Tube included. Once the second screen has been opened (below) the names are numbered, `1` for the machine and `2 TERMINAL`, and the one you are looking at is drawn in reverse. **The bottom band** has, at its right, on a laptop, the battery’s charge, with an arrow up while it charges and down while it does not; at its left whatever a program last asked JIM to put there, and, while somebody types into the machine from another computer ([Chapter 11, The Linux Underneath](13-linux.md)), the keys they send.
 
-At its left, the top band says what is running: `K/OS` at the prompt, `EhBASIC INVADER2.BAS` once a program is loaded, and `EhBASIC PROG.BAS > VI EDITTMP.BAS` while `*VI` has it, and `BBC BASIC > VI EDITTMP.BBC` from the Tube — a trail of who started whom, with the file each one has open, LOGO’s `.LGO`, BOOK’s page and CP/M or the Linux prompt on the Tube included. `K/OS` is named only at the prompt: once something runs on top of it, the trail starts there, and the line stays short. And while somebody types into the machine from another computer ([Chapter 11, The Linux Underneath](13-linux.md)), the keys they send show at the left of the bottom band. Programs that take the whole screen — the games, the editors — get the whole screen anyway: the bands are part of the console, and the console is what a program leaves behind when it asks for the glass.
+A program asks for that line the way it asks JIM for anything, in the stream it prints: `ESC ] 4510 ; note ; `*text*` BEL` (an empty text takes it away again). A program that wants the bands whole can still claim them from VICKY — she lays the screen out — and write into the bands’ own memory; JIM keeps out until it hands them back. `BANDS` in `/SYSTEM/BIN` is the demonstration, and Appendix A has the registers (`$D0B0`–`$D0BF`). The CPU clock is not in the bands: what it changes is how soon a long calculation ends, which the calculation shows better than a number would. `INFO` has it. Programs that take the whole screen — the games, the editors — get the whole screen anyway: the bands are part of the console, and the console is what a program leaves behind when it asks for the glass.
+
+## Two screens
+
+JIM can show either of two screens. The first is the machine’s: K/OS, and whatever it is running. The second is a terminal of JIM’s own, on a session on the Linux beneath the machine — or, through `ssh`, anywhere else — that the emulator keeps open whatever the machine is doing:
+
+    TERMINAL
+
+opens it the first time and shows it after that, and so does **Alt+2**; **Alt+1** is the machine again. F12, under Terminal, has both. Neither screen stops when the other is up: a program on the machine goes on running, and its graphics and sprites — which are VICKY’s, not JIM’s — stay on the glass above the terminal’s text. The machine is single-tasking and stays so; the terminal is where the multi-tasking is, on the far side.
+
+What the terminal runs is the first line of `/SYSTEM/ETC/TERMINAL.CFG` that is not a comment; with none, a login shell on the Linux beneath. One line makes it a tmux on a server, the same session every time, and so as many terminals as you like behind the one screen:
+
+    ssh -t you@server tmux new -A -s k4510
+
+tmux’s own keys then move between its windows, and one line in that server’s ` /.tmux.conf` makes its prefix and `K` come back to K/OS, so the machine is one more window in the list:
+
+    bind K run-shell "printf '\033]4510;kos\007' > #{client_tty}"
+
+That is JIM’s own sequence, `ESC ] 4510 ; kos BEL` (`; term` goes the other way), and any program on either screen may send it. The session follows the machine’s `MODE`: a change of size reaches it as a terminal’s resize. When it ends, Enter starts another. A machine with Linux locked off ([Chapter 11, The Linux Underneath](13-linux.md)) has no second screen: it is a way into Linux.
 
 ## The network
 

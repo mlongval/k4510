@@ -30,10 +30,32 @@ reasoning; the last tree with the port is tag `alpha-0.5`. A Pi still
 runs the machine — under Linux, the same way the laptop does.
 
 **Read the handbook first**: `doc/guide/k4510-guide.pdf`, the User's and
-Programmer's Guide, 158 pages, every screenshot captured from the running
+Programmer's Guide, 159 pages, every screenshot captured from the running
 machine at build time. This README is the short version. Both are alpha
 documentation of an alpha machine: things change, and the handbook's
 first page says so.
+
+## New in 0.8 ('Quiescence')
+
+- **The machine rests.** WAIT puts the CPU to sleep until the next frame or
+  a key; a frame in which nothing on the screen changed is not drawn again;
+  the moving sidebars draw at 30 frames a second; the sound chip sleeps
+  through silence. Idle at the prompt, the Dell went from 44% of a core to
+  about 8%, which is battery life on a laptop.
+- **K/OS has a place of its own:** its own zero page, 6502 stack and a
+  1 KB C stack, watched by the stack fence (`INFO -m`). Programs get the
+  zero page and the stack page to themselves, and printing is twice as
+  fast.
+- **Smoother editors:** JIM's synchronized update (`ESC[?2026h`/`l`) holds
+  the screen while EDIT, PROG and WORD redraw, and they scroll by moving
+  rows inside JIM — no half-drawn screens, and twice as fast.
+- **C programs load at $0800**, with about 49 KB for themselves.
+- **The bands:** what is running, plainly, at the top; the network (`LAN`,
+  `Wi-Fi 77%`, `offline`) beside the battery at the bottom.
+- Pascal's `graph` unit works in the HD modes; MONITOR's `R` works again;
+  the handbook maps every byte the system uses.
+
+`docs/BUILD-LOG.md` has the measurements and the reasoning.
 
 ## Installing
 

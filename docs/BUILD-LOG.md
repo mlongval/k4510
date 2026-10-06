@@ -11570,3 +11570,8 @@ and CLEAR; the ramps, whose B is a bright step, take black.
 
 Checked: make test (uitest's menu walk included); mkref's menu list has no
 sidebar rows.  Not checked: the Dell.
+
+**And the dark grey.**  Doc, after the reboot: "the border and bars seem
+black."  They were 333333, CLEAR's B as the VIC-II has it, which beside the
+blue reads as black.  CLEAR's B is 555555 now: plainly grey, white on it
+7.5:1.  Dark grey text from a host still lifts to grey on the blue.

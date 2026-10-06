@@ -22,10 +22,10 @@ echo "$out" | grep -q "E 0088FF" || fail "entry E is not the VIC-II light blue"
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD AMBER
 PALETTE
 ' 1500 2>&1) || fail "PALETTE LOAD did not run"
-# (the report comes under the banner, which since 2026-10-03 is drawn
-# again after PALETTE LOAD, as after MODE: banner_note in the ROM;
-# the path is no longer in it)
-echo "$out" | grep -q "palette: 16 entries" || fail "AMBER.PAL was not found (or not reported under the banner)"
+# (a load that works says nothing since 2026-10-06 -- Doc did not want
+# "palette: 16 entries" at every boot; a missing file still says so)
+echo "$out" | grep -q "no such file" && fail "AMBER.PAL was not found"
+echo "$out" | grep -q "entries" && fail "PALETTE LOAD still reports its entries"
 echo "$out" | grep -q "F FFB000" || fail "the amber ramp did not reach entry F"
 # entry 1 is the shell's highlight (C_HI: DIR's header, directories): on a
 # ramp it must be bright, or they print black on black (Doc, 2026-09-12)
@@ -35,9 +35,14 @@ echo "$out" | grep -q "1 FFB000" || fail "AMBER entry 1 (the highlight) is not b
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD CLEAR
 PALETTE
 ' 1500 2>&1) || fail "PALETTE LOAD CLEAR did not run"
-echo "$out" | grep -q "palette: 16 entries" || fail "CLEAR.PAL was not found"
+echo "$out" | grep -q "no such file" && fail "CLEAR.PAL was not found"
 echo "$out" | grep -q "A FF77BB" || fail "CLEAR's light red is not FF77BB"
 echo "$out" | grep -q "6 000088" || fail "CLEAR's blue is not 000088"
+
+# a file that is not there still says so
+out=$(./test/headless rom/kernal.bin 'PALETTE LOAD NOSUCH
+' 900 2>&1) || fail "PALETTE LOAD NOSUCH did not run"
+echo "$out" | grep -q "no such file" || fail "a missing .PAL was not reported"
 
 # ...and survives a mode change, which is the whole point
 out=$(./test/headless rom/kernal.bin 'PALETTE LOAD GREY

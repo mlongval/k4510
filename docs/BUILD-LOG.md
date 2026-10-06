@@ -11583,3 +11583,10 @@ filled at power-on with the VIC-II's 333333, before STARTUP.BAT's PALETTE
 LOAD CLEAR made entry B 555555, and kept it; the bands, drawn from the
 palette every frame, took the new grey.  It is refilled when the colour
 changes too now (sdl/main.c, btex_rgb).
+
+**PALETTE LOAD says nothing when it works.**  Doc: "Can PALETTE be changed
+to NOT say 'palette: 16 entries' after it is run?"  It was there to show the
+file had been found, and at every boot it said so under the banner.  A
+palette that loaded shows itself; a missing file still says "palette: no
+such file", and a COLOR the load had to change to stay readable is still
+reported.  palettetest checks both, and that the count is gone.

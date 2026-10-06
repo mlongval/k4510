@@ -85,7 +85,7 @@ uint8_t bband;                                       /* bottom-band height.  NOT
 /* ---- terminal ---------------------------------------------------------- */
 static uint8_t cx, cy, fg = C_FG, bg = C_BG;
 static uint8_t mode_note;                  /* an F12 mode/status change was performed: the shell repaints (BANNER) at its next prompt */
-static uint8_t pal_pend, pal_n, pal_fix;    /* PALETTE LOAD's report, said after that banner: before it, the banner wiped it */
+static uint8_t pal_pend, pal_fix;           /* PALETTE LOAD's report, said after that banner: before it, the banner wiped it */
 static const char *args_tail;                /* the command tail, for the ARGS system call */
 static char args_none;
 extern volatile uint8_t ticks;                   /* crt0.s */
@@ -1549,8 +1549,8 @@ static void pal_after(uint8_t n, uint8_t hc, const char *path)
         cls(); fixed = 1;
     }
     mode_note = 1;                              /* and the banner at the next prompt, as after MODE (Doc, 2026-10-03) */
-    pal_pend = 1; pal_n = n; pal_fix = fixed;   /* what was loaded, said under it (banner_note) */
-    (void)path;
+    pal_pend = 1; pal_fix = fixed;              /* a COLOR it had to change, said under it (banner_note) */
+    (void)path; (void)n;
 }
 #pragma rodata-name (pop)
 
@@ -2373,6 +2373,7 @@ static void banner_note(void)
     mode_note = 0; banner();
     if (!pal_pend) return;
     pal_pend = 0;
-    puts_("palette: "); putdec(pal_n); puts_(" entries"); newline();
+    /* No "palette: 16 entries" (Doc, 2026-10-06: "can PALETTE not say it?"):
+     * a palette that loaded shows itself.  Only a COLOR it changed is said. */
     if (pal_fix) { puts_("palette: COLOR "); puthex(fg); k_chrout(' '); puthex(bg); puts_(", to stay readable"); newline(); }
 }

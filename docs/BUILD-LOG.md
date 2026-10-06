@@ -11643,3 +11643,14 @@ machine's picture, which k4510-remote copies; --full prints the other.
 Checked under Xvfb: a 1600x900 fullscreen window with a 24-pixel border
 comes out 1600x900 with the border colour at its edge; k4510-shot and
 k4510-shot --full name the right files.  Not checked: KMSDRM on the Dell.
+
+Measured on the Dell on battery, at the prompt, Doc away (k4510-power,
+10-second averages; backlight 47% = 56500 of 120000):
+
+  before (0.8-e7365a0)                4.95 W
+  after, lit                          4.35 W   (-12%: Wi-Fi, the CPU policy, the audio device closed)
+  after, dimmed (2 min idle, 14%)     3.70 W   (-25%)
+  after, backlight off (10 min idle)  3.27 W   (-34%)
+
+At 3.3-4.4 W the battery (5.9 Ah at 7.6 V, ~45 Wh, 80% charge limit) lasts
+roughly 8-11 hours idle, where 4.95 W gave about 7.

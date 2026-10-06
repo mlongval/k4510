@@ -852,8 +852,12 @@ static void swap_run(const char *p, uint8_t keep);
 static void cmd_run(const char *p)
 {
     uint8_t d; uint32_t a; const char *q = p;
-    if (*p && prog_running && !swapping) { swap_run(p, 1); return; }   /* from inside a program: not over it */
     while (ishex(*q)) q++;
+    /* From inside a program, a program is run swapped, not loaded over the
+     * one running.  An address is not: RUN 3000 from MONITOR runs code that
+     * is already there, and the swap's restore undid all it did (romtest,
+     * 2026-10-06). */
+    if ((uint8_t)*q > ' ' && prog_running && !swapping) { swap_run(p, 1); return; }
     if (*p) {                                     /* a name first (RUN FACE, RUN 2048 are programs if they exist), else hex */
         char name[NAMEMAX]; uint8_t st; const char *q2 = p;
         if (!(*q && *q != ' ')) {                 /* all hex digits: only if NAME.prg is there */

@@ -38,7 +38,7 @@ static const char *const page_names[]  = { "CP437", "K4510" };
 
 static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices are filled in at start (settings_set_labels) */
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
-    { "video.border_colour", "Border colour",  ST_INT,   6, 0, 15, 1, 0, 0, SF_LIVE },
+    { "video.border_colour", "Border colour",  ST_INT,  11, 0, 15, 1, 0, 0, SF_LIVE },   /* dark grey, as the bands (2026-10-06) */
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_360x270, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },

@@ -2046,7 +2046,15 @@ tex_done:
           /* what the sidebar setting draws (core/sidebars.c); the register panel is
            * one of the choices since 2026-09-15 (Doc: "Register becomes a choice in
            * the Sidebar") and everything below still asks panel_kind */
+          /* Sidebars off for now (Doc, 2026-10-06: "turn off the sidebars for now,
+           * let's just concentrate on the K4510"): the setting is out of the F12
+           * menu, and whatever it says, both sides are the plain border -- no
+           * gamebars, no register panel.  -DK4510_SIDEBARS=1 brings them back. */
+#if K4510_SIDEBARS
           int sv = settings_get(SET_VIDEO_SIDEBARS), sbar = sidebars_builtin(sv);
+#else
+          int sv = sidebars_count() ? sidebars_find("border") : SIDEBAR_BORDER, sbar = SIDEBAR_BORDER;
+#endif
           /* each side's sidebar and its own clock (step 5): the right can be another
            * (SIDEBARS.CFG right =), the choice can change on a timer (change =),
            * and each runs at its speed (OPTIONS.CFG speed =).  Once a second: the
@@ -2085,6 +2093,9 @@ tex_done:
           if (io_tube_kind() == 6 && sbar != SIDEBAR_REGISTERS)   /* DOOM's gamebar art, not the Apple's (it has a control panel instead) */
               for (int s2 = 0; s2 < 2; s2++) if (sb_side[s2] == SIDEBAR_BORDER || sb_side[s2] == SIDEBAR_GRADIENT) sb_side[s2] = SIDEBAR_DOOM;
           if (sbar == SIDEBAR_REGISTERS) sb_side[0] = sb_side[1] = SIDEBAR_BORDER;   /* the panel is drawn on its own, below */
+#if !K4510_SIDEBARS
+          sb_side[0] = sb_side[1] = SIDEBAR_BORDER;
+#endif
           int grad = sb_side[0] == SIDEBAR_GRADIENT || sb_side[1] == SIDEBAR_GRADIENT, knot = sb_side[0] == SIDEBAR_KNOT || sb_side[1] == SIDEBAR_KNOT;
           Uint32 gclk = (Uint32) vclk[sb_side[0] == SIDEBAR_GRADIENT || sb_side[0] == SIDEBAR_KNOT ? 0 : 1];   /* the gradient's and the knot's clock */
           int place = settings_get(SET_VIDEO_PLACE), panel_kind = io_tube_kind() == 7 ? PANEL_APPLE : sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;

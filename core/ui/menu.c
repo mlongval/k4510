@@ -30,8 +30,10 @@ static const item_t video_items[] = {
     { "Placement",     MI_SETTING, SET_VIDEO_PLACE },
     /* the sidebar, and its options in its own file: F12 keeps to these two rows
      * (Doc, 2026-09-15: "limit the F12 options to 'which one' and 'Edit options'") */
+#if K4510_SIDEBARS                                    /* off for now (2026-10-06): sdl/main.c */
     { "Sidebar",       MI_SETTING, SET_VIDEO_SIDEBARS },
     { "Edit options...", MI_ACTION, ACT_SIDEBAR_OPTIONS },
+#endif
     { "",              MI_SEP },
     { "Palette",       MI_SUBMENU, 0, &pal_menu },   /* last: uitest walks the rows above by counting */
 };

@@ -331,20 +331,10 @@ each setting has in \texttt{k4510.cfg}, its choices and where it starts.
 \section{Placement, the register panel, and F8}
 A 4:3 picture on a 16:9 screen leaves a third of the glass empty.
 \emph{Placement} (centre, left, right) puts the picture against one edge
-instead of in the middle, and the \emph{Sidebars} row fills what is left.
-Its choices are the sidebars in \pth{/SYSTEM/SIDEBARS}, one zip each: the
-border colour, a gradient, a knot, scenes --- and \emph{registers}, the
-machine as the emulator sees it. A register panel beside a centred
-picture makes no sense, so choosing it puts the picture left.
-
-Below it, \emph{Edit options\ldots} opens the chosen sidebar's own
-options in VI: \pth{/SYSTEM/SIDEBARS/ANTFARM/OPTIONS.CFG} for the ant farm
---- its \texttt{speed}, and the length of its day. Save the file and the
-sidebar changes within a second. \pth{/SYSTEM/SIDEBARS/SIDEBARS.CFG} holds
-what is for all of them: another sidebar on the right
-(\texttt{right = tetris}), a new one every so often (\texttt{change = 1h}),
-and whether Halloween and Christmas keep to their months. The ant colony
-is kept across a power cycle, in the same folder.
+instead of in the middle; what is left is the border colour, dark grey
+like the status bands unless you choose another. (The sidebars --- scenes,
+a gradient, the register panel beside the picture --- are switched off
+for now, and their rows are out of the menu.)
 
 Last, \emph{Palette} lists the VIC-II sixteen and every \texttt{.PAL} in
 \pth{/SYSTEM/ETC/PALETTES} (one you made with \verb|PALETTE SAVE| shows up

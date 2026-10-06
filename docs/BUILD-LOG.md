@@ -11549,3 +11549,24 @@ FEE66C and FFED55 -- 12.9 apart in Lab, one colour.  Now yellow FFEE00 and
 light green 99FF99 (56.7 apart); green to 33CC99 so it stays clear of the
 new light green, and cyan to AAEEFF, which had been 5.4 from white.  All
 still 7:1 or better on the blue.
+
+## 2026-10-06 -- sidebars off for now; dark grey bands and border; band text that reads
+
+Doc: "Turn off the sidebars for now.  Let's just concentrate on the K4510."
+Built without -DK4510_SIDEBARS=1, the Sidebar and Edit options rows are out
+of F12 > Video and both sides are the plain border whatever the setting says:
+no gamebars under DOOM, no register panel.  The code and the zips stay; the
+setting keeps its value in k4510.cfg; mkref leaves the rows out of the
+handbook's menu list; ch. 1 says they are off.
+
+The bands were white on grey C and the border's default blue 6 (Doc had set
+his to C by hand).  Under CLEAR, C is AAAAAA: the bands and the sides glowed
+beside the dark blue, and white on them read at 2.3:1 -- which the old test,
+a brightness difference of 64, passed.  He chose dark grey: the bands are on
+B now and video.border_colour starts at 11.  The band text is white unless
+it reads under 4.5:1 there, for normal or protan eyes (readable_fg's
+measure), and then the entry that reads best: white on B is 12.6:1 under C64
+and CLEAR; the ramps, whose B is a bright step, take black.
+
+Checked: make test (uitest's menu walk included); mkref's menu list has no
+sidebar rows.  Not checked: the Dell.

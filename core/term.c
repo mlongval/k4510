@@ -1014,11 +1014,8 @@ int  term_state_load(FILE *f)
  * JIM keeps out, as K/OS did.  The rows between a band and the console are
  * blank in the shell's colours.  The clock is the host's, as the RTC is,
  * in the order and the hours $D52F asks for -- the same text the ROM drew. */
-#define BAND_FG0 1                              /* white on grey, unless the palette makes them one colour */
-#define BAND_BG0 0x0C
-#define READABLE 64
-static int pal_luma(int i) { uint32_t c = vicky_palette_rgb(i); return (int)((((c >> 16) & 255) * 54 + ((c >> 8) & 255) * 183 + (c & 255) * 19) >> 8); }
-static int pal_contrast(int a, int b) { int x = pal_luma(a), y = pal_luma(b); return x > y ? x - y : y - x; }
+#define BAND_FG0 1                              /* white on dark grey, unless it does not read there (bands_tick) */
+#define BAND_BG0 0x0B                           /* dark grey, the border's default too (Doc, 2026-10-06) */
 static void bcell(int col, int row, uint8_t ch, uint8_t f, uint8_t b)
 {
     uint32_t a = vicky_text_cell(col, row);
@@ -1035,9 +1032,15 @@ static void bands_tick(int force)
     uint8_t oy, rows, bot, cols, fmt = io_clockfmt(), f = BAND_FG0, b = BAND_BG0;
     int claimed;
     if (!vicky_bands(&oy, &rows, &bot, &cols, &claimed) || claimed || (!oy && !bot) || !cols) { band_sig = 0; return; }
-    if (pal_contrast(f, b) < READABLE) {        /* amber, green, grey: the entry that reads best on the grey */
-        int best = 0, bc = -1; for (int i = 0; i < 16; i++) { int c = pal_contrast(i, b); if (c > bc) { bc = c; best = i; } }
-        f = (uint8_t) best;
+    /* White on the grey, unless it reads under 4.5:1 there, for normal or
+     * protan eyes (readable_fg's measure): then the entry that reads best.
+     * The ramps (amber, green, grey) and CLEAR's light grey take black --
+     * CLEAR's white on AAAAAA was 2.3:1, which the old brightness test
+     * passed (Doc, 2026-10-06: "should the foreground for the bars be
+     * something else?"). */
+    lum_update();
+    if (pal_ratio(f, b) < CONTRAST_GOOD) {
+        float bc = -1; for (int i = 0; i < 16; i++) { float c = pal_ratio(i, b); if (c > bc) { bc = c; f = (uint8_t) i; } }
     }
     time_t now = time(NULL); struct tm m; localtime_r(&now, &m);
     uint32_t sig = 2166136261u;

@@ -297,6 +297,8 @@ def c_enums(text):
 
 def menu():
     menu_c = (REPO / "core/ui/menu.c").read_text()
+    # rows built only with -DK4510_SIDEBARS=1 (the sidebars, off for now) are not in the menu
+    menu_c = re.sub(r"#if K4510_SIDEBARS\b.*?#endif[^\n]*\n", "", menu_c, flags=re.S)
     set_c = (REPO / "core/ui/settings.c").read_text()
     set_h = (REPO / "core/ui/settings.h").read_text()
     enums = {}

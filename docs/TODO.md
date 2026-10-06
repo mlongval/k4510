@@ -113,10 +113,11 @@ carries them: packages.list has them since 2026-10-06).
       DERP ("relay tor"), and tailscaled averaged 3.4% of a core: find why it
       is not direct (UDP, the router's NAT).  And k4510-tailscale-hosts.timer
       every 5 minutes instead of every minute.
-- [ ] **Housekeeping on the kernel line and the radios:** Bluetooth blocked
-      at boot (rfkill; nothing uses it), `nmi_watchdog=0`,
-      `workqueue.power_efficient=1`; `pcie_aspm.policy=powersupersave`
-      behind a test (it can upset some devices); the webcam unbound.
+- [x] **Housekeeping, on battery** (2026-10-06, POWER_SAVE=aggressive in
+      k4510-power-policy): Bluetooth soft-blocked, the NMI watchdog off,
+      pcie_aspm powersupersave, PCI runtime PM, no turbo -- all at run time,
+      put back on mains.  Still open: `workqueue.power_efficient=1` (kernel
+      line only) and the webcam unbound.
 - [ ] **The frame loop at rest.** After a few still seconds, 30 or 20 frames
       a second instead of 60 (back at once on a key or a change): fewer
       wakeups for the CPU and the GPU.

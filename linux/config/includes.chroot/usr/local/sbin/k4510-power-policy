@@ -1,13 +1,27 @@
 #!/bin/sh
-# k4510-power-policy -- the CPU's energy preference and the firmware's platform
-# profile, by what the machine is running on (2026-10-06, Doc: "optimize the
-# underlying Debian layer for max time on battery").  Run at boot
+# k4510-power-policy -- the machine's power settings, by what it is running on
+# (2026-10-06, Doc: "optimize the underlying Debian layer for max time on
+# battery"; then "when on battery can the laptop be in aggressive power save
+# mode, but keep the same timeouts for the screen?").  Run at boot
 # (k4510-power-policy.service) and by udev whenever a power supply changes
 # (/etc/udev/rules.d/90-k4510-power.rules).  The settings are in
-# /etc/default/k4510-power; a choice the hardware does not offer is skipped.
-EPP_BATTERY=balance_power EPP_MAINS=balance_performance
+# /etc/default/k4510-power; a knob the hardware does not have is skipped.
+#
+# On battery with POWER_SAVE=aggressive (the default):
+#   the CPU's energy preference "power", the platform profile "quiet", no
+#   turbo and no dynamic boost; PCIe links in their deepest saving
+#   (pcie_aspm powersupersave); runtime power management for every PCI
+#   device; the NMI watchdog off; dirty pages written every 15 s, not 5;
+#   the sound hardware asleep after 1 s of nothing, not 10; Bluetooth off.
+# POWER_SAVE=moderate keeps only the energy preference and the profile.
+# On mains everything goes back to what it was before the first switch
+# (recorded in /run/k4510-power).  The screen is not this script's:
+# k4510-brightness keeps its own timeouts, whichever mode.
+EPP_BATTERY=power EPP_MAINS=balance_performance
 PROFILE_BATTERY=quiet PROFILE_MAINS=balanced
+POWER_SAVE=aggressive
 [ -r /etc/default/k4510-power ] && . /etc/default/k4510-power
+exec 9> /run/k4510-power.lock && flock 9           # udev runs it once per supply that changed: one at a time
 
 battery=0
 for d in /sys/class/power_supply/*; do
@@ -15,13 +29,46 @@ for d in /sys/class/power_supply/*; do
     battery=1
     [ "$(cat "$d/online" 2>/dev/null)" = 1 ] && { battery=0; break; }
 done
-if [ $battery = 1 ]; then epp=$EPP_BATTERY; prof=$PROFILE_BATTERY; else epp=$EPP_MAINS; prof=$PROFILE_MAINS; fi
 
+put() { [ -w "$1" ] && echo "$2" > "$1" 2>/dev/null; }   # a knob, if the machine has it
+
+# what the knobs were, before this ever changed them (once per boot)
+S=/run/k4510-power
+if [ ! -d $S ]; then
+    mkdir -p $S
+    for f in /sys/devices/system/cpu/intel_pstate/no_turbo /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost \
+             /proc/sys/kernel/nmi_watchdog /proc/sys/vm/dirty_writeback_centisecs \
+             /sys/module/snd_hda_intel/parameters/power_save; do
+        [ -r $f ] && echo "$f $(cat $f)" >> $S/knobs
+    done
+    sed -n 's/.*\[\(.*\)\].*/\1/p' /sys/module/pcie_aspm/parameters/policy 2>/dev/null > $S/aspm
+    for d in /sys/bus/pci/devices/*; do echo "$d/power/control $(cat $d/power/control 2>/dev/null)"; done > $S/pci
+    for r in /sys/class/rfkill/*; do [ "$(cat $r/type 2>/dev/null)" = bluetooth ] && echo "$r/soft $(cat $r/soft)"; done > $S/bt
+fi
+
+if [ $battery = 1 ]; then epp=$EPP_BATTERY; prof=$PROFILE_BATTERY; else epp=$EPP_MAINS; prof=$PROFILE_MAINS; fi
 for f in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
-    [ -w "$f" ] || continue
-    grep -qw "$epp" "${f%preference}available_preferences" 2>/dev/null && echo "$epp" > "$f"
+    grep -qw "$epp" "${f%preference}available_preferences" 2>/dev/null && put "$f" "$epp"
 done
 p=/sys/firmware/acpi/platform_profile
-[ -w $p ] && grep -qw "$prof" ${p}_choices 2>/dev/null && echo "$prof" > $p
-logger -t k4510-power-policy "$( [ $battery = 1 ] && echo battery || echo mains ): epp $epp, profile $prof" 2>/dev/null
+grep -qw "$prof" ${p}_choices 2>/dev/null && put $p "$prof"
+
+mode=$prof
+if [ $battery = 1 ] && [ "$POWER_SAVE" = aggressive ]; then
+    put /sys/devices/system/cpu/intel_pstate/no_turbo 1
+    put /sys/devices/system/cpu/intel_pstate/hwp_dynamic_boost 0
+    put /sys/module/pcie_aspm/parameters/policy powersupersave
+    for d in /sys/bus/pci/devices/*; do put "$d/power/control" auto; done
+    put /proc/sys/kernel/nmi_watchdog 0
+    put /proc/sys/vm/dirty_writeback_centisecs 1500
+    put /sys/module/snd_hda_intel/parameters/power_save 1
+    for r in /sys/class/rfkill/*; do [ "$(cat $r/type 2>/dev/null)" = bluetooth ] && put $r/soft 1; done
+    mode="$prof, aggressive"
+else                                                     # mains, or moderate: as it was
+    while read -r f v; do put "$f" "$v"; done < $S/knobs
+    [ -s $S/aspm ] && put /sys/module/pcie_aspm/parameters/policy "$(cat $S/aspm)"
+    while read -r f v; do [ -n "$v" ] && put "$f" "$v"; done < $S/pci
+    while read -r f v; do put "$f" "$v"; done < $S/bt
+fi
+logger -t k4510-power-policy "$( [ $battery = 1 ] && echo battery || echo mains ): epp $epp, profile $mode" 2>/dev/null
 exit 0

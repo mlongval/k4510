@@ -12,9 +12,16 @@ DIM_AFTER=120
 DIM_FRAC=0.30
 OFF_AFTER=600
 #
-# The CPU on battery and on mains: intel_pstate's energy preference and the
-# firmware's platform profile (cat /sys/firmware/acpi/platform_profile_choices)
-EPP_BATTERY=balance_power
+# The machine on battery and on mains (k4510-power-policy): intel_pstate's
+# energy preference and the firmware's platform profile
+# (cat /sys/firmware/acpi/platform_profile_choices).
+# POWER_SAVE=aggressive adds, on battery: no turbo, PCIe links in their deepest
+# saving, runtime power management for every PCI device, the NMI watchdog off,
+# disk writes gathered every 15 s, the sound hardware asleep after 1 s, and
+# Bluetooth off; all put back on mains.  moderate: only the two lines below.
+# The screen's timeouts above are the same in either mode.
+POWER_SAVE=aggressive
+EPP_BATTERY=power
 EPP_MAINS=balance_performance
 PROFILE_BATTERY=quiet
 PROFILE_MAINS=balanced

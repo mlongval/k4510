@@ -11654,3 +11654,19 @@ Measured on the Dell on battery, at the prompt, Doc away (k4510-power,
 
 At 3.3-4.4 W the battery (5.9 Ah at 7.6 V, ~45 Wh, 80% charge limit) lasts
 roughly 8-11 hours idle, where 4.95 W gave about 7.
+
+## 2026-10-06 -- aggressive power saving on battery, the screen as it was
+
+Doc: "When on battery can the laptop be in aggressive power save mode, but
+keep the same timeouts for the screen?"  k4510-power-policy, on battery with
+POWER_SAVE=aggressive (the default in /etc/default/k4510-power): the energy
+preference "power" (was balance_power), the "quiet" profile, no turbo and no
+dynamic boost, pcie_aspm powersupersave, runtime PM on every PCI device, the
+NMI watchdog off, dirty pages every 15 s, the HDA codec asleep after 1 s,
+Bluetooth soft-blocked.  What each knob was is recorded in /run/k4510-power
+at the first switch and put back on mains.  The screen's timeouts are
+k4510-brightness's and do not change.  A flock keeps udev's one-run-per-
+supply events from racing.  On the Dell, lit, at the prompt: 4.29 W ->
+4.22 W -- little at idle, as expected now that the machine is mostly
+asleep; no turbo is what holds a busy machine's draw down.  POWER_SAVE=moderate
+keeps only the preference and the profile.

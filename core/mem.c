@@ -18,6 +18,7 @@
 #include "mem.h"
 #include "host.h"
 #include "io.h"
+#include "vicky.h"
 #include <string.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,18 +69,20 @@ void mem_reset(void)
     for (int b = 0; b < 8; b++) { bank_reg[b] = BANK_OFF; bank_on[b] = 0; }
     far_table = 0; far_depth = 0; far_err = 0;
     memset(&mem_fence, 0, sizeof mem_fence); cpu65_fence_zp = 0x10000;   /* a ROM arms its own, at its reset */
+    vicky_dirty = 1;
     map_apply();
     io_reset();
 }
 
 void mem_load(uint32_t phys, const uint8_t *data, size_t len)
 {
+    vicky_dirty = 1;
     for (size_t i = 0; i < len; i++)
         k4510_ram[(phys + i) & K4510_PHYS_MASK] = data[i];
 }
 
 uint8_t mem_peek(uint32_t phys)            { return k4510_ram[phys & K4510_PHYS_MASK]; }
-void    mem_poke(uint32_t phys, uint8_t v) { k4510_ram[phys & K4510_PHYS_MASK] = v; }
+void    mem_poke(uint32_t phys, uint8_t v) { k4510_ram[phys & K4510_PHYS_MASK] = v; vicky_dirty = 1; }
 
 uint32_t mem_rom_base = 0xE000;
 
@@ -272,7 +275,8 @@ uint8_t mem_fence_read(uint8_t r)
 
 int dbg_rec;                             /* the PC recorder costs a store per instruction: armed by DUMP */
 /* the WATCH write hook (core/io.h): armed rarely, checked cheaply */
-#define WATCH_WR(phys) do { if (XEMU_UNLIKELY(dbg_watch_ctl && ((phys) & K4510_PHYS_MASK) == dbg_watch_addr)) dbg_watch_hit(); } while (0)
+#define WATCH_WR(phys) do { if (XEMU_UNLIKELY(dbg_watch_ctl && ((phys) & K4510_PHYS_MASK) == dbg_watch_addr)) dbg_watch_hit(); \
+                            if ((phys) >= 0x10000u || (vicky_low && (phys) >= 0x800u)) vicky_dirty = 1; } while (0)   /* ...and VICKY's idle frames (core/vicky.h) */
 Uint8 cpu65_read_callback(Uint16 addr)
 {
     uint32_t base = block_base[addr >> 13];

@@ -30,7 +30,7 @@ window. The 256\,MB of physical memory is reached three ways:
 \end{tabular}
 \end{center}
 
-\noindent Two bytes of system state are fixed, so that programs can
+\noindent Three bytes of system state are fixed, so that programs can
 rely on them:
 
 \begin{description}[leftmargin=1.4em,style=nextline]
@@ -38,6 +38,10 @@ rely on them:
   (and so \pth{/STARTUP.BAT}) is feeding the shell. A program that would
   wait for a key --- \verb|TYPE|'s ``more'', say --- should not, because
   there is nobody there to press it.
+\item[\texttt{\$022F} --- the console's mode] the shell's \verb|MODE|,
+  bits 0--2 (bit 7: MODE 0's 80$\times$60). A program that changes the
+  video mode reads it to put it back: the Pascal \texttt{graph} unit
+  does, since its 640$\times$480 picture needs MODE 0.
 \item[\texttt{\$03FF} --- the result] the shell's result code: 0 for
   success. A program sets it to say it failed, which is what an RX
   script reads as \verb|RC|.
@@ -53,7 +57,7 @@ The first two kilobytes, where the machine and its programs meet:
 \texttt{\$0000-\$00FF} & program & the zero page, all of it; system calls take their arguments in \texttt{\$F0-\$F9}\\
 \texttt{\$0100-\$01FF} & program & the 6502 stack, all of it: a program started at the prompt finds it empty\\
 \texttt{\$0200-\$022D} & K/OS    & the ROM's initialised variables\\
-\texttt{\$022E}         & K/OS    & a script is running (above)\\
+\texttt{\$022E-\$022F} & K/OS    & a script is running; the console's mode (above)\\
 \texttt{\$0230-\$02CF} & EhBASIC & lent to the interpreter: part of its code\\
 \texttt{\$02D8-\$02F5} & K/OS    & the launch trampoline: banks the RAM under the ROM in, calls the program, banks it out\\
 \texttt{\$0300-\$043F} & program & EhBASIC's vectors and input buffer; \texttt{\$03FF} the result (above)\\

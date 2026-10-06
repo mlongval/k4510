@@ -2,6 +2,7 @@
 #include "mem.h"
 #include "io.h"
 #include "term.h"
+#include "jimgfx.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -41,7 +42,7 @@ void vicky_reset(void)
     memset(reg, 0, sizeof reg);
     reg[VR_BANDCTL] = user;
     for (int i = 0; i < 256; i++) pal[i] = (i < 16) ? c64_palette[i] : (uint32_t)(i * 0x010101);
-    pal_gen++;
+    pal_gen++; vicky_dirty = 1;
     cur_line = 0;
     sh_wait = -2; raster_cmp = 0xFFFF;
 }
@@ -94,7 +95,7 @@ void vicky_write(uint8_t r, uint8_t v)
         uint8_t i = reg[VR_PALIDX];
         pal[i] = ((uint32_t)reg[VR_PALR] << 16) | ((uint32_t)reg[VR_PALG] << 8) | v;
         reg[VR_PALIDX] = i + 1;
-        pal_gen++;
+        pal_gen++; vicky_dirty = 1;
     }
 }
 
@@ -121,7 +122,7 @@ static int band_row(int cy, uint32_t map)
  * rows come from it instead of the console's map; the band rows still come
  * from BANDMAP.  A program's own map (not CONMAP) is shown as it is. */
 static uint32_t alt_map;
-void vicky_screen_map(uint32_t map) { alt_map = map & K4510_PHYS_MASK; }
+void vicky_screen_map(uint32_t map) { alt_map = map & K4510_PHYS_MASK; vicky_dirty = 1; }
 int vicky_bands(uint8_t *oy, uint8_t *rows, uint8_t *bot, uint8_t *cols, int *claimed)
 {
     const uint8_t *L = &reg[VR_LAYER(0)];
@@ -143,7 +144,8 @@ uint32_t vicky_text_cell(int col, int row)
 }
 
 static uint32_t cur_at; static int cur_style, cur_on;      /* JIM's shaped cursor */
-void vicky_cursor(uint32_t attr_addr, int style, int on) { cur_at = attr_addr; cur_style = style; cur_on = on && style; }
+void vicky_cursor(uint32_t attr_addr, int style, int on) { if (cur_at != attr_addr || cur_style != style || cur_on != (on && style)) vicky_dirty = 1;
+                                                           cur_at = attr_addr; cur_style = style; cur_on = on && style; }
 
 /* Render the first w pixels of one scanline of one layer into line[]; index 0
  * is transparent.  w is 640, or 320/160 in the half- and quarter-width modes,
@@ -408,9 +410,37 @@ static void blit(void)
 
 int vicky_irq(void) { return reg[VR_IRQSTAT] & reg[VR_IRQMASK]; }
 
+int vicky_dirty = 1, vicky_low = 1;
+static int frame_skip;                               /* this frame is the last one: the lines are not drawn again */
+/* Does VICKY read anything in the CPU's own 64 KB (physical $0000-$FFFF)?  A
+ * program's stack and variables are written there all the time, and they are
+ * the picture only if a layer, the sprite table or a sprite's data is there
+ * too (core/mem.c asks, through vicky_low). */
+static int reads_low(void)
+{
+    for (int n = 0; n < VICKY_LAYERS; n++) {
+        const uint8_t *L = &reg[VR_LAYER(n)];
+        if ((L[VL_CTRL] & 1) && (rd32(L + VL_DATA) < 0x10000u || rd32(L + VL_MAP) < 0x10000u)) return 1;
+    }
+    if (reg[VR_SPRCTL] & 1) {
+        uint32_t tab = rd32(&reg[VR_SPRTAB]);
+        if (tab < 0x10000u) return 1;
+        for (int n = 0; n < VICKY_SPRITES; n++) {
+            uint32_t e = tab + (uint32_t)n * 16;
+            if (!(ram(e + 8) & 1)) continue;
+            { int16_t sx = (int16_t)(ram(e) | (ram(e + 1) << 8)), sy = (int16_t)(ram(e + 2) | (ram(e + 3) << 8));
+              if (sx <= -64 || sy <= -64 || sx >= glass_w || sy >= glass_h) continue; }   /* off the glass: not seen */
+            if ((((uint32_t) ram(e + 4) | (uint32_t) ram(e + 5) << 8 | (uint32_t) ram(e + 6) << 16 | (uint32_t) ram(e + 7) << 24) & K4510_PHYS_MASK) < 0x10000u) return 1;
+        }
+    }
+    return 0;
+}
 void vicky_begin_frame(uint8_t *fb, int pitch)
 {
+    if (fb != frame_fb || pitch != frame_pitch) vicky_dirty = 1;   /* another buffer: it has not got the last picture */
     frame_fb = fb; frame_pitch = pitch;
+    frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active() && io_tube_kind() != 6 && io_tube_kind() != 7;
+    vicky_dirty = 0; vicky_low = reads_low();
     glass_latch();
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
     sh_pc = rd32(&reg[VR_SHEILA]); sh_wait = (reg[VR_SHEILACTL] & 1) ? -1 : -2;
@@ -421,7 +451,7 @@ void vicky_line(int y)
     cur_line = y;
     sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
-    if (__builtin_expect(term_hold(), 0)) return;          /* a synchronized update in progress: the line stays as the last frame drew it */
+    if (__builtin_expect(frame_skip || term_hold(), 0)) return;   /* an idle frame, or a synchronized update in progress: the line stays as the last frame drew it */
     uint8_t *line = frame_fb + y * frame_pitch;
     uint8_t ctrl = reg[VR_CTRL];
     /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
@@ -483,10 +513,13 @@ void vicky_repaint(uint8_t *fb, int pitch)
     uint8_t sss[16], ssl[16]; memcpy(sss, col_ss, 16); memcpy(ssl, col_sl, 16);
     uint8_t *sfb = frame_fb; int spitch = frame_pitch, sline = cur_line, swait = sh_wait;
     uint32_t spc = sh_pc; uint16_t scmp = raster_cmp;
+    int sskip = frame_skip, sdirty = vicky_dirty;
     vicky_begin_frame(fb, pitch);
+    frame_skip = 0;                                  /* a repaint draws, whatever */
     for (int y = 0; y < glass_h; y++) vicky_line(y);
     memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16);
     frame_fb = sfb; frame_pitch = spitch; cur_line = sline; sh_wait = swait; sh_pc = spc; raster_cmp = scmp;
+    frame_skip = sskip; vicky_dirty = sdirty;
 }
 
 /* The end of a synchronized update (ESC [ ? 2026 l, core/term.c): the whole
@@ -528,6 +561,6 @@ int vicky_state_load(FILE *f)
     if (state_get(f, "VREG", reg, sizeof reg) || state_get(f, "VPAL", pal, sizeof pal) || state_get(f, "VRAS", &raster_cmp, sizeof raster_cmp)
         || state_get(f, "VSHP", &sh_pc, sizeof sh_pc) || state_get(f, "VSHW", &sh_wait, sizeof sh_wait)) return -2;
     memset(col_ss, 0, sizeof col_ss); memset(col_sl, 0, sizeof col_sl);
-    pal_gen++;
+    pal_gen++; vicky_dirty = 1;
     return 0;
 }

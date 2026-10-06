@@ -248,9 +248,11 @@ static const uint8_t arrowspr[128] = {   /* 16x16, 4 bpp: the arrow (1) with a b
     0x22, 0x22, 0x11, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0x11, 0x20, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x02, 0x22, 0x20, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
     0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
+static unsigned px = 0xFFFF, py; static uint8_t ps = 0xFF;   /* the pointer as event() last wrote it: written again only when it moves */
 static void ptr_on(void)
 {
     uint8_t i;
+    px = 0xFFFF; ps = 0xFF;                            /* event() writes the pointer whole again */
     for (i = 0; i < 128; i++) far_poke(SPRDATA + i, arrowspr[i]);
     pal(17, 255, 255, 255); pal(18, 0, 0, 0);
     far_poke(SPRTAB + 4, (uint8_t)SPRDATA); far_poke(SPRTAB + 5, (uint8_t)(SPRDATA >> 8)); far_poke(SPRTAB + 6, (uint8_t)(SPRDATA >> 16)); far_poke(SPRTAB + 7, 0);
@@ -259,7 +261,7 @@ static void ptr_on(void)
     w32(V_SPRTAB, SPRTAB); REG(V_SPRCTL) = (uint8_t)!(REG(MOUSEPTR) & 1);
     chh = (uint8_t)((REG(0xD010) & 0x60) ? 16 : 8);
 }
-static void ptr_off(void) { REG(V_SPRCTL) = 0; REG(MOUSEPTR) = 0; }
+static void ptr_off(void) { REG(V_SPRCTL) = 0; REG(MOUSEPTR) = 0; px = 0xFFFF; ps = 0xFF; }
 static uint8_t event_wait(void);
 static uint8_t event(void)                              /* what happens next; what it draws is shown whole (jc_hold) */
 {
@@ -279,9 +281,11 @@ static uint8_t event_wait(void)
         wait_vblank();
         if (ev_wait && !--ev_wait) { kcode = 0; return 0; }   /* nothing came: dosvi.h's map timeout */
         x = REG(MOUSEX) | ((unsigned)REG(MOUSEX + 1) << 8); y = REG(MOUSEY) | ((unsigned)REG(MOUSEY + 1) << 8);
-        far_poke(SPRTAB + 0, (uint8_t)x); far_poke(SPRTAB + 1, (uint8_t)(x >> 8));
-        far_poke(SPRTAB + 2, (uint8_t)y); far_poke(SPRTAB + 3, (uint8_t)(y >> 8));
-        REG(V_SPRCTL) = (uint8_t)!(REG(MOUSEPTR) & 1);     /* our arrow only when the host shows none of its own */
+        { uint8_t s = (uint8_t)!(REG(MOUSEPTR) & 1);
+          if (x != px || y != py) {                    /* only when it moved: a write is a frame VICKY draws again */
+              far_poke(SPRTAB + 0, (uint8_t)x); far_poke(SPRTAB + 1, (uint8_t)(x >> 8));
+              far_poke(SPRTAB + 2, (uint8_t)y); far_poke(SPRTAB + 3, (uint8_t)(y >> 8)); px = x; py = y; }
+          if (s != ps) { REG(V_SPRCTL) = s; ps = s; } }   /* our arrow only when the host shows none of its own */
         b = (uint8_t)(REG(MOUSEB) & 1); w = (int8_t)REG(MOUSEW);
         { int ty = (int) y + (int16_t)(REG(0xD014) | (REG(0xD015) << 8));   /* the HD modes scroll the console down */
           ty = ty < 0 ? 0 : ty / chh;

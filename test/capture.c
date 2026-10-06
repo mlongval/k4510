@@ -36,19 +36,20 @@ int main(int argc,char**argv){ int kwait=0;
     { const char *hm = getenv("K4510_HELD"); if (hm) kbd_held((uint8_t) strtol(hm, NULL, 0)); }   /* $D104, held for the whole run */
     { const char *m = getenv("K4510_MOUSE"); int x, y, b; if (m && sscanf(m, "%d,%d,%d", &x, &y, &b) == 3) mouse_set(x, y, (uint8_t) b, 0, 0, 0); }   /* MOUSETEST captures */
     cpu65_reset();
-    static uint8_t fb[640*480]; size_t ki=0, kn=strlen(keys);
+    static uint8_t fb[VICKY_WIDTH*VICKY_HEIGHT];   /* the largest glass: an HD mode draws 1440 wide (and a synchronized update repaints every line) */ size_t ki=0, kn=strlen(keys);
     for(int fr=0;fr<frames;fr++){
         if(fr>=5 && ki<kn && fr>=kwait){ uint8_t k=(uint8_t)keys[ki++]; if(k=='~') kwait=fr+30; else if(k==0x1F && ki<kn) kbd_push((uint8_t)keys[ki++]); else if(k>=0x80) kbd_push_key(k); else kbd_push(k=='\n'?0x0D:k); }   /* $80+ = a KEY code, $1F = the next byte as a character (as headless) */   /* one key per frame; ~ waits 30 frames */
-        vicky_begin_frame(fb,640);
-        for(int y=0;y<480;y++){cpu65.irqLevel=vicky_irq()?1:0;cpu65_step(40500000/60/480);vicky_line(y);}
+        vicky_begin_frame(fb,VICKY_WIDTH);
+        { int h=vicky_glass_h(); for(int y=0;y<h;y++){cpu65.irqLevel=vicky_irq()?1:0;cpu65_step(40500000/60/h);vicky_line(y);} }
         vicky_end_frame();
     }
     /* PNG, RGB, stored deflate blocks */
-    size_t rowb=1+640*3, raw_n=rowb*480; uint8_t*raw=malloc(raw_n);
-    for(int y=0;y<480;y++){raw[y*rowb]=0;for(int x=0;x<640;x++){uint32_t c=vicky_palette_rgb(fb[y*640+x]);uint8_t*p=&raw[y*rowb+1+x*3];p[0]=c>>16;p[1]=c>>8;p[2]=c;}}
+    int GW=vicky_glass_w(), GH=vicky_glass_h(); if(GW<1||GW>VICKY_WIDTH) GW=640; if(GH<1||GH>VICKY_HEIGHT) GH=480;   /* the glass as it is: an HD mode whole */
+    size_t rowb=1+(size_t)GW*3, raw_n=rowb*GH; uint8_t*raw=malloc(raw_n);
+    for(int y=0;y<GH;y++){raw[y*rowb]=0;for(int x=0;x<GW;x++){uint32_t c=vicky_palette_rgb(fb[y*VICKY_WIDTH+x]);uint8_t*p=&raw[y*rowb+1+x*3];p[0]=c>>16;p[1]=c>>8;p[2]=c;}}
     size_t nblk=(raw_n+65534)/65535; size_t z_n=2+raw_n+nblk*5+4; uint8_t*z=malloc(z_n); size_t zi=0; z[zi++]=0x78;z[zi++]=0x01;
     for(size_t off=0;off<raw_n;off+=65535){size_t len=raw_n-off>65535?65535:raw_n-off;z[zi++]=(off+len>=raw_n);z[zi++]=len&0xFF;z[zi++]=len>>8;z[zi++]=(~len)&0xFF;z[zi++]=((~len)>>8)&0xFF;memcpy(z+zi,raw+off,len);zi+=len;}
     uint32_t ad=adler(raw,raw_n); z[zi++]=ad>>24;z[zi++]=ad>>16;z[zi++]=ad>>8;z[zi++]=ad;
     crc_init(); FILE*o=fopen(out,"wb"); fwrite("\x89PNG\r\n\x1a\n",1,8,o);
-    uint8_t ih[13]={0,0,2,128,0,0,1,224,8,2,0,0,0}; chunk(o,"IHDR",ih,13); chunk(o,"IDAT",z,zi); chunk(o,"IEND",NULL,0); fclose(o);
+    uint8_t ih[13]={0,0,(uint8_t)(GW>>8),(uint8_t)GW,0,0,(uint8_t)(GH>>8),(uint8_t)GH,8,2,0,0,0}; chunk(o,"IHDR",ih,13); chunk(o,"IDAT",z,zi); chunk(o,"IEND",NULL,0); fclose(o);
     printf("%s: %d frames -> %s  (PC=$%04X SP=$%04X I=%d inh=%d irqst=%02X prefix=%d)\n",rom,frames,out,cpu65.pc,cpu65.sphi|cpu65.s,cpu65.pf_i,cpu65.cpu_inhibit_interrupts,vicky_read(4),cpu65.prefix); return 0; }

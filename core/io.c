@@ -2352,6 +2352,7 @@ uint8_t io_read(uint16_t addr)
 }
 static uint8_t io_read_inner(uint16_t addr)
 {
+    if ((addr & 0xFF00) == IO_STORAGE || (addr & 0xFF00) == IO_NET || (addr & 0xFF00) == IO_TUBE) vicky_dirty = 1;   /* their reads move data into memory */
     if ((uint16_t)(addr - K4510_WS_LO) < K4510_WS_SIZE) return k4510_ram[K4510_WS_PHYS(addr)];   /* K/OS's workspace (core/mem.h): first, it is the busiest
                                                                                                    * (tried in mem.c's callbacks instead, it cost more, 2026-10-06) */
     switch (addr & 0xFF00) {
@@ -2463,6 +2464,9 @@ void io_write(uint16_t addr, uint8_t v)
         if (dbg_watch_ctl && K4510_WS_PHYS(addr) == dbg_watch_addr) dbg_watch_hit();
         k4510_ram[K4510_WS_PHYS(addr)] = v; return;
     }
+    if (addr != IO_VICKY + 4 && addr != IO_WAIT && (addr & 0xFF00) != IO_BANK) vicky_dirty = 1;
+        /* VICKY's idle frames: all but the IRQ acknowledge, WAIT and the bank registers (the CPU's view; the
+         * stub writes them on every interrupt) may change the picture */
     switch (addr & 0xFF00) {
     case IO_VICKY:
         vicky_write(addr & 0xFF, v); return;

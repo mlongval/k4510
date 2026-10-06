@@ -210,7 +210,16 @@ void     vicky_render(uint8_t *fb, int pitch);        /* one full frame (tests) 
 void     vicky_begin_frame(uint8_t *fb, int pitch);
 void     vicky_line(int y);                           /* render line y, run SHEILA, raise IRQs */
 void     vicky_end_frame(void);                       /* vblank */
-void     vicky_commit(void);                          /* the picture, whole, now: the end of a synchronized update (core/term.c) */
+void     vicky_commit(void);
+/* Idle frames (2026-10-06): nothing VICKY could show has been written since
+ * the last frame was drawn, so the frame is not drawn again -- fb keeps it.
+ * Everything that writes what VICKY reads says so: the CPU's writes (but its
+ * own low pages and K/OS's workspace), every I/O write but the IRQ
+ * acknowledge and WAIT, the devices that load into memory, JIM, the host's
+ * loaders.  SHEILA, a picture the Tube draws (DOOM, the Apple) and JIM's
+ * pictures draw every frame. */
+extern int vicky_dirty, vicky_low;     /* vicky_low: something VICKY shows is in physical $0000-$FFFF (a CPU write there counts) */
+#define VICKY_TOUCH() (vicky_dirty = 1)                          /* the picture, whole, now: the end of a synchronized update (core/term.c) */
 int      vicky_glass_w(void);                         /* this frame's glass, latched at its start: 640x480, */
 int      vicky_glass_h(void);                         /* or an HD mode's own size; the frame has vicky_glass_h() lines */
 void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */

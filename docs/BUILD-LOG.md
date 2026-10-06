@@ -11455,3 +11455,38 @@ kostest checks the hold, the immediate commit and the half-second limit.
 link quality (/proc/net/wireless, out of 70), Net (up, but neither: a
 container, a VPN alone) or offline -- from /sys/class/net every ten
 seconds (sdl/main.c host_net_poll; K4510_NET stands in for a test).
+
+## 2026-10-06 -- idle frames; the sidebars at 30; ROSES in an HD mode
+
+The Dell idled at ~44% of a core after still frames because its sidebar is
+the Halloween scene: something moves beside the picture, so every frame was
+drawn.  Two more savings (Doc: "do both"):
+
+**The sidebars at 30 a second.**  When only the sidebars move (no menu,
+panel or key echo, the picture unchanged), every other frame is not drawn
+or presented.  The scenes run on the wall clock, so they go at their speed,
+in half the frames.  Under Xvfb with the Halloween scene, 19 s idle: 40.8
+CPU-seconds every frame drawn, 19.5 now.
+
+**Idle frames in VICKY.**  A frame in which nothing VICKY could show was
+written is not drawn again; fb keeps the last.  vicky_dirty is set by: the
+CPU's writes (physical $10000 and up, or below it when a layer, the sprite
+table or an on-screen sprite's data is there -- programs' stacks live in
+$0800-$CFFF), every I/O write but the IRQ acknowledge, WAIT and the bank
+registers (the stub writes those on every interrupt), reads of the storage,
+network and Tube pages (they move data into memory), JIM, the bands, the
+cursor, the palette, mem_load/mem_poke, a reset, a state load, the
+frontend's key echo.  SHEILA, DOOM and the Apple (the Tube draws them),
+and JIM's pictures draw every frame.  Headless, 1500 frames: the prompt
+0.88 -> 0.085 s, EhBASIC 0.89 -> 0.10, VI 0.90 -> 0.10, RANGER -> 0.06,
+EDIT/PROG 1.02 -> 0.13 (dosui.h now writes the pointer sprite only when
+it moved).
+
+**ROSES** (Doc: "when compiled and run screws up the video modes").  In an
+HD console mode (MODE 5-7) the graph unit's 640x480 bitmap was laid on a
+1440x1080 glass: two roses side by side, the console's layout under them.
+K/OS now publishes its MODE at $022F (SHARED; bit 7 MODE 0's 80x60), and
+InitGraph, in an HD mode, asks the shell for MODE 0 and CloseGraph for the
+mode again.  Checked in MODE 5 from the shell and from PROG's Compile and
+Run.  test/capture draws an HD frame whole now (its 640x480 buffer was
+overrun -- a synchronized update's repaint draws every line).

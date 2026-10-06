@@ -61,10 +61,13 @@ The 45GS10’s program counter is 16 bits: code executes inside a 64 KB window
 
 </div>
 
-Two bytes of system state are fixed, so that programs can rely on them:
+Three bytes of system state are fixed, so that programs can rely on them:
 
 `$022E` — a script is running  
 non-zero while `EXEC` (and so `/STARTUP.BAT`) is feeding the shell. A program that would wait for a key — `TYPE`’s “more”, say — should not, because there is nobody there to press it.
+
+`$022F` — the console’s mode  
+the shell’s `MODE`, bits 0–2 (bit 7: MODE 0’s 80×60). A program that changes the video mode reads it to put it back: the Pascal `graph` unit does, since its 640×480 picture needs MODE 0.
 
 `$03FF` — the result  
 the shell’s result code: 0 for success. A program sets it to say it failed, which is what an RX script reads as `RC`.
@@ -93,9 +96,9 @@ The first two kilobytes, where the machine and its programs meet:
 <td style="text-align: left;">the ROM’s initialised variables</td>
 </tr>
 <tr class="even">
-<td style="text-align: left;"><code>$022E</code></td>
+<td style="text-align: left;"><code>$022E-$022F</code></td>
 <td style="text-align: left;">K/OS</td>
-<td style="text-align: left;">a script is running (above)</td>
+<td style="text-align: left;">a script is running; the console’s mode (above)</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>$0230-$02CF</code></td>

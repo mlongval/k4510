@@ -156,6 +156,7 @@ static void scroll_down(int top, int bot, int n)
 #define CUR_ORIG  ((T.cur_on >> 4) & 1)
 static void cur_undraw(void)
 {
+    vicky_dirty = 1;
     if (!CUR_SHOWN) return;
     if (CUR_ATTR) { uint8_t *a = &k4510_ram[T.cur_at];
                     if (((*a >> 7) & 1) != CUR_ORIG) *a = (uint8_t)((*a & 0x7F) | (CUR_ORIG << 7)); }
@@ -164,6 +165,7 @@ static void cur_undraw(void)
 }
 static void cur_draw(void)
 {
+    vicky_dirty = 1;
     cur_undraw();
     if (!T.shown) return;
     T.cur_at = (uint32_t)(cellp(T.cx, T.cy) - k4510_ram) + 1;
@@ -618,6 +620,7 @@ static int page_req = -1;                                       /* the guest cho
 const uint16_t *term_page_table(void) { return page_k ? k4510_cp : cp437_cp; }
 void term_set_page(int k)
 {
+    vicky_dirty = 1;                            /* the fonts are copied in */
     uint32_t f8 = k ? K4510_FONT8_K_PHYS : K4510_FONT8_437_PHYS, f16 = k ? K4510_FONT16_K_PHYS : K4510_FONT16_437_PHYS;
     page_k = k != 0;
     if (k4510_ram[f8 + 0x41 * 8 + 3])   memcpy(k4510_ram + K4510_FONT8_PHYS, k4510_ram + f8, 2048);    /* an empty slot: the font stays */
@@ -881,6 +884,7 @@ static FILE *termlog(void) { static FILE *lg; static int tried;
     return lg; }
 void term_write(uint8_t r, uint8_t v)
 {
+    vicky_dirty = 1;
     if (r != 0x00 && r != 0x03) { FILE *lg = termlog(); if (lg) { fprintf(lg, "\n<r%02X<-%02X shown=%u cur_on=%u cx=%u cy=%u at=%06X bit=%u>",
         r, v, T.shown, T.cur_on, T.cx, T.cy, (unsigned) T.cur_at, (unsigned)((k4510_ram[T.cur_at] >> 7) & 1)); } }
     switch (r) {
@@ -1007,7 +1011,7 @@ static void bands_tick(int force)
     #undef MIX
     if (!sig) sig = 1;
     if (sig == band_sig && !force) return;
-    band_sig = sig;
+    band_sig = sig; vicky_dirty = 1;
     int last = oy + rows + bot - 1;
     for (int r = 1; r < oy; r++) bfill(r, cols, TS[0].deffg, TS[0].defbg);            /* the spacers */
     for (int r = oy + rows; r < last; r++) bfill(r, cols, TS[0].deffg, TS[0].defbg);
@@ -1122,6 +1126,7 @@ void term_screen_show(int n)
 }
 void term2_feed(const uint8_t *b, size_t n)
 {
+    vicky_dirty = 1;
     if (!s2_ready || !n) return;
     tp = &TS[1];
     cur_undraw();

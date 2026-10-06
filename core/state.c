@@ -1,5 +1,6 @@
 /* Save states. See state.h. */
 #include "state.h"
+#include "vicky.h"
 #include "mem.h"
 #include "host.h"
 #include "term.h"
@@ -64,6 +65,7 @@ int state_save(const char *path)
 }
 int state_load(const char *path)
 {
+    vicky_dirty = 1;                       /* all of memory comes back: VICKY draws again */
     char m[8]; int rc = -2;
     FILE *f = fopen(path, "rb");
     if (!f) return -1;

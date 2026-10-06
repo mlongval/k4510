@@ -572,7 +572,8 @@ static void apple_panel_click(int act)
  * driver (KMSDRM draws its own cursor): SDL's rect where it works, and a warp
  * back to the edge on any motion that got out anyway. */
 static int confine_on; static SDL_Rect confine_r;
-static int present_force = 1, frame_static;   /* still frames: draw the window again; nothing around the picture moves */
+static int present_force = 1, frame_static, frame_sides;   /* still frames: draw the window again; nothing around the picture moves;
+                                                            * only the sidebars move (they are drawn at 30 a second) */
 static int confine_clamp(int *x, int *y)          /* 1 if (x,y) was outside and has been brought to the edge */
 {
     int cx = *x, cy = *y;
@@ -725,6 +726,7 @@ static void bands_overlay(void)
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
             char buf[64]; snprintf(buf, sizeof buf, " %s%.*s", echo_tag, echo_len, echo_txt);
             band_text(rows - 1, 0, cols - 26, buf, stride, rh, cw, y0);   /* clear of the network and the battery */
+            VICKY_TOUCH();                       /* drawn into fb: the next frame draws the band again, so it goes when the echo does */
         }
     }
 }
@@ -2022,7 +2024,9 @@ tex_done:
           #undef SIG
           if (captures < 0) captures = getenv("K4510_GLASS") || getenv("K4510_SHOT") || getenv("K4510_NOSTILL");   /* NOSTILL: every frame drawn, to measure against */
           Uint32 tn = SDL_GetTicks();
-          if (tex_same && frame_static && sig == last_sig && !present_force && !shot_flash && !captures && tn - last_full < 1000) goto frame_still;
+          static unsigned side_n; int side_due = (++side_n & 1) == 0;   /* the moving sidebars: every other frame, 30 a second */
+          if (tex_same && (frame_static || (frame_sides && !side_due)) && sig == last_sig && !present_force && !shot_flash && !captures
+              && (frame_sides || tn - last_full < 1000)) goto frame_still;
           last_sig = sig; present_force = 0; last_full = tn; }
         { int b = settings_get(SET_VIDEO_BORDER) * gw / 640;     /* the border's pixels are 640-glass pixels */
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
@@ -2428,6 +2432,7 @@ tex_done:
            * steps), the panel's CP437 font at 1-3x for the window's height */
           /* what moves by itself is drawn every frame; with none of it, a frame can stand still (above) */
           frame_static = sb_side[0] == SIDEBAR_BORDER && sb_side[1] == SIDEBAR_BORDER && panel_kind == PANEL_OFF && !open && !echo_vis;
+          frame_sides = !frame_static && panel_kind == PANEL_OFF && !open && !echo_vis;   /* only the sidebars move */
           if (echo_vis) {   /* until four seconds after the last key; the bottom band has it when there is one */
               static SDL_Texture *etex; static int etw, eth;
               char eline[64]; int en = snprintf(eline, sizeof eline, " %s%.*s ", echo_tag, echo_len, echo_txt);

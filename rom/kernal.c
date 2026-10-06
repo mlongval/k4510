@@ -729,6 +729,12 @@ static void cmd_save(const char *p)
  * does not clear SHARED; main() does. */
 #pragma bss-name (push, "SHARED")
 static uint8_t exec_busy;
+/* $022F: the console's MODE, for a program that changes VICKY and must put it
+ * back -- bits 0-2 the mode, bit 7 MODE 0's 80x60.  The Pascal graph unit
+ * reads it: its 640x480 bitmap cannot show in an HD mode, so InitGraph asks
+ * for MODE 0 and CloseGraph for this one again (ROSES on the Dell drew two
+ * roses side by side in MODE 5, 2026-10-06).  Kept by video_init. */
+static uint8_t shared_mode;
 #pragma bss-name (pop)
 static uint8_t typed;                        /* lines since the last "-- more --" */
 /* One screenful at a time.  Never while a script is running the command: there
@@ -2008,6 +2014,7 @@ static void video_init(void)
 {
     uint8_t i, tall;
     vmode &= 7; PCOLS = pcols_of[vmode]; PROWS = prows_of[vmode];
+    shared_mode = (uint8_t)(vmode | (vmode == 0 && rows60 ? 0x80 : 0));   /* $022F, for programs (above) */
     /* 640x480 twice (Doc, 2026-09-15: "can we have both ... in the menu"): 8x16
      * cells and 80x30, or 8x8 and 80x60 -- the screen it was before the one font
      * of 2026-09-14.  The host publishes its choice in SYSOPT bit 1; MODE 0 60

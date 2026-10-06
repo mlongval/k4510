@@ -1,6 +1,9 @@
 (* [K4510] GRAPH on VICKY. See graphh_k4510.inc. *)
 
 var	gfx_bk, gfx_ctrl: byte;
+	gfx_hd: byte = 255;			(* the console's MODE to go back to, when InitGraph left an HD one; 255 none *)
+	gfx_line: array[0..9] of char;
+	KOS_MODE: byte absolute $022F;		(* the ROM's: the console's MODE, bits 0-2; bit 7 MODE 0's 80x60 *)
 	MULA: cardinal absolute $D770;		(* the MEGA65-style multiplier: A * B -> MULOUT *)
 	MULB: cardinal absolute $D774;
 	MULOUT: cardinal absolute $D778;
@@ -38,12 +41,30 @@ begin
 end;
 
 
+procedure gfx_kmode(m: byte);		(* the shell's MODE m: the console as K/OS lays it out *)
+begin
+	gfx_line[0] := 'M'; gfx_line[1] := 'O'; gfx_line[2] := 'D'; gfx_line[3] := 'E'; gfx_line[4] := ' ';
+	gfx_line[5] := chr(48 + (m and 7)); gfx_line[6] := #0;
+	if m and $80 <> 0 then begin gfx_line[6] := ' '; gfx_line[7] := '6'; gfx_line[8] := '0'; gfx_line[9] := #0; end;
+	asm
+		lda <adr.gfx_line
+		ldx >adr.gfx_line
+		jsr k4_shell
+	end;
+end;
+
+
 procedure InitGraph(mode: byte); overload;
 (*
 @description:
 Init graphics mode: VICKY layer 1 as a 640x480 8-bit bitmap over the console
+(in an HD console mode, MODE 0 first, and CloseGraph puts the mode back)
 *)
 begin
+	if (VREG[0] and $20) <> 0 then begin	(* the HD family: no 640x480 field to put the bitmap in *)
+		if gfx_hd = 255 then gfx_hd := KOS_MODE;
+		gfx_kmode(0);
+	end;
 	ScreenWidth := GFX_W;
 	ScreenHeight := GFX_H;
 	VREG[$21] := 0; VREG[$22] := 0; VREG[$23] := 0; VREG[$24] := 0; VREG[$25] := 0;   (* palette offset, scroll *)
@@ -295,12 +316,49 @@ end;
 procedure CloseGraph; assembler;
 (*
 @description:
-The bitmap layer off, the console's video mode back
+The bitmap layer off, the console's video mode back (and the HD mode InitGraph left)
 *)
 asm
 	stz $D020
 	lda gfx_ctrl
 	sta $D000
+	lda gfx_hd			; an HD console mode to go back to: the shell's MODE n (gfx_kmode's line, here in asm:
+	cmp #$FF			; Mad Pascal drops a procedure only asm calls)
+	beq cg_done
+	pha
+	lda #'M'
+	sta adr.gfx_line
+	lda #'O'
+	sta adr.gfx_line+1
+	lda #'D'
+	sta adr.gfx_line+2
+	lda #'E'
+	sta adr.gfx_line+3
+	lda #' '
+	sta adr.gfx_line+4
+	pla
+	pha
+	and #7
+	ora #'0'
+	sta adr.gfx_line+5
+	lda #0
+	sta adr.gfx_line+6
+	sta adr.gfx_line+9
+	pla
+	bpl cg_call
+	lda #' '
+	sta adr.gfx_line+6
+	lda #'6'
+	sta adr.gfx_line+7
+	lda #'0'
+	sta adr.gfx_line+8
+cg_call
+	lda <adr.gfx_line
+	ldx >adr.gfx_line
+	jsr k4_shell
+	lda #$FF
+	sta gfx_hd
+cg_done
 end;
 
 

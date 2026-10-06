@@ -33,12 +33,17 @@ $E000-$FEFF  ROM     RAM underneath, bankable
 $FF00-$FFFF  stub    always ROM: system-call stub and vectors
 ```
 
-Two bytes of system state are fixed, so that programs can rely on them:
+Three bytes of system state are fixed, so that programs can rely on them:
 
 $022E -- a script is running
 non-zero while EXEC (and so /STARTUP.BAT) is feeding the shell. A program that
 would wait for a key -- TYPE's "more", say -- should not, because there is
 nobody there to press it.
+
+$022F -- the console's mode
+the shell's MODE, bits 0-2 (bit 7: MODE 0's 80x60). A program that changes the
+video mode reads it to put it back: the Pascal graph unit does, since its
+640x480 picture needs MODE 0.
 
 $03FF -- the result
 the shell's result code: 0 for success. A program sets it to say it failed,
@@ -54,7 +59,7 @@ $0000-$00FF  program  the zero page, all of it; system calls take their
 $0100-$01FF  program  the 6502 stack, all of it: a program started at the
                       prompt finds it empty
 $0200-$022D  K/OS     the ROM's initialised variables
-$022E        K/OS     a script is running (above)
+$022E-$022F  K/OS     a script is running; the console's mode (above)
 $0230-$02CF  EhBASIC  lent to the interpreter: part of its code
 $02D8-$02F5  K/OS     the launch trampoline: banks the RAM under the ROM in,
                       calls the program, banks it out

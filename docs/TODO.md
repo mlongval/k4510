@@ -105,6 +105,29 @@ Fixed the same day except these:
       `patch_cpm.py` and the K4510_TUBE code are removed.
 - [ ] Tests worth adding are listed at the end of the review note.
 
+## Battery, later (2026-10-06; 1-5 of the review are done -- docs/BUILD-LOG.md)
+
+Measured first with k4510-power (and powertop/turbostat once a full base build
+carries them: packages.list has them since 2026-10-06).
+- [ ] **Tailscale through a relay.** The Dell's node reaches the tailnet via
+      DERP ("relay tor"), and tailscaled averaged 3.4% of a core: find why it
+      is not direct (UDP, the router's NAT).  And k4510-tailscale-hosts.timer
+      every 5 minutes instead of every minute.
+- [ ] **Housekeeping on the kernel line and the radios:** Bluetooth blocked
+      at boot (rfkill; nothing uses it), `nmi_watchdog=0`,
+      `workqueue.power_efficient=1`; `pcie_aspm.policy=powersupersave`
+      behind a test (it can upset some devices); the webcam unbound.
+- [ ] **The frame loop at rest.** After a few still seconds, 30 or 20 frames
+      a second instead of 60 (back at once on a key or a change): fewer
+      wakeups for the CPU and the GPU.
+- [ ] **Frame buffer compression.** i915 says "FBC disabled: pixel format not
+      supported" for the plane SDL draws on; find a format it compresses
+      (XRGB8888) and the panel's refresh costs less.
+- [ ] **The charge limit for a trip.** BAT0 stops at 80% (kind to the
+      battery); an F12 switch to 100% before a long day away, and back.
+      The battery is at 66% of its design capacity: worth more than any
+      setting.
+
 ## Small, known
 
 - [ ] **FORTH has no break key** — poll `$D103` like RX and LOGO do.

@@ -1,0 +1,20 @@
+# The K4510x on battery (2026-10-06).  Read by k4510-brightness (the
+# backlight) and k4510-power-policy (the CPU).  Changes take effect at the
+# next boot, or: sudo systemctl restart k4510-brightness
+#
+# BATTERY_CAP  unplugged, a brighter backlight comes down to this fraction
+#              of full (it goes back up when the charger returns)
+# DIM_AFTER    seconds with no key, touchpad or mouse before it dims (0: never)
+# DIM_FRAC     how far: this fraction of the level it was at
+# OFF_AFTER    seconds before the backlight goes off (0: never); any key wakes it
+BATTERY_CAP=0.60
+DIM_AFTER=120
+DIM_FRAC=0.30
+OFF_AFTER=600
+#
+# The CPU on battery and on mains: intel_pstate's energy preference and the
+# firmware's platform profile (cat /sys/firmware/acpi/platform_profile_choices)
+EPP_BATTERY=balance_power
+EPP_MAINS=balance_performance
+PROFILE_BATTERY=quiet
+PROFILE_MAINS=balanced

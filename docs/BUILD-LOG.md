@@ -11590,3 +11590,38 @@ file had been found, and at every boot it said so under the banner.  A
 palette that loaded shows itself; a missing file still says "palette: no
 such file", and a COLOR the load had to change to stay readable is still
 reported.  palettetest checks both, and that the count is gone.
+
+## 2026-10-06 -- the Debian layer for time on battery (1-5)
+
+Doc: "review how we can optimize the underlying Debian layer for max time on
+battery", then "do 1 through 5".  The Dell at the prompt on battery, before:
+4.95 W (backlight 47%, Wi-Fi up, an ssh session).  Found: the backlight with
+no idle policy, the audio stream open for ever (~50 interrupts a second of
+zeros), Wi-Fi power saving off, the CPU's energy preference on
+balance_performance whatever the supply, and nothing switching anything
+on the charger.  1-5:
+
+1. **Measuring:** `k4510-power` (usr/local/bin) -- the battery's draw
+   averaged over N seconds, or a log line every N; powertop and
+   linux-cpupower (turbostat) in packages.list for the next full build.
+2. **The backlight** (k4510-brightness, which already read the brightness
+   keys, now reads every input device): unplugged, a level over 60% comes
+   down to 60% and goes back on the charger; two minutes with no key,
+   touchpad or mouse dims it to 30% of the level, ten turns it off
+   (bl_power), anything wakes it.  /etc/default/k4510-power sets the
+   numbers.
+3. **The audio device closes in silence** (sdl/main.c): five seconds of
+   zeros -- the OPL2 asleep, the DACs at rest, no radio, no DOOM or Apple
+   -- and SDL's device is closed, so the HDA codec powers down; the first
+   sample that is not zero opens it again, the last frame's samples kept so
+   a sound starts with its start.  Checked with SDL's disk driver: closed
+   five seconds after boot, open again as OPL2.PRG played.
+4. **Wi-Fi power saving** on (NetworkManager conf.d, wifi.powersave = 3).
+5. **The CPU follows the charger** (k4510-power-policy, from a boot unit and
+   a udev rule on power_supply change): on battery intel_pstate's
+   balance_power and the Dell's "quiet" platform profile, on mains
+   balance_performance and "balanced".  A choice the hardware lacks is
+   skipped.
+
+The rest of the review (Tailscale's relay, kernel-line housekeeping, the
+frame loop at rest, FBC, the charge limit) is in docs/TODO.md.

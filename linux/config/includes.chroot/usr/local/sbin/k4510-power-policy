@@ -1,0 +1,27 @@
+#!/bin/sh
+# k4510-power-policy -- the CPU's energy preference and the firmware's platform
+# profile, by what the machine is running on (2026-10-06, Doc: "optimize the
+# underlying Debian layer for max time on battery").  Run at boot
+# (k4510-power-policy.service) and by udev whenever a power supply changes
+# (/etc/udev/rules.d/90-k4510-power.rules).  The settings are in
+# /etc/default/k4510-power; a choice the hardware does not offer is skipped.
+EPP_BATTERY=balance_power EPP_MAINS=balance_performance
+PROFILE_BATTERY=quiet PROFILE_MAINS=balanced
+[ -r /etc/default/k4510-power ] && . /etc/default/k4510-power
+
+battery=0
+for d in /sys/class/power_supply/*; do
+    [ "$(cat "$d/type" 2>/dev/null)" = Mains ] || continue
+    battery=1
+    [ "$(cat "$d/online" 2>/dev/null)" = 1 ] && { battery=0; break; }
+done
+if [ $battery = 1 ]; then epp=$EPP_BATTERY; prof=$PROFILE_BATTERY; else epp=$EPP_MAINS; prof=$PROFILE_MAINS; fi
+
+for f in /sys/devices/system/cpu/cpu*/cpufreq/energy_performance_preference; do
+    [ -w "$f" ] || continue
+    grep -qw "$epp" "${f%preference}available_preferences" 2>/dev/null && echo "$epp" > "$f"
+done
+p=/sys/firmware/acpi/platform_profile
+[ -w $p ] && grep -qw "$prof" ${p}_choices 2>/dev/null && echo "$prof" > $p
+logger -t k4510-power-policy "$( [ $battery = 1 ] && echo battery || echo mains ): epp $epp, profile $prof" 2>/dev/null
+exit 0

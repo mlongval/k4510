@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""k4510-brightness -- the laptop's brightness keys, on a machine with no desktop.
+"""k4510-brightness -- the laptop's backlight, on a machine with no desktop.
 
 Doc, 2026-09-17: "The brightness keys don't need to go to SDL they need to
 tell the BIOS or whatever driver that I want to adjust brightness."
@@ -23,11 +23,24 @@ Five devices on this laptop claim the brightness keycodes -- the AT keyboard,
 the Video Bus, Intel HID events, Dell WMI hotkeys and the touchpad's companion
 -- and one press can arrive from several at once.  Presses inside DEBOUNCE of
 each other therefore count once, or a single tap would jump five steps.
+
+On battery (2026-10-06, Doc: "optimize the underlying Debian layer for max
+time on battery"), the backlight being the biggest single draw on the Dell:
+  * unplugged, a level over BATTERY_CAP comes down to it, and goes back up
+    when the charger returns (unless the keys moved it meanwhile);
+  * no key, touchpad or mouse for DIM_AFTER seconds dims it to DIM_FRAC of
+    the level, and OFF_AFTER seconds turns the backlight off -- anything
+    from any input device brings it straight back.
+Every input device is read for that, as the brightness keys' already were.
+/etc/default/k4510-power can set BATTERY_CAP (a fraction), DIM_AFTER and
+OFF_AFTER (seconds, 0 = never).
 """
 import errno, glob, os, select, struct, sys, time
 
 # linux/input-event-codes.h
 EV_KEY = 0x01
+EV_REL = 0x02
+EV_ABS = 0x03
 KEY_BRIGHTNESSDOWN = 224
 KEY_BRIGHTNESSUP = 225
 
@@ -37,8 +50,23 @@ EV_SIZE = struct.calcsize(EV_FMT)
 
 BACKLIGHT = "/sys/class/backlight"
 STEP = 0.10          # of the full range, per press
-MIN_FRAC = 0.02      # never all the way off: a black screen looks like a crash
+MIN_FRAC = 0.02      # never all the way off by the keys: a black screen looks like a crash
 DEBOUNCE = 0.08      # seconds; one press, however many devices report it
+
+# on battery (overridden by /etc/default/k4510-power)
+CFG = {"BATTERY_CAP": 0.60, "DIM_AFTER": 120, "OFF_AFTER": 600, "DIM_FRAC": 0.30}
+
+
+def load_cfg():
+    try:
+        for line in open("/etc/default/k4510-power"):
+            line = line.split("#", 1)[0].strip()
+            if "=" in line:
+                k, v = (s.strip() for s in line.split("=", 1))
+                if k in CFG:
+                    CFG[k] = float(v)
+    except OSError:
+        pass
 
 
 def backlight_dir():
@@ -48,60 +76,141 @@ def backlight_dir():
     return None
 
 
-def devices_with_brightness():
-    """Every /dev/input/event* whose device claims the brightness keycodes."""
-    out = []
-    for d in sorted(glob.glob("/sys/class/input/input*")):
+def on_battery():
+    """True if a mains supply exists and none is online."""
+    mains = False
+    for d in glob.glob("/sys/class/power_supply/*"):
         try:
-            bits = open(os.path.join(d, "capabilities/key")).read().split()
+            if open(os.path.join(d, "type")).read().strip() != "Mains":
+                continue
+            mains = True
+            if open(os.path.join(d, "online")).read().strip() == "1":
+                return False
         except OSError:
             continue
-        val = 0
-        for i, g in enumerate(reversed(bits)):
-            val |= int(g, 16) << (64 * i)
-        if (val >> KEY_BRIGHTNESSUP) & 1 or (val >> KEY_BRIGHTNESSDOWN) & 1:
-            for f in os.listdir(d):
-                if f.startswith("event"):
-                    out.append("/dev/input/" + f)
+    return mains
+
+
+def key_bits(d):
+    try:
+        bits = open(os.path.join(d, "capabilities/key")).read().split()
+    except OSError:
+        return 0
+    val = 0
+    for i, g in enumerate(reversed(bits)):
+        val |= int(g, 16) << (64 * i)
+    return val
+
+
+def input_devices():
+    """{"/dev/input/eventN": claims the brightness keys} for every input device."""
+    out = {}
+    for d in sorted(glob.glob("/sys/class/input/input*")):
+        val = key_bits(d)
+        bright = bool((val >> KEY_BRIGHTNESSUP) & 1 or (val >> KEY_BRIGHTNESSDOWN) & 1)
+        for f in os.listdir(d):
+            if f.startswith("event"):
+                out["/dev/input/" + f] = bright
     return out
 
 
+class Backlight:
+    def __init__(self, d):
+        self.path = os.path.join(d, "brightness")
+        self.power = os.path.join(d, "bl_power")
+        with open(os.path.join(d, "max_brightness")) as f:
+            self.vmax = int(f.read().strip())
+        self.step = max(1, int(self.vmax * STEP))
+        self.vmin = max(1, int(self.vmax * MIN_FRAC))
+
+    def get(self):
+        try:
+            with open(self.path) as f:
+                return int(f.read().strip())
+        except OSError:
+            return None
+
+    def set(self, v):
+        try:
+            with open(self.path, "w") as f:
+                f.write(str(max(self.vmin, min(self.vmax, int(v)))))
+        except OSError as e:
+            print(f"k4510-brightness: cannot write {self.path}: {e}")
+            sys.stdout.flush()
+
+    def blank(self, off):
+        if os.path.exists(self.power):
+            try:
+                with open(self.power, "w") as f:
+                    f.write("4" if off else "0")    # FB_BLANK_POWERDOWN / UNBLANK
+                return
+            except OSError:
+                pass
+        if off:
+            self.set(self.vmin)
+
+
 def main():
-    bl = backlight_dir()
-    if not bl:
+    load_cfg()
+    d = backlight_dir()
+    if not d:
         print("k4510-brightness: no backlight in /sys/class/backlight; nothing to do")
         return 0
-    with open(os.path.join(bl, "max_brightness")) as f:
-        vmax = int(f.read().strip())
-    path = os.path.join(bl, "brightness")
-    step = max(1, int(vmax * STEP))
-    vmin = max(1, int(vmax * MIN_FRAC))
+    bl = Backlight(d)
+
+    fds = {}                                     # fd -> (device, claims the brightness keys)
+    def rescan():
+        known = {dev for dev, _ in fds.values()}
+        for dev, bright in input_devices().items():
+            if dev in known:
+                continue
+            try:
+                fds[os.open(dev, os.O_RDONLY | os.O_NONBLOCK)] = (dev, bright)
+            except OSError as e:
+                if e.errno not in (errno.EACCES, errno.ENOENT, errno.ENODEV):
+                    raise
 
     # The Video Bus can register after this starts, early in a boot: look for
     # half a minute before deciding the machine simply has no such keys.
-    fds = {}
     for _ in range(30):
-        for dev in devices_with_brightness():
-            try:
-                fds[os.open(dev, os.O_RDONLY | os.O_NONBLOCK)] = dev
-            except OSError as e:
-                if e.errno not in (errno.EACCES, errno.ENOENT):
-                    raise
-        if fds:
+        rescan()
+        if any(b for _, b in fds.values()):
             break
         time.sleep(1)
-    if not fds:
-        print("k4510-brightness: no input device claims the brightness keys")
-        return 0
-    print(f"k4510-brightness: {bl}, step {step} of {vmax}, watching {len(fds)} device(s)")
+    print(f"k4510-brightness: {d}, step {bl.step} of {bl.vmax}, watching {len(fds)} device(s); "
+          f"on battery: cap {CFG['BATTERY_CAP']:.0%}, dim after {CFG['DIM_AFTER']:.0f} s, off after {CFG['OFF_AFTER']:.0f} s")
     sys.stdout.flush()
 
-    last = 0.0
+    last_key = 0.0                               # the debounce
+    last_input = time.monotonic()
+    state = 0                                    # 0 lit, 1 dimmed, 2 off
+    level = bl.get() or bl.vmax                  # the level the person wants, while dimmed or off
+    batt = on_battery()
+    capped_from = None                           # the level before the battery cap, to give back on mains
+    if batt and level > bl.vmax * CFG["BATTERY_CAP"]:
+        capped_from = level; level = int(bl.vmax * CFG["BATTERY_CAP"]); bl.set(level)
+    last_scan = time.monotonic(); last_power = 0.0
+
+    def wake():
+        nonlocal state
+        if state == 2:
+            bl.blank(False)
+        if state:
+            bl.set(level)
+        state = 0
+
     while True:
-        if not fds:
-            print("k4510-brightness: every input device went away; restarting")
-            return 1                   # Restart=on-failure finds them again
-        r, _, _ = select.select(list(fds), [], [])
+        now = time.monotonic()
+        # how long until something is due: the next dim step, or a look at the supply
+        timeout = 5.0
+        if batt and state < 2:
+            due = [last_input + CFG["DIM_AFTER"] if state == 0 and CFG["DIM_AFTER"] > 0 else None,
+                   last_input + CFG["OFF_AFTER"] if CFG["OFF_AFTER"] > 0 else None]
+            due = [t - now for t in due if t is not None]
+            if due:
+                timeout = max(0.05, min(timeout, min(due)))
+        r, _, _ = select.select(list(fds), [], [], timeout)
+        now = time.monotonic()
         for fd in r:
             while True:
                 try:
@@ -118,27 +227,47 @@ def main():
                 if len(data) < EV_SIZE:
                     break
                 _, _, etype, code, value = struct.unpack(EV_FMT, data)
-                if etype != EV_KEY or value == 0:      # key-up: ignore
+                if etype not in (EV_KEY, EV_REL, EV_ABS):
+                    continue
+                last_input = now
+                if state:
+                    wake()
+                if etype != EV_KEY or value == 0:          # key-up, motion: only activity
                     continue
                 if code not in (KEY_BRIGHTNESSUP, KEY_BRIGHTNESSDOWN):
                     continue
-                now = time.monotonic()
-                if now - last < DEBOUNCE:              # the same press, another device
+                if now - last_key < DEBOUNCE:              # the same press, another device
                     continue
-                last = now
-                try:
-                    with open(path) as f:
-                        cur = int(f.read().strip())
-                except OSError:
+                last_key = now
+                cur = bl.get()
+                if cur is None:
                     continue
-                cur += step if code == KEY_BRIGHTNESSUP else -step
-                cur = max(vmin, min(vmax, cur))
-                try:
-                    with open(path, "w") as f:
-                        f.write(str(cur))
-                except OSError as e:
-                    print(f"k4510-brightness: cannot write {path}: {e}")
-                    sys.stdout.flush()
+                cur += bl.step if code == KEY_BRIGHTNESSUP else -bl.step
+                cur = max(bl.vmin, min(bl.vmax, cur))
+                bl.set(cur)
+                level = cur; capped_from = None            # the person chose: the cap gives nothing back
+        if now - last_scan > 30:                           # a keyboard or mouse plugged in since
+            last_scan = now; rescan()
+        if now - last_power > 5:                           # the charger, in or out
+            last_power = now
+            b = on_battery()
+            if b != batt:
+                batt = b
+                wake()
+                last_input = now
+                if batt and level > bl.vmax * CFG["BATTERY_CAP"]:
+                    capped_from = level; level = int(bl.vmax * CFG["BATTERY_CAP"]); bl.set(level)
+                elif not batt and capped_from is not None:
+                    level = capped_from; capped_from = None; bl.set(level)
+        if batt:
+            idle = now - last_input
+            if state == 0 and CFG["DIM_AFTER"] > 0 and idle >= CFG["DIM_AFTER"]:
+                cur = bl.get()
+                if cur is not None:
+                    level = cur
+                bl.set(max(bl.vmin, level * CFG["DIM_FRAC"])); state = 1
+            if state < 2 and CFG["OFF_AFTER"] > 0 and idle >= CFG["OFF_AFTER"]:
+                bl.blank(True); state = 2
 
 
 if __name__ == "__main__":

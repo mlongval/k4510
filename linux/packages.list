@@ -94,3 +94,8 @@ libpam-systemd
 # falls back: the 2026-09-13 rebuild's initrd came out 90 MB, twice the last,
 # and no longer fit the image.  Named here, not left to a dependency.
 zstd
+# Measuring the power settings (2026-10-06): powertop (what wakes the machine,
+# what draws, --auto-tune) and turbostat (package C-states, watts), the
+# before and after of every battery change.  k4510-power reads the battery.
+powertop
+linux-cpupower

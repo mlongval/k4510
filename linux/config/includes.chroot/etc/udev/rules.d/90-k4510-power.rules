@@ -1,0 +1,2 @@
+# The K4510x: the CPU's power policy follows the charger (k4510-power-policy).
+SUBSYSTEM=="power_supply", ACTION=="change", RUN+="/usr/local/sbin/k4510-power-policy"

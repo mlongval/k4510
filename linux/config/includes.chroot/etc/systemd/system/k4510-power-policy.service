@@ -1,0 +1,12 @@
+[Unit]
+# The CPU's energy preference and platform profile for what the machine is
+# running on, once at boot; udev follows the charger after that
+# (/etc/udev/rules.d/90-k4510-power.rules).  See /usr/local/sbin/k4510-power-policy.
+Description=K4510x power policy (battery or mains)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/k4510-power-policy
+
+[Install]
+WantedBy=multi-user.target

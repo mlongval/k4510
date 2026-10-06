@@ -1,0 +1,32 @@
+#!/bin/sh
+# k4510-power -- what the machine draws from its battery, for measuring the
+# power settings (2026-10-06).
+#   k4510-power              the draw now, in watts, averaged over 10 s
+#   k4510-power SECONDS      ... over that many seconds
+#   k4510-power log FILE [N] a line every N seconds (default 10): time, watts,
+#                            charge %, status -- until interrupted
+# Reads /sys/class/power_supply/BAT*: power_now, or current_now x voltage_now.
+# On the charger the battery draws nothing to measure: unplug it first.
+bat=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
+[ -n "$bat" ] || { echo "k4510-power: no battery"; exit 1; }
+watts() {   # microwatts now
+    if [ -r "$bat/power_now" ]; then cat "$bat/power_now"
+    else echo $(( $(cat "$bat/current_now") / 1000 * ($(cat "$bat/voltage_now") / 1000) )); fi
+}
+avg() {     # watts, averaged over $1 seconds, a sample a second
+    n=0 sum=0
+    while [ $n -lt "$1" ]; do sum=$((sum + $(watts))); n=$((n + 1)); sleep 1; done
+    awk -v s=$sum -v n=$n 'BEGIN { printf "%.2f", s / n / 1e6 }'
+}
+case "$1" in
+log)
+    out=${2:?k4510-power log FILE [SECONDS]}; every=${3:-10}
+    echo "# time watts charge% status   (k4510-power, every ${every} s)" >> "$out"
+    while :; do
+        echo "$(date +%H:%M:%S) $(avg "$every") $(cat "$bat/capacity") $(cat "$bat/status")" >> "$out"
+    done ;;
+*)
+    s=${1:-10}
+    [ "$(cat "$bat/status")" = Discharging ] || echo "k4510-power: $(cat "$bat/status") -- the figure is only the battery's own while it discharges"
+    echo "$(avg "$s") W over ${s} s, battery $(cat "$bat/capacity")%" ;;
+esac

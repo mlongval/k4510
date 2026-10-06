@@ -309,6 +309,17 @@ static volatile int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h; 
 #define RING_TARGET (1024 + 800)          /* one callback, plus a frame */
 #define RING_CAP    (RING_TARGET + 800)   /* a frame of slack above the lead */
 #define RING_DEPTH  ((ring_w - ring_h) & RING_MASK)
+/* The audio device closes in silence (2026-10-06, for time on battery): an
+ * open stream keeps the sound hardware awake and interrupting fifty times a
+ * second even when every sample is zero.  sound_ms is when a sample last was
+ * not; ring_put notes it. */
+static Uint32 sound_ms;
+static inline void ring_put(int16_t v)
+{
+    if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = v; ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish
+                                                                                           * the index first, and the callback played a stale slot (review 2026-09-17) */
+    if (v) sound_ms = SDL_GetTicks();
+}
 static void audio_cb(void *ud, Uint8 *stream, int len)
 {
     (void)ud; int16_t *out = (int16_t *)stream; int n = len / 2;
@@ -757,7 +768,7 @@ static void line_end(int vol)                 /* the scanline's picture and soun
     io_tube_opl_drain();
     if (sndq_owner() == SNDQ_OWNER_CPU)
     { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-      for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */ }
+      for (int i = 0; i < n; i++) ring_put((int16_t)(tmp[i] * vol_gain(vol) >> 15)); }
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
     m_cyc = 0;
@@ -1206,6 +1217,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
     SDL_AudioDeviceID adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
     if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
+    int audio_ever = adev != 0;                    /* a host with no sound is not asked again and again */
+    sound_ms = SDL_GetTicks();
     SDL_StartTextInput();
     /* ---- the clock: measured, not guessed (docs/CPU-CLOCK-POLICY.md) ------
      * SETUP.prg measures this host and writes the answer to k4510.cfg with
@@ -1258,6 +1271,22 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     host_keymap_apply();                          /* the first look: note the layout the boot already applied */
     host_lid_apply();                             /* the lid: keep running holds logind's lock from the start */
     while (running) {
+        /* The audio device closes after AUDIO_IDLE_MS of nothing but zeros --
+         * no FM (the OPL2 sleeps), no DigiMAX, no radio, no DOOM or Apple on
+         * the Tube -- and the sound hardware powers down.  The first sample
+         * that is not zero opens it again; the ring keeps the last frame's
+         * samples while it is closed, so the sound starts with its start. */
+        if (audio_ever && sndq_owner() == SNDQ_OWNER_CPU) {
+#define AUDIO_IDLE_MS 5000
+            int need = navi_playing() || io_tube_kind() == 6 || io_tube_kind() == 7 || SDL_GetTicks() - sound_ms < AUDIO_IDLE_MS;
+            if (!need && adev) { SDL_CloseAudioDevice(adev); adev = 0; mlog("audio: closed, nothing to hear"); }
+            else if (need && !adev) {
+                static Uint32 tried;                       /* a device that will not open: once a second, not every frame */
+                if (SDL_GetTicks() - tried >= 1000) { tried = SDL_GetTicks();
+                    if ((adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0)) != 0) { SDL_PauseAudioDevice(adev, 0); mlog("audio: open again"); } }
+            }
+            if (!adev) { unsigned keep = (unsigned) AUDIO_RATE / 60; if (RING_DEPTH > keep) ring_h = ring_w - keep; }   /* closed: only the last frame's, for the start of a sound */
+        }
         { Uint64 c = SDL_GetPerformanceCounter();
           /* the window opens 20 s after start, so it measures the machine at
            * the prompt rather than BENCH, whose clock reads are dear on the Pi */
@@ -1768,7 +1797,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
                 int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-                for (int i = 0; i < n; i++) if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = (int16_t)(tmp[i] * vol_gain(vol) >> 15); ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish the index first, and the callback played a stale slot (review 2026-09-17) */
+                for (int i = 0; i < n; i++) ring_put((int16_t)(tmp[i] * vol_gain(vol) >> 15));
                 /* how much of the sound the machine did not make: the honest
                  * measure of choppy, now that the ring is kept from running dry */
                 if (n > 0) io_audio_fill = (io_audio_fill > 0xFFFF - n) ? 0xFFFF : (uint16_t)(io_audio_fill + n);

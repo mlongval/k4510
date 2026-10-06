@@ -384,6 +384,8 @@ static void *player(void *unused)
     running = 0;
     return NULL;
 }
+/* the radio is playing: the frontend keeps the audio device open for it */
+int navi_playing(void) { return running && !paused; }
 /* the frontend, once a second: is this sidebar on the glass? */
 void navi_active(int on)
 {

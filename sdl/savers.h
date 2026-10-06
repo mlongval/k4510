@@ -28,6 +28,7 @@ void   saver_restore(int which, const uint8_t *buf, size_t n);
 /* the Navidrome sidebar's player (sdl/sidebars/navidrome.c): whether it is on the
  * glass, its music added to n samples of the machine's, and the next song */
 void navi_active(int on);
+int  navi_playing(void);
 void navi_mix(int16_t *out, int n, int master_q15);
 void navi_next(void);
 void navi_command(const char *cmd, char *reply, size_t max);   /* RADIO: the machine's command line, and the answer, lines with '\n' */

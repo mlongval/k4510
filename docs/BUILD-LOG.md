@@ -11541,3 +11541,11 @@ pictures are the VIC-II's.  `PALETTE LOAD CLEAR`, or that line in
 Checked: termtest (red, dark grey, black on blue; green and yellow left
 alone; a light background darkens; a BBS exact), palettetest (CLEAR loads),
 make test.  Not checked: on the Dell, with his eyes.
+
+**Later the same day: yellow and light green.**  Doc: "can yellow be more
+intense?  I have trouble seeing the difference between yellow and bright
+green."  In CLEAR they were EEEE77 and AAFF66, which protan sight takes to
+FEE66C and FFED55 -- 12.9 apart in Lab, one colour.  Now yellow FFEE00 and
+light green 99FF99 (56.7 apart); green to 33CC99 so it stays clear of the
+new light green, and cyan to AAEEFF, which had been 5.4 from white.  All
+still 7:1 or better on the blue.

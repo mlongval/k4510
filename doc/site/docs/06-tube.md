@@ -105,6 +105,18 @@ The console you see when the Tube is running is not the ROM’s own terminal but
 
 For CP/M this settles the question every program asks at install time: tell WordStar’s `WSCHANGE`, Turbo Pascal’s `TINST`, ZDE and the rest that the terminal is a *VT100* (or *ANSI*: the same sequences). Turbo Pascal 3 on `H:` user 3 comes up with its menu already right; WordStar 4 on `E:` wants one pass of `WSCHANGE`. BBC BASIC’s console edition speaks the same language natively, so `COLOUR`, `CLS` and `PRINT TAB(x,y)` land where they should. Bytes `$80`–`$FF` are drawn as CP437 glyphs, which is what BBS ANSI art is made of.
 
+### Everything through JIM
+
+JIM is not only for the Tube. The machine’s own programs draw through it too: the shell’s prompt and its colours, Mad Pascal’s CRT unit (`GotoXY`, `TextColor`), EDIT, PROG and WORD, RANGER, KOMMANDER, HEXED, CALC, FONTED, the TRACKER and the rest send JIM the byte stream a terminal reads, instead of writing into the screen’s memory. Games and the graphics layers still go to VICKY directly; that is what they are for. Two additions let a K4510 program say everything it needs in that stream:
+
+`ESC [ ? 4510 h` — the palette’s own colours  
+`ESC[38;5;`n`m` and `ESC[48;5;`n`m` with n below 16 are then the palette’s entry n. Without it they mean xterm’s colour n, and xterm’s order reaches only twelve of the machine’s sixteen: no orange, brown, mid grey or light grey. `ESC[?4510l` puts xterm’s meaning back.
+
+`ESC [ 11 m` — glyphs for control bytes  
+The bytes `$00`–`$1F` and `$7F` draw their CP437 glyphs (arrows, card suits, the little house) instead of being swallowed, as on the Linux console; the nine that must still act — backspace, tab, the line feeds, carriage return, SO, SI, Escape — are sent as their Unicode characters in UTF-8 if their glyph is wanted. `ESC[10m` ends it.
+
+A reset (`ESC[!p` or `ESC c`) clears both. C programs get all of this from `demo/jimcell.h`: `jc_cell(x, y, glyph,` `fg, bg)` sends a cell, moving the cursor and changing the colours only when it has to. Why it matters: a screen made of a stream can be sent anywhere, and it is what lets JIM own the status bands and keep a second screen, a session on the Linux underneath or on a distant machine ([Two screens](02-shell.md#two-screens)).
+
 ## Star commands
 
 A line starting with `*` goes to the machine: `*DIR`, `*CD`, any shell command — and BBC BASIC’s own file words (`LOAD`, `SAVE`) read and write the machine’s filesystem directly, because the co-processor lives inside `fs/` too. The Tube starts in the shell’s current directory, so `CD /LANG/BBCBASIC` then `BBC` lets `LOAD "EX/KALEID.BBC"` work without spelling the whole path; the machine’s filesystem is the co-processor’s whole world — `fs/` is shown as `/`, the host tree above it hidden, and `*CD ..` stops at the root.

@@ -75,8 +75,9 @@ int main(void)
     type("info -s\n");
     CHECK(findsub("FRED -- the MATH unit at $D700") >= 0, "INFO -s names FRED, the MATH unit");
     type("load balls.prg\n");
-    CHECK(findsub("4646 bytes at $00006000, run address 6000") >= 0 || findsub("bytes at 00006000, run address 6000") >= 0, "LOAD honours the .prg header");
-    CHECK(mem_peek(0x6000) == 0xA9, "program image landed at $6000 without its header");
+    /* C programs load at $0800 since 2026-10-06 (demo/prg.cfg; $6000 before) */
+    CHECK(findsub("bytes at $00000800, run address 0800") >= 0 || findsub("bytes at 00000800, run address 0800") >= 0, "LOAD honours the .prg header");
+    CHECK(mem_peek(0x0800) == 0xA9, "program image landed at $0800 without its header");
     type("run balls.prg\n");
     frames(30);
     CHECK((io_read(IO_VICKY + 0x0E) & 1) == 1, "balls.prg is running (sprites on)");

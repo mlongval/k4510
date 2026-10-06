@@ -93,7 +93,7 @@ static uint8_t prog_running;                     /* set around call_prog: K/OS l
 uint16_t speed_loop(void);                       /* crt0.s */
 void __fastcall__ far_poke(unsigned long a, unsigned char v);   /* crt0.s: 45GS10 flat store */
 unsigned char __fastcall__ far_peek(unsigned long a);           /* crt0.s: 45GS10 flat load, ~10 cycles */
-void __fastcall__ call_prog(unsigned addr);                     /* crt0.s: JSR with the ROM zero page saved around it */
+void __fastcall__ call_prog(unsigned addr);                     /* crt0.s: JSR on the program's base page and stack */
 
 static void w32(uint16_t r, uint32_t v) { REG(r) = v; REG(r + 1) = v >> 8; REG(r + 2) = v >> 16; REG(r + 3) = v >> 24; }
 static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
@@ -434,11 +434,13 @@ static void readline_sw(const char *buf) { readline((char *)buf, 96); }   /* 96 
 static uint8_t fs_cmd(uint8_t cmd) { REG(FS) = cmd; return REG(FS + 1); }
 static void fs_name(const char *name) { w32(FS + 4, (uint16_t)name); }
 
-/* jump-table entry points (crt0.s saves and restores the ROM's zero page around
- * each, so a program may own $00-$FF) use $F0.. as the parameter block */
-#define P_NAME  (*(volatile uint16_t *)0xF0)
-#define P_ADDR  (*(volatile uint32_t *)0xF2)
-#define P_LEN   (*(volatile uint32_t *)0xF6)
+/* jump-table entry points use the caller's $F0.. as the parameter block.  The
+ * ROM runs on a base page of its own (crt0.s), so a program owns $00-$FF; the
+ * stub copies the caller's $F0-$F9 to ARGS and back for LOAD, SAVE and ARGS. */
+#define ARGS    0xDB30u
+#define P_NAME  (*(volatile uint16_t *)ARGS)
+#define P_ADDR  (*(volatile uint32_t *)(ARGS + 2))
+#define P_LEN   (*(volatile uint32_t *)(ARGS + 6))
 uint8_t k_load(void) { uint8_t st; w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); w32(FS + 12, 0); st = fs_cmd(9); P_LEN = r32(FS + 12); return st; }
 uint8_t k_save(void) { w32(FS + 4, P_NAME); w32(FS + 8, P_ADDR); w32(FS + 12, P_LEN); return fs_cmd(10); }
 
@@ -981,7 +983,7 @@ static void info_mem(void)
 {
     uint16_t rombase = (uint16_t)REG(SYS + 0x20) << 8;
     label("MEMORY"); putdec(r16(SYS + 2)); puts_(" MB physical, 28-bit, MAP + DMA + flat addressing"); newline();
-    pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  ROM data $0200-$02FF, $0440-$07FF"); newline();
+    pad(8); puts_("CPU view: zp $0000-$00FF  stack $0100-$01FF  ROM data $0200-$02FF, $0440-$07FF, $DB00-$DEFF"); newline();
     pad(8); puts_("user $0800-$9FFF ("); putdec((USER_END - USER) / 1024); puts_(" KB); ROM out: $0800-$CFFF + $E000-$FEFF (62 KB)"); newline();
     pad(8); puts_("(banks 5-7 -> $A000-$FEFF; I/O and the $FF00 page always stay)"); newline();
     pad(8); puts_("text screen at $030000 (far)"); newline();
@@ -995,7 +997,7 @@ static void info_mem(void)
     { uint16_t lo = r16(SYS + 0x54), top = r16(SYS + 0x59);       /* the stack fence (core/mem.h) */
       pad(8); puts_("K/OS C stack: "); putdec(top - lo); puts_(" of "); putdec(top - r16(SYS + 0x52)); puts_(" bytes used at most");
       if (REG(SYS + 0x56)) { puts_(", OVERFLOWED "); putdec(REG(SYS + 0x56)); puts_("x"); }
-      puts_("; 6502 stack down to $"); puthex16(r16(SYS + 0x57)); newline(); }
+      newline(); pad(8); puts_("6502 stack: K/OS down to $"); puthex16(r16(SYS + 0x57)); puts_(", programs to $"); puthex16(r16(SYS + 0x5B)); newline(); }
     if (last_len) { pad(8); puts_("last load: "); puts_(last_name); puts_(", "); putdec(last_len); puts_(" bytes at $"); puthex28(last_addr); if (last_run) { puts_(", run $"); puthex16(last_run); } newline(); }
 }
 

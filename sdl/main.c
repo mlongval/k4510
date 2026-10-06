@@ -1190,7 +1190,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     /* The border: one column of pixels stretched across, a single RenderCopy
      * that reaches the letterbox too; rebuilt only when the colour changes. */
     uint32_t border_lit = 0;
-    SDL_Texture *btex = NULL; int btex_col = -1, btex_smooth = -1, btex_sbar = -1, btex_gh = -1;
+    SDL_Texture *btex = NULL; int btex_col = -1, btex_smooth = -1, btex_sbar = -1, btex_gh = -1; uint32_t btex_rgb = 0;
 
     static uint8_t ov[UI_W * UI_H];
     static uint32_t pal[256];                     /* the machine's colours */
@@ -2187,11 +2187,14 @@ tex_done:
               if (btex) SDL_SetTextureScaleMode(btex, SDL_ScaleModeNearest);   /* the picture's filter: hard pixels */
               btex_col = -1;
           }
-          /* the border colour flat -- refilled when it changes -- or the
-           * gradient, refilled every frame: a column of 1080 pixels */
-          if (btex && (btex_col != bcol || btex_smooth != smooth_applied || btex_sbar != grad || btex_gh != gh || grad)) {
+          /* the border colour flat -- refilled when it changes, the entry or
+           * what the palette makes of it (a PALETTE LOAD in STARTUP.BAT left the
+           * border the boot palette's grey beside the new one's bands: Doc,
+           * 2026-10-06) -- or the gradient, refilled every frame: a column of
+           * 1080 pixels */
+          if (btex && (btex_col != bcol || btex_rgb != border_lit || btex_smooth != smooth_applied || btex_sbar != grad || btex_gh != gh || grad)) {
               void *bp; int bpitch;
-              btex_col = bcol; btex_smooth = smooth_applied; btex_sbar = grad; btex_gh = gh;
+              btex_col = bcol; btex_rgb = border_lit; btex_smooth = smooth_applied; btex_sbar = grad; btex_gh = gh;
               if (SDL_LockTexture(btex, NULL, &bp, &bpitch) == 0) {
                   if (grad) {
                       int s, v, h0 = sb_rgb_hue(border_lit, &s, &v), ph = (int)((uint64_t) gclk * 1536 / 24000 % 1536);

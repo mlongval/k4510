@@ -11575,3 +11575,11 @@ sidebar rows.  Not checked: the Dell.
 black."  They were 333333, CLEAR's B as the VIC-II has it, which beside the
 blue reads as black.  CLEAR's B is 555555 now: plainly grey, white on it
 7.5:1.  Dark grey text from a host still lifts to grey on the blue.
+
+**And the border.**  Doc: "Bars and border are not the same colour."  The
+border is a one-pixel-wide texture, refilled when the border's palette
+ENTRY changes -- not when the palette changes what the entry is.  It was
+filled at power-on with the VIC-II's 333333, before STARTUP.BAT's PALETTE
+LOAD CLEAR made entry B 555555, and kept it; the bands, drawn from the
+palette every frame, took the new grey.  It is refilled when the colour
+changes too now (sdl/main.c, btex_rgb).

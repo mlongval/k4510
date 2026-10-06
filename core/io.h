@@ -382,6 +382,12 @@ void    io_reset(void);
  * (BBC BASIC, RunCPM's Z80 as program 3); where none can be started,
  * status reads 0. The console it talks to is JIM, the terminal at $DA00
  * (core/term.h). */
+/* The second screen (2026-10-05): its session, and which screen is up. */
+void    io_screen_show(int n);                   /* 0 K/OS, 1 the terminal (started at first show) */
+int     io_screen(void);
+int     io_screen2_allowed(void);                /* a locked machine has none: it is a way into Linux */
+uint8_t io_clockfmt(void);                       /* $D52F: the band clock's hours and date order */
+const char *io_title(void);                      /* what runs: K/OS, or the trail of who started whom (the first screen's tab) */
 void    kbd_push(uint8_t code);
 void    kbd_push_key(uint8_t code);      /* the host: a KEY_* code (arrows, Home, F-keys) -- never a typed character */
 void    kbd_push_mods(uint8_t ascii, uint8_t mods);     /* the key pipe's: a key sent with Shift/Ctrl/Alt (bits 0-2) bound to it */

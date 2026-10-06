@@ -6,11 +6,6 @@
         .importzp sp, sreg
         .import   incsp4
         .import   _k_chrout, _k_chrin, _k_getin, _k_load, _k_save, _k_shell, _k_video, _k_args
-        .import   _bband                    ; bottom-band height
-        .import   _PCOLS                    ; the text columns: the clock sits at the right of row 0
-        .import   _OY                       ; top-band height: the clock lives there, so this is what
-                                            ; decides whether the IRQ paints it (a bottom band of zero
-                                            ; must not stop the clock -- the heights are independent)
         .export   _ticks, _speed_loop, _far_poke, _far_peek, _call_prog
         .export   _rtc_latch
 
@@ -23,8 +18,6 @@ _ticks:       .res 1
 t0:           .res 1
 zp_rom:       .res 32          ; the ROM's zero page $02-$21 while a program runs
 zp_tmp:       .res 32
-zp_save:      .res 6           ; IRQ scratch
-irq_min:      .res 1           ; the minute the IRQ last painted into the status clock
 
         .segment "STARTUP"
 reset:  sei
@@ -68,142 +61,21 @@ _speed_loop:
 
 ; IRQ: pure assembly -- cc65 C code must never run here (it would clobber
 ; the zero-page temporaries of whatever was interrupted).
-; The clock cells are in far memory; the IRQ borrows $02-$05 for the flat
-; pointer and restores them, so it is safe whatever program owns the zero page.
+; All it does now is count frames: the status-bar clock was painted here
+; until 2026-10-05 (the bands are JIM's, drawn by the emulator, core/term.c),
+; and the console cursor's blink until 2026-10-01 (the cursor is JIM's too).
 irq:    pha
         .byte $DB               ; PHZ
-        .byte $A3, $00          ; LDZ #0: the flat [$02],Z ops below assume it, and a program
-                                ; interrupted inside far_poke16 (Z=1) or map_window (Z=$0F) does not
         lda $D004               ; VICKY IRQSTAT
         pha
         and #1                  ; vblank?
         beq @ack
         inc _ticks
-        lda _ticks
-        and #31
-        bne @ack
-        ; --- the status-bar clock, the machine's own tick: when the minute
-        ; rolls, repaint the eight digit cells (in status mode only) ---
-        lda $D0B2               ; VICKY's BANDCTL: bit0 the user's bands on, bit1 a PROGRAM has them.
-        and #$03                ; Only "the user's, unclaimed" (= 1) is ours to paint: a clock ticking
-        cmp #$01                ; through somebody else's status line is the loudest possible way
-        bne @curs               ; to get this wrong
-        lda _OY                 ; ... and is there a top band to put a clock in?
-        beq @curs
-        lda $D504               ; latch the RTC
-        lda $D506               ; the minute
-        cmp irq_min
-        beq @curs
-        sta irq_min
-        phy                     ; the stub saved A and X for us; Y is ours to keep
-        jsr clk_paint
-        ply
-@curs:                          ; (the console cursor's blink lived here until 2026-10-01: the cursor is JIM's now)
 @ack:   pla
         sta $D004               ; acknowledge what we saw
         .byte $FB               ; PLZ
         pla
         rts                     ; back to the stub (s_irq), which banks the ROM out again and RTIs
-
-; The status clock's painter, run from the IRQ.  It rewrites the eight digit
-; cells of HH:MM DD.MM straight into the text map at $030100 (row 0, column
-; 64 = SCREEN + 64*4; status mode is always 80 columns).  The separators and
-; the year are the C code's (draw_clock); only the digits change each minute.
-; Borrows $02-$05 in zp_save (the cursor blink did too, until it went to JIM).  A and X
-; are the stub's to restore; the caller kept Y.
-clk_paint:
-        cld                     ; the sbc below must be binary, whatever ran before
-        ldx #3
-@sv:    lda $02,x
-        sta zp_save,x
-        dex
-        bpl @sv
-        ; The field is right-anchored and its width depends on the format: 16
-        ; cells at 24-hour, 19 with the AM/PM.  Status mode is always 80
-        ; columns, so the row-0 byte offset is 64*4 = $0100 or 61*4 = $00F4.
-        lda $D52F               ; hd-modes: the width is PCOLS's, not always 80
-        and #$01                ; bit 0: 24-hour
-        beq @h12
-        lda #16                 ; 24-hour: 16 cells
-        bra @addr
-@h12:   lda #19                 ; 12-hour: 19
-@addr:  sta $02
-        lda _PCOLS
-        sec
-        sbc $02                 ; the field's first column
-        sta $02
-        stz $03
-        asl $02                 ; four bytes a cell
-        rol $03
-        asl $02
-        rol $03
-        lda $03                 ; the top band's row 0 is BANDMAP's first row ($03C000, option B
-        ora #$C0                ; 2026-10-01): the offset is under $400, so OR-ing $C0 into its
-        sta $03                 ; high byte adds $C000
-        lda #$03
-        sta $04
-        lda #$00
-        sta $05
-        lda $D507               ; hours, as the RTC has them
-        ldx $D52F
-        cpx #$00                ; (only bit 0 matters; the branch below reads it)
-        pha
-        lda $D52F
-        and #$01
-        bne @h24
-        pla                     ; 12-hour: 0 and 12 both read 12
-        cmp #12
-        bcc @lt
-        sec
-        sbc #12
-@lt:    cmp #0
-        bne @go
-        lda #12
-        bra @go
-@h24:   pla
-@go:    jsr cp_field
-        lda #':'
-        jsr cp_put
-        lda $D506               ; minutes
-        jsr cp_field
-        ; The date is NOT painted here.  It changes once a day, and teaching
-        ; the interrupt three date orders would be a lot of assembler guarding
-        ; that.  k_getin repaints it instead, off a far_peek of the day cell.
-        ldx #3
-@rs:    lda zp_save,x
-        sta $02,x
-        dex
-        bpl @rs
-        rts
-
-; A = 0..99 -> two cells: the tens digit, then (falling through) the ones.
-cp_field:
-        ldy #'0'
-@t:     cmp #10
-        bcc @d
-        sbc #10                 ; the cmp set carry when A >= 10
-        iny
-        bra @t
-@d:     ora #'0'                ; the ones digit, 0..9, to ASCII
-        pha
-        tya
-        jsr cp_put              ; the tens
-        pla                     ; the ones, then fall through
-; cp_put: write A (a glyph) to the cell at [$02], advance $02-$05 by four.
-cp_put:
-        .byte $EA               ; NOP prefix: 32-bit flat
-        sta ($02)               ; STA [$02],Z   (Z = 0, as the blink assumes)
-        clc
-        lda $02
-        adc #4
-        sta $02
-        bcc @d
-        inc $03
-        bne @d
-        inc $04
-        bne @d
-        inc $05
-@d:     rts
 
 ; void __fastcall__ far_poke(unsigned long a, unsigned char v)
 _far_poke:

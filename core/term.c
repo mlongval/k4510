@@ -12,7 +12,7 @@
 #include <time.h>
 
 #define NPAR 16
-static struct {
+typedef struct {
     uint8_t cols, rows, ox, oy, stride;
     uint32_t base;
     uint8_t cx, cy, fg, bg, deffg, defbg;
@@ -51,7 +51,23 @@ static struct {
     uint8_t dispctl;                   /* SGR 11 (the Linux console's "display control flag"), SGR 10 off: the
                                         * bytes $00-$1F and $7F draw their CP437 glyphs, all but the ones that act --
                                         * BS, HT, LF, VT, FF, CR, SO, SI and ESC */
-} T;
+    char osc[64]; uint8_t oscn;        /* an OSC being received, for JIM's own (ESC ] 4510 ; ... BEL); $FF: not ours */
+} term_t;
+
+/* Two terminals since 2026-10-05 (Doc: JIM shows "the current K/OS K4510
+ * program, or ... one terminal connection"): TS[0] is the machine's, the one
+ * the registers at $DA00 talk to, saved in a state; TS[1] is the second
+ * screen, a session on the Linux beneath or beyond (core/io.c owns its pty),
+ * drawn into a map of its own that VICKY shows in the console's place while
+ * it is up.  Everything below works on T, the one in hand: TS[0] except while
+ * the second screen's bytes or keys go through. */
+static term_t TS[2];
+static term_t *tp = &TS[0];
+#define T (*tp)
+static int vis;                                         /* the screen VICKY shows: 0 K/OS, 1 the terminal */
+#define VISIBLE (tp == &TS[vis])
+static uint32_t band_sig;                               /* the bands as last drawn (bands_tick, at the end) */
+static int scr_req = -1;                                /* a screen asked for (OSC, $DA18), for io to act on */
 
 static uint8_t *apc; static size_t apc_n, apc_cap;      /* an APC being received (not in T: a save state does not carry a half-sent picture) */
 static int host_session;                               /* a `!` session: a picture's t=f path is the Linux's, not the machine's */
@@ -142,7 +158,7 @@ static void cur_undraw(void)
     if (!CUR_SHOWN) return;
     if (CUR_ATTR) { uint8_t *a = &k4510_ram[T.cur_at];
                     if (((*a >> 7) & 1) != CUR_ORIG) *a = (uint8_t)((*a & 0x7F) | (CUR_ORIG << 7)); }
-    else vicky_cursor(0, 0, 0);
+    else if (VISIBLE) vicky_cursor(0, 0, 0);
     T.cur_on &= 6;
 }
 static void cur_draw(void)
@@ -152,9 +168,10 @@ static void cur_draw(void)
     T.cur_at = (uint32_t)(cellp(T.cx, T.cy) - k4510_ram) + 1;
     if (CUR_STYLE == 0) { uint8_t *a = &k4510_ram[T.cur_at]; uint8_t orig = (uint8_t)((*a >> 7) & 1);
                           *a ^= 0x80; T.cur_on = (uint8_t)((T.cur_on & 6) | 9 | (orig << 4)); }
-    else { vicky_cursor(T.cur_at, CUR_STYLE, 1); T.cur_on |= 1; }
+    else { if (VISIBLE) vicky_cursor(T.cur_at, CUR_STYLE, 1); T.cur_on |= 1; }
 }
 static FILE *termlog(void);
+static void bands_tick(int force);
 void term_tick(void)
 {
     /* K4510_TERMLOG is buffered and flushed here, once a second.  Flushed per
@@ -163,9 +180,13 @@ void term_tick(void)
      * minutes, which is what "ssh crashed" was (2026-09-12).  A crash now loses
      * at most the last second of the log. */
     { static unsigned n; if (++n % 60 == 0) { FILE *lg = termlog(); if (lg) fflush(lg); } }
-    if (!T.shown) return;
-    T.frames++;
-    if (T.frames & 16) { if (CUR_SHOWN) cur_undraw(); } else if (!CUR_SHOWN) cur_draw();
+    bands_tick(0);                              /* the bands are JIM's (below) */
+    tp = &TS[vis];                              /* the cursor blinks on the screen that is up */
+    if (T.shown) {
+        T.frames++;
+        if (T.frames & 16) { if (CUR_SHOWN) cur_undraw(); } else if (!CUR_SHOWN) cur_draw();
+    }
+    tp = &TS[0];
 }
 
 /* ---- the reply FIFO -------------------------------------------------------- */
@@ -217,6 +238,7 @@ void term_reset(void)
     T.deffg = 7; T.defbg = 6;                        /* the ROM's yellow on blue until it says otherwise */
     soft_reset();
     T.cx = T.cy = 0;
+    vis = 0; vicky_screen_map(0); band_sig = 0;      /* a reset shows the machine; a second screen's session goes on behind */
 }
 
 /* ---- cursor motion ------------------------------------------------------ */
@@ -428,9 +450,9 @@ static void esc(uint8_t c)
 {
     switch (c) {
     case '[': T.st = 2; T.npar = 0; T.priv = 0; T.inter = 0; memset(T.par, 0, sizeof T.par); return;
-    case ']': T.st = 3; return;
+    case ']': T.st = 3; T.oscn = 0; return;
     case '_': T.st = 9; apc_n = 0; return;                          /* APC: Kitty's graphics come in one (core/jimgfx.h) */
-    case 'P': case '^': case 'X': T.st = 3; return;                /* DCS, PM, SOS: skipped like an OSC */
+    case 'P': case '^': case 'X': T.st = 3; T.oscn = 0xFF; return;   /* DCS, PM, SOS: skipped like an OSC */
     case '(': T.st = 4; return;
     case ')': T.st = 5; return;
     case '#': T.st = 6; return;
@@ -710,6 +732,7 @@ void term_host_session(int on)
  * last row, just past it, unless the program asked for it to stay (C=1). */
 static void apc_done(void)
 {
+    if (tp != &TS[0]) { apc_n = 0; return; }   /* pictures are the machine's layers: not drawn for the second screen's session */
     jimgfx_geom_t g; jimgfx_todo_t todo;
     gfx_geom(&g);
     jimgfx_apc(apc, apc_n, &g, &todo); apc_n = 0;
@@ -721,6 +744,28 @@ static void apc_done(void)
     jimgfx_draw(&todo, &g);
     if (!todo.keep_cursor) { int nx = T.cx + todo.cols, ny = T.cy + todo.rows - 1; T.cx = (uint8_t)(nx > T.cols - 1 ? T.cols - 1 : nx); T.cy = (uint8_t)(ny > T.bot ? T.bot : ny); T.pending = 0; }
 }
+/* ---- JIM's own OSCs ------------------------------------------------------------
+ * ESC ] 4510 ; kos BEL      show K/OS (the first screen): tmux's binding,
+ *                           `bind K run-shell "printf '\\033]4510;kos\\007' > #{client_tty}"`
+ * ESC ] 4510 ; term BEL     show the terminal (the second screen)
+ * ESC ] 4510 ; note ; text BEL   a line for the bottom band's left end, from
+ *                           either screen ("" clears it): the bands are JIM's,
+ *                           and this is how a program puts something there
+ * Every other OSC (titles, colours, hyperlinks) is skipped, as before. */
+static char band_note[64];
+static void osc_done(void)
+{
+    const char *o = T.osc;
+    if (T.oscn == 0xFF) return;
+    T.osc[T.oscn] = 0;
+    if (strncmp(o, "4510;", 5)) return;
+    o += 5;
+    if (!strcmp(o, "kos") || !strcmp(o, "1")) scr_req = 0;
+    else if (!strcmp(o, "term") || !strcmp(o, "2")) scr_req = 1;
+    else if (!strncmp(o, "note;", 5)) { snprintf(band_note, sizeof band_note, "%s", o + 5); }
+}
+int term_screen_request(void) { int r = scr_req; scr_req = -1; return r; }
+
 static void put_byte(uint8_t c)
 {
     if (T.petscii && T.st == 0) { pet_byte(c); return; }
@@ -749,8 +794,12 @@ static void put_byte(uint8_t c)
         if (c < 0x20) { T.st = 0; put_byte(c); T.st = 2; return; } /* a control inside a CSI acts at once, in the ground state, and the CSI goes on */
         T.st = 0; csi(c); return;
     case 3:                                                         /* an OSC/DCS string: to BEL or ESC \ */
-        if (c == 7) T.st = 0; else if (c == 0x1B) T.st = 7; return;
-    case 7: T.st = (c == '\\') ? 0 : 3; return;
+        if (c == 7) { T.st = 0; osc_done(); }
+        else if (c == 0x1B) T.st = 7;
+        else if (T.oscn < sizeof T.osc - 1) T.osc[T.oscn++] = (char) c;
+        else T.oscn = 0xFF;                                         /* too long to be ours */
+        return;
+    case 7: if (c == '\\') { T.st = 0; osc_done(); } else T.st = 3; return;
     case 4: T.g0 = (c == '0') ? 1 : 0; T.st = 0; return;
     case 5: T.g1 = (c == '0') ? 1 : 0; T.st = 0; return;
     case 6: if (c == '8') { for (int y = 0; y < T.rows; y++) for (int x = 0; x < T.cols; x++) put_cell(x, y, 'E', 0, T.fg, T.bg); } T.st = 0; return;
@@ -792,6 +841,7 @@ static void key(uint8_t k)
 uint8_t term_read(uint8_t r)
 {
     switch (r) {
+    case 0x18: return (uint8_t) vis;                       /* SCREEN: which is up */
     case 0x01: return (uint8_t)((T.rh != T.rt ? 0x80 : 0) | (T.dirty ? 1 : 0));
     case 0x02: { uint8_t v = 0; if (T.rh != T.rt) { v = T.rep[T.rt]; T.rt = (uint8_t)((T.rt + 1) & 127); } return v; }
     case 0x05: return T.cols;  case 0x06: return T.rows;
@@ -858,6 +908,7 @@ void term_write(uint8_t r, uint8_t v)
     case 0x15: T.defbg = v; return;
     case 0x16: vicky_write(VR_BANDBOT, v); return;
     case 0x17: term_set_page(v & 1); page_req = page_k; return;
+    case 0x18: scr_req = v & 1; return;                 /* SCREEN: the TERMINAL command; io starts the session (s2_pump) */
     default: return;
     }
 }
@@ -866,7 +917,7 @@ int term_cell_h(void) { jimgfx_geom_t g; gfx_geom(&g); return g.cell_h; }
 
 /* ---- save states (core/state.h) ------------------------------------------ */
 #include "state.h"
-void term_state_save(FILE *f) { state_put(f, "JIM ", &T, sizeof T); }
+void term_state_save(FILE *f) { state_put(f, "JIM ", &TS[0], sizeof TS[0]); }   /* the machine's terminal; the second screen is a live session, not state */
 /* Around a save: the blink XORs the cell under the cursor in RAM, so a state
  * taken with it lit kept a reversed cell that nothing would put back (review
  * 2026-09-05, 2).  state_save parks it before the RAM goes out and puts it
@@ -893,3 +944,172 @@ int  term_state_load(FILE *f)
     T.cur_at &= K4510_PHYS_MASK;
     vicky_cursor(0, 0, 0); return 0;
 }
+
+/* ---- the bands: JIM's since 2026-10-05 ---------------------------------------
+ * Doc: "the status bands are PART OF and OWNED BY JIM ... the same way as ...
+ * the status bar at the bottom of TMUX or NVIM".  K/OS lays the console out
+ * between them (VICKY's $D0B0-$D0BF) and draws nothing in them; JIM fills
+ * BANDMAP here, once a frame if anything on them changed: the top band has
+ * which screen is up at its left and the clock at its right, the bottom band
+ * a program's note (ESC ] 4510 ; note ; text BEL) and the host's battery.
+ * While a program has claimed them (BANDCTL bit1) they are the program's and
+ * JIM keeps out, as K/OS did.  The rows between a band and the console are
+ * blank in the shell's colours.  The clock is the host's, as the RTC is,
+ * in the order and the hours $D52F asks for -- the same text the ROM drew. */
+#define BAND_FG0 1                              /* white on grey, unless the palette makes them one colour */
+#define BAND_BG0 0x0C
+#define READABLE 64
+static int pal_luma(int i) { uint32_t c = vicky_palette_rgb(i); return (int)((((c >> 16) & 255) * 54 + ((c >> 8) & 255) * 183 + (c & 255) * 19) >> 8); }
+static int pal_contrast(int a, int b) { int x = pal_luma(a), y = pal_luma(b); return x > y ? x - y : y - x; }
+static void bcell(int col, int row, uint8_t ch, uint8_t f, uint8_t b)
+{
+    uint32_t a = vicky_text_cell(col, row);
+    k4510_ram[a] = ch; k4510_ram[a + 1] = 0; k4510_ram[a + 2] = f; k4510_ram[a + 3] = b;
+}
+static void bstr(int col, int row, int end, const char *s, uint8_t f, uint8_t b)
+{
+    while (*s && col < end) bcell(col++, row, (uint8_t) *s++, f, b);
+}
+static void bfill(int row, int cols, uint8_t f, uint8_t b) { for (int c = 0; c < cols; c++) bcell(c, row, ' ', f, b); }
+static int screen2_shown(void);                  /* below */
+static void bands_tick(int force)
+{
+    uint8_t oy, rows, bot, cols, fmt = io_clockfmt(), f = BAND_FG0, b = BAND_BG0;
+    int claimed;
+    if (!vicky_bands(&oy, &rows, &bot, &cols, &claimed) || claimed || (!oy && !bot) || !cols) { band_sig = 0; return; }
+    if (pal_contrast(f, b) < READABLE) {        /* amber, green, grey: the entry that reads best on the grey */
+        int best = 0, bc = -1; for (int i = 0; i < 16; i++) { int c = pal_contrast(i, b); if (c > bc) { bc = c; best = i; } }
+        f = (uint8_t) best;
+    }
+    time_t now = time(NULL); struct tm m; localtime_r(&now, &m);
+    uint32_t sig = 2166136261u;
+    #define MIX(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
+    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(f); MIX(b);
+    MIX(TS[0].deffg); MIX(TS[0].defbg); MIX(vis); MIX(screen2_shown()); MIX(vicky_palette_gen());
+    MIX(m.tm_min); MIX(m.tm_hour); MIX(m.tm_mday); MIX(m.tm_mon); MIX(m.tm_year);
+    for (const char *q = band_note; *q; q++) MIX(*q);
+    for (const char *q = io_title(); *q; q++) MIX(*q);
+    #undef MIX
+    if (!sig) sig = 1;
+    if (sig == band_sig && !force) return;
+    band_sig = sig;
+    int last = oy + rows + bot - 1;
+    for (int r = 1; r < oy; r++) bfill(r, cols, TS[0].deffg, TS[0].defbg);            /* the spacers */
+    for (int r = oy + rows; r < last; r++) bfill(r, cols, TS[0].deffg, TS[0].defbg);
+    if (oy) {
+        static const char sep[3] = { '.', '-', '/' };
+        static const uint8_t ord[3][3] = { { 0, 1, 2 }, { 2, 1, 0 }, { 1, 0, 2 } };
+        char clk[24]; int n, k = (fmt >> 1) & 3, h = m.tm_hour;
+        if (k > 2) k = 0;
+        if (!(fmt & 1)) { h %= 12; if (!h) h = 12; }                                  /* 12-hour: 0 and 12 both read 12 */
+        n = snprintf(clk, sizeof clk, "%02d:%02d ", h, m.tm_min);
+        if (!(fmt & 1)) n += snprintf(clk + n, sizeof clk - n, "%s ", m.tm_hour >= 12 ? "PM" : "AM");
+        for (int j = 0; j < 3; j++) {
+            int w = ord[k][j];
+            n += snprintf(clk + n, sizeof clk - n, w == 2 ? "%04d" : "%02d", w == 2 ? m.tm_year + 1900 : w ? m.tm_mon + 1 : m.tm_mday);
+            if (j < 2) clk[n++] = sep[k];
+        }
+        clk[n] = 0;
+        bfill(0, cols, f, b);
+        /* The screens, like a tmux window list: the first one's tab is what
+         * runs there (io_title: K/OS at the prompt, "EhBASIC INVADER2.BAS",
+         * the trail of who started whom), the second's is TERMINAL, and the
+         * one up is drawn in reverse.  With no second screen yet, the title
+         * alone, as the frontend drew it before the bands were JIM's. */
+        {
+            const char *t = io_title(); char tab[168]; int room = cols - n - 2, tl;
+            int two = screen2_shown(), w2 = two ? 12 : 0;                                 /* " 2 TERMINAL " */
+            int max = room - w2 - (two ? 3 : 1);                                        /* the title's cells */
+            if (max > 4) {
+                int len = (int) strlen(t);
+                if (len > max) snprintf(tab, sizeof tab, "%s\xAE%s ", two ? " 1 " : " ", t + len - (max - 1));   /* the end is the news */
+                else snprintf(tab, sizeof tab, "%s%s ", two ? " 1 " : " ", t);
+                tl = (int) strlen(tab);
+                bstr(0, 0, cols, tab, two && vis == 0 ? b : f, two && vis == 0 ? f : b);
+                if (two) bstr(tl + 1, 0, cols, " 2 TERMINAL ", vis == 1 ? b : f, vis == 1 ? f : b);
+            }
+        }
+        if (n < cols) bstr(cols - n, 0, cols, clk, f, b);                                /* right-anchored, as the ROM drew it */
+    }
+    if (bot) {
+        bfill(last, cols, f, b);
+        int end = cols - 6;
+        if (band_note[0]) bstr(1, last, end > 1 ? end : cols, band_note, f, b);
+        if (io_battery != 0xFF) {                                                        /* "nn%" and up (on mains) or down */
+            char bt[8]; int n = snprintf(bt, sizeof bt, "%d%%", io_battery & 0x7F);
+            bstr(cols - 1 - n, last, cols, bt, f, b);
+            bcell(cols - 1, last, (io_battery & 0x80) ? 0x18 : 0x19, f, b);
+        }
+    }
+}
+void term_bands_redraw(void) { band_sig = 0; }
+
+/* ---- the second screen ---------------------------------------------------------
+ * A terminal of JIM's own (TS[1]) in a map of its own, the console's size and
+ * place; core/io.c runs the session on a pty and hands the bytes and keys
+ * through here.  It follows the console's geometry: a MODE change resizes it,
+ * and io tells the pty. */
+#define ALT_MAP 0x0FD40000u                      /* free far memory the ROM keeps (SWAPSCR ends at $0FD1BC70) */
+static int s2_ready;
+static int screen2_shown(void) { return s2_ready; }
+static void s2_blank(void)
+{
+    uint32_t n = (uint32_t) TS[0].stride * 67;   /* every row the console's map can have, margins and all */
+    for (uint32_t i = 0; i < n; i++) { uint8_t *c = &k4510_ram[ALT_MAP + i * 4]; c[0] = ' '; c[1] = 0; c[2] = TS[1].deffg; c[3] = TS[1].defbg; }
+}
+int term2_fit(int *cols, int *rows)               /* the console's geometry, if it moved: 1 and the new size */
+{
+    term_t *a = &TS[1], *k = &TS[0];
+    if (!s2_ready) return 0;
+    if (a->cols == k->cols && a->rows == k->rows && a->ox == k->ox && a->oy == k->oy && a->stride == k->stride) return 0;
+    tp = a; cur_undraw();
+    T.cols = k->cols; T.rows = k->rows; T.ox = k->ox; T.oy = k->oy; T.stride = k->stride;
+    T.deffg = k->deffg; T.defbg = k->defbg;
+    clamp_geometry(); T.top = 0; T.bot = (uint8_t)(T.rows - 1); T.cx = T.cy = 0; T.pending = 0;
+    s2_blank();
+    if (VISIBLE && T.shown) cur_draw();
+    tp = &TS[0];
+    if (cols) *cols = a->cols;
+    if (rows) *rows = a->rows;
+    return 1;
+}
+void term2_open(void)
+{
+    if (s2_ready) return;
+    memset(&TS[1], 0, sizeof TS[1]);
+    TS[1].base = ALT_MAP; TS[1].stride = 1;      /* term2_fit takes the console's */
+    TS[1].deffg = TS[0].deffg; TS[1].defbg = TS[0].defbg;
+    tp = &TS[1]; soft_reset(); T.shown = 1; T.lnm = 0; utf8_mode(1); tp = &TS[0];   /* a Unix session: UTF-8, LF only moves down */
+    s2_ready = 1;
+    term2_fit(NULL, NULL);
+}
+int term2_size(int *cols, int *rows) { if (cols) *cols = TS[1].cols; if (rows) *rows = TS[1].rows; return s2_ready; }
+int term_screen(void) { return vis; }
+void term_screen_show(int n)
+{
+    n = n ? 1 : 0;
+    if (n == vis) return;
+    if (n) term2_open();
+    tp = &TS[vis]; cur_undraw(); tp = &TS[0];    /* the screen going: its cursor off the glass */
+    vis = n;
+    vicky_screen_map(n ? ALT_MAP : 0);
+    tp = &TS[vis]; if (T.shown) cur_draw(); tp = &TS[0];
+    band_sig = 0;
+}
+void term2_feed(const uint8_t *b, size_t n)
+{
+    if (!s2_ready || !n) return;
+    tp = &TS[1];
+    cur_undraw();
+    while (n--) put_byte(*b++);
+    if (T.shown) cur_draw();
+    tp = &TS[0];
+}
+size_t term2_replies(uint8_t *out, size_t max)    /* what the second screen's JIM says back: DSR, DA, and the keys */
+{
+    size_t n = 0;
+    while (n < max && TS[1].rh != TS[1].rt) { out[n++] = TS[1].rep[TS[1].rt]; TS[1].rt = (uint8_t)((TS[1].rt + 1) & 127); }
+    return n;
+}
+void term2_key(uint8_t k) { if (!s2_ready) return; tp = &TS[1]; key(k); tp = &TS[0]; }
+void term2_say(const char *s) { term2_feed((const uint8_t *) s, strlen(s)); }

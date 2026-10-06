@@ -309,7 +309,9 @@ int main(void)
       CHECK(vicky_text_cell(5, 0) == BM + 5 * 4 && vicky_text_cell(5, 59) == BM + (80 + 5) * 4 && vicky_text_cell(5, 1) == M + (80 + 5) * 4,
             "vicky_text_cell answers what the glass shows");
       vicky_set_user_bands(0); vicky_render(fb, 640);
-      CHECK(fb[0] == 90, "a band switched off is still drawn until K/OS lays the console out again (CONMAP)");
+      /* drawn from BANDMAP still -- which by now holds JIM's band, not the test's
+       * 90: the bands are JIM's since 2026-10-05, drawn at each frame's end */
+      CHECK(fb[0] == mem_peek(BM + 3), "a band switched off is still drawn until K/OS lays the console out again (CONMAP)");
       W32(VR_CONMAP, M); vicky_render(fb, 640);
       CHECK(fb[0] == 20 && fb[59 * 8 * 640] == 79, "relaid without bands, every row is the map's (got %d, %d)", fb[0], fb[59 * 8 * 640]);
       vicky_set_user_bands(1); W32(VR_CONMAP, M); W32(VR_LAYER(0) + VL_MAP, M + 0x8000);

@@ -204,8 +204,9 @@ in that stream:
 get all of this from \texttt{demo/jimcell.h}: \verb|jc_cell(x, y, glyph,|
 \verb|fg, bg)| sends a cell, moving the cursor and changing the colours
 only when it has to. Why it matters: a screen made of a stream can be sent
-anywhere --- the step after this one gives JIM a second screen, for a
-session on the Linux underneath or on a distant machine.
+anywhere, and it is what lets JIM own the status bands and keep a second
+screen, a session on the Linux underneath or on a distant machine
+(Section~\ref{sec:screens}).
 
 \section{Star commands}
 A line starting with \verb|*| goes to the machine: \verb|*DIR|, \verb|*CD|,

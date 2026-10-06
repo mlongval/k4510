@@ -717,15 +717,8 @@ static void bands_overlay(void)
     int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
     int rh = rows == 60 ? 8 : 16, cw = vicky_glass_w() / cols, y0 = (ctrl & 8) ? 40 : 0;
     if (ctrl & 0x20) { rh = (l0 & 0x60) ? 16 : 8; rows = vicky_glass_h() / rh; y0 = -(int16_t)(vicky_read(0x14) | (vicky_read(0x15) << 8)); }   /* the HD family: rows of the mode's own cells, below the ROM's top padding */
-    if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* what is running, left of the clock */
-        const char *t = io_title(); int maxc = cols - 21, n = (int) strlen(t);
-        if (maxc > 4) {
-            char buf[168];
-            if (n > maxc - 1) { snprintf(buf, sizeof buf, " \xAE%s", t + n - (maxc - 2)); }   /* the end is the news: << and the tail */
-            else snprintf(buf, sizeof buf, " %s", t);
-            band_text(0, 0, maxc, buf, stride, rh, cw, y0);
-        }
-    }
+    /* What is running, left of the clock, is JIM's now (core/term.c, the
+     * bands are its own since 2026-10-05): the first screen's tab carries it. */
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* the key pipe's echo, left of the battery */
         echo_banded = 1;
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
@@ -1466,7 +1459,13 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                                                                     * state after every queued event, Alt already up */
                   alt_ate = 0;
                   if ((em & KMOD_LALT) && !(em & (KMOD_CTRL | KMOD_GUI | KMOD_RALT | KMOD_MODE)) && k >= SDLK_a && k <= SDLK_z) {
-                      kbd_push_key((uint8_t)(KEY_ALT_A + (k - SDLK_a))); alt_ate = 1; break; } }
+                      kbd_push_key((uint8_t)(KEY_ALT_A + (k - SDLK_a))); alt_ate = 1; break; }
+                  /* Alt+1 / Alt+2: JIM's two screens, K/OS and the terminal (2026-10-05).
+                   * The frontend's, never the machine's or the session's. */
+                  if ((em & KMOD_LALT) && !(em & (KMOD_CTRL | KMOD_GUI | KMOD_RALT | KMOD_MODE)) && (k == SDLK_1 || k == SDLK_2)) {
+                      if (k == SDLK_2 && menu_lock(MENU_LOCK_LINUX)) echo_note("the terminal is locked off here");
+                      else io_screen_show(k == SDLK_2);
+                      alt_ate = 1; break; } }
                 { int lay = settings_get(SET_INPUT_KBD_LAYOUT);   /* the machine's own layout: Ctrl by ITS letter (AZERTY's A), then typing */
                   const uint32_t *le = layout_entry(lay, e.key.keysym.scancode);
                   if (le && (m & KMOD_CTRL)) { uint32_t b = le[0] & KBD_CHAR; if (b >= 'a' && b <= 'z') { kbd_push((uint8_t)(b - 'a' + 1)); break; } }
@@ -1771,6 +1770,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 }
             }
             break;
+        case ACT_SCREEN_KOS:  io_screen_show(0); break;            /* JIM's two screens: core/io.c, core/term.c */
+        case ACT_SCREEN_TERM: if (menu_lock(MENU_LOCK_LINUX)) { echo_note("the terminal is locked off here"); break; }
+                              io_screen_show(1); break;
         case ACT_TELNET: if (menu_lock(MENU_LOCK_LINUX)) break;   /* the row is hidden then; this is belt and braces */
                          { menu_close(); const char *c = "TELNET 127.0.0.1 23\r"; while (*c) kbd_push((uint8_t)*c++); } break;   /* typed at the prompt; the menu is shut first so the keys reach the machine */
         } }

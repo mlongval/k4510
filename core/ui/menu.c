@@ -48,6 +48,9 @@ static const item_t term_items[] = {
     { "Date format",      MI_SETTING, SET_TERM_DATEFMT },
     { "",                 MI_SEP },
     { "Code page",        MI_SETTING, SET_TEXT_CODEPAGE },   /* CP437, or the K4510 page (CODEPAGE) */
+    { "",                 MI_SEP },
+    { "K/OS screen (Alt+1)",     MI_ACTION, ACT_SCREEN_KOS },    /* JIM's two screens (2026-10-05): the machine's, */
+    { "Terminal screen (Alt+2)", MI_ACTION, ACT_SCREEN_TERM },   /* and a session on the Linux (TERMINAL.CFG) */
 };
 static const item_t input_items[] = {
     { "Reset chord", MI_SETTING, SET_INPUT_RESET_CHORD },

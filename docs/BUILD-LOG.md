@@ -11219,3 +11219,36 @@ Doc: "go ahead with the Pascal CRT and the ROM prompt then all the rest".
 Checked: the whole suite; captures of RANGER, KOMMANDER, CALC, HEXED,
 BANNER, TRACKER, DIR and VI pixel-identical to master's, FONTED too after
 the DEL fix.
+
+## 2026-10-05 -- jim-everywhere: the bands are JIM's, and JIM has two screens
+
+Doc: the bands "are PART OF and OWNED BY JIM"; JIM shows "The current K/OS
+K4510 program, or ... one terminal connection" (with tmux at the far end
+for the many); "do all".
+
+- The bands: core/term.c bands_tick draws BANDMAP from the host once a
+  frame when anything on them changed -- the screens' tabs (the first is
+  io_title's trail of who started whom, as the frontend's overlay drew it;
+  the second TERMINAL; the one up in reverse), the clock in the Terminal
+  page's formats, a note a program sends (ESC ] 4510 ; note ; text BEL),
+  the battery.  A program's claim still keeps JIM out.  The ROM lost
+  draw_bands, draw_clock, draw_bat, bat_refresh, the day check in k_getin
+  and the IRQ's clock painter (crt0.s now only counts frames).
+- Two screens: TS[0] is the machine's terminal (the registers, the save
+  state), TS[1] the second screen's, drawn in its own map at $0FD40000
+  (free: the ROM's SWAPSCR ends at $0FD1BC70) and shown by VICKY in the
+  console's rows (vicky_screen_map); the bands are shared.  core/io.c runs
+  its session on a pty: TERMINAL.CFG's command (K4510_TERMINAL overrides)
+  or a login shell, TERM xterm-color, UTF-8, the machine's backspace; keys
+  go to it through JIM's own translation while it is up (kbd_in); a MODE
+  change reaches it as TIOCSWINSZ; an ended session says so and Enter
+  starts another.  Switches: Alt+1 / Alt+2 (the frontend), F12 > Terminal,
+  TERMINAL (JIM's new $DA18 SCREEN register), ESC ] 4510 ; kos / term
+  BEL from either screen -- tmux's `bind K run-shell "printf
+  '\033]4510;kos\007' > #{client_tty}"`.  Locked machines have none.
+- k_getin no longer sends ESC[?25h at every key poll: it reads JIM's FLAGS
+  and says it once (the previous step had made the prompt's idle loop a
+  flood of sequences).
+- test/screentest.sh: the session takes keys and answers, the OSC comes
+  back to K/OS with its keys, the bands name both screens with the date, a
+  note reaches the bottom band, an ended session says so.

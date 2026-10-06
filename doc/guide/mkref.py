@@ -85,6 +85,7 @@ DESC = {
     # linux
     "!":       (6, "!command  or  !", "Run a command on the Linux beneath, or (alone) open a shell there. Can be locked off."),
     "SSH":     (6, "SSH [user@]host", "An ssh session, through the Linux's ssh. Locked off with !."),
+    "TERMINAL":(6, "TERMINAL", "Show JIM's second screen: a terminal session on the Linux beneath, or wherever /SYSTEM/ETC/TERMINAL.CFG says (an ssh to a tmux, say), running whatever the machine does. Alt+1 comes back to K/OS, Alt+2 goes there again. Locked off with !@sec:screens@."),
     "PAS":     (6, "PAS name", "Compile name.PAS here with Mad Pascal into name.prg."),
     "CC":      (6, "CC name", "Compile name.C here with cc65 into name.prg."),
     # programs

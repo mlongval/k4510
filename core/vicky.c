@@ -116,12 +116,28 @@ static int band_row(int cy, uint32_t map)
     if (cy >= oy + rows && cy < oy + rows + bot) return cy - rows;
     return -1;
 }
+/* The second screen (core/term.c): while alt_map is set, layer 0's console
+ * rows come from it instead of the console's map; the band rows still come
+ * from BANDMAP.  A program's own map (not CONMAP) is shown as it is. */
+static uint32_t alt_map;
+void vicky_screen_map(uint32_t map) { alt_map = map & K4510_PHYS_MASK; }
+int vicky_bands(uint8_t *oy, uint8_t *rows, uint8_t *bot, uint8_t *cols, int *claimed)
+{
+    const uint8_t *L = &reg[VR_LAYER(0)];
+    if (!rd32(&reg[VR_BANDMAP])) return 0;
+    if (((L[VL_CTRL] >> 1) & 3) != VL_MODE_TEXT32 || rd32(&L[VL_MAP]) != rd32(&reg[VR_CONMAP])) return 0;   /* a program's own screen: no bands drawn into it */
+    *oy = reg[VR_CONOY]; *rows = reg[VR_CONROWS]; *bot = reg[VR_CONBOT];   /* latched with CONMAP: what is drawn */
+    *cols = reg[VR_TCOLS];
+    *claimed = (reg[VR_BANDCTL] & VB_PROGRAM) != 0;
+    return 1;
+}
 uint32_t vicky_text_cell(int col, int row)
 {
     const uint8_t *L = &reg[VR_LAYER(0)];
     uint32_t map = rd32(&L[VL_MAP]); uint16_t stride = rd16(&L[VL_STRIDE]);
     int br = (((L[VL_CTRL] >> 1) & 3) == VL_MODE_TEXT32) ? band_row(row, map) : -1;
     if (br >= 0) return (rd32(&reg[VR_BANDMAP]) + ((uint32_t) br * stride + (uint32_t) col) * 4) & K4510_PHYS_MASK;
+    if (alt_map && map == rd32(&reg[VR_CONMAP])) map = alt_map;
     return (map + ((uint32_t) row * stride + (uint32_t) col) * 4) & K4510_PHYS_MASK;
 }
 
@@ -218,7 +234,8 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     }
     /* text32 -- layer 0's band rows from BANDMAP when K/OS has the bands there */
     uint32_t rowbase = map + (uint32_t)cy * stride * 4;
-    if (n == 0) { int br = band_row(cy, map); if (br >= 0) rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4; }
+    if (n == 0) { int br = band_row(cy, map); if (br >= 0) rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4;
+                  else if (alt_map && map == rd32(&reg[VR_CONMAP])) rowbase = alt_map + (uint32_t)cy * stride * 4; }   /* the second screen */
     for (int x = 0; x < w; ) {
         int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
         uint32_t e = rowbase + (uint32_t)cx * 4;

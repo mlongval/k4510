@@ -100,7 +100,6 @@ static void w16(uint16_t r, uint16_t v) { REG(r) = v; REG(r + 1) = v >> 8; }
 static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1) << 8) | ((uint32_t)REG(r + 2) << 16) | ((uint32_t)REG(r + 3) << 24); }
 static uint16_t r16(uint16_t r) { return (uint16_t)REG(r) | ((uint16_t)REG(r + 1) << 8); }
 
-static uint32_t cell(uint8_t x, uint8_t y) { return SCREEN + ((uint16_t)(y + OY) * PCOLS + x + OX) * 4; }
 #define ROWTPL   0x03F000UL           /* far: one blank text row in the current colours */
 #define BANDMAP  0x03C000UL           /* far: the status bands' own cells, top rows then bottom (VICKY $D0B8,
                                        * option B, 2026-10-01): 12 KB, ten rows at 180 columns */
@@ -166,19 +165,11 @@ static void jim_cursor(uint8_t on) { jraw(on ? "\x1b[?25h" : "\x1b[?25l"); }
 #pragma code-name (pop)
 
 /* ---- the status bands -------------------------------------------------- *
- * Two static bars frame the console when status mode is on.  The console is
- * a scroll region between them (scroll() only ever moves OY..OY+ROWS-1), so
- * the bands sit still while text scrolls -- a VT100 DECSTBM done in the
- * machine's own layout.  Phase 1 draws a title bar and a status bar; the
- * blank spacer rows are where the widgets go later. */
-#define BAND_FG0 C_HI                 /* white on grey: a status bar, ancient or modern */
-#define BAND_BG0 0x0C
-/* ...unless the palette makes white and grey two ambers (Doc, 2026-09-15: "the top
- * and bottom bars are harder to read in amber palette"): the bars' pair is chosen
- * from the palette in use by bands_readable(), at every video_init and palette change. */
-static uint8_t band_fg, band_bg;
-#define BAND_FG band_fg
-#define BAND_BG band_bg
+ * The bands are JIM's since 2026-10-05 (Doc: they belong to JIM "the same way
+ * as ... the status bar at the bottom of TMUX"): the emulator draws them --
+ * the clock, the battery, which screen is showing -- into BANDMAP, and K/OS
+ * only lays the console out between them (video_init).  What K/OS keeps here
+ * is COLOR's and PALETTE's sense of a readable pair. */
 #pragma code-name (push, "CODE2")
 /* Contrast, from the palette in use: each entry's brightness as Rec. 709 weighs
  * it, on the gamma-coded values the eye compares, 0-255.  COLOR refuses a pair
@@ -198,135 +189,20 @@ static uint8_t best_on(uint8_t b)          /* the entry that reads best on b */
     for (i = 0; i < 16; i++) if ((c = contrast(i, b)) > bc) { bc = c; best = i; }
     return best;
 }
-static void bands_readable(void)
-{
-    band_fg = BAND_FG0; band_bg = BAND_BG0;
-    if (contrast(band_fg, band_bg) < READABLE) band_fg = best_on(band_bg);
-}
-static uint8_t bands_on(void); static void draw_bands(void);
-static void bands_refresh(void)            /* after a palette change: the pair again, and the bars redrawn in it --
-                                            * the clock only rewrites its digits, so they kept the boot's colours */
-{
-    bands_readable();
-    if (bands_on()) draw_bands();
-}
-#pragma code-name (pop)
-static void draw_clock(void);         /* the top-right widget.  It lived in ROM2 while ROM1C was full;
-                                       * the 2026-09-01/02 savings gave ROM1C the room, and it belongs
-                                       * beside bar_str, which is what it draws through. */
 /* Are the bands up, and whose are they?  VICKY says, live, and it costs no
  * state -- which matters, BSSR being full.  The rules are hers (core/vicky.h,
  * $D0B0): bands on a 40x30 grid or more, the user's one row each, a claim
  * that works with the user's switch off. */
-static uint8_t claimed(void) { return (uint8_t)(REG(VICKY + V_BANDCTL) & V_PROGRAM); }
 static uint8_t bands_on(void) { return (uint8_t)(REG(VICKY + V_CONOY) | REG(VICKY + V_CONBOT)); }
-#pragma code-name (push, "CODE")      /* the band drawing lives in ROM1C, where the room is */
-static void put_at(uint8_t px, uint8_t py, uint8_t ch, uint8_t f, uint8_t b)
-{
-    uint32_t a = row_addr(py) + (uint32_t)px * 4;
-    far_poke(a, ch); far_poke(a + 1, 0); far_poke(a + 2, f); far_poke(a + 3, b);
-}
-static void bar_str(uint8_t px, uint8_t py, const char *s)
-{
-    while (*s) put_at(px++, py, (uint8_t)*s++, BAND_FG, BAND_BG);
-}
-static void bar_num(uint8_t rx, uint8_t py, uint16_t v)     /* right-anchored at column rx */
-{
-    do { put_at(rx--, py, (uint8_t)('0' + v % 10), BAND_FG, BAND_BG); v /= 10; } while (v);
-}
-static uint8_t day_col(void)
-{
-    uint8_t k = (uint8_t)((REG(SYS + SYS_CLOCKFMT) >> 1) & 3);
-    return (uint8_t)(PCOLS - (k == 1 ? 2 : k == 2 ? 7 : 10));
-}
-/* The host's battery ($D53A) at the right end of the bottom band: "nn%" and an
- * arrow -- up on AC or charging, down on the battery.  A host with no battery
- * ($FF) shows nothing.  Doc, 2026-09-12, for the Dell; moved to the corner the
- * MHz left on 2026-10-01. */
-static void draw_bat(uint8_t b)
-{
-    uint8_t last = PROWS - 1, c = PCOLS - 9;
-    if (b == 0xFF) return;
-    bar_str(c + 3, last, "   ");                                 /* the old digits cleared ("BAT" dropped: Doc) */
-    bar_num(c + 6, last, b & 0x7F);
-    put_at(c + 7, last, '%', BAND_FG, BAND_BG);
-    put_at(c + 8, last, (b & 0x80) ? 0x18 : 0x19, BAND_FG, BAND_BG);   /* CP437 up / down arrow */
-}
-static void draw_bands(void)
-{
-    uint8_t i, ofg = fg, obg = bg, last = PROWS - 1;
-    fg = BAND_FG; bg = BAND_BG;                                  /* the bars, each only if it has a band */
-    if (OY) blank_row(0);
-    if (bband) blank_row(last);
-    fg = ofg; bg = obg;                                          /* the spacers, in the console's colours */
-    for (i = 1; i < OY; i++) blank_row(i);
-    for (i = OY + ROWS; i < last; i++) blank_row(i);
-    /* Dropped 2026-09-02, both of them (Doc): "K4510  K/OS" top left and
-     * "status mode" bottom left.  A status bar should carry what is otherwise
-     * invisible and what changes without being asked; those two told you what
-     * you already knew, never changed, and held the best real estate on the
-     * screen between them.  What is left earns its place: the clock, and the
-     * host's battery.
-     * The CPU clock went too, 2026-10-01 (Doc: "I don't really feel much
-     * difference when it says 40 or 15").  He was right, and measurably: 15
-     * against 40.5 MHz makes a long calculation 2.7 times slower and DIR or a
-     * LOAD a twentieth of a second slower, because the console, the files,
-     * the network, DMA and the MATH unit run at host speed whatever the clock.
-     * A number that big on the glass claims it matters more than it does.
-     * INFO, F12 and MARK still show it, and MARK says what it buys. */
-    if (OY) { RTC_LATCH(); draw_clock(); }
-    if (bband) draw_bat(REG(SYS + 0x3A));
-}
-#pragma code-name (pop)
-
 /* Two digits, then four.  Written as helpers because cc65 inlines a division
  * at every site and the spelled-out version cost ROM2 more than it has. */
 static char *dig2(char *d, uint8_t v) { *d++ = (char)('0' + v / 10); *d++ = (char)('0' + v % 10); return d; }
 static char *dig4(char *d, uint16_t v) { d = dig2(d, (uint8_t)(v / 100)); return dig2(d, (uint8_t)(v % 100)); }
-static void draw_clock(void)
-{
-    /* Three date orders over one set of fields, rather than three spelled-out
-     * layouts.  ord[] says which field goes where; the separator comes with it. */
-    static const char sep[3] = { '.', '-', '/' };
-    static const uint8_t ord[3][3] = { { 0, 1, 2 }, { 2, 1, 0 }, { 1, 0, 2 } };
-    char b[20], *d = b;
-    uint8_t f = REG(SYS + SYS_CLOCKFMT), j, w, h;
-    uint8_t hh = REG(SYS + 7);
-    uint8_t k = (uint8_t)((f >> 1) & 3);
-    if (k > 2) k = 0;
-    h = hh;
-    if (!(f & 1)) { h = hh % 12; if (!h) h = 12; }        /* 12-hour: 0 and 12 both read 12 */
-    d = dig2(d, h); *d++ = ':';                           /* the hour is PADDED, never narrowed: */
-    d = dig2(d, REG(SYS + 6)); *d++ = ' ';                /* fixed width keeps the IRQ a digit poker */
-    if (!(f & 1)) { *d++ = (hh >= 12) ? 'P' : 'A'; *d++ = 'M'; *d++ = ' '; }
-    for (j = 0; j < 3; j++) {
-        w = ord[k][j];
-        if (w == 2) d = dig4(d, r16(SYS + 0x0A));
-        else        d = dig2(d, REG(SYS + (w ? 9 : 8)));   /* 8 = day, 9 = month */
-        if (j < 2) *d++ = sep[k];
-    }
-    *d = 0;
-    /* Right-anchored, so the date always ends in the last column and always
-     * occupies the last ten: 16 cells at 24-hour, 19 with the AM/PM. */
-    bar_str((uint8_t)(PCOLS - (uint8_t)(d - b)), 0, b);
-}
-
-/* Which column holds the first digit of the day, for the once-a-day repaint
- * in k_getin.  The date is the last ten cells whatever the format; only the
- * day's place inside it moves. */
-/* The clock widget: HH:MM DD.MM.YYYY at the top-right.  This lays down the
- * whole string once (separators and the year included); the machine's IRQ
- * (crt0.s) then repaints the eight digits every minute, so it ticks even
- * inside a program that never calls the console.  The caller latches the RTC
- * (a read of SYS+4) first.  In ROM2, called from ROM1C's draw_bands. */
-
 static void cls(void)
 {
     uint8_t i;
-    if (bands_on()) {                                  /* status mode: clear the console window, keep the bands */
+    if (bands_on()) {                                  /* status mode: clear the console window; the bands are JIM's */
         for (i = OY; i < OY + ROWS; i++) blank_row(i);
-        if (!claimed()) draw_bands();                  /* claimed: the rows are the program's, and a CLS
-                                                        * from inside it must not wipe what it drew */
     } else {
         for (i = 0; i < PROWS; i++) blank_row(i);       /* every physical row, the margins with them */
     }
@@ -335,17 +211,6 @@ static void cls(void)
                                                        * on this screen a repeat of the rows just blanked, but the stream is whole */
 }
 
-static uint8_t band_bat = 0xFF;              /* the battery byte the bottom band last showed (it held the
-                                              * MHz too, packed, until the MHz left the band 2026-10-01) */
-#pragma code-name (push, "CODE")              /* ROM1C, beside draw_bat: ROM2, the key poll's segment, is full */
-/* The battery follows the host: called from the key poll, it redraws only when
- * the byte changed. */
-static void bat_refresh(void)
-{
-    uint8_t b = REG(SYS + 0x3A);
-    if (b != band_bat) { draw_bat(b); band_bat = b; }
-}
-#pragma code-name (pop)
 static uint8_t paging, paged_out;            /* newline() pages while paging is set; paged_out is
                                               * the reader having said q -- the caller checks it,
                                               * since newline cannot abort anyone itself */
@@ -457,26 +322,8 @@ uint8_t k_getin(void)
     if (REG(SYS + 0x21) & 0x10) { mode_do(); return 27; }   /* rare: the F12 menu asked for a mode; ESC unsticks
                                                               * readline (a CR ran the half-typed line) */
     if (REG(KBDST) & 0x80) return caps(REG(KBD));
-    /* The bottom band's battery follows the host.  draw_bands() only runs from
-     * cls(), so this is the poll that keeps it current -- a compare per key
-     * poll, only while the bottom band is up (with a height of zero there is
-     * nowhere to put it).  It kept the band's MHz current too, until the MHz
-     * left the band (2026-10-01). */
-    if (bband && !claimed()) bat_refresh();      /* in ROM1C */
-    /* And the date, once a day.  The IRQ keeps HH:MM right -- that is the part
-     * that has to tick inside a program which never polls -- but it is
-     * deliberately not taught the three date orders, because a format-aware
-     * painter in the interrupt is a lot of assembler guarding a thing that
-     * changes at midnight.  So the day is checked HERE, against what is
-     * actually on the glass rather than against a remembered value: BSSR has
-     * one byte left in it, and this needs none.  It also self-heals if
-     * anything else scribbles on the clock. */
-    if (OY && !claimed()) {
-        uint8_t c = day_col();
-        RTC_LATCH();
-        if (far_peek(BANDMAP + (uint32_t)c * 4) != (uint8_t)('0' + REG(SYS + 8) / 10)) draw_clock();   /* row 0: the top band's */
-    }
-    if (!prog_running) jim_cursor(1);   /* the shell waits: JIM's cursor.  Under a program it is the program's */
+    if (!prog_running && !(REG(TERM + 0x0E) & 1)) jim_cursor(1);   /* the shell waits: JIM's cursor (said once, not at every
+                                                                     * poll: it is a sequence now).  Under a program it is the program's */
     return 0;
 }
 
@@ -1662,7 +1509,6 @@ static void pal_after(uint8_t n, uint8_t hc, const char *path)
         REG(VICKY + 1) = bg; REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;
         cls(); fixed = 1;
     }
-    bands_refresh();
     mode_note = 1;                              /* and the banner at the next prompt, as after MODE (Doc, 2026-10-03) */
     pal_pend = 1; pal_n = n; pal_fix = fixed;   /* what was loaded, said under it (banner_note) */
     (void)path;
@@ -1740,7 +1586,7 @@ static void cmd_palette(const char *p)
         }
         return;
     }
-    if (pal_word(&p, "RESET")) { pal_reset16(0); bands_refresh(); return; }
+    if (pal_word(&p, "RESET")) { pal_reset16(0); return; }
     if (pal_word(&p, "LOAD"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: load name?"); return; } pal_load(nm); return; }
     if (pal_word(&p, "SAVE"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: save name?"); return; } pal_save(nm); return; }
     idx = parsehex(&p, &d); if (!d) { error("palette: [n rr gg bb | LOAD f | SAVE f | RESET]"); return; }
@@ -2067,6 +1913,7 @@ static void shell_line(const char *p)
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
     if (is_cmd(&p, "CLS"))   { cls(); return; }
+    if (is_cmd(&p, "TERMINAL")) { REG(TERM + 0x18) = 1; return; }   /* JIM's second screen: Alt+1 comes back */
     if (is_cmd(&p, "BANNER")) { banner_note(); return; }   /* and the one a MODE or PALETTE LOAD left pending: not twice */   /* was LOGO until 2026-09-11; LOGO is the language now (/LANG/LOGO) */
     if (is_cmd(&p, "RESET")) { ((fn_t)(*(uint16_t *)0xFFFC))(); return; }
     /* HELP is TYPE.prg on the help file -- the line copied into line[] first:
@@ -2155,17 +2002,15 @@ static void video_init(void)
     REG(VICKY + 0) = (uint8_t)(1 | ctrlmode[vmode]);
     /* JIM, the terminal, draws in the same window */
     REG(TERM + 5) = COLS; REG(TERM + 6) = ROWS; REG(TERM + 7) = OX; REG(TERM + 8) = OY; REG(TERM + 0x0D) = PCOLS;
-    bands_readable();                                    /* the bars' pair, from the palette in use */
     REG(TERM + 0x14) = fg; REG(TERM + 0x15) = bg;        /* the shell's colours are JIM's defaults: a program's SGR 0 or reset
                                                           * (BBC BASIC's start) lands on them, not on 7 6 (Doc, 2026-09-15, amber) */
     REG(TERM) = 27; REG(TERM) = '['; REG(TERM) = '2'; REG(TERM) = '0'; REG(TERM) = 'h';  /* LNM: \n returns the column */
     jat(cx, cy);                                                                         /* and JIM starts where the console is */
     jim_fg = jim_bg = 0xFF;                                                              /* colours re-pushed on the next character */
-    /* The bands are part of laying the screen out, so VIDEO ($FF92) draws
-     * them -- which makes handing them back one step for a program: clear
-     * VICKY's BANDCTL bit1, call VIDEO, done.  Claimed, it draws nothing: the rows are
-     * the program's and it is about to fill them itself. */
-    if (bands_on() && !claimed()) draw_bands();
+    /* The bands are JIM's (2026-10-05): it draws them wherever this layout
+     * puts them, and stops while a program has claimed them -- handing them
+     * back is still one step for a program: clear VICKY's BANDCTL bit1, call
+     * VIDEO, done. */
 }
 
 #pragma code-name (pop)
@@ -2229,7 +2074,6 @@ static void cmd_bbcbasic(uint8_t prog)
          * even read from the machine, let alone forwarded.  Now a key goes down
          * as soon as it is pressed, mid-flood, and Ctrl-C breaks the program as
          * it does on real CP/M (Doc, 2026-09-10). */
-        if (bband && !claimed()) bat_refresh();         /* the band's battery keeps up during a session too (2026-09-12) */
         if (REG(KBDST) & 0x80) {
             uint8_t k = caps(REG(KBD));
             if (prog == 3 && k >= 0x80 && k <= 0x83 && (REG(KBDST) & 0x40)) {   /* the arrows -> WordStar diamond */

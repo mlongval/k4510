@@ -204,6 +204,15 @@ before it is not kept. The history lives in the ROM bank the line editor
 has to itself, so it survives a reset --- but not a power cycle, which
 is what \pth{/STARTUP.BAT} is for.
 
+\textbf{Options are written as on Unix.} A dash and a letter
+(\texttt{DIR -l}), several letters behind one dash (\texttt{DIR -al}),
+or a word behind two (\texttt{DIR -{}-long}); an option that takes a
+value has it next (\texttt{MODE -s 2}, \texttt{MODE -s2}) or after an
+equals sign (\texttt{MODE -{}-scale=2}), and \texttt{-{}-} ends the
+options. MODE, DIR, INFO, SWAP and the programs that take options ---
+EDIT, PROG, WORD, DELETE, FONTED --- all read them the same way,
+through one parser.
+
 \section{Aliases}
 \verb|ALIAS| gives a name to a line.
 

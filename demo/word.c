@@ -40,6 +40,7 @@ static void zp32(uint8_t a, uint32_t v) { REG(a)=v; REG(a+1)=v>>8; REG(a+2)=v>>1
 static uint32_t zpr32(uint8_t a) { return (uint32_t)REG(a) | ((uint32_t)REG(a+1)<<8) | ((uint32_t)REG(a+2)<<16) | ((uint32_t)REG(a+3)<<24); }
 
 #include "dosui.h"
+#include "opt.h"
 
 #define XMLBUF  0x09000000UL            /* the XML being read */
 #define DOC     0x0A000000UL            /* the document: paragraphs, each a header and (char, attr) pairs */
@@ -685,13 +686,11 @@ static void do_key(uint8_t k)
 
 void main(void)
 {
-    uint8_t k, na = rom_args(), j = 0, sys = 0; const char *a = *(const char **)0xF0;
+    uint8_t k, na, j = 0, sys = 0; const char *a; char c;
     char nm[NAMEMAX];
-    for (;;) {                                        /* WORD [-s] [name] -- the name may have spaces in it */
-        while (na && *a == ' ') { a++; na--; }
-        if (na >= 2 && a[0] == '-' && (a[1] == 's' || a[1] == 'S') && (na == 2 || a[2] == ' ')) { sys = 1; a += 2; na -= 2; continue; }
-        break;
-    }
+    rom_args(); opt_s = *(const char **)0xF0; opt_i = 0;
+    while ((c = opt("ssystem\0")) != 0) if (c == 's') sys = 1;   /* WORD [-s] [name] -- the name may have spaces in it; --system */
+    a = opt_s + opt_i; for (na = 0; a[na]; na++) ;
     while (j < na && j < NAMEMAX - 1) { nm[j] = a[j]; j++; }
     while (j && nm[j - 1] == ' ') j--;
     nm[j] = 0;

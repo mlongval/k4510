@@ -33,7 +33,7 @@ Change directory; the rest of the line is the name, spaces and all. Alone, to /.
 Copy a file (a URL may be the source). Refuses to overwrite without -f. Not COPY, which is memory.
 
 **`DIR [-a] [-l] [dir | pattern]`** — *ROM*  
-List a directory. -a shows the hidden (dot) names, -l one to a line; a pattern matches here, \* any run and ? any one character. Also LS.
+List a directory. -a (–all) shows the hidden (dot) names, -l (–long) one to a line; a pattern matches here, \* any run and ? any one character. Also LS.
 
 **`LOAD name [addr]`** — *ROM*  
 Load a file into memory, at addr or at the address in its header.
@@ -80,7 +80,7 @@ The command summary: TYPE `/SYSTEM/ETC/HELP`.
 Run a program; a bare name does the same. RUN addr jumps there.
 
 **`SWAP [-k] command`** — *ROM*  
-Put the whole 64 KB and the screen away, run the command on a clean machine, and give them back. -k keeps the screen the command left.
+Put the whole 64 KB and the screen away, run the command on a clean machine, and give them back. -k (–keep) keeps the screen the command left.
 
 ## The screen
 
@@ -116,8 +116,8 @@ Silence the OPL2 and the sound sequencer.
 **`IDEA`** — *ROM*  
 A brainshot: opens VI on a new one in `/SYSTEM/BRAINSHOTS`, with the machine as it was. No text argument: the shell line would cut it. \*IDEA from a BASIC.
 
-**`INFO [-v]`** — *ROM, bank 1*  
-The machine’s self-description, the clock in force included. -v names the exact build.
+**`INFO [-vcmgsft]`** — *ROM, bank 1*  
+The machine’s self-description, the clock in force included; with options only those parts: -v (–version, the exact build), -c (–cpu), -m (–memory), -g (–graphics), -s (–sound), -f (–files), -t (–time), -a (–all).
 
 **`RESET`** — *ROM*  
 Cold-start the machine, as the reset chord does.
@@ -191,13 +191,13 @@ How fast the ROM’s console prints.
 Alone, say which code page the machine speaks. 437 is IBM’s, the default; K4510 gives 26 of its Greek and maths places to Western Europe’s capitals, oe, the euro and German quotes. Remembered, as F12 -\> Terminal -\> Code page.
 
 **`DELETE [-l | -r name | -e | name]`** — */SYSTEM/BIN*  
-The trash: list it, put a file back, empty it, or send a file there.
+The trash: list it (-l, –list), put a file back (-r, –restore), empty it (-e, –empty), or send a file there.
 
 **`EDIT [-s] [-u] [-v] [name]`** — */SYSTEM/BIN*  
-The editor, in MS-DOS EDIT’s manner: menus, the mouse, dialogs; -s in the console’s colours, -u BBC BASIC’s keywords in capitals at each save, -v VI’s keys ([Chapter 9, The Editors](11-editors.md)).
+The editor, in MS-DOS EDIT’s manner: menus, the mouse, dialogs; -s (–system) in the console’s colours, -u (–upper) BBC BASIC’s keywords in capitals at each save, -v (–vi) VI’s keys ([Chapter 9, The Editors](11-editors.md)).
 
-**`FONTED [name.FNT] | -L name`** — */SYSTEM/BIN*  
-The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT.
+**`FONTED [name.FNT] | -l name`** — */SYSTEM/BIN*  
+The font, edited where it lives, both sizes, every edit on the screen at once. -l (–load) loads a .FNT and leaves, for STARTUP.BAT.
 
 **`HEXED name | $address`** — */SYSTEM/BIN*  
 A hex editor: a file, loaded whole (8 MB at most), or memory by 28-bit address, changed live. Hex on the left, the code page on the right; go to, find, save, undo, the mouse.
@@ -227,7 +227,7 @@ The held-keys register, live: a gamepad’s first test.
 JIM, the terminal, speaking PETSCII.
 
 **`PROG [-s] [-v] [name]`** — */SYSTEM/BIN*  
-The programmer’s front end, in EDIT’s manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler’s messages under the text; -v VI’s keys ([Chapter 9, The Editors](11-editors.md)).
+The programmer’s front end, in EDIT’s manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler’s messages under the text; -s (–system) the console’s colours, -v (–vi) VI’s keys ([Chapter 9, The Editors](11-editors.md)).
 
 **`RANGER`** — */SYSTEM/BIN*  
 The miller-column file manager.
@@ -260,4 +260,4 @@ The modal editor ([Chapter 9, The Editors](11-editors.md)).
 What was sent to this machine from outside (tools`/k4510-remote` wall, on another computer): each message waiting, oldest first, answered as it asks — a key for a notice, a digit for one of its choices, a line of text — and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you.
 
 **`WORD [-s] [name]`** — */SYSTEM/BIN*  
-A reader for Microsoft Word’s .DOCX, in EDIT’s manner: the document laid out to the window, emphasis in colour, lists and tables; Save As Text@sec:word@.
+-s (–system): the console’s colours. A reader for Microsoft Word’s .DOCX, in EDIT’s manner: the document laid out to the window, emphasis in colour, lists and tables; Save As Text@sec:word@.

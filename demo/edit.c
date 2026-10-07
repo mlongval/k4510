@@ -48,6 +48,7 @@ static uint8_t vimode;                                /* VI's keys: Options, or 
 #define DOSVI_P1 0x08D00000UL                        /* the two overlays (demo/edit-header.s): beside the Open list's */
 #define DOSVI_P2 0x08D10000UL
 #include "dosvi.h"
+#include "opt.h"                                       /* POSIX-style options (demo/opt.s) */
 
 enum { C_NEW = 1, C_OPEN, C_SAVE, C_SAVEAS, C_EXIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_CLEAR, C_SELALL, C_RENUM, C_UPPER, C_FIND, C_NEXT, C_CHANGE, C_GOTO, C_DOS, C_SYS, C_VI, C_TABW, C_HELP, C_ABOUT };
@@ -346,16 +347,12 @@ static void do_key(uint8_t k)
 
 void main(void)
 {
-    uint8_t k, na = rom_args(), j = 0, sys = 0; const char *a = *(const char **)0xF0;
-    for (;;) {                                        /* EDIT [-s] [-u] [name] */
-        while (na && *a == ' ') { a++; na--; }
-        if (na >= 2 && a[0] == '-' && (na == 2 || a[2] == ' ')) {
-            if (a[1] == 's' || a[1] == 'S') { sys = 1; a += 2; na -= 2; continue; }
-            if (a[1] == 'u' || a[1] == 'U') { upflag = 1; a += 2; na -= 2; continue; }
-            if (a[1] == 'v' || a[1] == 'V') { vimode = 1; a += 2; na -= 2; continue; }
-        }
-        break;
+    uint8_t k, na, j = 0, sys = 0; const char *a; char c;
+    rom_args(); opt_s = *(const char **)0xF0; opt_i = 0;
+    while ((c = opt("ssystem\0uupper\0vvi\0")) != 0) {   /* EDIT [-s] [-u] [-v] [name]; --system --upper --vi */
+        if (c == 's') sys = 1; else if (c == 'u') upflag = 1; else if (c == 'v') vimode = 1;
     }
+    a = opt_s + opt_i; for (na = 0; a[na]; na++) ;
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }
     name[j] = 0;
     ui_init();

@@ -20,6 +20,7 @@
  * rest of the machine uses.
  */
 #include "k4510.h"
+#include "opt.h"                                       /* POSIX-style options (demo/opt.s) */
 #include "jimcell.h"                        /* the screen, sent through JIM (2026-10-05) */
 #include "../core/codepage.h"
 
@@ -312,9 +313,13 @@ void main(void)
     uint16_t k;
 
     rom_args();
-    p = *(const char **) 0xF0;
+    opt_s = *(const char **) 0xF0; opt_i = 0;
+    while ((f = (uint8_t) opt("lload\0")) != 0) {
+        if (f != 'l') { say("usage: FONTED [-l | --load] [NAME.FNT]\n"); SHELL_RC = 1; return; }
+        only_load = 1;
+    }
+    p = opt_s + opt_i;
     while (*p == ' ') p++;
-    if ((p[0] == '-') && (p[1] == 'L' || p[1] == 'l') && (p[2] == ' ' || !p[2])) { only_load = 1; p += 2; while (*p == ' ') p++; }
     if (*p == '"') { q = 1; p++; }
     while (*p && i < 60 && (q ? *p != '"' : *p != ' ')) fname[i++] = *p++;
     fname[i] = 0;

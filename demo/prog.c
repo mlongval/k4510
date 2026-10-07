@@ -46,6 +46,7 @@ static void __fastcall__ help_o(uint8_t about);       /* and slot 11 */
 #define find_files_gate() ((uint8_t (*)(void))VIG(10))()
 #define help_gate(a) ((void (__fastcall__ *)(uint8_t))VIG(11))(a)
 #include "dosvi.h"
+#include "opt.h"                                       /* POSIX-style options (demo/opt.s) */
 
 #define MSGH    4                       /* message rows */
 
@@ -759,15 +760,12 @@ static void fresh(void)                               /* the first file: no mess
 
 void main(void)
 {
-    uint8_t k, na = rom_args(), j = 0, sys = 0; const char *a = *(const char **)0xF0;
-    for (;;) {                                        /* PROG [-s] [-v] [name] */
-        while (na && *a == ' ') { a++; na--; }
-        if (na >= 2 && a[0] == '-' && (na == 2 || a[2] == ' ')) {
-            if (a[1] == 's' || a[1] == 'S') { sys = 1; a += 2; na -= 2; continue; }
-            if (a[1] == 'v' || a[1] == 'V') { vimode = 1; a += 2; na -= 2; continue; }
-        }
-        break;
+    uint8_t k, na, j = 0, sys = 0; const char *a; char c;
+    rom_args(); opt_s = *(const char **)0xF0; opt_i = 0;
+    while ((c = opt("ssystem\0vvi\0")) != 0) {      /* PROG [-s] [-v] [name]; --system --vi */
+        if (c == 's') sys = 1; else if (c == 'v') vimode = 1;
     }
+    a = opt_s + opt_i; for (na = 0; a[na]; na++) ;
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }
     name[j] = 0;
     ui_init();

@@ -473,6 +473,33 @@ static uint32_t parsehex(const char **p, uint8_t *digits)
     return v;
 }
 static void skipsp(const char **p) { while (**p == ' ') (*p)++; }
+#pragma code-name (push, "CODE")   /* resident (ROM1C): every shell word, in any bank, parses with it */
+/* A decimal number; 0 digits if there is none. */
+static uint16_t decnum(const char **p, uint8_t *digits)
+{
+    uint16_t v = 0; *digits = 0;
+    while (**p >= '0' && **p <= '9') { v = (uint16_t)(v * 10 + (**p - '0')); (*p)++; (*digits)++; }
+    return v;
+}
+/* POSIX-style options for the shell's words (Doc, 2026-10-07): rom/opt.s.
+ *   -x   -xyz (a bundle)   -s 2, -s2 (a value)   --word   --word=value, --word value
+ *   --   the options end
+ * Set opt_p to the line and opt_l to the word's options -- each a letter, a
+ * ':' if it takes a value, the long name: "llist\0s:scale\0" is -l/--list
+ * and -s N/--scale=N -- and call opt_next() until it says 0 (opt_p then at
+ * the operands).  It returns the letter, lower case, '?' for a long name not
+ * in the list.  A value in the option's own word is at opt_val; else opt_num
+ * takes the next word.  demo/opt.s is the same for programs (flags only). */
+extern const char *opt_p, *opt_l, *opt_val;
+unsigned char opt_next(void);
+/* An option's value: in its word (opt_val), or the next word. */
+static uint16_t opt_num(uint8_t *digits)
+{
+    const char *v;
+    if (opt_val) { v = opt_val; return decnum(&v, digits); }
+    skipsp(&opt_p); return decnum(&opt_p, digits);
+}
+#pragma code-name (pop)
 static uint8_t getname(const char **p, char *name)
 {
     uint8_t i = 0;
@@ -522,9 +549,13 @@ static uint8_t wild(const char *pat, const char *s)
 static void cmd_dir(const char *p)
 {
     char name[64], pat[NAMEMAX]; uint16_t count = 0; uint32_t total = 0, sz;   /* the device writes entries of at most 64 */
-    uint8_t first = 6, haspat, went = 0, longf = 0;      /* -a/A dotfiles too, -l one per line */
-    skipsp(&p);
-    while (*p == '-') { p++; while (*p && *p != ' ') { char c = *p | 0x20; if (c == 'a') first = 18; else if (c == 'l') longf = 1; p++; } skipsp(&p); }
+    uint8_t first = 6, haspat, went = 0, longf = 0, c;   /* -a (--all) dotfiles too, -l (--long) one per line */
+    opt_p = p; opt_l = "aall\0llong\0";
+    while ((c = opt_next()) != 0) {
+        if (c == 'a') first = 18; else if (c == 'l') longf = 1;
+        else { error("dir: -a (--all), -l (--long)"); return; }
+    }
+    p = opt_p;
     if ((*p | 0x20) == 'a' && (!p[1] || p[1] == ' ')) { first = 18; p++; skipsp(&p); }
     haspat = getname(&p, pat);                           /* a pattern, or a directory to look in */
     if (haspat) {                                        /* no * or ? in it: it names a directory, so go and look */
@@ -1050,18 +1081,18 @@ static void info_time(void)
 
 static void cmd_info(const char *p)
 {
-    uint8_t flags = 0;
-    while (*p) {
-        if (*p == '-') { p++; continue; }
-        switch (*p | 0x20) {
+    uint8_t flags = 0, c;
+    opt_p = p; opt_l = "vversion\0ccpu\0mmemory\0ggraphics\0ssound\0ffiles\0ttime\0aall\0";
+    while ((c = opt_next()) != 0) {
+        switch (c) {
         case 'v': flags |= 1; break;   case 'c': flags |= 2; break;   case 'm': flags |= 4; break;
         case 'g': flags |= 8; break;   case 's': flags |= 16; break;  case 'f': flags |= 32; break;
         case 't': flags |= 64; break;  case 'a': flags |= 127; break;
-        case ' ': break;
-        default: error("info [-v -c -m -g -s -f -t]  version cpu memory graphics sound files time"); return;
+        default: c = '?';
         }
-        p++;
+        if (c == '?') break;
     }
+    if (c || *opt_p) { error("info [-v -c -m -g -s -f -t -a]  --version --cpu --memory --graphics --sound --files --time --all"); return; }
     if (!flags) flags = 127;
     /* INFO is 28 lines: it fits a 30-row screen and does not fit MODE 3's 25.
      * Page it, unless a script is reading it, in which case page_break stands
@@ -1247,8 +1278,10 @@ static void cmd_cpm(const char *p)
  * command it ran should look the way it would at the prompt.  -k is that. */
 static void cmd_swap(const char *p)
 {
-    uint8_t keep = 0;
-    if (p[0] == '-' && (p[1] | 0x20) == 'k' && (p[2] == ' ' || !p[2])) { p += 2; skipsp(&p); keep = 1; }
+    uint8_t keep = 0, c;
+    opt_p = p; opt_l = "kkeep\0";                       /* -k (--keep); the command after is its own */
+    while ((c = opt_next()) != 0) { if (c != 'k') { error("swap: [-k | --keep] command"); return; } keep = 1; }
+    p = opt_p;
     if (!*p) { error("swap: swap command"); return; }
     if (swapping) { error("swap: no nesting"); return; }
     swap_run(p, keep);
@@ -1849,50 +1882,7 @@ static void nav(const char *p)
         if (fs_cmd(20)) error("umount: not mounted");
     } else alias_hit = 0;
 }
-/* MODE and the option parser, in bank 3 since 2026-10-07: the base image and
- * bank 1 had no room left for them. */
-/* A decimal number; 0 digits if there is none. */
-static uint16_t decnum(const char **p, uint8_t *digits)
-{
-    uint16_t v = 0; *digits = 0;
-    while (**p >= '0' && **p <= '9') { v = (uint16_t)(v * 10 + (**p - '0')); (*p)++; (*digits)++; }
-    return v;
-}
-/* POSIX-style options for the shell's words (Doc, 2026-10-07): -x, a value
- * after it (-s 2, or -s2), --word, --word=value; "--" ends them.  LONGS lists
- * a command's long names, each led by the letter it stands for:
- * "llist\0sscale\0" makes --list -l and --scale -s.  Returns the letter
- * (lower case; '?' for a long name not in LONGS), 0 at the first word that is
- * not an option; *p moves past the option, and opt_val points at a value in
- * the same word (-s2, --scale=2) or is 0. */
-static const char *opt_val;
-static uint8_t opt_get(const char **pp, const char *longs)
-{
-    const char *p = *pp, *n, *e, *l; uint8_t c;
-    skipsp(&p);
-    if (p[0] != '-' || !p[1] || p[1] == ' ') { *pp = p; return 0; }
-    if (p[1] == '-') {
-        n = p + 2; e = n; while (*e && *e != ' ' && *e != '=') e++;
-        if (e == n) { *pp = e; skipsp(pp); return 0; }                 /* "--": the options end */
-        c = '?';
-        for (l = longs; *l; l += strlen(l) + 1) {
-            const char *a = l + 1, *b = n;
-            while (b < e && *a && ((*a ^ *b) & ~0x20) == 0) { a++; b++; }
-            if (b == e && !*a) { c = (uint8_t) l[0]; break; }
-        }
-        opt_val = *e == '=' ? e + 1 : 0;
-    } else { c = (uint8_t)(p[1] | 0x20); e = p + 2; opt_val = *e && *e != ' ' ? e : 0; }
-    while (*e && *e != ' ') e++;
-    *pp = e;
-    return c;
-}
-/* An option's value: in its word (opt_val), or the next word. */
-static uint16_t opt_num(const char **pp, uint8_t *digits)
-{
-    const char *v;
-    if (opt_val) { v = opt_val; return decnum(&v, digits); }
-    skipsp(pp); return decnum(pp, digits);
-}
+/* MODE, in bank 3 since 2026-10-07: the base image and bank 1 had no room. */
 /* One integer display resolution, as MODE -l lists it: its scale, its size
  * and the grids K/OS makes there -- as video_init chooses the cells. */
 static void mode_row(uint8_t i)
@@ -1917,13 +1907,15 @@ static void cmd_mode(const char *p)
      *   MODE -d, --double    the smaller cells: twice the rows
      *   MODE -n, --normal    the larger again
      *   MODE 0-2, 5-7        the numbers, as before (5 6 7: scale 1 2 4) */
+  opt_p = p; opt_l = "llist\0s:scale\0ddouble\0nnormal\0";
   for (;;) {                                         /* options before the operand and after it */
-    while ((c = opt_get(&p, "llist\0sscale\0ddouble\0nnormal\0")) != 0) {
+    while ((c = opt_next()) != 0) {
         if (c == 'l') list = 1;
-        else if (c == 's') { m = opt_num(&p, &d); if (!d || !m) { error("mode: -s N, a scale MODE -l lists"); return; } vdiv = (uint8_t) m; vmode = 5; set = 1; }
+        else if (c == 's') { m = opt_num(&d); if (!d || !m) { error("mode: -s N, a scale MODE -l lists"); return; } vdiv = (uint8_t) m; vmode = 5; set = 1; }
         else if (c == 'd' || c == 'n') { rows60 = (uint8_t)(c == 'd'); rows60_set = 1; set = 1; }
         else { error("mode: -l (--list), -s N (--scale=N), WxH, -d (--double), -n (--normal), 0-2 5-7"); return; }
     }
+    p = opt_p;
     if (*p) {
         m = decnum(&p, &d);
         if (d && (*p | 0x20) == 'x') {                    /* WxH: the IDR of that size */
@@ -1939,7 +1931,7 @@ static void cmd_mode(const char *p)
             if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240, 5 6 7 scale 1 2 4; MODE -l"); return; }
             vmode = (uint8_t) m; if (m == 5) vdiv = 1;
         }
-        set = 1; continue;
+        set = 1; opt_p = p; continue;
     }
     break;
   }

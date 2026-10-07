@@ -48,7 +48,7 @@ monitor: MON or WOZ [line]  then:  addr  addr.addr
          addr:b b b  addrR  X leaves
          FILL from.to value
          COPY from.to dest   (memory, by DMA)
-system:  INFO [-v]   TIME   HUSH   RESET
+system:  INFO [-vcmgsft]   TIME   HUSH   RESET
          MODE [0-2|5-7]
          (0 640x480, 1 640x240, 2 320x240;
           5 1440x1080, 6 720x540, 7 360x270)
@@ -96,6 +96,8 @@ host:    F12 the settings menu   Shift+F12 pause
          Super+PgUp resets   PrtSc a screenshot
          k4510-menu.cfg hides menu rows and locks
          ! and the Linux consoles
+options: as on Unix: -l, -al (two at once),
+         --long, -s 2 or --scale=2; -- ends them
 boot:    /STARTUP.BAT runs at power-on.  If it
          wedges the machine, turn it off in
          F12 > Shell, or start --no-startup.bat

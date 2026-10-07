@@ -69,11 +69,12 @@ rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
 
 # System ROM: C with cc65 (65C02 output is a subset of the 45GS02)
-rom/kernal.bin: rom/kernal.c rom/crt0.s rom/k4510.cfg
+rom/kernal.bin: rom/kernal.c rom/crt0.s rom/opt.s rom/k4510.cfg
 	cc65 -O -t none --cpu 65c02 --local-strings -o rom/kernal.s rom/kernal.c
 	ca65 --cpu 65c02 -o rom/kernal.o rom/kernal.s
 	ca65 --cpu 65c02 -o rom/crt0.o rom/crt0.s
-	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/kernal.o none.lib -m rom/kernal.map
+	ca65 --cpu 65c02 -o rom/opt.o rom/opt.s
+	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/opt.o rom/kernal.o none.lib -m rom/kernal.map
 
 test/seqtest: test/seqtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
@@ -317,6 +318,8 @@ fs/APPS/BOMBER/bomber.prg: demo/bomber.c demo/bomber.h demo/far.h demo/k4510.h d
 	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/bomber.o none.lib -m demo/bomber.map
 demo/prg0.o: demo/prg0.s
 	ca65 --cpu 65c02 -o $@ $<
+demo/opt.o: demo/opt.s
+	ca65 --cpu 65c02 -o $@ $<
 demo/romcalls.o: demo/romcalls.s
 	ca65 --cpu 65c02 -o $@ $<
 # VI's variables live at $0800 (demo/vi.cfg): at $6000+ they had grown into its C stack
@@ -325,17 +328,17 @@ fs/SYSTEM/BIN/vi.prg: demo/vi.c demo/ed.h demo/vikeys.h demo/renum.h demo/k4510.
 	ca65 --cpu 65c02 -o demo/vi.o demo/vi.s
 	ld65 -C demo/vi.cfg -o $@ demo/prg0.o demo/romcalls.o demo/vi.o none.lib -m demo/vi.map
 # WORD: the .DOCX reader in EDIT's clothes -- variables at $0800, its big buffers after the image (demo/word.cfg)
-fs/SYSTEM/BIN/word.prg: demo/word.c demo/dosui.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/word.cfg
+fs/SYSTEM/BIN/word.prg: demo/word.c demo/dosui.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/opt.o demo/word.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/word.s demo/word.c
 	ca65 --cpu 65c02 -o demo/word.o demo/word.s
-	ld65 -C demo/word.cfg -o $@ demo/prg0.o demo/romcalls.o demo/word.o none.lib -m demo/word.map
+	ld65 -C demo/word.cfg -o $@ demo/prg0.o demo/romcalls.o demo/opt.o demo/word.o none.lib -m demo/word.map
 # EDIT: VI's engine and MS-DOS EDIT's front end -- a K4SG program, its cold code at $E000 and $1A00 (demo/edit.cfg,
 # demo/edit-header.s).  Not --local-strings: cc65 then puts a table's strings between its own pointers (mtitle read "File").
-fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/vikeys.h demo/dosvi.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/edit.cfg demo/edit-header.s
+fs/SYSTEM/BIN/edit.prg: demo/edit.c demo/ed.h demo/vikeys.h demo/dosvi.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/opt.o demo/edit.cfg demo/edit-header.s
 	cc65 -O -t none --cpu 65c02 -o demo/edit.s demo/edit.c
 	ca65 --cpu 65c02 -o demo/edit.o demo/edit.s
 	ca65 --cpu 65c02 -o demo/edit_h.o demo/edit-header.s
-	ld65 -C demo/edit.cfg -o $@ demo/prg0.o demo/romcalls.o demo/edit_h.o demo/edit.o none.lib -m demo/edit.map
+	ld65 -C demo/edit.cfg -o $@ demo/prg0.o demo/romcalls.o demo/opt.o demo/edit_h.o demo/edit.o none.lib -m demo/edit.map
 # MARK: the stopwatch in C, the measured loops in assembly (so cc65 getting better does not move the figures)
 # mark-asm.o is linked FIRST so that editing mark.c moves nothing that is measured: a page crossed is a cycle,
 # and demo/mark-cycles.h (tools/mark-cycles.py, from the built program) counts them.
@@ -345,15 +348,18 @@ fs/SYSTEM/BIN/mark.prg: demo/mark.c demo/mark-asm.s demo/mark-cycles.h demo/k451
 	ca65 --cpu 65c02 -o demo/mark-asm.o demo/mark-asm.s
 	ld65 -C demo/mark.cfg -o $@ demo/prg0.o demo/romcalls.o demo/mark-asm.o demo/mark.o none.lib -m demo/mark.map
 # PROG: VI's engine and a front end -- loaded at $2000, variables at $0800 (demo/prog.cfg)
-fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/vikeys.h demo/dosvi.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prog.cfg demo/prog-header.s
+fs/SYSTEM/BIN/prog.prg: demo/prog.c demo/ed.h demo/vikeys.h demo/dosvi.h demo/dosui.h demo/dosed.h demo/renum.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/opt.o demo/prog.cfg demo/prog-header.s
 	cc65 -O -t none --cpu 65c02 -o demo/prog.s demo/prog.c
 	ca65 --cpu 65c02 -o demo/prog.o demo/prog.s
 	ca65 --cpu 65c02 -o demo/prog_h.o demo/prog-header.s
-	ld65 -C demo/prog.cfg -o $@ demo/prg0.o demo/romcalls.o demo/prog_h.o demo/prog.o none.lib -m demo/prog.map
+	ld65 -C demo/prog.cfg -o $@ demo/prg0.o demo/romcalls.o demo/opt.o demo/prog_h.o demo/prog.o none.lib -m demo/prog.map
+# the programs that take POSIX options link the parser (demo/opt.s)
+fs/SYSTEM/BIN/delete.prg fs/SYSTEM/BIN/fonted.prg: OPTO = demo/opt.o
+fs/SYSTEM/BIN/delete.prg fs/SYSTEM/BIN/fonted.prg: demo/opt.o
 fs/SYSTEM/BIN/%.prg: demo/%.c demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/$*.s demo/$*.c
 	ca65 --cpu 65c02 -o demo/$*.o demo/$*.s
-	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/$*.o none.lib -m demo/$*.map
+	ld65 -C demo/prg.cfg -o $@ demo/prg0.o demo/romcalls.o $(OPTO) demo/$*.o none.lib -m demo/$*.map
 # MONITOR lives at $E000 (demo/monitor.cfg), clear of the memory it is there to
 # inspect -- the one /SYSTEM/BIN program not at $6000 (2026-09-13).
 fs/SYSTEM/BIN/monitor.prg: demo/monitor.c demo/k4510.h demo/far.h demo/prg0-nomap.o demo/romcalls.o demo/monitor.cfg

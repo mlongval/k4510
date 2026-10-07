@@ -33,7 +33,7 @@ SECTIONS = ["Files and directories", "Running things", "The screen",
             "Programs in /SYSTEM/BIN"]
 DESC = {
     # files
-    "DIR":     (0, "DIR [-a] [-l] [dir | pattern]", "List a directory. -a shows the hidden (dot) names, -l one to a line; a pattern matches here, * any run and ? any one character."),
+    "DIR":     (0, "DIR [-a] [-l] [dir | pattern]", "List a directory. -a (--all) shows the hidden (dot) names, -l (--long) one to a line; a pattern matches here, * any run and ? any one character."),
     "CD":      (0, "CD [dir | .. | - | url]", "Change directory; the rest of the line is the name, spaces and all. Alone, to /. A tnfs:// or sftp:// URL goes there; - comes home."),
     "MKDIR":   (0, "MKDIR dir", "Make a directory."),
     "RMDIR":   (0, "RMDIR dir", "Remove an empty directory."),
@@ -48,7 +48,7 @@ DESC = {
     # running
     "RUN":     (1, "RUN [name | addr]", "Run a program; a bare name does the same. RUN addr jumps there."),
     "EXEC":    (1, "EXEC name", "Run a text file as shell commands, one a line; # starts a comment. /STARTUP.BAT is run this way at power-on."),
-    "SWAP":    (1, "SWAP [-k] command", "Put the whole 64 KB and the screen away, run the command on a clean machine, and give them back. -k keeps the screen the command left."),
+    "SWAP":    (1, "SWAP [-k] command", "Put the whole 64 KB and the screen away, run the command on a clean machine, and give them back. -k (--keep) keeps the screen the command left."),
     "ALIAS":   (1, "ALIAS [name [text]]", "List, define, or (name alone) remove an alias. Aliases are tried last, so none can hide a real command."),
     "ECHO":    (1, "ECHO text", "Print the text."),
     "HELP":    (1, "HELP", "The command summary: TYPE /SYSTEM/ETC/HELP."),
@@ -61,7 +61,7 @@ DESC = {
     "BANNER":  (2, "BANNER", "Clear the screen and print the power-on banner again."),
     "CAPSLOCK":(2, "CAPSLOCK [ON | OFF]", "Toggle the caps lock: letters come up uppercase. Suspended while a program runs."),
     # machine
-    "INFO":    (3, "INFO [-v]", "The machine's self-description, the clock in force included. -v names the exact build."),
+    "INFO":    (3, "INFO [-vcmgsft]", "The machine's self-description, the clock in force included; with options only those parts: -v (--version, the exact build), -c (--cpu), -m (--memory), -g (--graphics), -s (--sound), -f (--files), -t (--time), -a (--all)."),
     "TIME":    (3, "TIME", "The date and the time."),
     "HUSH":    (3, "HUSH", "Silence the OPL2 and the sound sequencer."),
     "DUMP":    (3, "DUMP [note | ON | OFF]", "Write the machine's whole state to dumps/ on the host. ON writes one every fifteen seconds."),
@@ -91,9 +91,9 @@ DESC = {
     "BENCH":     (7, "BENCH", "About 25 s: frames per second and sound gaps at every clock step, to /SYSTEM/LOG/BENCH-NN.TXT."),
     "BUG":       (7, "BUG", "Asks seven questions about a fault and writes the report (Appendix B)."),
     "CHROUT":    (7, "CHROUT", "How fast the ROM's console prints."),
-    "DELETE":    (7, "DELETE [-l | -r name | -e | name]", "The trash: list it, put a file back, empty it, or send a file there."),
-    "WORD":      (7, "WORD [-s] [name]", "A reader for Microsoft Word's .DOCX, in EDIT's manner: the document laid out to the window, emphasis in colour, lists and tables; Save As Text@sec:word@."),
-    "EDIT":      (7, "EDIT [-s] [-u] [-v] [name]", "The editor, in MS-DOS EDIT's manner: menus, the mouse, dialogs; -s in the console's colours, -u BBC BASIC's keywords in capitals at each save, -v VI's keys@cha:editors@."),
+    "DELETE":    (7, "DELETE [-l | -r name | -e | name]", "The trash: list it (-l, --list), put a file back (-r, --restore), empty it (-e, --empty), or send a file there."),
+    "WORD":      (7, "WORD [-s] [name]", "-s (--system): the console's colours. A reader for Microsoft Word's .DOCX, in EDIT's manner: the document laid out to the window, emphasis in colour, lists and tables; Save As Text@sec:word@."),
+    "EDIT":      (7, "EDIT [-s] [-u] [-v] [name]", "The editor, in MS-DOS EDIT's manner: menus, the mouse, dialogs; -s (--system) in the console's colours, -u (--upper) BBC BASIC's keywords in capitals at each save, -v (--vi) VI's keys@cha:editors@."),
     "KEYTEST":   (7, "KEYTEST", "Asks for every key and checks what arrives."),
     "KOMMANDER": (7, "KOMMANDER", "The two-panel file manager."),
     "MONITOR":   (7, "MONITOR", "The monitor as a program: MON, WOZ, FILL and COPY run it."),
@@ -106,7 +106,7 @@ DESC = {
     "SPLIT":     (7, "SPLIT", "A split screen held by SHEILA: blitter lines above, four rows of text below, and how many lines a second."),
     "HEXED":     (7, "HEXED name | $address", "A hex editor: a file, loaded whole (8 MB at most), or memory by 28-bit address, changed live. Hex on the left, the code page on the right; go to, find, save, undo, the mouse."),
     "CODEPAGE":  (7, "CODEPAGE [437 | K4510]", "Alone, say which code page the machine speaks. 437 is IBM's, the default; K4510 gives 26 of its Greek and maths places to Western Europe's capitals, oe, the euro and German quotes. Remembered, as F12 -> Terminal -> Code page."),
-    "FONTED":    (7, "FONTED [name.FNT] | -L name", "The font, edited where it lives, both sizes, every edit on the screen at once. -L loads a .FNT and leaves, for STARTUP.BAT."),
+    "FONTED":    (7, "FONTED [name.FNT] | -l name", "The font, edited where it lives, both sizes, every edit on the screen at once. -l (--load) loads a .FNT and leaves, for STARTUP.BAT."),
     "SUPERMON":  (7, "SUPERMON", "Jim Butterfield's monitor, grown up: an assembler and a 45GS02 disassembler."),
     "TELNET":    (7, "TELNET host [port]", "A terminal on a TCP connection. F12 hangs up."),
     "TYPE":      (7, "TYPE name", "A file, a screenful at a time; Esc or Q stops. A URL works."),
@@ -115,7 +115,7 @@ DESC = {
     "WALL":      (7, "WALL", "What was sent to this machine from outside (tools/k4510-remote wall, on another computer): each message waiting, oldest first, answered as it asks --- a key for a notice, a digit for one of its choices, a line of text --- and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you."),
     "STATUS":    (7, "STATUS", "The whole machine at a glance: its display and clock, how much of the 256 MB holds anything, the memory of the Linux beneath, where the system and your files really are and how much room is left, what is mounted, and the network by name and address."),
     "NVIM":      (7, "NVIM [name]", "Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run@cha:linux@."),
-    "PROG":      (7, "PROG [-s] [-v] [name]", "The programmer's front end, in EDIT's manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler's messages under the text; -v VI's keys@cha:editors@."),
+    "PROG":      (7, "PROG [-s] [-v] [name]", "The programmer's front end, in EDIT's manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler's messages under the text; -s (--system) the console's colours, -v (--vi) VI's keys@cha:editors@."),
 }
 # words that exist twice: the ROM command wins at the prompt, the program is
 # still there for RUN.  Listed once, under the ROM's.

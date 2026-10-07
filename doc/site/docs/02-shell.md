@@ -168,6 +168,8 @@ The line you are typing is editable: Left and Right move through it, Home and En
 
 **Up and Down walk the last eight lines you typed**, and Down past the newest gives you the empty line again. A line that repeats the one before it is not kept. The history lives in the ROM bank the line editor has to itself, so it survives a reset — but not a power cycle, which is what `/STARTUP.BAT` is for.
 
+**Options are written as on Unix.** A dash and a letter (`DIR -l`), several letters behind one dash (`DIR -al`), or a word behind two (`DIR --long`); an option that takes a value has it next (`MODE -s 2`, `MODE -s2`) or after an equals sign (`MODE --scale=2`), and `--` ends the options. MODE, DIR, INFO, SWAP and the programs that take options — EDIT, PROG, WORD, DELETE, FONTED — all read them the same way, through one parser.
+
 ## Aliases
 
 `ALIAS` gives a name to a line.

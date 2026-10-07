@@ -29,6 +29,8 @@
  * enough to bother you, DELETE -e is the sentence you have to type.
  */
 #include "k4510.h"
+#include "opt.h"                                       /* POSIX-style options (demo/opt.s) */
+#define SHELL_RC (*(volatile uint8_t *)0x03FF)        /* the result code the shell reads */
 
 #define FS       0xD300u
 #define FS_CMD   (FS + 0x00)
@@ -143,7 +145,7 @@ void main(void)
 {
     uint8_t na = rom_args();
     const char *p = *(const char **)0xF0;
-    uint16_t done = 0, bad = 0;
+    uint16_t done = 0, bad = 0; char c, mode = 0;
 
     REG(FS + 0x18) = sizeof cwd;                               /* GETCWD's CAP: our buffer's size */
     fs_addr((uint32_t)(uint16_t)cwd); fs_do(C_GETCWD);
@@ -151,27 +153,33 @@ void main(void)
 
     if (!na) {
         sayln("delete: move files to " TRASH " (they are not destroyed)");
-        sayln("  DELETE name [name...]   DELETE -l   DELETE -r name   DELETE -e");
+        sayln("  DELETE name [name...]   -l (--list)   -r (--restore) name   -e (--empty)");
         return;
     }
 
-    p = word(p, nm);
-    if (nm[0] == '-' && nm[1] == 'l' && !nm[2]) {
+    opt_s = p; opt_i = 0;
+    while ((c = opt("llist\0eempty\0rrestore\0")) != 0) {
+        if (c != 'l' && c != 'e' && c != 'r') { sayln("delete: -l (--list), -r (--restore) name, -e (--empty)"); SHELL_RC = 1; return; }
+        mode = c;
+    }
+    p = opt_s + opt_i;
+    if (mode == 'l') {
         uint16_t n = walk_trash(0);
         if (n) { say("  "); dec(n); sayln(n == 1 ? " item in " TRASH : " items in " TRASH); }
         return;
     }
-    if (nm[0] == '-' && nm[1] == 'e' && !nm[2]) {
+    if (mode == 'e') {
         uint16_t n = walk_trash(1);
         if (n) { say("emptied: "); dec(n); sayln(n == 1 ? " item destroyed" : " items destroyed"); }
         return;
     }
-    if (nm[0] == '-' && nm[1] == 'r' && !nm[2]) {
-        if (!p || !(p = word(p, nm))) { sayln("delete: -r needs a name (DELETE -l lists them)"); return; }
+    if (mode == 'r') {
+        if (!(p = word(p, nm))) { sayln("delete: -r needs a name (DELETE -l lists them)"); return; }
         do { if (restore_one(nm)) bad++; } while (p && (p = word(p, nm)));
         return;
     }
 
+    if (!(p = word(p, nm))) return;
     do {
         if (trash_one(nm)) bad++; else done++;
     } while (p && (p = word(p, nm)));

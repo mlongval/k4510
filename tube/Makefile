@@ -6,17 +6,7 @@ CC = gcc -Wall -I include
 NASM ?= nasm
 OBJ = bbmain.o bbexec.o bbeval.o bbasmb.o bbdata.o bbccos.o bbccon.o
 
-# DOOM rides here too (tube/doom, see its ALTERED-K4510.md): `make -C tube'
-# is what linux/build-live.sh runs, so the image gets both co-processors from
-# one line.  DOOM is built without game data -- tools/get-freedoom.sh fetches
-# the WAD, which is not vendored.
-# ...and the Apple IIe (tube/apple, LinApple's core; its ALTERED-K4510.md).
-all: bbcbasic doom apple
-
-doom:
-	$(MAKE) -C doom -f Makefile.k4510
-apple:
-	$(MAKE) -C apple -f Makefile.k4510
+all: bbcbasic
 
 bbmain.o: src/bbmain.c include/BBC.h
 	$(CC) -c -O2 -ffast-math -fno-finite-math-only $< -o $@
@@ -37,6 +27,5 @@ bbcbasic: $(OBJ)
 
 clean:
 	rm -f *.o bbcbasic
-	$(MAKE) -C doom -f Makefile.k4510 clean
 
-.PHONY: apple all doom clean
+.PHONY: all clean

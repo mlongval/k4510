@@ -14,8 +14,7 @@
 #define IO_DMA         0xD200u   /* $D200-$D2FF  block DMA (C-18)        */
 #define IO_STORAGE     0xD300u   /* $D300-$D3FF  host filesystem (D-09)  */
 #define IO_SOUND       0xD400u   /* $D400-$D4FF  the sound page: $D400-$D47F is empty (the SIDs, until 2026-09-05) */
-#define IO_FM          0xD480u   /* $D480-$D4FF  OPL2 (YM3812), DigiMAX  */
-#define IO_DIGIMAX     0xD4C0u   /* $D4C0-$D4C3  four 8-bit DACs, $80 = silence; $D4C4 reads $04 (core/digimax.h) */
+#define IO_FM          0xD480u   /* $D480-$D4FF  OPL2 (YM3812)  */
 /* The OPL2, wired the AdLib's way, so every AdLib register list means what it
  * says here.  The machine's one sound chip.
  *   $D480  W ADDR    the register to write next
@@ -204,48 +203,13 @@ extern uint8_t io_net, io_net_q;
 #define HELD_A     0x20                   /* Z */
 #define HELD_B     0x40                   /* X */
 void    kbd_held(uint8_t mask);           /* the host, once a frame: which of those are down */
-/* DOOM on the Tube ($D803 kind 6) wants more keys than the seven above, and
- * cannot read this register at all: it is a separate process on the host, and
- * speaks to the emulator through shared memory.  So the same idea, wider, and
- * delivered by a different road -- the host writes these bits into the shared
- * segment every frame, and the co-processor diffs them to find the presses AND
- * the releases.  A pty could never carry the releases, which is why DOOM does
- * not take its keys the way BBC BASIC does. */
-#define K4DOOM_FORWARD  0x0001
-#define K4DOOM_BACK     0x0002
-#define K4DOOM_LEFT     0x0004            /* turn */
-#define K4DOOM_RIGHT    0x0008
-#define K4DOOM_STRAFEL  0x0010
-#define K4DOOM_STRAFER  0x0020
-#define K4DOOM_FIRE     0x0040
-#define K4DOOM_USE      0x0080
-#define K4DOOM_RUN      0x0100
-#define K4DOOM_ESCAPE   0x0200
-#define K4DOOM_ENTER    0x0400
-#define K4DOOM_MAP      0x0800
-#define K4DOOM_WEAPUP   0x1000
-#define K4DOOM_WEAPDN   0x2000
-#define K4DOOM_YES      0x4000
-#define K4DOOM_NO       0x8000
-void    io_doom_input(uint32_t held);
-void    io_apple_key(uint32_t ev);        /* the Apple IIe on the Tube: one key event (tube/apple/apple_k4510.cpp says the bits) */
-int     io_tube_kind(void);               /* what the Tube is running: 0 nothing, 6 DOOM, 7 the Apple IIe, ... */     /* the host, once a frame, while DOOM has the Tube */
+int     io_tube_kind(void);               /* what the Tube is running: 0 nothing, 1 BBC BASIC, 3 CP/M, 4 the host shell, 5 the chess engine */
 int     io_fs_hostpath(const char *name, char *out, size_t max);
 /* RADIO (the Navidrome sidebar's player, which is the frontend's): the frontend
  * sets this; the storage device calls it with the command line and takes back
  * up to `max` bytes of reply lines, '\n' between them.  NULL: no radio here. */
 extern void (*io_radio_hook)(const char *cmd, char *reply, size_t max);   /* a machine path as the host's (JIM's pictures): 1 ok */
-void    io_tube_opl_drain(void);           /* the host, per SCANLINE: DOOM's music onto MELODY */
-void    io_tube_frame(void);              /* the host, once a frame: DOOM's picture onto VICKY's bitmap.
-                                           * NOT tube_pump's job -- that only runs when the pty has
-                                           * traffic, and DOOM can go minutes without sending a byte. */
-int     io_tube_doom(void);               /* is the Tube running DOOM right now? */
-unsigned io_apple_status(void);           /* the Apple's status word (shm->pad): video mode in byte 0, paused/disk bits above */
-const char *io_apple_cur_disk(void);      /* the disk the running Apple was launched with (basename), or "" */
-int     io_apple_disk_count(void);        /* how many images are in /DISK/APPLE (the panel's disk shelf) */
-const char *io_apple_disk_name(int i);    /* the i-th image's name */
-void    io_apple_load_disk(const char *name);   /* relaunch the Apple with that image (the panel's disk selector) */
-void    io_tube_shutdown(void);           /* the host, on a clean quit: end any Tube session and free DOOM's segment */
+void    io_tube_shutdown(void);           /* the host, on a clean quit: end any Tube session */
 /* The mouse, $D108-$D10F, read-only, fed by the host once a frame.  Position is
  * in the pixels of the mode VICKY is in (0-639 x 0-479 at full size, 0-319 x
  * 0-239 in a 320x240 mode, and so on) wherever the window puts the picture; the

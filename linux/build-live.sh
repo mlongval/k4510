@@ -195,11 +195,6 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
         || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
         || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
-    # The Apple IIe co-processor (kind 7).  git does not carry the binary and it
-    # links the chroot's libc, so build it here or the layer ships a stale one
-    # (its glibc would not match a host build's -- Doc, 2026-09-18).
-    $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510/tube/apple && make -f Makefile.k4510 -j"$(nproc)"' \
-        || echo "build-live.sh: the Apple IIe did not build; everything else works"
     # Tek40xx is built from upstream WITH OUR PATCH, so a change to that patch
     # (the seamless-window and ESC/q-quit fixes, 2026-09-11) only reaches the
     # stick if we rebuild it here too -- the emulator rebuild above does not.
@@ -429,10 +424,6 @@ $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
     || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
     || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
-# The Apple IIe co-processor (kind 7): git does not carry the binary and it
-# links the chroot's libc, so build it here or the layer ships a stale one.
-$CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510/tube/apple && make -f Makefile.k4510 -j"$(nproc)"' \
-    || echo "build-live.sh: the Apple IIe did not build; everything else works"
 
 echo "== Mad Pascal =="
 # Two checkouts, not one: mp compiles Pascal to 6502 assembly and MADS

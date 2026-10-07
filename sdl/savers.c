@@ -37,7 +37,6 @@ void saver_draw(int which, uint32_t *px, int pitch, int w, int h, uint32_t ms, i
     case SAVER_TETRIS:    s_tetris(&c, ms, side & 1); break;
     case SAVER_ANTFARM:   s_antfarm(&c, ms, side & 1); break;
     case SAVER_MATRIX:    s_matrix(&c, ms, side & 1); break;
-    case SAVER_DOOM:      s_doom(&c, ms, side & 1); break;
     case SAVER_NAVIDROME: s_navidrome(&c, ms, side & 1); break;
     default:              s_dreamfall(&c, ms, side & 1); break;
     }

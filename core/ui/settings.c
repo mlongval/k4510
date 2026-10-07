@@ -15,7 +15,7 @@ static const char *const vmode_names[] = { "640x480", "640x480x60", "640x240", "
 const unsigned char vmode_number[VMODE_COUNT] = { 0, 0, 1, 2, 5, 5, 6, 6, 7, 3, 4 };   /* each pair of screens is one MODE */
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
-static const char *const panel_names[] = { "off", "registers", "apple" };
+static const char *const panel_names[] = { "off", "registers" };
 /* the sidebars when there are no zips to list them (core/sidebars.c): SIDEBAR_* order */
 /* This array must have SIDEBAR_COUNT entries: the row below declares that many
  * labels, and settings_text indexes the array with the value, so one name
@@ -25,7 +25,7 @@ static const char *const panel_names[] = { "off", "registers", "apple" };
  * the short array is only reached when there are no zips -- and the handbook's
  * generator, which reads this line, quietly dropped matrix from the list of
  * sidebars in Chapter 1. */
-static const char *const sidebar_names[]= { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "doom", "navidrome" };
+static const char *const sidebar_names[]= { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "navidrome" };
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const lid_names[]   = { "keep running", "suspend" };
 static const char *const pipe_names[]  = { "off", "on", "on, shown" };

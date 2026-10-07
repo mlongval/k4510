@@ -120,7 +120,7 @@ extern const unsigned char vmode_number[VMODE_COUNT];
  * The old names still load: sharp-fit is Integer, sharp and soft are Fit. */
 enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
-enum { PANEL_OFF, PANEL_REGS, PANEL_APPLE, PANEL_COUNT };   /* PANEL_APPLE: the Apple IIe's control panel, shown only while it has the Tube (sdl/panel.c) */
+enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };
 /* the sidebars the emulator draws itself (Doc's brainshot, 2026-09-14): what
  * a zip in /SYSTEM/SIDEBARS names with draw = builtin NAME (core/sidebars.c).
  * The setting's choices are the zips; with none, these, in this order. */
@@ -128,7 +128,6 @@ enum { SIDEBAR_BORDER, SIDEBAR_GRADIENT, SIDEBAR_KNOT,
        SIDEBAR_REGISTERS,   /* the side panel, a sidebar since 2026-09-15 (Doc); before the scenes, so their numbers stay */
        SIDEBAR_HALLOWEEN, SIDEBAR_CHRISTMAS, SIDEBAR_SPACE, SIDEBAR_RIVER, SIDEBAR_DREAMFALL, SIDEBAR_TETRIS, SIDEBAR_ANTFARM,   /* sdl/savers.c, in SAVER_* order */
        SIDEBAR_MATRIX,      /* the digital rain (Doc, 2026-09-16); appended, so the numbers above it stay */
-       SIDEBAR_DOOM,        /* the first gamebar (Doc, 2026-09-17; docs/GAMEBARS.md); appended likewise */
        SIDEBAR_NAVIDROME,   /* a radio beside the machine (Doc, 2026-09-17): the first sidebar that DOES something */
        SIDEBAR_COUNT };
 /* the reset chords, in the CHORD's order: modifier + PageUp ("Restore") */

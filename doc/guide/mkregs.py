@@ -32,7 +32,6 @@ import re, sys, pathlib
 
 HEADERS = [
     ("core/io.h",    "The I/O page"),
-    ("core/digimax.h", "The DigiMAX"),
     ("core/vicky.h", "VICKY, SHEILA and the sprites"),
     ("core/net.h",   "The network"),
     ("core/term.h",  "JIM, the terminal"),

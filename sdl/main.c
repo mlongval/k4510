@@ -552,12 +552,6 @@ static uint8_t cp437_of(unsigned long cp)                /* Unicode -> the K4510
  * frame code each frame; the picture cannot move between them. */
 static int geo_b = 0, geo_xd = 0, geo_yd = 0; static double geo_s = 1.0;   /* Placement: the picture's device offset and scale (1, 0, 0 when SDL maps) */
 static int mouse_x = -1, mouse_y = -1, mouse_btn, wheel_acc, dx_acc, dy_acc;
-/* the Apple IIe control panel (sdl/panel.c): its on-screen device rectangle,
- * remembered at render time for the click handler, and the two Apple keys it
- * latches.  apple_vmode names the frontend's g_videotype (Video.h order). */
-static int apple_panel_on, apple_pd_x, apple_pd_y, apple_pd_w, apple_pd_h;
-static int apple_open_held, apple_closed_held;
-static const char *const apple_vmode[] = { "Mono", "Color", "Text", "TV", "HalfDim", "Amber", "Green", "White" };
 static int to_machine(int v, int full) { int m = (v - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 /* the menu is drawn at 640x480 whatever the glass: the pointer is taken there */
 /* Where the menu lies on the glass, in glass pixels: whole menu pixels and
@@ -566,22 +560,6 @@ static int menu_gx0, menu_gy0, menu_gw, menu_gh;
 static int ui_mx(int x) { return menu_gw > 0 ? (x - menu_gx0) * UI_W / menu_gw : x * UI_W / vicky_glass_w(); }
 static int ui_my(int y) { return menu_gh > 0 ? (y - menu_gy0) * UI_H / menu_gh : y * UI_H / vicky_glass_h(); }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(ui_mx(mouse_x), ui_my(mouse_y), mouse_btn, wheel_acc); }
-/* A click on the Apple control panel: its button becomes a Tube key event (the
- * same io_apple_key the keyboard uses) or a disk relaunch.  Open/Closed Apple
- * latch, so a game can hold them; the frontend gets a fresh press or release. */
-static void apple_panel_click(int act)
-{
-    switch (act) {
-    case APB_RESET:  io_apple_key(4u << 8 | 5u << 16); break;                                                        /* KE_RESET, down */
-    case APB_BOOT:   io_apple_key(4u << 8 | 8u << 16); break;                                                        /* KE_BOOT */
-    case APB_VIDEO:  io_apple_key(4u << 8 | 7u << 16); break;                                                        /* KE_VIDEO */
-    case APB_OPEN:   apple_open_held = !apple_open_held;     io_apple_key((apple_open_held ? 4u : 0u) << 8 | 1u << 16); break;
-    case APB_CLOSED: apple_closed_held = !apple_closed_held; io_apple_key((apple_closed_held ? 4u : 0u) << 8 | 2u << 16); break;
-    case APB_PAUSE:  io_apple_key(4u << 8 | 9u << 16); break;                                                        /* KE_PAUSE */
-    case APB_EXIT:   apple_open_held = apple_closed_held = 0; io_write(IO_TUBE + 3, 2); break;                       /* Stop the Tube */
-    default: if (act >= APB_DISK0) { apple_open_held = apple_closed_held = 0; io_apple_load_disk(io_apple_disk_name(act - APB_DISK0)); } break;
-    }
-}
 /* The pointer stays on the machine (Doc, 2026-09-14: "limit mouse to k4510
  * screen only ... it doesnt go into sidebars, or above or below active screen
  * ... it can however go into side bars if the processor info sidebar is
@@ -781,11 +759,6 @@ static void line_end(int vol)                 /* the scanline's picture and soun
     /* The audio clock the OPL2 writes are stamped with: one scanline of it,
      * whoever is rendering.  See core/sndq.h. */
     sndq_tick(1000000u / (60u * (unsigned) frame_lines));
-    /* DOOM's music, if the Tube is playing any: its OPL driver's register
-     * writes come across the shared segment and are performed on MELODY here,
-     * per scanline.  Music wants milliseconds and a frame is sixteen of them,
-     * so the frame hook would be far too coarse.  Cheap and silent otherwise. */
-    io_tube_opl_drain();
     if (sndq_owner() == SNDQ_OWNER_CPU)
     { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
       for (int i = 0; i < n; i++) ring_put((int16_t)(tmp[i] * vol_gain(vol) >> 15)); }
@@ -902,8 +875,8 @@ int k4510_frontend_main(int argc, char **argv)
     signal(SIGUSR2, screen_signal);                /* tools/k4510-screen: the text screen, as text */
     signal(SIGHUP, hup_signal);
     /* Every exit that is not a return from here -- Xlib calls exit(1) when the
-     * X server goes -- still stops the co-processor and unlinks DOOM's
-     * /dev/shm segment.  Idempotent, so the clean path calling it too is fine. */
+     * X server goes -- still stops the co-processor.  Idempotent, so the clean
+     * path calling it too is fine. */
     atexit(io_tube_shutdown);
     io_radio_hook = navi_command;                  /* RADIO at the prompt reaches the Navidrome sidebar's player */
     int no_startup = 0;
@@ -1099,8 +1072,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     host_lid_apply();                             /* the lid: keep running holds logind's lock from the start */
     while (running) {
         /* The audio device closes after AUDIO_IDLE_MS of nothing but zeros --
-         * no FM (the OPL2 sleeps), no DigiMAX, no radio, no DOOM or Apple on
-         * the Tube -- and the sound hardware powers down.  The first sample
+         * no FM (the OPL2 sleeps), no radio -- and the sound hardware powers
+         * down.  The first sample
          * that is not zero opens it again; the ring keeps the last frame's
          * samples while it is closed, so the sound starts with its start. */
         if (audio_ever && sndq_owner() == SNDQ_OWNER_CPU) {
@@ -1187,15 +1160,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
                 int bit = e.button.button == SDL_BUTTON_LEFT ? 1 : e.button.button == SDL_BUTTON_RIGHT ? 2 : e.button.button == SDL_BUTTON_MIDDLE ? 4 : 0;
-                /* a left click on the Apple control panel: the button acts, and the
-                 * click is consumed (no pointer grab, nothing to the machine) */
-                if (e.type == SDL_MOUSEBUTTONDOWN && bit == 1 && apple_panel_on && !menu_is_open()) {
-                    int px = e.button.x - apple_pd_x, py = e.button.y - apple_pd_y;
-                    if (px >= 0 && py >= 0 && px < apple_pd_w && py < apple_pd_h) {
-                        int act = apple_panel_hit(px, py);
-                        if (act != APB_NONE) { apple_panel_click(act); break; }
-                    }
-                }
                 if (e.type == SDL_MOUSEBUTTONDOWN && !menu_is_open() && settings_get(SET_INPUT_MOUSE_GRAB)) { grab_wanted = 1; grab(1); }
                 if (e.type == SDL_MOUSEBUTTONDOWN) mouse_btn |= bit; else mouse_btn &= ~bit;
                 mouse_to_menu(); break; }
@@ -1265,23 +1229,6 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 if (settings_get(SET_INPUT_CAPS_CTRL)) m = (SDL_Keymod)((m & ~KMOD_CAPS) | (caps_ctrl_down ? KMOD_LCTRL : 0));
                 else caps_ctrl_down = 0;                         /* the setting went off while the key was held */
                 kbd_modifiers(m & KMOD_SHIFT, m & KMOD_CTRL, m & KMOD_ALT);
-                /* The Apple IIe on the Tube (tube/apple): what the machine's key
-                 * queue cannot carry.  Releases, so a game holding a key sees it
-                 * let go; the two Apple keys on the two Alts (they are also the
-                 * joystick's buttons, as on the IIe); a joystick on the keypad
-                 * (8 2 4 6, 5 to centre); Ctrl+Alt+R is Ctrl-Reset.  Everything
-                 * typed goes the usual way and is handed over in core/io.c. */
-                if (io_tube_kind() == 7 && !menu_is_open()) {
-                    int down = e.type == SDL_KEYDOWN, kc = e.key.keysym.sym; uint32_t fl = (uint32_t)(down ? 4 : 0);
-                    if (kc == SDLK_LALT) { io_apple_key(fl << 8 | 1u << 16); break; }
-                    if (kc == SDLK_RALT) { io_apple_key(fl << 8 | 2u << 16); break; }
-                    if (kc == SDLK_KP_4 || kc == SDLK_KP_6) { io_apple_key((uint32_t)(down ? (kc == SDLK_KP_4 ? 0 : 255) : 128) << 24 | 3u << 16 | fl << 8 | 0); break; }
-                    if (kc == SDLK_KP_8 || kc == SDLK_KP_2) { io_apple_key((uint32_t)(down ? (kc == SDLK_KP_8 ? 0 : 255) : 128) << 24 | 3u << 16 | fl << 8 | 1); break; }
-                    if (kc == SDLK_KP_5 && down) { io_apple_key(128u << 24 | 3u << 16 | fl << 8 | 0); io_apple_key(128u << 24 | 3u << 16 | fl << 8 | 1); break; }
-                    if (kc == SDLK_r && (m & KMOD_CTRL) && (m & KMOD_ALT)) { if (down) io_apple_key(4u << 8 | 5u << 16); break; }
-                    if (kc == SDLK_v && (m & KMOD_CTRL) && (m & KMOD_ALT)) { if (down) io_apple_key(4u << 8 | 7u << 16); break; }   /* Ctrl+Alt+V: cycle the Apple's colour rendering (no one mode suits every game) */
-                    if (!down) { io_apple_key(6u << 16); break; }                /* any release: the key that was down is up */
-                }
                 if (e.type != SDL_KEYDOWN) break;
                 SDL_Keycode k = e.key.keysym.sym;
                 { /* the reset chord: a modifier + PageUp ("Commodore + Restore"), or Ctrl+Alt+Del */
@@ -1426,41 +1373,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (ks[SDL_SCANCODE_Z])     held |= HELD_A;
             if (ks[SDL_SCANCODE_X])     held |= HELD_B;
             kbd_held(held | pad_held());
-            /* DOOM on the Tube wants more keys than those seven, and cannot
-             * read $D104 anyway: it is a separate process, and takes its input
-             * through the shared segment (core/io.c).  Gathered here because
-             * this is where the host already has SDL's key state; io_doom_input
-             * throws it away unless DOOM is running.  The layout is the one
-             * DOOM shipped with -- arrows turn, Ctrl fires, Space opens, Alt
-             * strafes -- plus WASD over the top, because no one under fifty
-             * turns with an arrow key any more. */
-            if (io_tube_doom()) {
-                uint32_t d = 0;
-                if (ks[SDL_SCANCODE_UP]    || ks[SDL_SCANCODE_W]) d |= K4DOOM_FORWARD;
-                if (ks[SDL_SCANCODE_DOWN]  || ks[SDL_SCANCODE_S]) d |= K4DOOM_BACK;
-                if (ks[SDL_SCANCODE_LEFT])                        d |= K4DOOM_LEFT;
-                if (ks[SDL_SCANCODE_RIGHT])                       d |= K4DOOM_RIGHT;
-                if (ks[SDL_SCANCODE_A]     || ks[SDL_SCANCODE_LALT])  d |= K4DOOM_STRAFEL;
-                if (ks[SDL_SCANCODE_D]     || ks[SDL_SCANCODE_RALT])  d |= K4DOOM_STRAFER;
-                if (ks[SDL_SCANCODE_LCTRL] || ks[SDL_SCANCODE_RCTRL]) d |= K4DOOM_FIRE;
-                if (ks[SDL_SCANCODE_SPACE] || ks[SDL_SCANCODE_E]) d |= K4DOOM_USE;
-                if (ks[SDL_SCANCODE_LSHIFT]|| ks[SDL_SCANCODE_RSHIFT]) d |= K4DOOM_RUN;
-                if (ks[SDL_SCANCODE_ESCAPE])                      d |= K4DOOM_ESCAPE;
-                if (ks[SDL_SCANCODE_RETURN])                      d |= K4DOOM_ENTER;
-                if (ks[SDL_SCANCODE_TAB])                         d |= K4DOOM_MAP;
-                if (ks[SDL_SCANCODE_RIGHTBRACKET])                d |= K4DOOM_WEAPUP;
-                if (ks[SDL_SCANCODE_LEFTBRACKET])                 d |= K4DOOM_WEAPDN;
-                if (ks[SDL_SCANCODE_Y])                           d |= K4DOOM_YES;
-                if (ks[SDL_SCANCODE_N])                           d |= K4DOOM_NO;
-                io_doom_input(d);
-            }
             mouse_set(mouse_x < 0 ? 0 : mouse_x, mouse_y < 0 ? 0 : mouse_y, (uint8_t) mouse_btn, wheel_acc, dx_acc, dy_acc);   /* $D108-$D10F */
             wheel_acc = dx_acc = dy_acc = 0;
         }
-        /* DOOM's picture onto VICKY's bitmap, once a frame.  Cheap and silent
-         * unless the Tube is running it: the pty pump cannot do this job, since
-         * it only runs when bytes arrive and DOOM sends none while it draws. */
-        io_tube_frame();
         /* Keys from outside, typed one per frame; ~ waits 30 frames; a byte of
          * $80 or more is a KEY_* code; $1F says "the next byte is a character
          * whatever its value" (an accented letter).  Two sources, the same rules:
@@ -1949,21 +1864,13 @@ tex_done:
             Uint32 dt = vlast ? tn - vlast : 0; if (dt > 250) dt = 250; vlast = tn;
             for (int s2 = 0; s2 < 2; s2++) vclk[s2] += dt * (sidebars_count() ? sidebars_speed(shown[s2]) : 1.0); }
           int sb_side[2] = { sidebars_builtin(shown[0] >= 0 ? shown[0] : sv), sidebars_builtin(shown[1] >= 0 ? shown[1] : sv) };
-          /* GAMEBARS (docs/GAMEBARS.md).  Doc, 2026-09-17: "DOOM themed artwork that
-           * comes up if sidebar(s) is just background.  Something like I would have
-           * seen in an arcade."  So: while DOOM has the Tube, a side that is only a
-           * background -- the border, the gradient -- becomes that game's side panel.
-           * A scene somebody chose on purpose (the ant farm, the rain) keeps its
-           * place, and so does the register panel. */
-          if (io_tube_kind() == 6 && sbar != SIDEBAR_REGISTERS)   /* DOOM's gamebar art, not the Apple's (it has a control panel instead) */
-              for (int s2 = 0; s2 < 2; s2++) if (sb_side[s2] == SIDEBAR_BORDER || sb_side[s2] == SIDEBAR_GRADIENT) sb_side[s2] = SIDEBAR_DOOM;
           if (sbar == SIDEBAR_REGISTERS) sb_side[0] = sb_side[1] = SIDEBAR_BORDER;   /* the panel is drawn on its own, below */
 #if !K4510_SIDEBARS
           sb_side[0] = sb_side[1] = SIDEBAR_BORDER;
 #endif
           int grad = sb_side[0] == SIDEBAR_GRADIENT || sb_side[1] == SIDEBAR_GRADIENT, knot = sb_side[0] == SIDEBAR_KNOT || sb_side[1] == SIDEBAR_KNOT;
           Uint32 gclk = (Uint32) vclk[sb_side[0] == SIDEBAR_GRADIENT || sb_side[0] == SIDEBAR_KNOT ? 0 : 1];   /* the gradient's and the knot's clock */
-          int place = settings_get(SET_VIDEO_PLACE), panel_kind = io_tube_kind() == 7 ? PANEL_APPLE : sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;
+          int place = settings_get(SET_VIDEO_PLACE), panel_kind = sbar == SIDEBAR_REGISTERS ? PANEL_REGS : PANEL_OFF;
           if (panel_kind != PANEL_OFF && place == PLACE_CENTRE) place = PLACE_LEFT;
           /* for the host shell's children: tek40xx places its page the same
            * way (Doc, 2026-09-09: "the tek programs should respect the
@@ -2270,7 +2177,6 @@ tex_done:
               if (mtex && !done) { SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_BLEND); SDL_RenderCopy(ren, mtex, NULL, &dr); }
           }
           /* the side panel: the device pixels beside the picture, at the picture's rows */
-          apple_panel_on = 0;                                     /* set below only while the Apple's panel is on the glass, so a stale rect never eats a click */
           { int pw = custom ? cow - pic_w : 0;
             if (panel_kind != PANEL_OFF && custom && pw >= 64) {
                 /* the whole window's height, not the picture's: a 16:9 screen
@@ -2285,18 +2191,7 @@ tex_done:
                 if (ptex) { void *pp; int ppitch;
                     if (SDL_LockTexture(ptex, NULL, &pp, &ppitch) == 0) {
                         int g = panel_scale(pw, coh, font_panel_rows);
-                        if (panel_kind == PANEL_APPLE) {
-                            unsigned st = io_apple_status();
-                            const char *cur = io_apple_cur_disk();
-                            static char apple_last_disk[96];
-                            if (strcmp(cur, apple_last_disk)) { apple_open_held = apple_closed_held = 0; snprintf(apple_last_disk, sizeof apple_last_disk, "%s", cur); }   /* a new launch: the keys are up */
-                            const char *dl[APPLE_PANEL_MAXDISK]; int nd = io_apple_disk_count(); if (nd > APPLE_PANEL_MAXDISK) nd = APPLE_PANEL_MAXDISK;
-                            int curi = -1;
-                            for (int i = 0; i < nd; i++) { dl[i] = io_apple_disk_name(i); if (!strcmp(dl[i], cur)) curi = i; }
-                            apple_panel_info ai = { apple_vmode[st & 7u], (st & 0x100u) != 0, (st & 0x200u) != 0, cur,
-                                                    apple_open_held, apple_closed_held, dl, nd, curi };
-                            apple_panel_render((uint32_t *)pp, ppitch / 4, pw, coh, g, font_panel, font_panel_rows, &ai);
-                        } else {
+                        {
                             panel_info pi = { panel_fps, io_host_kind ? "on its Linux" : "on a desktop", settings_cpu_hz(),
                                               paused, m_line, trace_n, trace_f != NULL, dump_n };
                             panel_render((uint32_t *)pp, ppitch / 4, pw, coh, g, font_panel, font_panel_rows, &pi);
@@ -2305,7 +2200,6 @@ tex_done:
                     }
                     SDL_Rect pd = { place == PLACE_RIGHT ? 0 : pic_w, 0, pw, coh };
                     SDL_RenderCopy(ren, ptex, NULL, &pd);
-                    if (panel_kind == PANEL_APPLE) { apple_panel_on = 1; apple_pd_x = pd.x; apple_pd_y = pd.y; apple_pd_w = pd.w; apple_pd_h = pd.h; }
                 }
             } }
           /* the key pipe's echo: a bar at the foot of the window, in device
@@ -2440,7 +2334,7 @@ frame_still:
     }
     sidebar_save_states();                                /* the ant colony, and anything else a sidebar keeps */
     if (settings_changed()) settings_save(cfg);
-    io_tube_shutdown();                                   /* a co-processor still running, and DOOM's shared segment with it */
+    io_tube_shutdown();                                   /* a co-processor still running */
     mlog("exit: the frame loop ended normally");
     SDL_DestroyTexture(tex); SDL_DestroyRenderer(ren); SDL_DestroyWindow(win); SDL_Quit();
     /* Shut the computer down, in this order and not another: the settings are

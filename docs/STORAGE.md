@@ -30,7 +30,6 @@ One NVMe drive, shared with Fedora. Two of its five partitions are the K4510's.
     /home/k4510/rw/                     the "upper" of /home/k4510: every file changed or
                                         created under the user's home, and nothing else
         k4510/k4510.cfg                 the F12 settings
-        k4510/fs/DISK/DOOM/*.WAD        downloaded games           (33 MB)
         k4510/fs/HOME/, /DOCUMENTS/...  whatever was saved on the machine
         k4510/shots/                    PrtSc screenshots
     /etc/NetworkManager/.../rw/         the Wi-Fi connections
@@ -75,14 +74,13 @@ in the layer and was never edited is not here at all.
 |---|---|---|---|
 | Linux, libraries, SDL, compilers | RAM | base squashfs, in tmpfs | it is re-copied |
 | The emulator, the ROM, `/SYSTEM`, `/APPS`, `/LANG`, the handbook | RAM | layer squashfs, in tmpfs | it is re-copied |
-| A shipped file nobody has edited (`/APPS/DOOM/WADS.CFG`) | RAM | the layer | yes, and a deploy updates it |
+| A shipped file nobody has edited (`/APPS/CHESS/README.TXT`) | RAM | the layer | yes, and a deploy updates it |
 | A shipped file that WAS edited on the machine (`SHIPPING.CFG`) | **disk** | p4 `rw/` -- it **shadows** the layer's copy | yes -- and a deploy can no longer change it |
 | Anything created on the machine: `/HOME`, `/DOCUMENTS`, programs you write | **disk** | p4 `rw/` | yes |
 | `/DISK/...` -- games, downloads, anything large | **disk** | p4 `rw/` | yes |
 | `k4510.cfg`, Wi-Fi, the tailnet identity | **disk** | p4 | yes |
 | Old layers | **disk** | p4 `backup/` | yes |
 | `/tmp`, logs (`/tmp/k4510-emulator.log`), anything outside the three directories | RAM | the root's tmpfs upper | **no** |
-| DOOM's frame buffer and sound rings | RAM | `/dev/shm` | no |
 
 RAM after boot: ~0.9 GB for the system images plus ~0.8 GB in use, of 32 GB.
 

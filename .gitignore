@@ -160,22 +160,9 @@ fs/SYSTEM/SIDEBARS/SIDEBARS.CFG
 test/renumtest
 doc/guide/__pycache__/
 
-# DOOM on the Tube: the build output and the game data (the WAD is fetched,
-# not vendored -- 28.8 MB against a 5.9 MB machine layer; tools/get-freedoom.sh)
-tube/doom/build/
-tube/doom/doomk4510
-# the Apple IIe on the Tube, likewise; its disk images live in /DISK/APPLE
-tube/apple/build/
-tube/apple/apple_k4510
-fs/APPS/DOOM/*.wad
-fs/APPS/DOOM/*.WAD
-fs/APPS/DOOM/DOOM.CFG
 # /DISK is the machine's on-disk side: nothing in it ships but the note that says so
 fs/DISK/*
 !fs/DISK/README.TXT
-# ...but the folder, its README and Freedoom's own licence and credits DO
-# belong in git: BSD-3 asks that the notice travel with the data, and a
-# machine that ships /APPS/DOOM with nothing in it needs to say why.
 
 # py_compile leaves these beside the scripts, and everything under
 # includes.chroot is swept into the machine layer (OVERLAY_FILES) -- so this

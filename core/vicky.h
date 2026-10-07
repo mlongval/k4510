@@ -216,8 +216,8 @@ void     vicky_commit(void);
  * Everything that writes what VICKY reads says so: the CPU's writes (but its
  * own low pages and K/OS's workspace), every I/O write but the IRQ
  * acknowledge and WAIT, the devices that load into memory, JIM, the host's
- * loaders.  SHEILA, a picture the Tube draws (DOOM, the Apple) and JIM's
- * pictures draw every frame. */
+ * loaders.  SHEILA and JIM's pictures draw every
+ * frame. */
 extern int vicky_dirty, vicky_low;     /* vicky_low: something VICKY shows is in physical $0000-$FFFF (a CPU write there counts) */
 #define VICKY_TOUCH() (vicky_dirty = 1)                          /* the picture, whole, now: the end of a synchronized update (core/term.c) */
 /* HD text (2026-10-06, Doc: "can we cheat?").  At 720x540 the panel shows each

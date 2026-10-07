@@ -1138,9 +1138,6 @@ static void banner(void);                 /* the logo: sideways window, not resi
 static void banner_note(void);
 static void cmd_bbcbasic(uint8_t prog);
 static void cmd_bang(const char *p);
-static void cmd_doom(uint8_t kind, const char *arg);   /* DOOM (6) and the Apple IIe (7) on the Tube: their own road for pixels */
-static void cmd_doom_go(const char *p);
-static void cmd_apple(const char *p);
 static void cmd_compile(const char *tool, const char *p);
 /* DUMP [note]: the emulator writes dumps/dump-NNN.txt with the machine state,
  * the screen, the PC history and the shell log; the note goes into the log */
@@ -1917,7 +1914,7 @@ static void mon_copy(const char *p) { mon_prg("COPY", p); }
 N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
 N(XD) N(HEX) N(EXEC) N(HUSH) N(RUN) N(FILL) N(COPY) N(DUMP) N(INFO) N(TIME)
 N(COLOR) N(COLOUR) N(PALETTE) N(MODE) N(SWAP) N(ALIAS) N(CLG) N(CAPSLOCK)
-N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA) N(DOOM) N(APPLE) N(RADIO)
+N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA) N(RADIO)
 #undef N
 static const shcmd_t shcmds[] = {
     { n_DIR, 0, cmd_dir },       { n_LS, 0, cmd_dir },
@@ -1933,7 +1930,7 @@ static const shcmd_t shcmds[] = {
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
-    { n_IDEA, 0, cmd_idea },     { n_DOOM, 0, cmd_doom_go },  { n_APPLE, 0, cmd_apple },   { n_RADIO, 0, cmd_radio },   /* the Tube's games: in the table, not the if-chain -- ROM2 was 19 bytes over when APPLE came */
+    { n_IDEA, 0, cmd_idea },     { n_RADIO, 0, cmd_radio },
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)
@@ -2200,55 +2197,6 @@ static void cmd_bang(const char *p)
     w32(TUBE + 4, (uint16_t)p);
     REG(TUBE + 8) = ROWS; REG(TUBE + 9) = COLS;           /* the console window: bands and margin already out */
     cmd_bbcbasic(4);
-}
-/* DOOM: the sixth thing fitted to the Tube.  Thin on purpose -- it forwards
- * no keys and draws nothing.  The co-processor writes its frames into a
- * shared segment and the host paints them onto VICKY's bitmap; the keys go
- * the other way down the same road, because a pty carries presses and never
- * releases, and a player needs to be able to STOP walking (core/io.c).
- *
- * The loop is not idle: reading $D800 is what pumps the pty, so a command
- * that merely slept would never drain the child's output and never notice it
- * had ended.  Anything the co-processor says -- "no game data", most likely --
- * comes up the ring and is printed here. */
-static void cmd_doom_go(const char *p) { cmd_doom(6, p); }
-static void cmd_apple(const char *p)   { cmd_doom(7, p); }   /* APPLE [disk]: an Apple IIe (tube/apple), the image in drive 1 */
-static void cmd_doom(uint8_t kind, const char *arg)
-{
-    uint8_t c;
-    /* The classic glass FIRST, and only then the co-processor.
-     *
-     * The bitmap DOOM draws into is 640x480 at $200000 with a 640-byte stride,
-     * and VICKY scans a layer across the whole glass.  In an HD mode the glass
-     * is wider than that stride -- 720 in MODE 6 -- so every row showed its own
-     * 640 pixels and then the first 80 of the next: DOOM's status bar appeared
-     * twice, with a seam down the middle of the picture (Doc's Dell, 720x540,
-     * 2026-09-17).  It looked like a torn frame and was not; two captures of
-     * different scenes had the seam in exactly the same place, which is
-     * geometry, not a race.
-     *
-     * Every other bitmap user already does this: bbg_mode22 forces MODE 0 for
-     * BBC BASIC's graphics, and book.c clears the HD bit by hand (ctrl & $D9)
-     * before it enables the layer.  DOOM was the one path that did not.
-     *
-     * The order matters: writing $D803 is what makes the host enable the
-     * bitmap, so the mode has to change before it, not after. */
-    if (!bgon) { oldvm = vmode; bgon = 1; }
-    vmode = 0; video_init(); cls();
-    w32(TUBE + 4, (uint16_t) arg);                       /* the argument, as `!` passes its command: APPLE's disk image */
-    REG(TUBE + 3) = kind;
-    { uint8_t tries = 60; while (tries-- && !(REG(TUBE) & 1)) { uint8_t f = REG(SYS + 0x0D); while (REG(SYS + 0x0D) == f) ; } }
-    if (!(REG(TUBE) & 1)) { error("no Tube here"); return; }
-    for (;;) {
-        uint8_t st = REG(TUBE);
-        if (!(st & 0x81)) break;                         /* it ended, and its last bytes are shown */
-        if (st & 0x80) { c = REG(TUBE + 1); if (c) k_chrout(c); continue; }
-        if (REG(KBDST) & 0x80) { uint8_t k = REG(KBD); if (k == 0x03) break; }   /* Ctrl-C gives up on a co-processor that will not start */
-    }
-    REG(TUBE + 3) = 2;                                   /* the bitmap goes, the segment with it */
-    if (bgon) { bgon = 0; vmode = oldvm; }               /* and the mode the machine was in comes back */
-    video_init(); cls();
-    newline(); puts_("the co-processor has left."); newline();
 }
 /* PAS name / CC name: the compilers on the Linux beside the machine,
  * tools/k4510-pas and tools/k4510-cc, which compile name.PAS / name.C in the

@@ -471,7 +471,7 @@ void vicky_begin_frame(uint8_t *fb, int pitch)
 {
     if (fb != frame_fb || pitch != frame_pitch) vicky_dirty = 1;   /* another buffer: it has not got the last picture */
     frame_fb = fb; frame_pitch = pitch;
-    frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active() && io_tube_kind() != 6 && io_tube_kind() != 7;
+    frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active();
     vicky_dirty = 0; vicky_low = reads_low();
     glass_latch();
     { int on = hd_font && hd_stock && hd_font16 && hd_stock8 && glass_hd && glass_w == VICKY_WIDTH / 2;   /* 720x540 only */

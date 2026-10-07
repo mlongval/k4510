@@ -136,7 +136,7 @@ static void sysinfo_build(void)
     screen_geom(&sc, &sr);
     si("THE MACHINE   K/OS %s   45GS10 at %u.%u MHz", sys_version, sys_cpu_khz / 1000, sys_cpu_khz % 1000 / 100);
     si("  display     %dx%d, text %d columns by %d rows", vicky_glass_w(), vicky_glass_h(), sc, sr);
-    { int k = io_tube_kind(); const char *t = k ? (k == 6 ? "DOOM" : k >= 1 && k <= 5 ? si_tube[k] : "a program") : "idle";
+    { int k = io_tube_kind(); const char *t = k ? (k >= 1 && k <= 5 ? si_tube[k] : "a program") : "idle";
       if (io_battery == 0xFF) si("  Tube        %s", t);
       else si("  Tube        %s          battery %d%%%s", t, io_battery & 0x7F, io_battery & 0x80 ? ", on mains" : ""); }
     { unsigned used = 0; for (uint32_t blk = 0; blk < K4510_PHYS_SIZE; blk += 0x10000) { const uint8_t *p = k4510_ram + blk; size_t k; for (k = 0; k < 0x10000 && !p[k]; k += 8) ; if (k < 0x10000) used++; }

@@ -12,7 +12,6 @@
  *   hostfs.c    the file device ($D300): the sandbox, mounts, URLs
  *   status.c    STATUS and MOUNT's report: what the host knows of itself
  *   tube.c      the Tube ($D800): the co-processors on a pty, the Tube ULA
- *   tube_shm.c  DOOM and the Apple IIe: the Tube's shared frame buffer
  *   screen2.c   the second screen's session (Alt+2)
  *   debug.c     WATCH, the recorder, DUMP, IDEA's brainshots
  *
@@ -93,27 +92,6 @@ void    tube_stop(void);
 void    tube_state_save(FILE *f);
 int     tube_state_load(FILE *f);
 void    tube_log(const char *fmt, ...);
-/* the Tube ULA's bitmap, which DOOM and the Apple draw into too */
-#define TULA_GFXB 0x200000u
-#define TULA_W 640
-#define TULA_H 480
-#define TULA_SPRTAB 0x260000u
-#define TULA_ARENA (TULA_SPRTAB - TULA_GFXB)
-extern uint8_t tula_on;
-void tula_vw16(uint8_t r, int v);
-void tula_vw32(uint8_t r, uint32_t v);
-
-/* tube_shm.c */
-int  tube_shm_open(int kind);      /* DOOM (6) or the Apple (7): the segment, before the fork; 0 on failure */
-void tube_shm_close(void);
-void tube_shm_quit(void);          /* tell a live child to go */
-void doom_bitmap_on(void);
-void doom_wad_path(char *out, size_t max);
-void doom_child_exec(void);        /* in the forked child: exec DOOM, or say why not */
-void apple_launch_name(char *cmd, size_t n);   /* the panel's disk, if one was chosen; the name the panel shows */
-void apple_child_exec(const char *cmd);
-void apple_take_key(uint16_t ent);
-
 /* screen2.c */
 void s2_key(uint16_t ent);
 void s2_pump(void);

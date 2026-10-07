@@ -9,9 +9,7 @@ the plan, kept so that neither has to be done twice. Nothing here is built.
 
 887 MB a boot: `filesystem.squashfs` 834 MB (the BASE), `initrd.img` 75,
 `vmlinuz` 12, `k4510.squashfs` 7 (the LAYER). **The layer is not worth
-pruning.** `doomk4510` is 585 KB and all of `/APPS/DOOM` 30 KB; moving DOOM to
-`/DISK` would save 0.07% and raise the question of what puts it there, since
-nothing in `/DISK` ships.
+pruning.**
 
 The base is ~2 GB uncompressed. Measured on the Dell (`du` over
 `/run/live/rootfs/filesystem.squashfs`, `dpkg-query` for packages), MB:
@@ -36,8 +34,7 @@ The base is ~2 GB uncompressed. Measured on the Dell (`du` over
    perhaps 600-650 MB): exclude `/boot`; drop locales, doc, man; purge fpc
    once `mp`/`mads` are built; keep only `mp` + `lib/` of Mad Pascal.
 2. **Stockfish to `/DISK`**, fetched on demand, CHESS saying so when it is
-   missing. The first customer for a general `GET name` (WADCHOOSER is that
-   command for one game).
+   missing. The first customer for a general `GET name`.
 3. **Build tools out of the running image** (~240 MB): the emulator is
    compiled inside the tree that gets squashed, which is the only reason gcc
    is on the machine. Build in one tree and ship another, or exclude at squash
@@ -57,7 +54,7 @@ The base is ~2 GB uncompressed. Measured on the Dell (`du` over
   and keep the old one for rollback OUTSIDE `/live` or not named `*.squashfs`
   -- live-boot stacks every squashfs it finds there.
 - Each cut wants the machine checked before and after: boot, Wi-Fi, PAS, CC,
-  NVIM, DOOM, the Tube's BASIC and CP/M.
+  NVIM, the Tube's BASIC and CP/M.
 - A structural alternative, untested on a live-boot root: `systemd-sysext`,
   with the compilers in an extension image on the K4510 partition, overlaid on
   `/usr` from disk only when wanted. After the plain cuts, not instead of them.

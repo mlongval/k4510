@@ -73,13 +73,15 @@ static const char *uci_path(void)
  * left) land on a 640x480 8bpp bitmap at $200000 (EhBASIC's GRAPHICS
  * surface), VICKY layer 1; colour 0 stays transparent so the text screen
  * shows through, and BBC logical colours live in palette entries 16-31. */
-static int tula_x[3], tula_y[3], tula_ox, tula_oy;   /* TULA_GFXB, _W, _H: io_int.h (DOOM draws there too) */
-static uint8_t tula_fg = 17, tula_bg = 16;
-uint8_t tula_on;
+#define TULA_GFXB 0x200000u
+#define TULA_W 640
+#define TULA_H 480
+static int tula_x[3], tula_y[3], tula_ox, tula_oy;
+static uint8_t tula_fg = 17, tula_bg = 16, tula_on;
 static uint8_t ula_buf[256]; static unsigned ula_n; static int ula_st;
 
-void tula_vw16(uint8_t r, int v) { vicky_write(r, v & 0xFF); vicky_write(r + 1, (v >> 8) & 0xFF); }
-void tula_vw32(uint8_t r, uint32_t v) { for (int i = 0; i < 4; i++) vicky_write(r + i, (v >> (8 * i)) & 0xFF); }
+static void tula_vw16(uint8_t r, int v) { vicky_write(r, v & 0xFF); vicky_write(r + 1, (v >> 8) & 0xFF); }
+static void tula_vw32(uint8_t r, uint32_t v) { for (int i = 0; i < 4; i++) vicky_write(r + i, (v >> (8 * i)) & 0xFF); }
 static int tula_sx(int x) { return x >> 1; }
 static int tula_sy(int y) { return (TULA_H - 1) - ((y * 15) >> 5); }
 static uint8_t tula_pix(uint8_t c) { return c == 16 ? 0 : c; }   /* logical black -> transparent */
@@ -147,6 +149,7 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
  *   VDU 23,27,5,n,m|       n shows sprite m's picture (one capture, many sprites)
  *   PLOT 237,x,y           show the selected sprite with its bottom-left at x,y
  * Attribute table at $260000, pictures at $261000 + n * 4 KB (8 bpp, 64x64 max). */
+#define TULA_SPRTAB 0x260000u
 #define TULA_SPRDAT 0x261000u
 /* The bitmap's room: $200000 up to the sprite table, 384 KB.  Written down
  * because it was NOT -- the bound lived only as arithmetic in whoever last
@@ -156,6 +159,7 @@ static void tula_circle(int cx, int cy, int ex, int ey, uint8_t c, int fill)
  * geometry to the GLASS instead: an HD mode is 1440x1080, which is 1.5 MB and
  * would run 1.1 MB into the sprite table.  This stops that at compile time
  * rather than on someone's screen (2026-09-17). */
+#define TULA_ARENA (TULA_SPRTAB - TULA_GFXB)
 typedef char tula_arena_fits[(TULA_W * TULA_H <= TULA_ARENA) ? 1 : -1];
 static int tula_spr_cur, tula_spr_on;
 static uint8_t tula_spr_w[128], tula_spr_h[128];
@@ -353,7 +357,7 @@ static void tube_pump(void)
       if (!full && tube_pid && waitpid (tube_pid, &st, WNOHANG) == tube_pid) {
           tube_log("pid %d ended: %s %d", (int) tube_pid, WIFSIGNALED (st) ? "signal" : "exit", WIFSIGNALED (st) ? WTERMSIG (st) : WEXITSTATUS (st));
           tube_exit = WIFSIGNALED (st) ? (uint8_t) (128 + WTERMSIG (st)) : (uint8_t) WEXITSTATUS (st);
-          tube_pid = 0; close (tube_fd); tube_fd = -1; tube_shm_close(); tula_close(); } }
+          tube_pid = 0; close (tube_fd); tube_fd = -1; tula_close(); } }
 }
 /* The `!` shell talks UTF-8 (a Linux host's programs do) and JIM draws CP437, so
  * JIM decodes for the length of a shell session -- switched off once the
@@ -379,16 +383,6 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     pid_t parent = getpid ();                     /* NOT 1: in a container the emulator IS pid 1, and "getppid() == 1" then killed every child (2026-09-07) */
     if (tube_pid) return;
     if (prog == 5 && !uci_path()) return;
-    if (prog == 6 || prog == 7) {                 /* DOOM and the Apple IIe: the segment must exist before the fork */
-        if (!tube_shm_open(prog)) { const char *m = "doom: no shared memory for the frame buffer\r\n";
-                                while (*m) ring_put((uint8_t) *m++); tube_refused = 1; return; }
-    }
-    if (prog == 7) {                              /* APPLE [disk]: the argument, if any, as `!` gets its command line */
-        if (fs_guest_str((uint32_t)tube_cmd[0] | (uint32_t)tube_cmd[1] << 8 | (uint32_t)tube_cmd[2] << 16 | (uint32_t)tube_cmd[3] << 24, cmd, sizeof cmd)) cmd[0] = 0;
-        while (cmd[0] == ' ') memmove(cmd, cmd + 1, strlen(cmd));
-        { size_t l = strlen(cmd); while (l && cmd[l - 1] == ' ') cmd[--l] = 0; }
-        apple_launch_name(cmd, sizeof cmd);       /* the panel's disk selector wins */
-    }
     if (prog == 4) {
         /* Refused, not run short: fs_guest_str fills the buffer and THEN reports the
          * overrun, and a shell command cut at byte 255 is a different command --
@@ -467,10 +461,6 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
             if (cmd[0]) execl (sh, sh, "-c", cmd, (char *) NULL);   /* !ls -l   one command, then back */
             else        execl (sh, sh, (char *) NULL);              /* !        an interactive shell; exit returns */
             { const char *m = "!: the shell would not start\r\n"; ssize_t n = write (1, m, strlen (m)); (void) n; }
-        } else if (prog == 6) {                   /* DOOM: its own window onto VICKY's bitmap, and the keys through it */
-            doom_child_exec();
-        } else if (prog == 7) {                   /* the Apple IIe (tube/apple): LinApple's core behind this frontend */
-            apple_child_exec(cmd);
         } else if (prog == 3) {                   /* the Z80 second processor: CP/M's drives are fs/CPM/A .. P */
             char *bin = realpath ("cpm/runcpm", NULL);
             char dir[800]; snprintf (dir, sizeof dir, "%.511s/CPM", fs_root);   /* the configured root, as BASIC below, not ./fs */
@@ -490,19 +480,14 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         _exit (127);
     }
     tube_exit = 0;
-    if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; tube_shm_close(); return; }   /* no child: DOOM's segment would otherwise stay made, and doom_active set */
+    if (tube_pid < 0) { tube_pid = 0; tube_fd = -1; return; }
     fcntl (tube_fd, F_SETFL, O_NONBLOCK);
     if (prog == 4) { term_host_session(1); tube_utf8 = 1; }   /* the ROM's JIM reset (tube_term) follows, and leaves it */
     tube_log("start prog %d pid %d%s%s", prog, (int) tube_pid, cmd[0] ? " cmd: " : "", cmd);
-    if (prog == 6) { char w[900]; doom_wad_path(w, sizeof w); tube_log("doom: playing %s", w); }
-    if (prog == 7) tube_log("apple: %s", cmd[0] ? cmd : "the master disk");   /* the same answer the child just reached: which WAD, for the log */
 }
 /* The frontend's clean exit does not come through here: it ends its frame
- * loop, tears SDL down and returns from main (sdl/main.c).  DOOM's shared
- * segment would then outlive the emulator -- 64 KB of /dev/shm per quit,
- * until the machine is rebooted -- because the unlink lives in tube_stop and
- * in the reap, and a quit with DOOM still running reaches neither.  So the
- * host calls this on its way out. */
+ * loop, tears SDL down and returns from main (sdl/main.c), so the host calls
+ * this on its way out and no child outlives it. */
 void io_tube_shutdown(void) { tube_stop(); }
 void tube_stop(void)
 {
@@ -510,8 +495,6 @@ void tube_stop(void)
                     kill (-tube_pid, SIGKILL); kill (tube_pid, SIGKILL); waitpid (tube_pid, NULL, 0); tube_pid = 0; }   /* the session: a `!nohup x &` too */
     if (tube_fd >= 0) { close (tube_fd); tube_fd = -1; }
     tube_w = tube_r = 0; tube_refused = 0;
-    tube_shm_quit();                              /* if it is still alive, it exits at its next frame */
-    tube_shm_close();
     tula_close();
     if (tube_utf8) { term_host_session(0); tube_utf8 = 0; }
 }
@@ -543,15 +526,12 @@ uint8_t tube_io_read(uint8_t r)
 void tube_io_write(uint8_t r, uint8_t v)
 {
     if (r == 2) tube_write(v);
-    if (r == 3) { if (v == 1 || v == 3 || v == 4 || v == 5 || v == 6 || v == 7) {
-            /* Only the write that STARTED a session owns it.  tube_start returns at once
-             * when a co-processor is already up, and a second `6` then re-snapped the
-             * "console" palette from DOOM's own colours and saved a text layer that was
-             * already off -- so DOOM's exit restored DOOM; a `6` over BBC BASIC blanked
-             * its console.  (Review, 2026-09-17.) */
+    if (r == 3) { if (v == 1 || v == 3 || v == 4 || v == 5) {
+            /* Only the write that STARTED a session owns it: tube_start returns at
+             * once when a co-processor is already up.  (Review, 2026-09-17.) */
             int was = tube_pid != 0;
             tube_start(v);
-            if (!was) { tube_prog_now = v; tube_prog_at = title_depth_now(); if ((v == 6 || v == 7) && tube_pid) doom_bitmap_on(); } } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
+            if (!was) { tube_prog_now = v; tube_prog_at = title_depth_now(); } } else if (v == 2) { tube_stop(); tube_prog_now = 0; } }
     if (r >= 4 && r < 8) tube_cmd[r - 4] = v;
     if (r == 8) tube_rows = v;
     if (r == 9) tube_cols = v;

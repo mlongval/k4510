@@ -13,13 +13,9 @@ what it has read).
 
 What belongs here is anything large that the machine can start without:
 
-    /DISK/DOOM     DOOM's game data (WADCHOOSER fetches into it)
     downloads, archives, big projects, anything measured in megabytes
 
 On a K4510 Linux with a persistence partition, all of /HOME and whatever else
 you save is on the disk too and survives a restart; /DISK is simply the
 place with the promise written on it.  On a machine started from a USB stick
 with no persistence, /DISK is as temporary as everything else.
-
-Doc, 2026-09-17: "loading a bunch of doom wads into ram for a slim to none
-chance of being played is nonsensical".

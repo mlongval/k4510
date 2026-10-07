@@ -11,7 +11,6 @@
 #include "xemu/cpu65.h"
 #include "vicky.h"
 #include "opl2.h"
-#include "digimax.h"
 #include "audio.h"
 #include "net.h"
 #include "term.h"
@@ -48,7 +47,6 @@ static void kbd_in(uint16_t ent)
     uint8_t ascii = (uint8_t)ent;
     if (menu_is_open()) { menu_key(ascii); return; }
     if ((ent & KBD_KEY) && ascii == menu_key_code() && !(kbd_mods & 1)) { menu_open(); return; }
-    if (io_tube_kind() == 7) { apple_take_key(ent); return; }   /* the Apple IIe has the keyboard while it runs: the machine's queue would only pile up */
     if (term_screen() == 1) { s2_key(ent); return; }             /* the second screen is up: its session has the keyboard */
     dbg_key(ascii);
     kbd_enqueue(ent);
@@ -178,7 +176,6 @@ static uint8_t io_read_inner(uint16_t addr)
         return vicky_read(addr & 0xFF);
     case IO_SOUND:
         if (addr >= IO_FM && (addr - IO_FM) < 3) return opl2_read((uint8_t)(addr - IO_FM));   /* the OPL2: STATUS, data readback, ID */
-        if (addr >= IO_DIGIMAX && (addr - IO_DIGIMAX) < 5) return digimax_read((uint8_t)(addr - IO_DIGIMAX));   /* the DigiMAX: four DACs and an ID */
         return 0xFF;                                                       /* $D400-$D47F: nothing there (the SIDs, until 2026-09-05) */
     case IO_SYS:
         return sys_read(addr & 0xFF);
@@ -260,7 +257,6 @@ void io_write(uint16_t addr, uint8_t v)
         vicky_write(addr & 0xFF, v); return;
     case IO_SOUND:
         if (addr >= IO_FM && (addr - IO_FM) < 2) opl2_write((uint8_t)(addr - IO_FM), v);   /* the OPL2: ADDR, DATA */
-        if (addr >= IO_DIGIMAX && (addr - IO_DIGIMAX) < 4) digimax_write((uint8_t)(addr - IO_DIGIMAX), v);   /* the DigiMAX's four DACs */
         return;
     case IO_MATH:
         fred_write(addr & 0xFF, v); return;

@@ -133,7 +133,6 @@ void s_dreamfall(cv_t *c, uint32_t t, int side);
 void s_tetris(cv_t *c, uint32_t t, int side);
 void s_antfarm(cv_t *c, uint32_t t, int side);
 void s_matrix(cv_t *c, uint32_t t, int side);
-void s_doom(cv_t *c, uint32_t t, int side);
 void s_navidrome(cv_t *c, uint32_t t, int side);
 /* the Navidrome sidebar's player (sdl/sidebars/navidrome.c): its options, whether
  * it is on the glass, its music added to n samples of the machine's, the next song */

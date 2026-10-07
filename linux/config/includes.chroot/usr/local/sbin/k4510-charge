@@ -1,0 +1,36 @@
+#!/bin/sh
+# k4510-charge -- F12 -> Host -> Charge to 100% once (Doc, 2026-10-07: "when
+# battery will charge to 100% once then go back to 80% ... good for travel").
+#
+#   k4510-charge full     note the battery's charge limits, then lift them to
+#                         95-100%: it charges to full
+#   k4510-charge normal   put back the limits noted (75-80% on the Dell)
+#   k4510-charge status   "once" while a full charge is asked for, else "normal"
+#
+# The limits live in the laptop's firmware, so they hold across reboots and
+# power-offs; the note of the old ones lives on the persistence partition
+# (STATE), so a reboot in the middle still knows what to put back.  The
+# emulator runs "normal" when the battery is full, or when it is unplugged
+# after charging.  A battery without charge_control_*_threshold: exit 2.
+set -e
+STATE=/home/k4510/.k4510-charge
+B=
+for d in /sys/class/power_supply/*; do
+    [ "$(cat "$d/type" 2>/dev/null)" = Battery ] && [ -w "$d/charge_control_end_threshold" ] && { B=$d; break; }
+done
+[ -n "$B" ] || { echo "no battery with charge limits"; exit 2; }
+case "$1" in
+full)
+    [ -f "$STATE" ] || echo "$(cat "$B/charge_control_start_threshold") $(cat "$B/charge_control_end_threshold")" > "$STATE"
+    echo 100 > "$B/charge_control_end_threshold"          # the end first: start must stay under it
+    echo 95 > "$B/charge_control_start_threshold" ;;
+normal)
+    [ -f "$STATE" ] || exit 0
+    read -r s e < "$STATE"
+    echo "$s" > "$B/charge_control_start_threshold"       # the start first, for the same reason
+    echo "$e" > "$B/charge_control_end_threshold"
+    rm -f "$STATE" ;;
+status)
+    [ -f "$STATE" ] && echo once || echo normal ;;
+*)  echo "usage: k4510-charge full|normal|status"; exit 1 ;;
+esac

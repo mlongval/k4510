@@ -140,7 +140,7 @@ Info
 the version and the exact build, the ROM, the files, the host — the K4510’s own Linux, or a window on a desktop — and the battery, where there is one.
 
 Host  
-on the K4510’s own Linux only: the computer’s name, its network address and Tailscale’s; *Lid closed*, which is *keep running* to begin with — the machine goes on with the lid down — or *suspend*; a *Wi-Fi / network setup* row that opens the network settings on a spare console, and a row that telnets into the Linux for you.
+on the K4510’s own Linux only: the computer’s name, its network address and Tailscale’s; *Lid closed*, which is *keep running* to begin with — the machine goes on with the lid down — or *suspend*; *Charge to 100% once*, for a trip; a *Wi-Fi / network setup* row that opens the network settings on a spare console, and a row that telnets into the Linux for you.
 
 Leaving the menu writes the settings to `k4510.cfg` beside `fs/` — a plain `key = value` file you may edit; comments and keys it does not know are kept, which is how a settings file survives the machine changing under it.
 
@@ -318,6 +318,9 @@ shows
 
 **`Lid closed`** — *host.lid*  
 keep running, suspend; to begin with, keep running
+
+**`Charge to 100% once`** — *host.charge_once*  
+on, off; to begin with, off
 
 **`Wi-Fi / network setup`** —   
 does it

@@ -101,6 +101,7 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "video.hdfont",        "Font",           ST_ENUM,  HDFONT_ZHEKOV, 0, 0, 0, hdfont_names, HDFONT_COUNT, SF_LIVE },
     { "video.base",          "Canvas",         ST_ENUM,  0, 0, 0, 0, base_names, 2, SF_LIVE },
     { "video.cap",           "Pixel cap",      ST_INT,   2073600, 64000, 2304000, 64000, 0, 0, 0 },
+    { "host.charge_once",    "Charge to 100% once", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* then back to the usual limit */
     { "term.battime",        "Battery time",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* h:mm left, beside the battery's % */
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,

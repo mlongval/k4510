@@ -61,6 +61,9 @@ typedef enum {
                               * whole panel -- the canvas the integer display resolutions divide.  2026-10-07 */
     SET_VIDEO_CAP,           /* INT  the most pixels VICKY draws a frame (not in the menu: test/vidbench --suggest
                               * measures a host and says what to put here).  2026-10-07 */
+    SET_HOST_CHARGE_ONCE,    /* BOOL F12 -> Host -> Charge to 100% once: the battery's limits lifted until it is full
+                              * (or unplugged after charging), then put back (k4510-charge).  K4510 Linux only; the
+                              * truth is the helper's note, which this follows at start.  Doc, 2026-10-07 */
     SET_TERM_BATTTIME,       /* BOOL F12 -> Terminal -> Battery time: the bottom band shows the time the battery has
                               * left (to full, while it charges) beside its charge.  Doc, 2026-10-07 */
     SET_COUNT

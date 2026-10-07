@@ -38,12 +38,41 @@ static pid_t host_child;
  * a half deep, and starts over when the battery changes direction.
  * K4510_BATTERY "52,95" adds 95 minutes. */
 static int batt_min = -1;                        /* the estimate, minutes; -1 none */
+/* F12 -> Host -> Charge to 100% once (Doc, 2026-10-07: "charge to 100% once
+ * then go back to 80% ... good for travel").  The limits are the firmware's
+ * and the helper, k4510-charge, sets them under sudo -n; its note of the old
+ * ones (CHARGE_NOTE) is the truth, on the persistence partition, so the row
+ * follows it at start.  The battery poll puts the limits back when the
+ * battery is full, or is unplugged after it has charged. */
+#define CHARGE_NOTE "/home/k4510/.k4510-charge"
+static int charge_charged;                       /* it has charged since the once was asked for */
+static void charge_run(const char *how)
+{
+    pid_t pid = fork();
+    if (pid == 0) {
+        int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
+        execlp("sudo", "sudo", "-n", "/usr/local/sbin/k4510-charge", how, (char *) NULL);
+        _exit(127);
+    }
+    if (pid > 0) waitpid(pid, NULL, 0);          /* two writes to /sys: done at once */
+}
+void host_charge_apply(void)
+{
+    static int first = 1;
+    if (access("/etc/k4510-linux", F_OK) != 0) { settings_set(SET_HOST_CHARGE_ONCE, 0); return; }   /* a desktop's battery is the desktop's */
+    int noted = access(CHARGE_NOTE, F_OK) == 0, want = settings_get(SET_HOST_CHARGE_ONCE) != 0;
+    if (first) { first = 0; settings_set(SET_HOST_CHARGE_ONCE, noted); return; }
+    if (want == noted) return;
+    charge_run(want ? "full" : "normal"); charge_charged = 0;
+    settings_set(SET_HOST_CHARGE_ONCE, access(CHARGE_NOTE, F_OK) == 0);   /* what took: a battery without limits stays off */
+}
 static void battery_info(void)                   /* F12 -> Info -> Battery, from the same byte as the band */
 {
     char t[48]; int n;
     if (io_battery == 0xFF) { snprintf(t, sizeof t, "none"); menu_info(INFO_BATT, t); return; }
     n = snprintf(t, sizeof t, "%d%%, %s", io_battery & 0x7F, (io_battery & 0x80) ? "on AC / charging" : "on battery");
-    if (batt_min >= 0) snprintf(t + n, sizeof t - n, ", %d:%02d %s", batt_min / 60, batt_min % 60, (io_battery & 0x80) ? "to full" : "left");
+    if (batt_min >= 0) n += snprintf(t + n, sizeof t - n, ", %d:%02d %s", batt_min / 60, batt_min % 60, (io_battery & 0x80) ? "to full" : "left");
+    if (settings_get(SET_HOST_CHARGE_ONCE) && n < (int) sizeof t) snprintf(t + n, sizeof t - n, ", to 100%% once");
     menu_info(INFO_BATT, t);
 }
 static long sysval(const char *dev, const char *name)   /* a number from /sys/class/power_supply/DEV/NAME; -1 none */
@@ -65,7 +94,7 @@ void host_battery_poll(void)
                 io_battery = (uint8_t)((p < 0 ? 0 : p > 100 ? 100 : p) | (strchr(fake, '+') ? 0x80 : 0));
                 batt_min = m ? atoi(m + 1) : -1; battery_info(); return; }
     static double avg; static int dir;           /* the averaged current (or power), and which way it went: 1 down, 2 up */
-    int pct = -1, ac = 0, d2 = 0; long left = -1, rate = -1; char path[300], buf[32];
+    int pct = -1, ac = 0, d2 = 0, full = 0; long left = -1, rate = -1; char path[300], buf[32];
     DIR *d = opendir("/sys/class/power_supply");
     if (d) {
         struct dirent *de;
@@ -82,6 +111,7 @@ void host_battery_poll(void)
                     if (!fgets(buf, sizeof buf, f)) buf[0] = 0;
                     fclose(f);
                     if (!strncmp(buf, "Charging", 8) || !strncmp(buf, "Full", 4)) ac = 1;
+                    full = !strncmp(buf, "Full", 4);
                     d2 = !strncmp(buf, "Discharging", 11) ? 1 : !strncmp(buf, "Charging", 8) ? 2 : 0;
                 }
                 long now = sysval(de->d_name, "charge_now"), full = sysval(de->d_name, "charge_full");
@@ -96,6 +126,13 @@ void host_battery_poll(void)
         closedir(d);
     }
     io_battery = pct < 0 ? 0xFF : (uint8_t)((pct > 100 ? 100 : pct) | (ac ? 0x80 : 0));
+    if (settings_get(SET_HOST_CHARGE_ONCE) && pct >= 0) {                 /* the once: spent when full, or unplugged after charging */
+        if (d2 == 2) charge_charged = 1;
+        if (pct >= 100 || full || (d2 == 1 && charge_charged)) {
+            charge_run("normal"); charge_charged = 0;
+            settings_set(SET_HOST_CHARGE_ONCE, access(CHARGE_NOTE, F_OK) == 0);
+        }
+    }
     if (pct < 0 || left < 0 || !d2) { dir = 0; batt_min = -1; }
     else {
         if (d2 != dir) { dir = d2; avg = (double) rate; } else avg += ((double) rate - avg) / 8;   /* 10 s polls: 1/8 a step */

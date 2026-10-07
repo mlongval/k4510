@@ -114,6 +114,7 @@ static const item_t host_items[] = {
     { "Name",      MI_INFO, INFO_NAME }, { "Address", MI_INFO, INFO_ADDR }, { "Tailscale", MI_INFO, INFO_TS },
     { "",          MI_SEP },
     { "Lid closed",            MI_SETTING, SET_HOST_LID },   /* keep running / suspend: sdl/main.c host_lid_apply */
+    { "Charge to 100% once",   MI_SETTING, SET_HOST_CHARGE_ONCE },   /* for travel: sdl/hostpage.c host_charge_apply */
     { "Wi-Fi / network setup", MI_ACTION, ACT_NETSETUP },
     { "Telnet into the host",  MI_ACTION, ACT_TELNET },
 };

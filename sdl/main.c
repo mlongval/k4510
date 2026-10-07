@@ -1042,6 +1042,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 #define PERF_FRAMES 300
     host_keymap_apply();                          /* the first look: note the layout the boot already applied */
     host_lid_apply();                             /* the lid: keep running holds logind's lock from the start */
+    host_charge_apply();                          /* Charge to 100% once: the menu follows the helper's note */
     while (running) {
         /* The audio device closes after AUDIO_IDLE_MS of nothing but zeros --
          * no FM (the OPL2 sleeps), no radio -- and the sound hardware powers
@@ -1605,6 +1606,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (settings_changed()) settings_save(cfg);
             host_keymap_apply();                  /* layout / Caps-as-Ctrl changed: the Linux side too (K4510 Linux only) */
             host_lid_apply();                     /* Lid closed: take or let go of logind's lid lock */
+            host_charge_apply();                  /* Charge to 100% once: lift or put back the battery's limits */
         }
         /* ---- the governor -------------------------------------------------
          * The measurement is a guess about programs it has not seen, so the

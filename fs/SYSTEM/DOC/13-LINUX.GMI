@@ -172,6 +172,13 @@ suspend. (Quit to the Linux shell and nothing is keeping the machine awake:
 there the lid suspends.) The consoles speak UTF-8 and follow the keyboard
 layout chosen in F12.
 
+The battery. A laptop that keeps its battery between limits -- the Dell
+charges to 80% and starts again under 75% -- lives longer, but leaves a fifth
+of the battery at home. F12 -> Host -> Charge to 100% once lifts the limits
+until the battery is full, or until it is unplugged after charging, and then
+puts them back. The limits are the laptop's own, so they hold through a
+reboot; so does the request.
+
 The network. F12 -> Host shows the computer's name and address, and Wi-Fi /
 network setup opens NetworkManager's own screen on a spare console to join a
 network; the machine is back when you leave it. A network joined once is

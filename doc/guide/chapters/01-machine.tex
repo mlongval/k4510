@@ -51,10 +51,24 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   thirty in tall 8$\times$16 letters, and \emph{640x480x60}, eighty by
   sixty in 8$\times$8 --- the screen the machine had before it settled on
   one font. \verb|MODE 0 60| and \verb|MODE 0 30| choose them at the
-  prompt, and the machine remembers which. The HD screens do the same:
-  1440x1080 (\verb|MODE 5|) in 16x32 cells, or 16x16 with \verb|MODE 5 67|;
-  720x540 (\verb|MODE 6|) in 8x16, or 8x8 with \verb|MODE 6 67| --- ninety
-  columns by thirty-three rows, or by sixty-seven.
+  prompt, and the machine remembers which. The HD screens are the
+  panel's own: the machine finds the display's native size, takes the
+  largest 4:3 in it (or all of it, F12 $\rightarrow$ Video $\rightarrow$
+  Canvas), and divides that by a whole number --- the \emph{integer display
+  resolutions}, every machine pixel the same square of panel pixels. A
+  1920x1080 panel offers 1440x1080 (\verb|MODE /1|), 720x540 (\verb|/2|),
+  480x360 (\verb|/3|) and 360x270 (\verb|/4|); a 1366x768 one 1024x768,
+  512x384 and 341x256; a 4K panel starts at 1440x1080 shown twice over, since
+  a larger picture would cost more than a frame to draw. \verb|MODE| alone
+  lists what this panel offers; \verb|MODE 5|, \verb|6| and \verb|7| are
+  \verb|/1|, \verb|/2| and \verb|/4|. Each comes in larger cells and, with
+  a row count over forty after it (\verb|MODE /2 67|), smaller ones: at
+  1440x1080 sixteen wide, 90 columns by 33 or 67 rows; at 720x540 eight
+  wide, drawn with the panel's pixels (below), 90 by 33 or 67. K/OS keeps
+  to 132 columns and 25 rows at least. How large a picture is too large depends on
+  the computer: \verb|!k4510-vidcap| times this one and writes its
+  \emph{pixel cap} into \pth{k4510.cfg}, so a slow laptop offers fewer and
+  smaller resolutions rather than a machine that cannot keep up.
 \item \textbf{Sound: MELODY} --- an OPL2, the Yamaha YM3812, at
   \texttt{\$D480}: nine FM voices wired the AdLib's way, an address port,
   a data port and a status register you poll. Any AdLib register list or
@@ -224,14 +238,15 @@ page on the right.}
 
 \begin{description}
 \item[Video] the border; \emph{resolution}, which is the
-  \verb|MODE| command's knob: 1440x1080 and 720x540, each with large
-  (16x32) or small (16x16) text, and 360x270 --- the whole dividers of a
-  1920x1080 panel's 4:3 (a program may still put the machine in 640x480
-  and the others, and the row says so); \emph{font}, the text's face at
-  the panel's own pixels. At 1440x1080 it is the machine's font, 16
-  wide; at 720x540 each 8x16 cell is drawn as 16x32 (an 8x8 one as
-  16x16) while the graphics stay the machine's, and a character a program
-  has redefined keeps its own shape. The faces: \emph{Zhekov Bold} (to
+  \verb|MODE| command's knob: this panel's integer display resolutions,
+  each with its text grid (``720x540 90x33''), kept by scale so a machine
+  moved to another panel comes up at the same \verb|/n| (a program may
+  still put the machine in 640x480 and the others, and the row says so);
+  \emph{canvas}, 4:3 or the whole panel; \emph{font}, the text's face at
+  the panel's own pixels. At scale 1 it is the machine's font, 16 wide;
+  at an even scale each 8x16 cell is drawn as 16x32 (an 8x8 one as 16x16)
+  while the graphics stay the machine's, and a character a program has
+  redefined keeps its own shape. The faces: \emph{Zhekov Bold} (to
   begin with) and \emph{Zhekov} --- Dimitar Zhekov's Terminus Font,
   renamed as its licence asks of a changed copy --- \emph{Spleen},
   \emph{IBM VGA}, \emph{Atkinson Mono} (the Braille Institute's face for

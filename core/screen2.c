@@ -27,10 +27,12 @@
  * machines (k4510-menu.cfg) have no second screen: it is a way into Linux. */
 static pid_t s2_pid;
 static int s2_fd = -1, s2_dead;
+static int s2_jiggle;                        /* frames into a redraw asked of the session (io_screen2_redraw) */
 static void s2_winsize(void)
 {
     struct winsize ws; int c = 80, r = 25;
     term2_size(&c, &r);
+    if (s2_jiggle && s2_jiggle < 6 && r > 2) r--;   /* a row short for a few frames, then right again */
     memset(&ws, 0, sizeof ws); ws.ws_col = (unsigned short) c; ws.ws_row = (unsigned short) r;
     ws.ws_xpixel = (unsigned short)(c * 8); ws.ws_ypixel = (unsigned short)(r * term_cell_h());
     if (s2_fd >= 0) ioctl(s2_fd, TIOCSWINSZ, &ws);
@@ -92,6 +94,17 @@ void io_screen_show(int n)
     term_screen_show(n);
 }
 int io_screen(void) { return term_screen(); }
+/* After a power cycle (Doc, 2026-10-07): the machine's RAM is zeroed, and the
+ * second screen's map lives in it, so what the session had drawn there was
+ * gone -- and a session redraws only what changes (mosh, tmux), leaving holes.
+ * The map is blanked and the session made to draw everything again: its
+ * window a row short for a few frames and back, which every full-screen
+ * program answers with a whole repaint. */
+void io_screen2_redraw(void)
+{
+    term2_wipe();
+    if (s2_pid) s2_jiggle = 1;
+}
 static void s2_write(const uint8_t *b, size_t n)
 {
     while (s2_fd >= 0 && n) { ssize_t w = write(s2_fd, b, n); if (w <= 0) break; b += w; n -= (size_t) w; }
@@ -116,6 +129,7 @@ void s2_pump(void)
     uint8_t buf[8192]; ssize_t n; int rounds = 8;
     if ((req = term_screen_request()) >= 0) io_screen_show(req);    /* ESC ] 4510 ; kos / term, from either screen */
     if (term2_fit(&c, &r)) s2_winsize();                            /* a MODE change: the session's size follows */
+    if (s2_jiggle) { if (s2_jiggle == 1 || s2_jiggle == 6) s2_winsize(); if (++s2_jiggle > 6) s2_jiggle = 0; }
     if (!s2_pid) return;
     while (rounds-- && (n = read(s2_fd, buf, sizeof buf)) > 0) {
         size_t m; uint8_t rep[256];

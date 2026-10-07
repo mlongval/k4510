@@ -1598,6 +1598,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         switch (act) {
         case ACT_RESET: cpu65_reset(); break;
         case ACT_POWER_CYCLE: host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); /* resets the I/O too */ load_fonts(); mem_load_rom(rom); cpu65_reset();
+                              io_screen2_redraw();                /* the Terminal's map was in that RAM: blank it, and its session draws all again */
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: mlog("quit: F12 -> Quit"); running = 0; break;

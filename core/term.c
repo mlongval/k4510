@@ -1260,3 +1260,9 @@ size_t term2_replies(uint8_t *out, size_t max)    /* what the second screen's JI
 }
 void term2_key(uint8_t k) { if (!s2_ready) return; tp = &TS[1]; key(k); tp = &TS[0]; }
 void term2_say(const char *s) { term2_feed((const uint8_t *) s, strlen(s)); }
+void term2_wipe(void)
+{
+    if (!s2_ready) return;
+    tp = &TS[1]; cur_undraw(); s2_blank(); T.cx = T.cy = 0; T.pending = 0; if (VISIBLE && T.shown) cur_draw(); tp = &TS[0];
+    vicky_dirty = 1;
+}

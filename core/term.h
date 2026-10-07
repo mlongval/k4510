@@ -76,6 +76,7 @@ void    term2_feed(const uint8_t *b, size_t n);  /* the session's output */
 size_t  term2_replies(uint8_t *out, size_t max); /* what it answers, and the keys turned into bytes */
 void    term2_key(uint8_t k);                    /* a K4510 key code (or a plain byte), as JIM translates them */
 void    term2_say(const char *s);
+void    term2_wipe(void);                         /* the second screen's map blanked (a power cycle zeroed it) */
 const uint16_t *term_page_table(void);   /* the code page in use, 256 Unicode values (core/codepage.h) */
 void    term_set_page(int k4510);      /* 0 strict CP437 (the default), 1 the K4510 page: table and fonts */
 int     term_get_page(void);

@@ -295,8 +295,10 @@ the settings file; the Tube co-processor is not in the file and is stopped by
 a load); reset; power cycle; stop the Tube; quit; CPU clock -- the steps,
 live, 60 MHz at the most for now; choosing one switches Auto clock off,
 because a clock chosen by hand is not to be second-guessed. Auto clock on uses
-what SETUP measured on this host. On the K4510's own Linux there is a last
-row, Shut down the computer.
+what SETUP measured on this host. On the K4510's own Linux there are two last
+rows: Save and power off, which keeps the machine as it is -- the program, the
+screen, the memory -- and brings it back at the next power-on, and Shut down
+the computer.
 
 Shell
 whether an unknown word at the prompt may run a CP/M .COM -- off to begin
@@ -476,6 +478,9 @@ CPU clock -- cpu.clock
 
 Auto clock -- cpu.auto
 on, off; to begin with, on
+
+Save and power off --
+does it
 
 Shut down the computer --
 does it; only on the K4510's own Linux

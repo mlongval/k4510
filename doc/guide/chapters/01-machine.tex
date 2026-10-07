@@ -275,7 +275,9 @@ page on the right.}
   steps, live, 60\,MHz at the most for now; choosing one switches \emph{Auto clock} off, because a
   clock chosen by hand is not to be second-guessed. \emph{Auto clock} on
   uses what \verb|SETUP| measured on this host. On the K4510's own Linux
-  there is a last row, \emph{Shut down the computer}.
+  there are two last rows: \emph{Save and power off}, which keeps the
+  machine as it is --- the program, the screen, the memory --- and brings
+  it back at the next power-on, and \emph{Shut down the computer}.
 \item[Shell] whether an unknown word at the prompt may run a CP/M
   \texttt{.COM}\shipif{chapter:09-cpm}{ (Chapter~\ref{cha:cpm})} --- off to begin with, on
   purpose: \verb|D| typed for \verb|DIR| should not start a Z80 program;

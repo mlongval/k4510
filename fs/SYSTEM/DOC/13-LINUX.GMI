@@ -166,11 +166,15 @@ consoles, 80 by 25 in the IBM PC's own font; Ctrl+Alt+F1 comes back. (On a
 laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc,
 or F12 -> Quit) drops you to a Linux shell on the machine's own console rather
 than to nothing, and F12 has a Shut down the computer row because there is no
-desktop to go back to. The power button performs a clean shutdown. Closing the
-lid does what F12 -> Host -> Lid closed says: keep running, to begin with, or
-suspend. (Quit to the Linux shell and nothing is keeping the machine awake:
-there the lid suspends.) The consoles speak UTF-8 and follow the keyboard
-layout chosen in F12.
+desktop to go back to. Save and power off, beside it, is the machine's own
+hibernation: the whole machine goes to a file, the computer turns off, and the
+next power-on comes back to the program and the screen you left, about as fast
+as an ordinary start. What a state never holds stays behind: a program on the
+Tube, the second screen's session, a telnet connection. The power button
+performs a clean shutdown. Closing the lid does what F12 -> Host -> Lid closed
+says: keep running, to begin with, or suspend. (Quit to the Linux shell and
+nothing is keeping the machine awake: there the lid suspends.) The consoles
+speak UTF-8 and follow the keyboard layout chosen in F12.
 
 The battery. A laptop that keeps its battery between limits -- the Dell
 charges to 80% and starts again under 75% -- lives longer, but leaves a fifth

@@ -131,7 +131,7 @@ Input
 the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture (full screen, the pointer stays on the machine’s picture, and goes into the side panel only when there is one); the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 11, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.
 
 Machine  
-*save state* and *load state*, four slots each (the whole machine — CPU, every used page of the 256 MB, VICKY, the devices, JIM — to `k4510-slotN.k4s` beside the settings file; the Tube co-processor is not in the file and is stopped by a load); reset; power cycle; stop the Tube; quit; *CPU clock* — the steps, live, 60 MHz at the most for now; choosing one switches *Auto clock* off, because a clock chosen by hand is not to be second-guessed. *Auto clock* on uses what `SETUP` measured on this host. On the K4510’s own Linux there is a last row, *Shut down the computer*.
+*save state* and *load state*, four slots each (the whole machine — CPU, every used page of the 256 MB, VICKY, the devices, JIM — to `k4510-slotN.k4s` beside the settings file; the Tube co-processor is not in the file and is stopped by a load); reset; power cycle; stop the Tube; quit; *CPU clock* — the steps, live, 60 MHz at the most for now; choosing one switches *Auto clock* off, because a clock chosen by hand is not to be second-guessed. *Auto clock* on uses what `SETUP` measured on this host. On the K4510’s own Linux there are two last rows: *Save and power off*, which keeps the machine as it is — the program, the screen, the memory — and brings it back at the next power-on, and *Shut down the computer*.
 
 Shell  
 whether an unknown word at the prompt may run a CP/M `.COM` — off to begin with, on purpose: `D` typed for `DIR` should not start a Z80 program; and whether `/STARTUP.BAT` runs at power-on, which is the way out of a bad one ([When STARTUP.BAT is the problem](02-shell.md#when-startupbat-is-the-problem)).
@@ -271,6 +271,9 @@ does it
 
 **`Auto clock`** — *cpu.auto*  
 on, off; to begin with, on
+
+**`Save and power off`** —   
+does it
 
 **`Shut down the computer`** —   
 does it; only on the K4510’s own Linux

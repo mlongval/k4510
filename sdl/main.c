@@ -326,6 +326,14 @@ static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP4
 /* The HD text fonts (vicky_hd_font, tools/mkhdfonts.py): per face, the K4510
  * page's order and CP437's; a face whose files are missing is drawn as unscii. */
 static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384], hd_fonts16[HDFONT_COUNT][PAGE_COUNT][8192]; static int hd_have[HDFONT_COUNT];
+/* F12 -> Machine -> Save and power off (Doc, 2026-10-07, in place of a Linux
+ * hibernate): the whole machine to this file, then the computer off; the next
+ * start loads it and deletes it, so you are back where you were -- the
+ * program, the screen, the memory.  Not in it, as with any state: the Tube's
+ * co-processor, the second screen's session, network connections.  A file
+ * this build cannot read (a state from another version) is set aside as
+ * .old and the machine boots as usual. */
+#define RESUME_FILE "k4510-resume.k4s"
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -1043,6 +1051,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     host_keymap_apply();                          /* the first look: note the layout the boot already applied */
     host_lid_apply();                             /* the lid: keep running holds logind's lock from the start */
     host_charge_apply();                          /* Charge to 100% once: the menu follows the helper's note */
+    if (access(RESUME_FILE, F_OK) == 0) {         /* Save and power off, last time: back where it was */
+        int r = state_load(RESUME_FILE);
+        if (r == 0) { load_fonts(); remove(RESUME_FILE); mlog("start: resumed from " RESUME_FILE); }
+        else { rename(RESUME_FILE, RESUME_FILE ".old"); mlog("start: " RESUME_FILE " would not load; a fresh boot");
+               if (r == -2) { host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); load_fonts(); mem_load_rom(rom); cpu65_reset(); } }
+    }
     while (running) {
         /* The audio device closes after AUDIO_IDLE_MS of nothing but zeros --
          * no FM (the OPL2 sleeps), no radio -- and the sound hardware powers
@@ -1543,6 +1557,11 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: mlog("quit: F12 -> Quit"); running = 0; break;
         case ACT_SHUTDOWN: mlog("quit: F12 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
+        case ACT_SAVE_OFF:                                            /* the machine to RESUME_FILE, then the same power off */
+            if (state_save(RESUME_FILE ".tmp") == 0 && rename(RESUME_FILE ".tmp", RESUME_FILE) == 0) {
+                mlog("quit: F12 -> Save and power off"); shutdown_req = 1; running = 0;
+            } else { remove(RESUME_FILE ".tmp"); mlog("Save and power off: the state was not written; still running"); }
+            break;
         case ACT_NETSETUP: host_net_setup(); break;
         case ACT_SIDEBAR_OPTIONS: {                                   /* F12 -> Video -> Edit options: the sidebar's OPTIONS.CFG in VI */
             extern const char *io_title(void);

@@ -85,7 +85,7 @@ static const item_t machine_items[] = {
     { "",                  MI_SEP },
     { "CPU clock",         MI_SETTING, SET_CPU_CLOCK },   /* the ladder, 202.5 down to 10; after Reset so uitest's walk to it is unchanged */
     { "Auto clock",        MI_SETTING, SET_CPU_AUTO },    /* measured at boot (core/calib.c); choosing a clock above turns this off */
-    /* The last two rows are the K4510 Linux's and nobody else's, which is why they are
+    /* The last three rows are the K4510 Linux's and nobody else's, which is why they are
      * LAST: the menu simply stops short of them everywhere else (menu_set_
      * shutdown below), so no host that cannot honour them ever draws them and
      * uitest's walk is unchanged.  On a desktop the emulator is a program and
@@ -94,6 +94,7 @@ static const item_t machine_items[] = {
      * be this machine -- and there, ending the session should be able to end
      * the machine, not drop you on a login prompt you did not ask for. */
     { "",                  MI_SEP },
+    { "Save and power off",     MI_ACTION, ACT_SAVE_OFF },   /* the machine as it is, back at the next power-on (2026-10-07) */
     { "Shut down the computer", MI_ACTION, ACT_SHUTDOWN },
 };
 #define MACHINE_N ((int)(sizeof machine_items / sizeof machine_items[0]))
@@ -177,7 +178,7 @@ static void rebuild(void)
         for (int i = 0; i < full->n && i < ROWMAX; i++) {
             const item_t *it = &full->items[i];
             if (hide_row[c][i]) continue;
-            if (full == &machine_menu && !have_shutdown && i >= MACHINE_N - 2) continue;
+            if (full == &machine_menu && !have_shutdown && i >= MACHINE_N - 3) continue;
             if (it->kind == MI_ACTION && it->arg == ACT_TELNET && locks[MENU_LOCK_LINUX]) continue;
             if (it->kind == MI_SEP && (n == 0 || vrows[k][n - 1].kind == MI_SEP)) continue;   /* no separator first, none twice */
             vrows[k][n++] = *it;

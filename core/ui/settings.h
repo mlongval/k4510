@@ -13,7 +13,9 @@ extern "C" {
 #endif
 typedef enum {
     SET_VIDEO_BORDER,        /* INT  pixels of border around the picture */
-    SET_VIDEO_BORDER_COLOUR, /* INT  palette index */
+    SET_VIDEO_BORDER_COLOUR, /* ENUM the frame's colour -- the border and both status bands (Doc, 2026-10-07: "one
+                              * colour, dark grey default"): one of the VIC-II sixteen by name; the key keeps its old
+                              * name, and an old file's number loads as the same entry */
     SET_VIDEO_MODE,          /* ENUM the machine's video mode: shown live, and the ROM performs a change */
     SET_VIDEO_STATUSBAR,     /* BOOL the status bands; keyed term.bands, and its row lives in the Terminal menu.
                               * The console becomes a scroll region between two bands the ROM draws.
@@ -64,6 +66,8 @@ typedef enum {
     SET_HOST_CHARGE_ONCE,    /* BOOL F12 -> Host -> Charge to 100% once: the battery's limits lifted until it is full
                               * (or unplugged after charging), then put back (k4510-charge).  K4510 Linux only; the
                               * truth is the helper's note, which this follows at start.  Doc, 2026-10-07 */
+    SET_VIDEO_FRAME_FOLLOW,  /* BOOL the frame colour is the palette's entry of that number (on, the default: AMBER's
+                              * frame is amber) or the VIC-II colour itself, whatever the palette.  Doc, 2026-10-07 */
     SET_TERM_BATTTIME,       /* BOOL F12 -> Terminal -> Battery time: the bottom band shows the time the battery has
                               * left (to full, while it charges) beside its charge.  Doc, 2026-10-07 */
     SET_COUNT

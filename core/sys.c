@@ -29,6 +29,7 @@ const char sys_version[16] = K4510_BUILD;
  * sets it: 0 = a desktop (or a container on one), 1 = the K4510 Linux. */
 int io_host_kind;
 uint8_t io_battery = 0xFF;    /* $D53A: none until the frontend finds one */
+uint8_t io_frame = 11, io_frame_follow = 1;   /* the frame: dark grey, the palette's */
 uint16_t io_batt_min = 0xFFFF; /* the time it has left, for the band: none until the frontend has one */
 uint8_t io_net = 0xFF, io_net_q;   /* the network, for the bottom band: NET_*, $FF not known; Wi-Fi's link quality, % */
 /* ---- the title: what the machine is running, for the top status band ----

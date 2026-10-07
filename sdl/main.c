@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <dirent.h>
 #include <ctype.h>
+#include <math.h>          /* the frame text's contrast */
 #include <strings.h>
 #include <time.h>
 #include <signal.h>
@@ -196,14 +197,49 @@ static void screen_save(void)
 }
 /* The name both pictures of one screenshot share: shots/shot-<date>-<time>-<ms> */
 static char shot_base[64];
-static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal, const uint32_t *upal) {
+/* The frame (Doc, 2026-10-07): the border and the status bands are one colour,
+ * F12 -> Video -> Frame colour.  Following the palette it is that palette
+ * entry, as the border always was; not following, it is the VIC-II colour of
+ * that number whatever the palette, and the bands' text is near-black or
+ * near-white, whichever reads better on it for normal and protan eyes alike.
+ * The band lines (vicky_band_lines) are then drawn through fpal, which is the
+ * palette with the bands' two entries replaced. */
+static const uint32_t frame_vic[16] = {
+    0x000000, 0xFFFFFF, 0x880000, 0xAAFFEE, 0xCC44CC, 0x00CC55, 0x0000AA, 0xEEEE77,
+    0xDD8855, 0x664400, 0xFF7777, 0x333333, 0x777777, 0xAAFF66, 0x0088FF, 0xBBBBBB,
+};
+static uint32_t pal[256], mpal[256], fpal[256], fmpal[256];   /* the palette, behind the menu; with the frame's colours */
+static int frame_fixed;                                        /* the band lines go through fpal this frame */
+static double frame_lin(uint32_t c, int sh) { double v = ((c >> sh) & 255) / 255.0; return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4); }
+static double frame_lum(uint32_t c, int protan)
+{
+    double r = frame_lin(c, 16), g = frame_lin(c, 8), b = frame_lin(c, 0);
+    return protan ? 0.1140 * r + 0.7827 * g + 0.1034 * b : 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+static double frame_ratio(uint32_t a, uint32_t b)
+{
+    double m = 99;
+    for (int p = 0; p < 2; p++) { double x = frame_lum(a, p), y = frame_lum(b, p), r = x > y ? (x + 0.05) / (y + 0.05) : (y + 0.05) / (x + 0.05); if (r < m) m = r; }
+    return m;
+}
+static uint32_t frame_rgb(void)                                 /* the border's colour, and the bands' */
+{
+    int i = settings_get(SET_VIDEO_BORDER_COLOUR) & 15;
+    return settings_get(SET_VIDEO_FRAME_FOLLOW) ? vicky_palette_rgb(i) & 0xFFFFFF : frame_vic[i];
+}
+static const uint32_t *row_pal(int y, int menu)                 /* the table line y of the frame is drawn through */
+{
+    if (frame_fixed && y >= 0 && y < VICKY_HEIGHT && vicky_band_lines()[y]) return menu ? fmpal : fpal;
+    return menu ? mpal : pal;
+}
+static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal_unused, const uint32_t *upal) {
     const int W = vicky_out_w(), H = vicky_out_h(), ROW = 1 + W * 3;   /* the picture as drawn: the glass, or twice it with HD text */
     static uint8_t raw[VICKY_HEIGHT * (1 + VICKY_WIDTH * 3)];
     for (int y = 0; y < H; y++) {
         uint8_t *d = raw + y * ROW; *d++ = 0;                      /* filter: none */
         for (int x = 0; x < W; x++) {
             int o = ov ? ov[(y * UI_H / H) * UI_W + x * UI_W / W] : 0;
-            uint32_t p = o ? upal[o] : pal[src[y * VICKY_WIDTH + x]];
+            uint32_t p = o ? upal[o] : row_pal(y, ov != NULL)[src[y * VICKY_WIDTH + x]];
             *d++ = (uint8_t)(p >> 16); *d++ = (uint8_t)(p >> 8); *d++ = (uint8_t) p;
         }
     }
@@ -989,8 +1025,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
     SDL_Texture *btex = NULL; int btex_col = -1, btex_smooth = -1, btex_sbar = -1, btex_gh = -1; uint32_t btex_rgb = 0;
 
     static uint8_t ov[UI_W * UI_H];
-    static uint32_t pal[256];                     /* the machine's colours */
-    static uint32_t mpal[256];                    /* the same, half-lit: the picture behind the menu */
+    /* pal, mpal (the machine's colours, and half-lit behind the menu) and the
+     * frame's fpal, fmpal are file-wide: the screenshots read them too */
     static uint32_t upal[UIC_COUNT];              /* the menu's own colours */
     int tex_stale = 1;                            /* the tables changed: the texture must be rebuilt */
     int fullscreen_applied = 0;
@@ -1759,16 +1795,28 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         /* the palettes, once a frame instead of once a pixel: the machine's
          * colours, the same half-lit behind the menu, and the menu's own; the
          * 256-entry tables only when VICKY's palette changed (review 2026-09-05, 9) */
-        { static uint32_t gen_done = 0xFFFFFFFFu;
-          if (vicky_palette_gen() != gen_done) {
-              gen_done = vicky_palette_gen(); tex_stale = 1;
+        { static uint32_t gen_done = 0xFFFFFFFFu; static int frame_done = -1;
+          int fr = settings_get(SET_VIDEO_BORDER_COLOUR) & 15, fol = settings_get(SET_VIDEO_FRAME_FOLLOW) != 0;
+          io_frame = (uint8_t) fr; io_frame_follow = (uint8_t) fol;            /* JIM paints the bands with them */
+          if (vicky_palette_gen() != gen_done || frame_done != fr * 2 + fol) {
+              gen_done = vicky_palette_gen(); frame_done = fr * 2 + fol; tex_stale = 1;
               for (int i = 0; i < 256; i++) {
                   uint32_t c = vicky_palette_rgb(i) & 0xFFFFFF;
                   pal[i] = 0xFF000000u | c; mpal[i] = 0xFF000000u | ((c >> 1) & 0x7F7F7F);
               }
+              memcpy(fpal, pal, sizeof fpal); memcpy(fmpal, mpal, sizeof fmpal);
+              if (!fol) {                                                      /* the bands' entries, as term.c chose them */
+                  uint32_t bg = frame_vic[fr], fg = frame_ratio(0xF2F2F2, bg) >= frame_ratio(0x111111, bg) ? 0xF2F2F2 : 0x111111;
+                  int fi = fr == 1 ? 0 : 1;
+                  fpal[fr] = 0xFF000000u | bg; fpal[fi] = 0xFF000000u | fg;
+                  fmpal[fr] = 0xFF000000u | ((bg >> 1) & 0x7F7F7F); fmpal[fi] = 0xFF000000u | ((fg >> 1) & 0x7F7F7F);
+              }
           }
+          { uint8_t a, b2, c2, d2; int claimed = 0;
+            int fx = !fol && vicky_bands(&a, &b2, &c2, &d2, &claimed) && !claimed;   /* a program's own bands keep its colours */
+            if (fx != frame_fixed) { frame_fixed = fx; tex_stale = 1; } }
           for (int i = 0; i < UIC_COUNT; i++) { uint32_t o = upal[i]; upal[i] = 0xFF000000u | (ui_palette_rgb(i) & 0xFFFFFF); if (upal[i] != o) tex_stale = 1; }
-          border_lit = 0xFF000000u | (vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR)) & 0xFFFFFF);
+          border_lit = 0xFF000000u | frame_rgb();
         }
 
         void *pixels; int pitch;
@@ -1787,8 +1835,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         for (int y = 0; y < gh; y++) {
             const uint8_t *src = fb + y * VICKY_WIDTH;     /* the menu is its own layer now, drawn over this (below) */
             uint32_t *d = (uint32_t *)((uint8_t *)pixels + y * pitch);
-            if (!open) for (int x = 0; x < gw; x++) d[x] = pal[src[x]];
-            else       for (int x = 0; x < gw; x++) d[x] = mpal[src[x]];
+            const uint32_t *rp = row_pal(y, open);                  /* a band line: the frame's colours */
+            for (int x = 0; x < gw; x++) d[x] = rp[src[x]];
         }
         SDL_UnlockTexture(tex);
 tex_done:
@@ -1819,7 +1867,7 @@ tex_done:
           drawn_bits |= 1;                                      /* this frame is drawn (the pacer counts them) */
           last_sig = sig; present_force = 0; last_full = tn; }
         { int b = settings_get(SET_VIDEO_BORDER) * gw / 640;     /* the border's pixels are 640-glass pixels */
-          uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
+          uint32_t bc = frame_rgb();
           geo_b = b;                                             /* for the mouse */
           SDL_Rect gsrc = { 0, 0, gw, gh };                      /* the glass, in the top-left of the largest texture */
           SDL_Rect dr = { b, b, gw - 2 * b, gh - 2 * b };
@@ -2306,7 +2354,7 @@ frame_still:
               if (f) { fprintf(f, "P6 %d %d 255\n", sw, sh);   /* the glass, and the menu over it when it is open (its own layer on the screen) */
                        for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) {
                            uint8_t o = mo ? ov[(y * UI_H / sh) * UI_W + x * UI_W / sw] : 0;
-                           uint32_t p = o ? upal[o] : (mo ? mpal : pal)[fb[y * VICKY_WIDTH + x]];
+                           uint32_t p = o ? upal[o] : row_pal(y, mo)[fb[y * VICKY_WIDTH + x]];
                            fputc((p >> 16) & 255, f); fputc((p >> 8) & 255, f); fputc(p & 255, f); }
                        fclose(f); }
               running = 0; } }

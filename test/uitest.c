@@ -221,11 +221,11 @@ int main(void)
      * either case, the locks read, and the written file lists every row. */
     { const char *mf = "test/uitest-menu.cfg", *mf2 = "test/uitest-menu2.cfg"; char buf[4096] = { 0 };
       f = fopen(mf, "w");
-      fputs("# a parent's choices\n[K4510]\nAudio = hide\n[Video]\nBorder width = hide\nborder COLOUR = HIDE   # either case\n"
+      fputs("# a parent's choices\n[K4510]\nAudio = hide\n[Video]\nBorder width = hide\nframe COLOUR = HIDE   # either case\n"
             "[Terminal]\n24-hour clock = hide\nDate format = hide\n[Nowhere]\nX = hide\n[Locks]\nlinux = locked\n", f); fclose(f);
       CHECK(menu_file_load(mf) == 0, "the menu file loads");
       CHECK(!menu_row_shown("Audio", 0) && menu_row_shown("Video", 0), "a hidden category is gone, the others stay");
-      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Border colour") && menu_row_shown("Video", "Resolution"), "hidden rows are gone, either case");
+      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Frame colour") && menu_row_shown("Video", "Resolution"), "hidden rows are gone, either case");
       CHECK(!menu_row_shown("Terminal", "Date format") && menu_row_shown("Terminal", "Status bands"), "the Terminal rows it names are gone");
       CHECK(menu_lock(MENU_LOCK_LINUX) && !menu_lock(MENU_LOCK_CONSOLES), "the locks read");
       CHECK(menu_file_write(mf2) == 0, "the menu file is written");

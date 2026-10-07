@@ -72,6 +72,13 @@ extern uint8_t io_battery;
  * battery, no estimate, or F12 -> Terminal -> Battery time off).  Set by the
  * frontend with io_battery.  Doc, 2026-10-07. */
 extern uint16_t io_batt_min;
+/* The frame (Doc, 2026-10-07): the border and the status bands are one colour,
+ * F12 -> Video -> Frame colour, a VIC-II entry (io_frame); with Frame follows
+ * palette off (io_frame_follow 0) it is that entry's VIC-II colour whatever
+ * the palette, and the bands' text black or white, whichever reads -- the
+ * frontend draws the band lines with those (vicky_band_line).  Set by the
+ * frontend every frame. */
+extern uint8_t io_frame, io_frame_follow;
 /* The network the machine's Linux has, for the bottom band (2026-10-06, Doc:
  * "a WIFI or Network indicator ... bottom right"): set by the frontend every
  * ten seconds from /sys/class/net.  $FF: not known (headless). */

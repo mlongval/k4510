@@ -332,6 +332,7 @@ uint32_t vicky_palette_rgb(int index);                /* 0x00RRGGBB */
  * latched with CONMAP, TCOLS, whether a program has them.  0 if BANDMAP is off. */
 void     vicky_screen_map(uint32_t map);
 int      vicky_bands(uint8_t *oy, uint8_t *rows, uint8_t *bot, uint8_t *cols, int *claimed);
+const uint8_t *vicky_band_lines(void);              /* per line of the frame: 1 if a status band drew it */
 uint32_t vicky_palette_gen(void);                     /* changes whenever any palette entry may have */
 
 #endif

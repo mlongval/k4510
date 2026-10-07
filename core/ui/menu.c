@@ -22,13 +22,14 @@ static item_t pal_items[2 + MENU_PALETTES] = { { "The VIC-II sixteen (reset)", M
 static menu_t pal_menu = { "Palette", pal_items, 1 };
 static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
-    { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
+    { "Frame colour",  MI_SETTING, SET_VIDEO_BORDER_COLOUR },   /* the border and the status bands, one colour (2026-10-07) */
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
     { "Canvas",        MI_SETTING, SET_VIDEO_BASE },   /* 4:3 or the whole panel: what the resolutions divide (2026-10-07) */
     { "Font",          MI_SETTING, SET_VIDEO_FONT },   /* the HD text font at 720x540 (2026-10-06) */
     /* Scaling, Full screen and Vertical sync went 2026-10-06: integer and full
      * screen always (settings_load), vsync as it was */
     { "Placement",     MI_SETTING, SET_VIDEO_PLACE },
+    { "Frame follows palette", MI_SETTING, SET_VIDEO_FRAME_FOLLOW },   /* off: the frame keeps its VIC-II colour under any palette */
     /* the sidebar, and its options in its own file: F12 keeps to these two rows
      * (Doc, 2026-09-15: "limit the F12 options to 'which one' and 'Edit options'") */
 #if K4510_SIDEBARS                                    /* off for now (2026-10-06): sdl/main.c */

@@ -87,6 +87,10 @@ static void glass_of(uint8_t c, int *w, int *h, int *hd, int *scale)
       *w = idrs[i].w; *h = idrs[i].h; *scale = idrs[i].scale; }
 }
 static int      glass_w = OLD_W, glass_h = OLD_H, glass_hd, glass_scale;   /* this frame's, latched at its start */
+/* Which lines of the frame are a status band's (2026-10-07: the frame colour,
+ * io.h io_frame): set as the lines are drawn, read by the frontend. */
+static uint8_t band_out[VICKY_HEIGHT], line_band;
+const uint8_t *vicky_band_lines(void) { return band_out; }
 static void glass_latch(void) { glass_of(reg[VR_CTRL], &glass_w, &glass_h, &glass_hd, &glass_scale); }
 int vicky_glass_w(void) { return glass_w; }
 int vicky_glass_h(void) { return glass_h; }
@@ -354,7 +358,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     }
     /* text32 -- layer 0's band rows from BANDMAP when K/OS has the bands there */
     uint32_t rowbase = map + (uint32_t)cy * stride * 4;
-    if (n == 0) { int br = band_row(cy, map); if (br >= 0) rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4;
+    if (n == 0) { int br = band_row(cy, map); if (br >= 0) { rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4; line_band = 1; }
                   else if (alt_map && map == rd32(&reg[VR_CONMAP])) rowbase = alt_map + (uint32_t)cy * stride * 4; }   /* the second screen */
     /* ...and the spare COLUMNS too (2026-10-07: an IDR need not be a whole
      * number of cells wide -- 1066 is not): in an HD glass the scroll is signed
@@ -649,16 +653,19 @@ void vicky_line(int y)
     if (__builtin_expect(frame_skip || term_hold(), 0)) return;   /* an idle frame, or a synchronized update in progress: the line stays as the last frame drew it */
     uint8_t *line = frame_fb + y * frame_pitch;
     uint8_t ctrl = reg[VR_CTRL];
+    line_band = 0;
     /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
      * field, 40 blank lines above and below it; bit4: columns quartered (160). */
     if (hd_on) {                                     /* 720x540 drawn at 1440x1080, text from the HD font */
         if (y >= glass_h) return;
         hd_line_draw(y, ctrl);
+        if (2 * y + 1 < VICKY_HEIGHT) band_out[2 * y] = band_out[2 * y + 1] = line_band;
         return;
     }
     if (glass_hd) {                                  /* the HD family: its own size, nothing doubled */
         if (y >= glass_h) return;
         memset(line, reg[VR_BGCOL], (size_t) glass_w);
+        band_out[y] = 0;
         if (!(ctrl & 1)) return;
         memset(owner, 0, (size_t) glass_w); memset(layer_hit, 0, (size_t) glass_w);
         sprites_gather(y);
@@ -666,16 +673,18 @@ void vicky_line(int y)
             if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y, line, glass_w);
             sprites_line(n, y, line, glass_w);
         }
+        band_out[y] = line_band;
         return;
     }
     int top = (ctrl & 8) ? (OLD_H - 400) / 2 : 0;
+    band_out[y] = 0;
     if (y < top || y >= OLD_H - top) { memset(line, reg[VR_BGCOL], OLD_W); return; }
     int yy = y - top;
     if (ctrl & 6) {
         int half = ctrl & 2;
         int q = (ctrl & 16) ? 4 : 2;                           /* screen pixels per pixel of the machine */
         int w = half ? OLD_W / q : OLD_W;
-        if (yy & 1) { memcpy(line, line - frame_pitch, OLD_W); return; }
+        if (yy & 1) { memcpy(line, line - frame_pitch, OLD_W); band_out[y] = y ? band_out[y - 1] : 0; return; }
         uint8_t *dst = half ? lowres_tmp : line;
         memset(dst, reg[VR_BGCOL], OLD_W);
         if (ctrl & 1) {
@@ -688,6 +697,7 @@ void vicky_line(int y)
         }
         if (half) { for (int x = 0; x < w; x++)
                         for (int i = 0; i < q; i++) line[x * q + i] = lowres_tmp[x]; }
+        band_out[y] = line_band;
         return;
     }
     memset(line, reg[VR_BGCOL], OLD_W);
@@ -697,7 +707,7 @@ void vicky_line(int y)
     for (int n = 0; n < VICKY_LAYERS; n++) {
         if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, yy, line, OLD_W);
         sprites_line(n, yy, line, OLD_W);
-    }
+    }    band_out[y] = line_band;
 }
 
 /* Draw the picture again from RAM without moving the machine on.

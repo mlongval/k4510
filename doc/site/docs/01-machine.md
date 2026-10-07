@@ -119,7 +119,7 @@ Up and Down move; Enter or Right crosses from the categories to the settings; Le
 
 
 Video  
-the border; *resolution*, which is the `MODE` command’s knob: this panel’s integer display resolutions, each with its text grid (“720x540 90x33”), kept by scale so a machine moved to another panel comes up at the same `/n` (a program may still put the machine in 640x480 and the others, and the row says so); *canvas*, 4:3 or the whole panel; *font*, the text’s face at the panel’s own pixels. At scale 1 it is the machine’s font, 16 wide; at an even scale each 8x16 cell is drawn as 16x32 (an 8x8 one as 16x16) while the graphics stay the machine’s, and a character a program has redefined keeps its own shape. The faces: *Zhekov Bold* (to begin with) and *Zhekov* — Dimitar Zhekov’s Terminus Font, renamed as its licence asks of a changed copy — *Spleen*, *IBM VGA*, *Atkinson Mono* (the Braille Institute’s face for low vision), *Go Mono*, *Fira Mono*, *Proggy Clean*, *Tamzen Bold*, or *unscii*, the machine’s own drawn doubled; and *placement*, which is the section after next. The picture is always full screen and scaled by a whole number, every pixel the same size. The figures in this book are taken with the effects off.
+the border’s width, and the *frame colour* — the border’s and both status bands’, one colour, dark grey to begin with. *Frame follows palette*, on to begin with, makes it that colour’s entry in the palette in use (amber under AMBER); off, the frame keeps the colour itself whatever the palette, and the bands’ text is black or white, whichever reads better on it. *Resolution*, which is the `MODE` command’s knob: this panel’s integer display resolutions, each with its text grid (“720x540 90x33”), kept by scale so a machine moved to another panel comes up at the same `/n` (a program may still put the machine in 640x480 and the others, and the row says so); *canvas*, 4:3 or the whole panel; *font*, the text’s face at the panel’s own pixels. At scale 1 it is the machine’s font, 16 wide; at an even scale each 8x16 cell is drawn as 16x32 (an 8x8 one as 16x16) while the graphics stay the machine’s, and a character a program has redefined keeps its own shape. The faces: *Zhekov Bold* (to begin with) and *Zhekov* — Dimitar Zhekov’s Terminus Font, renamed as its licence asks of a changed copy — *Spleen*, *IBM VGA*, *Atkinson Mono* (the Braille Institute’s face for low vision), *Go Mono*, *Fira Mono*, *Proggy Clean*, *Tamzen Bold*, or *unscii*, the machine’s own drawn doubled; and *placement*, which is the section after next. The picture is always full screen and scaled by a whole number, every pixel the same size. The figures in this book are taken with the effects off.
 
 Terminal  
 *status bands*, on or off (a row at the top, a row at the bottom) ([The status bands](02-shell.md#the-status-bands)), and the clock and date format they print.
@@ -178,8 +178,7 @@ The list below is generated from the menu’s own source, with the name each set
 **`Border width`** — *video.border*  
 0 to 64; to begin with, 0
 
-**`Border colour`** — *video.border_colour*  
-0 to 15; to begin with, 11
+**`Frame colour`** — *video.border_colour*  
 
 **`Resolution`** — *video.mode*  
 
@@ -191,6 +190,9 @@ unscii, Zhekov Bold, Zhekov, Spleen, IBM VGA, Atkinson Mono, Go Mono, Fira Mono,
 
 **`Placement`** — *video.placement*  
 centre, left, right; to begin with, centre
+
+**`Frame follows palette`** — *video.frame_follow*  
+on, off; to begin with, on
 
 **`Palette`** —   
 the VIC-II sixteen, or any .PAL in /SYSTEM/ETC/PALETTES: PALETTE LOAD, typed at the prompt
@@ -333,7 +335,7 @@ does it
 
 ## Placement, the register panel, and F8
 
-A 4:3 picture on a 16:9 screen leaves a third of the glass empty. *Placement* (centre, left, right) puts the picture against one edge instead of in the middle; what is left is the border colour, dark grey like the status bands unless you choose another. (The sidebars — scenes, a gradient, the register panel beside the picture — are switched off for now, and their rows are out of the menu.)
+A 4:3 picture on a 16:9 screen leaves a third of the glass empty. *Placement* (centre, left, right) puts the picture against one edge instead of in the middle; what is left is the frame colour, dark grey like the status bands unless you choose another. (The sidebars — scenes, a gradient, the register panel beside the picture — are switched off for now, and their rows are out of the menu.)
 
 Last, *Palette* lists the VIC-II sixteen and every `.PAL` in `/SYSTEM/ETC/PALETTES` (one you made with `PALETTE SAVE` shows up the next time the menu opens). Choosing one types `PALETTE LOAD` at the prompt for you ([Chapter 2, The Shell](02-shell.md)); with a program running, it waits until the program has ended. As with the command, it lasts until the next power-on: a `PALETTE LOAD` line in `/STARTUP.BAT` keeps it.
 

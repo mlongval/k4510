@@ -238,7 +238,12 @@ was there when the list opened.
 page on the right.}
 
 \begin{description}
-\item[Video] the border; \emph{resolution}, which is the
+\item[Video] the border's width, and the \emph{frame colour} --- the
+  border's and both status bands', one colour, dark grey to begin with.
+  \emph{Frame follows palette}, on to begin with, makes it that colour's
+  entry in the palette in use (amber under AMBER); off, the frame keeps
+  the colour itself whatever the palette, and the bands' text is black or
+  white, whichever reads better on it. \emph{Resolution}, which is the
   \verb|MODE| command's knob: this panel's integer display resolutions,
   each with its text grid (``720x540 90x33''), kept by scale so a machine
   moved to another panel comes up at the same \verb|/n| (a program may
@@ -357,7 +362,7 @@ each setting has in \texttt{k4510.cfg}, its choices and where it starts.
 \section{Placement, the register panel, and F8}
 A 4:3 picture on a 16:9 screen leaves a third of the glass empty.
 \emph{Placement} (centre, left, right) puts the picture against one edge
-instead of in the middle; what is left is the border colour, dark grey
+instead of in the middle; what is left is the frame colour, dark grey
 like the status bands unless you choose another. (The sidebars --- scenes,
 a gradient, the register panel beside the picture --- are switched off
 for now, and their rows are out of the menu.)

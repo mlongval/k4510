@@ -1066,7 +1066,6 @@ int  term_state_load(FILE *f)
  * blank in the shell's colours.  The clock is the host's, as the RTC is,
  * in the order and the hours $D52F asks for -- the same text the ROM drew. */
 #define BAND_FG0 1                              /* white on dark grey, unless it does not read there (bands_tick) */
-#define BAND_BG0 0x0B                           /* dark grey, the border's default too (Doc, 2026-10-06) */
 static void bcell(int col, int row, uint8_t ch, uint8_t f, uint8_t b)
 {
     uint32_t a = vicky_text_cell(col, row);
@@ -1080,7 +1079,7 @@ static void bfill(int row, int cols, uint8_t f, uint8_t b) { for (int c = 0; c <
 static int screen2_shown(void);                  /* below */
 static void bands_tick(int force)
 {
-    uint8_t oy, rows, bot, cols, fmt = io_clockfmt(), f = BAND_FG0, b = BAND_BG0;
+    uint8_t oy, rows, bot, cols, fmt = io_clockfmt(), f = BAND_FG0, b = (uint8_t)(io_frame & 15);   /* the frame's colour (F12) */
     int claimed;
     if (!vicky_bands(&oy, &rows, &bot, &cols, &claimed) || claimed || (!oy && !bot) || !cols) { band_sig = 0; return; }
     /* White on the grey, unless it reads under 4.5:1 there, for normal or
@@ -1090,13 +1089,15 @@ static void bands_tick(int force)
      * passed (Doc, 2026-10-06: "should the foreground for the bars be
      * something else?"). */
     lum_update();
-    if (pal_ratio(f, b) < CONTRAST_GOOD) {
+    if (!io_frame_follow) f = (uint8_t)(b == 1 ? 0 : 1);    /* the frontend draws the band lines in the frame's own colours:
+                                                             * f is only a different entry, for it to tell apart */
+    else if (pal_ratio(f, b) < CONTRAST_GOOD) {
         float bc = -1; for (int i = 0; i < 16; i++) { float c = pal_ratio(i, b); if (c > bc) { bc = c; f = (uint8_t) i; } }
     }
     time_t now = time(NULL); struct tm m; localtime_r(&now, &m);
     uint32_t sig = 2166136261u;
     #define MIX(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
-    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_batt_min); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
+    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_batt_min); MIX(io_frame); MIX(io_frame_follow); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
     MIX(TS[0].deffg); MIX(TS[0].defbg); MIX(vis); MIX(screen2_shown()); MIX(vicky_palette_gen());
     MIX(m.tm_min); MIX(m.tm_hour); MIX(m.tm_mday); MIX(m.tm_mon); MIX(m.tm_year);
     for (const char *q = band_note; *q; q++) MIX(*q);

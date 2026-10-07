@@ -40,9 +40,11 @@ static const char *const hdfont_names[] = { "unscii", "Zhekov Bold", "Zhekov", "
 const char *const hdfont_files[HDFONT_COUNT] = { NULL, "zhekov-bold", "zhekov", "spleen", "ibm-vga", "atkinson", "go-mono",
                                                  "fira-mono", "proggy", "tamzen-bold" };
 
+static const char *const frame_names[16] = { "Black", "White", "Red", "Cyan", "Purple", "Green", "Blue", "Yellow",
+                                             "Orange", "Brown", "Light red", "Dark grey", "Grey", "Light green", "Light blue", "Light grey" };
 static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices are filled in at start (settings_set_labels) */
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
-    { "video.border_colour", "Border colour",  ST_INT,  11, 0, 15, 1, 0, 0, SF_LIVE },   /* dark grey, as the bands (2026-10-06) */
+    { "video.border_colour", "Frame colour",   ST_ENUM, 11, 0, 0, 0, frame_names, 16, SF_LIVE },   /* the border and the bands; dark grey */
     { "video.mode",          "Resolution",     ST_ENUM,  0, 0, 0, 0, NULL, 0, SF_LIVE },   /* choices built at run time: settings_video_rebuild */
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
@@ -102,6 +104,7 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "video.base",          "Canvas",         ST_ENUM,  0, 0, 0, 0, base_names, 2, SF_LIVE },
     { "video.cap",           "Pixel cap",      ST_INT,   2073600, 64000, 2304000, 64000, 0, 0, 0 },
     { "host.charge_once",    "Charge to 100% once", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* then back to the usual limit */
+    { "video.frame_follow",  "Frame follows palette", ST_BOOL, 1, 0, 1, 1, 0, 0, SF_LIVE },   /* off: the VIC-II colour, whatever the palette */
     { "term.battime",        "Battery time",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* h:mm left, beside the battery's % */
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,

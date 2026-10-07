@@ -207,6 +207,46 @@ the machine itself only, so there is no network path to it at all.
 Outbound, the network is real: \verb|TELNET| reaches a BBS, and URLs
 work as Chapter~\ref{cha:shell} describes.
 
+\section{mosh: another computer, over a poor network}\label{sec:mosh}
+The K4510 Linux has \verb|mosh| beside \verb|ssh|, and a small command,
+\verb|k4510-remote|, that chooses between them. ssh sends every key to
+the other computer and shows it only when the echo comes back, so on a
+phone's hotspot each keystroke waits out the round trip, and a network
+that drops for a moment can end the session. mosh logs in with ssh, then
+carries the session over UDP: what you type shows at once (underlined
+until the other side agrees), and the session goes on through a dropped
+link, a change from the hotspot to home Wi-Fi, or a closed lid.
+
+\begin{type}
+k4510-remote you@server                     a shell there
+k4510-remote you@server tmux new -A -s k4510   the same tmux every time
+\end{type}
+
+\noindent \verb|k4510-remote| tries mosh first. If mosh is not on this
+side, or cannot start a session on the other --- no \verb|mosh-server|
+there, or its UDP ports blocked --- it says so and runs \verb|ssh -t|
+instead. A mosh session that ran and ended keeps its own result; only a
+mosh that fails within its first fifteen seconds falls back. Set
+\verb|K4510_REMOTE=ssh| to skip mosh altogether. The same line can go in
+\pth{/SYSTEM/ETC/TERMINAL.CFG}, so that Alt+2 opens it
+(Chapter~\ref{cha:shell}).
+
+\textbf{The other computer} needs \verb|mosh| installed (it brings
+\verb|mosh-server|) and UDP ports 60000--61000 open to you --- on the
+tailnet, and on the home network if you connect there by its local
+address. Logging in is still ssh's: a password, or a key if you give this
+machine one.
+
+\textbf{What mosh does not do.} It keeps the screen, not a scrollback
+--- tmux on the other side keeps that. It does not carry JIM's pictures
+(the Kitty graphics protocol) or JIM's own sequences, such as a note for
+the bottom band: for those, use \verb|ssh -t|. There is no port or
+agent forwarding. If this side goes away without leaving --- a power
+cut, Save and power off --- the \verb|mosh-server| on the other side
+waits for a client that will not come back; the next connection starts a
+new one, and tmux's \verb|-A| puts you back in the old session. To leave
+a mosh that has lost its server, press Ctrl+\verb|^| then \verb|.|.
+
 \section{On a stick}
 \begin{type}
 sudo ./linux/build-live.sh

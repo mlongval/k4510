@@ -11837,3 +11837,25 @@ The option parser then moved out of bank 3 into resident asm (`rom/opt.s`,
 DELETE, FONTED) share a flags-only twin, `demo/opt.s` (~200 bytes; a C one
 was 550 and did not fit PROG).  All have long names now; PROG's image grows
 to $CD00.
+
+**Later still: the rest of the evening on the Dell.**  Battery time in the
+bottom band and Charge to 100% once; SAVE, CLOSE and CP fsync; JIM keeps
+the machine's programs as readable as designed under any palette, and
+recolours the Terminal's text when the palette changes; Save and power
+off; the pointer in the palette's colours; RESIZE ($D546) so EDIT, PROG,
+WORD and VI redraw when F12 changes the canvas; the frame colour; RANGER.RC;
+the palette last loaded kept ($D547) -- it seemed not to stick until the
+Dell's own STARTUP.bat turned out to load CLEAR at every start, and F12
+from the Terminal screen had typed into the Linux session; mosh and
+k4510-remote; the Terminal redrawn after a power cycle.  The merged
+branches and their worktrees are gone: master is the only branch.
+
+## 2026-10-07 -- alpha-0.9 'Bezel'
+
+A release about the screen and what frames it: the panel's own integer
+display resolutions on a 4:3 or full canvas, with text cells that fit
+each; the frame colour; palettes that read, follow the pointer and stay;
+POSIX options for every command; programs told when the screen changes;
+Save and power off; the battery's time and a one-time full charge; mosh
+for the Terminal; and the jettison of the trial balloons.  The version
+says 0.9.

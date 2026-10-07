@@ -1,6 +1,6 @@
 # K4510
 
-**Alpha 0.8 ('Quiescence'), October 2026.** The machine boots from a USB
+**Alpha 0.9 ('Bezel'), October 2026.** The machine boots from a USB
 stick (or a second partition) as the K4510x appliance, or runs in a
 window on a Linux desktop; the handbook is `doc/guide/k4510-guide.pdf`,
 and on the web at Read the Docs. The last release with the bare-metal
@@ -30,30 +30,58 @@ reasoning; the last tree with the port is tag `alpha-0.5`. A Pi still
 runs the machine — under Linux, the same way the laptop does.
 
 **Read the handbook first**: `doc/guide/k4510-guide.pdf`, the User's and
-Programmer's Guide, 159 pages, every screenshot captured from the running
+Programmer's Guide, 160 pages, every screenshot captured from the running
 machine at build time. This README is the short version. Both are alpha
 documentation of an alpha machine: things change, and the handbook's
 first page says so.
 
-## New in 0.8 ('Quiescence')
+## There is no web browser
 
-- **The machine rests.** WAIT puts the CPU to sleep until the next frame or
-  a key; a frame in which nothing on the screen changed is not drawn again;
-  the moving sidebars draw at 30 frames a second; the sound chip sleeps
-  through silence. Idle at the prompt, the Dell went from 44% of a core to
-  about 8%, which is battery life on a laptop.
-- **K/OS has a place of its own:** its own zero page, 6502 stack and a
-  1 KB C stack, watched by the stack fence (`INFO -m`). Programs get the
-  zero page and the stack page to themselves, and printing is twice as
-  fast.
-- **Smoother editors:** JIM's synchronized update (`ESC[?2026h`/`l`) holds
-  the screen while EDIT, PROG and WORD redraw, and they scroll by moving
-  rows inside JIM — no half-drawn screens, and twice as fast.
-- **C programs load at $0800**, with about 49 KB for themselves.
-- **The bands:** what is running, plainly, at the top; the network (`LAN`,
-  `Wi-Fi 77%`, `offline`) beside the battery at the bottom.
-- Pascal's `graph` unit works in the HD modes; MONITOR's `R` works again;
-  the handbook maps every byte the system uses.
+Not missing: left out. The K4510 reaches the network the way computers
+did before the web ate everything — `TELNET` to a BBS, a URL that is
+simply a file (`TYPE https://...`, `LOAD`, `CP`), a TNFS server as a
+directory, sockets for programs that want them. Nothing on this machine
+renders a page, runs someone else's JavaScript, plays an advertisement or
+asks you to accept cookies. When you sit down at it, it is yours, and it
+is quiet. Think of it as an antidote.
+
+## New in 0.9 ('Bezel')
+
+A release about the screen and what frames it.
+
+- **The panel's own screens.** At start the machine finds the panel and
+  offers every *integer display resolution* it divides into — on 1920×1080,
+  1440×1080 down to 360×270, each pixel a whole block of the panel's — on
+  a 4:3 canvas or the whole panel (F12 → Video → Canvas). K/OS and its text
+  fit each one: 8×8, 8×16 and HD 16×16 / 16×32 cells. `MODE -l` lists them,
+  `MODE -s 2` or `MODE 720x540` picks one; `tools/k4510-vidcap` measures a
+  host and caps the pixels it can draw.
+- **The frame.** The border and both status bands are one colour (F12 →
+  Video → Frame colour, dark grey), following the palette or kept whatever
+  it is, with the bands' text chosen for contrast.
+- **Palettes that read.** The machine's own programs keep the contrast
+  they were designed with under AMBER, GREEN or GREY; the Terminal's text
+  is made readable when the palette changes; the mouse pointer takes the
+  palette's colours; and the palette last loaded comes back at every
+  power-on and reset.
+- **POSIX options everywhere:** `-l`, `-al`, `--long`, `-s 2`,
+  `--scale=2`, `--` — one parser for MODE, DIR, INFO, SWAP, EDIT, PROG,
+  WORD, DELETE and FONTED.
+- **Programs are told when the screen changes** (`$D546`, RESIZE): EDIT,
+  PROG, WORD and VI lay themselves out again when F12 changes the canvas.
+- **Save and power off** (F12 → Machine): the whole machine to a file, the
+  computer off, and back where you were at the next power-on.
+- **A laptop's companion:** the battery's time left in the bottom band
+  (`77%↓ (7:16)`), *Charge to 100% once* for a trip, and a file you save
+  is on the disk when SAVE returns.
+- **The Terminal screen over mosh** (`k4510-remote`), falling back to ssh:
+  what you type shows at once over a phone's hotspot. A K4510 power cycle
+  no longer leaves holes in it.
+- **RANGER opens files by extension** (`/SYSTEM/ETC/RANGER.RC`: `.PAS` in
+  PROG ...); EDIT's menus no longer break after About.
+- **The jettison:** DOOM, the Apple IIe, Microsoft BASIC, TINY and the
+  other trial balloons are gone; CP/M, the Tek40xx and the Navidrome radio
+  are sidelined; `core/io.c` is one file a device.
 
 `docs/BUILD-LOG.md` has the measurements and the reasoning.
 
@@ -112,7 +140,9 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   boots with 46335 bytes free. The handbook's Memory chapter maps every
   byte the system uses, in the 64 KB and in the 256 MB.
 - **VICKY**, the video chip: 640×480, 640×240, 320×240, 320×200 and
-  160×200, and three HD modes (1440×1080, 720×540, 360×270); 256 colours
+  160×200, and the panel's own integer display resolutions (on 1920×1080:
+  1440×1080, 720×540, 480×360, 360×270 — whatever this panel divides
+  into, 4:3 or the whole panel); 256 colours
   from 24-bit, four
   layers (bitmap / tile / text), 128 sprites with no per-line limit, a
   blitter with copy/fill/logic/line/triangle ops, and **SHEILA**, a
@@ -148,7 +178,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
 
 - **K/OS** (pronounced 'chaos'), the operating system, in the ROM: a
   shell with directories, `HELP` for the whole command set (the text is
-  `/SYSTEM/ETC/HELP`), `MON` the monitor, `INFO`, `MODE 0-7`, `TERMINAL`,
+  `/SYSTEM/ETC/HELP`), `MON` the monitor, `INFO`, `MODE`, `TERMINAL`,
   `ALIAS`, `SWAP` (run a program on a clean machine and get this one
   back), `EXEC` scripts and `/STARTUP.BAT` at power-on (skip it from the
   F12 menu, Shell → Run STARTUP.BAT, or with `--no-startup.bat`). An
@@ -179,12 +209,14 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   one is for: `KOMMANDER`, two panels and function keys, and `RANGER`,
   three miller columns and vi's fingers. Enter on a directory descends;
   Enter on a `.prg` or a CP/M `.com` leaves the browser and runs the
-  program, which is where the output belongs. `DD` and the shell's `RM`
+  program, which is where the output belongs; RANGER opens anything else
+  in the program `/SYSTEM/ETC/RANGER.RC` names for its extension. `DD` and the shell's `RM`
   move things to `/.TRASH` rather than destroying them; `DELETE` lists it
   and puts them back.
-- **F12** opens the settings menu (C64u-style: video, audio — including
-  which sound chip has the machine — keys, save and load state, the Tube,
-  the shell's switches; saved to `k4510.cfg`).
+- **F12** opens the settings menu (C64u-style: the resolution, canvas,
+  frame colour and palette, the bands, audio, keys, save and load state,
+  Save and power off, the Tube, the shell's switches, and on the K4510
+  Linux the host — Wi-Fi, the lid, the battery; saved to `k4510.cfg`).
   Shift+F12 pauses; F7 and F8 are ordinary keys (the menu was on F7 until
   2026-09-15). Super+PageUp resets. Esc is RUN/STOP, Shift+Esc quits the emulator.
 - **When something goes wrong:** `DUMP ON`, make it go wrong again, then

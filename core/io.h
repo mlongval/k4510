@@ -67,6 +67,11 @@ extern int io_host_kind;    /* the frontend sets it: what $D522 answers */
  *                    desktop, the browser build).  The frontend reads it from the host
  *                    every ten seconds; K/OS draws "nn%" and an arrow at the right of the bottom band. */
 extern uint8_t io_battery;
+/* The time the battery has left, in minutes -- to empty, or to full while it
+ * charges -- for the bottom band beside its charge; $FFFF: none to show (no
+ * battery, no estimate, or F12 -> Terminal -> Battery time off).  Set by the
+ * frontend with io_battery.  Doc, 2026-10-07. */
+extern uint16_t io_batt_min;
 /* The network the machine's Linux has, for the bottom band (2026-10-06, Doc:
  * "a WIFI or Network indicator ... bottom right"): set by the frontend every
  * ten seconds from /sys/class/net.  $FF: not known (headless). */

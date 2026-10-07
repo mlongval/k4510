@@ -1045,7 +1045,7 @@ static void bands_tick(int force)
     time_t now = time(NULL); struct tm m; localtime_r(&now, &m);
     uint32_t sig = 2166136261u;
     #define MIX(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
-    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
+    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_batt_min); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
     MIX(TS[0].deffg); MIX(TS[0].defbg); MIX(vis); MIX(screen2_shown()); MIX(vicky_palette_gen());
     MIX(m.tm_min); MIX(m.tm_hour); MIX(m.tm_mday); MIX(m.tm_mon); MIX(m.tm_year);
     for (const char *q = band_note; *q; q++) MIX(*q);
@@ -1093,7 +1093,9 @@ static void bands_tick(int force)
         bfill(last, cols, f, b);
         int right = cols;                                                                /* the first cell the right-hand things take */
         if (io_battery != 0xFF) {                                                        /* "nn%" and up (on mains) or down */
-            char bt[8]; int n = snprintf(bt, sizeof bt, "%d%%", io_battery & 0x7F);
+            char bt[16]; int n;                                                          /* "1:35 78%" with Battery time on */
+            if (io_batt_min != 0xFFFF) n = snprintf(bt, sizeof bt, "%d:%02d %d%%", io_batt_min / 60, io_batt_min % 60, io_battery & 0x7F);
+            else n = snprintf(bt, sizeof bt, "%d%%", io_battery & 0x7F);
             bstr(cols - 1 - n, last, cols, bt, f, b);
             bcell(cols - 1, last, (io_battery & 0x80) ? 0x18 : 0x19, f, b);
             right = cols - 1 - n;

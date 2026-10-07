@@ -200,6 +200,9 @@ the VIC-II sixteen, or any .PAL in /SYSTEM/ETC/PALETTES: PALETTE LOAD, typed at 
 **`Status bands`** — *term.bands*  
 on, off; to begin with, off
 
+**`Battery time`** — *term.battime*  
+on, off; to begin with, off
+
 **`24-hour clock`** — *term.clock24*  
 on, off; to begin with, on
 

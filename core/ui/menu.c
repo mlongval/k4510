@@ -46,6 +46,7 @@ static const item_t audio_items[] = { { "Volume", MI_SETTING, SET_AUDIO_VOLUME }
  * what the clock in the top one says. */
 static const item_t term_items[] = {
     { "Status bands",     MI_SETTING, SET_VIDEO_STATUSBAR },
+    { "Battery time",     MI_SETTING, SET_TERM_BATTTIME },   /* h:mm left beside the battery (2026-10-07) */
     { "",                 MI_SEP },
     { "24-hour clock",    MI_SETTING, SET_TERM_CLOCK24 },
     { "Date format",      MI_SETTING, SET_TERM_DATEFMT },

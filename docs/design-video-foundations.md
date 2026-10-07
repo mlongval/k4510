@@ -2,13 +2,13 @@
 
 *The panel, the canvas and the integer display resolutions.*
 
-*A proposal, on the branch `video-foundations`, for Doc to rule on.
-Nothing in the emulator or the ROM is changed by it. What the branch
-adds is this note, `core/idr.c` (the arithmetic of section 2, pure C,
-not yet called by anything), `test/idrtest` (in `make test`; `-t`
-prints the tables below) and `test/vidbench` (the measurements of
-section 3, run by hand). `BUILD-LOG.md` will record what is built once
-the questions at the end are answered.*
+*Written as a proposal; Doc answered its twelve questions on 2026-10-07
+(`docs/notes/decisions-2026-10-07.md`) and it was built the same day on
+the branch `video-foundations` -- `docs/BUILD-LOG.md` has what, and where
+it differs from the text below: the cells are 16 wide on any glass over
+1279 as well as at scale 1; K/OS takes 132 columns at most; the pixel cap
+is measured per host (`tools/k4510-vidcap`); the menu labels a choice by
+its grid ("720x540 90x33"); stretch-to-4:3 is reserved.*
 
 Doc's ask, in his words as the session put it:
 

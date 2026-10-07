@@ -11770,3 +11770,49 @@ machine still gets 60 frames a second (TIME after 30 s at rest: 1804
 frames); the host wakes 20 times instead of 60.  A key is seen within
 50 ms and ends it.  Under Xvfb, idle at the prompt: the main thread's
 sleeps fell from ~79 to ~39 a second (the rest are SDL's and the GPU's).
+
+## 2026-10-07 -- io.c split, the jettison, the panel's own resolutions
+
+Three pieces of one day, each on its own branch first, all from Doc's
+answers recorded in `docs/notes/decisions-2026-10-07.md`.
+
+**io.c split** (`restructure`, merged).  2,799 lines become io.c (the
+page's dispatch, keyboard, mouse, WAIT, DMA, reset, save state) and one
+file a device -- sys, seq, fred, hostfs, status, tube, screen2, debug --
+behind `core/io_int.h`.  Each decodes its own registers, resets itself and
+saves its own chunks, in the old order: .k4s files are unchanged.  The
+screenshot PNG writer and the Host page left sdl/main.c.
+`docs/notes/restructure-2026-10-07.md` proposes the next cuts.
+
+**The jettison** (`jettison`, merged).  Gone: DOOM, the Apple IIe and the
+DigiMAX (tube/ from 7.6 MB to 1.1); MS BASIC and its chapter (EhBASIC
+now takes a file name, `EHBASIC NAME`, which is what PROG, VI and NVIM run
+a .BAS with); TINY, BALLS, the OPL2 demo, the ANSIDEMO and SEGDEMO
+sources, rom/demo.bin, the platformer plan; the knot sidebar; brainwatch;
+the ARM files in tube/src, forth.lst, savershot, the Pi-era doc renderers
+and photos.  Sidelined, kept and built but out of the images and the
+handbook: CP/M (CPM says it is not fitted where RunCPM is not), Tek40xx
+(its handbook section waits in linux/tek40xx), the Navidrome radio.
+Finished records went to `docs/history/`.  vikeystest joined the battery;
+logotest stopped running twice.
+
+**Integer display resolutions** (`video-foundations`).  The design
+(`docs/design-video-foundations.md`) as decided: VICKY knows the panel
+and lists the whole divisions of its canvas (the largest 4:3, or all of
+it) from 320x200 up to the pixel cap; $D0C0-$D0DF publish them, let a
+program pick one by scale or ask for a software resolution, and tell K/OS
+the grid its cells make and the spare pixels round it -- which a text32
+layer now paints at the sides as well as above and below.  K/OS: MODE /n,
+MODE alone lists the panel's; MODE 5, 6, 7 are /1, /2, /4.  The frontend
+reads the panel (the display's mode at start, the renderer's output once
+full screen), builds Resolution's choices from the list, labels them by
+grid, and keeps the scale in k4510.cfg ("/2"), so a stick that moves to
+another panel keeps its meaning.  Canvas: 4:3 or full.  The frame buffer
+grows to 1920x1200; HD text at any even scale that fits, drawn a cell at a
+time: 4.84 -> 4.19 ms for the busiest 720x540 page on ubuntu-s1, now under
+native 16-wide cells (4.46).  `tools/k4510-vidcap` measures a host and
+writes its cap (ubuntu-s1: 3.98 ns a pixel, the 1920x1080 default
+stands).  On a 1080 panel at 4:3 nothing changes but a new 480x360 (/3).
+Seen under Xvfb at 1920x1080, 1366x768 (/4 is under 320x200, so /3,
+341x256 in 42x32) and 2560x1440 (/4 480x360, drawn 960x720 with HD text).
+

@@ -11825,3 +11825,15 @@ the numbers 0-2 and 5-7 stay.  Options may come before or after the operand;
 every shell word, and lives in ROM bank 3 with MODE: the base image and
 bank 1 had no room.  Other commands still parse their own few letters.
 
+
+**Then: EDIT's menus, and one parser for everything.**  Doc froze EDIT on
+the Dell: About (or F1), Escape, Alt+F -- no menu, sometimes a shell error.
+Bisected to 2f20e99, but that only moved tables; the cause was prg0.s
+setting the C stack pointer to the PRG's end, which for EDIT, PROG and WORD
+($CC00) is inside the image, so the stack grew down over their tables.
+Each .cfg now gives `__STACKTOP__` (37200a9); edittest case 9 covers it.
+The option parser then moved out of bank 3 into resident asm (`rom/opt.s`,
+390 bytes) and DIR, INFO and SWAP took it; the programs (EDIT, PROG, WORD,
+DELETE, FONTED) share a flags-only twin, `demo/opt.s` (~200 bytes; a C one
+was 550 and did not fit PROG).  All have long names now; PROG's image grows
+to $CD00.

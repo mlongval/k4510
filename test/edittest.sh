@@ -80,5 +80,13 @@ rm -f $H/ZZED6.BBC
 run "$(printf 'edit ZZED8.TXT\n~~\317~t~\b2\r~\tx\tyy\tz\023~\021~~')" >/dev/null
 printf '  x yy  z\n' | cmp -s - $H/ZZED8.TXT || fail "Tab Width 2: $(od -c $H/ZZED8.TXT | head -3)"
 
+# 9. Help, then a menu (Doc, the Dell, 2026-10-07: About, Esc, Alt+F and the
+# menu never came).  The C stack started at the image's end, inside it, and
+# grew down over the menus' tables (demo/prg0.s, __STACKTOP__ in each .cfg).
+out=$(run "$(printf 'MODE 5\n~edit\n~~~\220~~~\033~~~\306~~~')" 1500)
+echo "$out" | grep -q 'New       Ctrl+N' || { echo "$out"; fail "the File menu after the help box"; }
+out=$(run "$(printf 'MODE 5\n~edit\n~~~\310~~\201~~\r~~~\033~~~\306~~~')" 1500)
+echo "$out" | grep -q 'New       Ctrl+N' || { echo "$out"; fail "the File menu after About"; }
+
 rm -f $H/ZZED*.TXT $H/ZZED.BAS
-echo "edittest: OK (typing and indent, Change, Find and F3, Go to line and undo, renumber, Exit asks, the screen in both colour schemes, BBC keywords in capitals by Ctrl+U and -u, Options > Tab Width)"
+echo "edittest: OK (the File menu after Help and About, typing and indent, Change, Find and F3, Go to line and undo, renumber, Exit asks, the screen in both colour schemes, BBC keywords in capitals by Ctrl+U and -u, Options > Tab Width)"

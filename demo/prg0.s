@@ -6,7 +6,7 @@
         .export   __STARTUP__ : absolute = 1
         .export   _exit, _map_window, _far_poke, _far_peek, _far_poke16
         .import   _main, zerobss, initlib, incsp4
-        .import   __PRG_START__, __PRG_SIZE__
+        .import   __PRG_START__, __PRG_SIZE__, __STACKTOP__
         .importzp sp, sreg
 
         .zeropage
@@ -17,9 +17,14 @@ fp:     .res 4
         .word start
 
         .segment "STARTUP"
-start:  lda #<(__PRG_START__ + __PRG_SIZE__)
+; The C stack's top is each .cfg's __STACKTOP__.  It was the end of PRG, which
+; for EDIT, PROG and WORD -- PRG ending at $CC00 so that the stack would have
+; $CC00-$CFFF -- put the stack INSIDE the image: it grew down over the
+; variables and tables at its top, and a menu after the help box was drawn
+; from a clobbered table (Doc, the Dell, 2026-10-07).
+start:  lda #<__STACKTOP__
         sta sp
-        lda #>(__PRG_START__ + __PRG_SIZE__)
+        lda #>__STACKTOP__
         sta sp+1
         jsr zerobss
         jsr initlib

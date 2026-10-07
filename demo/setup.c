@@ -119,7 +119,7 @@ static void head(const char *title)
     say("\x1b[2J\x1b[H");                    /* clear */
     sgr2(1, 44); at(1, 1); for (i = 0; i < cols; i++) put(' ');
     at(3, 1); say("K4510 SETUP  --  "); say(title);
-    at((uint8_t)(cols - 20), 1); say(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop");
+    at((uint8_t)(cols - 20), 1); say(REG(SYS + 0x22) ? "K4510 Linux" : "desktop");
     sgr(0);
 }
 static void footer(const char *s)
@@ -366,7 +366,7 @@ static void write_report(void)
     uint8_t i;
     blen = 0;
     add("K4510 SETUP\n===============\n\n");
-    add("Machine:  "); add(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop"); add("\n");
+    add("Machine:  "); add(REG(SYS + 0x22) ? "K4510 Linux" : "desktop"); add("\n");
     add("Build:    ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) BUF[blen++] = (char)REG(SYS + 0x10 + i);
     add("\n\nClock ladder, a note sounding on the OPL2, ");

@@ -88,7 +88,7 @@ void main(void)
 
     add("K4510 issue\n===============\n\n");
 
-    add("Machine:  "); add(REG(SYS + 0x22) ? "Raspberry Pi 3B+" : "desktop"); nl();
+    add("Machine:  "); add(REG(SYS + 0x22) ? "K4510 Linux" : "desktop"); nl();
     add("Version:  ");
     for (i = 0; i < 16 && REG(SYS + 0x10 + i); i++) { if (len < BUFMAX - 1) BUF[len++] = (char)REG(SYS + 0x10 + i); }
     nl();

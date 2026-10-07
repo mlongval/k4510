@@ -119,7 +119,7 @@ disk is the host's (and on the K4510's own Linux, in RAM), so a program
 starts as quickly as a word in the ROM.
 
 These words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
-\shipif{lang:MSBASIC}{\texttt{MSBASIC} (Chapter~\ref{cha:msbasic}), }\verb|BBC|
+\verb|BBC|
 (Chapter~\ref{cha:tube}), \verb|FORTH| (Chapter~\ref{cha:forth}),
 \verb|LOGO| (Chapter~\ref{cha:logo}),
 \verb|RX| (Chapter~\ref{cha:rx}) and
@@ -194,8 +194,7 @@ out of reach of anything running here.
 \verb|SWAP -k| is the same but \emph{keeps} the screen the program left,
 instead of restoring the caller's. A file manager wants its display
 back; a script that ran a program to read what it printed wants the
-other thing, which is why RX uses this form\shipif{lang:MSBASIC}{ --- and why
-Microsoft BASIC runs every \texttt{*} command through it}.
+other thing, which is why RX uses this form.
 
 \section{At the prompt}
 The line you are typing is editable: Left and Right move through it,

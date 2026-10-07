@@ -34,7 +34,6 @@ where each one came from and how to verify it):
 | `forth/tali/` | Tali Forth 2, Scot W. Stevenson / Sam Colwell / Patrick Surry (vendored unmodified; see `forth/tali/VENDORED-FROM.txt`) | public domain |
 | ROM and `.prg` binaries | linked against the cc65 runtime (`none.lib`) | cc65's zlib-style licence |
 | `rom/wozmon.*` | Wozmon, reimplemented for the 45GS10 from Steve Wozniak's published 1976 listing | project licence (GPL-2.0-or-later) |
-| `basic/msbasic/` | Microsoft BASIC for 6502, Microsoft's 2025 source release by way of Michael Steil's ca65 reconstruction `mist64/msbasic` (vendored unmodified, pure-MS files only; see `basic/msbasic/VENDORED-FROM.txt`). Built as a separate program (`fs/MSBASIC/msbasic.prg`); the K4510 port beside it, `basic/k4510msbasic.asm`, is the project's own and carries the project licence. | MIT |
 
 Not in this repository, and no longer needed since the bare-metal Pi
 build was retired (2026-09-07; the last tree with it is tag `alpha-0.5`,

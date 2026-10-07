@@ -31,11 +31,10 @@ rm -f fs/SYSTEM/LOG/JIMTEST.TXT
 # rely on it -- EhBASIC's glue, BBC BASIC and CP/M all send a bare CR and mean
 # "next line".  JIM's own CR is a carriage return only, so k_chrout folds it
 # onto \n.  When this broke, EhBASIC's output overprinted itself on one row.
-out=$(./test/headless rom/kernal.bin 'CD /LANG/MSBASIC
-RUN msbasic
+out=$(./test/headless rom/kernal.bin 'EHBASIC
 PRINT "JIMCR-A"
 PRINT "JIMCR-B"
-' 3000 2>&1) || fail "MS BASIC did not run"
+' 3000 2>&1) || fail "EhBASIC did not run"
 echo "$out" | grep -q "^JIMCR-A" || fail "CR is not folded onto newline (output overprints)"
 echo "$out" | grep -q "^JIMCR-B" || fail "second line overprinted the first"
 

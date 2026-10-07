@@ -69,7 +69,7 @@ $(NVIM_SYNTAX) &: basic/basic.asm demo/logo.c tools/mknvim.py
 SIDEBAR_C = sdl/savers.c $(wildcard sdl/sidebars/*.c)
 
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -196,7 +196,7 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 .PHONY: check-artifacts
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
-check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg rom/kernal.bin $(SIDEBAR_ZIPS)
+check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg rom/kernal.bin $(SIDEBAR_ZIPS)
 	@git diff --quiet -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
 	  git diff --name-only -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
@@ -229,7 +229,6 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/pastest.sh
 	./test/rxtest.sh
 	./test/basictest.sh
-	./test/msbasictest.sh
 	./test/jimtest.sh
 	./test/screentest.sh
 	./test/edittest.sh
@@ -433,13 +432,6 @@ fs/APPS/SEGDEMO/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h dem
 	ca65 --cpu 65c02 -o demo/segdemo_h.o demo/segdemo-header.s
 	ld65 -C demo/seg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/segdemo_c.o demo/segdemo_h.o none.lib -m demo/segdemo.map
 
-# Microsoft BASIC for 6502 as a .prg at $7000 (msbasic/: mist64's ca65
-# reconstruction of Microsoft's MIT source release, vendored unmodified --
-# only the files a pure-MS configuration assembles; basic/k4510msbasic.asm
-# is the whole K4510 port: config, console glue, .prg header)
-fs/LANG/MSBASIC/msbasic.prg: basic/k4510msbasic.asm basic/msbasic.cfg $(wildcard basic/msbasic/*.s)
-	ca65 -I basic/msbasic -o basic/k4510msbasic.o basic/k4510msbasic.asm
-	ld65 -C basic/msbasic.cfg -o $@ basic/k4510msbasic.o
 
 fs/LANG/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/k4510expr.asm basic/basic.asm basic/basic.cfg
 	ca65 -g --cpu 65c02 --feature labels_without_colons -o basic/k4510basic.o basic/k4510basic.asm
@@ -454,5 +446,5 @@ fs/LANG/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/
 cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
 	cc -Wall -O2 -Wno-unused-variable -DCCP_INTERNAL -DCPU=\"cpu1.h\" cpm/src/main.c -o $@
 
-demos: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/MSBASIC/msbasic.prg fs/LANG/FORTH/forth.prg
+demos: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg
 .PHONY: demos

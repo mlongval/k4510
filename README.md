@@ -157,7 +157,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   language; bare names are searched across them.
 - **The languages:** **EhBASIC 2.22** with graphics, sprites, the
   MATH unit and `*command` for any shell command (`*VI` edits the program
-  in memory); **Microsoft BASIC**; **LOGO**; **RX**, a REXX; **C**, compiled
+  in memory); **LOGO**; **RX**, a REXX; **C**, compiled
   on the machine's own Linux with cc65 (`fs/LANG/C`); **BBC BASIC** — Richard Russell's interpreter (BBCTTY, zlib)
   on **the Tube**, a co-processor port of Acorn heritage, with its own flat
   256 MB; **Forth** — Tali Forth 2, native 45GS10 code; and **CP/M 2.2**

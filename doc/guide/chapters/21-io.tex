@@ -68,9 +68,7 @@ them.}
 same ribbon of lines --- endpoints bouncing, the line sixteen behind
 erased --- as fast as they can, and say how fast in the text band:
 \pth{/LANG/EHBASIC/EX/SPLIT.BAS}, with EhBASIC's own
-\verb|LINE|\shipif{lang:MSBASIC}{, and \pth{/LANG/MSBASIC/SPLIT.BAS}, where
-Microsoft BASIC, which has no graphics words, sets the blitter's registers
-with \texttt{POKE}}. At the 40.5\,MHz a host starts at:
+\verb|LINE|. At the 40.5\,MHz a host starts at:
 
 \begin{center}
 \small
@@ -80,7 +78,7 @@ with \texttt{POKE}}. At the 40.5\,MHz a host starts at:
 \midrule
 C (\verb|SPLIT|) & 7400 & fifteen register writes \\
 EhBASIC & 330 & \verb|LINE|, one blitter operation \\
-\shipif{lang:MSBASIC}{Microsoft BASIC & 140 & ten \texttt{POKE}s in a subroutine \\}
+
 \bottomrule
 \end{tabular}
 \end{center}

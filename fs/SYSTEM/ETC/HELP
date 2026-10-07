@@ -73,7 +73,7 @@ system:  INFO [-v]   TIME   HUSH   RESET
          /SYSTEM/LOG/BENCH-NN.TXT)
          BUG (asks you about a fault and writes the
          report to /SYSTEM/LOG/BUGREPORTS)
-tongues: EHBASIC  MSBASIC  BBC  FORTH  LOGO  RX
+tongues: EHBASIC  BBC  FORTH  LOGO  RX
          CPM [command] (CP/M 2.2 on the Z80;
          K: is this disk, P: Turbo Pascal,
          D: WordStar)

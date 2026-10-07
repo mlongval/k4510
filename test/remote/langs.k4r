@@ -1,7 +1,6 @@
 # test/remote/langs.k4r -- every interpreted language in every shell mode
 # (Doc's brainshot, 2026-09-14: "a test that runs all of the interpreted
 # languages in all of the video modes to see how they respond").
-# Microsoft BASIC reads 72 characters a line: its text goes in A$ first.
 #
 # Each language prints 40 numbered lines longer than the narrow modes are
 # wide, so every mode scrolls and MODE 2 and 7 wrap; the test waits for the
@@ -28,16 +27,6 @@ expect "Ready" 15
 type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
 expect "EH 40" 20
 shot m0-ehbasic
-type *BYE\n
-expect "/HOME]" 10
-type MSBASIC\n
-wait 3
-type \n
-expect "OK" 15
-type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
-type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
-expect "MS 40" 20
-shot m0-msbasic
 type *BYE\n
 expect "/HOME]" 10
 type BBC\n
@@ -77,16 +66,6 @@ expect "EH 40" 20
 shot m1-ehbasic
 type *BYE\n
 expect "/HOME]" 10
-type MSBASIC\n
-wait 3
-type \n
-expect "OK" 15
-type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
-type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
-expect "MS 40" 20
-shot m1-msbasic
-type *BYE\n
-expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
 type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
@@ -122,16 +101,6 @@ expect "Ready" 15
 type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
 expect "EH 40" 20
 shot m2-ehbasic
-type *BYE\n
-expect "/HOME]" 10
-type MSBASIC\n
-wait 3
-type \n
-expect "OK" 15
-type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
-type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
-expect "MS 40" 20
-shot m2-msbasic
 type *BYE\n
 expect "/HOME]" 10
 type BBC\n
@@ -171,16 +140,6 @@ expect "EH 40" 20
 shot m5-ehbasic
 type *BYE\n
 expect "/HOME]" 10
-type MSBASIC\n
-wait 3
-type \n
-expect "OK" 15
-type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
-type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
-expect "MS 40" 20
-shot m5-msbasic
-type *BYE\n
-expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
 type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
@@ -218,16 +177,6 @@ expect "EH 40" 20
 shot m6-ehbasic
 type *BYE\n
 expect "/HOME]" 10
-type MSBASIC\n
-wait 3
-type \n
-expect "OK" 15
-type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
-type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
-expect "MS 40" 20
-shot m6-msbasic
-type *BYE\n
-expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
 type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
@@ -263,16 +212,6 @@ expect "Ready" 15
 type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
 expect "EH 40" 20
 shot m7-ehbasic
-type *BYE\n
-expect "/HOME]" 10
-type MSBASIC\n
-wait 3
-type \n
-expect "OK" 15
-type A$="ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789"\n
-type FOR I=1 TO 40:PRINT "MS";I;" ";A$:NEXT\n
-expect "MS 40" 20
-shot m7-msbasic
 type *BYE\n
 expect "/HOME]" 10
 type BBC\n

@@ -56,7 +56,7 @@ vim.filetype.add({ extension = both })
 -- what builds each, and what runs each (VI's compiler() and interpreted())
 local langs = {
     c = { tool = "k4510-cc" },   pascal = { tool = "k4510-pas" },
-    rexx = { run = "RX" },       k4510basic = { run = "MSBASIC" },   k4510logo = { run = "LOGO" },
+    rexx = { run = "RX" },       k4510basic = { run = "EHBASIC" },   k4510logo = { run = "LOGO" },
 }
 
 -- ---- where things are -----------------------------------------------------------

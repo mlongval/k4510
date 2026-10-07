@@ -196,18 +196,8 @@ carries them: packages.list has them since 2026-10-06).
       sharing memory, to keep Zig out of the emulator's build.
       mitchellh.com/writing/libghostty-is-coming, github.com/ghostty-org/ghostling
 
-## MS BASIC — what it still owes
+## Monitors
 
-- [ ] **LOAD and SAVE.**  The ROM has both at $FF89/$FF8C (name pointer
-      $F0/$F1, 28-bit address $F2..$F5, length $F6..$F9); the BASIC side is
-      `TXTTAB`/`VARTAB` and `FIX_LINKS`, and upstream's OEM
-      `*_loadsave.s` files are worked examples.
-- [ ] **The K4510 words.**  `GRAPHICS`, `PLOT`, `LINE`, `TRI`, `PALETTE`,
-      `SPRITE`, the far `PEEK`/`POKE`.  ~1,850 lines exist for EhBASIC
-      (`basic/k4510*.asm`) and none transfers mechanically.  The big one.
-- [ ] **More program RAM, free.**  The image sits at $7000, leaving
-      $9000-$CFFF unused.  `basic/msbasic.cfg`, `MEMTOP` and the canned
-      `MEMORY SIZE?` answer in `basic/k4510msbasic.asm` must move together.
 - [ ] **Parked — a SUPERMON kernal** (Doc's idea, 2026-08-29): a
       boot-selectable monitor image for when the kernal will not reach a
       prompt.  Needs a console shim (`rom/wozmon.a` is the worked example)

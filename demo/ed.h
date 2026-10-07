@@ -573,13 +573,13 @@ static const char *compiler(void)                    /* the machine's word for t
     if (rn_up((uint8_t)d[1]) == 'C' && !d[2]) return "CC";
     if (rn_up((uint8_t)d[1]) == 'P' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "PAS";
     if (rn_up((uint8_t)d[1]) == 'R' && rn_up((uint8_t)d[2]) == 'X' && !d[3]) return "RX";    /* REXX: nothing to compile, only to run */
-    if (rn_up((uint8_t)d[1]) == 'B' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "MSBASIC";   /* BASIC and LOGO: */
+    if (rn_up((uint8_t)d[1]) == 'B' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "EHBASIC";   /* BASIC and LOGO: */
     if (rn_up((uint8_t)d[1]) == 'L' && rn_up((uint8_t)d[2]) == 'G' && rn_up((uint8_t)d[3]) == 'O' && !d[4]) return "LOGO";      /* run as REXX is */
     return 0;
 }
-static uint8_t interpreted(const char *t)              /* REXX, MSBASIC, LOGO: an interpreter runs the file; CC and PAS compile */
+static uint8_t interpreted(const char *t)              /* REXX, EHBASIC, LOGO: an interpreter runs the file; CC and PAS compile */
 {
-    return (uint8_t)(t && (t[0] == 'R' || t[0] == 'M' || t[0] == 'L'));
+    return (uint8_t)(t && (t[0] == 'R' || t[0] == 'E' || t[0] == 'L'));
 }
 static void mkdir_of_name(void)                      /* the file's directory: MAKE.ERR's names are there */
 {

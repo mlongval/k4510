@@ -110,10 +110,7 @@ CUT   Boot speed test  GONE 2026-09-01 (core/calib.c deleted).  It had been comp
 ?  EhBASIC             the primary BASIC.  Has the K4510 words: GRAPHICS, PLOT,
                        LINE, TRI, PALETTE, SPRITE, far PEEK/POKE, shell escape
                        (~1,850 lines, basic/k4510*.asm)
-WORK  MS BASIC        /MSBASIC/msbasic.prg at $7000.  2026-09-01: star commands --
-                       a line starting with * at the READY prompt goes to K:OS, and
-                       *BYE returns to the shell cleanly, same directory, no reset.
-                       STILL OWED: LOAD/SAVE, and the K4510 words
+GONE  MS BASIC        removed 2026-10-07 (Doc): a third BASIC, no graphics.
 ?  BBC BASIC           on the Tube co-processor
 ?  CP/M (RunCPM)       K:/P:/D: drives, .SUB launchers, CPM [command]
 ?  Tali Forth          forth/

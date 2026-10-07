@@ -291,7 +291,7 @@ k_ed_sn_done
 ; The console cursor on.  The ROM turns it off for a program -- EhBASIC is one
 ; -- and again when anything the shell ran for us ends, and EhBASIC reads its
 ; keys through GETIN, which never shows it: so Ready had no cursor at all
-; (Doc, 2026-09-14).  MS BASIC's k4510_cursor is the same three instructions.
+; (Doc, 2026-09-14).
 ; All three live here in the tail: the $C000 slice is full to the byte, so its
 ; two callers (k4510_go, the @/* shell escape) swap a jump target for one of
 ; these and grow not at all.
@@ -310,7 +310,49 @@ k_curon_seq
 	.byte	27,"[?25h"
 k_cold_cur				; k4510_go: the cursor on, then EhBASIC's cold start
 	JSR	k_curon
+	JSR	k_autorun
 	JMP	LAB_COLD
+; EHBASIC NAME: RUN "NAME" once BASIC is up -- typed ahead into the machine's
+; key queue (a write to $D100), so it is read at the first Ready.  PROG's
+; Run and VI's :run use it (2026-10-07: they ran .BAS through MS BASIC,
+; which had MSBASIC NAME, until MS BASIC went).
+ROM_ARGS	= $FF95
+k_autorun
+	JSR	ROM_ARGS		; ($F0) = the arguments
+	LDY	#0
+k_ar_sp
+	LDA	($F0),Y
+	CMP	#' '
+	BNE	k_ar_first
+	INY
+	BNE	k_ar_sp
+k_ar_first
+	CMP	#0
+	BEQ	k_ar_done		; none: BASIC as ever
+	LDX	#0
+k_ar_hdr
+	LDA	k_ar_run,X
+	BEQ	k_ar_name
+	STA	$D100
+	INX
+	BRA	k_ar_hdr
+k_ar_name
+	LDA	($F0),Y
+	BEQ	k_ar_end
+	CMP	#' '
+	BEQ	k_ar_end
+	STA	$D100
+	INY
+	BNE	k_ar_name
+k_ar_end
+	LDA	#'"'
+	STA	$D100
+	LDA	#CR
+	STA	$D100
+k_ar_done
+	RTS
+k_ar_run
+	.byte	"RUN ",'"',0
 k_shell_cur				; A/X = a line: run it through the shell, cursor back on
 	JSR	ROM_SHELL
 	JMP	k_curon

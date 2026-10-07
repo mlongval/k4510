@@ -45,12 +45,6 @@ RUN \"INVADER2.BAS\"
 "
 shot split 300 "SPLIT
 "
-shot msbasic 500 "msbasic
-10 FOR I=1 TO 6
-20 PRINT I, I*I, SQR(I)
-30 NEXT
-RUN
-"
 shot logo 1500 "logo
 REPEAT 36 [RT 10 REPEAT 4 [FD 90 RT 90]]
 "

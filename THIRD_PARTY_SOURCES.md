@@ -205,28 +205,6 @@ reimplementation for the 45GS10 from Steve Wozniak's published 1976
 listing, and carries this project's licence. Listed here so that a
 reader looking for it does not conclude it was overlooked.
 
-## MS 6502 BASIC 1.1
-
-`basic/msbasic/` -- Microsoft's 2025 source release (MIT) by way of
-`mist64/msbasic` (https://github.com/mist64/msbasic), Michael Steil's
-ca65 reconstruction. Vendored unmodified at commit
-`2a0bc2fe0db13f8cf1b5c40b1d5617263cdb9cb4`, 2026-08-31.
-
-**Only the files a pure-Microsoft configuration assembles are here.**
-Left upstream on purpose: `orig/*.bin` (the original Commodore, Apple,
-AIM-65 and MicroTAN ROM images -- the machine vendors' binaries, not
-Microsoft's MIT release), the per-OEM `defines_*.s`, and the OEM
-ISCNTC/LOAD/SAVE/EXTRA reconstructions. That is the split the licence
-research called for on 2026-08-24: a pure-MS build rests on the MIT
-release alone, while a byte-exact OEM ROM rebuild would not.
-
-The K4510 configuration and port -- `basic/k4510msbasic.asm`, which is
-the machine's whole side of it (config, console glue, `.prg` header) --
-sits *outside* the vendored directory so everything inside stays
-byte-identical to upstream. Built to `fs/LANG/MSBASIC/msbasic.prg`.
-
----
-
 ## Gaps in this record
 
 Every component now has a `VENDORED-FROM.txt` beside it. Three of them

@@ -77,7 +77,7 @@ void title_file(const char *p)
 {
     static const char *const kinds[] = { ".BAS", ".LGO", ".BBC", ".PAS", ".C", ".RX", ".GMI", ".TXT", NULL };
     static const struct { const char *stem, *name; } names[] = {
-        { "ehbasic", "EhBASIC" }, { "msbasic", "MS BASIC" }, { "logo", "LOGO" }, { "rx", "RX" }, { NULL, NULL } };
+        { "ehbasic", "EhBASIC" }, { "logo", "LOGO" }, { "rx", "RX" }, { NULL, NULL } };
     const char *b = strrchr(p, '/'), *dot;
     b = b ? b + 1 : p;
     dot = strrchr(b, '.');

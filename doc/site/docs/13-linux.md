@@ -108,6 +108,19 @@ On a desktop, the other side is your own computer and has whatever you have put 
 
 **Telnet, both directions.** `TELNET 127.0.0.1 23` from the machine’s prompt — or F12 → Host → *Telnet into the host* — logs in to the Linux underneath through the front door rather than through `!`, which is useful when you want a session that survives what the machine is doing. The daemon listens on the machine itself only, so there is no network path to it at all. Outbound, the network is real: `TELNET` reaches a BBS, and URLs work as [Chapter 2, The Shell](02-shell.md) describes.
 
+## mosh: another computer, over a poor network
+
+The K4510 Linux has `mosh` beside `ssh`, and a small command that chooses between the two: `k4510-remote`. ssh sends every key to the other computer and shows it only when the echo comes back, so on a phone’s hotspot each keystroke waits out the round trip, and a network that drops for a moment can end the session. mosh logs in with ssh, then carries the session over UDP: what you type shows at once (underlined until the other side agrees), and the session goes on through a dropped link, a change from the hotspot to home Wi-Fi, or a closed lid.
+
+    k4510-remote you@server                     a shell there
+    k4510-remote you@server tmux new -A -s k4510   the same tmux every time
+
+`k4510-remote` tries mosh first. If mosh is not on this side, or cannot start a session on the other — no `mosh-server` there, or its UDP ports blocked — it says so and runs `ssh -t` instead. A mosh session that ran and ended keeps its own result; only a mosh that fails within its first fifteen seconds falls back. Set `K4510_REMOTE=ssh` to skip mosh altogether. The same line can go in `/SYSTEM/ETC/TERMINAL.CFG`, so that Alt+2 opens it ([Chapter 2, The Shell](02-shell.md)).
+
+**The other computer** needs `mosh` installed (it brings `mosh-server`) and UDP ports 60000–61000 open to you — on the tailnet, and on the home network if you connect there by its local address. Logging in is still ssh’s: a password, or a key if you give this machine one.
+
+**What mosh does not do.** It keeps the screen, not a scrollback — tmux on the other side keeps that. It does not carry JIM’s pictures (the Kitty graphics protocol) or JIM’s own sequences, such as a note for the bottom band: for those, use `ssh -t`. There is no port or agent forwarding. If this side goes away without leaving — a power cut, Save and power off — the `mosh-server` on the other side waits for a client that will not come back; the next connection starts a new one, and tmux’s `-A` puts you back in the old session. To leave a mosh that has lost its server, press Ctrl+`^` then `.`.
+
 ## On a stick
 
     sudo ./linux/build-live.sh

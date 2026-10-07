@@ -208,8 +208,8 @@ Outbound, the network is real: \verb|TELNET| reaches a BBS, and URLs
 work as Chapter~\ref{cha:shell} describes.
 
 \section{mosh: another computer, over a poor network}\label{sec:mosh}
-The K4510 Linux has \verb|mosh| beside \verb|ssh|, and a small command,
-\verb|k4510-remote|, that chooses between them. ssh sends every key to
+The K4510 Linux has \verb|mosh| beside \verb|ssh|, and a small
+command that chooses between the two: \verb|k4510-remote|. ssh sends every key to
 the other computer and shows it only when the echo comes back, so on a
 phone's hotspot each keystroke waits out the round trip, and a network
 that drops for a moment can end the session. mosh logs in with ssh, then

@@ -200,7 +200,7 @@ What the terminal runs is the first line of `/SYSTEM/ETC/TERMINAL.CFG` that is n
 
     k4510-remote you@server tmux new -A -s k4510
 
-`k4510-remote` is mosh when it can be and ssh when it cannot. Over a phone’s hotspot mosh is the one to have: what you type shows at once instead of after the round trip, and the session goes on through a network that drops or changes under it. The server needs `mosh-server` and its UDP ports 60000–61000 open; without them the line falls back to ssh by itself. mosh keeps no scrollback (tmux does) and does not carry JIM’s pictures — for those, write `ssh -t` instead.
+`k4510-remote` is mosh when it can be and ssh when it cannot. Over a phone’s hotspot mosh is the one to have: what you type shows at once instead of after the round trip, and the session goes on through a network that drops or changes under it. The server needs `mosh-server` and its UDP ports 60000–61000 open; without them the line falls back to ssh by itself. mosh keeps no scrollback (tmux does) and does not carry JIM’s pictures — for those, write `ssh -t` instead. [mosh: another computer, over a poor network](13-linux.md#mosh-another-computer-over-a-poor-network) has the rest.
 
 tmux’s own keys then move between its windows, and one line in that server’s ` /.tmux.conf` makes its prefix and `K` come back to K/OS, so the machine is one more window in the list:
 

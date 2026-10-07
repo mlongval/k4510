@@ -109,10 +109,13 @@ Fixed the same day except these:
 
 Measured first with k4510-power (and powertop/turbostat once a full base build
 carries them: packages.list has them since 2026-10-06).
-- [ ] **Tailscale through a relay.** The Dell's node reaches the tailnet via
-      DERP ("relay tor"), and tailscaled averaged 3.4% of a core: find why it
-      is not direct (UDP, the router's NAT).  And k4510-tailscale-hosts.timer
-      every 5 minutes instead of every minute.
+- [x] **Tailscale through a relay** -- not a fault (checked 2026-10-06).
+      "relay" was the idle state: with nothing to send, the tailnet keeps a
+      peer on DERP, and the first packets move it to a direct path (here
+      via the home's public address, 70.49.94.64, hairpinned by the Bell
+      hub; the LAN path is not taken, probably the Wi-Fi extender, but the
+      detour costs 4 ms).  tailscaled's 3.4% was the minutes after a boot:
+      over 92 minutes it used 2 s of CPU.  The hosts timer stays at a minute.
 - [x] **Housekeeping, on battery** (2026-10-06, POWER_SAVE=aggressive in
       k4510-power-policy): Bluetooth soft-blocked, the NMI watchdog off,
       pcie_aspm powersupersave, PCI runtime PM, no turbo -- all at run time,

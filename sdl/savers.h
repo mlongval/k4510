@@ -1,5 +1,5 @@
 /* sdl/savers.h -- the sidebar-savers that paint a whole scene (sdl/savers.c).
- * The gradient and the knot live in sdl/main.c; these draw into a picture
+ * The gradient lives in sdl/main.c; these draw into a picture
  * the size of one sidebar, in machine pixels, every frame. */
 #ifndef K4510_SAVERS_H
 #define K4510_SAVERS_H

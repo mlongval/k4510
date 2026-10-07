@@ -65,7 +65,8 @@ of the steps are Doc's to decide (a key, and who may use it).
 
 WALL is for a question that has a short answer, asked while Doc is doing
 something else on the machine.  The terminal is for a conversation.  The
-brainshot watcher (tools/k4510-brainwatch.timer) is the third leg: what Doc
+brainshot watcher (tools/k4510-brainwatch.timer, never deployed, removed
+2026-10-07) was to be the third leg: what Doc
 writes with IDEA is on ubuntu-s1 within two minutes, without anyone asking.
 
 ## Built, 2026-10-05: way 2

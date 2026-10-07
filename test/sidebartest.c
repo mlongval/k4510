@@ -28,7 +28,7 @@ static void load_font(void)
 }
 int main(void)
 {
-    static const char *order[] = { "border", "gradient", "knot", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "navidrome" };
+    static const char *order[] = { "border", "gradient", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "navidrome" };
     setenv("K4510_SAVER_DAY", "600", 1);   /* the ant farm's day by the test's clock, not the host's: the same picture every run */
     load_font();                           /* before any scene draws */
 

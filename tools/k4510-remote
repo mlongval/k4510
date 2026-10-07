@@ -21,7 +21,7 @@
                                     nothing marked: each new one is staged in
                                     ~/k4510-remote/brainshots/ and named in its NEW file, which
                                     `ideas' empties.  A machine that is away is not an error
-                                    (the timer: tools/k4510-brainwatch.timer).  -q: say nothing
+                                    -q: say nothing
                                     unless there is one
     k4510-remote watch [S] [MAX]    peek every S seconds (default 60) until there is one, then
                                     show it; give up after MAX seconds (default: never).  What

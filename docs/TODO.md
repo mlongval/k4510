@@ -122,9 +122,8 @@ carries them: packages.list has them since 2026-10-06).
       put back on mains.  The camera is off for good (2026-10-06: udev
       de-authorizes any video-class USB device, uvcvideo blacklisted).  Still
       open: `workqueue.power_efficient=1` (kernel line only).
-- [ ] **The frame loop at rest.** After a few still seconds, 30 or 20 frames
-      a second instead of 60 (back at once on a key or a change): fewer
-      wakeups for the CPU and the GPU.
+- [x] **The frame loop at rest** (2026-10-06): three frames a wakeup when
+      nobody types and nothing moves; 20 wakeups a second instead of 60.
 - [ ] **Frame buffer compression.** i915 says "FBC disabled: pixel format not
       supported" for the plane SDL draws on; find a format it compresses
       (XRGB8888) and the panel's refresh costs less.

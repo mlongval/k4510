@@ -11759,3 +11759,14 @@ left out: its licence is not clear enough to ship.
 Checked: vickytest 12-13 (16x16 HD, 16-wide cells), uitest (the mode pairs,
 the old names), make test; all four screens under Xvfb with Zhekov Bold.
 Not checked: the Dell.
+## 2026-10-06 -- the frame loop at rest
+
+From the battery list (docs/TODO.md).  The frontend woke 60 times a second
+whatever happened.  Now, at rest -- nobody at the keys for two seconds, the
+audio device closed, a plain border, no menu, and at most six of the last
+64 frames drawn (the cursor's blink allowed, an animation not) -- the pacer
+sleeps three frames at a time and runs the two it owes back to back.  The
+machine still gets 60 frames a second (TIME after 30 s at rest: 1804
+frames); the host wakes 20 times instead of 60.  A key is seen within
+50 ms and ends it.  Under Xvfb, idle at the prompt: the main thread's
+sleeps fell from ~79 to ~39 a second (the rest are SDL's and the GPU's).

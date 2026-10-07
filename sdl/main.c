@@ -638,6 +638,8 @@ static void apple_panel_click(int act)
  * driver (KMSDRM draws its own cursor): SDL's rect where it works, and a warp
  * back to the edge on any motion that got out anyway. */
 static int confine_on; static SDL_Rect confine_r;
+static uint64_t drawn_bits;                   /* the last 64 frames, a bit each: drawn (1) or not; the pacer's measure of rest */
+static Uint32 input_ms;                       /* the last key, button or motion the host saw */
 static int present_force = 1, frame_static, frame_sides;   /* still frames: draw the window again; nothing around the picture moves;
                                                             * only the sidebars move (they are drawn at 30 a second) */
 static int confine_clamp(int *x, int *y)          /* 1 if (x,y) was outside and has been brought to the edge */
@@ -1412,6 +1414,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         if (hup_req) { hup_req = 0; mlog("quit: SIGHUP"); running = 0; }
         uint8_t pend = 0;               /* a printable key waiting to see whether SDL sends its text */
         while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP || e.type == SDL_TEXTINPUT || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN
+                || e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEWHEEL || e.type == SDL_JOYAXISMOTION || e.type == SDL_JOYBUTTONDOWN) input_ms = SDL_GetTicks();
             switch (e.type) {
             case SDL_QUIT: mlog("quit: SDL_QUIT (the window closed, or a SIGTERM)"); running = 0; break;
             case SDL_WINDOWEVENT:
@@ -2134,6 +2138,7 @@ tex_done:
           static unsigned side_n; int side_due = (++side_n & 1) == 0;   /* the moving sidebars: every other frame, 30 a second */
           if (tex_same && (frame_static || (frame_sides && !side_due)) && sig == last_sig && !present_force && !shot_flash && !captures
               && (frame_sides || tn - last_full < 1000)) goto frame_still;
+          drawn_bits |= 1;                                      /* this frame is drawn (the pacer counts them) */
           last_sig = sig; present_force = 0; last_full = tn; }
         { int b = settings_get(SET_VIDEO_BORDER) * gw / 640;     /* the border's pixels are 640-glass pixels */
           uint32_t bc = vicky_palette_rgb(settings_get(SET_VIDEO_BORDER_COLOUR));
@@ -2653,7 +2658,18 @@ frame_still:
           static Uint64 next; Uint64 now = SDL_GetPerformanceCounter(), per = SDL_GetPerformanceFrequency() / 60;
           if (!next || now > next + 4 * per) next = now;
           next += per;
-          if (now < next) SDL_Delay((Uint32)((next - now) * 1000 / SDL_GetPerformanceFrequency()));
+          /* At rest (2026-10-06, for time on battery): nobody at the keys for
+           * two seconds, the audio device closed, nothing moving beside the
+           * picture, and hardly anything drawn (six of the last 64 frames at
+           * most: the cursor's blink is allowed, an animation is not) -- and
+           * the loop sleeps three frames at a time, then runs the two it owes
+           * back to back (the deadline above lets it catch up).  The machine
+           * still gets its 60 frames a second, in bursts: 20 wakeups a second
+           * for the host instead of 60.  A key is seen at the next wakeup,
+           * 50 ms at most, and ends it. */
+          int rest = SDL_GetTicks() - input_ms > 2000 && !adev && frame_static && !open && !paused && __builtin_popcountll(drawn_bits) <= 6;
+          drawn_bits <<= 1;
+          if (now < next) SDL_Delay((Uint32)(((rest ? next + 2 * per : next) - now) * 1000 / SDL_GetPerformanceFrequency()));
         }
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }

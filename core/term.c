@@ -310,6 +310,56 @@ static uint8_t readable_fg(uint8_t fg, uint8_t bg)
     return pal_ratio(1, bg) >= pal_ratio(0, bg) ? 1 : 0;
 }
 
+/* The machine's own programs under another palette (Doc, 2026-10-07: EDIT,
+ * PROG "and the rest ... with the monochrome palettes. some color
+ * combinations are very low contrast and nigh unreadable").  They name
+ * palette entries (ESC[?4510h) chosen on the VIC-II sixteen; a ramp palette
+ * (AMBER, GREEN, GREY) turns some of those pairs into two near shades of one
+ * colour.  So a pair keeps the contrast it was designed with: what it had on
+ * the VIC-II, up to 4.5:1.  A character that falls short takes the entry
+ * nearest its own in brightness that reaches it, on the same side of the
+ * background where one does.  A pair meant to be dim (DOS's shadows) was dim
+ * on the VIC-II too, and stays as dim as it was. */
+static const uint32_t vic16[16] = {
+    0x000000, 0xFFFFFF, 0x880000, 0xAAFFEE, 0xCC44CC, 0x00CC55, 0x0000AA, 0xEEEE77,
+    0xDD8855, 0x664400, 0xFF7777, 0x333333, 0x777777, 0xAAFF66, 0x0088FF, 0xBBBBBB,
+};
+static uint8_t intent_fg[16][16];
+static uint32_t intent_gen = 0xFFFFFFFFu;
+static float lum_of(uint32_t c, int protan)
+{
+    float r = srgb_lin(c >> 16), g = srgb_lin(c >> 8), b = srgb_lin(c);
+    return protan ? 0.1140f * r + 0.7827f * g + 0.1034f * b : 0.2126f * r + 0.7152f * g + 0.0722f * b;
+}
+static uint8_t intended_fg(uint8_t fg, uint8_t bg)
+{
+    if (fg > 15 || bg > 15 || fg == bg) return fg;
+    lum_update();
+    if (intent_gen != vicky_palette_gen()) {
+        intent_gen = vicky_palette_gen();
+        for (int b = 0; b < 16; b++) for (int f = 0; f < 16; f++) {
+            float rn = ratio_of(lum_of(vic16[f], 0), lum_of(vic16[b], 0)), rp = ratio_of(lum_of(vic16[f], 1), lum_of(vic16[b], 1));
+            float want = rn < rp ? rn : rp;
+            if (want > CONTRAST_GOOD) want = CONTRAST_GOOD;
+            uint8_t pick = (uint8_t) f;
+            if (f != b && pal_ratio(f, b) < want * 0.9f) {
+                int up = lum_of(vic16[f], 0) >= lum_of(vic16[b], 0);            /* lighter than its background, as designed */
+                float best = 1e9f, most = -1; int bi = -1, mi = f;
+                for (int i = 0; i < 16; i++) {
+                    float r = pal_ratio(i, b);
+                    if (r > most) { most = r; mi = i; }
+                    if (r < want) continue;
+                    float d = fabsf(lum_n[i] - lum_n[f]) + (((lum_n[i] >= lum_n[b]) != up) ? 2.0f : 0.0f);   /* the other side only if need be */
+                    if (d < best) { best = d; bi = i; }
+                }
+                pick = (uint8_t)(bi >= 0 ? bi : mi);
+            }
+            intent_fg[f][b] = pick;
+        }
+    }
+    return intent_fg[fg][bg];
+}
+
 static void print_char(uint8_t ch)
 {
     uint8_t fg = T.fg, bg = T.bg, attr = 0;
@@ -324,6 +374,7 @@ static void print_char(uint8_t ch)
      * background is made readable (readable_fg, above).  A BBS (CP437) keeps
      * its exact colours: art may mean it. */
     if (T.utf8 && ch != ' ') fg = readable_fg(fg, bg);
+    else if (T.paldirect && ch != ' ') fg = intended_fg(fg, bg);   /* the machine's programs: as readable as designed */
     if (T.uline) attr |= 0x00;           /* text32 has no underline; kept for the day it does */
     if (T.pending) {                     /* the VT100 way: the wrap happens as the next character lands */
         if (T.wrap) { T.cx = 0; linefeed(); } else T.cx = (uint8_t)(T.cols - 1);

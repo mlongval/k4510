@@ -6,6 +6,7 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/term.h"
+#include "../core/vicky.h"
 static int fails = 0;
 #define CHECK(c, ...) do { if (!(c)) { fails++; printf("  FAIL: " __VA_ARGS__); printf("\n"); } } while (0)
 #define R(r) io_read(IO_TERM + (r))
@@ -231,5 +232,18 @@ int main(void)
       send("\x1b_Xnot ours\x1b\\ok"); row(r, 0); CHECK(!strcmp(r, "ok"), "an APC that is not G is swallowed whole ('%s')", r);
     }
     printf("13. pictures: query, RGB, PNG, zlib, chunks, put, scaling, a file, scrolling, clearing: ok\n");
+    /* 14. The machine's programs (ESC[?4510h) under a ramp palette keep the
+     * contrast they were designed with (2026-10-07): AMBER's 3 is a dark
+     * amber, so EDIT's status bar, black on cyan, had nothing to read. */
+    { static const uint8_t amber[16][3] = { {0,0,0}, {0xFF,0xB0,0}, {0x22,0x17,0}, {0x33,0x23,0}, {0x44,0x2E,0}, {0x55,0x3A,0}, {0x66,0x46,0},
+          {0x77,0x52,0}, {0x88,0x5D,0}, {0x99,0x69,0}, {0xAA,0x75,0}, {0xBB,0x80,0}, {0xCC,0x8C,0}, {0xDD,0x98,0}, {0xEE,0xA3,0}, {0xFF,0xAF,0} };
+      W(4, 2); send("\033[?4510h\033[38;5;0;48;5;3mS\033[38;5;11;48;5;0mD\033[0m\033[?4510l");
+      CHECK(cell(0, 0)[2] == 0 && cell(0, 0)[3] == 3, "on the VIC-II sixteen, black on cyan stays (%d on %d)", cell(0, 0)[2], cell(0, 0)[3]);
+      for (int i = 0; i < 16; i++) { io_write(IO_VICKY + VR_PALIDX, (uint8_t) i); io_write(IO_VICKY + VR_PALIDX + 1, amber[i][0]); io_write(IO_VICKY + VR_PALIDX + 2, amber[i][1]); io_write(IO_VICKY + VR_PALIDX + 3, amber[i][2]); }
+      W(4, 2); send("\033[?4510h\033[38;5;0;48;5;3mS\033[38;5;11;48;5;0mD\033[0m\033[?4510l");
+      CHECK(cell(0, 0)[2] >= 10 && cell(0, 0)[3] == 3, "under AMBER it is lit: entry %d on 3", cell(0, 0)[2]);
+      CHECK(cell(1, 0)[2] == 11, "dark grey on black was dim by design and stays dim (%d)", cell(1, 0)[2]);
+      send("\033[38;5;0;48;5;3mU"); CHECK(cell(2, 0)[2] == 0, "outside ?4510h nothing is changed (%d)", cell(2, 0)[2]);
+      printf("14. the machine's colours under a ramp palette keep their contrast: ok\n"); }
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails); return fails != 0;
 }

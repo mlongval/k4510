@@ -22,7 +22,7 @@ for pair in "0 80x30 640x480" "1 80x30 640x240" "2 40x30 320x240" "5 90x33 1440x
     esac
 done
 # 640x480 twice (Doc, 2026-09-15): 8x16 cells 80x30, 8x8 cells 80x60, and back
-for pair in "60 80x60" "30 80x30"; do
+for pair in "-d 80x60" "-n 80x30" "--double 80x60" "--normal 80x30"; do
     set -- $pair
     out=$(K4510_SYSOPT=0x04 timeout 90 ./test/headless rom/kernal.bin "MODE 0 $1
 ~MODE
@@ -32,9 +32,10 @@ for pair in "60 80x60" "30 80x30"; do
         *) echo "  FAIL MODE 0 $1: got '$out', want '$2 text, 640x480 pixels'"; fails=$((fails + 1)) ;;
     esac
 done
-# the HD screens' smaller cells (2026-10-06): MODE 5 67 is 1440x1080 in 16x16,
-# MODE 6 67 720x540 in 8x8 -- 90x67 both -- and 33 the larger again
-for pair in "5 67 90x67 1440x1080" "5 33 90x33 1440x1080" "6 67 90x67 720x540" "6 33 90x33 720x540"; do
+# the HD screens' smaller cells (2026-10-06): MODE 5 -d is 1440x1080 in 16x16,
+# MODE 6 -d 720x540 in 8x8 -- 90x67 both -- and -n the larger again
+# (POSIX options since 2026-10-07; the row counts 67/33 went)
+for pair in "5 -d 90x67 1440x1080" "5 -n 90x33 1440x1080" "6 -d 90x67 720x540" "6 -n 90x33 720x540"; do
     set -- $pair
     out=$(K4510_SYSOPT=0x04 timeout 90 ./test/headless rom/kernal.bin "MODE $1 $2
 ~MODE

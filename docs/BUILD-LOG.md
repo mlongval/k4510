@@ -11816,3 +11816,12 @@ stands).  On a 1080 panel at 4:3 nothing changes but a new 480x360 (/3).
 Seen under Xvfb at 1920x1080, 1366x768 (/4 is under 320x200, so /3,
 341x256 in 42x32) and 2560x1440 (/4 480x360, drawn 960x720 with HD text).
 
+**Later the same day: MODE takes POSIX options** (Doc: "/1 etc is a DOS era
+throwback").  `MODE -l` (`--list`) lists the panel's resolutions with their
+grids; `-s N` (`--scale=N`, `-sN`) or `MODE 720x540` picks one; `-d`
+(`--double`) and `-n` (`--normal`) replace the row counts (67, 33, 60, 30);
+the numbers 0-2 and 5-7 stay.  Options may come before or after the operand;
+`--` ends them.  The parser (`opt_get`, `opt_num`, `decnum`) is meant for
+every shell word, and lives in ROM bank 3 with MODE: the base image and
+bank 1 had no room.  Other commands still parse their own few letters.
+

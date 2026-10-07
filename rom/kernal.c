@@ -911,51 +911,6 @@ static void put_glass(uint8_t m)
     if (m < 5) { puts_(modename(m)); return; }
     putdec(r16(VICKY + 0xD6)); k_chrout('x'); putdec(r16(VICKY + 0xD8));
 }
-static uint8_t bcd(uint32_t v) { return (uint8_t)(((v >> 8) & 15) * 100 + ((v >> 4) & 15) * 10 + (v & 15)); }   /* "45" read as hex, as 45 */
-static void cmd_mode(const char *p)
-{
-    uint8_t d; uint32_t m;
-    if (!*p) { uint8_t i, n = REG(VICKY + 0xC8);
-               puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               put_glass(vmode); puts_(" pixels"); if (vmode >= 5) { puts_(", /"); putdec(REG(VICKY + 0xDA)); }
-               puts_("   (MODE 0-2, 5-7, /n)"); newline();
-               /* the integer display resolutions this panel offers: MODE /n picks one */
-               puts_("this panel: "); putdec(r16(VICKY + 0xC0)); k_chrout('x'); putdec(r16(VICKY + 0xC2)); puts_(", offers");
-               for (i = 0; i < n; i++) { REG(VICKY + 0xC9) = i; puts_("  /"); putdec(REG(VICKY + 0xCA)); k_chrout(' ');
-                                         putdec(r16(VICKY + 0xCC)); k_chrout('x'); putdec(r16(VICKY + 0xCE)); }
-               newline(); return; }
-    /* MODE /n (2026-10-07): the integer display resolution at scale n -- MODE 5
-     * at that scale; /1 /2 /4 are what MODE 5, 6 and 7 were on a 1080 panel. */
-    if (*p == '/') { ++p; m = parsehex(&p, &d); if (!d || !m) { error("mode: /n, a scale this panel offers (MODE alone lists them)"); return; }
-                     vdiv = bcd(m); m = 5; }
-    else {
-    /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
-     * way back out, and someone meeting the machine for the first time should
-     * not be able to type themselves into a screen they cannot use. VICKY
-     * still has them: a program that wants one writes the CTRL bits itself. */
-    m = parsehex(&p, &d); if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240; 5 6 7 the panel /1 /2 /4; /n"); return; }
-    if (m == 5) vdiv = 1; }
-    vmode = (uint8_t)m; skipsp(&p);
-    /* MODE 0 60 / MODE 0 30: the 480-line screen in 8x8 or 8x16 cells; MODE 6 67
-     * and MODE 5 67 the HD screens' smaller cells (2026-10-06), 33 the larger.
-     * parsehex reads the pair as it is written -- 30 and 60 are the digits,
-     * $30 and $60 the values -- so the machine needs no decimal parser. */
-    /* Since 2026-10-07 any count: the grid with more than 40 rows is the
-     * smaller cells' (MODE 0 60, MODE 5 67, MODE /3 45). */
-    { uint32_t r = parsehex(&p, &d);
-      if (d) { rows60 = (uint8_t)(bcd(r) > 40); rows60_set = 1; } }
-    video_init(); cls();
-    /* And repaint the banner at the next prompt, the way a mode change from
-     * the F12 menu already does (mode_do sets the same flag).  Doc, 2026-09-16:
-     * "after a resolution change I think that an automatic BANNER command would
-     * be a good idea."  The menu's route had it and the typed command did not,
-     * which is the odd half: MODE clears the screen either way, so without this
-     * the machine dropped you at a bare prompt in a screen whose shape had just
-     * changed, with nothing on it to tell you what shape that was.  The flag is
-     * read by the shell loop, so a MODE inside STARTUP.BAT or a .BAT still
-     * banners once, when the prompt comes back -- not in the middle of it. */
-    mode_note = 1;
-}
 
 static void cmd_color(const char *p)
 {
@@ -1894,6 +1849,122 @@ static void nav(const char *p)
         if (fs_cmd(20)) error("umount: not mounted");
     } else alias_hit = 0;
 }
+/* MODE and the option parser, in bank 3 since 2026-10-07: the base image and
+ * bank 1 had no room left for them. */
+/* A decimal number; 0 digits if there is none. */
+static uint16_t decnum(const char **p, uint8_t *digits)
+{
+    uint16_t v = 0; *digits = 0;
+    while (**p >= '0' && **p <= '9') { v = (uint16_t)(v * 10 + (**p - '0')); (*p)++; (*digits)++; }
+    return v;
+}
+/* POSIX-style options for the shell's words (Doc, 2026-10-07): -x, a value
+ * after it (-s 2, or -s2), --word, --word=value; "--" ends them.  LONGS lists
+ * a command's long names, each led by the letter it stands for:
+ * "llist\0sscale\0" makes --list -l and --scale -s.  Returns the letter
+ * (lower case; '?' for a long name not in LONGS), 0 at the first word that is
+ * not an option; *p moves past the option, and opt_val points at a value in
+ * the same word (-s2, --scale=2) or is 0. */
+static const char *opt_val;
+static uint8_t opt_get(const char **pp, const char *longs)
+{
+    const char *p = *pp, *n, *e, *l; uint8_t c;
+    skipsp(&p);
+    if (p[0] != '-' || !p[1] || p[1] == ' ') { *pp = p; return 0; }
+    if (p[1] == '-') {
+        n = p + 2; e = n; while (*e && *e != ' ' && *e != '=') e++;
+        if (e == n) { *pp = e; skipsp(pp); return 0; }                 /* "--": the options end */
+        c = '?';
+        for (l = longs; *l; l += strlen(l) + 1) {
+            const char *a = l + 1, *b = n;
+            while (b < e && *a && ((*a ^ *b) & ~0x20) == 0) { a++; b++; }
+            if (b == e && !*a) { c = (uint8_t) l[0]; break; }
+        }
+        opt_val = *e == '=' ? e + 1 : 0;
+    } else { c = (uint8_t)(p[1] | 0x20); e = p + 2; opt_val = *e && *e != ' ' ? e : 0; }
+    while (*e && *e != ' ') e++;
+    *pp = e;
+    return c;
+}
+/* An option's value: in its word (opt_val), or the next word. */
+static uint16_t opt_num(const char **pp, uint8_t *digits)
+{
+    const char *v;
+    if (opt_val) { v = opt_val; return decnum(&v, digits); }
+    skipsp(pp); return decnum(pp, digits);
+}
+/* One integer display resolution, as MODE -l lists it: its scale, its size
+ * and the grids K/OS makes there -- as video_init chooses the cells. */
+static void mode_row(uint8_t i)
+{
+    uint16_t w, h, cw, ch; uint8_t sc;
+    REG(VICKY + 0xC9) = i; sc = REG(VICKY + 0xCA); w = r16(VICKY + 0xCC); h = r16(VICKY + 0xCE);
+    cw = (sc == 1 || w >= 1280) ? 16 : 8; ch = cw * 2;
+    if (h / ch < 25) ch >>= 1;
+    puts_("  -s "); putdec(sc); k_chrout(' '); k_chrout(' '); putdec(w); k_chrout('x'); putdec(h);
+    k_chrout(' '); k_chrout(' '); putdec(w / cw); k_chrout('x'); putdec(h / ch);
+    if (ch > 8 && h / (ch >> 1) >= 25 && ch != cw) { puts_(", -d "); putdec(w / cw); k_chrout('x'); putdec(h / (ch >> 1)); }
+    newline();
+}
+static void cmd_mode(const char *p)
+{
+    uint8_t c, d, list = 0, set = 0, i, n; uint16_t m;
+    /* POSIX options since 2026-10-07 (Doc: "/1 etc is a DOS era throwback"):
+     *   MODE                 the mode now
+     *   MODE -l, --list      this panel's integer display resolutions
+     *   MODE -s N, --scale=N the one at scale N (the canvas divided by N)
+     *   MODE WxH             the same, by its size
+     *   MODE -d, --double    the smaller cells: twice the rows
+     *   MODE -n, --normal    the larger again
+     *   MODE 0-2, 5-7        the numbers, as before (5 6 7: scale 1 2 4) */
+  for (;;) {                                         /* options before the operand and after it */
+    while ((c = opt_get(&p, "llist\0sscale\0ddouble\0nnormal\0")) != 0) {
+        if (c == 'l') list = 1;
+        else if (c == 's') { m = opt_num(&p, &d); if (!d || !m) { error("mode: -s N, a scale MODE -l lists"); return; } vdiv = (uint8_t) m; vmode = 5; set = 1; }
+        else if (c == 'd' || c == 'n') { rows60 = (uint8_t)(c == 'd'); rows60_set = 1; set = 1; }
+        else { error("mode: -l (--list), -s N (--scale=N), WxH, -d (--double), -n (--normal), 0-2 5-7"); return; }
+    }
+    if (*p) {
+        m = decnum(&p, &d);
+        if (d && (*p | 0x20) == 'x') {                    /* WxH: the IDR of that size */
+            uint16_t h; ++p; h = decnum(&p, &d); n = REG(VICKY + 0xC8);
+            for (i = 0; i < n; i++) { REG(VICKY + 0xC9) = i; if (r16(VICKY + 0xCC) == m && r16(VICKY + 0xCE) == h) break; }
+            if (!d || i == n) { error("mode: not a size this panel offers -- MODE -l"); return; }
+            vdiv = REG(VICKY + 0xCA); vmode = 5;
+        } else {
+            /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
+             * way back out, and someone meeting the machine for the first time should
+             * not be able to type themselves into a screen they cannot use. VICKY
+             * still has them: a program that wants one writes the CTRL bits itself. */
+            if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240, 5 6 7 scale 1 2 4; MODE -l"); return; }
+            vmode = (uint8_t) m; if (m == 5) vdiv = 1;
+        }
+        set = 1; continue;
+    }
+    break;
+  }
+    if (!set) {
+        puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
+        if (vmode < 5) puts_(vmode == 0 ? "640x480" : vmode == 1 ? "640x240" : vmode == 2 ? "320x240" : vmode == 3 ? "320x200" : "160x200");
+        else { putdec(r16(VICKY + 0xD6)); k_chrout('x'); putdec(r16(VICKY + 0xD8)); }
+        puts_(" pixels"); if (vmode >= 5) { puts_(", scale "); putdec(REG(VICKY + 0xDA)); }
+        newline();
+        if (list) { puts_("this panel, "); putdec(r16(VICKY + 0xC0)); k_chrout('x'); putdec(r16(VICKY + 0xC2)); puts_(", offers:"); newline();
+                    for (n = REG(VICKY + 0xC8), i = 0; i < n; i++) mode_row(i); }
+        return;
+    }
+    video_init(); cls();
+    /* And repaint the banner at the next prompt, the way a mode change from
+     * the F12 menu already does (mode_do sets the same flag).  Doc, 2026-09-16:
+     * "after a resolution change I think that an automatic BANNER command would
+     * be a good idea."  The menu's route had it and the typed command did not,
+     * which is the odd half: MODE clears the screen either way, so without this
+     * the machine dropped you at a bare prompt in a screen whose shape had just
+     * changed, with nothing on it to tell you what shape that was.  The flag is
+     * read by the shell loop, so a MODE inside STARTUP.BAT or a .BAT still
+     * banners once, when the prompt comes back -- not in the middle of it. */
+    mode_note = 1;
+}
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 /* The shell's commands, as a table: a name, the sideways bank its code lives
@@ -1946,7 +2017,7 @@ static const shcmd_t shcmds[] = {
     { n_FILL, 0, mon_fill },     { n_COPY, 0, mon_copy },    { n_DUMP, 1, cmd_dump },
     { n_INFO, 1, cmd_info },     { n_TIME, 1, cmd_time },
     { n_COLOR, 1, cmd_color },   { n_COLOUR, 1, cmd_color },
-    { n_PALETTE, 2, cmd_palette }, { n_MODE, 1, cmd_mode },
+    { n_PALETTE, 2, cmd_palette }, { n_MODE, 3, cmd_mode },
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },

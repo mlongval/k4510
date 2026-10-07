@@ -50,19 +50,20 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   screen comes two ways in the menu: \emph{640x480}, eighty columns by
   thirty in tall 8$\times$16 letters, and \emph{640x480x60}, eighty by
   sixty in 8$\times$8 --- the screen the machine had before it settled on
-  one font. \verb|MODE 0 60| and \verb|MODE 0 30| choose them at the
+  one font. \verb|MODE 0 -d| and \verb|MODE 0 -n| choose them at the
   prompt, and the machine remembers which. The HD screens are the
   panel's own: the machine finds the display's native size, takes the
   largest 4:3 in it (or all of it, F12 $\rightarrow$ Video $\rightarrow$
   Canvas), and divides that by a whole number --- the \emph{integer display
   resolutions}, every machine pixel the same square of panel pixels. A
-  1920x1080 panel offers 1440x1080 (\verb|MODE /1|), 720x540 (\verb|/2|),
-  480x360 (\verb|/3|) and 360x270 (\verb|/4|); a 1366x768 one 1024x768,
+  1920x1080 panel offers 1440x1080 (\verb|MODE -s 1|), 720x540
+  (\verb|-s 2|), 480x360 (\verb|-s 3|) and 360x270 (\verb|-s 4|); a 1366x768 one 1024x768,
   512x384 and 341x256; a 4K panel starts at 1440x1080 shown twice over, since
-  a larger picture would cost more than a frame to draw. \verb|MODE| alone
-  lists what this panel offers; \verb|MODE 5|, \verb|6| and \verb|7| are
-  \verb|/1|, \verb|/2| and \verb|/4|. Each comes in larger cells and, with
-  a row count over forty after it (\verb|MODE /2 67|), smaller ones: at
+  a larger picture would cost more than a frame to draw. \verb|MODE -l|
+  lists what this panel offers; \verb|MODE 720x540| picks one by its size, and
+  \verb|MODE 5|, \verb|6| and \verb|7| are scales 1, 2 and 4. Each comes in
+  larger cells and, with \verb|-d| (\verb|--double|: \verb|MODE -s 2 -d|),
+  smaller ones: at
   1440x1080 sixteen wide, 90 columns by 33 or 67 rows; at 720x540 eight
   wide, drawn with the panel's pixels (below), 90 by 33 or 67. K/OS keeps
   to 132 columns and 25 rows at least. How large a picture is too large depends on

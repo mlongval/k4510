@@ -49,22 +49,23 @@ are drawn into the same glass, doubled and centred, so the raster is always
 480 lines however few of them the picture uses. The 640x480 screen comes two
 ways in the menu: 640x480, eighty columns by thirty in tall 8x16 letters, and
 640x480x60, eighty by sixty in 8x8 -- the screen the machine had before it
-settled on one font. MODE 0 60 and MODE 0 30 choose them at the prompt, and
+settled on one font. MODE 0 -d and MODE 0 -n choose them at the prompt, and
 the machine remembers which. The HD screens are the panel's own: the machine
 finds the display's native size, takes the largest 4:3 in it (or all of it,
 F12 -> Video -> Canvas), and divides that by a whole number -- the integer
 display resolutions, every machine pixel the same square of panel pixels. A
-1920x1080 panel offers 1440x1080 (MODE /1), 720x540 (/2), 480x360 (/3) and
-360x270 (/4); a 1366x768 one 1024x768, 512x384 and 341x256; a 4K panel starts
-at 1440x1080 shown twice over, since a larger picture would cost more than a
-frame to draw. MODE alone lists what this panel offers; MODE 5, 6 and 7 are
-/1, /2 and /4. Each comes in larger cells and, with a row count over forty
-after it (MODE /2 67), smaller ones: at 1440x1080 sixteen wide, 90 columns by
-33 or 67 rows; at 720x540 eight wide, drawn with the panel's pixels (below),
-90 by 33 or 67. K/OS keeps to 132 columns and 25 rows at least. How large a
-picture is too large depends on the computer: !k4510-vidcap times this one and
-writes its pixel cap into k4510.cfg, so a slow laptop offers fewer and smaller
-resolutions rather than a machine that cannot keep up.
+1920x1080 panel offers 1440x1080 (MODE -s 1), 720x540 (-s 2), 480x360 (-s 3)
+and 360x270 (-s 4); a 1366x768 one 1024x768, 512x384 and 341x256; a 4K panel
+starts at 1440x1080 shown twice over, since a larger picture would cost more
+than a frame to draw. MODE -l lists what this panel offers; MODE 720x540 picks
+one by its size, and MODE 5, 6 and 7 are scales 1, 2 and 4. Each comes in
+larger cells and, with -d (--double: MODE -s 2 -d), smaller ones: at 1440x1080
+sixteen wide, 90 columns by 33 or 67 rows; at 720x540 eight wide, drawn with
+the panel's pixels (below), 90 by 33 or 67. K/OS keeps to 132 columns and 25
+rows at least. How large a picture is too large depends on the computer:
+!k4510-vidcap times this one and writes its pixel cap into k4510.cfg, so a
+slow laptop offers fewer and smaller resolutions rather than a machine that
+cannot keep up.
 *
 
  Sound: MELODY -- an OPL2, the Yamaha YM3812, at $D480: nine FM voices wired

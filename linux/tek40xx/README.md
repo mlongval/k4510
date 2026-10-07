@@ -1,5 +1,11 @@
 # Tek40xx on the K4510 Linux
 
+**Sidelined 2026-10-07 (Doc):** no longer built into the K4510x image or
+the container, and out of the handbook.  Everything here is kept; to bring
+it back, un-comment the build lines marked in `linux/build-live.sh`,
+`linux/Containerfile` and `linux/podman.sh`, put `HANDBOOK-SECTION.tex`
+back in chapter 13, and `ALIAS tekplay !tekplay` in STARTUP.SAMPLE.
+
 [Tek40xx](https://github.com/Isysxp/Tek40xx) (Ian Schofield, GPL-3) is a
 Tektronix 4010/4014 storage-tube terminal on SDL2 that is itself a
 telnet client. It is built into the K4510 Linux -- the stick and the

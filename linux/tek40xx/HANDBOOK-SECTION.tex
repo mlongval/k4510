@@ -1,0 +1,28 @@
+% The handbook's section on tek40xx (chapter 13), taken out when Tek40xx was
+% sidelined (Doc, 2026-10-07).  Put it back before "From another computer",
+% with the table row and the consoles sentence (git log -p on 13-linux.tex).
+\section{A Tektronix beside the machine}
+\texttt{tek40xx} (Ian Schofield's, GPL-3) is a Tektronix 4010/4014
+storage-tube terminal that is also a telnet client. It is on the K4510's
+Linux and in the container because of what a storage tube is
+\emph{for}: a PiDP-11 answers on telnet ports, and a machine of that
+vintage deserves a screen of that vintage to draw on.
+
+\begin{type}
+tek HOST [PORT]
+\end{type}
+
+\noindent on the second console --- full screen on a bare console, in a
+window under a desktop. And without any PDP-11 at all:
+
+\begin{type}
+tekplay NAME|FILE...
+\end{type}
+
+\noindent plays Tektronix plot files at a 9600-baud pace, which is the
+right speed to watch one being drawn. With no argument it plays every
+plot that ships; \texttt{HOME} clears the screen and \texttt{END} quits.
+Nothing in the emulator changed for any of this: it is a second program
+on the same computer, which is exactly what a second terminal was in
+1975.
+

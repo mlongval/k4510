@@ -159,10 +159,8 @@ update)
     # the container has no .git, so hand it the commit for K4510_BUILD (the Info
     # menu); the version number comes from the Makefile, the copy kept current
     BUILD="$(build_id)"
-    podman exec -e K4510_BUILD="$BUILD" "$NAME" sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm && (make -C tube || echo "the Tube did not build; everything else did")'
-    # the Tektronix terminal too: it is built from upstream with our patch at
-    # image time, and a patch that changed since (2026-09-09) never reached it
-    podman exec "$NAME" sh -c 'cd ~/k4510 && sudo sh linux/tek40xx/build.sh' || echo "podman.sh: tek40xx did not rebuild (no network in the container?); the rest did"
+    podman exec -e K4510_BUILD="$BUILD" "$NAME" sh -c 'cd ~/k4510 && find core sdl -name "*.d" -delete; make -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin && (make -C tube || echo "the Tube did not build; everything else did")'
+    # (the Tektronix terminal is sidelined, 2026-10-07: not rebuilt here)
     podman stop -t 1 "$NAME" >/dev/null 2>&1 || true
     echo "podman.sh: updated"; exit 0 ;;
 rm)

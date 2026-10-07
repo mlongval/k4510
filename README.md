@@ -160,13 +160,11 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   in memory); **LOGO**; **RX**, a REXX; **C**, compiled
   on the machine's own Linux with cc65 (`fs/LANG/C`); **BBC BASIC** — Richard Russell's interpreter (BBCTTY, zlib)
   on **the Tube**, a co-processor port of Acorn heritage, with its own flat
-  256 MB; **Forth** — Tali Forth 2, native 45GS10 code; and **CP/M 2.2**
-  on the Tube's Z80 (RunCPM, MIT) — drives `A:`-`P:` are folders under
-  `fs/CPM/`, `K:` is the machine's own filesystem, `CPM command` runs a
-  program or a `.SUB` at boot, and the arrow keys arrive as the WordStar
-  diamond so 1984's software can use them.
-- **Two Pascals**, kept apart: Turbo Pascal 3 on CP/M (yours to supply,
-  it is Borland's; drive `P:` is where it goes), and **Mad Pascal**, a
+  256 MB; and **Forth** — Tali Forth 2, native 45GS10 code.  (**CP/M 2.2**
+  on the Tube's Z80, RunCPM, is sidelined since 2026-10-07: `cpm/` is kept
+  and `make cpm/runcpm` builds it, but it is not in the images or the
+  handbook.)
+- **Pascal:** **Mad Pascal**, a
   cross-compiler — `pascal/` holds the K4510 target, `make pascal` turns
   `fs/LANG/PASCAL/*.PAS` into `.prg` files beside them; Write/CRT go through JIM, `uses
   k4510` gives every chip as a typed variable, `single` runs on the MATH

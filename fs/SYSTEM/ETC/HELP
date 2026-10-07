@@ -74,9 +74,6 @@ system:  INFO [-v]   TIME   HUSH   RESET
          BUG (asks you about a fault and writes the
          report to /SYSTEM/LOG/BUGREPORTS)
 tongues: EHBASIC  BBC  FORTH  LOGO  RX
-         CPM [command] (CP/M 2.2 on the Z80;
-         K: is this disk, P: Turbo Pascal,
-         D: WordStar)
          PAS name / CC name (compile name.PAS or
          name.C here into name.prg)
          in a BASIC, *command is the shell's and

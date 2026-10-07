@@ -18,7 +18,6 @@ ALIAS LL DIR A
 ALIAS d DIR
 ALIAS ls dir
 ALIAS dl dir -l
-ALIAS tekplay !tekplay
 ALIAS .. cd ..
 
 alias / cd /

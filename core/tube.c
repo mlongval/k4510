@@ -383,6 +383,12 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
     pid_t parent = getpid ();                     /* NOT 1: in a container the emulator IS pid 1, and "getppid() == 1" then killed every child (2026-09-07) */
     if (tube_pid) return;
     if (prog == 5 && !uci_path()) return;
+    if (prog == 3 && access("cpm/runcpm", X_OK) != 0) {   /* CP/M is sidelined (Doc, 2026-10-07): built by `make', not in the images */
+        const char *m = "CP/M is not fitted on this machine (`make cpm/runcpm' builds it)\r\n";
+        while (*m) ring_put((uint8_t) *m++);
+        tube_refused = 1;
+        return;
+    }
     if (prog == 4) {
         /* Refused, not run short: fs_guest_str fills the buffer and THEN reports the
          * overrun, and a shell command cut at byte 255 is a different command --

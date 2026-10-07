@@ -161,7 +161,6 @@ cc65, 64tass, nasm & the machine's own toolchain --- it can rebuild itself \\
 FPC + Mad Pascal & what \verb|PAS| runs \\
 git, neovim & so that work done here is work \\
 curl, ssh & what \texttt{ftp://}, \texttt{sftp://} and \verb|SSH| go through \\
-\texttt{tek40xx} & a Tektronix 4010 terminal, below \\
 telnetd & bound to the machine itself and nothing else \\
 NetworkManager, Tailscale & the network: F12 $\rightarrow$ Host \\
 \bottomrule
@@ -169,8 +168,8 @@ NetworkManager, Tailscale & the network: F12 $\rightarrow$ Host \\
 \end{center}
 
 \textbf{The consoles.} Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are
-Linux text consoles, 80 by 25 in the IBM PC's own font, where the
-Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are
+Linux text consoles, 80 by 25 in the IBM PC's own font;
+Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are
 media keys, add Fn.) Quitting the emulator (Shift+Esc, or F12
 $\rightarrow$ Quit) drops you to a Linux shell on the machine's own
 console rather than to nothing, and F12 has a \emph{Shut down the
@@ -259,31 +258,6 @@ in \pth{/etc/default/grub}), and the installer leaves it as it finds it.
 The whole system is read into RAM at boot here too --- everything on the
 \texttt{K4510} partition, which is why nothing large should be kept on it
 beside the system itself.
-
-\section{A Tektronix beside the machine}
-\texttt{tek40xx} (Ian Schofield's, GPL-3) is a Tektronix 4010/4014
-storage-tube terminal that is also a telnet client. It is on the K4510's
-Linux and in the container because of what a storage tube is
-\emph{for}: a PiDP-11 answers on telnet ports, and a machine of that
-vintage deserves a screen of that vintage to draw on.
-
-\begin{type}
-tek HOST [PORT]
-\end{type}
-
-\noindent on the second console --- full screen on a bare console, in a
-window under a desktop. And without any PDP-11 at all:
-
-\begin{type}
-tekplay NAME|FILE...
-\end{type}
-
-\noindent plays Tektronix plot files at a 9600-baud pace, which is the
-right speed to watch one being drawn. With no argument it plays every
-plot that ships; \texttt{HOME} clears the screen and \texttt{END} quits.
-Nothing in the emulator changed for any of this: it is a second program
-on the same computer, which is exactly what a second terminal was in
-1975.
 
 \section{From another computer}
 The machine's Linux answers ssh (as the user \texttt{k4510}), which is

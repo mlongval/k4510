@@ -29,7 +29,7 @@ USER k4510
 WORKDIR /home/k4510
 COPY --chown=k4510:k4510 . /home/k4510/k4510
 RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
-    && make ${BUILD:+K4510_BUILD="$BUILD"} -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm \
+    && make ${BUILD:+K4510_BUILD="$BUILD"} -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin \
     && (make -C tube || echo "the Tube did not build; everything else did") \
     && mkdir -p ~/k4510/fs/MNT/SHARE
 # The compilers beside the machine, as on the stick (build-live.sh): Mad Pascal
@@ -45,10 +45,9 @@ RUN mkdir -p ~/Projects/K4510/toolchain && cd ~/Projects/K4510/toolchain \
     && mkdir /tmp/prove && cd /tmp/prove && cp ~/k4510/fs/LANG/PASCAL/HELLO.PAS ~/k4510/fs/LANG/C/SIEVE.C . \
     && PATH=~/k4510/tools:$PATH k4510-pas hello && PATH=~/k4510/tools:$PATH k4510-cc sieve \
     && cd / && rm -rf /tmp/prove
-# Tek40xx, the Tektronix 4010 terminal (linux/tek40xx/README.md), and its
-# `tek` wrapper -- the stick gets the wrapper from config/includes.chroot.
-RUN sudo sh ~/k4510/linux/tek40xx/build.sh \
-    && sudo install -m 755 ~/k4510/linux/config/includes.chroot/usr/local/bin/tek /usr/local/bin/tek
+# Tek40xx (linux/tek40xx/README.md) is sidelined (Doc, 2026-10-07); to bring it back:
+# RUN sudo sh ~/k4510/linux/tek40xx/build.sh \
+#     && sudo install -m 755 ~/k4510/linux/config/includes.chroot/usr/local/bin/tek /usr/local/bin/tek
 ENV PATH=/home/k4510/k4510/tools:/usr/local/bin:/usr/bin:/bin:/usr/local/games:/usr/games
 # the settings a K4510 starts with (podman.sh copies your own over these if you have some)
 RUN printf 'version = 2\ncpu.auto = on\nterm.bands = on\n' > ~/k4510/k4510.cfg

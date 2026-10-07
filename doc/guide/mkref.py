@@ -147,7 +147,12 @@ def shipkey(where, name):
         return "app:" + m.group(1)
     if where == "/SYSTEM/BIN":
         return "bin:" + name.lower() + ".prg"
-    return None                                   # the ROM, or an alias that runs another command
+    return ROM_KEYS.get(name)                     # the ROM, or an alias that runs another command
+
+
+# ROM words that belong to something SHIPPING.CFG can leave out: sidelined
+# 2026-10-07 (Doc), they leave the reference with it.
+ROM_KEYS = {"CPM": "chapter:09-cpm", "RADIO": "sidebar:navidrome"}
 
 
 def chapkeys():

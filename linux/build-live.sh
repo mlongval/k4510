@@ -22,7 +22,8 @@
 #   - real network access outbound, so the machine's TELNET can reach BBSes
 #   - Mad Pascal toolchain and neovim on the Linux side; PAS name and CC name
 #     at the prompt compile a .PAS / .C in the machine's directory (tools/)
-#   - Tek40xx, a Tektronix 4010 terminal on SDL2: `tek HOST [PORT]` on tty2
+#   (CP/M and Tek40xx are sidelined, 2026-10-07: not built into the image;
+#   linux/tek40xx and cpm/ stay, and `make cpm/runcpm' still builds RunCPM)
 #
 #   sudo ./build-live.sh              # -> k4510-live-<date>-amd64.img
 #   sudo REBUILD=1 ./build-live.sh    # the same, but keep the rootfs from last
@@ -191,19 +192,15 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # The .d files name the paths of the last build; a fresh checkout over them
     # is exactly the case where a stale one keeps a changed file from compiling.
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm" \
+        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin" \
         || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
         || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
-    # Tek40xx is built from upstream WITH OUR PATCH, so a change to that patch
-    # (the seamless-window and ESC/q-quit fixes, 2026-09-11) only reaches the
-    # stick if we rebuild it here too -- the emulator rebuild above does not.
-    # Same invocation as the full build below; needs the chroot's network.
     # This checkout's /etc overlay too (the lid setting, keymaps...): a config
     # change must reach the fast path, not only a 30-minute full build.
-    cp -a "$HERE/config/includes.chroot/." "$ROOT/"   # etc, usr/local/bin (the tek wrapper), usr/share (the console font)
-    $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh \
-        || echo "build-live.sh: Tek40xx did not rebuild; everything else works"
+    cp -a "$HERE/config/includes.chroot/." "$ROOT/"   # etc, usr/local/bin, usr/share (the console font)
+    # Tek40xx: sidelined 2026-10-07 (Doc).  To bring it back:
+    #   $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh
     binds_down
     sync
     # the base is untouched by a code change; if a full build never made the
@@ -420,7 +417,7 @@ EOF
 # NOT 'make all': that includes pascal-prgs, whose .prg files are tracked in
 # the repo anyway.  What must be built is what git does not carry.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm" \
+    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin" \
     || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
     || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
@@ -443,11 +440,9 @@ $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
 # Prove the whole chain works here rather than discovering it on the laptop.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make pascal' \
     || { echo "build-live.sh: MAD PASCAL BUILT BUT DID NOT COMPILE THE DEMOS"; exit 1; }
-echo "== Tek40xx =="
-# A Tektronix 4010 on SDL2, a telnet client (linux/tek40xx/README.md): the
-# second terminal for a PiDP-11, on tty2.  Built from upstream with one patch.
-$CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh \
-    || echo "build-live.sh: Tek40xx did not build; everything else works"
+# Tek40xx (a Tektronix 4010 on SDL2, linux/tek40xx/README.md) is sidelined
+# (Doc, 2026-10-07).  To bring it back into the image:
+#   $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh
 # The C side of the same thing: k4510-cc links every program with these two.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make demo/prg0.o demo/romcalls.o' \
     || { echo "build-live.sh: THE C STARTUP OBJECTS DID NOT BUILD"; exit 1; }

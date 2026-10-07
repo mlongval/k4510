@@ -24,16 +24,12 @@ folder. One letter apart, sorry.)
 | File | What it is |
 |---|---|
 | `BUILD-LOG.md` | **The diary. Read this first.** Every session, in order, with the reasoning — not just what changed. |
-| `K4510-Design.md` | The machine's design document: what it is and why. `make-pdf.sh` / `make-epub.sh` render it. |
+| `K4510-Design.md` | The machine's design document: what it is and why. |
 | `VICKY-SPEC.md` | The video chip: registers, modes, layers, sprites, blitter, SHEILA. |
 | `VIDEO-OPTIONS.md` | The video routes considered before VICKY was chosen. |
 | `CPU-CLOCK-POLICY.md` | The CPU clock as a policy, not a constant: measure the host at boot rather than trust a compiled-in default; the three-host sweep of 2026-08-27 as evidence; why calibration must run with sound on. |
-| `PORTABILITY.md` | What the desktop and Pi builds share, and where the host seam is. |
-| `FEATURES.txt` | The historical feature ballot (A–K), all built. Decisions now happen in conversation and land in `BUILD-LOG.md`. |
-| `bmc-k4510-45gs02-decision.md` | Why the 45GS02 core, and why unchanged. |
-| `ASK-7-xemu-audit.md` | The audit of what was taken from Xemu. |
 | `images/`, `cover.png` | Curated pictures for the design document. |
-| `check-edits.sh` | Sanity check over edits to the long documents. |
+| `history/` | Records that are finished: the feature ballot (`FEATURES.txt`), the 45GS02 and Xemu decisions, the Pi-era portability review, the August/September roadmap, triage and reviews. Moved there 2026-10-07. |
 
 ## Root of the repository
 

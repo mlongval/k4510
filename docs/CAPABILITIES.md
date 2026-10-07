@@ -80,7 +80,7 @@ KEEP  HUSH           silence.  FIXED 2026-09-01: it zeroed the SIDs and the
 ?  /.TRASH                    shared trash for RM / DELETE / DD
 ?  STARTUP.BAT                boot script; keyboard layout, colours, autostart
 ?  Settings saved on exit     F12 settings persist to a file
-?  MOUNT / a real VFS         PROPOSED, not built (docs/notes/design-ideas.md)
+?  MOUNT / a real VFS         PROPOSED, not built (docs/history/design-ideas.md)
 
 ## 3. Editors and file managers  (all .prg -- no ROM)
 
@@ -186,7 +186,7 @@ CUT   SID playback  SIDPLAY.prg retired (see 13).  `fs/SID` is a SYMLINK to
 ?  TELNET.prg                        (no ROM)
 ?  Meatloaf-style URL-as-filename
 ?  Pi networking                     UNTESTED.  Needs Ethernet.  No TLS
-?  TNFS *server*, Docker, FTP mount  PROPOSED only (docs/notes/design-ideas.md)
+?  TNFS *server*, Docker, FTP mount  PROPOSED only (docs/history/design-ideas.md)
 
 ## 11. Host frontend and UI
 

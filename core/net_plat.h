@@ -1,6 +1,6 @@
 /* What the network needs from the platform underneath core/net.c.
- * Two implementations: core/net_posix.c (desktop: sockets, curl for HTTP)
- * and pi/net_pi.cpp (Circle, every call marshalled to core 0). Handles
+ * One implementation: core/net_posix.c (sockets, curl for HTTP; the Pi's
+ * pi/net_pi.cpp went with that port). Handles
  * are small non-negative integers; -1 is failure. Nothing here blocks the
  * machine for longer than one network round trip. */
 #ifndef K4510_NET_PLAT_H

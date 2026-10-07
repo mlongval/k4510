@@ -242,10 +242,10 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	$(MAKE) -s test/govtest && ./test/govtest
 	./test/marktest.sh
 	./test/dirtest.sh
-	./test/logotest.sh
 	./test/ttypetest.sh
 	./test/cwdtest.sh
 	./test/nettest.sh
+	sh ./test/vikeystest.sh
 
 clean: clean-demos
 # Only the .s files cc65 generates -- one per .c, plus the two built under a

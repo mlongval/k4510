@@ -22,7 +22,7 @@ full-screen; on a desktop it opens a window.
 
 HOME erases the page, END hangs up and quits.  On the stick: log in on
 tty2 (Ctrl+Alt+F2) and run it there; Ctrl+Alt+F1 is the K4510,
-Ctrl+Alt+F2 the Tektronix.  `docs/notes/stretch-tektronix.md` has the
+Ctrl+Alt+F2 the Tektronix.  `docs/history/stretch-tektronix.md` has the
 story.
 
 ## Trying it without a PiDP-11

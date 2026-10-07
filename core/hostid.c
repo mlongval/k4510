@@ -14,9 +14,8 @@ int host_id_hash(void)
     return h ? (int)h : 1;
 }
 
-/* A host that has not said what it is.  The Pi's Circle glue can override
- * this with the board revision; until it does, the cache is trusted on any
- * Pi, which is right for a card that stays in one machine. */
+/* A host that has not said what it is: a frontend can override this (weak)
+ * with something better; sdl/host_posix.c does. */
 __attribute__((weak)) void host_fingerprint(char *out, unsigned n)
 {
     snprintf(out, n, "unknown host");

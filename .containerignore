@@ -7,7 +7,6 @@ linux/*.img
 # personal / unlicensed-to-redistribute (mirrors .gitignore)
 fs/HOME/*
 fs/APPS/OPLPLAY/TUNES
-data/fonts/zx/*.bin
 fs/STARTUP.BAT
 k4510.cfg
 **/*.k4s

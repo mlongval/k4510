@@ -48,8 +48,6 @@ doc/guide/*.pdf
 !doc/guide/k4510-guide.pdf
 tube/*.o
 tube/bbcbasic
-test/tubetest
-test/tubetest.out
 test/termtest
 test/termreplay
 test/uitest
@@ -87,10 +85,6 @@ core/build.h
 # screenshots to a session. It was tracked by accident: a clone got a
 # dangling link to a path on one machine.
 /screenshots
-# ZX Origins fonts (Damien Guard): free to use, but the licence forbids
-# re-hosting the files. Personal use only -- regenerate with tools/mkzxfonts.py
-# from your own download; the menu falls back to kernel8 when they are absent.
-data/fonts/zx/*.bin
 demo/bomber.h
 # Written into the machine's own filesystem by the programs that measure it:
 # PERF.TXT by the io profiler, BENCH-NN.TXT by SETUP/BENCH.  Results, not source.

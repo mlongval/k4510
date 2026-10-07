@@ -71,7 +71,7 @@ not by trying; compile the sieve and DROGON.BAS, put a compiled row in MARK,
 and see whether Doc enjoys writing in it.  Stop there if not.  (2) floats on
 the MATH unit.  (3) sprites and graphics on VICKY, only if games in it.
 
-## From the 2026-09-05 review (`docs/notes/review-2026-09-05.md`)
+## From the 2026-09-05 review (`docs/history/review-2026-09-05.md`)
 
 All thirteen closed on 2026-09-11; how each landed is at the top of the
 file.  One thing it leaves: a network fetch still makes the *machine* wait
@@ -81,7 +81,7 @@ every guest caller polls -- the ROM, the demos, both BASICs, Pascal, CP/M.
 - [ ] **Hear it**: during a slow `LOAD http://...` the window should keep
       responding and the picture stay put; sound goes quiet while it waits.
 
-## From the 2026-09-12 review (`docs/notes/review-2026-09-12.md`)
+## From the 2026-09-12 review (`docs/history/review-2026-09-12.md`)
 
 Fixed the same day except these:
 

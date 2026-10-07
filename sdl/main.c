@@ -1079,9 +1079,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   fprintf(pf, "  onto the glass   %8.3f ms   %5.1f%%\n", pr, tot > 0 ? 100.0 * pr / tot : 0.0);
                   fprintf(pf, "  everything else  %8.3f ms   %5.1f%%\n", tot - ma - tx - pr,
                           tot > 0 ? 100.0 * (tot - ma - tx - pr) / tot : 0.0);
-                  { double ph = (double)PCLK_HZ();
-                    fprintf(pf, "\nI/O page, per frame: %.0f reads, %.3f ms inside io_read\n",
-                            (double)io_prof_reads / f, (double)io_prof_cycles * 1000.0 / ph / f);
+                  { fprintf(pf, "\nI/O page, per frame: %.0f reads\n", (double)io_prof_reads / f);
                     fprintf(pf, "  hottest register groups (16-byte, reads per frame):\n");
                     for (int k = 0; k < 6; k++) {                       /* top six, by selection */
                         int best = -1; uint32_t bv = 0;

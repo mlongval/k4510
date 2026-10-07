@@ -12,9 +12,8 @@ directions at once: to the MEGA65's 45GS02 by way of the C65's 4510,
 and to the C64's own 6510. Hence **BMC-K4510**. Ballot item I-01 is
 closed.
 
-This file is the **single source** for `K4510-Design.pdf` and
-`K4510-Design.epub`. Edit it, then run `./make-pdf.sh` and
-`./make-epub.sh` to regenerate both.
+This file is the design document; the PDF and EPUB renderers it once had
+went with the Pi era (2026-10-07).
 
 **Annotating the prose:** add your notes on their own line starting
 with `> NOTE:`. Strike through anything you disagree with rather than
@@ -32,11 +31,11 @@ pending a separate conversation — see `VIDEO-OPTIONS.md`.
 
 **Revision 2026-08-21.** This edition folds in the CPU-target decision
 taken in a separate conversation and recorded in
-`bmc-k4510-45gs02-decision.md`: the machine is now **BMC-K4510**, and
+`history/bmc-k4510-45gs02-decision.md`: the machine is now **BMC-K4510**, and
 the CPU target is the **full 45GS02 instruction set** rather than a
 plain 4502/4510. Everything that decision touches is marked below —
 §0, §3, §9, Plan §1, Plan §2, Phase 2, Phase 3 and the risk table. The
-`FEATURES.txt` ballot is left as the dated historical record; its C-01
+`history/FEATURES.txt` ballot is left as the dated historical record; its C-01
 and C-04 rows are superseded by §3 here.
 
 **Deciding what's still open:** the one section awaiting your decisions
@@ -49,7 +48,7 @@ I'll fold your notes in and rebuild both formats.
 
 # K4510 — Ratified Capability Matrix
 
-Decisions taken from your edited `FEATURES.txt` ballot, 2026-08-20.
+Decisions taken from your edited `history/FEATURES.txt` ballot, 2026-08-20.
 Every "already there" claim was checked against the actual BMC64 tree
 (`third_party/vice-3.3`, branch `kawari-phase1`), not against VICE docs.
 
@@ -637,7 +636,7 @@ swapping images nobody has.
 
 ## 6c. Character set and text — open (ballot section J)
 
-Missed in the first pass; now section **J** of `FEATURES.txt`, 14 blocks.
+Missed in the first pass; now section **J** of `history/FEATURES.txt`, 14 blocks.
 Summary of the analysis:
 
 **Three independent decisions get conflated.** *Encoding* (the byte
@@ -1038,7 +1037,7 @@ Settings, menus (BMC64's on the Pi; minimal on the desktop).
 
 **STATUS: OPEN — this is the one section still awaiting your decisions.**
 
-Same rules as `FEATURES.txt`: each block lists its choices one per line,
+Same rules as `history/FEATURES.txt`: each block lists its choices one per line,
 lines marked `>>` are my suggestion. **Delete the lines you don't want,
 leaving one choice per block.** Add free text after `NOTE:`. Blocks you
 leave untouched, I read as the `>>` line.

@@ -2045,7 +2045,7 @@ static void video_init(void)
      * nothing at power-on -- and undoing PALETTE's work at every mode change,
      * every VIDEO call and every BBC BASIC text mode.  The palette belongs to
      * VICKY and to whoever last set it; PALETTE RESET and the reset chord are
-     * the ways back.  See docs/notes/design-ideas.md. */
+     * the ways back.  See docs/history/design-ideas.md. */
     /* layer 0: text32, map SCREEN, 80 cells/row; 8x16 cells in unscii-16 at
      * 640x480, 8x8 in unscii-8 in the 240-line modes */
     w16(VICKY + 0x16, PCOLS);

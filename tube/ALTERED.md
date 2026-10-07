@@ -77,3 +77,10 @@ Everything else is unmodified from BBCSDL commit as cloned 2026-08-24.
   tokenises it. Escape abandons the wait. `*EDIT` (bare, or with a file
   name) runs `EDIT -u`, which saves with BBC BASIC's keywords in capitals,
   so a program may be typed in lower case.
+
+## Removed, 2026-10-07
+
+`src/bbasmb_arm_32.c`, `src/bbasmb_arm_64.c`, `src/bbdata_arm_32.s` and
+`src/bbdata_arm_64.s` -- the ARM assembler and data, unused since the
+bare-metal Pi port retired (tube/Makefile builds the x86-64 files only).
+Upstream has them; this repository keeps the files it builds.

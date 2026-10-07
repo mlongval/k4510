@@ -221,14 +221,14 @@ never touches the internal drive. `docs/LINUX.md` has the details.
     core/        memory, I/O devices, VICKY, the OPL2 and the audio seam, MATH unit, JIM, the network, host seam
     core/opl2/   fmopl, MAME's OPL2 by way of VICE (GPL-2.0-or-later)
     sdl/         the frontend + POSIX host glue
-    linux/       the Linux the machine boots on: the live-stick build, the container flavour, Tek40xx
+    linux/       the Linux the machine boots on: the live-stick build, the container flavour; Tek40xx (sidelined)
     rom/         system ROM (cc65) and Wozmon
     demo/        programs in C -> fs/SYSTEM/BIN and fs/APPS/NAME/*.prg  (the editors, TELNET, BUG, the games)
-    retired/     programs that were part of the machine and are not any more (see its README)
     basic/       EhBASIC 2.22 + K4510 glue
     forth/       Tali Forth 2 (vendored) + the platform file
+    mon/         SUPERMON, the machine-code monitor (vendored, ported)
     tube/        Richard Russell's BBC BASIC, console edition (vendored, altered as marked)
-    cpm/         RunCPM (vendored, unmodified)
+    cpm/         RunCPM (vendored, unmodified; sidelined: built, not in the images)
     pascal/      the Mad Pascal target
     fs/          the machine's filesystem: /SYSTEM /LANG /APPS /HOME /CPM /MNT (fs/HOME/README.TXT)
     test/        tests, headless capture and benchmark tools

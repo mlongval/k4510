@@ -359,7 +359,6 @@ int     cpu65_wake(int cycles);
 
 extern uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* the I/O profile, for PERF.TXT */
 extern int      io_prof_on;                  /* frontend: profile only while the PERF window is open */
-extern uint64_t io_prof_cycles;
 void    io_prof_reset(void);                 /* called by VICKY at vblank */
 void    io_write(uint16_t addr, uint8_t v);
 void    io_reset(void);

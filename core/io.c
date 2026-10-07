@@ -146,22 +146,20 @@ void io_reset(void)
     audio_reset();
 }
 
-/* ---- I/O profile: how often the CPU touches the I/O page, at what cost, and
- * where.  Read by the frontend for SYSTEM/PERF.TXT.  On the Pi the clock is
- * the ARM generic timer (a register); elsewhere only the counts are kept. */
+/* ---- I/O profile: how often the CPU touches the I/O page, and where.  Read
+ * by the frontend for SYSTEM/PERF.TXT.  (Its cost in time was measured only
+ * on the Pi, with the ARM timer; that went with the port.) */
 uint32_t io_prof_reads, io_prof_writes, io_prof_hist[256];   /* hist: (addr >> 4) & 255, 16-byte groups */
-uint64_t io_prof_cycles;
 int io_prof_on;                                  /* set by the frontend only while its PERF window is open:
-                                                  * the counters (and on the Pi two timer reads) cost every
-                                                  * single I/O access, so they run only when someone is looking */
-static inline uint64_t io_prof_clk(void) { return 0; }
-void io_prof_reset(void) { io_prof_reads = io_prof_writes = 0; io_prof_cycles = 0; memset(io_prof_hist, 0, sizeof io_prof_hist); }
+                                                  * the counters cost every single I/O access, so they run
+                                                  * only when someone is looking */
+void io_prof_reset(void) { io_prof_reads = io_prof_writes = 0; memset(io_prof_hist, 0, sizeof io_prof_hist); }
 static uint8_t io_read_inner(uint16_t addr);
 uint8_t io_read(uint16_t addr)
 {
     if (io_prof_on) {
-        uint64_t t = io_prof_clk(); uint8_t v = io_read_inner(addr);
-        io_prof_cycles += io_prof_clk() - t; io_prof_reads++; io_prof_hist[(addr >> 4) & 255]++;
+        uint8_t v = io_read_inner(addr);
+        io_prof_reads++; io_prof_hist[(addr >> 4) & 255]++;
         return v;
     }
     return io_read_inner(addr);

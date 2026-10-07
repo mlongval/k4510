@@ -119,9 +119,6 @@ linux/*.img
 # about 2.5 GB. REUSE=1 rebuilds an image from it in seconds.
 linux/.live-work/
 
-# the browser build (wasm/build.sh); served from ~/containers/k4510web/site on ubuntu-s1
-wasm/dist/
-
 # a chess piece set of unknown licence: built where present, never shipped (data/chess/lines/VENDORED-FROM.txt)
 data/chess/lines/*.png
 
@@ -189,3 +186,6 @@ linux/config/includes.chroot/**/__pycache__/
 /fs/APPS/ANSIDEMO/
 /fs/APPS/SEGDEMO/
 # <<< nuked <<<
+
+# Python bytecode, wherever a script is run from
+__pycache__/

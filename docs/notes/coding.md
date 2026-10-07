@@ -96,6 +96,9 @@ Protocol: `docs/AGENTS.md`. I write only this file.
 
 ## Done 2026-09-06 (late) — the K4510 in a browser
 
+*Retired 2026-09-14 (f498aae: Doc, "I was too early"): `wasm/` and
+`core/net_wasm.c` are gone; this entry is history.*
+
 **For the handbook agent** (a short section under "hosts": the fourth host is a web page):
 
 - `wasm/build.sh` compiles the same core and SDL2 frontend with Emscripten

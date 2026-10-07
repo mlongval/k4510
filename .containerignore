@@ -1,5 +1,4 @@
 .git
-wasm/dist
 linux/.live-work
 linux/.live-work-internal
 linux/*.img

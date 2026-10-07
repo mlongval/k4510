@@ -60,7 +60,7 @@
 #define ML_LDI 0x89
 #define WINDOW   ((uint8_t *)0x2000) /* the MAP window, 16 KB, see prg0.s.  Programs load at $0800 since
                                      * 2026-10-06, so it covers a program bigger than 6 KB: such a one
-                                     * must link above $6000 (its own .cfg) to use it, as SEGDEMO does */
+                                     * must link above $6000 (its own .cfg) to use it, as FLUFFY does */
 
 void __fastcall__ map_window(unsigned long phys);
 void __fastcall__ far_poke(unsigned long a, unsigned char v);

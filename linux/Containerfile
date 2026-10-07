@@ -29,7 +29,7 @@ USER k4510
 WORKDIR /home/k4510
 COPY --chown=k4510:k4510 . /home/k4510/k4510
 RUN cd ~/k4510 && find core sdl -name '*.d' -delete \
-    && make ${BUILD:+K4510_BUILD="$BUILD"} -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm \
+    && make ${BUILD:+K4510_BUILD="$BUILD"} -j"$(nproc)" ACME=/usr/bin/acme sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm \
     && (make -C tube || echo "the Tube did not build; everything else did") \
     && mkdir -p ~/k4510/fs/MNT/SHARE
 # The compilers beside the machine, as on the stick (build-live.sh): Mad Pascal

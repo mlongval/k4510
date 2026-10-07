@@ -1,9 +1,0 @@
-Tiny Dungeon by Kenney (www.kenney.nl) -- CC0 1.0 (License.txt here).
-Fetched 2026-08-28 from the OpenGameArt mirror:
-  https://opengameart.org/content/tiny-dungeon
-  https://opengameart.org/sites/default/files/kenney_tinydungeon.zip
-Kept: tilemap_packed.png (192x176: 12x11 tiles of 16x16, 1 px gutters),
-Tilesheet.txt, the Tiled sample map (sampleMap.tmx), License.txt.
-Used by demo/tiny.c through tools/mktiny.py, which turns the sheet into
-VICKY 8 bpp tiles and the .tmx into a VICKY tile map. Credit is voluntary
-under CC0; the demo's caption and CREDITS.md give it anyway.

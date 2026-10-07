@@ -22,7 +22,7 @@
  * a second time in screen-code order and switching to it with the mode;
  * docs/TODO.md has it.
  *
- * Its companion is ANSIDEMO.PRG, the same screen in the other mode.
+ * (Its companion, ANSIDEMO.PRG, the same screen in ANSI, went 2026-10-07.)
  */
 #include "k4510.h"
 
@@ -84,7 +84,7 @@ int main(void)
     put(P_RVSOFF); nl(); nl();
 
     put(0x9B);
-    print("THE SAME TERMINAL AS ANSIDEMO.PRG,"); nl();
+    print("THE SAME TERMINAL THAT SPEAKS ANSI,"); nl();
     print("SPEAKING THE OTHER LANGUAGE."); nl(); nl();
 
     /* ---- the sixteen colours ---- */

@@ -27,7 +27,6 @@ where each one came from and how to verify it):
 | `data/fonts/hd/fira-mono*.bin`, built by `tools/mkhdfonts.py` | Fira Mono Bold (Mozilla) -- a text font; `LICENSE-fira-mono.txt` | SIL OFL 1.1 |
 | `data/fonts/hd/proggy*.bin`, built by `tools/mkhdfonts.py` | Proggy Clean (Tristan Grimmer) -- a text font; `LICENSE-proggy.txt` | MIT |
 | `data/fonts/hd/tamzen-bold*.bin`, built by `tools/mkhdfonts.py` | Tamzen 8x16 Bold (Suraj N. Kurapati) -- a text font; `LICENSE-tamzen.txt` | permissive ("free to use, copy, modify, and distribute") |
-| `data/tinydungeon/` | Tiny Dungeon tile sheet + Tiled sample map, Kenney (`demo/tiny.c` renders them; see `data/tinydungeon/VENDORED-FROM.txt`) | CC0-1.0 |
 | `data/bombparty/` | Bomb Party sprite sheet, devurandom/richtaur/cemkalyoncu (`demo/bomber.c` renders it; see `data/bombparty/VENDORED-FROM.txt`) | CC-BY-3.0 |
 | `basic/basic.asm` | EhBASIC 2.22, Lee Davison (ca65 form via jefftranter/6502) | **free for non-commercial use**; derivatives must carry "Derived from EhBASIC" — see `basic/README-EhBASIC.txt`. It is a separate program (`fs/ehbasic.prg`), not linked with the GPL code. |
 | `cpm/src/` | RunCPM (CP/M 2.2 environment with internal CCP), Marcelo Dantas "Mockba the Borg" (vendored unmodified; see `cpm/VENDORED-FROM.txt`) | MIT |

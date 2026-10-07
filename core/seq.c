@@ -19,7 +19,7 @@
  *
  * Until 2026-09-05 the channels were SID voices; the SIDs are gone.  The
  * patch is written on every note because a program is free to zero the
- * chip (OPL2.PRG does, on its way out) and the sequencer must still sound
+ * chip (OPL2.PRG did, on its way out) and the sequencer must still sound
  * after it. */
 #define SEQ_DEPTH 64
 typedef struct { uint16_t freq; uint8_t amp, dur; } seq_note;   /* freq: OPL2 F-number | block << 10 */

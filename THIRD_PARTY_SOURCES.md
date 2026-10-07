@@ -160,18 +160,6 @@ back.
 | Altered | No. `tools/mkbomber.py` derives `demo/bomber.h` at build time; the derived file is not committed. |
 | Verify | `sha256 1635752a826c6d4b0d3a793e635d6675244d1590dfc88560da85a682036b9f56  bomb_party_v4.png` |
 
-## Tiny Dungeon
-
-| | |
-|---|---|
-| Role | Art for the TINY demo: the tile sheet becomes VICKY 8 bpp tiles and sprites, the Tiled sample map becomes the world. |
-| Local path | `data/tinydungeon/` -- `tilemap_packed.png`, `sampleMap.tmx`, `Tilesheet.txt`, `License.txt` |
-| Upstream | Kenney -- https://kenney.nl/assets/tiny-dungeon ; fetched from the OpenGameArt mirror https://opengameart.org/content/tiny-dungeon (`kenney_tinydungeon.zip`, 2026-08-28) |
-| Version | The zip carries no version; 132 tiles of 16x16. `data/tinydungeon/VENDORED-FROM.txt` |
-| Licence | CC0-1.0 (`data/tinydungeon/License.txt`) |
-| Altered | No. `tools/mktiny.py` derives `demo/tiny.bin` and `demo/tiny.h` at build time; neither is committed. |
-| Verify | `sha256 d24e60a41e4ac7a745c0304dfde121143688557f40215f23221c29cfe683825f  tilemap_packed.png` |
-
 ## cc65
 
 | | |
@@ -214,7 +202,6 @@ still cannot name an upstream commit, and say so rather than guessing:
 |---|---|---|
 | `core/xemu/` | the commit | no version in the sources |
 | `data/fonts/unscii/` | the release | the `.hex` has no header |
-| `data/tinydungeon/` | the release | Kenney's zip has no version; the mirror's file name is the only mark |
 
 Each record carries the command that would settle it from a machine with
 network access. A guessed hash in a provenance file is worse than an

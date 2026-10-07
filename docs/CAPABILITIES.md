@@ -115,7 +115,6 @@ GONE  MS BASIC        removed 2026-10-07 (Doc): a third BASIC, no graphics.
 ?  CP/M (RunCPM)       K:/P:/D: drives, .SUB launchers, CPM [command]
 ?  Tali Forth          forth/
 ?  Mad Pascal          pascal/ -- PFLOAT, PGRAPH, PMANDEL, PSIEVE
-?  TINY                the small C-ish thing (demo/tiny.c)
 
 ## 6. Video -- VICKY
 
@@ -222,7 +221,7 @@ for named keys, so a scripted harness cannot finish it -- it is not faulty).
 ?  BOMBER      Bomb Party, CC-BY art
 ?  LODE        procedural art
 ?  GRAPH2D / GRAPH3D  EhBASIC
-?  BALLS, CUBE, MANDEL, SIEVE, BENCH, LOGO
+?  CUBE, MANDEL, SIEVE, BENCH, LOGO
 ?  CHROUT, SAY, BUG, SETUP         all start and hand the shell back
 CUT   SEGDEMO                      nuked with ANSIDEMO; the far-call gate it showed is
                   still described in the memory chapter, without it
@@ -240,7 +239,7 @@ CUT   ROMOUT      retired/ too, and **it was BROKEN before today.**  Found by th
                   Not a banking fault as far as anything shows -- the machine
                   is fine; this demo eats itself.  Attempted fix reverted
                   rather than half-landed
-?  OPL2.prg, OPLPLAY.prg
+?  OPLPLAY.prg
 ?  PETSCII
 
 ## 14. Development tooling

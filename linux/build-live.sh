@@ -191,7 +191,7 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # The .d files name the paths of the last build; a fresh checkout over them
     # is exactly the case where a stale one keeps a changed file from compiling.
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm" \
+        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm" \
         || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
         || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
@@ -420,7 +420,7 @@ EOF
 # NOT 'make all': that includes pascal-prgs, whose .prg files are tracked in
 # the repo anyway.  What must be built is what git does not carry.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin rom/demo.bin cpm/runcpm" \
+    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin cpm/runcpm" \
     || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
     || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"

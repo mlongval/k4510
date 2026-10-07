@@ -15,12 +15,11 @@ test/capture
 test/fstest
 test/romtest
 test/kostest
-# rom/kernal.bin, wozmon.bin and demo.bin ARE tracked since 2026-09-07: a host without
+# rom/kernal.bin and wozmon.bin ARE tracked since 2026-09-07: a host without
 # cc65 (p15, the Pi card) kept a ROM from before the SID cut for a week -- "why does
 # it show 4 SIDs?"  The images are small and deterministic; check-artifacts guards them.
 !rom/kernal.bin
 !rom/wozmon.bin
-!rom/demo.bin
 rom/kernal.s
 rom/*.o
 rom/kernal.map
@@ -31,13 +30,11 @@ demo/*.map
 basic/*.o
 test/headless
 test/banktest
-!demo/segdemo-header.s
 !demo/mark-asm.s
 test/mathtest
 test/seqtest
 test/woztest
 dumps/
-!demo/tiny-header.s
 !demo/prg0.s
 !demo/rxasm.s
 !demo/romcalls.s
@@ -94,8 +91,6 @@ core/build.h
 # re-hosting the files. Personal use only -- regenerate with tools/mkzxfonts.py
 # from your own download; the menu falls back to kernel8 when they are absent.
 data/fonts/zx/*.bin
-demo/tiny.bin
-demo/tiny.h
 demo/bomber.h
 # Written into the machine's own filesystem by the programs that measure it:
 # PERF.TXT by the io profiler, BENCH-NN.TXT by SETUP/BENCH.  Results, not source.
@@ -170,8 +165,6 @@ fs/DISK/*
 linux/config/includes.chroot/**/__pycache__/
 
 # >>> nuked (tools/nuke.py; from SHIPPING.CFG) >>>
-/fs/APPS/ANSIDEMO/
-/fs/APPS/SEGDEMO/
 # <<< nuked <<<
 
 # Python bytecode, wherever a script is run from

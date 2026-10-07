@@ -34,14 +34,8 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
 BIN_NAMES = ranger kommander vi prog edit word delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall mark
-APP_C_NAMES = balls cube mandel opl2 oplplay lode tetris paint tracker calc snake breakout rockfall
-APP_SEG_NAMES = tiny bomber skyfire chess fluffy
-# Nuked 2026-09-18 (SHIPPING.CFG, tools/nuke.py): out of every image, and from
-# 2026-09-20 out of `all', `test' and check-artifacts too, so that a fresh clone
-# builds and tests clean without them.  Their sources and their rules stay, because
-# a nuke is meant to be undoable by hand: `make fs/APPS/ANSIDEMO/ansidemo.prg' and
-# `make fs/APPS/SEGDEMO/segdemo.prg' still work (SEGDEMO has its own rule below).
-NUKED_C_NAMES = ansidemo
+APP_C_NAMES = cube mandel oplplay lode tetris paint tracker calc snake breakout rockfall
+APP_SEG_NAMES = bomber skyfire chess fluffy
 C_EX_NAMES = hello sieve
 BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
 APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
@@ -69,12 +63,9 @@ $(NVIM_SYNTAX) &: basic/basic.asm demo/logo.c tools/mknvim.py
 SIDEBAR_C = sdl/savers.c $(wildcard sdl/sidebars/*.c)
 
 
-all: rom/wozmon.bin rom/demo.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
-	$(ACME) --cpu m65 -o $@ $<
-
-rom/demo.bin: rom/demo.a
 	$(ACME) --cpu m65 -o $@ $<
 
 # System ROM: C with cc65 (65C02 output is a subset of the 45GS02)
@@ -126,7 +117,7 @@ test/headless: test/headless.c $(CORE_OBJS)
 test/capture: test/capture.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
-rom: rom/wozmon.bin rom/demo.bin rom/kernal.bin
+rom: rom/wozmon.bin rom/kernal.bin
 
 core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicdefs.h core/hypervisor.h
 	$(CC) $(CFLAGS) -c -o $@ $<
@@ -197,9 +188,9 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
 check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg rom/kernal.bin $(SIDEBAR_ZIPS)
-	@git diff --quiet -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin || { \
+	@git diff --quiet -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
-	  git diff --name-only -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin rom/demo.bin | sed 's/^/  /'; \
+	  git diff --name-only -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin | sed 's/^/  /'; \
 	  echo "Rebuild them and commit, or the next machine to build will look dirty."; \
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
@@ -261,12 +252,11 @@ clean: clean-demos
 # different name.  `rm -f demo/*.s` used to be here, and it deleted the
 # HAND-WRITTEN sources (prg0.s, romcalls.s, the *-header.s files): a clean
 # checkout could not be built after a `make clean`.
-GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c)) \
-        demo/tiny_c.s demo/segdemo_c.s
+GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c))
 clean-demos:
 	rm -f $(DEMOS) demo/*.o $(GEN_S) demo/*.map
 
-	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/opl2/*.o test/fstest test/seqtest test/romtest test/kostest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture rom/demo.bin sdl/k4510 k4510 rom/wozmon.bin
+	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/opl2/*.o test/fstest test/seqtest test/romtest test/kostest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
 
@@ -368,7 +358,7 @@ fs/APPS/$(call uc,$1)/$1.prg: demo/$1.c demo/k4510.h demo/far.h demo/prg0.o demo
 	ca65 --cpu 65c02 -o demo/$1.o demo/$1.s
 	ld65 -C demo/prg.cfg -o $$@ demo/prg0.o demo/romcalls.o demo/$1.o none.lib -m demo/$1.map
 endef
-$(foreach n,$(APP_C_NAMES) $(NUKED_C_NAMES),$(eval $(call APP_C_RULE,$n)))
+$(foreach n,$(APP_C_NAMES),$(eval $(call APP_C_RULE,$n)))
 # the C examples: source on the disk, built by the same tools/k4510-cc that CC NAME runs
 define C_EX_RULE
 fs/LANG/C/$1.prg: fs/LANG/C/$(call uc,$1).C tools/k4510-cc demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/prg.cfg
@@ -377,16 +367,6 @@ endef
 $(foreach n,$(C_EX_NAMES),$(eval $(call C_EX_RULE,$n)))
 # EhBASIC 2.22 as a .prg at $7000 (basic/: Lee Davison's basic.asm + K4510 glue)
 # segmented program (K-03): own header + linker config, overlays at 000
-# tiny: Kenney's Tiny Dungeon (CC0, data/tinydungeon/) as a scrolling tile map
-# with sprites; tools/mktiny.py makes the tiles, the map and tiny.h from the
-# sheet and the Tiled sample map, and the K4SG header carries them
-demo/tiny.bin demo/tiny.h: tools/mktiny.py data/tinydungeon/tilemap_packed.png data/tinydungeon/sampleMap.tmx
-	python3 tools/mktiny.py >/dev/null
-fs/APPS/TINY/tiny.prg: demo/tiny.c demo/tiny.h demo/tiny.bin demo/tiny-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/tiny.cfg
-	cc65 -O -t none --cpu 65c02 -o demo/tiny.s.tmp demo/tiny.c && mv demo/tiny.s.tmp demo/tiny_c.s
-	ca65 --cpu 65c02 -o demo/tiny_c.o demo/tiny_c.s
-	ca65 --cpu 65c02 -o demo/tiny_h.o demo/tiny-header.s
-	ld65 -C demo/tiny.cfg -o $@ demo/prg0.o demo/romcalls.o demo/tiny_c.o demo/tiny_h.o none.lib -m demo/tiny.map
 # skyfire: a Galaxian with Kenney's Pixel Shmup planes (CC0, data/pixelshmup/);
 # tools/mkskyfire.py cuts the sheets and lays the ground, the K4SG header carries them
 demo/skyfire.bin demo/skyfire.h: tools/mkskyfire.py data/pixelshmup/ships_packed.png data/pixelshmup/tiles_packed.png
@@ -425,12 +405,6 @@ fs/APPS/FLUFFY/fluffy.prg: demo/fluffy.c demo/fluffy.h demo/fluffy.bin demo/fluf
 	ca65 --cpu 65c02 -o demo/fluffy_c.o demo/fluffy_c.s
 	ca65 --cpu 65c02 -o demo/fluffy_h.o demo/fluffy-header.s
 	ld65 -C demo/fluffy.cfg -o $@ demo/prg0.o demo/romcalls.o demo/fluffy_c.o demo/fluffy_h.o none.lib -m demo/fluffy.map
-# nuked: unlisted from APP_SEG_NAMES, kept so it can be built by hand (above)
-fs/APPS/SEGDEMO/segdemo.prg: demo/segdemo.c demo/segdemo-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/seg.cfg
-	cc65 -O -t none --cpu 65c02 -o demo/segdemo.s.tmp demo/segdemo.c && mv demo/segdemo.s.tmp demo/segdemo_c.s
-	ca65 --cpu 65c02 -o demo/segdemo_c.o demo/segdemo_c.s
-	ca65 --cpu 65c02 -o demo/segdemo_h.o demo/segdemo-header.s
-	ld65 -C demo/seg.cfg -o $@ demo/prg0.o demo/romcalls.o demo/segdemo_c.o demo/segdemo_h.o none.lib -m demo/segdemo.map
 
 
 fs/LANG/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/k4510expr.asm basic/basic.asm basic/basic.cfg

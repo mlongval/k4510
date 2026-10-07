@@ -74,14 +74,14 @@ int main(void)
     CHECK(find("TIME") >= 0 && findsub("frames)") >= 0, "INFO -t");
     type("info -s\n");
     CHECK(findsub("FRED -- the MATH unit at $D700") >= 0, "INFO -s names FRED, the MATH unit");
-    type("load balls.prg\n");
+    type("load lode.prg\n");
     /* C programs load at $0800 since 2026-10-06 (demo/prg.cfg; $6000 before) */
     CHECK(findsub("bytes at $00000800, run address 0800") >= 0 || findsub("bytes at 00000800, run address 0800") >= 0, "LOAD honours the .prg header");
     CHECK(mem_peek(0x0800) == 0xA9, "program image landed at $0800 without its header");
-    type("run balls.prg\n");
+    type("run lode.prg\n");
     frames(30);
-    CHECK((io_read(IO_VICKY + 0x0E) & 1) == 1, "balls.prg is running (sprites on)");
-    type("x\n");
+    CHECK((io_read(IO_VICKY + 0x0E) & 1) == 1, "lode.prg is running (sprites on)");
+    type("\x1b");
     frames(10);
     CHECK((io_read(IO_VICKY + 0x0E) & 1) == 0 && findsub("/]") >= 0, "a key returns to the shell and video is restored");
     type("dir\n");

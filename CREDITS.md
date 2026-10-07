@@ -56,8 +56,6 @@ Thank you:
   machine's one screen font, 8x8 and 8x16.
 - **The Linux kernel** — the 8x8 console font that got the text mode
   on its feet, and the 8x16 VGA font the K4510x consoles wear at 24x43.
-- **Kenney** — [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon),
-  the tiles, the map and the little people of the TINY demo, CC0.
 - **devurandom, richtaur (Matt Hackett) and cemkalyoncu** —
   [Bomb Party](https://opengameart.org/content/bomb-party-the-complete-set),
   the arena, the bombs and the cast of the BOMBER game, CC-BY 3.0.

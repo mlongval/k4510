@@ -121,6 +121,8 @@ demo/skyfire.h
 tools/__pycache__/
 test/bench
 test/govtest
+test/idrtest
+test/vidbench
 
 # MkDocs builds the handbook site here when run by hand; Read the Docs
 # builds its own.  The pages in doc/site/docs are generated but committed.

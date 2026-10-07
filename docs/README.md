@@ -27,6 +27,7 @@ folder. One letter apart, sorry.)
 | `K4510-Design.md` | The machine's design document: what it is and why. |
 | `VICKY-SPEC.md` | The video chip: registers, modes, layers, sprites, blitter, SHEILA. |
 | `VIDEO-OPTIONS.md` | The video routes considered before VICKY was chosen. |
+| `design-video-foundations.md` | A proposal (2026-10-07, branch `video-foundations`): find the panel, take a 4:3 or full canvas, offer the integer display resolutions it divides into; measured frame costs and a pixel cap; software resolutions; open questions for Doc. |
 | `CPU-CLOCK-POLICY.md` | The CPU clock as a policy, not a constant: measure the host at boot rather than trust a compiled-in default; the three-host sweep of 2026-08-27 as evidence; why calibration must run with sound on. |
 | `images/`, `cover.png` | Curated pictures for the design document. |
 | `history/` | Records that are finished: the feature ballot (`FEATURES.txt`), the 45GS02 and Xemu decisions, the Pi-era portability review, the August/September roadmap, triage and reviews. Moved there 2026-10-07. |

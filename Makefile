@@ -111,6 +111,15 @@ test/bench: test/bench.c $(CORE_OBJS)
 test/govtest: test/govtest.c core/governor.h
 	$(CC) -O2 -Wall -Wextra -o $@ test/govtest.c
 
+# panel -> canvas -> integer display resolutions, alone (core/idr.h; not in the
+# emulator yet: docs/design-video-foundations.md).  -t prints the doc's tables.
+test/idrtest: test/idrtest.c core/idr.c core/idr.h
+	$(CC) -O2 -Wall -Wextra -o $@ test/idrtest.c core/idr.c
+
+# what a frame of pictures costs per glass (the design doc's section 3); by hand
+test/vidbench: test/vidbench.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+
 test/headless: test/headless.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -240,6 +249,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/vitest.sh
 	./test/walltest.sh
 	$(MAKE) -s test/govtest && ./test/govtest
+	$(MAKE) -s test/idrtest && ./test/idrtest
 	./test/marktest.sh
 	./test/dirtest.sh
 	./test/ttypetest.sh

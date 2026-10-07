@@ -48,6 +48,8 @@ kbd
 neovim
 vim
 less
+# htop: what the machine and the Linux under it are doing (Doc, 2026-10-07)
+htop
 ca-certificates
 
 # --- the network ---

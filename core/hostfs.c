@@ -25,6 +25,30 @@ static char fs_back_cwd[256], fs_back_remote[512];   /* where the last CHDIR cam
 static char fs_was_cwd[256], fs_was_remote[512];     /* taken as a CHDIR starts, kept only if it lands */
 static int  fs_chdir_ran;
 static FILE *fs_file;
+static int fs_file_w;                     /* fs_file was opened to write: its close goes to the disk at once */
+/* A file the machine wrote is on the disk when the call returns (Doc,
+ * 2026-10-07: "force the write on SAVE").  Without it Linux held a SAVE in
+ * memory for up to half a minute, and a pulled plug lost it.  A few
+ * milliseconds a file on an SSD. */
+static int fs_close_durable(FILE *f)
+{
+    int bad = fflush(f) != 0;                 /* a full disk says so here */
+    fsync(fileno(f));                         /* a filesystem that cannot (a FUSE mount) is no failure */
+    return fclose(f) || bad;
+}
+static void fs_close_cur(void)
+{
+    if (!fs_file) return;
+    if (fs_file_w) fs_close_durable(fs_file); else fclose(fs_file);
+    fs_file = NULL; fs_file_w = 0;
+}
+static void fs_sync_dir(const char *path)   /* a rename's new name, on the disk too */
+{
+    char d[1024]; snprintf(d, sizeof d, "%s", path);
+    char *sl = strrchr(d, '/'); if (sl) *sl = 0; else snprintf(d, sizeof d, ".");
+    FILE *f = fopen(d[0] ? d : "/", "r");
+    if (f) { fsync(fileno(f)); fclose(f); }
+}
 static uint8_t *fs_netbuf; static uint32_t fs_netlen, fs_netpos;   /* a fetched URL, served as the open file */
 static char fs_remote[512];             /* the current directory when it is on a server: a tnfs:// URL; "" = local */
 static void fs_net_drop(void) { free(fs_netbuf); fs_netbuf = NULL; fs_netlen = fs_netpos = 0; }
@@ -336,7 +360,7 @@ static void fs_run(uint8_t cmd)
                   if (st == 1 && bare) goto local_fs;     /* not on the server: a local program by this name */
                   break; }
               if (cmd == FS_STAT) { fs_wr32(0x10, n); free(b); break; }
-              if (fs_file) { fclose(fs_file); fs_file = NULL; }
+              fs_close_cur();
               fs_net_drop(); fs_netbuf = b; fs_netlen = n; fs_netpos = 0;
               fs_wr32(0x10, n);
               if (cmd == FS_LOAD) { uint32_t done = 0, lim = len ? len : K4510_PHYS_SIZE; while (done < n && done < lim) { k4510_ram[(addr + done) & K4510_PHYS_MASK] = b[done]; done++; } fs_wr32(12, done); if (len && n > len) st = 6; fs_net_drop(); }
@@ -348,17 +372,18 @@ static void fs_run(uint8_t cmd)
         { struct stat sb;                     /* a directory is not a file: opening "FORTH" must fail as
                                                  not-found so the shell falls through to FORTH.prg */
           if (rd && !stat(path, &sb) && S_ISDIR(sb.st_mode)) { st = 1; break; } }
-        if (fs_file) { fclose(fs_file); fs_file = NULL; }
+        fs_close_cur();
         fs_net_drop();
         fs_file = fopen(path, (cmd == FS_OPEN_WRITE || cmd == FS_SAVE) ? "wb" : "rb");
         if (!fs_file) { st = 1; break; }
+        fs_file_w = cmd == FS_OPEN_WRITE || cmd == FS_SAVE;
         title_file(path);                             /* a .prg names the next program; a .BAS, .LGO ... the running one's file */
         if (cmd == FS_OPEN_READ || cmd == FS_LOAD) { fseek(fs_file, 0, SEEK_END); long sz = ftell(fs_file); fseek(fs_file, 0, SEEK_SET); fs_wr32(0x10, (uint32_t)sz); }
         if (cmd == FS_LOAD)  {                /* LEN, when the caller set one, is the buffer: LOAD used to run to EOF over it (review 2026-09-12); 0 = whole file */
             uint32_t got = fs_read_span(fs_file, addr, len ? len : K4510_PHYS_SIZE); fs_wr32(12, got);
             if (len && got == len && fgetc(fs_file) != EOF) st = 6;
             fclose(fs_file); fs_file = NULL; }
-        if (cmd == FS_SAVE)  { fs_write_span(fs_file, addr, len); fclose(fs_file); fs_file = NULL; }
+        if (cmd == FS_SAVE)  { fs_write_span(fs_file, addr, len); fs_file_w = 0; if (fs_close_durable(fs_file)) st = 2; fs_file = NULL; }
         break; }
     case FS_READ: {
         uint32_t done = 0;
@@ -366,7 +391,7 @@ static void fs_run(uint8_t cmd)
         if (!fs_file) { st = 2; break; }
         fs_wr32(12, fs_read_span(fs_file, addr, len)); break; }
     case FS_WRITE: { if (!fs_file) { st = 2; break; } fs_write_span(fs_file, addr, len); break; }
-    case FS_CLOSE: if (fs_file) { fclose(fs_file); fs_file = NULL; } fs_net_drop(); break;
+    case FS_CLOSE: fs_close_cur(); fs_net_drop(); break;
     case FS_DIR_FIRST: case FS_DIR_ALL: {
         char durl[512]; const char *lurl = fs_remote[0] ? fs_remote : (fs_mount_url(fs_cwd, durl, sizeof durl) ? durl : NULL);
         if (lurl) {                           /* a listing from the server (CD tnfs:// or a mount) */
@@ -391,10 +416,10 @@ static void fs_run(uint8_t cmd)
         if ((st = fs_resolve(n2, rel, sizeof rel, dst, sizeof dst))) { free(nb); break; }    /* destination, as given */
         { char durl[256]; if (fs_mount_url(rel, durl, sizeof durl)) { if (nb) free(nb); st = 2; break; } }   /* a mount is read-only */
         if (cmd == FS_RENAME)
-            st = rename(path, dst) ? 2 : 0;
+            { st = rename(path, dst) ? 2 : 0; if (!st) fs_sync_dir(dst); }
         else {
             FILE *a = nb ? NULL : fopen(path, "rb"), *b = NULL;
-            if (nb) { if (!(b = fopen(dst, "wb"))) { free(nb); st = 2; break; } if (fwrite(nb, 1, nn, b) != nn) st = 2; fclose(b); free(nb); break; }
+            if (nb) { if (!(b = fopen(dst, "wb"))) { free(nb); st = 2; break; } if (fwrite(nb, 1, nn, b) != nn) st = 2; if (fs_close_durable(b)) st = 2; free(nb); break; }
             if (!a) { st = 1; break; }
             /* CP X X: opening the destination "wb" truncates the source it is
              * about to read, and the copy then succeeds at copying nothing.
@@ -402,7 +427,7 @@ static void fs_run(uint8_t cmd)
             { struct stat sa, sb; if (fstat(fileno(a), &sa) == 0 && stat(dst, &sb) == 0 && sa.st_dev == sb.st_dev && sa.st_ino == sb.st_ino) { fclose(a); st = 2; break; } }
             if (!(b = fopen(dst, "wb"))) { fclose(a); st = 2; break; }
             { char buf[4096]; size_t k; while ((k = fread(buf, 1, sizeof buf, a)) > 0) if (fwrite(buf, 1, k, b) != k) { st = 2; break; } }
-            fclose(a); fclose(b);
+            fclose(a); if (fs_close_durable(b)) st = 2;
         }
         break; }
     case FS_DIR_NEXT: {
@@ -599,6 +624,6 @@ int hostfs_state_load(FILE *f)
 }
 void hostfs_after_load(void)
 {
-    if (fs_file) { fclose(fs_file); fs_file = 0; }
+    fs_close_cur();
     fs_net_drop(); fs_remote[0] = 0; fs_mnt_clear(); fs_cap = 0;
 }

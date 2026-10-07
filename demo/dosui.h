@@ -51,6 +51,8 @@ static void far_put(const void *s, uint32_t p, unsigned n) { dma_copy((uint32_t)
 #define SPRTAB  0x123000UL              /* the pointer: sprite 0, MOUSETEST's arrow */
 #define SPRDATA 0x123100UL
 #define KMOUSE  0xFF
+#define RESIZE  0xD546u                 /* write 1: we lay ourselves out again on KRESIZE (core/io.h) */
+#define KRESIZE 0x8F
 #define C_NONE  0                       /* menu answers: nothing chosen */
 #define C_SEP   0xFE                    /* a menu's separator line */
 
@@ -124,7 +126,8 @@ static uint32_t ui_dirtab;
 static uint8_t rb[4 * 184];                           /* one row of cells */
 static uint8_t wcx, wcy;                              /* where the cursor should rest */
 static uint32_t rowaddr(uint8_t y) { return SHADOW + (uint32_t)y * cols * 4; }
-static void ui_start(void) { jc_start(); }            /* JIM as this file draws on it (jimcell.h) */
+static void (*ui_relayout)(void);                     /* the program's: its window from cols and rows again (a resize) */
+static void ui_start(void) { jc_start(); REG(RESIZE) = 1; }   /* JIM as this file draws on it (jimcell.h); tell us of resizes */
 static void ui_end(void) { jc_end(); jc_cursor(0); }  /* and back as the shell wants it */
 static void cel(uint8_t x, uint8_t ch, uint8_t k)
 {
@@ -236,7 +239,7 @@ static void cursor_show(uint8_t on) { jc_at(wcx, wcy); jc_cursor(on); }
  * change when the mouse is captured.  With the setting off there is no host
  * pointer, and this draws one: sprite 0, the same arrow.  event() waits for
  * a key or for the mouse to do something, a frame at a time. */
-static uint8_t mev, mrow, mcol, mheld, dragging, chh = 8;   /* mev: 1 press, 2 drag, 3 release, 4 wheel */
+static uint8_t mev, mrow, mcol, mheld, dragging, chh = 8;   /* mev: 1 press, 2 drag, 3 release, 4 wheel, 5 a resize */
 static uint8_t ev_wait;                                       /* frames event() waits before it answers 0 (0: for ever) */
 static int8_t mwheel;
 static const uint8_t arrowspr[128] = {   /* 16x16, 4 bpp: the arrow (1) with a black edge (2) round it */
@@ -278,6 +281,13 @@ static uint8_t event_wait(void)
     jc_at(wcx, wcy);                                    /* the cursor where the program left it, not where drawing did */
     for (;;) {
         k = rom_getin();
+        if (k == KRESIZE && (REG(RESIZE) & 0x80)) {    /* F12 changed the screen under us: lay out again, draw it all */
+            REG(RESIZE) = 1;
+            ui_init(); ui_start(); ptr_on(); curshape = 0;
+            if (ui_relayout) ui_relayout();
+            full = 1; mrow = mcol = 0xFF; mev = 5; kcode = 2; kmod = 0;
+            return KMOUSE;                              /* a mouse event nothing answers: the loop draws, full */
+        }
         if (k) { kmod = REG(KSTAT); kcode = (uint8_t)((kmod & 0x40) ? 1 : 0); return k; }
         wait_vblank();
         if (ev_wait && !--ev_wait) { kcode = 0; return 0; }   /* nothing came: dosvi.h's map timeout */

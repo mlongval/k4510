@@ -44,7 +44,8 @@ uint8_t io_net = 0xFF, io_net_q;   /* the network, for the bottom band: NET_*, $
  * anything.  SYS+$40 appends a character to the top entry's name and SYS+$41
  * = 3 empties it, for a program that wants to name itself. */
 #define TITLE_DEPTH 8
-static struct { char prog[24]; char file[40]; } title_stack[TITLE_DEPTH] = { { "K/OS", "" } };
+static struct { char prog[24]; char file[40]; uint8_t resize; } title_stack[TITLE_DEPTH] = { { "K/OS", "", 0 } };   /* resize: SYS+$46 */
+static uint8_t resize_due;                         /* SYS+$46 bit7: the screen changed under a program that asked to be told */
 static int title_depth = 1;
 static char title_next[24];
 static void title_cmd(uint8_t c)
@@ -52,12 +53,12 @@ static void title_cmd(uint8_t c)
     if (c == 1) {                                     /* a program starts: its name, as the file device saw it load */
         if (title_depth < TITLE_DEPTH) {
             snprintf(title_stack[title_depth].prog, sizeof title_stack[0].prog, "%s", title_next[0] ? title_next : "?");
-            title_stack[title_depth].file[0] = 0; title_depth++;
+            title_stack[title_depth].file[0] = 0; title_stack[title_depth].resize = 0; title_depth++;
         }
         title_next[0] = 0;
     } else if (c == 2) { if (title_depth > 1) title_depth--; mouse_host_release(); }   /* it came back (and its $D110 wish ends with it) */
     else if (c == 3) { title_stack[title_depth - 1].prog[0] = 0; title_stack[title_depth - 1].file[0] = 0; }
-    else if (c == 4) { mouse_host_release(); title_depth = 1; strcpy(title_stack[0].prog, "K/OS"); title_stack[0].file[0] = 0; title_next[0] = 0; }
+    else if (c == 4) { mouse_host_release(); title_depth = 1; title_stack[0].resize = 0; resize_due = 0; strcpy(title_stack[0].prog, "K/OS"); title_stack[0].file[0] = 0; title_next[0] = 0; }
 }
 /* SYS+$44: a program names the file it has in front -- PROG's tabs switch
  * without loading anything, so title_file() never hears of it.  0 clears
@@ -180,6 +181,7 @@ uint8_t sys_read(uint8_t r)
     if (r < 4) { sys_latch(); return sys_reg[r]; }
     if (r < 0x0D) return sys_reg[r];
     if (r < 0x10) return (uint8_t)(sys_frames >> ((r - 0x0D) * 8));
+    if (r == 0x46) return (uint8_t)(title_stack[title_depth - 1].resize | resize_due);   /* RESIZE: the wish, and bit7 one waiting */
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0x21) return sys_opts;
@@ -223,11 +225,13 @@ void sys_write(uint8_t r, uint8_t v)
     if (r == 0x44) title_file_char(v);                    /* the title: the top entry's file -- 0 clears, a character adds */
     if (r >= 0x50 && r <= 0x54) mem_fence_write((uint8_t)(r - 0x50), v);   /* the stack fence */
     if (r == 0x45) io_wait_start();                       /* WAIT: asleep until an interrupt or a key */
+    if (r == 0x46) { title_stack[title_depth - 1].resize = (uint8_t)(v & 1); resize_due = 0; }   /* RESIZE: the wish; a write takes the waiting one */
     if (r == 0x42) idea_add(v);                           /* IDEA: a character of the idea */
     if (r == 0x43) idea_write(v);                         /* IDEA: 1 write it, 2 an empty one for VI */
     if (r == 0x28) adopt_req = 1;                         /* SETUP: keep the clock in force as this host's measured clock */
     if (r == 0x29) measuring = v ? 1 : 0;                 /* SETUP: hold the governor off while the ladder is swept */
-    if (r == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1; }
+    if (r == 0x21) { sys_opts &= (uint8_t)~(SYSOPT_MODEREQ | SYSOPT_MODE); mode_acked = 1;
+                     if (title_stack[title_depth - 1].resize) resize_due = 0x80; }
                        /* the guest acknowledging a video-mode request: it has performed it,
                         * so the request goes away at once instead of standing for frames
                         * while every key poll performs it again */

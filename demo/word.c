@@ -643,6 +643,11 @@ static void vset(uint8_t r)
     if (y >= n) y = n - 1;
     top = n > 1 ? (unsigned)((unsigned long)y * span / (n - 1)) : 0;
 }
+static void relayout(void)                            /* a resize: the window, and the paragraphs wrapped to its width again */
+{
+    th = (uint8_t)(rows - 4); tw = (uint8_t)(cols - 2);
+    if (npara) { layout(); if (top + th > nlines) top = nlines > th ? nlines - th : 0; }
+}
 static void do_key(uint8_t k)
 {
     uint8_t i, ctrl = (uint8_t)(kmod & 2);
@@ -696,7 +701,7 @@ void main(void)
     nm[j] = 0;
     ui_init();
     ui_titles = mtitle; ui_menus = menus; ui_nmenu = 4; ui_marked = marked; ui_dirtab = 0x0BF00000UL; ui_name = "WORD ";
-    th = (uint8_t)(rows - 4); tw = (uint8_t)(cols - 2);
+    th = (uint8_t)(rows - 4); tw = (uint8_t)(cols - 2); ui_relayout = relayout;
     scheme(sys);
     ui_start(); cursor_show(0);
     ptr_on();

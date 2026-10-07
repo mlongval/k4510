@@ -688,6 +688,11 @@ static uint8_t tab_at(uint8_t c)                      /* the open file whose tab
     }
     return 0xFF;
 }
+static void relayout(void)                            /* the editor and the messages from the screen's size: at start, and on a resize */
+{
+    eh = (uint8_t)(rows - 5 - MSGH); th = eh; tw = (uint8_t)(cols - 2);
+    if (cy >= top + th) top = cy - th + 1;
+}
 static void do_mouse(void)
 {
     uint8_t r = mrow, i; unsigned d;
@@ -770,8 +775,8 @@ void main(void)
     name[j] = 0;
     ui_init();
     ui_titles = mtitle; ui_menus = menus; ui_nmenu = 6; ui_marked = marked; ui_dirtab = 0x0EE00000UL;   /* not 0x07F00000: the eighth buffer's undo journal runs to 0x07F77000 */ ui_name = "PROG ";
-    eh = (uint8_t)(rows - 5 - MSGH);
-    wy = 2; th = eh; tw = (uint8_t)(cols - 2);
+    ui_relayout = relayout;
+    wy = 2; relayout();
     scheme(sys);
     ed_maxlines = 16384u;                                 /* a file's lines in its 4 MB */
     ed_cur = 0; ed_nbuf = 1;

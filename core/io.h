@@ -360,6 +360,17 @@ void dbg_watch_hit(void);                    /* mem.c reports; io.c dumps and di
  * way to wait for a key or a frame without the host spending its time on
  * the loop.  Time goes on while it sleeps. */
 #define IO_WAIT        (IO_SYS + 0x45)
+/* --- RESIZE ($D546): the screen changed under a running program (Doc,
+ * 2026-10-07: F12's Canvas switched with EDIT open, and EDIT went on drawing
+ * for the old size).  A program writes 1 to say it can lay itself out again;
+ * then, when the F12 menu changes the video mode or canvas while it waits for
+ * a key, GETIN answers KEY_RESIZE ($8F) instead of the Escape it gives
+ * everyone else, and bit7 here is set -- a typed $8F, CP437's A-ring, comes
+ * with it clear.  The program writes 1 again (which clears bit7), reads JIM's
+ * size and redraws.  Read: bit0 the program's wish, bit7 a resize waiting.  The wish is the
+ * program's: a program it runs starts without it, and it ends with it. */
+#define IO_RESIZE      (IO_SYS + 0x46)
+#define KEY_RESIZE     0x8F
 extern int cpu65_waiting;
 int     cpu65_wake(int cycles);
 

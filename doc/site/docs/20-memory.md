@@ -220,6 +220,10 @@ A program that waits for a key or for the next frame should say so: a write of a
 
     while (!(k = rom_getin())) K_WAIT();
 
+##### When the screen changes.
+
+F12 can change the resolution or the canvas while a program runs; the ROM lays the console out again on the program’s next key read, and the screen it had drawn is gone. A program that can draw itself again says so with a write of 1 to `$D546`, RESIZE. Its next `rom_getin()` after such a change then answers `$8F` with bit 7 of `$D546` set (a typed `$8F` has it clear); the program writes 1 again, reads the size from JIM (`$DA05` columns, `$DA06` rows) and draws the whole screen. A program that has not asked gets Escape, as before. EDIT, PROG, WORD and VI ask (`demo/dosui.h` does it for the first three).
+
 ## System calls
 
 The page `$FF00` is always the ROM, whatever is banked, and its jump table is the whole of the interface a program needs:

@@ -311,6 +311,11 @@ static void vi_do(void)                               /* what a : command asked 
     case 'm': case 'r': case 'n': case 'p': note = "That is PROG's: EDIT does not compile"; break;
     }
 }
+static void relayout(void)                            /* the text window from the screen's size: at start, and on a resize */
+{
+    th = (uint8_t)(rows - 4); tw = (uint8_t)(cols - 2);
+    if (cy >= top + th) top = cy - th + 1;
+}
 static void do_key(uint8_t k)
 {
     uint8_t i;
@@ -356,8 +361,8 @@ void main(void)
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }
     name[j] = 0;
     ui_init();
-    ui_titles = mtitle; ui_menus = menus; ui_nmenu = 5; ui_marked = marked; ui_dirtab = 0x08C00000UL;
-    wy = 2; th = (uint8_t)(rows - 4); tw = (uint8_t)(cols - 2);
+    ui_titles = mtitle; ui_menus = menus; ui_nmenu = 5; ui_marked = marked; ui_dirtab = 0x08C00000UL; ui_relayout = relayout;
+    wy = 2; relayout();
     scheme(sys);
     ed_maxlines = 16384u;
     ed_slots = 0x08000000UL; ed_undo = 0x08600000UL;

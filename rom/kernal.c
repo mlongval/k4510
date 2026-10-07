@@ -323,8 +323,9 @@ static void mode_do(void)
 /* GETIN shows the cursor while a program waits for a key (BASIC reads this way) */
 uint8_t k_getin(void)
 {
-    if (REG(SYS + 0x21) & 0x10) { mode_do(); return 27; }   /* rare: the F12 menu asked for a mode; ESC unsticks
-                                                              * readline (a CR ran the half-typed line) */
+    if (REG(SYS + 0x21) & 0x10) { mode_do(); return REG(SYS + 0x46) & 1 ? 0x8F : 27; }   /* rare: the F12 menu asked for a mode; ESC unsticks
+                                                              * readline (a CR ran the half-typed line); a program
+                                                              * that asked ($D546) gets KEY_RESIZE and redraws */
     if (REG(KBDST) & 0x80) return caps(REG(KBD));
     if (!prog_running && !(REG(TERM + 0x0E) & 1)) jim_cursor(1);   /* the shell waits: JIM's cursor (said once, not at every
                                                                      * poll: it is a sequence now).  Under a program it is the program's */

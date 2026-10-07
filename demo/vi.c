@@ -172,7 +172,15 @@ static uint8_t getkey(void)                      /* a key, through the maps (vik
     uint8_t k, t0;
     for (;;) {
         if (qi < qn) return qbuf[qi++];
-        if (!pbn) { while (!(k = rom_getin())) K_WAIT(); vk = (REG(0xD101) & 0x40) ? 1 : 0; }
+        if (!pbn) { while (!(k = rom_getin())) K_WAIT(); vk = (REG(0xD101) & 0x40) ? 1 : 0;
+            if (k == 0x8F && (REG(0xD546) & 0x80)) {      /* F12 changed the screen (core/io.h RESIZE): its size again, all of it drawn */
+                REG(0xD546) = 1;
+                cols = REG(TERM + 5); rows = REG(TERM + 6);
+                if (!cols) cols = 80;
+                if (!rows) rows = 30;
+                vs("\x1b[2J\x1b[H\x1b[?25h"); full = 1; scroll_fit(); draw();
+                continue;
+            } }
         else {                                   /* waiting on the rest of a mapping */
             t0 = REG(0xD50D);
             for (;;) {
@@ -311,6 +319,7 @@ void main(void)
     load_file();
     run_rc();                                              /* after the file: a mapping applies to a real buffer */
     vs("\x1b[2J\x1b[H\x1b[?25h");                            /* cleared, home, the cursor shown */
+    REG(0xD546) = 1;                                       /* tell us when F12 changes the screen (RESIZE) */
     while (running) {
         scroll_fit();
         draw();

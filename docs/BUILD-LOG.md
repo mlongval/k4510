@@ -11721,3 +11721,41 @@ route").  A game mode is saved as 360x270.  mkref's menu list follows.
 Not yet: 16x16 at 720x540 (8x8 cells) wants a ROM mode; 1440x1080 with 16-wide
 cells wants VICKY to learn them.  Checked: vickytest 12, uitest, make test,
 the four faces under Xvfb at 1440x1080.  Not checked: the Dell.
+
+## 2026-10-06 -- 16-wide cells at 1440x1080; 8x8 cells at 720x540; six more faces
+
+The rest of Doc's ask: "1440x1080 (both 16x16 and 16x32), 720x540 (both),
+360x270", and "add F12 option all the fonts you recently suggested, including
+VGA", and Proggy (github.com/bluescan/proggyfonts).
+
+**VICKY**: text32's cell field gains 2 = 16x16 and 3 = 16x32, glyph rows two
+bytes, MSB first (TEXT stays 8 wide).  The cursor shapes scale (underline the
+bottom eighth, bar the left quarter).  vicky_cell_w/h say what layer 0's
+cells are; k4510-screen, the key-pipe echo, JIM's picture geometry and
+io.c's screen size read them instead of the cell bit.  HD text also draws 8x8
+cells at 720x540, from a 16x16 face.
+
+**The ROM**: MODE 5 is 90x33 in 16x32 cells now (was 180x67 in 8x16) and
+MODE 5 67 90x67 in 16x16; MODE 6 67 is 720x540 in 8x8, 90x67 -- the
+SYSOPT_ROWS60 bit, MODE 0 60's, carries the smaller cells for all three, and
+$022F bit 7 says so (Pascal's CloseGraph puts it back with "MODE n 60", which
+the command takes).  MODE 5's fonts are FONT32 at $014800 and FONT16W at
+$018800, placed by the frontend: the F12 face in the page in use, or unscii
+doubled, again whenever either changes.  One cc65 slip found on the way:
+`(uint16_t)(0 - vpad)` with vpad a uint8_t local came out $00F4, not $FFF4 --
+the text scrolled 244 lines down and the bottom band sat a third of the way
+up.  Written out in 16 bits now.
+
+**F12**: Resolution offers 1440x1080 16x32 / 16x16, 720x540 16x32 / 16x16,
+360x270 (the old names load as the 16x32 ones).  Font adds Zhekov (Terminus
+regular), Atkinson Mono (the Braille Institute's, for low vision; weight
+700), Go Mono, Fira Mono, Proggy Clean and Tamzen Bold.  tools/mkhdfonts.py
+draws TrueType faces with FreeType, no anti-aliasing, into 16x32; doubles
+the 8-wide ones (Proggy at its 7x13 design size, Tamzen 8x16b, the VGA); makes
+each 16x16 by ORing the 16x32's row pairs; and gives the drawn and doubled
+faces the VGA's line and block drawings so boxes meet.  Fixedsys Excelsior
+left out: its licence is not clear enough to ship.
+
+Checked: vickytest 12-13 (16x16 HD, 16-wide cells), uitest (the mode pairs,
+the old names), make test; all four screens under Xvfb with Zhekov Bold.
+Not checked: the Dell.

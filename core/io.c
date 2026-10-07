@@ -1122,7 +1122,7 @@ static void sys_latch(void)
  * brainshot, 2026-09-14). */
 static void screen_geom(int *cols, int *rows)
 {
-    uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10); int st = io_read(0xDA0D), ch = (l0 & 0x60) ? 16 : 8;
+    uint8_t ctrl = vicky_read(0), l0 = vicky_read(0x10); int st = io_read(0xDA0D), ch = vicky_cell_h(0);
     *cols = st > 0 && st <= 180 ? st : 80;
     *rows = (ctrl & 0x20) ? vicky_glass_h() / ch : (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60;
 }

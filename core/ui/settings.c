@@ -10,8 +10,9 @@
 #define SETTINGS_VERSION_STR "3"
 
 /* "640x480" is the 80x30 screen, as every k4510.cfg already saved it */
-static const char *const vmode_names[] = { "640x480", "640x480x60", "640x240", "320x240", "1440x1080", "720x540", "360x270", "320x200", "160x200" };
-const unsigned char vmode_number[VMODE_COUNT] = { 0, 0, 1, 2, 5, 6, 7, 3, 4 };   /* both 640x480 screens are MODE 0 */
+static const char *const vmode_names[] = { "640x480", "640x480x60", "640x240", "320x240", "1440x1080 16x32", "1440x1080 16x16",
+                                           "720x540 16x32", "720x540 16x16", "360x270", "320x200", "160x200" };
+const unsigned char vmode_number[VMODE_COUNT] = { 0, 0, 1, 2, 5, 5, 6, 6, 7, 3, 4 };   /* each pair of screens is one MODE */
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers", "apple" };
@@ -35,7 +36,10 @@ static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", 
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
 static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause", "F12" };
 static const char *const page_names[]  = { "CP437", "K4510" };
-static const char *const hdfont_names[] = { "unscii", "Zhekov Bold", "Spleen", "IBM VGA" };
+static const char *const hdfont_names[] = { "unscii", "Zhekov Bold", "Zhekov", "Spleen", "IBM VGA", "Atkinson Mono", "Go Mono",
+                                            "Fira Mono", "Proggy Clean", "Tamzen Bold" };
+const char *const hdfont_files[HDFONT_COUNT] = { NULL, "zhekov-bold", "zhekov", "spleen", "ibm-vga", "atkinson", "go-mono",
+                                                 "fira-mono", "proggy", "tamzen-bold" };
 
 static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices are filled in at start (settings_set_labels) */
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
@@ -181,6 +185,10 @@ static int find_key(const char *k) { for (int i = 0; i < SET_COUNT; i++) if (!st
 static int parse_value(set_id id, const char *v)
 {
     const set_desc *d = &desc[id];
+    if (d->labels == vmode_names) {                   /* the names before 2026-10-06: the larger cells */
+        if (!strcasecmp(v, "1440x1080")) return VMODE_1440x1080;
+        if (!strcasecmp(v, "720x540")) return VMODE_720x540;
+    }
     if (d->labels == smooth_names) {                  /* the names before 2026-09-14 */
         if (!strcasecmp(v, "sharp-fit")) return SMOOTH_INTEGER;
         if (!strcasecmp(v, "sharp") || !strcasecmp(v, "soft")) return SMOOTH_FIT;

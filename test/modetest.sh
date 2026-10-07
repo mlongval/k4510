@@ -11,7 +11,7 @@
 set -e
 cd "$(dirname "$0")/.."
 fails=0
-for pair in "0 80x30 640x480" "1 80x30 640x240" "2 40x30 320x240" "5 180x67 1440x1080" "6 90x33 720x540" "7 45x33 360x270"; do
+for pair in "0 80x30 640x480" "1 80x30 640x240" "2 40x30 320x240" "5 90x33 1440x1080" "6 90x33 720x540" "7 45x33 360x270"; do
     set -- $pair
     out=$(K4510_SYSOPT=0x04 timeout 90 ./test/headless rom/kernal.bin "MODE $1
 ~MODE
@@ -30,6 +30,18 @@ for pair in "60 80x60" "30 80x30"; do
     case "$out" in
         *"$2 text, 640x480 pixels"*) echo "  ok   MODE 0 $1: $2 text, 640x480 pixels" ;;
         *) echo "  FAIL MODE 0 $1: got '$out', want '$2 text, 640x480 pixels'"; fails=$((fails + 1)) ;;
+    esac
+done
+# the HD screens' smaller cells (2026-10-06): MODE 5 67 is 1440x1080 in 16x16,
+# MODE 6 67 720x540 in 8x8 -- 90x67 both -- and 33 the larger again
+for pair in "5 67 90x67 1440x1080" "5 33 90x33 1440x1080" "6 67 90x67 720x540" "6 33 90x33 720x540"; do
+    set -- $pair
+    out=$(K4510_SYSOPT=0x04 timeout 90 ./test/headless rom/kernal.bin "MODE $1 $2
+~MODE
+~" 900 2>/dev/null | grep -i "^MODE $1:" | tail -1) || true
+    case "$out" in
+        *"$3 text, $4 pixels"*) echo "  ok   MODE $1 $2: $3 text, $4 pixels" ;;
+        *) echo "  FAIL MODE $1 $2: got '$out', want '$3 text, $4 pixels'"; fails=$((fails + 1)) ;;
     esac
 done
 # and the 60-row screen is what the host asks for with SYSOPT bit 1 (0x02)

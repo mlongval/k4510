@@ -1,5 +1,5 @@
 # test/remote/hd.k4r -- the hd-modes branch: MODE 6 (720x540, 90x33 in 8x16),
-# MODE 5 (1440x1080, 180x67) and MODE 7 (360x270, 45x33 in 8x8), a shot of
+# MODE 5 (1440x1080, 90x33 in 16x32) and MODE 7 (360x270, 45x33 in 8x8), a shot of
 # each, then back to MODE 1 so the Dell keeps the mode it had.  The text rows
 # MODE prints lose the two band rows when the status bands are on, so only
 # the columns are checked.

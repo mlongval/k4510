@@ -1,17 +1,40 @@
-data/fonts/hd -- the HD text fonts (core/vicky.h vicky_hd_font; F12 -> Video -> Font)
+data/fonts/hd -- the text fonts at the panel's own pixels (F12 -> Video -> Font):
+at 720x540 the HD text (core/vicky.h vicky_hd_font), at 1440x1080 the machine's
+own 16-wide font (K4510_FONT32_PHYS / K4510_FONT16W_PHYS).
 
-Each face is 256 glyphs of 16x32, two bytes a row, MSB first, in the K4510 code
-page's order (-k4510.bin) and strict CP437's (-cp437.bin).  Built by
-tools/mkhdfonts.py, 2026-10-06; a glyph a face lacks is unscii-16's, doubled.
+Each face is 256 glyphs, two bytes a row, MSB first, in the K4510 code page's
+order (-k4510.bin) and strict CP437's (-cp437.bin): 16x32 (<face>-*.bin) and
+16x16 (<face>16-*.bin, each pair of the 16x32's rows ORed into one).  Built by
+tools/mkhdfonts.py, 2026-10-06; a glyph a face lacks is unscii-16's, doubled;
+the drawn and doubled faces take the line and block drawings (U+2500-259F)
+from the VGA, so boxes meet.  Fetched 2026-10-06.
 
 zhekov-bold   Terminus Font Bold 16x32, Dimitar Toshkov Zhekov -- SIL OFL 1.1,
-              Reserved Font Name "Terminus Font", so the changed copy here is
-              named otherwise (LICENSE-zhekov-bold.txt).  Source: Ubuntu 24.04
-              console-setup, /usr/share/consolefonts/*-TerminusBold32x16.psf.gz
-              (Uni3 first, then the others for what it lacks).
+zhekov        and Terminus Font 16x32 (regular).  Reserved Font Name "Terminus
+              Font", so the changed copies here are named otherwise
+              (LICENSE-zhekov-bold.txt).  Source: Ubuntu 24.04 console-setup,
+              /usr/share/consolefonts/*-Terminus{Bold,}32x16.psf.gz (Uni3 first).
 spleen        Spleen 16x32, Frederic Cambus -- BSD 2-Clause (LICENSE-spleen.txt).
-              Source: github.com/fcambus/spleen, spleen-16x32.bdf (master,
-              2026-10-06), sha256 d9195a94badfe33f4bba4b68b8d711c031c28524ddcdebd095717be7ce98de7a
+              github.com/fcambus/spleen spleen-16x32.bdf, sha256 d9195a94badfe33f4bba4b68b8d711c031c28524ddcdebd095717be7ce98de7a
 ibm-vga       The IBM VGA ROM set as the Linux kernel carries it,
-              lib/fonts/font_8x16.c (GPL-2.0), drawn doubled.  Source:
-              github.com/torvalds/linux master, 2026-10-06, sha256 87e0693fb9ae7f342710cf230e76df0ec213988f833a7d82cb01db5de54cf20d
+              lib/fonts/font_8x16.c (GPL-2.0), doubled.  github.com/torvalds/linux,
+              sha256 87e0693fb9ae7f342710cf230e76df0ec213988f833a7d82cb01db5de54cf20d
+atkinson      Atkinson Hyperlegible Mono, Braille Institute / The Atkinson
+              Hyperlegible Mono Project Authors -- SIL OFL 1.1, no Reserved Font
+              Name (LICENSE-atkinson.txt).  google/fonts
+              ofl/atkinsonhyperlegiblemono/AtkinsonHyperlegibleMono[wght].ttf at
+              weight 700, drawn by FreeType without anti-aliasing,
+              sha256 5ce8b1698d1ded7dff2178c1a3ad159470085a58ea239e8b2cb88f4fb4a6f646
+go-mono       Go Mono Bold, Bigelow & Holmes for the Go project -- BSD 3-Clause
+              (LICENSE-go-mono.txt).  golang/image font/gofont/ttfs/Go-Mono-Bold.ttf,
+              drawn likewise, sha256 b165f1a142dc88d3c388de2c89d3ab62dd04620ef21ad07f43fb51f77857edc3
+fira-mono     Fira Mono Bold, Mozilla / Telefonica -- SIL OFL 1.1, no Reserved
+              Font Name (LICENSE-fira-mono.txt).  google/fonts ofl/firamono,
+              drawn likewise, sha256 61f0ca3ae72a83deb807040f314e1b8b4e40b08213df243db9fd430095cab305
+proggy        Proggy Clean, Tristan Grimmer -- MIT (LICENSE-proggy.txt).
+              github.com/bluescan/proggyfonts ProggyOriginal/ProggyClean.ttf at
+              its design size (7x13 in 8x16), doubled, sha256 527d2a443ce051f93f7e77b855609722b8cb220a9f104b4aa037be5c90b71324
+tamzen-bold   Tamzen 8x16 Bold, Suraj N. Kurapati (after Scott Fial's Tamsyn) --
+              "free to use, copy, modify, and distribute" (LICENSE-tamzen.txt).
+              github.com/sunaku/tamzen-font bdf/Tamzen8x16b.bdf, doubled,
+              sha256 d7eeee82426cfbdf82aa8f631363c8db495289c24b17c3c03167c3e6dfce3656

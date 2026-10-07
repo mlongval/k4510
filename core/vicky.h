@@ -224,10 +224,14 @@ extern int vicky_dirty, vicky_low;     /* vicky_low: something VICKY shows is in
  * machine pixel as 2x2; with an HD font given here, VICKY draws the frame at
  * 1440x1080 instead: every layer and sprite doubled, as before, except text32
  * cells of 8x16 whose glyph in RAM is the stock one (STOCK, 256 x 16 rows) --
- * those come from HD, 256 glyphs of 16x32, two bytes a row, MSB first.  A
+ * those come from HD, 256 glyphs of 16x32, two bytes a row, MSB first (8x8 cells
+ * likewise from HD16, 16x16).  A
  * glyph a program changed is drawn as it is, doubled.  NULL turns it off.  The
  * machine sees nothing of this: its glass stays 720x540. */
-void     vicky_hd_font(const uint8_t *hd, const uint8_t *stock);
+void     vicky_hd_font(const uint8_t *hd, const uint8_t *stock, const uint8_t *hd16, const uint8_t *stock8);
+                                                      /* and the same for 8x8 cells: HD16 256 x 16x16, STOCK8 256 x 8 */
+int      vicky_cell_w(int layer);                     /* a text layer's cell: 8 or 16 wide (text32's field 2 and 3), */
+int      vicky_cell_h(int layer);                     /* 8, 16 or 32 tall */
 int      vicky_out_scale(void);                       /* 2 while this frame is drawn HD, else 1 */
 int      vicky_out_w(void);                           /* the frame buffer's picture: the glass x the scale */
 int      vicky_out_h(void);

@@ -328,7 +328,7 @@ int main(void)
     /* 12. HD text (2026-10-06): 720x540 with an HD font is drawn at 1440x1080.
      * A text32 cell whose glyph in RAM is the stock one comes from the HD font;
      * one a program changed is its own glyph, doubled. */
-    { static uint8_t big[VICKY_WIDTH * VICKY_HEIGHT], stock[4096], hd[16384];
+    { static uint8_t big[VICKY_WIDTH * VICKY_HEIGHT], stock[4096], hd[16384], stock8[2048], hd16[8192];
       uint32_t f16 = 0x320000, m32 = 0x330000;
       mem_reset();
       for (int i = 0; i < 4096; i++) mem_poke(f16 + i, 0);
@@ -340,18 +340,51 @@ int main(void)
       W(VR_CTRL, 1 | 0x20 | 2); W(VR_BGCOL, 0);                                  /* 720x540 */
       W32(VR_LAYER(0) + VL_DATA, f16); W32(VR_LAYER(0) + VL_MAP, m32); W16(VR_LAYER(0) + VL_STRIDE, 90);
       W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));
-      vicky_hd_font(hd, stock); vicky_render(big, VICKY_WIDTH);
+      vicky_hd_font(hd, stock, hd16, stock8); vicky_render(big, VICKY_WIDTH);
       CHECK(vicky_out_scale() == 2 && vicky_out_w() == 1440 && vicky_out_h() == 1080 && vicky_glass_w() == 720, "720x540 with an HD font is drawn 1440x1080; the glass stays 720");
       CHECK(big[20 * VICKY_WIDTH + 0] == 4 && big[20 * VICKY_WIDTH + 1] == 9 && big[21 * VICKY_WIDTH + 2] == 4,
             "a stock glyph comes from the HD font (%d %d %d)", big[20 * VICKY_WIDTH], big[20 * VICKY_WIDTH + 1], big[21 * VICKY_WIDTH + 2]);
       CHECK(big[20 * VICKY_WIDTH + 16] == 4 && big[20 * VICKY_WIDTH + 24] == 9 && big[21 * VICKY_WIDTH + 31] == 9,
             "a glyph a program changed is its own, doubled (%d %d %d)", big[20 * VICKY_WIDTH + 16], big[20 * VICKY_WIDTH + 24], big[21 * VICKY_WIDTH + 31]);
-      vicky_hd_font(NULL, NULL); vicky_render(big, VICKY_WIDTH);
+      vicky_hd_font(NULL, NULL, NULL, NULL); vicky_render(big, VICKY_WIDTH);
       CHECK(vicky_out_scale() == 1 && big[10 * VICKY_WIDTH + 0] == 9, "without one, 720x540 as before");
-      W(VR_CTRL, 1); vicky_hd_font(hd, stock); vicky_render(fb, 640);
+      W(VR_CTRL, 1); vicky_hd_font(hd, stock, hd16, stock8); vicky_render(fb, 640);
       CHECK(vicky_out_scale() == 1, "an HD font changes nothing outside 720x540");
-      vicky_hd_font(NULL, NULL);
-      printf("12. HD text: stock glyphs from the HD font, a program's own doubled, nothing else changed\n"); }
+      vicky_hd_font(NULL, NULL, NULL, NULL);
+      /* 8x8 cells at 720x540 (90x67): the 16x16 HD glyph */
+      for (int i = 0; i < 2048; i++) mem_poke(f16 + i, 0);
+      for (int r = 0; r < 8; r++) { stock8['A' * 8 + r] = 0xF0; mem_poke(f16 + 'A' * 8 + r, 0xF0); }
+      for (int r = 0; r < 16; r++) hd16[('A' * 16 + r) * 2 + 1] = 0x01;                                          /* HD16: column 15 only */
+      W(VR_CTRL, 1 | 0x20 | 2); W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1));                           /* 8x8 cells */
+      vicky_hd_font(hd, stock, hd16, stock8); vicky_render(big, VICKY_WIDTH);
+      CHECK(vicky_out_scale() == 2 && big[6 * VICKY_WIDTH + 15] == 9 && big[6 * VICKY_WIDTH + 0] == 4,
+            "an 8x8 cell at 720x540 is drawn from the 16x16 HD font (%d %d)", big[6 * VICKY_WIDTH + 15], big[6 * VICKY_WIDTH]);
+      vicky_hd_font(NULL, NULL, NULL, NULL);
+      printf("12. HD text: stock glyphs from the HD font (16x32 and 16x16), a program's own doubled, nothing else changed\n"); }
+
+    /* 13. text32 cells 16 wide (2026-10-06): field 3 is 16x32, 2 is 16x16, a
+     * glyph row two bytes; 1440x1080 draws them at its own size. */
+    { static uint8_t big[VICKY_WIDTH * VICKY_HEIGHT];
+      uint32_t fw = 0x340000, m32 = 0x330000;
+      mem_reset();
+      for (int i = 0; i < 16384; i++) mem_poke(fw + i, 0);
+      for (int r = 0; r < 32; r++) { mem_poke(fw + ('A' * 32 + r) * 2, 0x80); mem_poke(fw + ('A' * 32 + r) * 2 + 1, 0x01); }   /* columns 0 and 15 */
+      uint8_t c0[4] = { 'A', 0, 9, 4 }, c1[4] = { 'A', 0, 7, 2 };
+      mem_load(m32, c0, 4); mem_load(m32 + 4, c1, 4);
+      W(VR_CTRL, 1 | 0x20); W(VR_BGCOL, 0);                                       /* 1440x1080 */
+      W32(VR_LAYER(0) + VL_DATA, fw); W32(VR_LAYER(0) + VL_MAP, m32); W16(VR_LAYER(0) + VL_STRIDE, 90);
+      W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (3 << 5));            /* 16x32 */
+      vicky_render(big, VICKY_WIDTH);
+      CHECK(vicky_cell_w(0) == 16 && vicky_cell_h(0) == 32, "the cell field says 16x32 (%dx%d)", vicky_cell_w(0), vicky_cell_h(0));
+      CHECK(big[31 * VICKY_WIDTH + 0] == 9 && big[31 * VICKY_WIDTH + 1] == 4 && big[31 * VICKY_WIDTH + 15] == 9 && big[31 * VICKY_WIDTH + 16] == 7,
+            "16-wide cells: columns 0 and 15 of the first, the second cell from x = 16 (%d %d %d %d)",
+            big[31 * VICKY_WIDTH], big[31 * VICKY_WIDTH + 1], big[31 * VICKY_WIDTH + 15], big[31 * VICKY_WIDTH + 16]);
+      CHECK(big[32 * VICKY_WIDTH + 0] != 9, "32 rows tall: row 32 is the next cell row (%d)", big[32 * VICKY_WIDTH]);
+      W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (2 << 5));            /* 16x16 */
+      for (int r = 0; r < 16; r++) { mem_poke(fw + ('A' * 16 + r) * 2, 0x80); mem_poke(fw + ('A' * 16 + r) * 2 + 1, 0x01); }
+      vicky_render(big, VICKY_WIDTH);
+      CHECK(vicky_cell_h(0) == 16 && big[15 * VICKY_WIDTH + 15] == 9 && big[16 * VICKY_WIDTH + 15] != 9, "16x16 cells");
+      printf("13. text32 cells 16 wide: 16x32 and 16x16\n"); }
 
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;

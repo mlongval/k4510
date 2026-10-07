@@ -215,7 +215,7 @@ static void screen_save(void)
      * which halves the lines too (MODE 2) -- 30; neither, the whole 480: 30
      * rows of 8x16 (layer 0's cell bits), or 60 of 8x8 for a program's own */
     int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (vicky_read(0x10) & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
-    if (ctrl & 0x20) rows = vicky_glass_h() / ((vicky_read(0x10) & 0x60) ? 16 : 8);   /* the HD family */
+    if (ctrl & 0x20) rows = vicky_glass_h() / vicky_cell_h(0);   /* the HD family: 8, 16 or 32 tall */
     mkdir("shots", 0755);
     FILE *f = fopen("shots/.screen.tmp", "wb");
     if (!f) return;
@@ -406,10 +406,10 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
 
 static uint8_t font_menu[2048];                      /* unscii-8: the machine's 8x8 font, and the menu's */
 static uint8_t font_panel[4096]; static int font_panel_rows = 16;  /* unscii-16: MODE 0's font, and the side panel's */
-static uint8_t font_437_8[2048], font_437_16[4096];
+static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP437, for TELNET's BBS sessions (docs/K4510-CODEPAGE.md) */
 /* The HD text fonts (vicky_hd_font, tools/mkhdfonts.py): per face, the K4510
  * page's order and CP437's; a face whose files are missing is drawn as unscii. */
-static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384]; static int hd_have[HDFONT_COUNT];  /* both again in strict CP437, for TELNET's BBS sessions (docs/K4510-CODEPAGE.md) */
+static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384], hd_fonts16[HDFONT_COUNT][PAGE_COUNT][8192]; static int hd_have[HDFONT_COUNT];
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -449,6 +449,28 @@ static void prune_brainshots(const char *fsroot)
     }
     closedir(d);
 }
+/* MODE 5's fonts, 16 wide: the F12 font in the page in use -- or unscii,
+ * doubled -- placed where the ROM points VICKY (K4510_FONT32/16W_PHYS).  Again
+ * whenever the font or the page changes (the frame loop), or a power cycle or a
+ * state load puts RAM back. */
+static int wide_face = -1, wide_page = -1;
+static void wide_fonts(int face, int page)
+{
+    static uint8_t f32[16384], f16[8192];
+    wide_face = face; wide_page = page;
+    if (face != HDFONT_UNSCII && hd_have[face]) { memcpy(f32, hd_fonts[face][page], 16384); memcpy(f16, hd_fonts16[face][page], 8192); }
+    else {
+        const uint8_t *s16 = page == PAGE_K4510 ? font_panel : font_437_16, *s8 = page == PAGE_K4510 ? font_menu : font_437_8;
+        for (int i = 0; i < 256 * 32; i++) { uint8_t b = s16[(i >> 5) * 16 + ((i & 31) >> 1)]; unsigned w = 0;
+            for (int k = 0; k < 8; k++) if (b & (0x80 >> k)) w |= 0xC000u >> (2 * k);
+            f32[i * 2] = (uint8_t)(w >> 8); f32[i * 2 + 1] = (uint8_t) w; }
+        for (int i = 0; i < 256 * 16; i++) { uint8_t b = s8[(i >> 4) * 8 + ((i & 15) >> 1)]; unsigned w = 0;
+            for (int k = 0; k < 8; k++) if (b & (0x80 >> k)) w |= 0xC000u >> (2 * k);
+            f16[i * 2] = (uint8_t)(w >> 8); f16[i * 2 + 1] = (uint8_t) w; }
+    }
+    mem_load(K4510_FONT32_PHYS, f32, sizeof f32); mem_load(K4510_FONT16W_PHYS, f16, sizeof f16);
+    vicky_dirty = 1;
+}
 static void load_fonts(void)
 {
     mem_load(K4510_FONT8_PHYS, font_menu, sizeof font_menu);
@@ -458,6 +480,7 @@ static void load_fonts(void)
     mem_load(K4510_FONT8_K_PHYS, font_menu, sizeof font_menu);            /* the K4510 page's pair, for CODEPAGE K4510 */
     mem_load(K4510_FONT16_K_PHYS, font_panel, sizeof font_panel);
     term_set_page(settings_get(SET_TEXT_CODEPAGE));                    /* the live slots: CP437, unless the K4510 page was chosen */
+    wide_face = -1;                                                    /* MODE 5's: placed again by the frame loop */
 }
 
 /* The keyboard when SDL sends no text.
@@ -712,8 +735,10 @@ static void line_begin(void)
 {
     if (m_line == 0 && !m_in_frame) {
         { int f = settings_get(SET_VIDEO_FONT), pg = settings_get(SET_TEXT_CODEPAGE) == PAGE_K4510 ? PAGE_K4510 : PAGE_CP437;   /* the HD font for this frame */
-          if (f != HDFONT_UNSCII && hd_have[f]) vicky_hd_font(hd_fonts[f][pg], pg == PAGE_K4510 ? font_panel : font_437_16);
-          else vicky_hd_font(NULL, NULL); }
+          if (f != wide_face || pg != wide_page) wide_fonts(f, pg);
+          if (f != HDFONT_UNSCII && hd_have[f]) vicky_hd_font(hd_fonts[f][pg], pg == PAGE_K4510 ? font_panel : font_437_16,
+                                                              hd_fonts16[f][pg], pg == PAGE_K4510 ? font_menu : font_437_8);
+          else vicky_hd_font(NULL, NULL, NULL, NULL); }
         vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1;
         frame_lines = vicky_glass_h(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;   /* a frame is 1/60 s however many lines */
     }
@@ -740,16 +765,19 @@ static void band_text(int row, int col, int maxc, const char *s, int stride, int
     uint32_t cell = vicky_text_cell(0, row);   /* the band's own cells (option B), where VICKY draws it from */
     (void) map; (void) stride;
     uint8_t fg = mem_peek((cell + 2) & 0x0FFFFFFFu), bg = mem_peek((cell + 3) & 0x0FFFFFFFu);
-    int gh = (vicky_read(0x10) & 0x60) ? 16 : 8;                      /* 8x8 or 8x16 glyphs */
+    int gh = vicky_cell_h(0), gw = vicky_cell_w(0), sc = vicky_out_scale();   /* the glyphs: 8 or 16 wide; the frame drawn 1x or 2x */
     for (int i = 0; s[i] && i < maxc; i++) {
         uint8_t g = (uint8_t) s[i];
         for (int gy = 0; gy < rh; gy++) {
             int y = y0 + row * rh + gy;
             if (y < 0 || y >= vicky_glass_h()) break;
-            uint8_t bits = mem_peek((font + (uint32_t) g * (uint32_t) gh + (uint32_t)(gy * gh / rh)) & 0x0FFFFFFFu);
-            uint8_t *p = fb + (size_t) y * VICKY_WIDTH + (size_t)(col + i) * (size_t) cw;
             if ((col + i + 1) * cw > vicky_glass_w()) break;
-            for (int gx = 0; gx < cw; gx++) p[gx] = (bits & (0x80 >> (gx * 8 / cw))) ? fg : bg;
+            uint32_t a = font + ((uint32_t) g * (uint32_t) gh + (uint32_t)(gy * gh / rh)) * (uint32_t)(gw / 8);
+            unsigned bits = gw == 16 ? (unsigned) mem_peek(a & 0x0FFFFFFFu) << 8 | mem_peek((a + 1) & 0x0FFFFFFFu) : mem_peek(a & 0x0FFFFFFFu);
+            for (int k = 0; k < sc; k++) {
+                uint8_t *p = fb + (size_t)(y * sc + k) * VICKY_WIDTH + (size_t)(col + i) * (size_t) cw * (size_t) sc;
+                for (int gx = 0; gx < cw * sc; gx++) p[gx] = (bits & (1u << (gw - 1 - gx * gw / (cw * sc)))) ? fg : bg;
+            }
         }
     }
 }
@@ -764,7 +792,7 @@ static void bands_overlay(void)
     int stride = vicky_read(0x16) | (vicky_read(0x17) << 8);
     int rows = (ctrl & 8) ? 25 : ((ctrl & 6) || (l0 & 0x60)) ? 30 : 60, cols = stride > 0 && stride <= 180 ? stride : 80;
     int rh = rows == 60 ? 8 : 16, cw = vicky_glass_w() / cols, y0 = (ctrl & 8) ? 40 : 0;
-    if (ctrl & 0x20) { rh = (l0 & 0x60) ? 16 : 8; rows = vicky_glass_h() / rh; y0 = -(int16_t)(vicky_read(0x14) | (vicky_read(0x15) << 8)); }   /* the HD family: rows of the mode's own cells, below the ROM's top padding */
+    if (ctrl & 0x20) { rh = vicky_cell_h(0); rows = vicky_glass_h() / rh; y0 = -(int16_t)(vicky_read(0x14) | (vicky_read(0x15) << 8)); }   /* the HD family: rows of the mode's own cells, below the ROM's top padding */
     /* What is running, left of the clock, is JIM's now (core/term.c, the
      * bands are its own since 2026-10-05): the first screen's tab carries it. */
     if (settings_get(SET_VIDEO_STATUSBAR)) {                         /* the key pipe's echo, left of the battery */
@@ -1135,10 +1163,15 @@ int k4510_frontend_main(int argc, char **argv)
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
-    { static const char *const hdn[HDFONT_COUNT] = { NULL, "zhekov-bold", "spleen", "ibm-vga" };   /* optional: the HD text fonts */
-      for (int i = 1; i < HDFONT_COUNT; i++) { char p1[64], p2[64];
-          snprintf(p1, sizeof p1, "data/fonts/hd/%s-k4510.bin", hdn[i]); snprintf(p2, sizeof p2, "data/fonts/hd/%s-cp437.bin", hdn[i]);
-          hd_have[i] = load_file(p1, hd_fonts[i][PAGE_K4510], 16384) == 16384 && load_file(p2, hd_fonts[i][PAGE_CP437], 16384) == 16384; } }
+    for (int i = 1; i < HDFONT_COUNT; i++) {                     /* optional: the HD text fonts, 16x32 and 16x16, both pages */
+        char p[4][80]; static const char *const pg[2] = { "cp437", "k4510" };   /* PAGE_CP437, PAGE_K4510 */
+        hd_have[i] = 1;
+        for (int k = 0; k < 2; k++) {
+            snprintf(p[k], sizeof p[k], "data/fonts/hd/%s-%s.bin", hdfont_files[i], pg[k]);
+            snprintf(p[2 + k], sizeof p[2 + k], "data/fonts/hd/%s16-%s.bin", hdfont_files[i], pg[k]);
+            if (load_file(p[k], hd_fonts[i][k], 16384) != 16384 || load_file(p[2 + k], hd_fonts16[i][k], 8192) != 8192) hd_have[i] = 0;
+        }
+    }
     load_file("data/fonts/unscii/font8-cp437.bin", font_437_8, sizeof font_437_8);      /* optional: IBM's page */
     load_file("data/fonts/unscii/font16-cp437.bin", font_437_16, sizeof font_437_16);
     if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu ||
@@ -1742,7 +1775,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * choosing a resolution in the menu is watching it happen.  So an
          * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
-        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 0, 4, 2, 0x20, 0x20 | 6, 0x20 | 6 | 16, 2 | 8, 2 | 8 | 16 };   /* in the menu's order; both 640x480 screens are one CTRL */
+        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 0, 4, 2, 0x20, 0x20, 0x20 | 6, 0x20 | 6, 0x20 | 6 | 16, 2 | 8, 2 | 8 | 16 };   /* in the menu's order; each pair of screens is one CTRL */
           uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
           if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
@@ -1756,6 +1789,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                * guest's CODEPAGE is (Doc, 2026-09-15). */
               if (machine == VMODE_640x480 || machine == VMODE_640x480_60)
                   machine = (vicky_read(0x10) & 0x20) ? VMODE_640x480 : VMODE_640x480_60;
+              else if (machine == VMODE_1440x1080 || machine == VMODE_1440x1080_67)      /* the HD pairs likewise (2026-10-06): */
+                  machine = vicky_cell_h(0) == 32 ? VMODE_1440x1080 : VMODE_1440x1080_67;  /* 16x32 or 16x16, */
+              else if (machine == VMODE_720x540 || machine == VMODE_720x540_67)
+                  machine = vicky_cell_h(0) == 16 ? VMODE_720x540 : VMODE_720x540_67;      /* 8x16 or 8x8 */
           }
           if (mode_req) {
               if (io_mode_acked()) mode_req = 0;        /* the guest says it has done it */
@@ -1803,7 +1840,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
                       | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
                       | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
-                      | (settings_get(SET_VIDEO_MODE) == VMODE_640x480_60 ? SYSOPT_ROWS60 : 0)   /* 640x480 in 8x8 cells: 80x60 */
+                      | ((settings_get(SET_VIDEO_MODE) == VMODE_640x480_60 || settings_get(SET_VIDEO_MODE) == VMODE_720x540_67
+                          || settings_get(SET_VIDEO_MODE) == VMODE_1440x1080_67) ? SYSOPT_ROWS60 : 0)   /* the smaller cells: 80x60, 90x67 */
                       | (uint8_t)((m1 <= 7 ? m1 : 0) << SYSOPT_MODE_SHIFT)
                       | (mode_pending ? SYSOPT_MODEREQ : 0)); }
         io_set_bands(1, 1,                               /* one row each, when the bands are on (Doc, 2026-09-14) */

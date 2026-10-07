@@ -94,8 +94,11 @@ typedef struct {
 /* hd-modes (2026-09-14): the HD family after the three classic shells, so the
  * menu's choices stay one run.  The order is the menu's, not the MODE number:
  * vmode_number[] maps (0 1 2 5 6 7 3 4). */
-enum { VMODE_640x480, VMODE_640x480_60, VMODE_640x240, VMODE_320x240, VMODE_1440x1080, VMODE_720x540, VMODE_360x270,
-       VMODE_320x200, VMODE_160x200, VMODE_COUNT };
+enum { VMODE_640x480, VMODE_640x480_60, VMODE_640x240, VMODE_320x240, VMODE_1440x1080, VMODE_1440x1080_67, VMODE_720x540,
+       VMODE_720x540_67, VMODE_360x270, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
+/* (2026-10-06) 1440x1080 and 720x540 each come in two cells, as 640x480 does: the
+ * larger -- 16x32 on the panel, 90x33 -- and the smaller, 16x16, 90x67; the ROM's
+ * MODE 5 / 6 with SYSOPT_ROWS60, as MODE 0's 80x60. */
 /* 640x480 twice: the same screen in 8x16 cells (80x30, the default since the
  * one font of 2026-09-14) and in 8x8 (80x60, what it was before).  Both are
  * the ROM's MODE 0; the rows are SYSOPT_ROWS60 going out, and layer 0's cell
@@ -133,7 +136,9 @@ enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CH
 /* the menu keys, in the ENUM's order */
 enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_F12, MENUKEY_COUNT };   /* F12 the default since 2026-09-15 */
 enum { PAGE_CP437, PAGE_K4510, PAGE_COUNT };
-enum { HDFONT_UNSCII, HDFONT_ZHEKOV, HDFONT_SPLEEN, HDFONT_VGA, HDFONT_COUNT };   /* data/fonts/hd, tools/mkhdfonts.py */
+enum { HDFONT_UNSCII, HDFONT_ZHEKOV, HDFONT_ZHEKOV_REG, HDFONT_SPLEEN, HDFONT_VGA, HDFONT_ATKINSON, HDFONT_GO, HDFONT_FIRA,
+       HDFONT_PROGGY, HDFONT_TAMZEN, HDFONT_COUNT };   /* data/fonts/hd, tools/mkhdfonts.py */
+extern const char *const hdfont_files[HDFONT_COUNT];   /* each face's file stem there (NULL: unscii, the machine's own) */
 
 const set_desc *settings_desc(set_id id);
 int         settings_choices(set_id id);          /* how many of an ENUM's labels the menu may offer */

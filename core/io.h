@@ -345,6 +345,8 @@ const char *fs_get_cwd(void);
 #define K4510_FONT16_437_PHYS 0x00012000u   /* for TELNET's CP437 sessions: a BBS's art as it was drawn (2026-09-15) */
 #define K4510_FONT8_K_PHYS    0x00013000u   /* and in the K4510 page (font8/16-unscii.bin).  The live slots above hold */
 #define K4510_FONT16_K_PHYS   0x00013800u   /* one pair or the other: JIM copies it in when the page is chosen ($DA17) */
+#define K4510_FONT32_PHYS     0x00014800u   /* 16x32, 256 glyphs x 32 rows x 2 bytes, 16 KB: MODE 5's cells (2026-10-06) -- */
+#define K4510_FONT16W_PHYS    0x00018800u   /* 16x16, 8 KB: MODE 5's smaller cells.  Both are the F12 font, in the page in use */
 #define K4510_SCREEN_PHYS  0x00000800u   /* text map the ROM uses: 80x60 bytes */
 
 uint8_t io_read(uint16_t addr);

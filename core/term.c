@@ -104,11 +104,11 @@ static void copy_row(int dst, int src) { for (int x = 0; x < T.cols; x++) memcpy
  * the HD console down by half its spare lines, which the pictures must follow. */
 static void gfx_geom(jimgfx_geom_t *g)
 {
-    int H = ((vicky_read(VR_LAYER(0) + VL_CTRL) >> 5) & 3) ? 16 : 8;
+    int H = vicky_cell_h(0), CW = vicky_cell_w(0);
     int sx = vicky_read(VR_LAYER(0) + VL_SCROLLX) | vicky_read(VR_LAYER(0) + VL_SCROLLX + 1) << 8;
     int sy = (int16_t)(vicky_read(VR_LAYER(0) + VL_SCROLLY) | vicky_read(VR_LAYER(0) + VL_SCROLLY + 1) << 8);
-    g->cols = T.cols; g->rows = T.rows; g->cell_w = 8; g->cell_h = H;
-    g->px0 = T.ox * 8 - sx; g->py0 = T.oy * H - sy; g->cx = T.cx; g->cy = T.cy; g->host = host_session;
+    g->cols = T.cols; g->rows = T.rows; g->cell_w = CW; g->cell_h = H;
+    g->px0 = T.ox * CW - sx; g->py0 = T.oy * H - sy; g->cx = T.cx; g->cy = T.cy; g->host = host_session;
 }
 static void gfx_rows_moved(int top, int bot, int n)             /* n rows up (negative) or down: the pictures in those rows go with the text */
 {

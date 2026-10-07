@@ -57,7 +57,7 @@ int main(void)
     for (int k = 0; k < 2; k++) kbd_push_key(KEY_DOWN);                      /* Resolution: a popup (Scaling's row went 2026-10-06) */
     kbd_push(KEY_ENTER);
     kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_720x540, "popup chose 720x540, one up from 360x270 (%d)", settings_get(SET_VIDEO_MODE));
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_720x540_67, "popup chose 720x540 16x16, one up from 360x270 (%d)", settings_get(SET_VIDEO_MODE));
     kbd_push(KEY_ESC); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
     kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
@@ -98,7 +98,10 @@ int main(void)
     /* the menu will not steer into 320x200 / 160x200 -- 40x25 and 20x25 are not a
      * shell -- but it still shows one when the guest (MODE 3, a game) is in it */
     settings_defaults();
-    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1 && settings_first(SET_VIDEO_MODE) == VMODE_1440x1080, "the menu offers 1440x1080, 720x540, 360x270");
+    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1 && settings_first(SET_VIDEO_MODE) == VMODE_1440x1080, "the menu offers 1440x1080 and 720x540 in two cells each, and 360x270");
+    { FILE *f = fopen(cfg, "w"); if (f) { fputs("video.mode = 720x540\n", f); fclose(f); } }
+    settings_load(cfg); CHECK(settings_get(SET_VIDEO_MODE) == VMODE_720x540, "the old name 720x540 loads as 720x540 16x32");
+    settings_defaults();
     settings_set(SET_VIDEO_MODE, VMODE_360x270);
     settings_step(SET_VIDEO_MODE, +1);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_1440x1080, "stepping past the last offered one wraps to 1440x1080, not into 320x200");

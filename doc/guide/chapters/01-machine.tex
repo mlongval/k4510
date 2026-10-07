@@ -51,7 +51,10 @@ the AdLib's FM chip --- it borrows openly and then outgrows.
   thirty in tall 8$\times$16 letters, and \emph{640x480x60}, eighty by
   sixty in 8$\times$8 --- the screen the machine had before it settled on
   one font. \verb|MODE 0 60| and \verb|MODE 0 30| choose them at the
-  prompt, and the machine remembers which.
+  prompt, and the machine remembers which. The HD screens do the same:
+  1440x1080 (\verb|MODE 5|) in 16x32 cells, or 16x16 with \verb|MODE 5 67|;
+  720x540 (\verb|MODE 6|) in 8x16, or 8x8 with \verb|MODE 6 67| --- ninety
+  columns by thirty-three rows, or by sixty-seven.
 \item \textbf{Sound: MELODY} --- an OPL2, the Yamaha YM3812, at
   \texttt{\$D480}: nine FM voices wired the AdLib's way, an address port,
   a data port and a status register you poll. Any AdLib register list or
@@ -225,15 +228,20 @@ page on the right.}
 
 \begin{description}
 \item[Video] the border; \emph{resolution}, which is the
-  \verb|MODE| command's knob: 1440x1080, 720x540 and 360x270, the whole
-  dividers of a 1920x1080 panel's 4:3 (a program may still put the machine
-  in 640x480 and the others, and the row says so); \emph{font}, which at
-  720x540 draws the text at the panel's own pixels --- each 8x16 cell as
-  16x32 from \emph{Zhekov Bold} (to begin with; Dimitar Zhekov's Terminus Font, renamed as its licence asks of a changed copy), \emph{Spleen} or
-  \emph{IBM VGA}, while the graphics stay the machine's; a character a
-  program has redefined keeps its own shape --- or \emph{unscii}, the
-  machine's own font doubled; and \emph{placement}, which is the section
-  after next. The picture is always full screen and scaled by a whole
+  \verb|MODE| command's knob: 1440x1080 and 720x540, each with large
+  (16x32) or small (16x16) text, and 360x270 --- the whole dividers of a
+  1920x1080 panel's 4:3 (a program may still put the machine in 640x480
+  and the others, and the row says so); \emph{font}, the text's face at
+  the panel's own pixels. At 1440x1080 it is the machine's font, 16
+  wide; at 720x540 each 8x16 cell is drawn as 16x32 (an 8x8 one as
+  16x16) while the graphics stay the machine's, and a character a program
+  has redefined keeps its own shape. The faces: \emph{Zhekov Bold} (to
+  begin with) and \emph{Zhekov} --- Dimitar Zhekov's Terminus Font,
+  renamed as its licence asks of a changed copy --- \emph{Spleen},
+  \emph{IBM VGA}, \emph{Atkinson Mono} (the Braille Institute's face for
+  low vision), \emph{Go Mono}, \emph{Fira Mono}, \emph{Proggy Clean},
+  \emph{Tamzen Bold}, or \emph{unscii}, the machine's own drawn doubled;
+  and \emph{placement}, which is the section after next. The picture is always full screen and scaled by a whole
   number, every pixel the same size. The figures in this book are taken
   with the effects off.
 \item[Terminal] \emph{status bands}, on or off (a row at the top, a row at the bottom)

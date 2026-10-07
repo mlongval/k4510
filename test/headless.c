@@ -22,7 +22,7 @@ static uint32_t hl_ms(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, 
  * columns are read as 180 and not as 80 (2026-09-15: MODE 5 dumped nothing). */
 static int scr_cols(void) { int n = io_read(IO_VICKY + 0x16) | (io_read(IO_VICKY + 0x17) << 8); return (n > 0 && n <= 240) ? n : 80; }
 static uint32_t scr_map(void) { uint32_t m = 0; for (int i = 0; i < 4; i++) m |= (uint32_t) io_read(IO_VICKY + 0x1C + i) << (8 * i); return m ? m : 0x30000u; }
-static int scr_rows(void) { int h = vicky_glass_h(), cell = (io_read(IO_VICKY + 0x10) & 0x20) ? 16 : 8; if (h < 1) h = 480; return h / cell; }
+static int scr_rows(void) { int h = vicky_glass_h(), cell = vicky_cell_h(0); if (h < 1) h = 480; return h / cell; }
 static void row(int r, char *out)
 {
     int n = scr_cols(); uint32_t map = scr_map();

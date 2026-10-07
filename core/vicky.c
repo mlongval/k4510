@@ -30,13 +30,16 @@ int vicky_glass_w(void) { return glass_w; }
 int vicky_glass_h(void) { return glass_h; }
 
 /* ---- HD text (vicky.h) ---------------------------------------------------- */
-static const uint8_t *hd_font, *hd_stock;
+static const uint8_t *hd_font, *hd_stock, *hd_font16, *hd_stock8;
 static int hd_on;                                /* this frame: 720x540 with an HD font, drawn at 1440x1080 */
-void vicky_hd_font(const uint8_t *hd, const uint8_t *stock)
+void vicky_hd_font(const uint8_t *hd, const uint8_t *stock, const uint8_t *hd16, const uint8_t *stock8)
 {
-    if (hd != hd_font || stock != hd_stock) vicky_dirty = 1;
-    hd_font = hd; hd_stock = stock;
+    if (hd != hd_font || stock != hd_stock || hd16 != hd_font16 || stock8 != hd_stock8) vicky_dirty = 1;
+    hd_font = hd; hd_stock = stock; hd_font16 = hd16; hd_stock8 = stock8;
 }
+int vicky_cell_w(int n) { uint8_t c = reg[VR_LAYER(n & 3) + VL_CTRL]; return ((c >> 1) & 3) == VL_MODE_TEXT32 && (c & 0x40) ? 16 : 8; }
+int vicky_cell_h(int n) { uint8_t c = reg[VR_LAYER(n & 3) + VL_CTRL]; int z = (c >> 5) & 3;
+                          return z == 3 && ((c >> 1) & 3) == VL_MODE_TEXT32 ? 32 : z ? 16 : 8; }
 int vicky_out_scale(void) { return hd_on ? 2 : 1; }
 int vicky_out_w(void) { return glass_w * vicky_out_scale(); }
 int vicky_out_h(void) { return glass_h * vicky_out_scale(); }
@@ -47,7 +50,7 @@ static uint8_t  hd_src[VICKY_WIDTH], hd_gx[VICKY_WIDTH], hd_gy[VICKY_WIDTH], hd_
 static uint16_t hd_g[VICKY_WIDTH];
 static uint32_t hd_data[VICKY_WIDTH];
 static uint8_t  hd_line[VICKY_WIDTH];            /* the machine's line, before it is doubled */
-static uint8_t  hd_ok[256]; static uint32_t hd_ok_data = 0xFFFFFFFFu;   /* the glyphs at hd_ok_data that are stock: worked out once a frame */
+static uint8_t  hd_ok[2][256]; static uint32_t hd_ok_data[2] = { 0xFFFFFFFFu, 0xFFFFFFFFu };   /* [0] 8x16, [1] 8x8: the glyphs at hd_ok_data that are stock, worked out once a frame */
 static uint8_t  spr_list[4][VICKY_SPRITES];  /* this line's sprites, by Z, in table order (sprites_gather) */
 static int      spr_n[4];
 
@@ -230,8 +233,11 @@ static void layer_line(int n, int y, uint8_t *line, int w)
         }
         return;
     }
-    /* text modes: 1-bpp glyphs, 8 px wide, H = 8 or 16 rows */
-    int H = csz ? 16 : 8;
+    /* text modes: 1-bpp glyphs, 8 px wide, H = 8 or 16 rows.  text32 also has
+     * cells 16 wide (2026-10-06, for 1440x1080): the cell field's 2 is 16x16 and
+     * 3 is 16x32, a glyph row two bytes, MSB first.  TEXT keeps 8 wide. */
+    int H = csz == 3 && mode == VL_MODE_TEXT32 ? 32 : csz ? 16 : 8;
+    int CW = (csz & 2) && mode == VL_MODE_TEXT32 ? 16 : 8;
     sy = y + (int16_t) rd16(&L[VL_SCROLLY]);          /* signed for text: the ROM scrolls the HD console DOWN by half its spare lines */
     /* The HD spare lines, above and below the whole rows: a text32 layer
      * paints them with the nearest row's backgrounds and no glyphs, so with
@@ -260,22 +266,25 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     if (n == 0) { int br = band_row(cy, map); if (br >= 0) rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4;
                   else if (alt_map && map == rd32(&reg[VR_CONMAP])) rowbase = alt_map + (uint32_t)cy * stride * 4; }   /* the second screen */
     for (int x = 0; x < w; ) {
-        int sx = x + sx0, cx = sx >> 3, gx0 = sx & 7;
+        int sx = x + sx0, cx = sx / CW, gx0 = sx % CW;
         uint32_t e = rowbase + (uint32_t)cx * 4;
         uint16_t g = ram(e) | ((ram(e + 1) & 0x7F) << 8);
         int rev = ram(e + 1) & 0x80;
         uint8_t fg = ram(e + 2), bg = ram(e + 3);
         if (rev) { uint8_t t = fg; fg = bg; bg = t; }
-        uint8_t row = pad ? 0 : ram(data + (uint32_t)g * H + gy);   /* a padding line: the background only */
+        unsigned row;                                     /* a padding line: the background only */
+        if (pad) row = 0;
+        else if (CW == 8) row = ram(data + (uint32_t)g * H + gy);
+        else { uint32_t a = data + ((uint32_t)g * H + gy) * 2; row = (unsigned) ram(a) << 8 | ram(a + 1); }
         /* the shaped cursor (vicky_cursor): an underline reverses this cell's
-         * bottom two rows, a bar its left two columns */
+         * bottom eighth (two rows of 16), a bar its left quarter (two columns of 8) */
         int cur = !pad && cur_on && e + 1 == cur_at;
-        if (cur && cur_style == 1 && gy < H - 2) cur = 0;
-        for (int gx = gx0; gx < 8 && x < w; gx++, x++) {
-            int sw = cur && (cur_style == 1 || gx < 2);
-            line[x] = (((row >> (7 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
+        if (cur && cur_style == 1 && gy < H - (H >= 16 ? H / 8 : 2)) cur = 0;
+        for (int gx = gx0; gx < CW && x < w; gx++, x++) {
+            int sw = cur && (cur_style == 1 || gx < CW / 4);
+            line[x] = (((row >> (CW - 1 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
             layer_hit[x] = 1;              /* text32 cells are opaque: every pixel is "a layer drew here" */
-            if (hd_on) { hd_src[x] = (uint8_t)(!pad && H == 16); hd_g[x] = g; hd_gx[x] = (uint8_t) gx; hd_gy[x] = (uint8_t) gy;
+            if (hd_on) { hd_src[x] = (uint8_t)(!pad && CW == 8 ? (H == 16 ? 1 : 2) : 0); hd_g[x] = g; hd_gx[x] = (uint8_t) gx; hd_gy[x] = (uint8_t) gy;
                          hd_fg[x] = fg; hd_bg[x] = bg; hd_data[x] = data; hd_cur[x] = (uint8_t)(cur ? 1 + cur_style : 0); }
         }
     }
@@ -465,9 +474,9 @@ void vicky_begin_frame(uint8_t *fb, int pitch)
     frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active() && io_tube_kind() != 6 && io_tube_kind() != 7;
     vicky_dirty = 0; vicky_low = reads_low();
     glass_latch();
-    { int on = hd_font && hd_stock && glass_hd && glass_w == VICKY_WIDTH / 2;   /* 720x540 only, for now */
+    { int on = hd_font && hd_stock && hd_font16 && hd_stock8 && glass_hd && glass_w == VICKY_WIDTH / 2;   /* 720x540 only */
       if (on != hd_on) { hd_on = on; frame_skip = 0; }
-      hd_ok_data = 0xFFFFFFFFu; }                                                 /* a program may have changed a glyph since */
+      hd_ok_data[0] = hd_ok_data[1] = 0xFFFFFFFFu; }                             /* a program may have changed a glyph since */
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
     sh_pc = rd32(&reg[VR_SHEILA]); sh_wait = (reg[VR_SHEILACTL] & 1) ? -1 : -2;
 }
@@ -491,17 +500,19 @@ static void hd_line_draw(int y, uint8_t ctrl)
     }
     for (int x = 0; x < w; x++) {
         uint8_t p = hd_line[x];
-        if (!hd_src[x] || hd_g[x] > 255) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
-        if (hd_data[x] != hd_ok_data) {                          /* which glyphs in RAM are the stock ones: once a frame */
-            hd_ok_data = hd_data[x];
-            for (int g = 0; g < 256; g++) { hd_ok[g] = 1;
-                for (int r = 0; r < 16; r++) if (ram(hd_ok_data + (uint32_t)(g * 16 + r)) != hd_stock[g * 16 + r]) { hd_ok[g] = 0; break; } }
+        int k = hd_src[x] - 1;                                   /* 0: an 8x16 cell (16x32 HD), 1: an 8x8 one (16x16) */
+        if (k < 0 || hd_g[x] > 255) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        int H = k ? 8 : 16; const uint8_t *st = k ? hd_stock8 : hd_stock;
+        if (hd_data[x] != hd_ok_data[k]) {                       /* which glyphs in RAM are the stock ones: once a frame */
+            hd_ok_data[k] = hd_data[x];
+            for (int g = 0; g < 256; g++) { hd_ok[k][g] = 1;
+                for (int r = 0; r < H; r++) if (ram(hd_ok_data[k] + (uint32_t)(g * H + r)) != st[g * H + r]) { hd_ok[k][g] = 0; break; } }
         }
-        if (!hd_ok[hd_g[x]]) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
-        const uint8_t *gr = hd_font + ((size_t) hd_g[x] * 32 + (size_t) hd_gy[x] * 2) * 2;   /* the HD glyph's two rows for this line */
+        if (!hd_ok[k][hd_g[x]]) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        const uint8_t *gr = (k ? hd_font16 : hd_font) + ((size_t) hd_g[x] * (size_t)(2 * H) + (size_t) hd_gy[x] * 2) * 2;   /* the HD glyph's two rows */
         unsigned w0 = (unsigned) gr[0] << 8 | gr[1], w1 = (unsigned) gr[2] << 8 | gr[3];
-        if (hd_cur[x] == 2) { if (hd_gy[x] >= 14) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; } }      /* the shaped cursor at the HD size: */
-        else if (hd_cur[x]) { w0 ^= 0xF000; w1 ^= 0xF000; }                                /* underline four rows, bar four columns */
+        if (hd_cur[x] == 2) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; }      /* the shaped cursor at the HD size (text32 has */
+        else if (hd_cur[x]) { w0 ^= 0xF000; w1 ^= 0xF000; }      /* left only the rows an underline covers) */
         int sh = 14 - 2 * hd_gx[x]; uint8_t fg = hd_fg[x], bg = hd_bg[x];
         o0[2 * x] = (w0 >> (sh + 1)) & 1 ? fg : bg; o0[2 * x + 1] = (w0 >> sh) & 1 ? fg : bg;
         o1[2 * x] = (w1 >> (sh + 1)) & 1 ? fg : bg; o1[2 * x + 1] = (w1 >> sh) & 1 ? fg : bg;

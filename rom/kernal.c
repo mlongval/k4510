@@ -54,6 +54,8 @@ void rtc_latch(void);
 #define SCREEN   0x030000UL           /* text32 cells, 80x60 x 4 bytes, in far memory: the CPU's 64 KB is for programs */
 #define FONT     0x010000UL           /* unscii-8, placed by the loader: the 240-line modes */
 #define FONT16   0x010800UL           /* unscii-16, placed by the loader: MODE 0, 640x480 in 8x16 cells (2026-09-14) */
+#define FONT32   0x014800UL           /* 16x32, placed by the loader: MODE 5 in 16x32 cells (the F12 font; 2026-10-06) */
+#define FONT16W  0x018800UL           /* 16x16, placed by the loader: MODE 5 in 16x16 cells */
 #define USER     0x0800u              /* free RAM for programs: $0800-$9FFF (38 KB); .prg files say where they load */
 #define USER_END 0xA000u
 #define MAXCOLS 80
@@ -62,8 +64,9 @@ void rtc_latch(void);
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
  * banks 1+ are appended 8 KB images called through sw_call(). */
-static uint8_t COLS, ROWS, vmode, rows60, rows60_set;   /* rows60: 640x480 in 8x8 cells, 80x60 (Doc, 2026-09-15) */                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240);
-                                                      * hd-modes: 5 180x67 (1440x1080)  6 90x33 (720x540)  7 45x33 (360x270); video_init sets them */
+static uint8_t COLS, ROWS, vmode, rows60, rows60_set;   /* rows60: the mode's other cells -- 640x480 in 8x8 (80x60, Doc, 2026-09-15),
+                                                         * and since 2026-10-06 720x540 in 8x8 (90x67), 1440x1080 in 16x16 (90x67) */                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240);
+                                                      * hd-modes: 5 90x33 (1440x1080, 16x32 cells)  6 90x33 (720x540)  7 45x33 (360x270); video_init sets them */
 uint8_t PCOLS;                                       /* physical text cells: the terminal starts at (0,0); */
 static uint8_t PROWS;                                /* crt0.s's clock reads PCOLS, so it is not static */
 uint8_t OY;                                          /* status mode: top-band height (the console origin).
@@ -912,13 +915,14 @@ static void cmd_mode(const char *p)
      * still has them: a program that wants one writes the CTRL bits itself. */
     m = parsehex(&p, &d); if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240; 5 1440x1080, 6 720x540, 7 360x270"); return; }
     vmode = (uint8_t)m; skipsp(&p);
-    /* MODE 0 60 / MODE 0 30: the 480-line screen in 8x8 or 8x16 cells.  parsehex
-     * reads the pair as it is written -- 30 and 60 are the digits, $30 and $60
-     * the values -- so the machine needs no decimal parser for them. */
+    /* MODE 0 60 / MODE 0 30: the 480-line screen in 8x8 or 8x16 cells; MODE 6 67
+     * and MODE 5 67 the HD screens' smaller cells (2026-10-06), 33 the larger.
+     * parsehex reads the pair as it is written -- 30 and 60 are the digits,
+     * $30 and $60 the values -- so the machine needs no decimal parser. */
     { uint32_t r = parsehex(&p, &d);
       if (d) {
-          if (r != 0x30 && r != 0x60) { error("mode: the rows are 30 or 60, and 640x480 has them"); return; }
-          rows60 = (uint8_t)(r == 0x60); rows60_set = 1;
+          if (r != 0x30 && r != 0x60 && r != 0x33 && r != 0x67) { error("mode: the rows are 30 or 60 (MODE 0), 33 or 67 (5, 6)"); return; }
+          rows60 = (uint8_t)(r == 0x60 || r == 0x67); rows60_set = 1;
       } }
     video_init(); cls();
     /* And repaint the banner at the next prompt, the way a mode change from
@@ -2006,23 +2010,27 @@ static void shell_line(const char *p)
 /* VICKY CTRL for each MODE: halve columns (2), halve lines (4), 200-line
  * field (8), quarter columns (16).  See core/vicky.h. */
 static const uint8_t ctrlmode[8] = { 0, 4, 2, 2 | 8, 2 | 8 | 16, 0x20, 0x20 | 6, 0x20 | 6 | 16 };   /* 5-7: the HD family (core/vicky.h) */
-static const uint8_t pcols_of[8] = { 80, 80, 40, 40, 20, 180, 90, 45 };
-static const uint8_t prows_of[8] = { 30, 30, 30, 25, 25, 67, 33, 33 };   /* 8x16 cells in 0, 5, 6; 8x8 in the rest */
-static const uint8_t vpad_of[8]  = { 0, 0, 0, 0, 0, 4, 6, 3 };           /* the HD spare lines (8, 12, 6), half above the text (Doc, 2026-09-14) */
+static const uint8_t pcols_of[8] = { 80, 80, 40, 40, 20, 90, 90, 45 };
+static const uint8_t prows_of[8] = { 30, 30, 30, 25, 25, 33, 33, 33 };   /* 8x16 cells in 0 and 6, 16x32 in 5; 8x8 in the rest */
+static const uint8_t vpad_of[8]  = { 0, 0, 0, 0, 0, 12, 6, 3 };          /* the HD spare lines (24, 12, 6), half above the text (Doc, 2026-09-14) */
+static const uint8_t cell_of[8]  = { 1, 0, 0, 0, 0, 3, 1, 0 };           /* VICKY's cell field: 0 8x8, 1 8x16, 2 16x16, 3 16x32 */
 #pragma code-name (push, "CODE2")
 static void video_init(void)
 {
-    uint8_t i, tall;
+    uint8_t i, csz, alt, vpad;
     vmode &= 7; PCOLS = pcols_of[vmode]; PROWS = prows_of[vmode];
-    shared_mode = (uint8_t)(vmode | (vmode == 0 && rows60 ? 0x80 : 0));   /* $022F, for programs (above) */
     /* 640x480 twice (Doc, 2026-09-15: "can we have both ... in the menu"): 8x16
      * cells and 80x30, or 8x8 and 80x60 -- the screen it was before the one font
      * of 2026-09-14.  The host publishes its choice in SYSOPT bit 1; MODE 0 60
      * and MODE 0 30 set it here, and the host follows layer 0's cell bit back,
      * so a choice made at the prompt is saved with the rest. */
     if (!rows60_set) rows60 = (uint8_t)((REG(SYS + 0x21) & SYSOPT_ROWS60) != 0);
-    if (vmode == 0 && rows60) PROWS = 60;
-    tall = (uint8_t)(((0x61 >> vmode) & 1) && !(vmode == 0 && rows60));
+    /* the other cells: MODE 0 8x8 (80x60), MODE 6 8x8 (90x67), MODE 5 16x16
+     * (90x67) -- half the height, twice the rows (2026-10-06) */
+    alt = (uint8_t)(rows60 && ((0x61 >> vmode) & 1));
+    csz = cell_of[vmode]; vpad = vpad_of[vmode];
+    if (alt) { csz = (uint8_t)(vmode == 5 ? 2 : 0); PROWS = (uint8_t)(vmode ? 67 : 60); vpad = (uint8_t)(vmode == 5 ? 4 : vmode == 6 ? 2 : 0); }
+    shared_mode = (uint8_t)(vmode | (alt ? 0x80 : 0));   /* $022F, for programs (above) */
     /* The status bands and the console between them are VICKY's to lay out
      * (2026-10-01, docs/notes/status-bars.md): K/OS tells her the text grid
      * and reads back what is in force.  The user's switch, a program's claim
@@ -2047,10 +2055,11 @@ static void video_init(void)
     w32(VICKY + 0x1C, SCREEN);
     w32(VICKY + 0xBC, SCREEN);                 /* CONMAP: this is the console's map...                       */
     w32(VICKY + 0xB8, BANDMAP);                /* ...and its band rows are drawn from BANDMAP (option B) */
-    w32(VICKY + 0x18, tall ? FONT16 : FONT);   /* 8x16 in MODE 0, 5, 6 -- and 8x8 in a 640x480 asked for 60 rows */
-    w16(VICKY + 0x12, 0); w16(VICKY + 0x14, (uint16_t)(0 - vpad_of[vmode]));   /* the text centred in an HD glass: scrolled DOWN by half the spare lines */
+    w32(VICKY + 0x18, csz == 3 ? FONT32 : csz == 2 ? FONT16W : csz ? FONT16 : FONT);
+    w16(VICKY + 0x12, 0); w16(VICKY + 0x14, (uint16_t)(0xFFFFu - vpad + 1u));   /* the text centred in an HD glass: scrolled DOWN by half the spare lines
+                                                                                  * (written out in 16 bits: cc65 did 0 - vpad in 8, and the high byte came out 0) */
     REG(VICKY + 0x11) = 0;
-    REG(VICKY + 0x10) = tall ? 0x01 | (3 << 1) | 0x20 : 0x01 | (3 << 1);   /* enable | text32 (| 8x16 cells) -- the host reads this bit back */
+    REG(VICKY + 0x10) = (uint8_t)(0x01 | (3 << 1) | (csz << 5));   /* enable | text32 | the cells -- the host reads the field back */
     for (i = 1; i < 4; i++) REG(VICKY + 0x10 + i * 0x10) = 0;
     REG(VICKY + 0x0E) = 0; REG(VICKY + 0x64) = 0;
     REG(VICKY + 5) = 1;                        /* IRQ on vblank */

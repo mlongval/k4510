@@ -23,11 +23,15 @@ Removed 2026-09-14: the Linux kernel 8x8 font (`data/font8.bin`), the
 MEGA65 open-roms chargen and PXLfont, BESCII, the twelve ZX Origins faces,
 and the import of a Commodore `chargen.bin`.  The history keeps them.
 
-## HD text fonts (2026-10-06)
+## Text fonts at the panel's pixels (2026-10-06)
 
-`hd/` holds the fonts F12 -> Video -> Font draws text with at 720x540, at
-the panel's own pixels: 16x32 for each 8x16 cell (core/vicky.h,
-`vicky_hd_font`).  unscii stays the machine's font -- what is in RAM, what a
-program reads and redefines; a redefined character is drawn from RAM,
-doubled.  Zhekov Bold (Terminus Font), Spleen and IBM VGA; built by
-`tools/mkhdfonts.py`, provenance in `hd/VENDORED-FROM.txt`.
+`hd/` holds the faces F12 -> Video -> Font offers, in 16x32 and 16x16, both
+code pages: at 720x540 the frontend draws each 8x16 cell's text as 16x32 (8x8
+as 16x16) while the graphics stay the machine's (core/vicky.h,
+`vicky_hd_font`); at 1440x1080 the face is the machine's own font, 16 wide,
+placed at `K4510_FONT32_PHYS` / `K4510_FONT16W_PHYS` (core/io.h).  unscii
+stays the machine's 8-wide font -- what a program reads and redefines; a
+redefined character is drawn from RAM, doubled.  Zhekov Bold and Zhekov
+(Terminus Font), Spleen, IBM VGA, Atkinson Mono, Go Mono, Fira Mono, Proggy
+Clean, Tamzen Bold; built by `tools/mkhdfonts.py`, provenance and licences in
+`hd/VENDORED-FROM.txt` and the `hd/LICENSE-*.txt` files.

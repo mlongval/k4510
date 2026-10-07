@@ -19,9 +19,14 @@ where each one came from and how to verify it):
 | `linux/config/includes.chroot/usr/share/consolefonts/K4510-VGA24x43.psf`, built by `data/mkconsolefont.py` | the Linux kernel's 8x16 VGA console font (`lib/fonts/font_8x16.c`), scaled to 24x43 for the K4510x consoles | GPL-2.0 |
 | `core/kbdmaps.h`, built by `tools/mkkbdmaps.py` | keyboard layouts from xkeyboard-config, compiled by console-setup's `ckbcomp` | MIT/X11 (xkeyboard-config) |
 | `data/fonts/unscii/` | unscii-8 and unscii-16, Viznut -- the machine's one screen font; `font8-unscii.bin` and `font16-unscii.bin` are generated from the `.hex` files | public domain |
-| `data/fonts/hd/zhekov-bold-*.bin`, built by `tools/mkhdfonts.py` | Terminus Font Bold 16x32, Dimitar Toshkov Zhekov -- an HD text font (F12 -> Video -> Font), renamed as the licence asks of a changed copy; `LICENSE-zhekov-bold.txt` | SIL OFL 1.1 |
+| `data/fonts/hd/zhekov*.bin`, built by `tools/mkhdfonts.py` | Terminus Font 16x32, bold and regular, Dimitar Toshkov Zhekov -- text fonts (F12 -> Video -> Font), renamed as the licence asks of a changed copy; `LICENSE-zhekov-bold.txt` | SIL OFL 1.1 |
 | `data/fonts/hd/spleen-*.bin`, built by `tools/mkhdfonts.py` | Spleen 16x32, Frederic Cambus -- an HD text font; `LICENSE-spleen.txt` | BSD-2-Clause |
 | `data/fonts/hd/ibm-vga-*.bin`, built by `tools/mkhdfonts.py` | the Linux kernel's 8x16 VGA font (`lib/fonts/font_8x16.c`), doubled -- an HD text font | GPL-2.0 |
+| `data/fonts/hd/atkinson*.bin`, built by `tools/mkhdfonts.py` | Atkinson Hyperlegible Mono (Braille Institute) -- a text font; `LICENSE-atkinson.txt` | SIL OFL 1.1 |
+| `data/fonts/hd/go-mono*.bin`, built by `tools/mkhdfonts.py` | Go Mono Bold (Bigelow & Holmes, the Go project) -- a text font; `LICENSE-go-mono.txt` | BSD-3-Clause |
+| `data/fonts/hd/fira-mono*.bin`, built by `tools/mkhdfonts.py` | Fira Mono Bold (Mozilla) -- a text font; `LICENSE-fira-mono.txt` | SIL OFL 1.1 |
+| `data/fonts/hd/proggy*.bin`, built by `tools/mkhdfonts.py` | Proggy Clean (Tristan Grimmer) -- a text font; `LICENSE-proggy.txt` | MIT |
+| `data/fonts/hd/tamzen-bold*.bin`, built by `tools/mkhdfonts.py` | Tamzen 8x16 Bold (Suraj N. Kurapati) -- a text font; `LICENSE-tamzen.txt` | permissive ("free to use, copy, modify, and distribute") |
 | `data/tinydungeon/` | Tiny Dungeon tile sheet + Tiled sample map, Kenney (`demo/tiny.c` renders them; see `data/tinydungeon/VENDORED-FROM.txt`) | CC0-1.0 |
 | `data/bombparty/` | Bomb Party sprite sheet, devurandom/richtaur/cemkalyoncu (`demo/bomber.c` renders it; see `data/bombparty/VENDORED-FROM.txt`) | CC-BY-3.0 |
 | `basic/basic.asm` | EhBASIC 2.22, Lee Davison (ca65 form via jefftranter/6502) | **free for non-commercial use**; derivatives must carry "Derived from EhBASIC" — see `basic/README-EhBASIC.txt`. It is a separate program (`fs/ehbasic.prg`), not linked with the GPL code. |

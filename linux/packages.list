@@ -66,6 +66,10 @@ inetutils-telnetd
 # curl's Debian build has the SSH protocols, openssh-client brings ssh/sftp.
 curl
 openssh-client
+# mosh for the Terminal screen over a phone's hotspot: local echo, and a session
+# that survives the network changing under it (Doc, 2026-10-07).  k4510-remote
+# tries it first and falls back to ssh.
+mosh
 
 # --- the hardware ---
 # KMSDRM is the ONLY video path here, so the GPU firmware is not optional:

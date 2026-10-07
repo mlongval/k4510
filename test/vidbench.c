@@ -8,6 +8,17 @@
  * The GPU's share (upload, scaling, present) is not here: it is the host's.
  *
  *   test/vidbench [frames]          default 200 frames a case
+ *   test/vidbench --suggest [CFG]   this host's pixel cap: the most pixels VICKY
+ *                                   should draw a frame here (k4510.cfg's
+ *                                   video.cap); with CFG, written into it
+ *
+ * The suggestion (Doc, 2026-10-07: "a system test that can evaluate the
+ * hardware's capabilities and suggest a lower cap to avoid pinning the CPU"):
+ * the busiest picture -- a bitmap, a text layer and 64 sprites, every pixel
+ * redrawn -- plus the frontend's two passes, timed per pixel at 1440x1080; the
+ * cap is what fits in HALF a frame (8.3 ms), the other half left to the CPU
+ * and the host.  Rounded down to a size a panel has, 640x480 at least,
+ * 1920x1080 at most.
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -70,7 +81,8 @@ static void setup(uint8_t ctrl, int kind, int cell)
 
 int main(int argc, char **argv)
 {
-    int frames = argc > 1 ? atoi(argv[1]) : 200;
+    int suggest = argc > 1 && !strcmp(argv[1], "--suggest");
+    int frames = argc > 1 && !suggest ? atoi(argv[1]) : 200;
     if (mem_init()) return 1;
     mem_reset();
     /* fonts, a full map of random cells, a noisy bitmap, eight sprites' data */
@@ -91,6 +103,37 @@ int main(int argc, char **argv)
     };
     static uint32_t argb[VICKY_WIDTH * VICKY_HEIGHT], pal[256];
     for (int i = 0; i < 256; i++) pal[i] = 0xFF000000u | vicky_palette_rgb(i);
+    if (suggest) {
+        static const long sizes[] = { 1920L * 1080, 1600L * 1200, 1440L * 1080, 1280L * 960, 1024L * 768, 800L * 600, 640L * 480 };
+        double tv = 0, tf = 0; int n = 0;
+        setup(1 | 0x20, 2, 3); vicky_hd_font(NULL, stock16, hd16, stock8); vicky_render(fb, VICKY_WIDTH);
+        int ow = vicky_out_w(), oh = vicky_out_h();
+        for (double t_end = now() + 2.0; now() < t_end; n++) {       /* two seconds of the worst picture */
+            vicky_dirty = 1;
+            double t0 = now(); vicky_render(fb, VICKY_WIDTH); double t1 = now(); tv += t1 - t0;
+            memcpy(last_fb, fb, sizeof fb); sink += memcmp(fb, last_fb, sizeof fb);
+            for (int y = 0; y < oh; y++) { const uint8_t *s = fb + y * VICKY_WIDTH; uint32_t *d = argb + y * ow; for (int x = 0; x < ow; x++) d[x] = pal[s[x]]; }
+            tf += now() - t1;
+        }
+        double nspx = (tv + tf) * 1e9 / n / ((double) ow * oh), budget = 1e9 / 60 / 2;
+        long fit = (long)(budget / nspx), cap = sizes[sizeof sizes / sizeof *sizes - 1];
+        for (size_t i = 0; i < sizeof sizes / sizeof *sizes; i++) if (sizes[i] <= fit) { cap = sizes[i]; break; }
+        printf("vidbench: the busiest picture costs %.2f ns a pixel here (VICKY %.2f ms + the frontend %.2f ms at %dx%d)\n",
+               nspx, tv * 1000 / n, tf * 1000 / n, ow, oh);
+        printf("half a frame (8.3 ms) holds %ld pixels: suggested video.cap = %ld%s\n", fit, cap,
+               cap >= 1920L * 1080 ? " (the default: nothing to lower)" : "");
+        if (argc > 2) {                                               /* into k4510.cfg: the line replaced, or added */
+            FILE *f = fopen(argv[2], "r"); char line[256], out[16384] = ""; size_t o = 0; int done = 0;
+            if (f) { while (fgets(line, sizeof line, f) && o + strlen(line) + 40 < sizeof out) {
+                         if (!strncmp(line, "video.cap", 9)) { o += (size_t) snprintf(out + o, sizeof out - o, "video.cap = %ld\n", cap); done = 1; }
+                         else { strcpy(out + o, line); o += strlen(line); } }
+                     fclose(f); }
+            if (!done) o += (size_t) snprintf(out + o, sizeof out - o, "video.cap = %ld\n", cap);
+            if (!(f = fopen(argv[2], "w")) || fputs(out, f) < 0) { perror(argv[2]); return 1; }
+            fclose(f); printf("written to %s: the emulator reads it at its next start\n", argv[2]);
+        }
+        return 0;
+    }
     printf("vidbench: %d frames a case, every frame drawn whole\n", frames);
     printf("%-17s %-18s %9s %8s %9s %9s %8s %8s\n", "glass", "picture", "out px", "vicky ms", "ns/px", "cmp+cp ms", "pal ms", "tex MB");
     for (size_t g = 0; g < sizeof glass / sizeof glass[0]; g++)

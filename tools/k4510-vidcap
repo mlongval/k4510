@@ -1,0 +1,9 @@
+#!/bin/sh
+# k4510-vidcap [CFG]: measure this host and set its pixel cap -- the most
+# pixels VICKY draws a frame (k4510.cfg's video.cap; the emulator reads it at
+# its next start).  The busiest picture is timed per pixel, and the cap is what
+# fits in half a frame, the rest left to the CPU (test/vidbench --suggest;
+# docs/design-video-foundations.md).  From the machine: !k4510-vidcap
+cd "$(dirname "$0")/.." || exit 1
+make -s test/vidbench >/dev/null || exit 1
+exec ./test/vidbench --suggest "${1:-k4510.cfg}"

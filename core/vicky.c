@@ -3,6 +3,7 @@
 #include "io.h"
 #include "term.h"
 #include "jimgfx.h"
+#include "idr.h"
 #include <string.h>
 #include <stdlib.h>
 
@@ -19,15 +20,88 @@ static uint8_t  layer_hit[VICKY_WIDTH];      /* per-pixel: a layer drew a non-ze
 static uint8_t  lowres_tmp[VICKY_WIDTH];     /* CTRL bit1: 320x240 rendered here, then doubled */
 #define OLD_W 640                            /* the classic glass: MODE 0-4 are drawn into 640x480 */
 #define OLD_H 480
-static int      glass_w = OLD_W, glass_h = OLD_H, glass_hd;   /* this frame's, latched at its start */
-static void glass_latch(void)
+static inline uint16_t rd16(const uint8_t *p);
+
+/* ---- the panel, the canvas and the integer display resolutions ---------------
+ * (vicky.h $C0-$DF; docs/design-video-foundations.md).  The host says what the
+ * panel is; the list of IDRs is worked out here, once, and every glass CTRL bit5
+ * asks for is one of them -- or a software resolution, inside the same limits. */
+static int  panel_w = 1920, panel_h = 1080, panel_base = IDR_BASE_43, canv_w = 1440, canv_h = 1080;
+static long cap_px = 1920L * 1080L;
+static vicky_idr idrs[IDR_MAX]; static int n_idr = -1;
+static void idr_build(void)
 {
-    uint8_t c = reg[VR_CTRL];
-    if (c & 0x20) { int d = (c & 16) ? 4 : (c & 6) ? 2 : 1; glass_w = VICKY_WIDTH / d; glass_h = VICKY_HEIGHT / d; glass_hd = 1; }
-    else { glass_w = OLD_W; glass_h = OLD_H; glass_hd = 0; }
+    idr_limits lim = idr_default_limits; idr_t t[IDR_MAX];
+    lim.max_pixels = cap_px; lim.max_w = VICKY_WIDTH; lim.max_h = VICKY_HEIGHT;
+    idr_canvas(panel_w, panel_h, panel_base, &canv_w, &canv_h);
+    n_idr = idr_list(panel_w, panel_h, panel_base, &lim, t, IDR_MAX);
+    for (int i = 0; i < n_idr; i++) { idrs[i].w = t[i].w; idrs[i].h = t[i].h; idrs[i].scale = t[i].scale; idrs[i].hd = idr_hd_text(&t[i], &lim); }
+    vicky_dirty = 1;
 }
+static void idr_ready(void) { if (n_idr < 0) idr_build(); }
+void vicky_set_panel(int pw, int ph, int base)
+{
+    if (pw == panel_w && ph == panel_h && base == panel_base && n_idr >= 0) return;
+    panel_w = pw; panel_h = ph; panel_base = base; idr_build();
+}
+void vicky_set_cap(long px) { if (px < 320L * 200L) px = 320L * 200L; if (px != cap_px || n_idr < 0) { cap_px = px; idr_build(); } }
+long vicky_cap(void) { return cap_px; }
+int  vicky_idr_count(void) { idr_ready(); return n_idr; }
+const vicky_idr *vicky_idr_at(int i) { idr_ready(); return i >= 0 && i < n_idr ? &idrs[i] : NULL; }
+int  vicky_panel_w(void) { return panel_w; }
+int  vicky_panel_h(void) { return panel_h; }
+int  vicky_panel_base(void) { return panel_base; }
+int  vicky_glass_ctl(void) { return reg[VR_GLASSCTL]; }
+/* A wanted scale as an IDR: that scale if it is offered; else the next larger
+ * one that is (a smaller picture rather than none: /1 on a 4K panel is /2);
+ * else the largest scale offered (/4 under 320x200 becomes the smallest IDR). */
+int vicky_idr_of_scale(int s)
+{
+    int best = -1;
+    idr_ready();
+    if (n_idr <= 0) return -1;
+    for (int i = 0; i < n_idr; i++) if (idrs[i].scale == s) return i;
+    for (int i = 0; i < n_idr; i++) if (idrs[i].scale > s && (best < 0 || idrs[i].scale < idrs[best].scale)) best = i;
+    return best >= 0 ? best : n_idr - 1;
+}
+/* The glass a CTRL byte asks for, with GLASSCTL, IDRSEL and SWW/SWH as they
+ * stand.  Without bit5 the classic 640x480; with it an IDR or a software size. */
+static void glass_of(uint8_t c, int *w, int *h, int *hd, int *scale)
+{
+    int gc = reg[VR_GLASSCTL] & 3;
+    *scale = 0;
+    if (!(c & 0x20)) { *w = OLD_W; *h = OLD_H; *hd = 0; return; }
+    *hd = 1;
+    if (gc == VG_SOFT) {                              /* a program's own size, inside the limits and the panel */
+        int sw = rd16(&reg[VR_SWW]), sh = rd16(&reg[VR_SWH]);
+        int mw = panel_w < VICKY_WIDTH ? panel_w : VICKY_WIDTH, mh = panel_h < VICKY_HEIGHT ? panel_h : VICKY_HEIGHT;
+        if (sw < 160) sw = 160;
+        if (sh < 100) sh = 100;
+        if (sw > mw) sw = mw;
+        if (sh > mh) sh = mh;
+        if ((long) sw * sh > cap_px) sh = (int)(cap_px / sw);
+        *w = sw; *h = sh; return;
+    }
+    { int want = gc == VG_IDR ? reg[VR_IDRSEL] : (c & 16) ? 4 : (c & 6) ? 2 : 1, i = vicky_idr_of_scale(want);
+      if (i < 0) { *w = OLD_W; *h = OLD_H; return; }   /* a panel too small for any: the classic glass */
+      *w = idrs[i].w; *h = idrs[i].h; *scale = idrs[i].scale; }
+}
+static int      glass_w = OLD_W, glass_h = OLD_H, glass_hd, glass_scale;   /* this frame's, latched at its start */
+static void glass_latch(void) { glass_of(reg[VR_CTRL], &glass_w, &glass_h, &glass_hd, &glass_scale); }
 int vicky_glass_w(void) { return glass_w; }
 int vicky_glass_h(void) { return glass_h; }
+int vicky_glass_scale(void) { return glass_scale; }
+/* The text grid TXTCELL's cells make on the glass the registers ask for now
+ * (GLASSCTL alone implies bit5: K/OS asks before it writes CTRL). */
+static void txt_grid(int *cols, int *rows, int *vpad, int *hpad)
+{
+    int w, h, hd, sc, csz = reg[VR_TXTCELL] & 3, cw = csz >= 2 ? 16 : 8, ch = csz == 0 ? 8 : csz == 3 ? 32 : 16;
+    glass_of((uint8_t)(reg[VR_CTRL] | ((reg[VR_GLASSCTL] & 3) ? 0x20 : 0)), &w, &h, &hd, &sc);
+    *cols = w / cw; *rows = h / ch;
+    if (*cols > 255) *cols = 255;
+    if (*rows > 255) *rows = 255;
+    *vpad = (h - *rows * ch) / 2; *hpad = (w - *cols * cw) / 2;
+}
 
 /* ---- HD text (vicky.h) ---------------------------------------------------- */
 static const uint8_t *hd_font, *hd_stock, *hd_font16, *hd_stock8;
@@ -93,6 +167,21 @@ uint8_t vicky_read(uint8_t r)
     case VR_CONOY: case VR_CONROWS: case VR_CONBOT:
         { uint8_t oy, rows, bot; vicky_layout(&oy, &rows, &bot); return r == VR_CONOY ? oy : r == VR_CONROWS ? rows : bot; }
     case VR_RASTER:     return cur_line & 0xFF;
+    case VR_PANELW: case VR_PANELW + 1: return (uint8_t)(panel_w >> (8 * (r - VR_PANELW)));
+    case VR_PANELH: case VR_PANELH + 1: return (uint8_t)(panel_h >> (8 * (r - VR_PANELH)));
+    case VR_CANVW: case VR_CANVW + 1: idr_ready(); return (uint8_t)(canv_w >> (8 * (r - VR_CANVW)));
+    case VR_CANVH: case VR_CANVH + 1: idr_ready(); return (uint8_t)(canv_h >> (8 * (r - VR_CANVH)));
+    case VR_IDRN: return (uint8_t) vicky_idr_count();
+    case VR_IDRS: case VR_IDRF: case VR_IDRW: case VR_IDRW + 1: case VR_IDRH: case VR_IDRH + 1:
+        { const vicky_idr *d = vicky_idr_at(reg[VR_IDRIX]); if (!d) return 0;
+          return r == VR_IDRS ? (uint8_t) d->scale : r == VR_IDRF ? (uint8_t) d->hd
+               : r < VR_IDRH ? (uint8_t)(d->w >> (8 * (r - VR_IDRW))) : (uint8_t)(d->h >> (8 * (r - VR_IDRH))); }
+    case VR_GLASSW: case VR_GLASSW + 1: case VR_GLASSH: case VR_GLASSH + 1: case VR_SCALE:
+        { int w, h, hd, sc; glass_of((uint8_t)(reg[VR_CTRL] | ((reg[VR_GLASSCTL] & 3) ? 0x20 : 0)), &w, &h, &hd, &sc);   /* GLASSCTL implies bit5, as for TXT */
+          return r == VR_SCALE ? (uint8_t) sc : r < VR_GLASSH ? (uint8_t)(w >> (8 * (r - VR_GLASSW))) : (uint8_t)(h >> (8 * (r - VR_GLASSH))); }
+    case VR_TXTCOLS: case VR_TXTROWS: case VR_TXTVPAD: case VR_TXTHPAD:
+        { int c, rw, vp, hp; txt_grid(&c, &rw, &vp, &hp);
+          return (uint8_t)(r == VR_TXTCOLS ? c : r == VR_TXTROWS ? rw : r == VR_TXTVPAD ? vp : hp); }
     case VR_RASTER + 1: return cur_line >> 8;
     default:
         if (r >= VR_COLSS && r < VR_COLSS + 16) { uint8_t v = reg[r]; if (r == VR_COLSS) memset(&reg[VR_COLSS], 0, 16); return v; }
@@ -111,6 +200,8 @@ void vicky_write(uint8_t r, uint8_t v)
     if (r == VR_RASTER)     { raster_cmp = (raster_cmp & 0xFF00) | v; return; }
     if (r == VR_RASTER + 1) { raster_cmp = (raster_cmp & 0x00FF) | (v << 8); return; }
     if (r >= VR_CONOY && r <= VR_CONBOT) return;           /* computed: read-only */
+    if (r >= VR_PANELW && r <= VR_TXTHPAD && r != VR_IDRIX && r != VR_GLASSCTL && r != VR_IDRSEL
+        && !(r >= VR_SWW && r < VR_SWW + 4) && r != VR_TXTCELL) return;   /* the glass's: computed, read-only */
     if (r == VR_BANDCTL) { reg[r] = (uint8_t)((reg[r] & VB_USER) | (v & VB_PROGRAM)); return; }   /* bit0 is the host's */
     reg[r] = v;
     if (r == VR_CONMAP + 3) vicky_layout(&reg[VR_CONOY], &reg[VR_CONROWS], &reg[VR_CONBOT]);   /* latch the layout the bands are drawn to */
@@ -265,8 +356,20 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     uint32_t rowbase = map + (uint32_t)cy * stride * 4;
     if (n == 0) { int br = band_row(cy, map); if (br >= 0) rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4;
                   else if (alt_map && map == rd32(&reg[VR_CONMAP])) rowbase = alt_map + (uint32_t)cy * stride * 4; }   /* the second screen */
+    /* ...and the spare COLUMNS too (2026-10-07: an IDR need not be a whole
+     * number of cells wide -- 1066 is not): in an HD glass the scroll is signed
+     * and the pixels left of the grid, and right of its last column, take the
+     * nearest cell's background */
+    int sxt = glass_hd ? (int16_t) rd16(&L[VL_SCROLLX]) : sx0;
     for (int x = 0; x < w; ) {
-        int sx = x + sx0, cx = sx / CW, gx0 = sx % CW;
+        int sx = x + sxt, cx = sx / CW, gx0 = sx % CW;
+        if (sx < 0 || (glass_hd && stride && cx >= stride)) {
+            uint32_t pe = rowbase + (uint32_t)(sx < 0 ? 0 : stride - 1) * 4;
+            uint8_t pc = (ram(pe + 1) & 0x80) ? ram(pe + 2) : ram(pe + 3);
+            int n = sx < 0 ? -sx : w - x;
+            for (; n > 0 && x < w; n--, x++) { line[x] = pc; layer_hit[x] = 1; if (hd_on) hd_src[x] = 0; }
+            continue;
+        }
         uint32_t e = rowbase + (uint32_t)cx * 4;
         uint16_t g = ram(e) | ((ram(e + 1) & 0x7F) << 8);
         int rev = ram(e + 1) & 0x80;
@@ -474,7 +577,8 @@ void vicky_begin_frame(uint8_t *fb, int pitch)
     frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active();
     vicky_dirty = 0; vicky_low = reads_low();
     glass_latch();
-    { int on = hd_font && hd_stock && hd_font16 && hd_stock8 && glass_hd && glass_w == VICKY_WIDTH / 2;   /* 720x540 only */
+    { int i = glass_scale ? vicky_idr_of_scale(glass_scale) : -1;     /* an IDR at an even scale, the doubled frame in the limits */
+      int on = hd_font && hd_stock && hd_font16 && hd_stock8 && glass_hd && i >= 0 && idrs[i].hd;
       if (on != hd_on) { hd_on = on; frame_skip = 0; }
       hd_ok_data[0] = hd_ok_data[1] = 0xFFFFFFFFu; }                             /* a program may have changed a glyph since */
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
@@ -509,6 +613,24 @@ static void hd_line_draw(int y, uint8_t ctrl)
                 for (int r = 0; r < H; r++) if (ram(hd_ok_data[k] + (uint32_t)(g * H + r)) != st[g * H + r]) { hd_ok[k][g] = 0; break; } }
         }
         if (!hd_ok[k][hd_g[x]]) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        /* A whole cell with nothing over it -- the common case, a line of text:
+         * its two glyph rows once, all sixteen pixels of each (2026-10-07: the
+         * test above, made once a pixel, cost HD text 13-50% over the same
+         * glyphs drawn as 16-wide cells). */
+        if (hd_gx[x] == 0 && x + 8 <= w) {
+            int whole = 1;
+            for (int i = 1; i < 8 && whole; i++)
+                whole = hd_src[x + i] == hd_src[x] && hd_g[x + i] == hd_g[x] && hd_gx[x + i] == i && hd_cur[x + i] == hd_cur[x]
+                        && hd_fg[x + i] == hd_fg[x] && hd_bg[x + i] == hd_bg[x];
+            if (whole) {
+                const uint8_t *gr = (k ? hd_font16 : hd_font) + ((size_t) hd_g[x] * (size_t)(2 * H) + (size_t) hd_gy[x] * 2) * 2;
+                unsigned w0 = (unsigned) gr[0] << 8 | gr[1], w1 = (unsigned) gr[2] << 8 | gr[3];
+                uint8_t fg = hd_fg[x], bg = hd_bg[x], *d0 = o0 + 2 * x, *d1 = o1 + 2 * x;
+                if (hd_cur[x] == 2) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; } else if (hd_cur[x]) { w0 ^= 0xF000; w1 ^= 0xF000; }
+                for (int b = 0; b < 16; b++) { d0[b] = (w0 >> (15 - b)) & 1 ? fg : bg; d1[b] = (w1 >> (15 - b)) & 1 ? fg : bg; }
+                x += 7; continue;
+            }
+        }
         const uint8_t *gr = (k ? hd_font16 : hd_font) + ((size_t) hd_g[x] * (size_t)(2 * H) + (size_t) hd_gy[x] * 2) * 2;   /* the HD glyph's two rows */
         unsigned w0 = (unsigned) gr[0] << 8 | gr[1], w1 = (unsigned) gr[2] << 8 | gr[3];
         if (hd_cur[x] == 2) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; }      /* the shaped cursor at the HD size (text32 has */

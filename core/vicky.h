@@ -50,6 +50,40 @@
  *                  (sprite n hit another sprite this frame). All 16 cleared on read of $90.
  *   $A0-$AF COLSL  read: sprite-layer collision bits (sprite n over a
  *                  non-transparent layer pixel). All 16 cleared on read of $A0.
+ *   $C0-$DF THE GLASS (2026-10-07, docs/design-video-foundations.md).  The
+ *                  host finds the panel and tells VICKY (vicky_set_panel); she
+ *                  works out the canvas -- the panel, or its largest 4:3 -- and
+ *                  the integer display resolutions (IDRs) it divides into.
+ *     $C0,C1 PANELW  R  the panel's pixels         $C2,C3 PANELH R
+ *     $C4,C5 CANVW   R  the canvas                 $C6,C7 CANVH  R
+ *     $C8  IDRN      R  how many IDRs it offers, largest first
+ *     $C9  IDRIX     RW which one $CA-$CF describe (0 = the largest)
+ *     $CA  IDRS      R  its scale: panel pixels a machine pixel, each way
+ *     $CB  IDRF      R  bit0 HD text possible there
+ *     $CC,CD IDRW    R  its width                  $CE,CF IDRH   R
+ *     $D0  GLASSCTL  RW what CTRL bit5's glass is.  bits0-1: 0 CTRL's own
+ *                    bits (1, 2, 4 -- the canvas /1, /2, /4: MODE 5-7); 1 the
+ *                    IDR at scale IDRSEL; 2 software, SWW x SWH.  bits4-5, how
+ *                    software shows: 0 the largest whole scale, 1 fit
+ *                    (sharp-bilinear: the whole multiple, then smoothing);
+ *                    2, stretched to 4:3, is reserved and fits for now.
+ *                    bit6 reserved (scanlines).
+ *     $D1  IDRSEL    RW the scale wanted: one not offered becomes the next
+ *                    larger scale that is, else the largest offered
+ *     $D2,D3 SWW     RW a software resolution, 160-1920 wide  } clamped to the
+ *     $D4,D5 SWH     RW                        100-1200 high  } limits and panel
+ *     $D6,D7 GLASSW  R  the glass CTRL and the above give now  $D8,D9 GLASSH R
+ *                    (GLASSCTL 1 or 2 implies CTRL bit5, here and for TXT)
+ *     $DA  SCALE     R  its whole scale on the panel (0: not an IDR)
+ *     $DB  TXTCELL   W  a text cell, as LCTRL's field: 0 8x8, 1 8x16,
+ *                    2 16x16, 3 16x32 (text32)
+ *     $DC  TXTCOLS   R  whole cells of it on that glass (255 at most)
+ *     $DD  TXTROWS   R
+ *     $DE  TXTVPAD   R  spare lines above them: half the spare, rounded down
+ *     $DF  TXTHPAD   R  spare pixel columns to their left, likewise
+ *                  A text32 layer paints the spare pixels round a whole grid in
+ *                  the nearest cell's background; K/OS scrolls layer 0 by
+ *                  -TXTHPAD, -TXTVPAD to centre its console.
  *   $B0-$B7 LAYOUT  the status bands and the console between them.  VICKY is
  *                  the one owner of where they are (2026-10-01, Doc: "A then
  *                  B"; docs/notes/status-bars.md).  Writes say what is wanted,
@@ -134,8 +168,8 @@
 #define K4510_VICKY_H
 #include <stdint.h>
 
-#define VICKY_WIDTH   1440       /* the largest glass (the HD family); the classic modes use 640x480 of it */
-#define VICKY_HEIGHT  1080
+#define VICKY_WIDTH   1920       /* the largest glass the frame buffer holds (an IDR, a software resolution, */
+#define VICKY_HEIGHT  1200       /* or HD text drawn at twice one); the classic modes use 640x480 of it */
 #define VICKY_LAYERS  4
 
 /* register offsets */
@@ -185,6 +219,30 @@
 #define VR_CONBOT   0xB7
 #define VR_BANDMAP  0xB8
 #define VR_CONMAP   0xBC
+#define VR_PANELW   0xC0
+#define VR_PANELH   0xC2
+#define VR_CANVW    0xC4
+#define VR_CANVH    0xC6
+#define VR_IDRN     0xC8
+#define VR_IDRIX    0xC9
+#define VR_IDRS     0xCA
+#define VR_IDRF     0xCB
+#define VR_IDRW     0xCC
+#define VR_IDRH     0xCE
+#define VR_GLASSCTL 0xD0
+#define VR_IDRSEL   0xD1
+#define VR_SWW      0xD2
+#define VR_SWH      0xD4
+#define VR_GLASSW   0xD6
+#define VR_GLASSH   0xD8
+#define VR_SCALE    0xDA
+#define VR_TXTCELL  0xDB
+#define VR_TXTCOLS  0xDC
+#define VR_TXTROWS  0xDD
+#define VR_TXTVPAD  0xDE
+#define VR_TXTHPAD  0xDF
+#define VG_IDR      1         /* GLASSCTL bits0-1 */
+#define VG_SOFT     2
 #define VB_USER     0x01      /* BANDCTL: the F12 switch (host only) */
 #define VB_PROGRAM  0x02      /* BANDCTL: a program has the bands */
 #define VICKY_BAND_MIN_ROWS 10
@@ -203,6 +261,21 @@
 #define VL_MODE_TEXT32 3
 
 void     vicky_reset(void);
+/* The panel (the host's display, native pixels) and the canvas base (0 4:3,
+ * 1 the whole panel): the IDR list follows.  Until told, 1920x1080 and 4:3 --
+ * 1440x1080, 720x540, 480x360, 360x270: the HD family as it was. */
+void     vicky_set_panel(int pw, int ph, int base);
+void     vicky_set_cap(long pixels);                  /* the most pixels VICKY draws a frame (the host's limit) */
+long     vicky_cap(void);
+typedef struct { int w, h, scale, hd; } vicky_idr;    /* hd: HD text possible there */
+int      vicky_idr_count(void);
+const vicky_idr *vicky_idr_at(int i);                 /* largest first; NULL past the end */
+int      vicky_idr_of_scale(int scale);               /* the list index a wanted scale becomes (IDRSEL's rule); -1 none */
+int      vicky_glass_scale(void);                     /* this frame's glass on the panel: its scale, 0 if not an IDR */
+int      vicky_glass_ctl(void);                       /* GLASSCTL as written (the frontend: software presentation) */
+int      vicky_panel_w(void);
+int      vicky_panel_h(void);
+int      vicky_panel_base(void);
 uint8_t  vicky_read(uint8_t reg);
 void     vicky_write(uint8_t reg, uint8_t v);
 void     vicky_render(uint8_t *fb, int pitch);        /* one full frame (tests) */

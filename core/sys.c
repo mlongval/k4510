@@ -125,6 +125,8 @@ void io_set_opts(uint8_t v)
 static uint8_t sys_band_top = 1, sys_band_bot = 1, sys_clockfmt;
 static uint8_t sys_mode;                   /* $D53C: the mode the host wants, whole (mode+1; 0 none) -- $D521's three bits stop at MODE 6 */
 void io_set_mode(uint8_t m1) { sys_mode = m1; }
+static uint8_t sys_div;                    /* $D53D: MODE 5's scale on the panel, the IDR the host wants (2026-10-07); 0 = 1 */
+void io_set_mode_div(uint8_t div) { sys_div = div; }
 void io_set_bands(uint8_t top, uint8_t bot, uint8_t clockfmt)
 { sys_band_top = top; sys_band_bot = bot; sys_clockfmt = clockfmt; }
 uint8_t io_clockfmt(void) { return sys_clockfmt; }   /* for JIM's band clock */
@@ -184,6 +186,7 @@ uint8_t sys_read(uint8_t r)
     if (r == 0x2E) return sys_band_bot;      /* rows in the bottom band */
     if (r == 0x2F) return sys_clockfmt;      /* bit0 24-hour; bits1-2 the date order */
     if (r == 0x3C) return sys_mode;          /* the wanted video mode, mode+1 (hd-modes: MODE 5-7 need it) */
+    if (r == 0x3D) return sys_div;           /* ...and for MODE 5, its scale on the panel */
     if (r == 0x22) return (uint8_t)io_host_kind;  /* what is beneath the machine, for BUG and INFO */
     /* The clock's index in the frontend's ladder.  Deliberately NOT documented
      * as a fixed table: the ladder is reordered when steps are added, and a

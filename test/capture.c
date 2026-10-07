@@ -33,6 +33,7 @@ int main(int argc,char**argv){ int kwait=0;
      * skip STARTUP.BAT, bit 3 status bar, bits 5-7 mode+1), so a shot can be
      * taken of a machine that booted with the status bands up. */
     { const char*so=getenv("K4510_SYSOPT"); if(so) io_set_opts((uint8_t)strtol(so,NULL,0)); }
+    { const char*pe=getenv("K4510_PANEL"); int pw,ph; if(pe&&sscanf(pe,"%dx%d",&pw,&ph)==2) vicky_set_panel(pw,ph,strstr(pe,"full")?1:0); }   /* the panel the frontend would find (2026-10-07) */
     { const char *hm = getenv("K4510_HELD"); if (hm) kbd_held((uint8_t) strtol(hm, NULL, 0)); }   /* $D104, held for the whole run */
     { const char *m = getenv("K4510_MOUSE"); int x, y, b; if (m && sscanf(m, "%d,%d,%d", &x, &y, &b) == 3) mouse_set(x, y, (uint8_t) b, 0, 0, 0); }   /* MOUSETEST captures */
     cpu65_reset();

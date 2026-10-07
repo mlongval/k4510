@@ -64,7 +64,7 @@ void rtc_latch(void);
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
  * banks 1+ are appended 8 KB images called through sw_call(). */
-static uint8_t COLS, ROWS, vmode, rows60, rows60_set;   /* rows60: the mode's other cells -- 640x480 in 8x8 (80x60, Doc, 2026-09-15),
+static uint8_t COLS, ROWS, vmode, vdiv, rows60, rows60_set;   /* rows60: the mode's other cells -- 640x480 in 8x8 (80x60, Doc, 2026-09-15),
                                                          * and since 2026-10-06 720x540 in 8x8 (90x67), 1440x1080 in 16x16 (90x67) */                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240);
                                                       * hd-modes: 5 90x33 (1440x1080, 16x32 cells)  6 90x33 (720x540)  7 45x33 (360x270); video_init sets them */
 uint8_t PCOLS;                                       /* physical text cells: the terminal starts at (0,0); */
@@ -313,6 +313,7 @@ static void mode_do(void)
                                             * key poll performs it again, and each cls() wipes whatever
                                             * the machine printed in between. */
     vmode  = REG(SYS + 0x3C) ? (uint8_t)(REG(SYS + 0x3C) - 1) : (uint8_t)((r >> 5) - 1);   /* $D53C has it whole (MODE 5-7); else bits 5-7, mode+1 */
+    vdiv   = REG(SYS + 0x3D);                     /* and MODE 5's scale on the panel: the integer display resolution */
     rows60 = (uint8_t)((r & SYSOPT_ROWS60) != 0); rows60_set = 1;   /* the host's rows choice comes with its request */
     video_init(); cls();
     mode_note = 1;
@@ -901,29 +902,48 @@ static const char *modename(uint8_t m)
     /* A chain, not a table of pointers: with --local-strings the literals stay
      * beside the code, and a table's pointers pointed where the sideways bank
      * was not (the Dell, 2026-09-14: MODE printed garbage for 5-7). */
-    return m == 0 ? "640x480" : m == 1 ? "640x240" : m == 2 ? "320x240" : m == 3 ? "320x200" : m == 4 ? "160x200"
-         : m == 5 ? "1440x1080" : m == 6 ? "720x540" : "360x270";
+    return m == 0 ? "640x480" : m == 1 ? "640x240" : m == 2 ? "320x240" : m == 3 ? "320x200" : "160x200";
 }
+/* The glass in pixels: the classic modes by name, 5-7 as VICKY has them --
+ * an integer display resolution of this panel, so no name is fixed (2026-10-07) */
+static void put_glass(uint8_t m)
+{
+    if (m < 5) { puts_(modename(m)); return; }
+    putdec(r16(VICKY + 0xD6)); k_chrout('x'); putdec(r16(VICKY + 0xD8));
+}
+static uint8_t bcd(uint32_t v) { return (uint8_t)(((v >> 8) & 15) * 100 + ((v >> 4) & 15) * 10 + (v & 15)); }   /* "45" read as hex, as 45 */
 static void cmd_mode(const char *p)
 {
     uint8_t d; uint32_t m;
-    if (!*p) { puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
-               puts_(modename(vmode)); puts_(" pixels   (MODE 0-2, 5-7)"); newline(); return; }
+    if (!*p) { uint8_t i, n = REG(VICKY + 0xC8);
+               puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
+               put_glass(vmode); puts_(" pixels"); if (vmode >= 5) { puts_(", /"); putdec(REG(VICKY + 0xDA)); }
+               puts_("   (MODE 0-2, 5-7, /n)"); newline();
+               /* the integer display resolutions this panel offers: MODE /n picks one */
+               puts_("this panel: "); putdec(r16(VICKY + 0xC0)); k_chrout('x'); putdec(r16(VICKY + 0xC2)); puts_(", offers");
+               for (i = 0; i < n; i++) { REG(VICKY + 0xC9) = i; puts_("  /"); putdec(REG(VICKY + 0xCA)); k_chrout(' ');
+                                         putdec(r16(VICKY + 0xCC)); k_chrout('x'); putdec(r16(VICKY + 0xCE)); }
+               newline(); return; }
+    /* MODE /n (2026-10-07): the integer display resolution at scale n -- MODE 5
+     * at that scale; /1 /2 /4 are what MODE 5, 6 and 7 were on a 1080 panel. */
+    if (*p == '/') { ++p; m = parsehex(&p, &d); if (!d || !m) { error("mode: /n, a scale this panel offers (MODE alone lists them)"); return; }
+                     vdiv = bcd(m); m = 5; }
+    else {
     /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
      * way back out, and someone meeting the machine for the first time should
      * not be able to type themselves into a screen they cannot use. VICKY
      * still has them: a program that wants one writes the CTRL bits itself. */
-    m = parsehex(&p, &d); if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240; 5 1440x1080, 6 720x540, 7 360x270"); return; }
+    m = parsehex(&p, &d); if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240; 5 6 7 the panel /1 /2 /4; /n"); return; }
+    if (m == 5) vdiv = 1; }
     vmode = (uint8_t)m; skipsp(&p);
     /* MODE 0 60 / MODE 0 30: the 480-line screen in 8x8 or 8x16 cells; MODE 6 67
      * and MODE 5 67 the HD screens' smaller cells (2026-10-06), 33 the larger.
      * parsehex reads the pair as it is written -- 30 and 60 are the digits,
      * $30 and $60 the values -- so the machine needs no decimal parser. */
+    /* Since 2026-10-07 any count: the grid with more than 40 rows is the
+     * smaller cells' (MODE 0 60, MODE 5 67, MODE /3 45). */
     { uint32_t r = parsehex(&p, &d);
-      if (d) {
-          if (r != 0x30 && r != 0x60 && r != 0x33 && r != 0x67) { error("mode: the rows are 30 or 60 (MODE 0), 33 or 67 (5, 6)"); return; }
-          rows60 = (uint8_t)(r == 0x60 || r == 0x67); rows60_set = 1;
-      } }
+      if (d) { rows60 = (uint8_t)(bcd(r) > 40); rows60_set = 1; } }
     video_init(); cls();
     /* And repaint the banner at the next prompt, the way a mode change from
      * the F12 menu already does (mode_do sets the same flag).  Doc, 2026-09-16:
@@ -1014,7 +1034,7 @@ static void info_mem(void)
 static void info_video(void)
 {
     uint8_t ctrl = REG(VICKY), n, L, lc, cnt = 0; uint32_t t; uint8_t i;
-    label("VIDEO"); puts_("VICKY "); puts_(modename(vmode)); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
+    label("VIDEO"); puts_("VICKY "); put_glass(vmode); puts_(" (MODE "); putdec(vmode); puts_(")"); puts_(", display ");
     onoff(ctrl & 1); puts_(", bg colour $"); puthex(REG(VICKY + 1)); puts_(", raster "); putdec(r16(VICKY + 2) & 0x1FF);
     puts_(", irq mask $"); puthex(REG(VICKY + 5)); newline();
     for (n = 0; n < 4; n++) {
@@ -2014,7 +2034,7 @@ static const uint8_t cell_of[8]  = { 1, 0, 0, 0, 0, 3, 1, 0 };           /* VICK
 #pragma code-name (push, "CODE2")
 static void video_init(void)
 {
-    uint8_t i, csz, alt, vpad;
+    uint8_t i, csz, alt, vpad, hpad;
     vmode &= 7; PCOLS = pcols_of[vmode]; PROWS = prows_of[vmode];
     /* 640x480 twice (Doc, 2026-09-15: "can we have both ... in the menu"): 8x16
      * cells and 80x30, or 8x8 and 80x60 -- the screen it was before the one font
@@ -2024,9 +2044,25 @@ static void video_init(void)
     if (!rows60_set) rows60 = (uint8_t)((REG(SYS + 0x21) & SYSOPT_ROWS60) != 0);
     /* the other cells: MODE 0 8x8 (80x60), MODE 6 8x8 (90x67), MODE 5 16x16
      * (90x67) -- half the height, twice the rows (2026-10-06) */
-    alt = (uint8_t)(rows60 && ((0x61 >> vmode) & 1));
-    csz = cell_of[vmode]; vpad = vpad_of[vmode];
-    if (alt) { csz = (uint8_t)(vmode == 5 ? 2 : 0); PROWS = (uint8_t)(vmode ? 67 : 60); vpad = (uint8_t)(vmode == 5 ? 4 : vmode == 6 ? 2 : 0); }
+    alt = (uint8_t)(rows60 && (vmode == 0 || vmode >= 5));
+    csz = cell_of[vmode]; vpad = vpad_of[vmode]; hpad = 0;
+    if (alt && !vmode) { csz = 0; PROWS = 60; }
+    REG(VICKY + 0xD0) = 0;                        /* GLASSCTL: CTRL's own glass, unless an IDR below */
+    /* MODE 5-7 since 2026-10-07: an integer display resolution of this panel
+     * (core/vicky.h $C0-$DF) -- the canvas divided by vdiv (5), by 2 (6) or by
+     * 4 (7).  VICKY says what grid the cells make there and how much is spare;
+     * at scale 1, or on a glass too wide for 132 columns of 8, the cells are
+     * 16 wide; elsewhere 8 (VICKY draws HD glyphs in them where it can).  A grid under 25 rows takes the smaller
+     * cells. */
+    if (vmode >= 5) {
+        uint8_t d = vmode == 6 ? 2 : vmode == 7 ? 4 : (vdiv ? vdiv : 1);
+        REG(VICKY + 0xD1) = d; REG(VICKY + 0xD0) = 1;
+        d = (uint8_t)(REG(VICKY + 0xDA) == 1 || REG(VICKY + 0xD7) > 4);   /* scale 1, or wider than 1279: 16-wide cells (132 columns at most) */
+        csz = (uint8_t)(d ? (alt ? 2 : 3) : (alt ? 0 : 1));
+        REG(VICKY + 0xDB) = csz;
+        if (REG(VICKY + 0xDD) < 25 && (csz & 1)) { csz--; REG(VICKY + 0xDB) = csz; }
+        PCOLS = REG(VICKY + 0xDC); PROWS = REG(VICKY + 0xDD); vpad = REG(VICKY + 0xDE); hpad = REG(VICKY + 0xDF);
+    }
     shared_mode = (uint8_t)(vmode | (alt ? 0x80 : 0));   /* $022F, for programs (above) */
     /* The status bands and the console between them are VICKY's to lay out
      * (2026-10-01, docs/notes/status-bars.md): K/OS tells her the text grid
@@ -2053,7 +2089,7 @@ static void video_init(void)
     w32(VICKY + 0xBC, SCREEN);                 /* CONMAP: this is the console's map...                       */
     w32(VICKY + 0xB8, BANDMAP);                /* ...and its band rows are drawn from BANDMAP (option B) */
     w32(VICKY + 0x18, csz == 3 ? FONT32 : csz == 2 ? FONT16W : csz ? FONT16 : FONT);
-    w16(VICKY + 0x12, 0); w16(VICKY + 0x14, (uint16_t)(0xFFFFu - vpad + 1u));   /* the text centred in an HD glass: scrolled DOWN by half the spare lines
+    w16(VICKY + 0x12, (uint16_t)(0xFFFFu - hpad + 1u)); w16(VICKY + 0x14, (uint16_t)(0xFFFFu - vpad + 1u));   /* the text centred in an HD glass: scrolled DOWN by half the spare lines
                                                                                   * (written out in 16 bits: cc65 did 0 - vpad in 8, and the high byte came out 0) */
     REG(VICKY + 0x11) = 0;
     REG(VICKY + 0x10) = (uint8_t)(0x01 | (3 << 1) | (csz << 5));   /* enable | text32 | the cells -- the host reads the field back */
@@ -2301,6 +2337,7 @@ int main(void)
      * is published. */
     vmode = REG(SYS + 0x3C) ? REG(SYS + 0x3C) : (uint8_t)(REG(SYS + 0x21) >> 5);   /* $D53C whole (MODE 5-7), else bits 5-7 */
     if (vmode) vmode--;                           /* nothing published: 640x480 */
+    vdiv = REG(SYS + 0x3D);                       /* MODE 5's scale on the panel, as the host saved it */
     video_init();
     sw_call(2, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
     fg = C_FG;

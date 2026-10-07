@@ -24,6 +24,7 @@ static int fails = 0;
 static void W(int r, uint8_t v) { io_write(IO_VICKY + r, v); }
 static void W32(int r, uint32_t v) { for (int i = 0; i < 4; i++) W(r + i, (v >> (8 * i)) & 0xFF); }
 static void W16(int r, uint16_t v) { W(r, v & 0xFF); W(r + 1, v >> 8); }
+static uint8_t R(int r) { return io_read(IO_VICKY + r); }
 
 int main(void)
 {
@@ -385,6 +386,40 @@ int main(void)
       vicky_render(big, VICKY_WIDTH);
       CHECK(vicky_cell_h(0) == 16 && big[15 * VICKY_WIDTH + 15] == 9 && big[16 * VICKY_WIDTH + 15] != 9, "16x16 cells");
       printf("13. text32 cells 16 wide: 16x32 and 16x16\n"); }
+
+    /* 14. the panel and its integer display resolutions (2026-10-07): the list,
+     * the glass GLASSCTL picks, the text grid VICKY works out, and the spare
+     * columns a text32 layer paints when the IDR is not a whole number of
+     * cells wide (1280x800: 1066 is 66 cells of 16 and 10 pixels over). */
+    { static uint8_t big[VICKY_WIDTH * VICKY_HEIGHT];
+      uint32_t fw = 0x340000, m32 = 0x330000;
+      mem_reset(); vicky_reset();
+      vicky_set_panel(1920, 1080, 0);
+      CHECK(R(VR_IDRN) == 4 && (R(VR_CANVW) | R(VR_CANVW + 1) << 8) == 1440, "1920x1080 at 4:3: four IDRs on a 1440x1080 canvas");
+      W(VR_IDRIX, 2); CHECK(R(VR_IDRS) == 3 && (R(VR_IDRW) | R(VR_IDRW + 1) << 8) == 480 && (R(VR_IDRH) | R(VR_IDRH + 1) << 8) == 360, "the third is 480x360 /3");
+      W(VR_IDRIX, 1); CHECK(R(VR_IDRF) == 1, "720x540 /2 can draw HD text");
+      W(VR_IDRIX, 2); CHECK(R(VR_IDRF) == 0, "480x360 /3 cannot: an odd scale");
+      vicky_set_panel(3840, 2160, 0);
+      W(VR_GLASSCTL, VG_IDR); W(VR_IDRSEL, 1);
+      CHECK((R(VR_GLASSW) | R(VR_GLASSW + 1) << 8) == 1440 && R(VR_SCALE) == 2, "4K: /1 is over the cap, so /1 becomes /2, 1440x1080");
+      vicky_set_panel(1280, 800, 0);
+      W(VR_IDRSEL, 1); W(VR_TXTCELL, 3);
+      CHECK((R(VR_GLASSW) | R(VR_GLASSW + 1) << 8) == 1066 && R(VR_TXTCOLS) == 66 && R(VR_TXTROWS) == 25 && R(VR_TXTHPAD) == 5 && R(VR_TXTVPAD) == 0,
+            "1280x800 /1 in 16x32: 66x25, 5 spare columns each side (%d %d %d)", R(VR_TXTCOLS), R(VR_TXTROWS), R(VR_TXTHPAD));
+      for (int i = 0; i < 16384; i++) mem_poke(fw + i, 0);
+      for (int c = 0; c < 66; c++) { uint8_t cell[4] = { ' ', 0, 7, (uint8_t)(c == 0 ? 3 : c == 65 ? 5 : 1) }; mem_load(m32 + (uint32_t) c * 4, cell, 4); }
+      W(VR_CTRL, 1 | 0x20); W(VR_BGCOL, 0);
+      W32(VR_LAYER(0) + VL_DATA, fw); W32(VR_LAYER(0) + VL_MAP, m32); W16(VR_LAYER(0) + VL_STRIDE, 66);
+      W16(VR_LAYER(0) + VL_SCROLLX, (uint16_t)(0x10000 - 5));
+      W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (3 << 5));
+      vicky_render(big, VICKY_WIDTH);
+      CHECK(vicky_glass_w() == 1066 && big[0] == 3 && big[4] == 3 && big[5] == 3 && big[21] == 1 && big[1060] == 5 && big[1065] == 5,
+            "the spare columns take the nearest cell's background (%d %d %d %d %d)", big[0], big[4], big[21], big[1060], big[1065]);
+      W(VR_GLASSCTL, VG_SOFT); W16(VR_SWW, 400); W16(VR_SWH, 3000);
+      CHECK((R(VR_GLASSW) | R(VR_GLASSW + 1) << 8) == 400 && (R(VR_GLASSH) | R(VR_GLASSH + 1) << 8) == 800 && R(VR_SCALE) == 0,
+            "a software resolution is clamped to the panel (400x3000 -> 400x800), and is no IDR");
+      vicky_set_panel(1920, 1080, 0); vicky_reset();
+      printf("14. the panel's integer display resolutions, GLASSCTL, the text grid and its spare columns\n"); }
 
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;

@@ -22,7 +22,7 @@ FORCE:
 # the I/O page's devices, one file each (core/io_int.h is the map)
 IO_OBJS = core/sys.o core/seq.o core/fred.o core/hostfs.o core/status.o core/tube.o core/screen2.o core/debug.o
 OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sndq.o core/audio.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o $(IO_OBJS) core/vicky.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/jimgfx.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o $(IO_OBJS) core/vicky.o core/idr.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/jimgfx.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
 LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -133,7 +133,7 @@ core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicd
 
 core/mem.o: core/mem.c core/mem.h core/host.h core/xemu/emutools_basicdefs.h
 sdl/host_posix.o: sdl/host_posix.c core/host.h
-core/vicky.o: core/vicky.c core/vicky.h core/mem.h
+core/vicky.o: core/vicky.c core/vicky.h core/mem.h core/idr.h
 core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/opl2.h core/audio.h core/net.h core/term.h core/io_int.h
 $(IO_OBJS): core/io.h core/io_int.h core/mem.h core/vicky.h core/term.h core/state.h
 core/hostfs.o: core/net.h core/zip.h
@@ -256,6 +256,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/cwdtest.sh
 	./test/nettest.sh
 	sh ./test/vikeystest.sh
+	sh ./test/paneltest.sh
 
 clean: clean-demos
 # Only the .s files cc65 generates -- one per .c, plus the two built under a

@@ -59,6 +59,9 @@ int main(int argc, char **argv)
      * passed K4510_SYSOPT to it -- NOBOOT, the bands, the 80x60 screen -- was
      * passing a flag that did nothing.  Found 2026-09-15). */
     { const char *so = getenv("K4510_SYSOPT"); if (so) io_set_opts((uint8_t) strtol(so, NULL, 0)); }
+    /* K4510_PANEL=WxH[,full]: the panel the frontend would have found (2026-10-07) */
+    { const char *pe = getenv("K4510_PANEL"); int pw, ph;
+      if (pe && sscanf(pe, "%dx%d", &pw, &ph) == 2) vicky_set_panel(pw, ph, strstr(pe, "full") ? 1 : 0); }
     io_reset(); cpu65_reset();
     for (fr = 0; fr < maxf; fr++) {
         /* as the frontend's K4510_KEYS: $80+ is a KEY_* code, $1F makes the next byte a character */

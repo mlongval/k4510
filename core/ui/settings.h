@@ -57,6 +57,10 @@ typedef enum {
                               * CODEPAGE (JIM $DA17, which the frontend follows and saves).  Doc, 2026-09-15 */
     SET_VIDEO_FONT,          /* ENUM F12 -> Video -> Font: the HD text font at 720x540 (vicky_hd_font), or unscii,
                               * the machine's own drawn doubled.  Doc, 2026-10-06 */
+    SET_VIDEO_BASE,          /* ENUM F12 -> Video -> Canvas: 4:3, the largest 4:3 in the panel (the default), or the
+                              * whole panel -- the canvas the integer display resolutions divide.  2026-10-07 */
+    SET_VIDEO_CAP,           /* INT  the most pixels VICKY draws a frame (not in the menu: test/vidbench --suggest
+                              * measures a host and says what to put here).  2026-10-07 */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
@@ -90,28 +94,27 @@ typedef struct {
 /* One screen font since 2026-09-14 (Doc: "pick one font and jettison all the
  * rest"): unscii, 8x16 at 640x480 and 8x8 in the 240-line modes.  The host
  * loads both (sdl/main.c); there is no setting. */
-/* video modes, in the ENUM's order -- the shell's MODE 0-4 */
-/* hd-modes (2026-09-14): the HD family after the three classic shells, so the
- * menu's choices stay one run.  The order is the menu's, not the MODE number:
- * vmode_number[] maps (0 1 2 5 6 7 3 4). */
-enum { VMODE_640x480, VMODE_640x480_60, VMODE_640x240, VMODE_320x240, VMODE_1440x1080, VMODE_1440x1080_67, VMODE_720x540,
-       VMODE_720x540_67, VMODE_360x270, VMODE_320x200, VMODE_160x200, VMODE_COUNT };
-/* (2026-10-06) 1440x1080 and 720x540 each come in two cells, as 640x480 does: the
- * larger -- 16x32 on the panel, 90x33 -- and the smaller, 16x16, 90x67; the ROM's
- * MODE 5 / 6 with SYSOPT_ROWS60, as MODE 0's 80x60. */
-/* 640x480 twice: the same screen in 8x16 cells (80x30, the default since the
- * one font of 2026-09-14) and in 8x8 (80x60, what it was before).  Both are
- * the ROM's MODE 0; the rows are SYSOPT_ROWS60 going out, and layer 0's cell
- * bit coming back, so `MODE 0 60` typed at the prompt is noticed and saved.
- * Doc, 2026-09-15: "can we have both ... in the menu". */
-extern const unsigned char vmode_number[VMODE_COUNT];
-#define VMODE_MENU_MAX VMODE_360x270   /* the menu offers no less than this.  320x200 and 160x200 are
-                                        * for games and for a language that wants the pixels -- 40x25
-                                        * and 20x25 are not a shell -- so MODE 3 and MODE 4 reach them
-                                        * and the menu still SHOWS them when the guest is in one, but
-                                        * you cannot steer the machine into one from the menu. */
-#define VMODE_SAVE_MAX VMODE_360x270   /* and nothing past it is ever written to k4510.cfg: */
-#define VMODE_SAVE_TO  VMODE_360x270   /* a game mode is saved as this (360x270 since 2026-10-06: the modes F12 offers) */
+/* The Resolution row (2026-10-07, docs/design-video-foundations.md).  Its
+ * choices are built at run time: first the classic screens -- programs' modes,
+ * which the row can show but the menu does not offer -- then this panel's
+ * integer display resolutions (VICKY's list), each in its grids: the larger
+ * cells, and the smaller where they leave 25 rows or more.  A label reads
+ * "720x540 90x33".  k4510.cfg keeps the SCALE ("/2", "/2 small"), not the
+ * size, so a K4510x stick that moves to another panel keeps its meaning; the
+ * names before (720x540 16x32, 640x480 ...) still load. */
+enum { VMODE_640x480, VMODE_640x480_60, VMODE_640x240, VMODE_320x240, VMODE_320x200, VMODE_160x200, VMODE_IDR0 };
+typedef struct {
+    char label[24];
+    unsigned char mode;      /* the ROM's MODE: 0-4, or 5 (an IDR, at div) */
+    unsigned char rows60;    /* the smaller cells: SYSOPT_ROWS60 going out */
+    unsigned char div;       /* MODE 5's scale ($D53D) */
+    unsigned char csz;       /* layer 0's cell field it makes (0 8x8, 1 8x16, 2 16x16, 3 16x32) */
+    unsigned char cols, rows;
+} vmode_t;
+const vmode_t *settings_vmode(int index);       /* NULL past the end */
+int  settings_vmode_count(void);
+int  settings_vmode_find(int mode, int div, int csz);   /* the entry the machine is in; -1 none */
+void settings_video_rebuild(void);              /* VICKY's panel or list changed: the choices again, the choice kept */
 /* (scanlines, a dark line between each of the machine's, went 2026-09-14 --
  * Doc: "a nice idea that has limited only nostalgic use") */
 /* scaling, in the ENUM's order, hard pixels both (Doc, 2026-09-14: "only 2

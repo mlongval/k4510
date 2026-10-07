@@ -57,7 +57,7 @@ int main(void)
     for (int k = 0; k < 2; k++) kbd_push_key(KEY_DOWN);                      /* Resolution: a popup (Scaling's row went 2026-10-06) */
     kbd_push(KEY_ENTER);
     kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_720x540_67, "popup chose 720x540 16x16, one up from 360x270 (%d)", settings_get(SET_VIDEO_MODE));
+    CHECK(settings_get(SET_VIDEO_MODE) == settings_vmode_find(5, 3, 0), "popup chose 480x360, one up from 360x270 (%d)", settings_get(SET_VIDEO_MODE));
     kbd_push(KEY_ESC); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
     kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
@@ -76,41 +76,48 @@ int main(void)
     CHECK((io_read(IO_SYS_OPTS) & SYSOPT_CPMCOM) != 0, "switched on, the guest sees it on");
     printf("3. the shell toggle reaches the guest at $D521\n");
 
-    /* 4. the video mode: asked for through the same byte, and never saved below 320x240 */
+    /* 4. the video mode: asked for through the same byte; the choices are this
+     * panel's integer display resolutions, kept by their scale (2026-10-07) */
     settings_defaults();
+    { char b[32]; int n = settings_vmode_count();
+      static const char *want[] = { "1440x1080 90x33", "1440x1080 90x67", "720x540 90x33", "720x540 90x67", "480x360 60x45", "360x270 45x33" };
+      CHECK(n == VMODE_IDR0 + 6 && settings_first(SET_VIDEO_MODE) == VMODE_IDR0 && settings_choices(SET_VIDEO_MODE) == n,
+            "a 1920x1080 panel at 4:3 offers six: /1 /2 in two grids, /3, /4 (%d)", n);
+      for (int i = 0; i < 6 && VMODE_IDR0 + i < n; i++) CHECK(!strcmp(settings_vmode(VMODE_IDR0 + i)->label, want[i]), "choice %d is %s, not %s", i, want[i], settings_vmode(VMODE_IDR0 + i)->label);
+      CHECK(settings_get(SET_VIDEO_MODE) == settings_vmode_find(5, 4, 0) && !strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "360x270 45x33"), "the default is /4"); }
     settings_set(SET_VIDEO_MODE, VMODE_320x200);
-    /* $D521 carries the ROM's MODE number, not the menu's index: they parted
-       company when 640x480 became two rows (Doc, 2026-09-15) */
-    io_set_opts((uint8_t)((vmode_number[VMODE_320x200] + 1) << SYSOPT_MODE_SHIFT));
-    CHECK((io_read(IO_SYS_OPTS) >> SYSOPT_MODE_SHIFT) == vmode_number[VMODE_320x200] + 1u, "the guest is asked for the mode at $D521");
+    io_set_opts((uint8_t)((settings_vmode(VMODE_320x200)->mode + 1) << SYSOPT_MODE_SHIFT));
+    CHECK((io_read(IO_SYS_OPTS) >> SYSOPT_MODE_SHIFT) == 4u, "the guest is asked for the mode at $D521 (MODE 3 + 1)");
     io_set_opts(0);
     CHECK((io_read(IO_SYS_OPTS) & SYSOPT_MODE) == 0, "and the request clears");
-
+    settings_set(SET_VIDEO_MODE, settings_vmode_find(5, 2, 1));
     settings_set(SET_VIDEO_MODE, VMODE_160x200);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_160x200, "160x200 can be chosen");
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_160x200, "160x200 can be chosen (a program's)");
     settings_save(cfg);
     settings_defaults();
     settings_load(cfg);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_360x270, "but 360x270 is what survives a save");
+    CHECK(settings_get(SET_VIDEO_MODE) == settings_vmode_find(5, 2, 1), "what a save keeps is the IDR chosen last, /2, not a program's mode");
     { FILE *f = fopen(cfg, "a"); if (f) { fputs("video.mode = 160x200\n", f); fclose(f); } }
     settings_load(cfg);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_360x270, "and a hand-edited file is clamped on the way in");
-    /* the menu will not steer into 320x200 / 160x200 -- 40x25 and 20x25 are not a
-     * shell -- but it still shows one when the guest (MODE 3, a game) is in it */
-    settings_defaults();
-    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1 && settings_first(SET_VIDEO_MODE) == VMODE_1440x1080, "the menu offers 1440x1080 and 720x540 in two cells each, and 360x270");
+    CHECK(settings_get(SET_VIDEO_MODE) == settings_vmode_find(5, 4, 0), "a hand-edited 160x200 loads as /4");
     { FILE *f = fopen(cfg, "w"); if (f) { fputs("video.mode = 720x540\n", f); fclose(f); } }
-    settings_load(cfg); CHECK(settings_get(SET_VIDEO_MODE) == VMODE_720x540, "the old name 720x540 loads as 720x540 16x32");
+    settings_load(cfg); CHECK(settings_get(SET_VIDEO_MODE) == settings_vmode_find(5, 2, 1), "the old name 720x540 loads as /2");
+    { FILE *f = fopen(cfg, "w"); if (f) { fputs("video.mode = /2 small\n", f); fclose(f); } }
+    settings_load(cfg); CHECK(settings_get(SET_VIDEO_MODE) == settings_vmode_find(5, 2, 0), "/2 small is 720x540 90x67");
     settings_defaults();
-    settings_set(SET_VIDEO_MODE, VMODE_360x270);
+    settings_set(SET_VIDEO_MODE, settings_vmode_find(5, 4, 0));
     settings_step(SET_VIDEO_MODE, +1);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_1440x1080, "stepping past the last offered one wraps to 1440x1080, not into 320x200");
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_IDR0, "stepping past the last offered one wraps to the first IDR, not into 320x200");
     settings_set(SET_VIDEO_MODE, VMODE_640x480);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_640x480, "a program's MODE 0 is still a mode the row can show");
-    settings_set(SET_VIDEO_MODE, VMODE_160x200);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_160x200, "but the guest may put the machine in one, and the row says so");
-    { char b[32]; CHECK(!strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "160x200"), "shown by name"); }
-    printf("4. the mode request, and 320x240 as the floor for what is saved\n");
+    { char b[32]; settings_set(SET_VIDEO_MODE, VMODE_160x200); CHECK(!strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "160x200"), "shown by name"); }
+    /* another panel: the same scale where it is offered, the nearest where not */
+    settings_defaults(); settings_set(SET_VIDEO_MODE, settings_vmode_find(5, 4, 0));
+    vicky_set_panel(1366, 768, 0); settings_video_rebuild();
+    { char b[32]; CHECK(!strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "341x256 42x32"), "1366x768 has no /4 (256x192): /3, 341x256 (%s)", settings_text(SET_VIDEO_MODE, b, sizeof b)); }
+    vicky_set_panel(1920, 1080, 0); settings_video_rebuild();
+    { char b[32]; CHECK(!strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "360x270 45x33"), "and back on 1080 lines, /4 again: kept by scale"); }
+    printf("4. the mode request; the panel's resolutions, kept by scale\n");
 
     /* 5. the STARTUP.BAT switch: the way out of one that wedges the machine */
     settings_defaults();

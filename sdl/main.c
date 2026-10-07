@@ -901,6 +901,17 @@ int k4510_frontend_main(int argc, char **argv)
     audio_init((double)cpu_hz_now, AUDIO_RATE);
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) != 0) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
     main_tid = SDL_ThreadID(); plat_net_wait_hook = net_wait_alive;
+    /* The panel, before the machine boots: the display's own mode, so the ROM
+     * lays its console out on the right integer display resolution from the
+     * first frame.  The renderer's output once the window is full screen is
+     * the truth, and is checked every frame below (panel_track).  K4510_PANEL
+     * =WxH stands in for it: the tests, and pictures of panels nobody here
+     * owns.  docs/design-video-foundations.md. */
+    vicky_set_cap(settings_get(SET_VIDEO_CAP));
+    { SDL_DisplayMode dm; int pw = 1920, ph = 1080; const char *pe = getenv("K4510_PANEL");
+      if (SDL_GetDesktopDisplayMode(0, &dm) == 0 && dm.w >= 320 && dm.h >= 200) { pw = dm.w; ph = dm.h; }
+      if (pe) sscanf(pe, "%dx%d", &pw, &ph);
+      vicky_set_panel(pw, ph, settings_get(SET_VIDEO_BASE)); settings_video_rebuild(); }
     /* the touchpad as a pointer on the bare console (see touchpad_event); K4510_TOUCHPAD=0|1 overrides */
     { const char *d = SDL_GetCurrentVideoDriver(), *o = getenv("K4510_TOUCHPAD");
       touchpad_rel = o ? atoi(o) : (d && SDL_strcasecmp(d, "KMSDRM") == 0);
@@ -1406,24 +1417,21 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * choosing a resolution in the menu is watching it happen.  So an
          * outstanding request thaws the machine until VICKY's CTRL says it took,
          * or until the wait runs out (a program that never reads a key). */
-        { static const uint8_t ctrl_of[VMODE_COUNT] = { 0, 0, 4, 2, 0x20, 0x20, 0x20 | 6, 0x20 | 6, 0x20 | 6 | 16, 2 | 8, 2 | 8 | 16 };   /* in the menu's order; each pair of screens is one CTRL */
-          uint8_t c = vicky_read(VR_CTRL);
+        { uint8_t c = vicky_read(VR_CTRL);
           int machine = -1;
           if (c & 1) {                                  /* bit 0 is display-enable.  Before the ROM's
                                                          * video_init runs, CTRL is 0 -- which is NOT
                                                          * 640x480, though it looks just like it. */
-              uint8_t m = (uint8_t)(c & (2 | 4 | 8 | 16 | 0x20));
-              for (int i = 0; i < VMODE_COUNT; i++) if (ctrl_of[i] == m) machine = i;
-              /* The two 640x480 entries share that CTRL: layer 0's cell bit says
-               * which of them the machine is in -- 8x16 is 80x30, 8x8 is 80x60 --
-               * so `MODE 0 60` typed at the prompt is noticed and saved, as a
-               * guest's CODEPAGE is (Doc, 2026-09-15). */
-              if (machine == VMODE_640x480 || machine == VMODE_640x480_60)
-                  machine = (vicky_read(0x10) & 0x20) ? VMODE_640x480 : VMODE_640x480_60;
-              else if (machine == VMODE_1440x1080 || machine == VMODE_1440x1080_67)      /* the HD pairs likewise (2026-10-06): */
-                  machine = vicky_cell_h(0) == 32 ? VMODE_1440x1080 : VMODE_1440x1080_67;  /* 16x32 or 16x16, */
-              else if (machine == VMODE_720x540 || machine == VMODE_720x540_67)
-                  machine = vicky_cell_h(0) == 16 ? VMODE_720x540 : VMODE_720x540_67;      /* 8x16 or 8x8 */
+              int csz = (vicky_read(0x10) >> 5) & 3;    /* layer 0's cells say which grid of a pair:
+                                                         * `MODE 0 60` or `MODE /2 67` typed at the
+                                                         * prompt is noticed and saved, as a guest's
+                                                         * CODEPAGE is (Doc, 2026-09-15) */
+              if (c & 0x20) machine = settings_vmode_find(5, vicky_read(VR_SCALE), csz);   /* an IDR: by its scale (2026-10-07) */
+              else {
+                  uint8_t m = (uint8_t)(c & (2 | 4 | 8 | 16));
+                  int mode = m == 0 ? 0 : m == 4 ? 1 : m == 2 ? 2 : m == (2 | 8) ? 3 : m == (2 | 8 | 16) ? 4 : -1;
+                  if (mode >= 0) machine = settings_vmode_find(mode, 0, csz);
+              }
           }
           if (mode_req) {
               if (io_mode_acked()) mode_req = 0;        /* the guest says it has done it */
@@ -1465,14 +1473,13 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         /* The mode goes out as the ROM's MODE number (the menu's order is not
          * it: vmode_number), whole in $D53C and, where it fits, in $D521's
          * three bits as before. */
-        { int idx = (mode_pending ? mode_pending : settings_get(SET_VIDEO_MODE) + 1) - 1;
-          int m1 = (idx >= 0 && idx < VMODE_COUNT) ? vmode_number[idx] + 1 : 0;
-          io_set_mode((uint8_t) m1);
+        { const vmode_t *vm = settings_vmode((mode_pending ? mode_pending : settings_get(SET_VIDEO_MODE) + 1) - 1);
+          int m1 = vm ? vm->mode + 1 : 0;
+          io_set_mode((uint8_t) m1); io_set_mode_div(vm ? vm->div : 0);
           io_set_opts((settings_get(SET_SHELL_CPMCOM) ? SYSOPT_CPMCOM : 0)
                       | ((settings_get(SET_SHELL_STARTUP) && !no_startup) ? 0 : SYSOPT_NOBOOT)
                       | (settings_get(SET_VIDEO_STATUSBAR) ? SYSOPT_STATUS : 0)
-                      | ((settings_get(SET_VIDEO_MODE) == VMODE_640x480_60 || settings_get(SET_VIDEO_MODE) == VMODE_720x540_67
-                          || settings_get(SET_VIDEO_MODE) == VMODE_1440x1080_67) ? SYSOPT_ROWS60 : 0)   /* the smaller cells: 80x60, 90x67 */
+                      | ((vm && vm->rows60) ? SYSOPT_ROWS60 : 0)   /* the smaller cells: 80x60, 90x67 */
                       | (uint8_t)((m1 <= 7 ? m1 : 0) << SYSOPT_MODE_SHIFT)
                       | (mode_pending ? SYSOPT_MODEREQ : 0)); }
         io_set_bands(1, 1,                               /* one row each, when the bands are on (Doc, 2026-09-14) */
@@ -1681,6 +1688,18 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             gov_own = 0;
         }
         if (settings_get(SET_VIDEO_FULLSCREEN) != fullscreen_applied) { fullscreen_applied = settings_get(SET_VIDEO_FULLSCREEN); SDL_SetWindowFullscreen(win, fullscreen_applied ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0); }
+        /* panel_track: the panel is the renderer's output once full screen (a
+         * monitor plugged in, a resolution changed under us), the canvas the
+         * Canvas row's.  A change rebuilds VICKY's list and the Resolution row,
+         * and asks K/OS to lay its console out again on the same scale. */
+        { static int fs_frames, fs_was = -1; int pw = 0, ph = 0; const char *pe = getenv("K4510_PANEL");
+          if (fullscreen_applied != fs_was) { fs_was = fullscreen_applied; fs_frames = 0; }   /* the switch takes a frame or two to land */
+          if (fullscreen_applied && ++fs_frames > 3) SDL_GetRendererOutputSize(ren, &pw, &ph); else { pw = vicky_panel_w(); ph = vicky_panel_h(); }
+          if (pe) sscanf(pe, "%dx%d", &pw, &ph);
+          if (pw >= 320 && ph >= 200 && (pw != vicky_panel_w() || ph != vicky_panel_h() || settings_get(SET_VIDEO_BASE) != vicky_panel_base())) {
+              vicky_set_panel(pw, ph, settings_get(SET_VIDEO_BASE)); settings_video_rebuild(); menu_dirty();
+              if (mode_shown >= 0) { mode_shown = settings_get(SET_VIDEO_MODE); mode_req = mode_shown + 1; mode_wait = MODE_REQ_FRAMES; }
+          } }
         /* the menu takes the machine's own row grid: 30 rows over a 240-line
          * mode or 640x480 in 8x16 cells, 60 over 640x480 in 8x8, so its lines
          * sit on the picture's lines */
@@ -1697,14 +1716,19 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (SDL_RenderSetVSync(ren, vsync_applied) != 0)
                 fprintf(stderr, "vsync: this SDL or driver will not take it (%s)\n", SDL_GetError());
         }
-        if (settings_get(SET_VIDEO_SMOOTH) != smooth_applied) {
-            smooth_applied = settings_get(SET_VIDEO_SMOOTH);
+        /* A software resolution may ask to be FITTED (VICKY's GLASSCTL bit4,
+         * 2026-10-07): sharp-bilinear, the whole multiple then smoothing, for
+         * as long as it is up.  K/OS and every IDR stay integer. */
+        { int gc = vicky_glass_ctl(), want = settings_get(SET_VIDEO_SMOOTH);
+          if ((vicky_read(VR_CTRL) & 0x20) && (gc & 3) == VG_SOFT && (gc & 0x30)) want = SMOOTH_FIT;
+        if (want != smooth_applied) {
+            smooth_applied = want;
             /* Hard pixels always ("soft", the linear filter, went 2026-09-14);
              * Integer is a whole-number scale, so every pixel of the
              * machine is the same size on the glass. */
             SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
             SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_INTEGER ? SDL_TRUE : SDL_FALSE);
-        }
+        } }
         /* the palettes, once a frame instead of once a pixel: the machine's
          * colours, the same half-lit behind the menu, and the menu's own; the
          * 256-entry tables only when VICKY's palette changed (review 2026-09-05, 9) */

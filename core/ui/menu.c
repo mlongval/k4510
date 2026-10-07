@@ -24,6 +24,7 @@ static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
+    { "Canvas",        MI_SETTING, SET_VIDEO_BASE },   /* 4:3 or the whole panel: what the resolutions divide (2026-10-07) */
     { "Font",          MI_SETTING, SET_VIDEO_FONT },   /* the HD text font at 720x540 (2026-10-06) */
     /* Scaling, Full screen and Vertical sync went 2026-10-06: integer and full
      * screen always (settings_load), vsync as it was */

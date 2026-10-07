@@ -1,5 +1,7 @@
 /* The settings registry. See settings.h. */
 #include "settings.h"
+#include "vicky.h"
+#include "idr.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -9,10 +11,6 @@
 #define SETTINGS_VERSION     3
 #define SETTINGS_VERSION_STR "3"
 
-/* "640x480" is the 80x30 screen, as every k4510.cfg already saved it */
-static const char *const vmode_names[] = { "640x480", "640x480x60", "640x240", "320x240", "1440x1080 16x32", "1440x1080 16x16",
-                                           "720x540 16x32", "720x540 16x16", "360x270", "320x200", "160x200" };
-const unsigned char vmode_number[VMODE_COUNT] = { 0, 0, 1, 2, 5, 5, 6, 6, 7, 3, 4 };   /* each pair of screens is one MODE */
 static const char *const smooth_names[]= { "integer", "fit to display" };
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
@@ -26,6 +24,7 @@ static const char *const panel_names[] = { "off", "registers" };
  * generator, which reads this line, quietly dropped matrix from the list of
  * sidebars in Chapter 1. */
 static const char *const sidebar_names[]= { "border", "gradient", "registers", "halloween", "christmas", "space", "river", "dreamfall", "tetris", "antfarm", "matrix", "navidrome" };
+static const char *const base_names[]  = { "4:3", "full" };   /* the canvas: the largest 4:3 in the panel, or all of it */
 static const char *const date_names[]  = { "DD.MM.YYYY", "YYYY-MM-DD", "MM/DD/YYYY" };
 static const char *const lid_names[]   = { "keep running", "suspend" };
 static const char *const pipe_names[]  = { "off", "on", "on, shown" };
@@ -44,7 +43,7 @@ const char *const hdfont_files[HDFONT_COUNT] = { NULL, "zhekov-bold", "zhekov", 
 static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices are filled in at start (settings_set_labels) */
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
     { "video.border_colour", "Border colour",  ST_INT,  11, 0, 15, 1, 0, 0, SF_LIVE },   /* dark grey, as the bands (2026-10-06) */
-    { "video.mode",          "Resolution",     ST_ENUM,  VMODE_360x270, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
+    { "video.mode",          "Resolution",     ST_ENUM,  0, 0, 0, 0, NULL, 0, SF_LIVE },   /* choices built at run time: settings_video_rebuild */
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* fixed on since 2026-10-06 (settings_load) */
@@ -100,6 +99,8 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "input.keypipe",       "Key pipe",       ST_ENUM, 2, 0, 0, 0, pipe_names, 3, SF_LIVE },  /* remote typing: off / on / on, shown (the default) */
     { "text.codepage",       "Code page",      ST_ENUM,  PAGE_CP437, 0, 0, 0, page_names, PAGE_COUNT, SF_LIVE },
     { "video.hdfont",        "Font",           ST_ENUM,  HDFONT_ZHEKOV, 0, 0, 0, hdfont_names, HDFONT_COUNT, SF_LIVE },
+    { "video.base",          "Canvas",         ST_ENUM,  0, 0, 0, 0, base_names, 2, SF_LIVE },
+    { "video.cap",           "Pixel cap",      ST_INT,   2073600, 64000, 2304000, 64000, 0, 0, 0 },
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
                                                      40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
@@ -108,13 +109,82 @@ unsigned settings_cpu_hz(void) { return settings_cpu_hz_of(settings_get(SET_CPU_
 static int value[SET_COUNT];
 static int changed;
 
+/* The Resolution row's choices (settings.h): the classic screens, then this
+ * panel's IDRs.  "640x480" is the 80x30 screen, as every k4510.cfg saved it. */
+#define VM_MAX (VMODE_IDR0 + 2 * IDR_MAX)
+static vmode_t vm[VM_MAX] = {
+    { "640x480", 0, 0, 0, 1, 80, 30 }, { "640x480x60", 0, 1, 0, 0, 80, 60 }, { "640x240", 1, 0, 0, 0, 80, 30 },
+    { "320x240", 2, 0, 0, 0, 40, 30 }, { "320x200", 3, 0, 0, 0, 40, 25 }, { "160x200", 4, 0, 0, 0, 20, 25 } };
+static const char *vm_labels[VM_MAX];
+static int vm_n;                                 /* 0: not built yet */
+static int vm_want_div = 4, vm_want_small = 0;   /* what k4510.cfg asked for, by scale: resolved when the list is built */
+static int vm_cells(int w, int h, int csz, int *cols, int *rows)   /* a grid K/OS can run: 25 rows, 132 columns */
+{
+    int cw = csz >= 2 ? 16 : 8, ch = csz == 0 ? 8 : csz == 3 ? 32 : 16;
+    *cols = w / cw; *rows = h / ch;
+    return *rows >= 25 && *cols >= 40 && *cols <= 132;
+}
+void settings_video_rebuild(void)
+{
+    int keep_div = vm_want_div, keep_small = vm_want_small;          /* the choice, by scale (settings_set keeps it) */
+    vm_n = VMODE_IDR0;
+    for (int i = 0; i < vicky_idr_count() && vm_n + 2 <= VM_MAX; i++) {
+        const vicky_idr *d = vicky_idr_at(i);
+        int wide = d->scale == 1 || d->w >= 1280, big = wide ? 3 : 1, small = wide ? 2 : 0, c, r;   /* as the ROM chooses (video_init) */
+        for (int k = 0; k < 2; k++) {
+            int csz = k ? small : big;
+            if (!vm_cells(d->w, d->h, csz, &c, &r)) continue;
+            if (k && vm_n > VMODE_IDR0 && vm[vm_n - 1].div == d->scale && vm[vm_n - 1].rows == r) continue;
+            vmode_t *e = &vm[vm_n++];
+            snprintf(e->label, sizeof e->label, "%dx%d %dx%d", d->w, d->h, c, r);
+            e->mode = 5; e->div = (unsigned char) d->scale; e->csz = (unsigned char) csz; e->rows60 = (unsigned char) k;
+            e->cols = (unsigned char) c; e->rows = (unsigned char) r;
+        }
+    }
+    for (int i = 0; i < vm_n; i++) vm_labels[i] = vm[i].label;
+    desc[SET_VIDEO_MODE].labels = vm_labels; desc[SET_VIDEO_MODE].nlabels = vm_n;
+    /* the choice: the same scale and cells if this panel has them; else the
+     * nearest scale it offers, the smaller cells only if asked for */
+    { int best = -1, bd = 1 << 30;
+      for (int i = VMODE_IDR0; i < vm_n; i++) {
+          int small = vm[i].csz == 0 || vm[i].csz == 2, dd = (vm[i].div - keep_div) * (vm[i].div - keep_div) * 4 + (small != keep_small);
+          if (dd < bd) { bd = dd; best = i; }
+      }
+      value[SET_VIDEO_MODE] = best >= 0 ? best : VMODE_640x480;
+      desc[SET_VIDEO_MODE].def = value[SET_VIDEO_MODE]; }
+}
+static void vm_ready(void) { if (!vm_n) settings_video_rebuild(); }
+const vmode_t *settings_vmode(int i) { vm_ready(); return i >= 0 && i < vm_n ? &vm[i] : NULL; }
+int settings_vmode_count(void) { vm_ready(); return vm_n; }
+int settings_vmode_find(int mode, int div, int csz)
+{
+    vm_ready();
+    if (mode < 5) { for (int i = 0; i < VMODE_IDR0; i++) if (vm[i].mode == mode && (mode || vm[i].csz == csz)) return i; return -1; }
+    for (int i = VMODE_IDR0; i < vm_n; i++) if (vm[i].div == div && vm[i].csz == csz) return i;
+    for (int i = VMODE_IDR0; i < vm_n; i++) if (vm[i].div == div) return i;   /* the grid VICKY fell back to */
+    return -1;
+}
+/* the old names, and the classic screens, as the scale K/OS boots in (it
+ * always runs in an IDR: 640x480 comes back as /2, the games' as /4) */
+static int vm_parse(const char *v)
+{
+    static const struct { const char *name; int div, small; } old[] = {
+        { "1440x1080 16x32", 1, 0 }, { "1440x1080 16x16", 1, 1 }, { "1440x1080", 1, 0 },
+        { "720x540 16x32", 2, 0 }, { "720x540 16x16", 2, 1 }, { "720x540", 2, 0 }, { "360x270", 4, 0 },
+        { "640x480", 2, 0 }, { "640x480x60", 2, 1 }, { "640x240", 2, 0 }, { "320x240", 4, 0 },
+        { "320x200", 4, 0 }, { "160x200", 4, 0 } };
+    if (v[0] == '/') { int d = atoi(v + 1); if (d < 1) d = 1; vm_want_div = d; vm_want_small = strstr(v, "small") != NULL; return 1; }
+    for (size_t i = 0; i < sizeof old / sizeof *old; i++) if (!strcasecmp(v, old[i].name)) { vm_want_div = old[i].div; vm_want_small = old[i].small; return 1; }
+    return 0;
+}
+
 const set_desc *settings_desc(set_id id) { return &desc[id]; }
 /* An ENUM may have choices the menu does not offer: settings_set still accepts
  * them (the machine can be in one, and the row must say so) but stepping and
  * the popup stop short. */
 int settings_choices(set_id id)
 {
-    if (id == SET_VIDEO_MODE) return VMODE_MENU_MAX + 1;
+    if (id == SET_VIDEO_MODE) vm_ready();
     return desc[id].nlabels;
 }
 int settings_get(set_id id) { return value[id]; }
@@ -125,7 +195,7 @@ int settings_get(set_id id) { return value[id]; }
 int settings_first(set_id id)
 {
     if (id == SET_CPU_CLOCK || id == SET_CPU_MEASURED) return CPUCLK_FASTEST;
-    if (id == SET_VIDEO_MODE) return VMODE_1440x1080;
+    if (id == SET_VIDEO_MODE) return VMODE_IDR0;     /* the IDRs: the classic screens are programs' */
     return 0;
 }
 static int clampv(set_id id, int v)
@@ -140,7 +210,16 @@ static int clampv(set_id id, int v)
     if (v > d->max) v = d->max;
     return v;
 }
-void settings_set(set_id id, int v) { v = clampv(id, v); if (value[id] != v) { value[id] = v; changed = 1; } }
+void settings_set(set_id id, int v)
+{
+    if (id == SET_VIDEO_MODE) vm_ready();
+    v = clampv(id, v);
+    if (id == SET_VIDEO_MODE && v >= VMODE_IDR0) {   /* an IDR: what is kept, by its scale */
+        int small = vm[v].csz == 0 || vm[v].csz == 2;
+        if (vm[v].div != vm_want_div || small != vm_want_small) { vm_want_div = vm[v].div; vm_want_small = small; changed = 1; }
+    }
+    if (value[id] != v) { value[id] = v; changed = 1; }
+}
 void settings_step(set_id id, int dir)
 {
     const set_desc *d = &desc[id]; int v = value[id];
@@ -152,6 +231,7 @@ void settings_step(set_id id, int dir)
 const char *settings_text(set_id id, char *buf, int max)
 {
     const set_desc *d = &desc[id]; int v = value[id];
+    if (id == SET_VIDEO_MODE) vm_ready();
     if (d->type == ST_ENUM || d->type == ST_CHORD) return d->labels[clampv(id, v)];
     if (d->type == ST_BOOL) return v ? "on" : "off";
     if (id == SET_AUDIO_VOLUME) snprintf(buf, (size_t) max, "%d%%", v);
@@ -162,11 +242,10 @@ const char *settings_text(set_id id, char *buf, int max)
 static const char *file_text(set_id id, char *buf, int max)   /* what goes in the file: raw numbers, enum names */
 {
     const set_desc *d = &desc[id];
-    /* 320x200 and 160x200 are live only.  A machine that came back from a
-     * power cycle in 160x200 is a place you cannot easily steer out of, so
-     * what reaches the file is never below 320x240. */
-    if (id == SET_VIDEO_MODE && value[id] > VMODE_SAVE_MAX)
-        { snprintf(buf, (size_t) max, "%s", vmode_names[VMODE_SAVE_TO]); return buf; }
+    /* The resolution by its scale, whatever the machine is in now: a program's
+     * 160x200 is a place you cannot easily steer out of after a power cycle,
+     * and K/OS always comes back in an integer display resolution. */
+    if (id == SET_VIDEO_MODE) { snprintf(buf, (size_t) max, "/%d%s", vm_want_div, vm_want_small ? " small" : ""); return buf; }
     if (d->type == ST_ENUM || d->type == ST_CHORD || d->type == ST_BOOL) return settings_text(id, buf, max);
     snprintf(buf, (size_t) max, "%d", value[id]); return buf;
 }
@@ -177,7 +256,12 @@ void settings_set_labels(set_id id, const char *const *labels, int n, int def)
     desc[id].def = def >= 0 && def < n ? def : 0;
     value[id] = desc[id].def;
 }
-void settings_defaults(void) { for (int i = 0; i < SET_COUNT; i++) value[i] = desc[i].def; changed = 0; }
+void settings_defaults(void)
+{
+    for (int i = 0; i < SET_COUNT; i++) value[i] = desc[i].def;
+    vm_want_div = 4; vm_want_small = 0; if (vm_n) settings_video_rebuild();
+    changed = 0;
+}
 int settings_changed(void) { return changed; }
 
 const char *settings_key(set_id id) { return (id >= 0 && id < SET_COUNT) ? desc[id].key : ""; }
@@ -185,10 +269,7 @@ static int find_key(const char *k) { for (int i = 0; i < SET_COUNT; i++) if (!st
 static int parse_value(set_id id, const char *v)
 {
     const set_desc *d = &desc[id];
-    if (d->labels == vmode_names) {                   /* the names before 2026-10-06: the larger cells */
-        if (!strcasecmp(v, "1440x1080")) return VMODE_1440x1080;
-        if (!strcasecmp(v, "720x540")) return VMODE_720x540;
-    }
+    if (id == SET_VIDEO_MODE) { vm_parse(v); return value[id]; }   /* resolved against this panel's list (settings_video_rebuild) */
     if (d->labels == smooth_names) {                  /* the names before 2026-09-14 */
         if (!strcasecmp(v, "sharp-fit")) return SMOOTH_INTEGER;
         if (!strcasecmp(v, "sharp") || !strcasecmp(v, "soft")) return SMOOTH_FIT;
@@ -239,8 +320,7 @@ int settings_load(const char *path)
         for (int i = 0; i < d->nlabels; i++) if (!strcasecmp(d->labels[i], "registers")) { value[SET_VIDEO_SIDEBARS] = i; break; }
         value[SET_VIDEO_PANEL] = PANEL_OFF; migrated = 1;
     }
-    /* and again on the way in, in case the file was edited by hand */
-    if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_TO;
+    settings_video_rebuild();                     /* the resolution asked for, as this panel has it */
     /* Fixed since 2026-10-06, their rows gone from F12 (Doc: "scaling --
      * default is integer always; full screen -- on always"): whatever an older
      * file says.  Vertical sync keeps its value, unseen. */

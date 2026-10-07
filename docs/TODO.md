@@ -116,8 +116,9 @@ carries them: packages.list has them since 2026-10-06).
 - [x] **Housekeeping, on battery** (2026-10-06, POWER_SAVE=aggressive in
       k4510-power-policy): Bluetooth soft-blocked, the NMI watchdog off,
       pcie_aspm powersupersave, PCI runtime PM, no turbo -- all at run time,
-      put back on mains.  Still open: `workqueue.power_efficient=1` (kernel
-      line only) and the webcam unbound.
+      put back on mains.  The camera is off for good (2026-10-06: udev
+      de-authorizes any video-class USB device, uvcvideo blacklisted).  Still
+      open: `workqueue.power_efficient=1` (kernel line only).
 - [ ] **The frame loop at rest.** After a few still seconds, 30 or 20 frames
       a second instead of 60 (back at once on a key or a change): fewer
       wakeups for the CPU and the GPU.

@@ -579,8 +579,11 @@ static int apple_open_held, apple_closed_held;
 static const char *const apple_vmode[] = { "Mono", "Color", "Text", "TV", "HalfDim", "Amber", "Green", "White" };
 static int to_machine(int v, int full) { int m = (v - geo_b) * full / (full - 2 * geo_b); return m < 0 ? 0 : m >= full ? full - 1 : m; }
 /* the menu is drawn at 640x480 whatever the glass: the pointer is taken there */
-static int ui_mx(int x) { return x * UI_W / vicky_glass_w(); }
-static int ui_my(int y) { return y * UI_H / vicky_glass_h(); }
+/* Where the menu lies on the glass, in glass pixels: whole menu pixels and
+ * centred since 2026-10-06, so not always the whole picture (set as it is drawn). */
+static int menu_gx0, menu_gy0, menu_gw, menu_gh;
+static int ui_mx(int x) { return menu_gw > 0 ? (x - menu_gx0) * UI_W / menu_gw : x * UI_W / vicky_glass_w(); }
+static int ui_my(int y) { return menu_gh > 0 ? (y - menu_gy0) * UI_H / menu_gh : y * UI_H / vicky_glass_h(); }
 static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse(ui_mx(mouse_x), ui_my(mouse_y), mouse_btn, wheel_acc); }
 /* A click on the Apple control panel: its button becomes a Tube key event (the
  * same io_apple_key the keyboard uses) or a disk relaunch.  Open/Closed Apple
@@ -2419,7 +2422,7 @@ tex_done:
            * crappy ... perhaps it should always be the same one, like in modes
            * 0, 1 and 2"). */
           if (open) {
-              static SDL_Texture *mtex, *mpre; static int mpw, mph;
+              static SDL_Texture *mtex;
               if (!mtex && (mtex = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, UI_W, UI_H)) != NULL)
                   SDL_SetTextureScaleMode(mtex, SDL_ScaleModeNearest);
               void *mp; int mpitch;
@@ -2430,30 +2433,31 @@ tex_done:
                   }
                   SDL_UnlockTexture(mtex);
               }
+              /* Whole menu pixels only (Doc, 2026-10-06: the menu looked striped,
+               * as if scanlines were on).  It was drawn at the picture's size:
+               * 2.25x on the Dell's 1080 lines, a 2x copy smoothed up the last
+               * quarter, so every fourth row came out soft.  Now the largest
+               * whole multiple that fits the picture, hard pixels, centred on it
+               * -- 2x there, 1280x960 inside 1440x1080. */
               float esx = 1.0f, esy = 1.0f; double eff2;
               if (custom) eff2 = sc; else { SDL_RenderGetScale(ren, &esx, &esy); eff2 = esy; }
               double me = eff2 * gh / (double) UI_H; int n = (int) me, done = 0;   /* device pixels a menu pixel */
-              if (mtex && n >= 1 && me - n > 0.02 && SDL_RenderTargetSupported(ren)) {
-                  int tw = UI_W * n, th = UI_H * n;
-                  if (!mpre || mpw != tw || mph != th) {
-                      if (mpre) SDL_DestroyTexture(mpre);
-                      mpre = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_TARGET, tw, th);
-                      if (mpre) { SDL_SetTextureScaleMode(mpre, SDL_ScaleModeLinear); SDL_SetTextureBlendMode(mpre, SDL_BLENDMODE_BLEND); }
-                      mpw = tw; mph = th;
+              if (mtex && n >= 1) {
+                  int px0, py0, px1, py1;                                 /* the picture, in device pixels */
+                  if (custom) { px0 = pic_x; py0 = pic_y; px1 = pic_x + pic_w; py1 = pic_y + pic_h; }
+                  else { SDL_RenderLogicalToWindow(ren, (float) dr.x, (float) dr.y, &px0, &py0);
+                         SDL_RenderLogicalToWindow(ren, (float)(dr.x + dr.w), (float)(dr.y + dr.h), &px1, &py1); }
+                  while (n > 1 && (UI_W * n > px1 - px0 || UI_H * n > py1 - py0)) n--;
+                  SDL_Rect md = { px0 + (px1 - px0 - UI_W * n) / 2, py0 + (py1 - py0 - UI_H * n) / 2, UI_W * n, UI_H * n };
+                  if (px1 > px0 && py1 > py0) {                          /* the same rect in glass pixels, for the mouse */
+                      menu_gx0 = (md.x - px0) * gw / (px1 - px0); menu_gw = md.w * gw / (px1 - px0);   /* mouse_x spans the picture (to_machine) */
+                      menu_gy0 = (md.y - py0) * gh / (py1 - py0); menu_gh = md.h * gh / (py1 - py0);
                   }
-                  if (mpre) {
-                      if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
-                      if (SDL_SetRenderTarget(ren, mpre) == 0) {
-                          SDL_SetRenderDrawColor(ren, 0, 0, 0, 0); SDL_RenderClear(ren);
-                          SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_NONE);
-                          SDL_Rect whole = { 0, 0, tw, th };
-                          SDL_RenderCopy(ren, mtex, NULL, &whole);
-                          SDL_SetRenderTarget(ren, NULL);
-                          if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
-                          SDL_RenderCopy(ren, mpre, NULL, &dr);
-                          done = 1;
-                      } else if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
-                  }
+                  if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
+                  SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_BLEND);
+                  SDL_RenderCopy(ren, mtex, NULL, &md);
+                  if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
+                  done = 1;
               }
               if (mtex && !done) { SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_BLEND); SDL_RenderCopy(ren, mtex, NULL, &dr); }
           }

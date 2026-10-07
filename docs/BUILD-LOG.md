@@ -11670,3 +11670,16 @@ supply events from racing.  On the Dell, lit, at the prompt: 4.29 W ->
 4.22 W -- little at idle, as expected now that the machine is mostly
 asleep; no turbo is what holds a busy machine's draw down.  POWER_SAVE=moderate
 keeps only the preference and the profile.
+
+## 2026-10-06 -- the F12 menu in whole pixels
+
+Doc: "make sure the F12 menu is not using [scanlines] to display itself
+(which seems to be the case)".  Scanlines went on 2026-09-14 (the
+video.scanlines line still in his k4510.cfg is a leftover nobody reads).
+What he saw was the menu's scaling: its 640x480 layer was drawn at the
+picture's size, 2.25x on the Dell's 1080 lines, as a 2x copy smoothed up
+the last quarter, so every fourth row of it came out soft -- stripes.  Now
+the largest whole multiple that fits the picture, hard pixels, centred on
+it: 2x there, 1280x960 inside 1440x1080, with the dimmed picture round it.
+The pointer follows (menu_gx0..: where the menu lies on the glass).
+Checked under Xvfb at 1920x1080 with the whole-display screenshot; uitest.

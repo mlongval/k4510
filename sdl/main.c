@@ -760,8 +760,10 @@ static void machine_frame(int vol)            /* F, and every frame while runnin
 
 /* An 8-bit sprite pointer for the host cursor: the same arrow MOUSETEST draws
  * as a VICKY sprite (demo/mousetest.c), white with a one-pixel black outline,
- * scaled up so the pixels read as chunky (Doc, 2026-09-11).  Built once and
- * set as the window cursor; the Mouse pointer setting shows or hides it. */
+ * scaled up so the pixels read as chunky (Doc, 2026-09-11).  Set as the window
+ * cursor; the Mouse pointer setting shows or hides it.  Its white and black
+ * are the palette's entries 1 and 0, so it is an amber arrow under AMBER
+ * (Doc, 2026-10-07): built again whenever the palette changes. */
 #define ARROW_W 8
 #define ARROW_H 12
 #define ARROW_SC 3                                  /* each source pixel -> ARROW_SC x ARROW_SC */
@@ -770,19 +772,22 @@ static int arrow_on(int x, int y) { return (x >= 0 && x < ARROW_W && y >= 0 && y
 static void set_retro_cursor(void)
 {
     SDL_Surface *sf = SDL_CreateRGBSurfaceWithFormat(0, ARROW_W * ARROW_SC, ARROW_H * ARROW_SC, 32, SDL_PIXELFORMAT_ARGB8888);
-    SDL_Cursor *cur;
+    static SDL_Cursor *cur;
+    SDL_Cursor *old = cur;
+    Uint32 fill = 0xFF000000u | vicky_palette_rgb(1), line = 0xFF000000u | vicky_palette_rgb(0);
     if (!sf) return;
     for (int sy = 0; sy < ARROW_H; sy++) for (int sx = 0; sx < ARROW_W; sx++) {
         Uint32 c = 0;                              /* transparent */
-        if (arrow_on(sx, sy)) c = 0xFFFFFFFFu;     /* white fill */
+        if (arrow_on(sx, sy)) c = fill;            /* white fill: entry 1 */
         else { int edge = 0; for (int dy = -1; dy <= 1; dy++) for (int dx = -1; dx <= 1; dx++) if (arrow_on(sx + dx, sy + dy)) edge = 1;
-               if (edge) c = 0xFF000000u; }        /* black outline */
+               if (edge) c = line; }               /* black outline: entry 0 */
         for (int py = 0; py < ARROW_SC; py++) for (int px = 0; px < ARROW_SC; px++)
             ((Uint32 *)sf->pixels)[(sy * ARROW_SC + py) * (sf->pitch / 4) + sx * ARROW_SC + px] = c;
     }
     cur = SDL_CreateColorCursor(sf, 0, 0);         /* hotspot at the tip */
     SDL_FreeSurface(sf);
-    if (cur) SDL_SetCursor(cur);                   /* SDL owns it for the run */
+    if (cur) SDL_SetCursor(cur);
+    if (old && old != cur) SDL_FreeCursor(old);    /* the last palette's */
 }
 
 static SDL_GameController *pad;
@@ -1344,6 +1349,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               if (!strcmp(io_title(), "K/OS")) { for (const char *c = pal_pending; *c; c++) kbd_push((uint8_t) *c); pal_pending[0] = 0; } }
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
           if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
+          { static uint32_t cur_gen; if (vicky_palette_gen() != cur_gen) { cur_gen = vicky_palette_gen(); set_retro_cursor(); } }   /* the arrow in the palette's colours */
           { static int cur_shown = -1; int want = (settings_get(SET_INPUT_MOUSE_SHOW) && (!grabbed || mouse_host_wanted())) ? 1 : 0;   /* the host pointer: shown per the setting, hidden while captured -- unless the program asks ($D110 bit1) */
             mouse_host_pointer(want);                                  /* $D110: so a program's own pointer is not a second one */
             if (want != cur_shown) { SDL_ShowCursor(want ? SDL_ENABLE : SDL_DISABLE); cur_shown = want; } }

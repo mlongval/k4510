@@ -251,10 +251,11 @@ static const uint8_t arrowspr[128] = {   /* 16x16, 4 bpp: the arrow (1) with a b
 static unsigned px = 0xFFFF, py; static uint8_t ps = 0xFF;   /* the pointer as event() last wrote it: written again only when it moves */
 static void ptr_on(void)
 {
-    uint8_t i;
+    uint8_t i, pcol[6];
     px = 0xFFFF; ps = 0xFF;                            /* event() writes the pointer whole again */
     for (i = 0; i < 128; i++) far_poke(SPRDATA + i, arrowspr[i]);
-    pal(17, 255, 255, 255); pal(18, 0, 0, 0);
+    for (i = 0; i < 6; i++) { REG(V_PALIDX) = (uint8_t)(i < 3); pcol[i] = REG(V_PALR + i % 3); }   /* the pointer in the palette's */
+    for (i = 0; i < 6; i++) { REG(V_PALIDX) = (uint8_t)(17 + i / 3); REG(V_PALR + i % 3) = pcol[i]; }   /* own white and black: amber under AMBER */
     far_poke(SPRTAB + 4, (uint8_t)SPRDATA); far_poke(SPRTAB + 5, (uint8_t)(SPRDATA >> 8)); far_poke(SPRTAB + 6, (uint8_t)(SPRDATA >> 16)); far_poke(SPRTAB + 7, 0);
     far_poke(SPRTAB + 8, 0x31); far_poke(SPRTAB + 9, 0x05); far_poke(SPRTAB + 10, 1);
     REG(MOUSEPTR) = 2;                                 /* the host's pointer, captured or not */

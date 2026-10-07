@@ -29,7 +29,9 @@ static void make_pointer(void)
         }
         far_poke(d++, (v[0] << 4) | v[1]);
     }
-    pal(17, 255, 255, 255); pal(18, 0, 0, 0);            /* PALOFS 1: 16+pixel */
+    { uint8_t i, c[3];                                    /* PALOFS 1: 16+pixel -- entries 1 and 0's colours, */
+      for (i = 0; i < 2; i++) { REG(V_PALIDX) = (uint8_t)(1 - i);   /* so the arrow is amber under AMBER (2026-10-07) */
+          c[0] = REG(V_PALR); c[1] = REG(V_PALG); c[2] = REG(V_PALB); pal((uint8_t)(17 + i), c[0], c[1], c[2]); } }
     far_poke(SPRTAB + 4, (uint8_t) SPRDATA); far_poke(SPRTAB + 5, (uint8_t)(SPRDATA >> 8)); far_poke(SPRTAB + 6, (uint8_t)(SPRDATA >> 16)); far_poke(SPRTAB + 7, 0);
     far_poke(SPRTAB + 8, 0x31);                           /* enable, 4 bpp, after layer 3 */
     far_poke(SPRTAB + 9, 0x05);                           /* 16 x 16 */

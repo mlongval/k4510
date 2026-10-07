@@ -1383,7 +1383,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { static int menu_was; int m = menu_is_open();               /* the menu is the machine's outside: it frees the pointer */
           if (m && !menu_was) { grab(0); palettes_scan(); }   /* the Palette rows: what is on the disk now */
           if (!m && pal_pending[0]) { extern const char *io_title(void);
-              if (!strcmp(io_title(), "K/OS")) { for (const char *c = pal_pending; *c; c++) kbd_push_machine((uint8_t) *c); pal_pending[0] = 0; } }   /* the machine's
+              if (!strcmp(io_title(), "K/OS")) { { char b[80]; snprintf(b, sizeof b, "palette: typed at the K/OS prompt: %.30s", pal_pending); mlog(b); } for (const char *c = pal_pending; *c; c++) kbd_push_machine((uint8_t) *c); pal_pending[0] = 0; }
+              else { static Uint32 said; if (SDL_GetTicks() - said > 5000) { said = SDL_GetTicks(); char b[96]; snprintf(b, sizeof b, "palette: waiting -- %.40s is running, not the K/OS prompt", io_title()); mlog(b); } } }   /* the machine's
                    * queue, not kbd_push: with the Terminal screen up that typed PALETTE LOAD into its session (the Dell, 2026-10-07) */
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
           if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
@@ -1641,6 +1642,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
           host_open_was = open; host_reap(); }
         if (io_palname_new) {                                         /* the machine loaded a palette (or PALETTE RESET): kept, */
             io_palname_new = 0; settings_set_palette(io_palname);    /* written at once -- a power cut should not lose it */
+            { char b[96]; snprintf(b, sizeof b, "palette: the machine loaded '%.60s'; kept", io_palname); mlog(b); }
             if (settings_changed()) settings_save(cfg);
         }
         host_battery_poll();                                          /* $D53A, every ten seconds */

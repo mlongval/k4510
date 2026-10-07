@@ -323,6 +323,52 @@ Blits are 8 bpp (one byte per pixel) in this version.
 
 `$A0-$AF`**`COLSL`** read: sprite-layer collision bits (sprite n over a non-transparent layer pixel). All 16 cleared on read of `$A0`.
 
+`$C0-$DF`**`THE`** GLASS (2026-10-07, docs/design-video-foundations.md). The host finds the panel and tells VICKY (vicky_set_panel); she works out the canvas – the panel, or its largest 4:3 – and the integer display resolutions (IDRs) it divides into.
+
+`$C0,C1`**`PANELW`** R the panel’s pixels
+
+`$C2,C3`**`PANELH`** R
+
+`$C4,C5`**`CANVW`** R the canvas
+
+`$C6,C7`**`CANVH`** R
+
+`$C8`**`IDRN`** R how many IDRs it offers, largest first
+
+`$C9`**`IDRIX`** RW which one `$CA-$CF` describe (0 = the largest)
+
+`$CA`**`IDRS`** R its scale: panel pixels a machine pixel, each way
+
+`$CB`**`IDRF`** R bit0 HD text possible there
+
+`$CC,CD`**`IDRW`** R its width
+
+`$CE,CF`**`IDRH`** R
+
+`$D0`**`GLASSCTL`** RW what CTRL bit5’s glass is. bits0-1: 0 CTRL’s own bits (1, 2, 4 – the canvas /1, /2, /4: MODE 5-7); 1 the IDR at scale IDRSEL; 2 software, SWW x SWH. bits4-5, how software shows: 0 the largest whole scale, 1 fit (sharp-bilinear: the whole multiple, then smoothing); 2, stretched to 4:3, is reserved and fits for now. bit6 reserved (scanlines).
+
+`$D1`**`IDRSEL`** RW the scale wanted: one not offered becomes the next larger scale that is, else the largest offered
+
+`$D2,D3`**`SWW`** RW a software resolution, 160-1920 wide } clamped to the
+
+`$D4,D5`**`SWH`** RW 100-1200 high } limits and panel
+
+`$D6,D7`**`GLASSW`** R the glass CTRL and the above give now
+
+`$D8,D9`**`GLASSH`** R (GLASSCTL 1 or 2 implies CTRL bit5, here and for TXT)
+
+`$DA`**`SCALE`** R its whole scale on the panel (0: not an IDR)
+
+`$DB`**`TXTCELL`** W a text cell, as LCTRL’s field: 0 8x8, 1 8x16, 2 16x16, 3 16x32 (text32)
+
+`$DC`**`TXTCOLS`** R whole cells of it on that glass (255 at most)
+
+`$DD`**`TXTROWS`** R
+
+`$DE`**`TXTVPAD`** R spare lines above them: half the spare, rounded down
+
+`$DF`**`TXTHPAD`** R spare pixel columns to their left, likewise A text32 layer paints the spare pixels round a whole grid in the nearest cell’s background; K/OS scrolls layer 0 by -TXTHPAD, -TXTVPAD to centre its console.
+
 `$B0-$B7`**`LAYOUT`** the status bands and the console between them. VICKY is the one owner of where they are (2026-10-01, Doc: "A then B"; docs/notes/status-bars.md). Writes say what is wanted, reads of `$B5-$B7` say what is in force:
 
 `$B0`**`BANDTOP`** a program’s top band, rows (used while BANDCTL bit1)

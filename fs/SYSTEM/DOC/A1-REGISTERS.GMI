@@ -409,6 +409,63 @@ hit another sprite this frame). All 16 cleared on read of $90.
 $A0-$AFCOLSL read: sprite-layer collision bits (sprite n over a
 non-transparent layer pixel). All 16 cleared on read of $A0.
 
+$C0-$DFTHE GLASS (2026-10-07, docs/design-video-foundations.md). The host
+finds the panel and tells VICKY (vicky_set_panel); she works out the canvas -
+the panel, or its largest 4:3 - and the integer display resolutions (IDRs) it
+divides into.
+
+$C0,C1PANELW R the panel's pixels
+
+$C2,C3PANELH R
+
+$C4,C5CANVW R the canvas
+
+$C6,C7CANVH R
+
+$C8IDRN R how many IDRs it offers, largest first
+
+$C9IDRIX RW which one $CA-$CF describe (0 = the largest)
+
+$CAIDRS R its scale: panel pixels a machine pixel, each way
+
+$CBIDRF R bit0 HD text possible there
+
+$CC,CDIDRW R its width
+
+$CE,CFIDRH R
+
+$D0GLASSCTL RW what CTRL bit5's glass is. bits0-1: 0 CTRL's own bits (1, 2, 4
+- the canvas /1, /2, /4: MODE 5-7); 1 the IDR at scale IDRSEL; 2 software, SWW
+x SWH. bits4-5, how software shows: 0 the largest whole scale, 1 fit
+(sharp-bilinear: the whole multiple, then smoothing); 2, stretched to 4:3, is
+reserved and fits for now. bit6 reserved (scanlines).
+
+$D1IDRSEL RW the scale wanted: one not offered becomes the next larger scale
+that is, else the largest offered
+
+$D2,D3SWW RW a software resolution, 160-1920 wide } clamped to the
+
+$D4,D5SWH RW 100-1200 high } limits and panel
+
+$D6,D7GLASSW R the glass CTRL and the above give now
+
+$D8,D9GLASSH R (GLASSCTL 1 or 2 implies CTRL bit5, here and for TXT)
+
+$DASCALE R its whole scale on the panel (0: not an IDR)
+
+$DBTXTCELL W a text cell, as LCTRL's field: 0 8x8, 1 8x16, 2 16x16, 3 16x32
+(text32)
+
+$DCTXTCOLS R whole cells of it on that glass (255 at most)
+
+$DDTXTROWS R
+
+$DETXTVPAD R spare lines above them: half the spare, rounded down
+
+$DFTXTHPAD R spare pixel columns to their left, likewise A text32 layer paints
+the spare pixels round a whole grid in the nearest cell's background; K/OS
+scrolls layer 0 by -TXTHPAD, -TXTVPAD to centre its console.
+
 $B0-$B7LAYOUT the status bands and the console between them. VICKY is the one
 owner of where they are (2026-10-01, Doc: "A then B";
 docs/notes/status-bars.md). Writes say what is wanted, reads of $B5-$B7 say

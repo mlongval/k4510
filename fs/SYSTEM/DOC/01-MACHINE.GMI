@@ -50,9 +50,21 @@ are drawn into the same glass, doubled and centred, so the raster is always
 ways in the menu: 640x480, eighty columns by thirty in tall 8x16 letters, and
 640x480x60, eighty by sixty in 8x8 -- the screen the machine had before it
 settled on one font. MODE 0 60 and MODE 0 30 choose them at the prompt, and
-the machine remembers which. The HD screens do the same: 1440x1080 (MODE 5) in
-16x32 cells, or 16x16 with MODE 5 67; 720x540 (MODE 6) in 8x16, or 8x8 with
-MODE 6 67 -- ninety columns by thirty-three rows, or by sixty-seven.
+the machine remembers which. The HD screens are the panel's own: the machine
+finds the display's native size, takes the largest 4:3 in it (or all of it,
+F12 -> Video -> Canvas), and divides that by a whole number -- the integer
+display resolutions, every machine pixel the same square of panel pixels. A
+1920x1080 panel offers 1440x1080 (MODE /1), 720x540 (/2), 480x360 (/3) and
+360x270 (/4); a 1366x768 one 1024x768, 512x384 and 341x256; a 4K panel starts
+at 1440x1080 shown twice over, since a larger picture would cost more than a
+frame to draw. MODE alone lists what this panel offers; MODE 5, 6 and 7 are
+/1, /2 and /4. Each comes in larger cells and, with a row count over forty
+after it (MODE /2 67), smaller ones: at 1440x1080 sixteen wide, 90 columns by
+33 or 67 rows; at 720x540 eight wide, drawn with the panel's pixels (below),
+90 by 33 or 67. K/OS keeps to 132 columns and 25 rows at least. How large a
+picture is too large depends on the computer: !k4510-vidcap times this one and
+writes its pixel cap into k4510.cfg, so a slow laptop offers fewer and smaller
+resolutions rather than a machine that cannot keep up.
 *
 
  Sound: MELODY -- an OPL2, the Yamaha YM3812, at $D480: nine FM voices wired
@@ -239,20 +251,21 @@ list opened.
 The F12 menu: categories on the left, the Video page on the right.
 
 Video
-the border; resolution, which is the MODE command's knob: 1440x1080 and
-720x540, each with large (16x32) or small (16x16) text, and 360x270 -- the
-whole dividers of a 1920x1080 panel's 4:3 (a program may still put the machine
-in 640x480 and the others, and the row says so); font, the text's face at the
-panel's own pixels. At 1440x1080 it is the machine's font, 16 wide; at 720x540
-each 8x16 cell is drawn as 16x32 (an 8x8 one as 16x16) while the graphics stay
-the machine's, and a character a program has redefined keeps its own shape.
-The faces: Zhekov Bold (to begin with) and Zhekov -- Dimitar Zhekov's Terminus
-Font, renamed as its licence asks of a changed copy -- Spleen, IBM VGA,
-Atkinson Mono (the Braille Institute's face for low vision), Go Mono, Fira
-Mono, Proggy Clean, Tamzen Bold, or unscii, the machine's own drawn doubled;
-and placement, which is the section after next. The picture is always full
-screen and scaled by a whole number, every pixel the same size. The figures in
-this book are taken with the effects off.
+the border; resolution, which is the MODE command's knob: this panel's integer
+display resolutions, each with its text grid ("720x540 90x33"), kept by scale
+so a machine moved to another panel comes up at the same /n (a program may
+still put the machine in 640x480 and the others, and the row says so); canvas,
+4:3 or the whole panel; font, the text's face at the panel's own pixels. At
+scale 1 it is the machine's font, 16 wide; at an even scale each 8x16 cell is
+drawn as 16x32 (an 8x8 one as 16x16) while the graphics stay the machine's,
+and a character a program has redefined keeps its own shape. The faces: Zhekov
+Bold (to begin with) and Zhekov -- Dimitar Zhekov's Terminus Font, renamed as
+its licence asks of a changed copy -- Spleen, IBM VGA, Atkinson Mono (the
+Braille Institute's face for low vision), Go Mono, Fira Mono, Proggy Clean,
+Tamzen Bold, or unscii, the machine's own drawn doubled; and placement, which
+is the section after next. The picture is always full screen and scaled by a
+whole number, every pixel the same size. The figures in this book are taken
+with the effects off.
 
 Terminal
 status bands, on or off (a row at the top, a row at the bottom) (The status
@@ -369,8 +382,9 @@ Border colour -- video.border_colour
 0 to 15; to begin with, 11
 
 Resolution -- video.mode
-1440x1080 16x32, 1440x1080 16x16, 720x540 16x32, 720x540 16x16, 360x270; to
-begin with, 360x270
+
+Canvas -- video.base
+4:3, full; to begin with, 4:3
 
 Font -- video.hdfont
 unscii, Zhekov Bold, Zhekov, Spleen, IBM VGA, Atkinson Mono, Go Mono, Fira

@@ -88,14 +88,10 @@ On a desktop, the other side is your own computer and has whatever you have put 
 <td style="text-align: left;">what <code>ftp://</code>, <code>sftp://</code> and <code>SSH</code> go through</td>
 </tr>
 <tr class="odd">
-<td style="text-align: left;"><code>tek40xx</code></td>
-<td style="text-align: left;">a Tektronix 4010 terminal, below</td>
-</tr>
-<tr class="even">
 <td style="text-align: left;">telnetd</td>
 <td style="text-align: left;">bound to the machine itself and nothing else</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;">NetworkManager, Tailscale</td>
 <td style="text-align: left;">the network: F12 → Host</td>
 </tr>
@@ -104,7 +100,7 @@ On a desktop, the other side is your own computer and has whatever you have put 
 
 </div>
 
-**The consoles.** Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are Linux text consoles, 80 by 25 in the IBM PC’s own font, where the Tektronix lives; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc, or F12 → Quit) drops you to a Linux shell on the machine’s own console rather than to nothing, and F12 has a *Shut down the computer* row because there is no desktop to go back to. The power button performs a clean shutdown. Closing the lid does what F12 → Host → *Lid closed* says: *keep running*, to begin with, or *suspend*. (Quit to the Linux shell and nothing is keeping the machine awake: there the lid suspends.) The consoles speak UTF-8 and follow the keyboard layout chosen in F12.
+**The consoles.** Ctrl+Alt+F1 is the machine; Ctrl+Alt+F2 to F6 are Linux text consoles, 80 by 25 in the IBM PC’s own font; Ctrl+Alt+F1 comes back. (On a laptop whose F-keys are media keys, add Fn.) Quitting the emulator (Shift+Esc, or F12 → Quit) drops you to a Linux shell on the machine’s own console rather than to nothing, and F12 has a *Shut down the computer* row because there is no desktop to go back to. The power button performs a clean shutdown. Closing the lid does what F12 → Host → *Lid closed* says: *keep running*, to begin with, or *suspend*. (Quit to the Linux shell and nothing is keeping the machine awake: there the lid suspends.) The consoles speak UTF-8 and follow the keyboard layout chosen in F12.
 
 **The network.** F12 → Host shows the computer’s name and address, and *Wi-Fi / network setup* opens NetworkManager’s own screen on a spare console to join a network; the machine is back when you leave it. A network joined once is remembered.
 
@@ -138,25 +134,13 @@ It refuses a partition on a USB disk, and one on the stick itself, and it touche
 
 The whole system is read into RAM at boot here too — everything on the `K4510` partition, which is why nothing large should be kept on it beside the system itself.
 
-## A Tektronix beside the machine
-
-`tek40xx` (Ian Schofield’s, GPL-3) is a Tektronix 4010/4014 storage-tube terminal that is also a telnet client. It is on the K4510’s Linux and in the container because of what a storage tube is *for*: a PiDP-11 answers on telnet ports, and a machine of that vintage deserves a screen of that vintage to draw on.
-
-    tek HOST [PORT]
-
-on the second console — full screen on a bare console, in a window under a desktop. And without any PDP-11 at all:
-
-    tekplay NAME|FILE...
-
-plays Tektronix plot files at a 9600-baud pace, which is the right speed to watch one being drawn. With no argument it plays every plot that ships; `HOME` clears the screen and `END` quits. Nothing in the emulator changed for any of this: it is a second program on the same computer, which is exactly what a second terminal was in 1975.
-
 ## From another computer
 
 The machine’s Linux answers ssh (as the user `k4510`), which is how the menu file is edited once the machine is locked, and how a screenshot is taken from across the room:
 
     ssh k4510@machine k4510-shot
 
-writes one, as PrtSc would, into `shots/`. And the machine can be typed into from there, as if at its keyboard:
+takes one as PrtSc would and prints the name it was saved under, in `shots/`; `k4510-shot --full` takes the whole display. And the machine can be typed into from there, as if at its keyboard:
 
     ssh k4510@machine "k4510-type 'BOOK\n'"
     ssh k4510@machine k4510-type --key down down enter

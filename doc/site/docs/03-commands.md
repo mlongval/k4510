@@ -138,17 +138,8 @@ The machine monitor, Wozmon’s grammar with 28-bit addresses. With a line, runs
 
 ## Languages
 
-**`APPLE [disk]`** — *ROM*  
-An Apple IIe on the Tube ([Chapter 5, The Tube](06-tube.md)): LinApple’s emulation, drawn on VICKY’s bitmap. With a disk image (.dsk, .woz and the rest, kept in `/DISK/APPLE`) it boots that; alone, DOS 3.3’s master. The Alts are the Apple keys, the keypad the joystick, Ctrl+Alt+R is Reset.
-
 **`BBC`** — *ROM*  
 BBC BASIC on the Tube ([Chapter 5, The Tube](06-tube.md)). Also BBC.
-
-**`CPM [command]`** — *ROM*  
-CP/M 2.2 on the Z80. A command runs at boot.
-
-**`DOOM`** — *ROM*  
-DOOM on the Tube, drawn on VICKY’s bitmap and heard through MELODY and the DigiMAX ([Chapter 5, The Tube](06-tube.md)). Its game data lives in `/DISK/DOOM`: WADCHOOSER in `/APPS/DOOM` fetches a game and picks the one to play.
 
 **`EHBASIC`** — */LANG/EHBASIC*  
 Enhanced BASIC with the machine’s graphics ([Chapter 4, EhBASIC](04-ehbasic.md)).
@@ -237,9 +228,6 @@ JIM, the terminal, speaking PETSCII.
 
 **`PROG [-s] [-v] [name]`** — */SYSTEM/BIN*  
 The programmer’s front end, in EDIT’s manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler’s messages under the text; -v VI’s keys ([Chapter 9, The Editors](11-editors.md)).
-
-**`RADIO [words]`** — *ROM*  
-The Navidrome sidebar’s player, from the prompt: alone, what is playing and the words; PLAY \[playlist\], ALBUM name, ARTIST name, SONG words, SEARCH words, NEXT, PAUSE, RESUME, OFF. It plays whether or not the sidebar is on the glass; the volume is the machine’s.
 
 **`RANGER`** — */SYSTEM/BIN*  
 The miller-column file manager.

@@ -50,7 +50,9 @@ are drawn into the same glass, doubled and centred, so the raster is always
 ways in the menu: 640x480, eighty columns by thirty in tall 8x16 letters, and
 640x480x60, eighty by sixty in 8x8 -- the screen the machine had before it
 settled on one font. MODE 0 60 and MODE 0 30 choose them at the prompt, and
-the machine remembers which.
+the machine remembers which. The HD screens do the same: 1440x1080 (MODE 5) in
+16x32 cells, or 16x16 with MODE 5 67; 720x540 (MODE 6) in 8x16, or 8x8 with
+MODE 6 67 -- ninety columns by thirty-three rows, or by sixty-seven.
 *
 
  Sound: MELODY -- an OPL2, the Yamaha YM3812, at $D480: nine FM voices wired
@@ -58,12 +60,9 @@ the AdLib's way, an address port, a data port and a status register you poll.
 Any AdLib register list or instrument patch therefore means what it says on
 this machine. A four-channel sound sequencer at $D5E0 plays through it, in the
 BBC Micro's idiom, which is what BBC BASIC's SOUND and Mad Pascal's Sound use.
-Beside it at $D4C0 is a DigiMAX: four 8-bit DACs for sampled sound, with
-nothing between a program and the loudspeaker but the register -- $80 is
-silence, and a sound is that number changing quickly. DOOM's gunfire comes out
-of DAC 0. FRED, the floating-point MATH unit, sits beside it, which the BASICs
-and LOGO lean on. (The machine had four SID chips until September 2026.
-Appendix C, The Sound, and What It Took is the whole story.)
+FRED, the floating-point MATH unit, sits beside it, which the BASICs and LOGO
+lean on. (The machine had four SID chips until September 2026. Appendix C, The
+Sound, and What It Took is the whole story.)
 => A3-SOUND.GMI Appendix C, The Sound, and What It Took
 
  
@@ -192,7 +191,8 @@ the machine measure it.
 > PageUp) -- one key cannot do it by accident. F12 opens the settings menu; F8
 > pauses the machine and turns the keyboard into a debugger's. PrtSc takes a
 > screenshot -- the screen flashes, and the picture is in shots/ beside the
-> emulator.
+> emulator: the machine's own, and beside it a -full one of the whole display,
+> border and all.
 
 ## The keyboard
 
@@ -230,22 +230,29 @@ on F7 until the autumn of 2026, a habit from the Commodore's keyboard; most
 emulators keep theirs on F12, and F7 and F8 are ordinary keys now, for the
 programs that want all ten. Input -> Menu key puts it back on F7 for fingers
 that remember. A setting with a list of choices opens that list over the
-panes, and applies as the cursor passes each one -- the scaling changes under
-the menu so you can see it -- with Escape putting back whatever was there when
-the list opened.
+panes, and applies as the cursor passes each one -- the font changes under the
+menu so you can see it -- with Escape putting back whatever was there when the
+list opened.
 
 => IMG/MENU.PIC The F12 menu
 
 The F12 menu: categories on the left, the Video page on the right.
 
 Video
-the border; resolution, which is the MODE command's knob; scaling: integer, to
-begin with (a whole-number multiple, so every pixel is the same size on the
-glass, with a border where the window is not an exact multiple), or fit to
-display (as large as the window takes; the pixels may come out uneven) -- both
-hard pixels, never blurred; full screen; vertical sync, off to begin with --
-see the aside below; and placement and side panel, which are the section after
-next. The figures in this book are taken with the effects off.
+the border; resolution, which is the MODE command's knob: 1440x1080 and
+720x540, each with large (16x32) or small (16x16) text, and 360x270 -- the
+whole dividers of a 1920x1080 panel's 4:3 (a program may still put the machine
+in 640x480 and the others, and the row says so); font, the text's face at the
+panel's own pixels. At 1440x1080 it is the machine's font, 16 wide; at 720x540
+each 8x16 cell is drawn as 16x32 (an 8x8 one as 16x16) while the graphics stay
+the machine's, and a character a program has redefined keeps its own shape.
+The faces: Zhekov Bold (to begin with) and Zhekov -- Dimitar Zhekov's Terminus
+Font, renamed as its licence asks of a changed copy -- Spleen, IBM VGA,
+Atkinson Mono (the Braille Institute's face for low vision), Go Mono, Fira
+Mono, Proggy Clean, Tamzen Bold, or unscii, the machine's own drawn doubled;
+and placement, which is the section after next. The picture is always full
+screen and scaled by a whole number, every pixel the same size. The figures in
+this book are taken with the effects off.
 
 Terminal
 status bands, on or off (a row at the top, a row at the bottom) (The status
@@ -304,8 +311,8 @@ how a settings file survives the machine changing under it.
 > its own 60 Hz and presents a frame when it is ready; the cost is tearing.
 > With it on, the pacing belongs to your display, and on a host whose refresh
 > is not exactly 60 that costs frames -- and frames are sound here (Appendix
-> C, The Sound, and What It Took). Neither answer is right for every host,
-> which is why it is a row and not a decision.
+> C, The Sound, and What It Took). It is no longer a row in the menu;
+> video.vsync in k4510.cfg still turns it on.
 
 => A3-SOUND.GMI Appendix C, The Sound, and What It Took
 
@@ -359,30 +366,18 @@ Border width -- video.border
 0 to 64; to begin with, 0
 
 Border colour -- video.border_colour
-0 to 15; to begin with, 6
+0 to 15; to begin with, 11
 
 Resolution -- video.mode
-640x480, 640x480x60, 640x240, 320x240, 1440x1080, 720x540, 360x270; to begin
-with, 360x270
+1440x1080 16x32, 1440x1080 16x16, 720x540 16x32, 720x540 16x16, 360x270; to
+begin with, 360x270
 
-Scaling -- video.smoothing
-integer, fit to display; to begin with, integer
-
-Full screen -- video.fullscreen
-on, off; to begin with, off
-
-Vertical sync -- video.vsync
-on, off; to begin with, off
+Font -- video.hdfont
+unscii, Zhekov Bold, Zhekov, Spleen, IBM VGA, Atkinson Mono, Go Mono, Fira
+Mono, Proggy Clean, Tamzen Bold; to begin with, Zhekov Bold
 
 Placement -- video.placement
 centre, left, right; to begin with, centre
-
-Sidebar -- video.sidebars
-border, gradient, knot, registers, halloween, christmas, space, river,
-dreamfall, tetris, antfarm, matrix, doom, navidrome; to begin with, border
-
-Edit options... --
-does it
 
 Palette --
 the VIC-II sixteen, or any .PAL in /SYSTEM/ETC/PALETTES: PALETTE LOAD, typed
@@ -521,18 +516,10 @@ does it
 
 A 4:3 picture on a 16:9 screen leaves a third of the glass empty. Placement
 (centre, left, right) puts the picture against one edge instead of in the
-middle, and the Sidebars row fills what is left. Its choices are the sidebars
-in /SYSTEM/SIDEBARS, one zip each: the border colour, a gradient, a knot,
-scenes -- and registers, the machine as the emulator sees it. A register panel
-beside a centred picture makes no sense, so choosing it puts the picture left.
-
-Below it, Edit options... opens the chosen sidebar's own options in VI:
-/SYSTEM/SIDEBARS/ANTFARM/OPTIONS.CFG for the ant farm -- its speed, and the
-length of its day. Save the file and the sidebar changes within a second.
-/SYSTEM/SIDEBARS/SIDEBARS.CFG holds what is for all of them: another sidebar
-on the right (right = tetris), a new one every so often (change = 1h), and
-whether Halloween and Christmas keep to their months. The ant colony is kept
-across a power cycle, in the same folder.
+middle; what is left is the border colour, dark grey like the status bands
+unless you choose another. (The sidebars -- scenes, a gradient, the register
+panel beside the picture -- are switched off for now, and their rows are out
+of the menu.)
 
 Last, Palette lists the VIC-II sixteen and every .PAL in /SYSTEM/ETC/PALETTES
 (one you made with PALETTE SAVE shows up the next time the menu opens).

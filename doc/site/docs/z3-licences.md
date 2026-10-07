@@ -26,8 +26,6 @@ The K4510 as a whole is distributed under the **GNU General Public License, vers
 
 - **cc65 runtime** — the ROM and every `.prg` are linked against `none.lib`. *cc65’s zlib-style licence.*
 
-- **Microsoft 6502 BASIC** — *MIT*, released by Microsoft in 2025, via [mist64/msbasic](https://github.com/mist64/msbasic) at a pure-Microsoft configuration. `basic/msbasic/`, vendored unmodified — and only the files a pure build assembles: none of the per-manufacturer material is here, which is the line that keeps the build resting on the MIT release alone.
-
 - **Supermon+64 1.2** — Jim Butterfield, restored and commented by J. B. Langston ([jblang/supermon64](https://github.com/jblang/supermon64)), ported to the 45GS10. Butterfield published it for anyone to use; Langston asks for attribution.
 
 ## Fonts

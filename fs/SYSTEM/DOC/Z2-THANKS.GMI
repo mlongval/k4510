@@ -72,11 +72,6 @@ gladly.
 
 => https://github.com/jblang/supermon64 jblang/supermon64
 
-Michael Steil maintains msbasic, and Microsoft released 6502 BASIC 1.1 under
-the MIT licence in 2025 -- between them, the machine's next native BASIC.
-
-=> https://github.com/mist64/msbasic msbasic
-
 ## Letters on the screen
 
 Fonts are the part of a computer you look at longest, and clean ones with a
@@ -92,15 +87,12 @@ The Linux kernel contributors -- the 8x8 console font (font_8x8.c) that got
 the text mode on its feet, and the 8x16 VGA font the K4510x consoles wear.
 
 Kenney makes game art and puts it in the public domain, at a scale and a
-standard that has quietly furnished a decade of small games. The dungeon in
-the TINY demo -- every tile, every little person, and the map they stand on --
-is his Tiny Dungeon, CC0. The demo exists because the art did. Two more games
-stand on the same ground: SKYFIRE flies Kenney's Pixel Shmup ships, and FLUFFY
-is drawn with Chloe Wolfe's Game Boy platformer set, also CC0. In both cases
-the art came first and the game was written around it, which is the reverse of
-the usual order and a much better way to spend an evening.
+standard that has quietly furnished a decade of small games. Two games stand
+on it: SKYFIRE flies Kenney's Pixel Shmup ships, and FLUFFY is drawn with
+Chloe Wolfe's Game Boy platformer set, also CC0. In both cases the art came
+first and the game was written around it, which is the reverse of the usual
+order and a much better way to spend an evening.
 
-=> https://kenney.nl/assets/tiny-dungeon Tiny Dungeon
 => https://kenney.nl/assets/pixel-shmup Pixel Shmup
 
 Ian Schofield wrote Tek40xx, a Tektronix 4010/4014 storage tube on SDL2 that

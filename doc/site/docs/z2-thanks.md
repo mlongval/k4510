@@ -26,8 +26,6 @@ The K4510 is a machine that never existed. Almost everything in it that *does* e
 
 **Jim Butterfield** (1936–2007) wrote Supermon, and gave it away as he gave away everything: the machine language monitor a generation of Commodore programmers learned on, published in *Compute!* for anyone to type in. Supermon+64 V1.2 is `SUPERMON` here, ported and not rewritten. **J. B. Langston** restored and commented the source ([jblang/supermon64](https://github.com/jblang/supermon64)), which is what made porting it a day’s work rather than a month’s; he asks only for the attribution, and it is given gladly.
 
-**Michael Steil** maintains [msbasic](https://github.com/mist64/msbasic), and **Microsoft** released 6502 BASIC 1.1 under the MIT licence in 2025 — between them, the machine’s next native BASIC.
-
 ## Letters on the screen
 
 Fonts are the part of a computer you look at longest, and clean ones with a clear pedigree are hard to come by.
@@ -36,7 +34,7 @@ Fonts are the part of a computer you look at longest, and clean ones with a clea
 
 **The Linux kernel** contributors — the 8x8 console font (`font_8x8.c`) that got the text mode on its feet, and the 8x16 VGA font the K4510x consoles wear.
 
-**Kenney** makes game art and puts it in the public domain, at a scale and a standard that has quietly furnished a decade of small games. The dungeon in the `TINY` demo — every tile, every little person, and the map they stand on — is his [Tiny Dungeon](https://kenney.nl/assets/tiny-dungeon), CC0. The demo exists because the art did. Two more games stand on the same ground: `SKYFIRE` flies Kenney’s [Pixel Shmup](https://kenney.nl/assets/pixel-shmup) ships, and `FLUFFY` is drawn with **Chloe Wolfe**’s Game Boy platformer set, also CC0. In both cases the art came first and the game was written around it, which is the reverse of the usual order and a much better way to spend an evening.
+**Kenney** makes game art and puts it in the public domain, at a scale and a standard that has quietly furnished a decade of small games. Two games stand on it: `SKYFIRE` flies Kenney’s [Pixel Shmup](https://kenney.nl/assets/pixel-shmup) ships, and `FLUFFY` is drawn with **Chloe Wolfe**’s Game Boy platformer set, also CC0. In both cases the art came first and the game was written around it, which is the reverse of the usual order and a much better way to spend an evening.
 
 **Ian Schofield** wrote [Tek40xx](https://github.com/ijschofield/Tek40xx), a Tektronix 4010/4014 storage tube on SDL2 that is also a telnet client. It rides along on the machine’s Linux as the second terminal ([Chapter 11, The Linux Underneath](13-linux.md)), built from upstream with one patch of ours.
 

@@ -9,18 +9,20 @@
 CC      ?= gcc
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 # The exact build, stamped into the machine's version register so a BUG report
-# can name the commit it came from.  Only core/io.o pays for it, so a new commit
+# can name the commit it came from.  Only core/sys.o pays for it, so a new commit
 # does not rebuild the world.  Must fit 15 characters.
 K4510_BUILD ?= 0.8-$(shell git rev-parse --short=7 HEAD 2>/dev/null || echo nogit)$(shell git diff --quiet HEAD 2>/dev/null || echo +)
 core/build.h: FORCE
 	@printf '/* generated: the commit this build came from */\n#define K4510_BUILD "%s"\n' '$(K4510_BUILD)' > $@.tmp; \
 	 cmp -s $@.tmp $@ 2>/dev/null || mv $@.tmp $@; rm -f $@.tmp
-core/io.o: core/build.h
+core/sys.o: core/build.h
 .PHONY: FORCE
 FORCE:
 
+# the I/O page's devices, one file each (core/io_int.h is the map)
+IO_OBJS = core/sys.o core/seq.o core/fred.o core/hostfs.o core/status.o core/tube.o core/tube_shm.o core/screen2.o core/debug.o
 OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/digimax.o core/vice_clk.o core/sndq.o core/audio.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o core/vicky.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/jimgfx.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o $(IO_OBJS) core/vicky.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/jimgfx.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
 LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -132,7 +134,10 @@ core/xemu/cpu65.o: core/xemu/cpu65.c core/xemu/cpu65.h core/xemu/emutools_basicd
 core/mem.o: core/mem.c core/mem.h core/host.h core/xemu/emutools_basicdefs.h
 sdl/host_posix.o: sdl/host_posix.c core/host.h
 core/vicky.o: core/vicky.c core/vicky.h core/mem.h
-core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/opl2.h core/audio.h core/net.h core/term.h
+core/io.o: core/io.c core/io.h core/mem.h core/vicky.h core/opl2.h core/audio.h core/net.h core/term.h core/io_int.h
+$(IO_OBJS): core/io.h core/io_int.h core/mem.h core/vicky.h core/term.h core/state.h
+core/hostfs.o: core/net.h core/zip.h
+core/tube_shm.o core/seq.o: core/opl2.h core/digimax.h
 core/net.o: core/net.c core/net.h core/net_plat.h core/mem.h
 core/net_posix.o: core/net_posix.c core/net_plat.h
 core/zip.o: core/zip.c core/zip.h core/net.h

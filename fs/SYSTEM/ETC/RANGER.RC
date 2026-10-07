@@ -1,0 +1,13 @@
+# RANGER.RC -- what Enter opens in RANGER, by the file's extension.
+#
+# One rule a line: the extension, then the command; RANGER adds the
+# file's name after it.  The first rule that matches wins.  A file no
+# rule names opens in VI.  .PRG and .COM files always run.
+#
+# EDIT knows BBC BASIC (its keywords, Ctrl+R renumbers); PROG builds
+# Pascal and C.  Change a line to suit.
+PAS PROG
+BAS PROG
+C   PROG
+H   PROG
+K4P PROG

@@ -124,6 +124,23 @@ out=$(R '~RANGER
 grep -q "alpha"          fs/.TRASH/B.TXT    || fail "the first trashed file was overwritten"
 grep -q "the second one" 'fs/.TRASH/B.TXT~1' || fail "the second trashed file has the wrong contents"
 
+# 5b. Enter on a .PAS: /SYSTEM/ETC/RANGER.RC says PROG (2026-10-07), and a
+# file it names nothing for is VI's, as ever.
+printf 'program z;\nbegin\nend.\n' > "$D/ZPROG.PAS"
+out=$(R '~RANGER
+~G~l~G~
+~~~~' 2400)
+has "Build"                  "Enter on a .PAS did not open PROG (RANGER.RC)"
+has "ZPROG.PAS"              "PROG did not get the file's name"
+rm -f "$D/ZPROG.PAS"
+printf 'zz\n' > "$D/ZTXT.ZZZ"
+out=$(R '~RANGER
+~G~l~G~
+~~~~' 2400)
+has "ZTXT.ZZZ"               "Enter on a file RANGER.RC does not name did not open it"
+hasnt "Build"                "a file RANGER.RC does not name went to PROG"
+rm -f "$D/ZTXT.ZZZ"
+
 # 12. Enter on a .COM: RANGER leaves, writes the launcher, and the shell types
 # CPM K-RUN.  The submit's EXIT is what brings the machine back to the K:OS
 # prompt -- without it the round trip would end at CP/M's A0>.  The fixture is
@@ -143,4 +160,4 @@ has "/CPM/A/0\]"      "EXIT did not land back at the K:OS prompt"
 rm -f fs/CPM/A/0/ZZTEST.COM fs/CPM/A/0/K-RUN.SUB 'fs/CPM/A/0/$$$.SUB'
 fi
 
-echo "rangertest: OK (three columns, the column option, mkdir/yank/paste/rename, paste and trash both refuse to overwrite, exit lands in the browsed directory, Enter runs a .prg and a .COM)"
+echo "rangertest: OK (three columns, the column option, mkdir/yank/paste/rename, paste and trash both refuse to overwrite, exit lands in the browsed directory, Enter runs a .prg and a .COM, RANGER.RC sends a .PAS to PROG)"

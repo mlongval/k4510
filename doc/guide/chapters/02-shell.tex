@@ -164,7 +164,12 @@ Both share the rules that matter:
   output of a program belongs on the machine's screen and not inside a
   browser's frame. A \texttt{.com} starts CP/M to do it.
 \item \textbf{Enter or F4 on a text file} opens it in \verb|VI| or
-  \verb|EDIT|, and you come back to where you were standing.
+  \verb|EDIT|, and you come back to where you were standing. In RANGER
+  the program is chosen by the file's extension, from
+  \pth{/SYSTEM/ETC/RANGER.RC}: one rule a line, the extension and then
+  the command (\texttt{PAS PROG}, \texttt{TXT EDIT -s}), the first that
+  matches winning. As shipped, Pascal, C and BASIC files open in PROG and
+  everything else in VI; edit the file to change it.
 \item \textbf{\texttt{DD} deletes} to \pth{/.TRASH}, the same trash the
   shell's \verb|RM| uses, so \verb|DELETE -r| brings it back.
 \end{itemize}

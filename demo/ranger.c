@@ -18,7 +18,8 @@
  *   h  Left        up to the parent      j k  Down Up   move the bar
  *   l  Right       into a directory      gg G          top / bottom
  *   Enter          directory: descend;   .prg or .com: leave and run it;
- *                  any other file: edit it in VI (through SWAP)
+ *                  any other file: what /SYSTEM/ETC/RANGER.RC says for its
+ *                  extension (.PAS in PROG ...), else VI -- through SWAP
  *   Space          mark / unmark         .             show or hide dotfiles
  *   yy             yank (copy)           dd            cut (move)
  *   pp             paste here            DD            delete to /.TRASH
@@ -663,11 +664,49 @@ static void type_ahead(const char *s)
  * ROM reserves for programs, below the editor and carried across the swap.
  * (KOMMANDER learned this the hard way; the note is in demo/kommander.c.) */
 #define CMDLINE ((char *)0x0300)
+/* Which program, by the file's extension (Doc, 2026-10-07: "open .pas files
+ * and .bas in PROG"): /SYSTEM/ETC/RANGER.RC, read once at the start, one rule
+ * a line -- the extension, then the command, which gets the file's name after
+ * it ("PAS PROG", "TXT EDIT -s").  The first rule that matches wins; no rule,
+ * or no file, is VI.  ranger's own rifle.conf, in one line a rule. */
+#define RC_FILE "/SYSTEM/ETC/RANGER.RC"
+static char rc[512];
+static void rc_load(void)
+{
+    rc[0] = 0;
+    fs_name(RC_FILE);
+    if (fs_do(C_OPEN_R)) return;
+    fs_addr((uint32_t)(uint16_t)rc); w32(FS_LEN, sizeof rc - 1);
+    fs_do(C_READ);
+    rc[(uint16_t)REG(FS_LEN) | ((uint16_t)REG(FS_LEN + 1) << 8)] = 0;
+    fs_do(C_CLOSE);
+}
+static uint8_t up(char c) { return (uint8_t)(c >= 'a' && c <= 'z' ? c - 32 : c); }
+static void rc_command(const char *name, char *out)   /* the command for name, into out ("VI" when none) */
+{
+    const char *e = 0, *p = rc, *q; uint8_t i;
+    for (q = name; *q; q++) if (*q == '.') e = q + 1;
+    while (e && *p) {
+        while (*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n') p++;
+        if (*p == '#') { while (*p && *p != '\n') p++; continue; }
+        for (i = 0; e[i] && up(p[i]) == up(e[i]); i++) ;
+        if (!e[i] && (p[i] == ' ' || p[i] == '\t')) {           /* this extension: the rest of the line */
+            p += i; while (*p == ' ' || *p == '\t') p++;
+            for (i = 0; p[i] && p[i] != '\n' && p[i] != '\r' && p[i] != '#' && i < 40; i++) out[i] = p[i];
+            while (i && out[i - 1] == ' ') i--;
+            if (i) { out[i] = 0; return; }
+        }
+        while (*p && *p != '\n') p++;
+    }
+    strcpy(out, "VI");
+}
 static void open_file(void)
 {
     if (!count) return;
-    chdir_to(path);                        /* VI resolves a bare name against the cwd */
-    strcpy(CMDLINE, "SWAP VI ");
+    chdir_to(path);                        /* the editor resolves a bare name against the cwd */
+    strcpy(CMDLINE, "SWAP ");
+    rc_command(names[cur], CMDLINE + 5);
+    strcat(CMDLINE, " ");
     strcat(CMDLINE, names[cur]);
     rom_shell(CMDLINE);
     jc_start();                             /* the editor gave JIM back reset: our modes again */
@@ -687,6 +726,7 @@ int main(void)
     cols = REG(TERM + 5); rows = REG(TERM + 6); ox = REG(TERM + 7); oy = REG(TERM + 8); pcols = REG(TERM + 0x0D);
 
     jc_start();                                     /* JIM drawn on through its stream */
+    rc_load();                                      /* what Enter opens, by extension */
     if (!cols) cols = 80; if (!rows) rows = 30; if (!pcols) pcols = 80;
     /* No argument: two columns -- where you are and the preview.  The parent
      * column is ranger's classic third, but Doc (the Dell, 2026-09-11) never

@@ -148,7 +148,7 @@ Both share the rules that matter:
 
 - **Enter on a program** — a `.prg`, or a CP/M `.com` — leaves the file manager and runs it, because the output of a program belongs on the machine’s screen and not inside a browser’s frame. A `.com` starts CP/M to do it.
 
-- **Enter or F4 on a text file** opens it in `VI` or `EDIT`, and you come back to where you were standing.
+- **Enter or F4 on a text file** opens it in `VI` or `EDIT`, and you come back to where you were standing. In RANGER the program is chosen by the file’s extension, from `/SYSTEM/ETC/RANGER.RC`: one rule a line, the extension and then the command (`PAS PROG`, `TXT EDIT -s`), the first that matches winning. As shipped, Pascal, C and BASIC files open in PROG and everything else in VI; edit the file to change it.
 
 - **`DD` deletes** to `/.TRASH`, the same trash the shell’s `RM` uses, so `DELETE -r` brings it back.
 

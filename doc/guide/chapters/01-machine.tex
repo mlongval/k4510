@@ -371,8 +371,10 @@ Last, \emph{Palette} lists the VIC-II sixteen and every \texttt{.PAL} in
 \pth{/SYSTEM/ETC/PALETTES} (one you made with \verb|PALETTE SAVE| shows up
 the next time the menu opens). Choosing one types \verb|PALETTE LOAD| at the
 prompt for you (Chapter~\ref{cha:shell}); with a program running, it waits
-until the program has ended. As with the command, it lasts until the next
-power-on: a \verb|PALETTE LOAD| line in \pth{/STARTUP.BAT} keeps it.
+until the program has ended. As with the command, it is kept: the
+machine comes back in it at the next power-on and after every reset,
+until another is loaded or \verb|PALETTE RESET| brings back the VIC-II
+sixteen.
 
 The panel is a strip twenty-six columns wide taking the whole height of
 the window, one fact to a line: the program counter, A~X~Y~Z, the stack

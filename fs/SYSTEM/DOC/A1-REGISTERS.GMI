@@ -297,6 +297,16 @@ program writes 1 again (which clears bit7), reads JIM's size and redraws.
 Read: bit0 the program's wish, bit7 a resize waiting. The wish is the
 program's: a program it runs starts without it, and it ends with it.
 
+### 
+
+-- PALNAME ($D547): the palette the machine last loaded, kept by the host for
+the next power-on (Doc, 2026-10-07: "the palette chosen in F12 is not saved").
+Write: PALETTE LOAD's file path a character at a time, then 0 - a 0 alone
+(PALETTE RESET) is the VIC-II sixteen; $FF starts the read again. Read: the
+kept path a character at a time, 0 at its end. The ROM loads it at every
+reset, after the VIC-II sixteen. The frontend fills io_palname from k4510.cfg
+(video.palette) and saves it when io_palname_new is set.
+
 ### The Tube
 
 The Tube ($D800): Acorn's answer, refitted. The HOST runs Richard Russell's

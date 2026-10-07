@@ -920,6 +920,7 @@ int k4510_frontend_main(int argc, char **argv)
     ui_font(font_menu);                                  /* the menu's own font: it must draw whatever the guest did */
     sidebars_scan(argc > 2 ? argv[2] : "fs");             /* the Sidebars choices, before a saved one is looked up */
     settings_load(cfg);
+    snprintf(io_palname, sizeof io_palname, "%s", settings_palette());   /* the palette the ROM loads at every reset ($D547) */
     for (int i = 0; i < sidebars_count(); i++) {           /* what the sidebars kept across the power cycle (STATE.DAT) */
         int b = sidebars_info(i)->builtin; size_t n; uint8_t *st;
         if (b >= SIDEBAR_HALLOWEEN && (st = sidebars_state_read(i, &n))) { saver_restore(b - SIDEBAR_HALLOWEEN, st, n); free(st); }
@@ -1637,6 +1638,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { static int host_open_was; static Uint32 host_read_at;   /* the Host page: read at open, then every 2 s while open */
           if (open && (!host_open_was || SDL_GetTicks() - host_read_at >= 2000)) { host_info_refresh(); host_read_at = SDL_GetTicks(); }
           host_open_was = open; host_reap(); }
+        if (io_palname_new) {                                         /* the machine loaded a palette (or PALETTE RESET): kept, */
+            io_palname_new = 0; settings_set_palette(io_palname);    /* written at once -- a power cut should not lose it */
+            if (settings_changed()) settings_save(cfg);
+        }
         host_battery_poll();                                          /* $D53A, every ten seconds */
         host_net_poll();                                              /* the band's network, the same */
         { static Uint32 beat_at; static unsigned long loops; loops++;  /* the heartbeat: a freeze is the beats stopping */

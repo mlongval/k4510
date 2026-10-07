@@ -223,6 +223,10 @@ The ROM arms it at reset (crt0.s); INFO -m shows it. The first trip writes a DUM
 
 — RESIZE (`$D546`): the screen changed under a running program (Doc, 2026-10-07: F12’s Canvas switched with EDIT open, and EDIT went on drawing for the old size). A program writes 1 to say it can lay itself out again; then, when the F12 menu changes the video mode or canvas while it waits for a key, GETIN answers KEY_RESIZE (`$8F`) instead of the Escape it gives everyone else, and bit7 here is set – a typed `$8F`, CP437’s A-ring, comes with it clear. The program writes 1 again (which clears bit7), reads JIM’s size and redraws. Read: bit0 the program’s wish, bit7 a resize waiting. The wish is the program’s: a program it runs starts without it, and it ends with it.
 
+### 
+
+— PALNAME (`$D547`): the palette the machine last loaded, kept by the host for the next power-on (Doc, 2026-10-07: “the palette chosen in F12 is not saved”). Write: PALETTE LOAD’s file path a character at a time, then 0 – a 0 alone (PALETTE RESET) is the VIC-II sixteen; `$FF` starts the read again. Read: the kept path a character at a time, 0 at its end. The ROM loads it at every reset, after the VIC-II sixteen. The frontend fills io_palname from k4510.cfg (video.palette) and saves it when io_palname_new is set.
+
 ### The Tube
 
 The Tube (`$D800`): Acorn’s answer, refitted. The HOST runs Richard Russell’s BBC BASIC interpreter (the vendored BBCTTY console edition, tube/bbcbasic) on a pty; the machine talks to it byte-wise:

@@ -29,7 +29,9 @@ const char sys_version[16] = K4510_BUILD;
  * sets it: 0 = a desktop (or a container on one), 1 = the K4510 Linux. */
 int io_host_kind;
 uint8_t io_battery = 0xFF;    /* $D53A: none until the frontend finds one */
-uint8_t io_frame = 11, io_frame_follow = 1;   /* the frame: dark grey, the palette's */
+uint8_t io_frame = 11, io_frame_follow = 1;
+char io_palname[64]; int io_palname_new;           /* $D547: the kept palette, and "the machine loaded another" */
+static char palname_in[64]; static uint8_t palname_n, palname_rd;   /* the frame: dark grey, the palette's */
 uint16_t io_batt_min = 0xFFFF; /* the time it has left, for the band: none until the frontend has one */
 uint8_t io_net = 0xFF, io_net_q;   /* the network, for the bottom band: NET_*, $FF not known; Wi-Fi's link quality, % */
 /* ---- the title: what the machine is running, for the top status band ----
@@ -182,7 +184,8 @@ uint8_t sys_read(uint8_t r)
     if (r < 4) { sys_latch(); return sys_reg[r]; }
     if (r < 0x0D) return sys_reg[r];
     if (r < 0x10) return (uint8_t)(sys_frames >> ((r - 0x0D) * 8));
-    if (r == 0x46) return (uint8_t)(title_stack[title_depth - 1].resize | resize_due);   /* RESIZE: the wish, and bit7 one waiting */
+    if (r == 0x46) return (uint8_t)(title_stack[title_depth - 1].resize | resize_due);
+    if (r == 0x47) { uint8_t c = palname_rd < sizeof io_palname ? (uint8_t) io_palname[palname_rd] : 0; if (c) palname_rd++; else palname_rd = 0; return c; }   /* PALNAME */   /* RESIZE: the wish, and bit7 one waiting */
     if (r < 0x20) return (uint8_t)sys_version[r - 0x10];
     if (r == 0x20) return (uint8_t)(mem_rom_base >> 8);
     if (r == 0x21) return sys_opts;
@@ -226,7 +229,12 @@ void sys_write(uint8_t r, uint8_t v)
     if (r == 0x44) title_file_char(v);                    /* the title: the top entry's file -- 0 clears, a character adds */
     if (r >= 0x50 && r <= 0x54) mem_fence_write((uint8_t)(r - 0x50), v);   /* the stack fence */
     if (r == 0x45) io_wait_start();                       /* WAIT: asleep until an interrupt or a key */
-    if (r == 0x46) { title_stack[title_depth - 1].resize = (uint8_t)(v & 1); resize_due = 0; }   /* RESIZE: the wish; a write takes the waiting one */
+    if (r == 0x46) { title_stack[title_depth - 1].resize = (uint8_t)(v & 1); resize_due = 0; }
+    if (r == 0x47) {                                      /* PALNAME: the machine loaded a palette */
+        if (v == 0xFF) palname_rd = 0;
+        else if (v) { if (palname_n < sizeof palname_in - 1) palname_in[palname_n++] = (char) v; }
+        else { palname_in[palname_n] = 0; memcpy(io_palname, palname_in, sizeof io_palname); palname_n = 0; io_palname_new = 1; }
+    }   /* RESIZE: the wish; a write takes the waiting one */
     if (r == 0x42) idea_add(v);                           /* IDEA: a character of the idea */
     if (r == 0x43) idea_write(v);                         /* IDEA: 1 write it, 2 an empty one for VI */
     if (r == 0x28) adopt_req = 1;                         /* SETUP: keep the clock in force as this host's measured clock */

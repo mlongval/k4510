@@ -486,6 +486,10 @@ PALETTE LOAD AMBER        an amber one
 PALETTE RESET             the machine's own back
 \end{type}
 
+\noindent The palette last loaded is kept, in \texttt{k4510.cfg}: the
+machine comes back in it at power-on and after a reset, until
+\verb|PALETTE RESET|.
+
 \noindent \texttt{AMBER}, \texttt{GREEN} and \texttt{GREY} are ramps ---
 black and fifteen shades of one colour --- so each carries a
 \verb|COLOR| line that sets the text to a bright shade on black. Colour~1

@@ -68,6 +68,9 @@ typedef enum {
                               * truth is the helper's note, which this follows at start.  Doc, 2026-10-07 */
     SET_VIDEO_FRAME_FOLLOW,  /* BOOL the frame colour is the palette's entry of that number (on, the default: AMBER's
                               * frame is amber) or the VIC-II colour itself, whatever the palette.  Doc, 2026-10-07 */
+    SET_VIDEO_PALETTE,       /* (text) the palette the machine last loaded, a path; "" the VIC-II sixteen.  Not in the
+                              * menu: F12 -> Video -> Palette and PALETTE LOAD set it, the ROM loads it at every reset
+                              * ($D547).  settings_palette / settings_set_palette.  Doc, 2026-10-07 */
     SET_TERM_BATTTIME,       /* BOOL F12 -> Terminal -> Battery time: the bottom band shows the time the battery has
                               * left (to full, while it charges) beside its charge.  Doc, 2026-10-07 */
     SET_COUNT
@@ -157,6 +160,8 @@ int         settings_get(set_id id);
 void        settings_set(set_id id, int v);       /* clamped / wrapped to the descriptor */
 void        settings_step(set_id id, int dir);    /* +1 / -1: the next value (ENUMs wrap, INTs stop) */
 const char *settings_text(set_id id, char *buf, int max);   /* the value as the menu prints it */
+const char *settings_palette(void);                          /* video.palette: a path, or "" */
+void        settings_set_palette(const char *path);
 /* An ENUM whose choices are only known at run time (the sidebars: whatever
  * zips there are).  Before settings_load, so a saved name is found. */
 void        settings_set_labels(set_id id, const char *const *labels, int n, int def);

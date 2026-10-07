@@ -105,6 +105,7 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "video.cap",           "Pixel cap",      ST_INT,   2073600, 64000, 2304000, 64000, 0, 0, 0 },
     { "host.charge_once",    "Charge to 100% once", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* then back to the usual limit */
     { "video.frame_follow",  "Frame follows palette", ST_BOOL, 1, 0, 1, 1, 0, 0, SF_LIVE },   /* off: the VIC-II colour, whatever the palette */
+    { "video.palette",       "Palette",        ST_INT,   0, 0, 0, 0, 0, 0, 0 },   /* text, kept beside the table: pal_name */
     { "term.battime",        "Battery time",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* h:mm left, beside the battery's % */
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
@@ -113,6 +114,13 @@ unsigned settings_cpu_hz_of(int step) { if (step < 0 || step >= CPUCLK_COUNT) st
 unsigned settings_cpu_hz(void) { return settings_cpu_hz_of(settings_get(SET_CPU_CLOCK)); }
 static int value[SET_COUNT];
 static int changed;
+static char pal_name[64];                  /* video.palette: the one setting that is text */
+const char *settings_palette(void) { return pal_name; }
+void settings_set_palette(const char *path)
+{
+    if (!path) path = "";
+    if (strcmp(pal_name, path)) { snprintf(pal_name, sizeof pal_name, "%s", path); changed = 1; }
+}
 
 /* The Resolution row's choices (settings.h): the classic screens, then this
  * panel's IDRs.  "640x480" is the 80x30 screen, as every k4510.cfg saved it. */
@@ -251,6 +259,7 @@ static const char *file_text(set_id id, char *buf, int max)   /* what goes in th
      * 160x200 is a place you cannot easily steer out of after a power cycle,
      * and K/OS always comes back in an integer display resolution. */
     if (id == SET_VIDEO_MODE) { snprintf(buf, (size_t) max, "/%d%s", vm_want_div, vm_want_small ? " small" : ""); return buf; }
+    if (id == SET_VIDEO_PALETTE) return pal_name;
     if (d->type == ST_ENUM || d->type == ST_CHORD || d->type == ST_BOOL) return settings_text(id, buf, max);
     snprintf(buf, (size_t) max, "%d", value[id]); return buf;
 }
@@ -264,6 +273,7 @@ void settings_set_labels(set_id id, const char *const *labels, int n, int def)
 void settings_defaults(void)
 {
     for (int i = 0; i < SET_COUNT; i++) value[i] = desc[i].def;
+    pal_name[0] = 0;
     vm_want_div = 4; vm_want_small = 0; if (vm_n) settings_video_rebuild();
     changed = 0;
 }
@@ -275,6 +285,7 @@ static int parse_value(set_id id, const char *v)
 {
     const set_desc *d = &desc[id];
     if (id == SET_VIDEO_MODE) { vm_parse(v); return value[id]; }   /* resolved against this panel's list (settings_video_rebuild) */
+    if (id == SET_VIDEO_PALETTE) { snprintf(pal_name, sizeof pal_name, "%s", v); return 0; }
     if (d->labels == smooth_names) {                  /* the names before 2026-09-14 */
         if (!strcasecmp(v, "sharp-fit")) return SMOOTH_INTEGER;
         if (!strcasecmp(v, "sharp") || !strcasecmp(v, "soft")) return SMOOTH_FIT;

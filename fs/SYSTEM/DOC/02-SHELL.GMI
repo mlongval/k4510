@@ -493,6 +493,9 @@ PALETTE LOAD AMBER        an amber one
 PALETTE RESET             the machine's own back
 ```
 
+The palette last loaded is kept, in k4510.cfg: the machine comes back in it at
+power-on and after a reset, until PALETTE RESET.
+
 AMBER, GREEN and GREY are ramps -- black and fifteen shades of one colour --
 so each carries a COLOR line that sets the text to a bright shade on black.
 Colour 1 in each is the brightest shade, because the shell draws its

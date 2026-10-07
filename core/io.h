@@ -377,6 +377,16 @@ void dbg_watch_hit(void);                    /* mem.c reports; io.c dumps and di
  * size and redraws.  Read: bit0 the program's wish, bit7 a resize waiting.  The wish is the
  * program's: a program it runs starts without it, and it ends with it. */
 #define IO_RESIZE      (IO_SYS + 0x46)
+/* --- PALNAME ($D547): the palette the machine last loaded, kept by the host
+ * for the next power-on (Doc, 2026-10-07: "the palette chosen in F12 is not
+ * saved").  Write: PALETTE LOAD's file path a character at a time, then 0 --
+ * a 0 alone (PALETTE RESET) is the VIC-II sixteen; $FF starts the read again.
+ * Read: the kept path a character at a time, 0 at its end.  The ROM loads it
+ * at every reset, after the VIC-II sixteen.  The frontend fills io_palname
+ * from k4510.cfg (video.palette) and saves it when io_palname_new is set. */
+#define IO_PALNAME     (IO_SYS + 0x47)
+extern char io_palname[64];
+extern int  io_palname_new;
 #define KEY_RESIZE     0x8F
 extern int cpu65_waiting;
 int     cpu65_wake(int cycles);

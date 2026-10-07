@@ -558,8 +558,9 @@ Last, Palette lists the VIC-II sixteen and every .PAL in /SYSTEM/ETC/PALETTES
 (one you made with PALETTE SAVE shows up the next time the menu opens).
 Choosing one types PALETTE LOAD at the prompt for you (Chapter 2, The Shell);
 with a program running, it waits until the program has ended. As with the
-command, it lasts until the next power-on: a PALETTE LOAD line in /STARTUP.BAT
-keeps it.
+command, it is kept: the machine comes back in it at the next power-on and
+after every reset, until another is loaded or PALETTE RESET brings back the
+VIC-II sixteen.
 
 => 02-SHELL.GMI Chapter 2, The Shell
 

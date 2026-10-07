@@ -813,7 +813,7 @@ static void video_init(void);
  * half that built it is gone until the next system call. */
 #define TRAMP 0x02D8u
 static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p);
-static void pal_snap(const char *p); static void pal_restore(const char *p); static void pal_reset16(const char *p);
+static void pal_snap(const char *p); static void pal_restore(const char *p); static void pal_reset16(const char *p); static void pal_load(const char *name);
 static void run_at(uint16_t a)
 {
     static const uint8_t tpl[] = {
@@ -1560,7 +1560,9 @@ static void pal_after(uint8_t n, uint8_t hc, const char *path)
     }
     mode_note = 1;                              /* and the banner at the next prompt, as after MODE (Doc, 2026-10-03) */
     pal_pend = 1; pal_fix = fixed;              /* a COLOR it had to change, said under it (banner_note) */
-    (void)path; (void)n;
+    while (*path) REG(SYS + 0x47) = (uint8_t)*path++;   /* the host keeps it for the next power-on ($D547) */
+    REG(SYS + 0x47) = 0;
+    (void)n;
 }
 #pragma rodata-name (pop)
 
@@ -1635,7 +1637,7 @@ static void cmd_palette(const char *p)
         }
         return;
     }
-    if (pal_word(&p, "RESET")) { pal_reset16(0); return; }
+    if (pal_word(&p, "RESET")) { pal_reset16(0); REG(SYS + 0x47) = 0; return; }   /* and the host forgets the saved one */
     if (pal_word(&p, "LOAD"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: load name?"); return; } pal_load(nm); return; }
     if (pal_word(&p, "SAVE"))  { char nm[NAMEMAX]; if (!getname(&p, nm)) { error("palette: save name?"); return; } pal_save(nm); return; }
     idx = parsehex(&p, &d); if (!d) { error("palette: [n rr gg bb | LOAD f | SAVE f | RESET]"); return; }
@@ -2404,6 +2406,14 @@ int main(void)
     vdiv = REG(SYS + 0x3D);                       /* MODE 5's scale on the panel, as the host saved it */
     video_init();
     sw_call(2, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
+    /* ...and then the palette last loaded, which the host kept ($D547; Doc,
+     * 2026-10-07: "the palette chosen in F12 is not saved").  Quietly: no
+     * second banner, and nothing at all if the file has gone. */
+    { uint8_t i = 0, c;
+      REG(SYS + 0x47) = 0xFF;                     /* the host's name, from its start */
+      while ((c = REG(SYS + 0x47)) != 0 && i < sizeof line - 1) line[i++] = (char)c;
+      line[i] = 0;
+      if (i) { fs_name(line); if (!fs_cmd(8)) { sw_call(2, pal_load, line); mode_note = 0; pal_pend = 0; } } }
     fg = C_FG;
     banner();
     /* /STARTUP.BAT.  No grace window and no "hold a key to skip" any more:

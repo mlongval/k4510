@@ -55,7 +55,8 @@ system:  INFO [-vcmgsft]   TIME   HUSH   RESET
          COLOR fg [bg] [!]
          PALETTE [LOAD name|SAVE name|RESET]
          (LOAD GREEN, AMBER, GREY, PEPTO, C64 from
-         /SYSTEM/ETC/PALETTES)
+         /SYSTEM/ETC/PALETTES; the last one loaded is kept
+         across power-ons until PALETTE RESET)
          ECHO   CLS   BANNER   WALL   TERMINAL
          (TERMINAL: JIM's second screen, a session on
          the Linux; Alt+1 back, Alt+2 there again)

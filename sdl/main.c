@@ -1383,7 +1383,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { static int menu_was; int m = menu_is_open();               /* the menu is the machine's outside: it frees the pointer */
           if (m && !menu_was) { grab(0); palettes_scan(); }   /* the Palette rows: what is on the disk now */
           if (!m && pal_pending[0]) { extern const char *io_title(void);
-              if (!strcmp(io_title(), "K/OS")) { for (const char *c = pal_pending; *c; c++) kbd_push((uint8_t) *c); pal_pending[0] = 0; } }
+              if (!strcmp(io_title(), "K/OS")) { for (const char *c = pal_pending; *c; c++) kbd_push_machine((uint8_t) *c); pal_pending[0] = 0; } }   /* the machine's
+                   * queue, not kbd_push: with the Terminal screen up that typed PALETTE LOAD into its session (the Dell, 2026-10-07) */
           else if (!m && menu_was && grab_wanted && settings_get(SET_INPUT_MOUSE_GRAB)) grab(1);
           if (!settings_get(SET_INPUT_MOUSE_GRAB)) { grab(0); grab_wanted = 0; }
           { static uint32_t cur_gen; if (vicky_palette_gen() != cur_gen) { cur_gen = vicky_palette_gen(); set_retro_cursor(); } }   /* the arrow in the palette's colours */

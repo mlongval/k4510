@@ -416,6 +416,8 @@ int     io_screen2_allowed(void);                /* a locked machine has none: i
 uint8_t io_clockfmt(void);                       /* $D52F: the band clock's hours and date order */
 const char *io_title(void);                      /* what runs: K/OS, or the trail of who started whom (the first screen's tab) */
 void    kbd_push(uint8_t code);
+void    kbd_push_machine(uint8_t ascii);  /* to K/OS's own queue, whichever screen is up: what the frontend types FOR
+                                           * the machine (F12's palette) must not land in the second screen's session */
 void    kbd_push_key(uint8_t code);      /* the host: a KEY_* code (arrows, Home, F-keys) -- never a typed character */
 void    kbd_push_mods(uint8_t ascii, uint8_t mods);     /* the key pipe's: a key sent with Shift/Ctrl/Alt (bits 0-2) bound to it */
 void    kbd_push_key_mods(uint8_t code, uint8_t mods);

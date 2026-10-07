@@ -52,6 +52,7 @@ static void kbd_in(uint16_t ent)
     kbd_enqueue(ent);
 }
 void kbd_push(uint8_t ascii)   { kbd_in(ascii); }                    /* a character */
+void kbd_push_machine(uint8_t ascii) { kbd_enqueue(ascii); }            /* past the menu and the second screen (2026-10-07) */
 /* WAIT ($D545, 2026-10-06): a write puts the CPU to sleep until the next
  * interrupt or a key in the queue -- the 45GS02 has no WAI, so it is a
  * register.  The loops that wait for a key or a frame (k_chrin, EhBASIC's

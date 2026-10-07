@@ -176,6 +176,27 @@ static void cur_draw(void)
 }
 static FILE *termlog(void);
 static void bands_tick(int force);
+/* A palette loaded while the Terminal screen has text on it (Doc, 2026-10-07:
+ * F12 -> AMBER over a shell): readable_fg chose each character's colour
+ * against the palette it was printed under, and AMBER made the shell's
+ * yellow on blue two near shades of amber.  So when the palette changes,
+ * every character already on that screen is made readable again. */
+static int s2_ready;
+static uint8_t readable_fg(uint8_t fg, uint8_t bg);
+static void s2_recolour(void)
+{
+    static uint32_t gen = 0xFFFFFFFFu;
+    if (gen == vicky_palette_gen()) return;
+    int first = gen == 0xFFFFFFFFu;
+    gen = vicky_palette_gen();
+    if (first || !s2_ready) return;
+    term_t *keep = tp; tp = &TS[1];
+    for (int y = 0; y < T.rows; y++) for (int x = 0; x < T.cols; x++) {
+        uint8_t *c = cellp(x, y);
+        if (c[0] != ' ' || c[1]) c[2] = readable_fg(c[2], c[3]);
+    }
+    tp = keep; vicky_dirty = 1;
+}
 void term_tick(void)
 {
     /* K4510_TERMLOG is buffered and flushed here, once a second.  Flushed per
@@ -185,6 +206,7 @@ void term_tick(void)
      * at most the last second of the log. */
     { static unsigned n; if (++n % 60 == 0) { FILE *lg = termlog(); if (lg) fflush(lg); } }
     bands_tick(0);                              /* the bands are JIM's (below) */
+    s2_recolour();                              /* a new palette: the Terminal's text readable again */
     for (int s = 0; s < 2; s++) if (sync_on[s] && ++sync_age[s] >= 30) sync_on[s] = 0;   /* half a second: show it anyway */
     tp = &TS[vis];                              /* the cursor blinks on the screen that is up */
     if (T.shown) {
@@ -1175,7 +1197,6 @@ void term_bands_redraw(void) { band_sig = 0; }
  * through here.  It follows the console's geometry: a MODE change resizes it,
  * and io tells the pty. */
 #define ALT_MAP 0x0FD40000u                      /* free far memory the ROM keeps (SWAPSCR ends at $0FD1BC70) */
-static int s2_ready;
 static int screen2_shown(void) { return s2_ready; }
 static void s2_blank(void)
 {

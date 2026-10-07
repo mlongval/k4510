@@ -1092,13 +1092,14 @@ static void bands_tick(int force)
     if (bot) {
         bfill(last, cols, f, b);
         int right = cols;                                                                /* the first cell the right-hand things take */
-        if (io_battery != 0xFF) {                                                        /* "nn%" and up (on mains) or down */
-            char bt[16]; int n;                                                          /* "1:35 78%" with Battery time on */
-            if (io_batt_min != 0xFFFF) n = snprintf(bt, sizeof bt, "%d:%02d %d%%", io_batt_min / 60, io_batt_min % 60, io_battery & 0x7F);
-            else n = snprintf(bt, sizeof bt, "%d%%", io_battery & 0x7F);
-            bstr(cols - 1 - n, last, cols, bt, f, b);
-            bcell(cols - 1, last, (io_battery & 0x80) ? 0x18 : 0x19, f, b);
-            right = cols - 1 - n;
+        if (io_battery != 0xFF) {                                                        /* "nn%" and up (on mains) or down, */
+            char bt[8], tm[12]; int n = snprintf(bt, sizeof bt, "%d%%", io_battery & 0x7F), t = 0;   /* then "(7:16)" with Battery time on */
+            if (io_batt_min != 0xFFFF) t = snprintf(tm, sizeof tm, " (%d:%02d)", io_batt_min / 60, io_batt_min % 60);   /* (Doc, 2026-10-07: "77% down-arrow (7:16)") */
+            int at = cols - 1 - t - 1 - n;                                               /* the "nn%" cell; the arrow follows it */
+            bstr(at, last, cols, bt, f, b);
+            bcell(at + n, last, (io_battery & 0x80) ? 0x18 : 0x19, f, b);
+            if (t) bstr(at + n + 1, last, cols, tm, f, b);
+            right = at;
         }
         if (io_net != 0xFF) {                                                            /* the network, left of the battery */
             char nt[16]; int n;

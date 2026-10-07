@@ -220,6 +220,17 @@ void     vicky_commit(void);
  * pictures draw every frame. */
 extern int vicky_dirty, vicky_low;     /* vicky_low: something VICKY shows is in physical $0000-$FFFF (a CPU write there counts) */
 #define VICKY_TOUCH() (vicky_dirty = 1)                          /* the picture, whole, now: the end of a synchronized update (core/term.c) */
+/* HD text (2026-10-06, Doc: "can we cheat?").  At 720x540 the panel shows each
+ * machine pixel as 2x2; with an HD font given here, VICKY draws the frame at
+ * 1440x1080 instead: every layer and sprite doubled, as before, except text32
+ * cells of 8x16 whose glyph in RAM is the stock one (STOCK, 256 x 16 rows) --
+ * those come from HD, 256 glyphs of 16x32, two bytes a row, MSB first.  A
+ * glyph a program changed is drawn as it is, doubled.  NULL turns it off.  The
+ * machine sees nothing of this: its glass stays 720x540. */
+void     vicky_hd_font(const uint8_t *hd, const uint8_t *stock);
+int      vicky_out_scale(void);                       /* 2 while this frame is drawn HD, else 1 */
+int      vicky_out_w(void);                           /* the frame buffer's picture: the glass x the scale */
+int      vicky_out_h(void);
 int      vicky_glass_w(void);                         /* this frame's glass, latched at its start: 640x480, */
 int      vicky_glass_h(void);                         /* or an HD mode's own size; the frame has vicky_glass_h() lines */
 void     vicky_repaint(uint8_t *fb, int pitch);       /* redraw from RAM, guest state untouched (the frozen menu) */

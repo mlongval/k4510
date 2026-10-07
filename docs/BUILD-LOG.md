@@ -11683,3 +11683,41 @@ the largest whole multiple that fits the picture, hard pixels, centred on
 it: 2x there, 1280x960 inside 1440x1080, with the dimmed picture round it.
 The pointer follows (menu_gx0..: where the menu lies on the glass).
 Checked under Xvfb at 1920x1080 with the whole-display screenshot; uitest.
+
+## 2026-10-06 -- HD text at 720x540; F12's video rows trimmed
+
+Doc: "can we cheat?  fonts are 8x16 because the screen is 1920x1080 divided
+by 2 and each font pixel is 2x2 screen pixels -- allow 16x32 and 16x16 to give
+a higher res font look while still maintaining a 720x540 graphics screen."
+
+**HD text** (core/vicky.h, vicky_hd_font).  With an HD font given and the
+machine in 720x540, VICKY draws the frame at 1440x1080: each line composed at
+720 as ever, then written twice as wide and twice -- every pixel doubled,
+except where a text32 cell of 8x16 is on top whose glyph in RAM is the stock
+one; there the 16x32 HD glyph's two rows and two columns for that pixel.  A
+glyph a program redefined is drawn from RAM, doubled; the stock test is once
+a frame for the 256.  The glass stays 720x540 -- programs, pictures (JIM's
+plane is a layer, doubled like the rest), the menu's mouse and k4510-screen
+see the machine; the frontend draws vicky_out_w x vicky_out_h, scale 1 on
+the panel.  The cursor shapes keep their size (underline four rows of 32,
+bar four columns).  Cost, all text, every line redrawn: 3.6 ms a frame
+against 0.9; idle and still frames draw nothing, as before.
+
+**F12 -> Video -> Font**: unscii (the machine's own, doubled -- HD off),
+Zhekov Bold, the default (Terminus Font Bold 16x32 -- renamed, as its
+licence, OFL with the Reserved Font Name "Terminus Font", asks of a changed
+copy), Spleen 16x32, IBM VGA (the kernel's 8x16, doubled).  Built by
+tools/mkhdfonts.py into data/fonts/hd in both orders; provenance and
+licences beside them, LICENSES.md and THIRD_PARTY_SOURCES.md.
+
+**Video rows trimmed.**  Scaling (always integer), Full screen (always on)
+and Vertical sync are out of the menu; settings_load fixes the first two
+whatever a file says; video.vsync keeps its value.  Resolution offers
+1440x1080, 720x540 and 360x270 -- the whole dividers of the panel's 4:3 --
+from settings_first; 640x480, 640x240 and 320x240 remain modes a program can
+put the machine in, and the row shows them (Doc: "for now just go the F12
+route").  A game mode is saved as 360x270.  mkref's menu list follows.
+
+Not yet: 16x16 at 720x540 (8x8 cells) wants a ROM mode; 1440x1080 with 16-wide
+cells wants VICKY to learn them.  Checked: vickytest 12, uitest, make test,
+the four faces under Xvfb at 1440x1080.  Not checked: the Dell.

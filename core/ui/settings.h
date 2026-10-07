@@ -55,6 +55,8 @@ typedef enum {
                               * few seconds so nobody types into the machine unseen.  Doc, 2026-09-14 */
     SET_TEXT_CODEPAGE,       /* ENUM strict CP437 (the default) or the K4510 page: F12 -> Terminal -> Code page, or
                               * CODEPAGE (JIM $DA17, which the frontend follows and saves).  Doc, 2026-09-15 */
+    SET_VIDEO_FONT,          /* ENUM F12 -> Video -> Font: the HD text font at 720x540 (vicky_hd_font), or unscii,
+                              * the machine's own drawn doubled.  Doc, 2026-10-06 */
     SET_COUNT
 } set_id;
 typedef enum { ST_BOOL, ST_INT, ST_ENUM, ST_CHORD } set_type;
@@ -106,7 +108,7 @@ extern const unsigned char vmode_number[VMODE_COUNT];
                                         * and the menu still SHOWS them when the guest is in one, but
                                         * you cannot steer the machine into one from the menu. */
 #define VMODE_SAVE_MAX VMODE_360x270   /* and nothing past it is ever written to k4510.cfg: */
-#define VMODE_SAVE_TO  VMODE_320x240   /* a game mode is saved as this */
+#define VMODE_SAVE_TO  VMODE_360x270   /* a game mode is saved as this (360x270 since 2026-10-06: the modes F12 offers) */
 /* (scanlines, a dark line between each of the machine's, went 2026-09-14 --
  * Doc: "a nice idea that has limited only nostalgic use") */
 /* scaling, in the ENUM's order, hard pixels both (Doc, 2026-09-14: "only 2
@@ -131,6 +133,7 @@ enum { CHORD_SUPER_PGUP, CHORD_CTRL_PGUP, CHORD_ALT_PGUP, CHORD_CTRL_ALT_DEL, CH
 /* the menu keys, in the ENUM's order */
 enum { MENUKEY_F7, MENUKEY_F8, MENUKEY_F11, MENUKEY_PAUSE, MENUKEY_F12, MENUKEY_COUNT };   /* F12 the default since 2026-09-15 */
 enum { PAGE_CP437, PAGE_K4510, PAGE_COUNT };
+enum { HDFONT_UNSCII, HDFONT_ZHEKOV, HDFONT_SPLEEN, HDFONT_VGA, HDFONT_COUNT };   /* data/fonts/hd, tools/mkhdfonts.py */
 
 const set_desc *settings_desc(set_id id);
 int         settings_choices(set_id id);          /* how many of an ENUM's labels the menu may offer */

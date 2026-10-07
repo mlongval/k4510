@@ -22,8 +22,8 @@ int main(void)
     /* 1. the registry and its file */
     f = fopen(cfg, "w"); fputs("# my notes\nvideo.border = 12\naudio.volume=30\nfuture.thing = keep me\nvideo.smoothing = sharp\n", f); fclose(f);
     CHECK(settings_load(cfg) == 0, "load");
-    CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, "values read (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_SMOOTH));
-    CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F12 && settings_get(SET_TEXT_CODEPAGE) == PAGE_CP437 && !settings_changed(), "defaults for the rest (F12, CP437), not dirty");
+    CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_SMOOTH) == SMOOTH_INTEGER && settings_get(SET_VIDEO_FULLSCREEN), "values read; scaling integer and full screen on whatever the file says (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_SMOOTH));
+    CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F12 && settings_get(SET_TEXT_CODEPAGE) == PAGE_CP437 && settings_changed(), "defaults for the rest (F12, CP437), dirty: the old scaling is written back as integer");
     settings_set(SET_VIDEO_BORDER, 999); CHECK(settings_get(SET_VIDEO_BORDER) == 64 && settings_changed(), "clamped, dirty");
     settings_step(SET_INPUT_RESET_CHORD, -1); CHECK(settings_get(SET_INPUT_RESET_CHORD) == CHORD_COUNT - 1, "enum wraps");
     CHECK(settings_save(cfg) == 0, "save");
@@ -54,10 +54,10 @@ int main(void)
     kbd_push_key(KEY_RIGHT); CHECK(settings_get(SET_AUDIO_VOLUME) == 90, "Right steps the volume (%d)", settings_get(SET_AUDIO_VOLUME));
     kbd_push_key(KEY_LEFT); kbd_push_key(KEY_LEFT); CHECK(settings_get(SET_AUDIO_VOLUME) == 70, "Left steps back");
     kbd_push(KEY_ESC); kbd_push_key(KEY_UP); kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);   /* Video */
-    for (int k = 0; k < 3; k++) kbd_push_key(KEY_DOWN);                      /* Scaling: a popup */
+    for (int k = 0; k < 2; k++) kbd_push_key(KEY_DOWN);                      /* Resolution: a popup (Scaling's row went 2026-10-06) */
     kbd_push(KEY_ENTER);
-    kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);
-    CHECK(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, "popup chose fit to display (%d)", settings_get(SET_VIDEO_SMOOTH));
+    kbd_push_key(KEY_UP); kbd_push(KEY_ENTER);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_720x540, "popup chose 720x540, one up from 360x270 (%d)", settings_get(SET_VIDEO_MODE));
     kbd_push(KEY_ESC); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* Machine */
     kbd_push_key(KEY_DOWN); kbd_push_key(KEY_DOWN); kbd_push(KEY_ENTER);   /* past Save/Load state (the separator is skipped): Reset */
     CHECK(!menu_is_open() && menu_take_action() == ACT_RESET && menu_take_action() == ACT_NONE, "Reset acts and closes");
@@ -91,17 +91,19 @@ int main(void)
     settings_save(cfg);
     settings_defaults();
     settings_load(cfg);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_320x240, "but 320x240 is what survives a save");
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_360x270, "but 360x270 is what survives a save");
     { FILE *f = fopen(cfg, "a"); if (f) { fputs("video.mode = 160x200\n", f); fclose(f); } }
     settings_load(cfg);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_320x240, "and a hand-edited file is clamped on the way in");
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_360x270, "and a hand-edited file is clamped on the way in");
     /* the menu will not steer into 320x200 / 160x200 -- 40x25 and 20x25 are not a
      * shell -- but it still shows one when the guest (MODE 3, a game) is in it */
     settings_defaults();
-    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1, "the menu offers seven modes (640x480 twice), not nine");
+    CHECK(settings_choices(SET_VIDEO_MODE) == VMODE_360x270 + 1 && settings_first(SET_VIDEO_MODE) == VMODE_1440x1080, "the menu offers 1440x1080, 720x540, 360x270");
     settings_set(SET_VIDEO_MODE, VMODE_360x270);
     settings_step(SET_VIDEO_MODE, +1);
-    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_640x480, "stepping past the last offered one wraps, not into 320x200");
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_1440x1080, "stepping past the last offered one wraps to 1440x1080, not into 320x200");
+    settings_set(SET_VIDEO_MODE, VMODE_640x480);
+    CHECK(settings_get(SET_VIDEO_MODE) == VMODE_640x480, "a program's MODE 0 is still a mode the row can show");
     settings_set(SET_VIDEO_MODE, VMODE_160x200);
     CHECK(settings_get(SET_VIDEO_MODE) == VMODE_160x200, "but the guest may put the machine in one, and the row says so");
     { char b[32]; CHECK(!strcmp(settings_text(SET_VIDEO_MODE, b, sizeof b), "160x200"), "shown by name"); }
@@ -209,16 +211,16 @@ int main(void)
      * either case, the locks read, and the written file lists every row. */
     { const char *mf = "test/uitest-menu.cfg", *mf2 = "test/uitest-menu2.cfg"; char buf[4096] = { 0 };
       f = fopen(mf, "w");
-      fputs("# a parent's choices\n[K4510]\nAudio = hide\n[Video]\nBorder width = hide\nfull screen = HIDE   # either case\n"
+      fputs("# a parent's choices\n[K4510]\nAudio = hide\n[Video]\nBorder width = hide\nborder COLOUR = HIDE   # either case\n"
             "[Terminal]\n24-hour clock = hide\nDate format = hide\n[Nowhere]\nX = hide\n[Locks]\nlinux = locked\n", f); fclose(f);
       CHECK(menu_file_load(mf) == 0, "the menu file loads");
       CHECK(!menu_row_shown("Audio", 0) && menu_row_shown("Video", 0), "a hidden category is gone, the others stay");
-      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Full screen") && menu_row_shown("Video", "Scaling"), "hidden rows are gone, either case");
+      CHECK(!menu_row_shown("Video", "Border width") && !menu_row_shown("Video", "Border colour") && menu_row_shown("Video", "Resolution"), "hidden rows are gone, either case");
       CHECK(!menu_row_shown("Terminal", "Date format") && menu_row_shown("Terminal", "Status bands"), "the Terminal rows it names are gone");
       CHECK(menu_lock(MENU_LOCK_LINUX) && !menu_lock(MENU_LOCK_CONSOLES), "the locks read");
       CHECK(menu_file_write(mf2) == 0, "the menu file is written");
       f = fopen(mf2, "r"); if (f) { fread(buf, 1, sizeof buf - 1, f); fclose(f); }
-      CHECK(strstr(buf, "[Video]") && strstr(buf, "Border width") && strstr(buf, "Scaling") && strstr(buf, "[Machine]")
+      CHECK(strstr(buf, "[Video]") && strstr(buf, "Border width") && strstr(buf, "Resolution") && strstr(buf, "[Machine]")
             && strstr(buf, "Shut down the computer") && strstr(buf, "linux    = locked") && strstr(buf, "consoles = open"), "...listing every row and the locks");
       f = fopen(mf, "w"); fclose(f);
       CHECK(menu_file_load(mf) == 0 && menu_row_shown("Audio", 0) && menu_row_shown("Video", "Border width") && !menu_lock(MENU_LOCK_LINUX), "an empty file shows everything again");

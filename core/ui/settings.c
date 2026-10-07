@@ -35,6 +35,7 @@ static const char *const cpu_names[]   = { "202.5 MHz", "162 MHz", "121.5 MHz", 
 static const char *const chord_names[] = { "Super+PageUp", "Ctrl+PageUp", "Alt+PageUp", "Ctrl+Alt+Del" };
 static const char *const mkey_names[]  = { "F7", "F8", "F11", "Pause", "F12" };
 static const char *const page_names[]  = { "CP437", "K4510" };
+static const char *const hdfont_names[] = { "unscii", "Zhekov Bold", "Spleen", "IBM VGA" };
 
 static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices are filled in at start (settings_set_labels) */
     { "video.border",        "Border width",   ST_INT,   0, 0, 64, 4, 0, 0, SF_LIVE },
@@ -42,7 +43,7 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "video.mode",          "Resolution",     ST_ENUM,  VMODE_360x270, 0, 0, 0, vmode_names, VMODE_COUNT, SF_LIVE },
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
     { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
-    { "video.fullscreen",    "Full screen",    ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },
+    { "video.fullscreen",    "Full screen",    ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* fixed on since 2026-10-06 (settings_load) */
     /* Vertical sync, off by default -- which is the machine keeping its own
      * 60 Hz and presenting when it is ready, as it does on the Pi.  Turning it
      * on hands the pacing to the display: on a host whose refresh is not
@@ -94,6 +95,7 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "host.lid",            "Lid closed",     ST_ENUM, 0, 0, 0, 0, lid_names, 2, SF_LIVE },   /* keep running (Doc's rule of 2026-09-11), or suspend */
     { "input.keypipe",       "Key pipe",       ST_ENUM, 2, 0, 0, 0, pipe_names, 3, SF_LIVE },  /* remote typing: off / on / on, shown (the default) */
     { "text.codepage",       "Code page",      ST_ENUM,  PAGE_CP437, 0, 0, 0, page_names, PAGE_COUNT, SF_LIVE },
+    { "video.hdfont",        "Font",           ST_ENUM,  HDFONT_ZHEKOV, 0, 0, 0, hdfont_names, HDFONT_COUNT, SF_LIVE },
 };
 static const unsigned cpu_hz_table[CPUCLK_COUNT] = { 202500000u, 162000000u, 121500000u, 81000000u, 60000000u,
                                                      40500000u, 30000000u, 20000000u, 15000000u, 10000000u };
@@ -112,12 +114,21 @@ int settings_choices(set_id id)
     return desc[id].nlabels;
 }
 int settings_get(set_id id) { return value[id]; }
-int settings_first(set_id id) { return (id == SET_CPU_CLOCK || id == SET_CPU_MEASURED) ? CPUCLK_FASTEST : 0; }
+/* The first choice the menu offers.  For the mode it is 1440x1080 since
+ * 2026-10-06 (Doc: only the even dividers of the panel's 4:3 -- 1440x1080,
+ * 720x540, 360x270); 640x480, 640x240 and 320x240 are still modes the machine
+ * can be in, a program's MODE 0, 1 or 2, and the row says so. */
+int settings_first(set_id id)
+{
+    if (id == SET_CPU_CLOCK || id == SET_CPU_MEASURED) return CPUCLK_FASTEST;
+    if (id == SET_VIDEO_MODE) return VMODE_1440x1080;
+    return 0;
+}
 static int clampv(set_id id, int v)
 {
     const set_desc *d = &desc[id];
     if (d->type == ST_ENUM || d->type == ST_CHORD) {
-        if (v < settings_first(id)) v = settings_first(id);   /* a clock above the cap comes down to it */
+        if ((id == SET_CPU_CLOCK || id == SET_CPU_MEASURED) && v < settings_first(id)) v = settings_first(id);   /* a clock above the cap comes down to it */
         if (v >= d->nlabels) v = d->nlabels - 1;
         return v;
     }
@@ -222,6 +233,11 @@ int settings_load(const char *path)
     }
     /* and again on the way in, in case the file was edited by hand */
     if (value[SET_VIDEO_MODE] > VMODE_SAVE_MAX) value[SET_VIDEO_MODE] = VMODE_SAVE_TO;
+    /* Fixed since 2026-10-06, their rows gone from F12 (Doc: "scaling --
+     * default is integer always; full screen -- on always"): whatever an older
+     * file says.  Vertical sync keeps its value, unseen. */
+    if (value[SET_VIDEO_SMOOTH] != SMOOTH_INTEGER || !value[SET_VIDEO_FULLSCREEN]) migrated = 1;
+    value[SET_VIDEO_SMOOTH] = SMOOTH_INTEGER; value[SET_VIDEO_FULLSCREEN] = 1;
     fclose(f); changed = migrated;
     return 0;
 }

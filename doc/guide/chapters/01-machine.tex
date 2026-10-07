@@ -216,7 +216,7 @@ are ordinary keys now, for the programs that want all ten. Input
 $\rightarrow$ \emph{Menu key} puts it back on F7 for fingers that
 remember.
 A setting with a list of choices opens that list over the panes, and
-\emph{applies as the cursor passes each one} --- the scaling changes
+\emph{applies as the cursor passes each one} --- the font changes
 under the menu so you can see it --- with Escape putting back whatever
 was there when the list opened.
 
@@ -225,15 +225,17 @@ page on the right.}
 
 \begin{description}
 \item[Video] the border; \emph{resolution}, which is the
-  \verb|MODE| command's knob;
-  \emph{scaling}: \emph{integer}, to begin with (a whole-number
-  multiple, so every pixel is the same size on the glass, with a border
-  where the window is not an exact multiple), or \emph{fit to display}
-  (as large as the window takes; the pixels may come out uneven) ---
-  both hard pixels, never blurred; full screen; \emph{vertical sync}, off to begin
-  with --- see the aside below; and \emph{placement} and \emph{side
-  panel}, which are the section after next. The figures in this book are
-  taken with the effects off.
+  \verb|MODE| command's knob: 1440x1080, 720x540 and 360x270, the whole
+  dividers of a 1920x1080 panel's 4:3 (a program may still put the machine
+  in 640x480 and the others, and the row says so); \emph{font}, which at
+  720x540 draws the text at the panel's own pixels --- each 8x16 cell as
+  16x32 from \emph{Zhekov Bold} (to begin with; Dimitar Zhekov's Terminus Font, renamed as its licence asks of a changed copy), \emph{Spleen} or
+  \emph{IBM VGA}, while the graphics stay the machine's; a character a
+  program has redefined keeps its own shape --- or \emph{unscii}, the
+  machine's own font doubled; and \emph{placement}, which is the section
+  after next. The picture is always full screen and scaled by a whole
+  number, every pixel the same size. The figures in this book are taken
+  with the effects off.
 \item[Terminal] \emph{status bands}, on or off (a row at the top, a row at the bottom)
   (Section~\ref{sec:bands}), and the clock and date format they print.
 \item[Audio] volume.
@@ -280,8 +282,8 @@ file survives the machine changing under it.
 machine keeps its own 60\,Hz and presents a frame when it is ready; the
 cost is tearing. With it on, the pacing belongs to your display, and on
 a host whose refresh is not exactly 60 that costs frames --- and frames
-are sound here (Appendix~\ref{cha:sound}). Neither answer is right for
-every host, which is why it is a row and not a decision.
+are sound here (Appendix~\ref{cha:sound}). It is no longer a row in the
+menu; \texttt{video.vsync} in \texttt{k4510.cfg} still turns it on.
 \end{aside}
 
 \section{The menu file: what the menu shows}\label{sec:menufile}

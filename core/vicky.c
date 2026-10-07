@@ -28,6 +28,26 @@ static void glass_latch(void)
 }
 int vicky_glass_w(void) { return glass_w; }
 int vicky_glass_h(void) { return glass_h; }
+
+/* ---- HD text (vicky.h) ---------------------------------------------------- */
+static const uint8_t *hd_font, *hd_stock;
+static int hd_on;                                /* this frame: 720x540 with an HD font, drawn at 1440x1080 */
+void vicky_hd_font(const uint8_t *hd, const uint8_t *stock)
+{
+    if (hd != hd_font || stock != hd_stock) vicky_dirty = 1;
+    hd_font = hd; hd_stock = stock;
+}
+int vicky_out_scale(void) { return hd_on ? 2 : 1; }
+int vicky_out_w(void) { return glass_w * vicky_out_scale(); }
+int vicky_out_h(void) { return glass_h * vicky_out_scale(); }
+/* What the text32 layer left at each pixel of the line, for the HD pass:
+ * hd_src 1 where a text32 cell's pixel is on top (any later layer or sprite
+ * clears it), and then which glyph, its row, column, colours and cursor. */
+static uint8_t  hd_src[VICKY_WIDTH], hd_gx[VICKY_WIDTH], hd_gy[VICKY_WIDTH], hd_fg[VICKY_WIDTH], hd_bg[VICKY_WIDTH], hd_cur[VICKY_WIDTH];
+static uint16_t hd_g[VICKY_WIDTH];
+static uint32_t hd_data[VICKY_WIDTH];
+static uint8_t  hd_line[VICKY_WIDTH];            /* the machine's line, before it is doubled */
+static uint8_t  hd_ok[256]; static uint32_t hd_ok_data = 0xFFFFFFFFu;   /* the glyphs at hd_ok_data that are stock: worked out once a frame */
 static uint8_t  spr_list[4][VICKY_SPRITES];  /* this line's sprites, by Z, in table order (sprites_gather) */
 static int      spr_n[4];
 
@@ -172,7 +192,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
         uint8_t base = (uint8_t)(palofs << bpp);
         uint32_t row = data + (uint32_t)sy * stride;
         if (bpp == 8) {
-            for (int x = 0; x < w; x++) { uint8_t pix = ram(row + (uint32_t)(sx0 + x)); if (pix) { line[x] = pix; layer_hit[x] = 1; } }
+            for (int x = 0; x < w; x++) { uint8_t pix = ram(row + (uint32_t)(sx0 + x)); if (pix) { line[x] = pix; layer_hit[x] = 1; hd_src[x] = 0; } }
             return;
         }
         /* 1/2/4 bpp: fetch each byte once and walk its pixels */
@@ -181,7 +201,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
         uint8_t b = ram(a);
         for (int x = 0; x < w; x++) {
             uint8_t pix = (b >> (8 - bpp - sub * bpp)) & mask;
-            if (pix) { line[x] = (uint8_t)(base | pix); layer_hit[x] = 1; }
+            if (pix) { line[x] = (uint8_t)(base | pix); layer_hit[x] = 1; hd_src[x] = 0; }
             if (++sub == ppb) { sub = 0; b = ram(++a); }
         }
         return;
@@ -205,7 +225,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
                 uint8_t b = ram(trow + (uint32_t)((px << depth) >> 3));
                 int shift = (bpp == 8) ? 0 : (8 - bpp - (px & (ppb - 1)) * bpp);
                 uint8_t pix = (b >> shift) & mask;
-                if (pix) { line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix); layer_hit[x] = 1; }
+                if (pix) { line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix); layer_hit[x] = 1; hd_src[x] = 0; }
             }
         }
         return;
@@ -230,7 +250,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
             uint8_t row  = ram(data + (uint32_t)cell * H + gy);
             for (int gx = gx0; gx < 8 && x < w; gx++, x++) {
                 uint8_t pix = (row >> (7 - gx)) & 1;
-                if (pix) { line[x] = (uint8_t)(base | pix); layer_hit[x] = 1; }
+                if (pix) { line[x] = (uint8_t)(base | pix); layer_hit[x] = 1; hd_src[x] = 0; }
             }
         }
         return;
@@ -255,6 +275,8 @@ static void layer_line(int n, int y, uint8_t *line, int w)
             int sw = cur && (cur_style == 1 || gx < 2);
             line[x] = (((row >> (7 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
             layer_hit[x] = 1;              /* text32 cells are opaque: every pixel is "a layer drew here" */
+            if (hd_on) { hd_src[x] = (uint8_t)(!pad && H == 16); hd_g[x] = g; hd_gx[x] = (uint8_t) gx; hd_gy[x] = (uint8_t) gy;
+                         hd_fg[x] = fg; hd_bg[x] = bg; hd_data[x] = data; hd_cur[x] = (uint8_t)(cur ? 1 + cur_style : 0); }
         }
     }
 }
@@ -315,6 +337,7 @@ static void sprites_line(int z, int y, uint8_t *line, int w)
             else owner[x] = (uint8_t)(n + 1);
             if (layer_hit[x]) col_sl[n >> 3] |= 1 << (n & 7);
             line[x] = (bpp == 8) ? pix : (uint8_t)(base | pix);
+            hd_src[x] = 0;
         }
     }
 }
@@ -442,8 +465,47 @@ void vicky_begin_frame(uint8_t *fb, int pitch)
     frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active() && io_tube_kind() != 6 && io_tube_kind() != 7;
     vicky_dirty = 0; vicky_low = reads_low();
     glass_latch();
+    { int on = hd_font && hd_stock && glass_hd && glass_w == VICKY_WIDTH / 2;   /* 720x540 only, for now */
+      if (on != hd_on) { hd_on = on; frame_skip = 0; }
+      hd_ok_data = 0xFFFFFFFFu; }                                                 /* a program may have changed a glyph since */
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
     sh_pc = rd32(&reg[VR_SHEILA]); sh_wait = (reg[VR_SHEILACTL] & 1) ? -1 : -2;
+}
+
+/* One machine line of an HD frame: composed at 720 as ever (with hd_src
+ * kept), then written as two lines of 1440 -- each pixel doubled, unless a
+ * text32 cell is on top whose glyph is the stock one: then the HD glyph's two
+ * rows and two columns for it. */
+static void hd_line_draw(int y, uint8_t ctrl)
+{
+    const int w = glass_w;
+    uint8_t *o0 = frame_fb + (size_t)(2 * y) * frame_pitch, *o1 = o0 + frame_pitch;
+    memset(hd_line, reg[VR_BGCOL], (size_t) w); memset(hd_src, 0, (size_t) w);
+    if (ctrl & 1) {
+        memset(owner, 0, (size_t) w); memset(layer_hit, 0, (size_t) w);
+        sprites_gather(y);
+        for (int n = 0; n < VICKY_LAYERS; n++) {
+            if (reg[VR_LAYER(n) + VL_CTRL] & 1) layer_line(n, y, hd_line, w);
+            sprites_line(n, y, hd_line, w);
+        }
+    }
+    for (int x = 0; x < w; x++) {
+        uint8_t p = hd_line[x];
+        if (!hd_src[x] || hd_g[x] > 255) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        if (hd_data[x] != hd_ok_data) {                          /* which glyphs in RAM are the stock ones: once a frame */
+            hd_ok_data = hd_data[x];
+            for (int g = 0; g < 256; g++) { hd_ok[g] = 1;
+                for (int r = 0; r < 16; r++) if (ram(hd_ok_data + (uint32_t)(g * 16 + r)) != hd_stock[g * 16 + r]) { hd_ok[g] = 0; break; } }
+        }
+        if (!hd_ok[hd_g[x]]) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        const uint8_t *gr = hd_font + ((size_t) hd_g[x] * 32 + (size_t) hd_gy[x] * 2) * 2;   /* the HD glyph's two rows for this line */
+        unsigned w0 = (unsigned) gr[0] << 8 | gr[1], w1 = (unsigned) gr[2] << 8 | gr[3];
+        if (hd_cur[x] == 2) { if (hd_gy[x] >= 14) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; } }      /* the shaped cursor at the HD size: */
+        else if (hd_cur[x]) { w0 ^= 0xF000; w1 ^= 0xF000; }                                /* underline four rows, bar four columns */
+        int sh = 14 - 2 * hd_gx[x]; uint8_t fg = hd_fg[x], bg = hd_bg[x];
+        o0[2 * x] = (w0 >> (sh + 1)) & 1 ? fg : bg; o0[2 * x + 1] = (w0 >> sh) & 1 ? fg : bg;
+        o1[2 * x] = (w1 >> (sh + 1)) & 1 ? fg : bg; o1[2 * x + 1] = (w1 >> sh) & 1 ? fg : bg;
+    }
 }
 
 void vicky_line(int y)
@@ -456,6 +518,11 @@ void vicky_line(int y)
     uint8_t ctrl = reg[VR_CTRL];
     /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
      * field, 40 blank lines above and below it; bit4: columns quartered (160). */
+    if (hd_on) {                                     /* 720x540 drawn at 1440x1080, text from the HD font */
+        if (y >= glass_h) return;
+        hd_line_draw(y, ctrl);
+        return;
+    }
     if (glass_hd) {                                  /* the HD family: its own size, nothing doubled */
         if (y >= glass_h) return;
         memset(line, reg[VR_BGCOL], (size_t) glass_w);

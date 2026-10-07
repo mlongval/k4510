@@ -281,7 +281,7 @@ static void png_write(const char *path, const uint8_t *raw, int W, int H) {
 /* The name both pictures of one screenshot share: shots/shot-<date>-<time>-<ms> */
 static char shot_base[64];
 static void shot_save(const uint8_t *src, const uint8_t *ov, const uint32_t *pal, const uint32_t *upal) {
-    const int W = vicky_glass_w(), H = vicky_glass_h(), ROW = 1 + W * 3;   /* the glass, whatever the mode */
+    const int W = vicky_out_w(), H = vicky_out_h(), ROW = 1 + W * 3;   /* the picture as drawn: the glass, or twice it with HD text */
     static uint8_t raw[VICKY_HEIGHT * (1 + VICKY_WIDTH * 3)];
     for (int y = 0; y < H; y++) {
         uint8_t *d = raw + y * ROW; *d++ = 0;                      /* filter: none */
@@ -406,7 +406,10 @@ static int load_file(const char *path, uint8_t *buf, size_t max)
 
 static uint8_t font_menu[2048];                      /* unscii-8: the machine's 8x8 font, and the menu's */
 static uint8_t font_panel[4096]; static int font_panel_rows = 16;  /* unscii-16: MODE 0's font, and the side panel's */
-static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP437, for TELNET's BBS sessions (docs/K4510-CODEPAGE.md) */
+static uint8_t font_437_8[2048], font_437_16[4096];
+/* The HD text fonts (vicky_hd_font, tools/mkhdfonts.py): per face, the K4510
+ * page's order and CP437's; a face whose files are missing is drawn as unscii. */
+static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384]; static int hd_have[HDFONT_COUNT];  /* both again in strict CP437, for TELNET's BBS sessions (docs/K4510-CODEPAGE.md) */
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -708,6 +711,9 @@ static int cpu_run(int cycles)                /* run the CPU for so many cycles;
 static void line_begin(void)
 {
     if (m_line == 0 && !m_in_frame) {
+        { int f = settings_get(SET_VIDEO_FONT), pg = settings_get(SET_TEXT_CODEPAGE) == PAGE_K4510 ? PAGE_K4510 : PAGE_CP437;   /* the HD font for this frame */
+          if (f != HDFONT_UNSCII && hd_have[f]) vicky_hd_font(hd_fonts[f][pg], pg == PAGE_K4510 ? font_panel : font_437_16);
+          else vicky_hd_font(NULL, NULL); }
         vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1;
         frame_lines = vicky_glass_h(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;   /* a frame is 1/60 s however many lines */
     }
@@ -1129,6 +1135,10 @@ int k4510_frontend_main(int argc, char **argv)
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
+    { static const char *const hdn[HDFONT_COUNT] = { NULL, "zhekov-bold", "spleen", "ibm-vga" };   /* optional: the HD text fonts */
+      for (int i = 1; i < HDFONT_COUNT; i++) { char p1[64], p2[64];
+          snprintf(p1, sizeof p1, "data/fonts/hd/%s-k4510.bin", hdn[i]); snprintf(p2, sizeof p2, "data/fonts/hd/%s-cp437.bin", hdn[i]);
+          hd_have[i] = load_file(p1, hd_fonts[i][PAGE_K4510], 16384) == 16384 && load_file(p2, hd_fonts[i][PAGE_CP437], 16384) == 16384; } }
     load_file("data/fonts/unscii/font8-cp437.bin", font_437_8, sizeof font_437_8);      /* optional: IBM's page */
     load_file("data/fonts/unscii/font16-cp437.bin", font_437_16, sizeof font_437_16);
     if (load_file("data/fonts/unscii/font8-unscii.bin", font_menu, sizeof font_menu) != sizeof font_menu ||
@@ -1381,7 +1391,8 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                     int wx, wy; SDL_GetMouseState(&wx, &wy);
                     if (confine_clamp(&wx, &wy)) { SDL_WarpMouseInWindow(win, wx, wy); break; }
                 }
-                mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), vicky_glass_w()); mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), vicky_glass_h());
+                mouse_x = to_machine((int)((e.motion.x - geo_xd) / geo_s), vicky_out_w()) / vicky_out_scale();   /* the picture as drawn, back to the machine's pixels */
+                mouse_y = to_machine((int)((e.motion.y - geo_yd) / geo_s), vicky_out_h()) / vicky_out_scale();
                 dx_acc += (int)(e.motion.xrel / geo_s); dy_acc += (int)(e.motion.yrel / geo_s);
                 mouse_to_menu(); break;
             case SDL_MOUSEBUTTONDOWN: case SDL_MOUSEBUTTONUP: {
@@ -2045,7 +2056,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         /* Nothing new to show -- same picture, same overlay, same tables --
          * and the texture already holds it: skip the 307,200 lookups (review
          * 2026-09-05, 9).  A still screen at the prompt is most frames. */
-        const int gw = vicky_glass_w(), gh = vicky_glass_h();   /* the glass: 640x480, or an HD mode's own size */
+        const int gw = vicky_out_w(), gh = vicky_out_h();       /* the picture: the glass (640x480, or an HD mode's own size), twice it with HD text */
         int tex_same = 0;                                       /* the picture is the last frame's (still frames, below) */
         { static uint8_t last_fb[sizeof fb], last_ov[sizeof ov]; static int last_open = -1, last_gw, last_gh;
           if (!tex_stale && open == last_open && gw == last_gw && gh == last_gh
@@ -2450,8 +2461,9 @@ tex_done:
                   while (n > 1 && (UI_W * n > px1 - px0 || UI_H * n > py1 - py0)) n--;
                   SDL_Rect md = { px0 + (px1 - px0 - UI_W * n) / 2, py0 + (py1 - py0 - UI_H * n) / 2, UI_W * n, UI_H * n };
                   if (px1 > px0 && py1 > py0) {                          /* the same rect in glass pixels, for the mouse */
-                      menu_gx0 = (md.x - px0) * gw / (px1 - px0); menu_gw = md.w * gw / (px1 - px0);   /* mouse_x spans the picture (to_machine) */
-                      menu_gy0 = (md.y - py0) * gh / (py1 - py0); menu_gh = md.h * gh / (py1 - py0);
+                      int mgw = vicky_glass_w(), mgh = vicky_glass_h();        /* mouse_x spans the picture in the machine's pixels */
+                      menu_gx0 = (md.x - px0) * mgw / (px1 - px0); menu_gw = md.w * mgw / (px1 - px0);
+                      menu_gy0 = (md.y - py0) * mgh / (py1 - py0); menu_gh = md.h * mgh / (py1 - py0);
                   }
                   if (!custom) SDL_RenderSetLogicalSize(ren, 0, 0);
                   SDL_SetTextureBlendMode(mtex, SDL_BLENDMODE_BLEND);
@@ -2610,7 +2622,7 @@ frame_still:
           if (shot && --shot_fr == 0) {
               char path[256]; snprintf(path, sizeof path, "%.*s", (int)(strrchr(shot, ':') ? strrchr(shot, ':') - shot : (long) strlen(shot)), shot);
               FILE *f = fopen(path, "wb");
-              int sh = vicky_glass_h(), sw = vicky_glass_w(), mo = menu_is_open();
+              int sh = vicky_out_h(), sw = vicky_out_w(), mo = menu_is_open();
               if (f) { fprintf(f, "P6 %d %d 255\n", sw, sh);   /* the glass, and the menu over it when it is open (its own layer on the screen) */
                        for (int y = 0; y < sh; y++) for (int x = 0; x < sw; x++) {
                            uint8_t o = mo ? ov[(y * UI_H / sh) * UI_W + x * UI_W / sw] : 0;

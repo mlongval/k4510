@@ -24,9 +24,9 @@ static const item_t video_items[] = {
     { "Border width",  MI_SETTING, SET_VIDEO_BORDER },
     { "Border colour", MI_SETTING, SET_VIDEO_BORDER_COLOUR },
     { "Resolution",    MI_SETTING, SET_VIDEO_MODE },
-    { "Scaling",       MI_SETTING, SET_VIDEO_SMOOTH },
-    { "Full screen",   MI_SETTING, SET_VIDEO_FULLSCREEN },
-    { "Vertical sync", MI_SETTING, SET_VIDEO_VSYNC },
+    { "Font",          MI_SETTING, SET_VIDEO_FONT },   /* the HD text font at 720x540 (2026-10-06) */
+    /* Scaling, Full screen and Vertical sync went 2026-10-06: integer and full
+     * screen always (settings_load), vsync as it was */
     { "Placement",     MI_SETTING, SET_VIDEO_PLACE },
     /* the sidebar, and its options in its own file: F12 keeps to these two rows
      * (Doc, 2026-09-15: "limit the F12 options to 'which one' and 'Edit options'") */

@@ -22,3 +22,12 @@ and hashes: `unscii/VENDORED-FROM.txt`.
 Removed 2026-09-14: the Linux kernel 8x8 font (`data/font8.bin`), the
 MEGA65 open-roms chargen and PXLfont, BESCII, the twelve ZX Origins faces,
 and the import of a Commodore `chargen.bin`.  The history keeps them.
+
+## HD text fonts (2026-10-06)
+
+`hd/` holds the fonts F12 -> Video -> Font draws text with at 720x540, at
+the panel's own pixels: 16x32 for each 8x16 cell (core/vicky.h,
+`vicky_hd_font`).  unscii stays the machine's font -- what is in RAM, what a
+program reads and redefines; a redefined character is drawn from RAM,
+doubled.  Zhekov Bold (Terminus Font), Spleen and IBM VGA; built by
+`tools/mkhdfonts.py`, provenance in `hd/VENDORED-FROM.txt`.

@@ -345,6 +345,9 @@ def menu():
             names = names[:offered[sid]]                               # 40.5 read as 10 MHz, four places along)
         if sid in ("SET_CPU_CLOCK", "SET_CPU_MEASURED") and first_clock:   # the steps above the cap are not offered
             names = names[first_clock:]
+        fm = re.search(r"if \(id == %s\) return (\w+);" % sid, set_c)          # settings_first: the menu offers from there
+        if fm and fm.group(1) in enums:
+            names = names[enums[fm.group(1)]:]
         return ", ".join(names), key, dname
 
     items = {n: re.findall(r'\{\s*"([^"]*)",\s*(MI_\w+)(?:,\s*([&\w]+))?(?:,\s*&?(\w+))?\s*\}', body)

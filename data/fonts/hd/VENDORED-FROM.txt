@@ -1,0 +1,17 @@
+data/fonts/hd -- the HD text fonts (core/vicky.h vicky_hd_font; F12 -> Video -> Font)
+
+Each face is 256 glyphs of 16x32, two bytes a row, MSB first, in the K4510 code
+page's order (-k4510.bin) and strict CP437's (-cp437.bin).  Built by
+tools/mkhdfonts.py, 2026-10-06; a glyph a face lacks is unscii-16's, doubled.
+
+zhekov-bold   Terminus Font Bold 16x32, Dimitar Toshkov Zhekov -- SIL OFL 1.1,
+              Reserved Font Name "Terminus Font", so the changed copy here is
+              named otherwise (LICENSE-zhekov-bold.txt).  Source: Ubuntu 24.04
+              console-setup, /usr/share/consolefonts/*-TerminusBold32x16.psf.gz
+              (Uni3 first, then the others for what it lacks).
+spleen        Spleen 16x32, Frederic Cambus -- BSD 2-Clause (LICENSE-spleen.txt).
+              Source: github.com/fcambus/spleen, spleen-16x32.bdf (master,
+              2026-10-06), sha256 d9195a94badfe33f4bba4b68b8d711c031c28524ddcdebd095717be7ce98de7a
+ibm-vga       The IBM VGA ROM set as the Linux kernel carries it,
+              lib/fonts/font_8x16.c (GPL-2.0), drawn doubled.  Source:
+              github.com/torvalds/linux master, 2026-10-06, sha256 87e0693fb9ae7f342710cf230e76df0ec213988f833a7d82cb01db5de54cf20d

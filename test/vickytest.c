@@ -325,6 +325,34 @@ int main(void)
       W(VR_BANDCTL, 0);
     }
 
+    /* 12. HD text (2026-10-06): 720x540 with an HD font is drawn at 1440x1080.
+     * A text32 cell whose glyph in RAM is the stock one comes from the HD font;
+     * one a program changed is its own glyph, doubled. */
+    { static uint8_t big[VICKY_WIDTH * VICKY_HEIGHT], stock[4096], hd[16384];
+      uint32_t f16 = 0x320000, m32 = 0x330000;
+      mem_reset();
+      for (int i = 0; i < 4096; i++) mem_poke(f16 + i, 0);
+      for (int r = 0; r < 16; r++) { stock['A' * 16 + r] = stock['B' * 16 + r] = 0xF0;
+                                     mem_poke(f16 + 'A' * 16 + r, 0xF0); mem_poke(f16 + 'B' * 16 + r, 0x0F); }   /* B: a program's own */
+      for (int r = 0; r < 32; r++) { hd[('A' * 32 + r) * 2] = 0x40; hd[('B' * 32 + r) * 2] = 0x40; }           /* HD: column 1 only */
+      uint8_t c0[4] = { 'A', 0, 9, 4 }, c1[4] = { 'B', 0, 9, 4 };
+      mem_load(m32, c0, 4); mem_load(m32 + 4, c1, 4);
+      W(VR_CTRL, 1 | 0x20 | 2); W(VR_BGCOL, 0);                                  /* 720x540 */
+      W32(VR_LAYER(0) + VL_DATA, f16); W32(VR_LAYER(0) + VL_MAP, m32); W16(VR_LAYER(0) + VL_STRIDE, 90);
+      W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));
+      vicky_hd_font(hd, stock); vicky_render(big, VICKY_WIDTH);
+      CHECK(vicky_out_scale() == 2 && vicky_out_w() == 1440 && vicky_out_h() == 1080 && vicky_glass_w() == 720, "720x540 with an HD font is drawn 1440x1080; the glass stays 720");
+      CHECK(big[20 * VICKY_WIDTH + 0] == 4 && big[20 * VICKY_WIDTH + 1] == 9 && big[21 * VICKY_WIDTH + 2] == 4,
+            "a stock glyph comes from the HD font (%d %d %d)", big[20 * VICKY_WIDTH], big[20 * VICKY_WIDTH + 1], big[21 * VICKY_WIDTH + 2]);
+      CHECK(big[20 * VICKY_WIDTH + 16] == 4 && big[20 * VICKY_WIDTH + 24] == 9 && big[21 * VICKY_WIDTH + 31] == 9,
+            "a glyph a program changed is its own, doubled (%d %d %d)", big[20 * VICKY_WIDTH + 16], big[20 * VICKY_WIDTH + 24], big[21 * VICKY_WIDTH + 31]);
+      vicky_hd_font(NULL, NULL); vicky_render(big, VICKY_WIDTH);
+      CHECK(vicky_out_scale() == 1 && big[10 * VICKY_WIDTH + 0] == 9, "without one, 720x540 as before");
+      W(VR_CTRL, 1); vicky_hd_font(hd, stock); vicky_render(fb, 640);
+      CHECK(vicky_out_scale() == 1, "an HD font changes nothing outside 720x540");
+      vicky_hd_font(NULL, NULL);
+      printf("12. HD text: stock glyphs from the HD font, a program's own doubled, nothing else changed\n"); }
+
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;
 }

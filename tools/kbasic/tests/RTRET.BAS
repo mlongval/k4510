@@ -1,0 +1,3 @@
+PRINT "x"
+RETURN
+PRINT "after"

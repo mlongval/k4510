@@ -573,7 +573,7 @@ static const char *compiler(void)                    /* the machine's word for t
     if (rn_up((uint8_t)d[1]) == 'C' && !d[2]) return "CC";
     if (rn_up((uint8_t)d[1]) == 'P' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "PAS";
     if (rn_up((uint8_t)d[1]) == 'R' && rn_up((uint8_t)d[2]) == 'X' && !d[3]) return "RX";    /* REXX: nothing to compile, only to run */
-    if (rn_up((uint8_t)d[1]) == 'B' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "EHBASIC";   /* BASIC and LOGO: */
+    if (rn_up((uint8_t)d[1]) == 'B' && rn_up((uint8_t)d[2]) == 'A' && rn_up((uint8_t)d[3]) == 'S' && !d[4]) return "BAS";       /* compiled BASIC (tools/k4510-bas, 2026-10-08); EHBASIC still runs numbered files by hand */
     if (rn_up((uint8_t)d[1]) == 'L' && rn_up((uint8_t)d[2]) == 'G' && rn_up((uint8_t)d[3]) == 'O' && !d[4]) return "LOGO";      /* run as REXX is */
     return 0;
 }

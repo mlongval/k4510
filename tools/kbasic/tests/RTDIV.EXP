@@ -1,0 +1,4 @@
+before
+Line 3: Division by zero
+MAKEERR:RTDIV.BAS:3:0:E:Division by zero
+NOT:after

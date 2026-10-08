@@ -1,0 +1,5 @@
+PRINT "X", "Y"
+PRINT TAB(10); "T"
+PRINT "A"; SPC(3); "B"
+PRINT "P"; : PRINT "Q"
+PRINT "S" + "T" + "U"

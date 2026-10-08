@@ -1,0 +1,8 @@
+SUB Quit
+  PRINT "M:bye"
+  END
+END SUB
+PRINT "M:"; INT(40000.7); FIX(-40000.7); INT(-2.5)
+POKE 52992, 77: PRINT "M:"; PEEK(52992)
+Quit
+PRINT "M:not reached"

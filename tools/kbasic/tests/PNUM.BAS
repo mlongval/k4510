@@ -1,0 +1,14 @@
+PRINT "A:"; 3.75
+PRINT "B:"; -12
+PRINT "C:"; 0.5
+PRINT "D:"; 1/3
+PRINT "E:"; 2/3
+PRINT "F:"; 1E12
+PRINT "G:"; 0.00001
+PRINT "H:"; 123456
+PRINT "I:"; 1234567
+PRINT "J:"; 1.5; 2.5
+x% = 7: PRINT "K:"; x%
+PRINT "L:"; -0.25
+PRINT "M:"; 10 / 4
+PRINT "N:"; 100000 * 3

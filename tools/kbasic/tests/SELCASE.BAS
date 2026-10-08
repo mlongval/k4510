@@ -1,0 +1,24 @@
+FOR n = 1 TO 6
+  SELECT CASE n
+    CASE 1
+      PRINT "S1"
+    CASE 2, 3
+      PRINT "S23:"; n
+    CASE 4 TO 5
+      PRINT "S45:"; n
+    CASE ELSE
+      PRINT "SELSE:"; n
+  END SELECT
+NEXT
+x = 50
+SELECT CASE x
+CASE IS > 40
+  PRINT "BIG"
+CASE ELSE
+  PRINT "SMALL"
+END SELECT
+a$ = "cat"
+SELECT CASE a$
+CASE "dog": PRINT "WOOF"
+CASE "cat": PRINT "MEOW"
+END SELECT

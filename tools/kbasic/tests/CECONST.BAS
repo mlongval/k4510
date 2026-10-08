@@ -1,0 +1,2 @@
+CONST MAX = 10
+MAX = 5

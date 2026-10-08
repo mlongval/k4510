@@ -12065,3 +12065,16 @@ leaves warnings only) and the cursor goes to it, as for RX.  PROG and EDIT
 were full: MAKE.ERR's first-error search went to $E000.  RX takes PRINT for
 SAY -- the scratchpad that BASIC's immediate mode was.  Still to come with the
 tool: .BAS in PROG compiles instead of running EhBASIC.
+
+**2026-10-08: compiled BASIC is in** (doc-18's translator, from K4510-Ed's
+kbasic/).  tools/k4510-bas (Python 3) turns NAME.BAS -- EhBASIC's words,
+labels or line numbers, IF/ELSEIF/END IF, DO/LOOP, WHILE/WEND, SELECT CASE,
+CONST, SUB/FUNCTION, lower case, LOCATE/COLOR/CLS/INKEY$ -- into Mad Pascal
+with tools/kbasic/kbasrt.pas and compiles it through k4510-pas to name.prg
+beside the source.  Compile errors and the program's runtime errors ("Line
+N: ...") both land in MAKE.ERR with the BASIC line.  PROG and VI now compile a
+.BAS (F9, :make) instead of handing it to EhBASIC, which keeps the numbered
+programs (EHBASIC, RUN "NAME.BAS").  Checked end to end: VI KB1.BAS, :run,
+division by zero -> "error 1 of 1: line 3: Division by zero", cursor on 3.
+test/bastest.sh, 25 programs, in make test.  The language: docs/KBASIC.md;
+keyword help (EN, FR) in /LANG/BASIC, not yet wired to PROG's F1.

@@ -1,0 +1,186 @@
+# K4510 BASIC -- aide F1 de PROG, en français.
+# Un bloc par mot : une ligne "@MOT", puis 1 à 4 lignes (76 caractères
+# au plus) : la syntaxe et un petit exemple.  Les lignes # sont des
+# commentaires.  Le fichier s'écrit en CP437.
+@PRINT
+PRINT valeur; valeur, valeur    ; reste sur la ligne, , colonne suivante
+PRINT "Points :"; s%            ? est le raccourci de PRINT
+PRINT TAB(20); "x"; SPC(3); "y"  finit par ; ou , : pas de retour
+@INPUT
+INPUT "Ton âge"; age            pose la question, ajoute "? ", attend
+INPUT "Nom : ", n$              avec , pas de "? "
+INPUT a, b                      plusieurs valeurs, tapées avec des virgules
+@LET
+LET x = 5        pareil que  x = 5
+@IF
+IF x > 10 THEN PRINT "grand" ELSE PRINT "petit"
+IF x THEN ... (lignes) ... ELSEIF y THEN ... ELSE ... END IF
+IF vies% = 0 THEN 100           saute à l'étiquette ou à la ligne 100
+@THEN
+IF condition THEN instructions    -- voir IF
+@ELSE
+IF x THEN PRINT "oui" ELSE PRINT "non"    -- voir IF
+@ELSEIF
+IF a THEN ... ELSEIF b THEN ... ELSE ... END IF     -- voir IF
+@END
+END             termine le programme (STOP fait pareil)
+END IF / END SELECT / END SUB / END FUNCTION ferment leur bloc
+@STOP
+STOP            termine le programme, comme END
+@FOR
+FOR i = 1 TO 10 ... NEXT i
+FOR i = 10 TO 0 STEP -2 ... NEXT     STEP peut être négatif ou 0.5
+EXIT FOR sort de la boucle
+@TO
+FOR i = 1 TO 10   /   CASE 3 TO 9
+@STEP
+FOR i = 0 TO 1 STEP 0.1 ... NEXT
+@NEXT
+NEXT  ou  NEXT i      ferme un FOR
+@WHILE
+WHILE vies% > 0 ... WEND           répète tant que c'est vrai
+DO WHILE x < 5 ... LOOP            LOOP WHILE x < 5 vérifie à la fin
+@WEND
+WHILE condition ... WEND
+@DO
+DO ... LOOP UNTIL t$ = "q"         DO WHILE c ... LOOP   DO UNTIL c ... LOOP
+DO ... LOOP                        sans fin, jusqu'à un EXIT DO
+@LOOP
+LOOP / LOOP UNTIL condition / LOOP WHILE condition    -- ferme un DO
+@UNTIL
+DO UNTIL fini% ... LOOP     DO ... LOOP UNTIL x > 9
+@EXIT
+EXIT FOR   EXIT DO   EXIT SUB   EXIT FUNCTION     sort avant la fin
+@GOTO
+GOTO Encore         continue à l'étiquette Encore: (ou un numéro)
+@GOSUB
+GOSUB Bravo         va à Bravo: jusqu'au RETURN, puis revient
+@RETURN
+RETURN              revient après le GOSUB
+@SELECT
+SELECT CASE n%
+  CASE 1, 2  /  CASE 3 TO 9  /  CASE IS >= 10  /  CASE ELSE
+END SELECT          marche aussi avec du texte : CASE "oui", "o"
+@CASE
+CASE 1, 2   CASE 3 TO 9   CASE IS > 7   CASE "a"   CASE ELSE
+@IS
+CASE IS >= 10        -- voir SELECT
+@DIM
+DIM points(10), grille%(7, 7), noms$(30)      de 0 à la taille donnée
+Une case d'un tableau de texte garde 80 caractères au plus
+@CONST
+CONST ESSAIS = 7        une valeur qui ne change pas
+CONST SALUT$ = "Allo"   une CONST faite d'un nombre peut dimensionner
+@SUB
+SUB Etoiles (n%)
+  FOR i% = 1 TO n%: PRINT "*";: NEXT: PRINT
+END SUB                 l'appeler :  Etoiles 5   ou   CALL Etoiles(5)
+@FUNCTION
+FUNCTION Aire (l, h)
+  Aire = l * h          la valeur rendue
+END FUNCTION            s'en servir :  PRINT Aire(3, 4)
+@CALL
+CALL Etoiles(5)     pareil que  Etoiles 5
+@REM
+REM un commentaire     ' aussi un commentaire, jusqu'au bout de la ligne
+@CLS
+CLS               efface l'écran
+@COLOR
+COLOR 7           couleur du texte, 0 à 15
+COLOR 1, 6        couleur du texte, puis du fond
+@LOCATE
+LOCATE 10, 30     curseur à la ligne 10, colonne 30
+@SLEEP
+SLEEP 2           attend 2 secondes (0.5 marche aussi)
+@GET
+GET t$            la touche appuyée, ou "" : n'attend pas
+@RANDOMIZE
+RANDOMIZE         de nouveaux nombres au hasard (déjà fait au départ)
+@POKE
+POKE adresse, valeur     écrit un octet (0 à 255) en mémoire
+@AND
+IF a > 0 AND b > 0 THEN ...     sur des nombres : bit à bit (12 AND 10 = 8)
+@OR
+IF t$ = "q" OR t$ = "Q" THEN ...   sur des nombres : bit à bit
+@XOR
+a XOR b           vrai si un seul est vrai; bit à bit sur des nombres
+@NOT
+IF NOT fini% THEN ...        NOT (x > 3)
+@MOD
+7 MOD 2 donne 1              le reste d'une division entière
+@ABS
+ABS(-3) donne 3
+@INT
+INT(2.7) donne 2   INT(-2.5) donne -3     arrondit vers le bas
+INT(RND * 6) + 1             un coup de dé, 1 à 6
+@FIX
+FIX(-2.5) donne -2           coupe les décimales
+@SGN
+SGN(x)            -1, 0 ou 1
+@SQR
+SQR(16) donne 4   racine carrée
+@SIN
+SIN(x)   COS(x)   TAN(x)   ATN(x)      en radians (180 degrés = 3.14159)
+@COS
+COS(x)            cosinus, en radians
+@TAN
+TAN(x)            tangente, en radians
+@ATN
+ATN(x)            arc tangente, en radians
+@EXP
+EXP(1) donne 2.71828     e à la puissance x
+@LOG
+LOG(x)            logarithme naturel
+@RND
+RND  ou  RND(1)   un nombre au hasard de 0 jusqu'à 1 (jamais 1)
+@LEN
+LEN("allo") donne 4
+@ASC
+ASC("A") donne 65         le code du premier caractère
+@CHR$
+CHR$(65) donne "A"        le caractère de ce code
+@VAL
+VAL("3.5") donne 3.5      le nombre écrit dans le texte
+@STR$
+STR$(3.5) donne "3.5"     le nombre en texte
+@LEFT$
+LEFT$("allo", 2) donne "al"
+@RIGHT$
+RIGHT$("allo", 2) donne "lo"
+@MID$
+MID$("bonjour", 4, 3) donne "jou"    MID$("bonjour", 4) donne "jour"
+@INSTR
+INSTR("bonjour", "jo") donne 4       0 s'il n'y est pas
+@UCASE$
+UCASE$("Allo") donne "ALLO"
+@LCASE$
+LCASE$("Allo") donne "allo"
+@SPACE$
+SPACE$(5)         cinq espaces
+@INKEY$
+t$ = INKEY$       la touche appuyée, ou "" : n'attend pas
+@PEEK
+PEEK(adresse)     un octet de la mémoire
+@TAB
+PRINT TAB(20); "x"       va à la colonne 20
+@SPC
+PRINT "a"; SPC(5); "b"   écrit 5 espaces
+@GRAPHICS
+GRAPHICS 1        l'image allumée, 640 x 480
+GRAPHICS 3        l'image à la taille de l'écran; GRAPHICS 0 l'éteint
+@GCLS
+GCLS              efface l'image
+@PLOT
+PLOT x, y, couleur         un point; (0, 0) est en haut à gauche
+@LINE
+LINE x1, y1, x2, y2, couleur
+@BOX
+BOX x1, y1, x2, y2, couleur      un rectangle plein
+@TRI
+TRI x1, y1, x2, y2, x3, y3, couleur      un triangle plein
+@CIRCLE
+CIRCLE x, y, rayon, couleur
+@GWIDTH
+GWIDTH  GHEIGHT   la largeur et la hauteur de l'image, en points
+@GHEIGHT
+GHEIGHT           la hauteur de l'image, en points

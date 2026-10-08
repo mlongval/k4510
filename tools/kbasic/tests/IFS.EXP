@@ -1,0 +1,11 @@
+A:big
+B1
+B2
+B3
+C:no
+D:done
+E:nonzero
+F:range
+G:outer
+NOT:D:bad
+NOT:A:small

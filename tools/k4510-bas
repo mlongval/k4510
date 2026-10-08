@@ -1,0 +1,1422 @@
+#!/usr/bin/env python3
+"""k4510-bas NAME[.BAS]   compile a K4510 BASIC program into NAME.prg beside it
+
+K4510 BASIC is EhBASIC's language, compiled: k4510-bas translates the
+program into Mad Pascal and hands that to tools/k4510-pas, which turns it
+into a .prg the machine runs.  (K4510-Ed, 2026-10-08.)
+
+The dialect -- EhBASIC's keywords, plus what a program without line
+numbers needs:
+  * labels ("Bravo:") instead of line numbers; an old program's line
+    numbers are labels too, so GOTO 100 still works
+  * IF ... THEN ... ELSEIF ... ELSE ... END IF over many lines, and the
+    one-line IF ... THEN ... ELSE ...
+  * FOR/NEXT, WHILE/WEND, DO [WHILE|UNTIL] ... LOOP [WHILE|UNTIL],
+    EXIT FOR, EXIT DO, SELECT CASE ... CASE ... CASE ELSE ... END SELECT
+  * GOSUB/RETURN, GOTO, SUB name(...) / END SUB, FUNCTION name(...) /
+    END FUNCTION (their parameters are their own; every other variable
+    is the program's)
+  * CONST, DIM (any number of arrays, one or two dimensions)
+  * keywords in any case; ' and REM comments
+  * PRINT (; , TAB() SPC()), INPUT, CLS, COLOR, LOCATE, SLEEP, GET,
+    RANDOMIZE, POKE, END, STOP
+  * functions: ABS INT FIX SGN SQR SIN COS TAN ATN EXP LOG RND LEN ASC
+    VAL PEEK INSTR MID$ LEFT$ RIGHT$ CHR$ STR$ UCASE$ LCASE$ SPACE$
+    INKEY$
+Variables: NAME is a number (single precision), NAME% a whole number
+(-32768..32767), NAME$ a string.  All are the program's, from the start,
+0 or "".
+
+Messages: to the screen, and -- one line each, FILE:LINE:COL:KIND:TEXT --
+to /SYSTEM/LOG/MAKE.ERR (when K4510_ROOT is set), with the BASIC line:
+PROG's F9 goes to it.  Exit status 0 on success.
+"""
+import os
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+
+HERE = os.path.dirname(os.path.realpath(__file__))
+
+
+class BasicError(Exception):
+    def __init__(self, line, col, msg):
+        super().__init__(msg)
+        self.line, self.col, self.msg = line, col, msg
+
+
+# --- tokens ------------------------------------------------------------------
+
+KEYWORDS = set("""PRINT INPUT LET IF THEN ELSE ELSEIF END FOR TO STEP NEXT
+WHILE WEND DO LOOP UNTIL EXIT GOTO GOSUB RETURN DIM CONST REM CLS COLOR
+LOCATE RANDOMIZE STOP AND OR NOT XOR MOD SELECT CASE IS SUB FUNCTION CALL
+SLEEP GET POKE GRAPHICS GCLS PLOT LINE TRI BOX CIRCLE""".split())
+
+TOKEN_RE = re.compile(r"""
+    (?P<ws>[ \t]+)
+  | (?P<num>(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?|&[hH][0-9a-fA-F]+)
+  | (?P<str>"[^"]*"?)
+  | (?P<id>[A-Za-z_][A-Za-z0-9_]*[$%]?)
+  | (?P<op><=|>=|<>|[-+*/\\^=<>(),;:?'])
+""", re.X)
+
+
+class Tok:
+    __slots__ = ("kind", "val", "col")
+
+    def __init__(self, kind, val, col):
+        self.kind, self.val, self.col = kind, val, col
+
+    def __repr__(self):
+        return "%s:%r" % (self.kind, self.val)
+
+    def isop(self, *ops):
+        return self.kind == "op" and self.val in ops
+
+    def iskw(self, *kws):
+        return self.kind == "kw" and self.val in kws
+
+
+def tokenize(text, lineno):
+    toks, pos = [], 0
+    while pos < len(text):
+        m = TOKEN_RE.match(text, pos)
+        if not m:
+            raise BasicError(lineno, pos + 1, "I do not understand '%s'" % text[pos])
+        kind = m.lastgroup
+        val = m.group(kind)
+        col = pos + 1
+        pos = m.end()
+        if kind == "ws":
+            continue
+        if kind == "op" and val == "'":
+            break                                       # a comment
+        if kind == "str":
+            if not val.endswith('"') or len(val) == 1:
+                raise BasicError(lineno, col, 'a string with no closing "')
+            val = val[1:-1]
+        elif kind == "id":
+            up = val.upper()
+            if up == "REM":
+                break
+            if up in KEYWORDS:
+                kind, val = "kw", up
+            else:
+                val = up
+        elif kind == "op" and val == "?":
+            kind, val = "kw", "PRINT"
+        toks.append(Tok(kind, val, col))
+    return toks
+
+
+# --- statements: one per ':' ---------------------------------------------------
+
+class Stmt:
+    def __init__(self, line, toks):
+        self.line, self.toks = line, toks
+
+
+def split_statements(source):
+    """The program as (line, [Tok]) statements, labels as ('label', name)."""
+    out = []
+    for lineno, text in enumerate(source.split("\n"), 1):
+        text = text.rstrip("\r")
+        toks = tokenize(text, lineno)
+        if not toks:
+            continue
+        # a line number, or "Label:" -- a label for the rest of the line
+        if toks[0].kind == "num" and re.fullmatch(r"\d+", toks[0].val):
+            out.append(("label", lineno, toks[0].val, toks[0].col))
+            toks = toks[1:]
+        elif len(toks) > 1 and toks[0].kind == "id" and toks[1].isop(":") and not toks[0].val.endswith(("$", "%")):
+            out.append(("label", lineno, toks[0].val, toks[0].col))
+            toks = toks[2:]
+        cur = []
+        depth = 0
+        for t in toks:
+            if t.isop("("):
+                depth += 1
+            elif t.isop(")"):
+                depth -= 1
+            # a one-line IF owns the rest of its line: IF c THEN a: b runs b only if c
+            inline_if = cur and cur[0].iskw("IF") and any(x.iskw("THEN") for x in cur) and not cur[-1].iskw("THEN")
+            if t.isop(":") and depth == 0 and not inline_if:
+                if cur:
+                    out.append(("stmt", lineno, cur))
+                cur = []
+            else:
+                cur.append(t)
+        if cur:
+            out.append(("stmt", lineno, cur))
+    return out
+
+
+# --- names ---------------------------------------------------------------------
+
+def vtype(name):
+    return "s" if name.endswith("$") else "i" if name.endswith("%") else "n"
+
+
+def pname(name):
+    """A BASIC variable's Pascal name: its type in front, so A, A% and A$
+    are three variables, and none can be a Pascal word."""
+    base = name.rstrip("$%").lower()
+    return {"n": "n_", "i": "i_", "s": "s_"}[vtype(name)] + base
+
+
+def aname(name):
+    return "a" + pname(name)
+
+
+PTYPE = {"n": "single", "i": "smallint", "s": "string"}
+
+
+def strlit(s):
+    if len(s) == 0:
+        return "SNul"
+    if len(s) == 1:
+        return "SCh(%d)" % ord(s)
+    return "SLit('" + s.replace("'", "''") + "')"
+
+
+# --- the translator ---------------------------------------------------------------
+
+class Translator:
+    def __init__(self, source, filename):
+        self.filename = filename
+        self.items = split_statements(source)
+        self.vars = {}            # pascal name -> type
+        self.arrays = {}          # BASIC name -> (dims)
+        self.consts = set()
+        self.labels = {}          # label -> line
+        self.used_labels = {}     # label -> (line, col) first use
+        self.subs = {}            # name -> (kind, [params], line)
+        self.temps = []           # (pascal name, type)
+        self.ntemp = 0
+        self.gosubs = 0
+        self.uses_gosub = False
+        self.uses_gfx = False
+        self.out = []             # (pascal text, basic line) of the block being written
+        self.indent = 1
+        self.scope = None         # the SUB or FUNCTION being written
+        self.loops = []           # 'for' / 'do' for EXIT
+        self.blocks = {}          # sub name -> lines
+        self.main = []
+        self.has_end = False
+        self.scope_params = set()
+        self.const_vals = {}
+
+    # -- reading statements
+    def err(self, line, col, msg):
+        raise BasicError(line, col, msg)
+
+    def emit(self, text, line):
+        self.out.append(("  " * self.indent + text, line))
+
+    def temp(self, typ):
+        self.ntemp += 1
+        name = "t_%d" % self.ntemp
+        self.temps.append((name, typ))
+        return name
+
+    def declare(self, name):
+        p = pname(name)
+        if self.scope and p in self.scope_params:
+            return p
+        self.vars.setdefault(p, vtype(name))
+        return p
+
+    # -- expressions: return (pascal, type) with type n i s b
+    class Cursor:
+        def __init__(self, toks, line):
+            self.toks, self.i, self.line = toks, 0, line
+
+        def peek(self, k=0):
+            j = self.i + k
+            return self.toks[j] if j < len(self.toks) else None
+
+        def next(self):
+            t = self.peek()
+            self.i += 1
+            return t
+
+        def at_end(self):
+            return self.i >= len(self.toks)
+
+        def col(self):
+            t = self.peek()
+            return t.col if t else (self.toks[-1].col + len(str(self.toks[-1].val)) if self.toks else 1)
+
+    def expect_op(self, c, op):
+        t = c.next()
+        if not t or not t.isop(op):
+            self.err(c.line, t.col if t else c.col(), "'%s' expected" % op)
+
+    def to_num(self, e, line):
+        code, t = e
+        if t == "s":
+            self.err(line, 0, "a number was expected here, not a string")
+        if t == "b":
+            return ("KBool(%s)" % code, "n")
+        return (code, t)
+
+    def to_int(self, e, line):
+        code, t = self.to_num(e, line)
+        if t == "i":
+            return code
+        return "KToI(%s, %d)" % (code, line)
+
+    def to_single(self, e, line):
+        code, t = self.to_num(e, line)
+        return code
+
+    def to_str(self, e, line):
+        code, t = e
+        if t != "s":
+            self.err(line, 0, "a string was expected here (\"...\" or a NAME$)")
+        return code
+
+    def to_bool(self, e, line):
+        code, t = e
+        if t == "b":
+            return code
+        if t == "s":
+            self.err(line, 0, "a condition was expected, not a string")
+        return "(%s <> 0)" % code
+
+    def expr(self, c):
+        return self.e_or(c)
+
+    def e_or(self, c):
+        a = self.e_xor(c)
+        while c.peek() and c.peek().iskw("OR"):
+            c.next()
+            a = self.logic(a, self.e_xor(c), "or", c.line)
+        return a
+
+    def e_xor(self, c):
+        a = self.e_and(c)
+        while c.peek() and c.peek().iskw("XOR"):
+            c.next()
+            a = self.logic(a, self.e_and(c), "xor", c.line)
+        return a
+
+    def e_and(self, c):
+        a = self.e_not(c)
+        while c.peek() and c.peek().iskw("AND"):
+            c.next()
+            a = self.logic(a, self.e_not(c), "and", c.line)
+        return a
+
+    def logic(self, a, b, op, line):
+        if a[1] == "b" and b[1] == "b":
+            return ("(%s %s %s)" % (a[0], op, b[0]), "b")
+        if "b" in (a[1], b[1]):
+            return ("(%s %s %s)" % (self.to_bool(a, line), op, self.to_bool(b, line)), "b")
+        return ("(%s %s %s)" % (self.to_int(a, line), op, self.to_int(b, line)), "i")
+
+    def e_not(self, c):
+        if c.peek() and c.peek().iskw("NOT"):
+            c.next()
+            a = self.e_not(c)
+            if a[1] == "b":
+                return ("(not %s)" % a[0], "b")
+            return ("(not %s)" % self.to_int(a, c.line), "i")
+        return self.e_cmp(c)
+
+    def e_cmp(self, c):
+        a = self.e_add(c)
+        t = c.peek()
+        if t and t.isop("=", "<>", "<", ">", "<=", ">="):
+            c.next()
+            b = self.e_add(c)
+            op = t.val
+            if a[1] == "s" or b[1] == "s":
+                return ("(SCmp(%s, %s) %s 0)" % (self.to_str(a, c.line), self.to_str(b, c.line), op), "b")
+            return ("(%s %s %s)" % (self.to_num(a, c.line)[0], op, self.to_num(b, c.line)[0]), "b")
+        return a
+
+    def e_add(self, c):
+        a = self.e_mod(c)
+        while c.peek() and c.peek().isop("+", "-"):
+            op = c.next().val
+            b = self.e_mod(c)
+            if op == "+" and (a[1] == "s" or b[1] == "s"):
+                a = ("SCat(%s, %s)" % (self.to_str(a, c.line), self.to_str(b, c.line)), "s")
+            else:
+                x, y = self.to_num(a, c.line), self.to_num(b, c.line)
+                t = "i" if x[1] == "i" and y[1] == "i" else "n"
+                a = ("(%s %s %s)" % (x[0], op, y[0]), t)
+        return a
+
+    def e_mod(self, c):
+        a = self.e_idiv(c)
+        while c.peek() and c.peek().iskw("MOD"):
+            c.next()
+            b = self.e_idiv(c)
+            a = ("KMod(%s, %s, %d)" % (self.to_int(a, c.line), self.to_int(b, c.line), c.line), "i")
+        return a
+
+    def e_idiv(self, c):
+        a = self.e_mul(c)
+        while c.peek() and c.peek().isop("\\"):
+            c.next()
+            b = self.e_mul(c)
+            a = ("KIDiv(%s, %s, %d)" % (self.to_int(a, c.line), self.to_int(b, c.line), c.line), "i")
+        return a
+
+    def e_mul(self, c):
+        a = self.e_neg(c)
+        while c.peek() and c.peek().isop("*", "/"):
+            op = c.next().val
+            b = self.e_neg(c)
+            x, y = self.to_num(a, c.line), self.to_num(b, c.line)
+            if op == "/":
+                a = ("KDiv(%s, %s, %d)" % (x[0], y[0], c.line), "n")
+            else:
+                a = ("(%s * %s)" % (x[0], y[0]), "i" if x[1] == "i" and y[1] == "i" else "n")
+        return a
+
+    def e_neg(self, c):
+        if c.peek() and c.peek().isop("-"):
+            c.next()
+            a = self.to_num(self.e_neg(c), c.line)
+            return ("(-%s)" % a[0], a[1])
+        if c.peek() and c.peek().isop("+"):
+            c.next()
+            return self.e_neg(c)
+        return self.e_pow(c)
+
+    def e_pow(self, c):
+        a = self.atom(c)
+        while c.peek() and c.peek().isop("^"):
+            c.next()
+            if c.peek() and c.peek().isop("-"):
+                c.next()
+                b = ("(-%s)" % self.to_single(self.atom(c), c.line), "n")
+            else:
+                b = self.atom(c)
+            a = ("KPow(%s, %s)" % (self.to_single(a, c.line), self.to_single(b, c.line)), "n")
+        return a
+
+    def args(self, c):
+        """( expr, expr ... ) -- the list, or [] if no parenthesis follows"""
+        if not (c.peek() and c.peek().isop("(")):
+            return []
+        c.next()
+        out = []
+        if c.peek() and c.peek().isop(")"):
+            c.next()
+            return out
+        while True:
+            out.append(self.expr(c))
+            t = c.next()
+            if t and t.isop(")"):
+                return out
+            if not t or not t.isop(","):
+                self.err(c.line, t.col if t else c.col(), "',' or ')' expected")
+
+    FUNCS = {
+        # name: (argument types, result type, pascal pattern)
+        "ABS": ("n", "n", "KAbs({0})"), "INT": ("n", "n", "KInt({0})"), "FIX": ("n", "n", "KFix({0})"),
+        "SGN": ("n", "n", "KSgn({0})"), "SQR": ("n", "n", "MathSqrt({0})"), "SIN": ("n", "n", "MathSin({0})"),
+        "COS": ("n", "n", "MathCos({0})"), "TAN": ("n", "n", "MathTan({0})"), "ATN": ("n", "n", "MathAtan({0})"),
+        "EXP": ("n", "n", "MathExp({0})"), "LOG": ("n", "n", "MathLn({0})"),
+        "LEN": ("s", "i", "SLen({0})"), "ASC": ("s", "i", "SAsc({0})"), "VAL": ("s", "n", "SVal({0})"),
+        "PEEK": ("n", "i", "Peek(KAddr({0}))"), "INSTR": ("ss", "i", "SInstr({0}, {1})"),
+        "LEFT$": ("si", "s", "SLeft({0}, {1})"), "RIGHT$": ("si", "s", "SRight({0}, {1})"),
+        "CHR$": ("i", "s", "SCh({0})"), "STR$": ("n", "s", "SStrN({0})"),
+        "UCASE$": ("s", "s", "SUpper({0})"), "LCASE$": ("s", "s", "SLower({0})"),
+        "SPACE$": ("i", "s", "SSpace({0})"),
+    }
+
+    def parg(self, e, p, line):
+        """a value for a SUB's or FUNCTION's parameter p (a string one as a string)"""
+        v = self.conv(e, vtype(p), line)
+        return "SGet(%s)" % v if vtype(p) == "s" else v
+
+    def conv(self, e, t, line):
+        if t == "n":
+            return self.to_single(e, line)
+        if t == "i":
+            return self.to_int(e, line)
+        return self.to_str(e, line)
+
+    def atom(self, c):
+        t = c.next()
+        if t is None:
+            self.err(c.line, c.col(), "something is missing at the end")
+        if t.kind == "num":
+            v = t.val
+            if v[0] == "&":
+                return (str(int(v[2:], 16)), "i")
+            if re.fullmatch(r"\d+", v) and int(v) < 32768:
+                return (v, "i")
+            f = float(v)
+            s = repr(f)
+            if "e" in s or "E" in s:
+                s = "%.9f" % f
+            return (s, "n")
+        if t.kind == "str":
+            return (strlit(t.val), "s")
+        if t.isop("("):
+            e = self.expr(c)
+            self.expect_op(c, ")")
+            return ("(%s)" % e[0], e[1]) if e[1] != "b" else e
+        if t.kind == "id":
+            name = t.val
+            if name == "RND":
+                self.args(c)
+                return ("KRnd", "n")
+            if name == "INKEY$":
+                return ("SInkey", "s")
+            if name in ("GWIDTH", "GHEIGHT"):
+                self.uses_gfx = True
+                return ("KGfxSize(%d)" % (name == "GHEIGHT"), "i")
+            if name == "MID$":
+                a = self.args(c)
+                if len(a) not in (2, 3):
+                    self.err(c.line, t.col, "MID$(string, start[, length])")
+                n = self.to_int(a[2], c.line) if len(a) == 3 else "255"
+                return ("SMid(%s, %s, %s)" % (self.to_str(a[0], c.line), self.to_int(a[1], c.line), n), "s")
+            if name in self.FUNCS:
+                types, res, pat = self.FUNCS[name]
+                a = self.args(c)
+                if len(a) != len(types):
+                    self.err(c.line, t.col, "%s takes %d value%s in ( )" % (name, len(types), "s" if len(types) > 1 else ""))
+                return (pat.format(*[self.conv(x, ty, c.line) for x, ty in zip(a, types)]), res)
+            if name in self.subs and self.subs[name][0] == "FUNCTION":
+                kind, params, _ = self.subs[name]
+                a = self.args(c)
+                if len(a) != len(params):
+                    self.err(c.line, t.col, "%s takes %d value(s)" % (name, len(params)))
+                if self.scope == name and not a:
+                    return self.rv("Result", vtype(name))
+                call = "f_%s(%s)" % (name.rstrip("$%").lower(), ", ".join(self.parg(x, p, c.line) for x, p in zip(a, params)))
+                return ("SLit(%s)" % call, "s") if vtype(name) == "s" else (call, vtype(name))
+            if c.peek() and c.peek().isop("("):
+                e = self.element(c, t)
+                return self.rv(*e)
+            if self.scope == name:
+                return self.rv("Result", vtype(name))
+            return self.rv(self.declare(name), vtype(name))
+        self.err(c.line, t.col, "'%s' cannot start a value" % t.val)
+
+    def rv(self, code, ty):
+        """a variable read in an expression: a string one as a handle"""
+        return ("SVar(%s)" % code, "s") if ty == "s" else (code, ty)
+
+    def element(self, c, t):
+        """NAME(i[, j]) -- an array element (DIMmed to 10 if never DIMmed)"""
+        name = t.val
+        a = self.args(c)
+        if name not in self.arrays:
+            self.arrays[name] = [10] * len(a)
+        dims = self.arrays[name]
+        if len(a) != len(dims):
+            self.err(c.line, t.col, "%s has %d dimension(s)" % (name, len(dims)))
+        idx = ", ".join("KIdx(%s, %d, %d)" % (self.to_int(x, c.line), d, c.line) for x, d in zip(a, dims))
+        return ("%s[%s]" % (aname(name), idx), vtype(name))
+
+    # -- statements
+    def end_of(self, c, what):
+        if not c.at_end():
+            t = c.peek()
+            self.err(c.line, t.col, "unexpected '%s' after %s" % (t.val, what))
+
+    def target(self, c):
+        """the left side of an assignment, INPUT's or FOR's variable"""
+        t = c.next()
+        if not t or t.kind != "id":
+            self.err(c.line, t.col if t else c.col(), "a variable name expected")
+        if t.val in self.consts:
+            self.err(c.line, t.col, "%s is a CONST: it cannot change" % t.val)
+        if c.peek() and c.peek().isop("("):
+            return self.element(c, t)
+        if self.scope == t.val:
+            return ("Result", vtype(t.val))
+        return (self.declare(t.val), vtype(t.val))
+
+    def assign(self, lhs, e, line):
+        code, t = lhs
+        v = self.conv(e, t, line)
+        if t == "s":
+            v = "SGet(%s)" % v
+        if "[" in code and "Result" not in code:
+            # the value first: Mad Pascal loses an element's index (KIdx's
+            # result) when a function call follows it in the same statement
+            tmp = {"n": "kb_tn", "i": "kb_ti", "s": "kb_ts"}[t]
+            self.vars[tmp] = t
+            self.emit("%s := %s;" % (tmp, v), line)
+            v = tmp
+        self.emit("%s := %s;" % (code, v), line)
+
+    def statement(self, toks, line):
+        """one simple statement (blocks are handled by block())"""
+        c = self.Cursor(toks, line)
+        t = c.peek()
+        if t.kind == "kw":
+            kw = t.val
+            c.next()
+            h = getattr(self, "s_" + kw, None)
+            if h is None:
+                self.err(line, t.col, "%s is not allowed here" % kw)
+            h(c, t)
+            return
+        if t.kind == "id" and t.val in self.subs and self.subs[t.val][0] == "SUB":
+            c.next()
+            self.call(c, t)
+            return
+        if t.kind == "id":
+            lhs = self.target(c)
+            if not (c.peek() and c.peek().isop("=")):
+                self.err(line, c.col(), "'=' expected (or this is not a statement)")
+            c.next()
+            self.assign(lhs, self.expr(c), line)
+            self.end_of(c, "the value")
+            return
+        self.err(line, t.col, "a statement cannot start with '%s'" % t.val)
+
+    def s_LET(self, c, t):
+        lhs = self.target(c)
+        self.expect_op(c, "=")
+        self.assign(lhs, self.expr(c), c.line)
+        self.end_of(c, "the value")
+
+    def s_PRINT(self, c, t):
+        newline = True
+        while not c.at_end():
+            p = c.peek()
+            if p.isop(";"):
+                c.next()
+                newline = False
+                continue
+            if p.isop(","):
+                c.next()
+                self.emit("PrintTab;", c.line)
+                newline = False
+                continue
+            newline = True
+            if p.kind == "id" and p.val in ("TAB", "SPC") and c.peek(1) and c.peek(1).isop("("):
+                c.next()
+                a = self.args(c)
+                self.emit("%s(%s);" % ("PrintTabTo" if p.val == "TAB" else "PrintSpc", self.to_int(a[0], c.line)), c.line)
+                continue
+            e = self.expr(c)
+            if e[1] == "s":
+                self.emit("PrintS(%s);" % e[0], c.line)
+            else:
+                self.emit("PrintN(%s);" % self.to_single(e, c.line), c.line)
+        if newline:
+            self.emit("PrintNL;", c.line)
+
+    def s_INPUT(self, c, t):
+        prompt = "? "
+        if c.peek() and c.peek().kind == "str":
+            prompt = c.next().val
+            sep = c.next()
+            if not sep or not sep.isop(";", ","):
+                self.err(c.line, c.col(), "';' or ',' after INPUT's prompt")
+            prompt = prompt + "? " if sep.val == ";" else prompt
+        targets = [self.target(c)]
+        while c.peek() and c.peek().isop(","):
+            c.next()
+            targets.append(self.target(c))
+        self.end_of(c, "INPUT's variables")
+        self.vars["kb_line"] = "s"
+        self.emit("kb_line := SGet(KLine(%s));" % strlit(prompt), c.line)
+        for i, (code, ty) in enumerate(targets):
+            f = "KField(SVar(kb_line), %d)" % i
+            if ty == "s":
+                self.emit("%s := SGet(%s);" % (code, f), c.line)
+            elif ty == "i":
+                self.emit("%s := KToI(SVal(%s), %d);" % (code, f, c.line), c.line)
+            else:
+                self.emit("%s := SVal(%s);" % (code, f), c.line)
+
+    def s_GET(self, c, t):
+        code, ty = self.target(c)
+        if ty != "s":
+            self.err(c.line, t.col, "GET needs a string variable: GET K$")
+        self.emit("%s := SGet(SInkey);" % code, c.line)
+
+    def s_CLS(self, c, t):
+        self.end_of(c, "CLS")
+        self.emit("ClrScr; kb_col := 0;", c.line)
+
+    def s_COLOR(self, c, t):
+        f = self.to_int(self.expr(c), c.line)
+        b = "-1"
+        if c.peek() and c.peek().isop(","):
+            c.next()
+            b = self.to_int(self.expr(c), c.line)
+        self.end_of(c, "COLOR")
+        self.emit("KColor(%s, %s);" % (f, b), c.line)
+
+    def s_LOCATE(self, c, t):
+        r = self.to_int(self.expr(c), c.line)
+        self.expect_op(c, ",")
+        col = self.to_int(self.expr(c), c.line)
+        self.end_of(c, "LOCATE row, column")
+        self.emit("KLocate(%s, %s);" % (r, col), c.line)
+
+    def s_SLEEP(self, c, t):
+        self.emit("KSleep(%s);" % self.to_single(self.expr(c), c.line), c.line)
+
+    def s_RANDOMIZE(self, c, t):
+        if not c.at_end():
+            self.expr(c)
+        self.emit("Randomize;", c.line)
+
+    def s_POKE(self, c, t):
+        a = "KAddr(%s)" % self.to_single(self.expr(c), c.line)
+        self.expect_op(c, ",")
+        v = self.to_int(self.expr(c), c.line)
+        self.emit("Poke(%s, byte(%s));" % (a, v), c.line)
+
+    # -- graphics: the GRAPH unit's bitmap over the text (EhBASIC's words)
+    def gargs(self, c, n, what):
+        a = [self.to_int(self.expr(c), c.line)]
+        while c.peek() and c.peek().isop(","):
+            c.next()
+            a.append(self.to_int(self.expr(c), c.line))
+        self.end_of(c, what)
+        if len(a) != n:
+            self.err(c.line, c.col(), "%s takes %d values" % (what, n))
+        self.uses_gfx = True
+        return a
+
+    def s_GRAPHICS(self, c, t):
+        m, = self.gargs(c, 1, "GRAPHICS n (0 off, 1 640x480, 3 the screen as it is)")
+        self.emit("KGraphics(%s);" % m, c.line)
+
+    def s_GCLS(self, c, t):
+        self.gargs(c, 0, "GCLS") if not c.at_end() else None
+        self.uses_gfx = True
+        self.emit("KGfxOn; ClearDevice;", c.line)
+
+    def s_PLOT(self, c, t):
+        x, y, col = self.gargs(c, 3, "PLOT x, y, colour")
+        self.emit("KGfxOn; PutPixel(%s, %s, %s);" % (x, y, col), c.line)
+
+    def s_LINE(self, c, t):
+        a = self.gargs(c, 5, "LINE x1, y1, x2, y2, colour")
+        self.emit("KGfxOn; SetColor(%s); DrawLine(%s, %s, %s, %s);" % (a[4], a[0], a[1], a[2], a[3]), c.line)
+
+    def s_BOX(self, c, t):
+        a = self.gargs(c, 5, "BOX x1, y1, x2, y2, colour")
+        self.emit("KGfxOn; SetColor(%s); FillBar(%s, %s, %s, %s);" % (a[4], a[0], a[1], a[2], a[3]), c.line)
+
+    def s_TRI(self, c, t):
+        a = self.gargs(c, 7, "TRI x1, y1, x2, y2, x3, y3, colour")
+        self.emit("KGfxOn; SetColor(%s); FillTriangle(%s, %s, %s, %s, %s, %s);" % (a[6], a[0], a[1], a[2], a[3], a[4], a[5]), c.line)
+
+    def s_CIRCLE(self, c, t):
+        a = self.gargs(c, 4, "CIRCLE x, y, radius, colour")
+        self.emit("KGfxOn; SetColor(%s); Circle(%s, %s, %s);" % (a[3], a[0], a[1], a[2]), c.line)
+
+    def s_END(self, c, t):
+        self.end_of(c, "END")
+        if self.scope:
+            self.emit("KB_Halt;", c.line)         # END in a SUB ends the program too
+        else:
+            self.emit("goto L_END;", c.line)
+
+    s_STOP = s_END
+
+    def s_GOTO(self, c, t):
+        lab = c.next()
+        if not lab or lab.kind not in ("id", "num"):
+            self.err(c.line, t.col, "GOTO which label?")
+        self.end_of(c, "GOTO's label")
+        self.use_label(lab, c.line)
+        self.emit("goto L_%s;" % lab.val, c.line)
+
+    def use_label(self, lab, line):
+        if self.scope:
+            self.err(line, lab.col, "GOTO and GOSUB stay outside SUBs and FUNCTIONs here")
+        self.used_labels.setdefault(lab.val, (line, lab.col))
+
+    def s_GOSUB(self, c, t):
+        lab = c.next()
+        if not lab or lab.kind not in ("id", "num"):
+            self.err(c.line, t.col, "GOSUB which label?")
+        self.end_of(c, "GOSUB's label")
+        self.use_label(lab, c.line)
+        self.uses_gosub = True
+        self.gosubs += 1
+        n = self.gosubs
+        self.emit("if kb_rp = 64 then KError(%d, 'Too many GOSUBs inside each other');" % c.line, c.line)
+        self.emit("kb_rs[kb_rp] := %d; inc(kb_rp); goto L_%s;" % (n, lab.val), c.line)
+        self.out.append(("R_%d:" % n, c.line))
+
+    def s_RETURN(self, c, t):
+        if self.scope:
+            self.err(c.line, t.col, "RETURN is for GOSUB; a SUB ends at END SUB")
+        self.end_of(c, "RETURN")
+        self.uses_gosub = True
+        self.emit("if kb_rp = 0 then KError(%d, 'RETURN without GOSUB');" % c.line, c.line)
+        self.emit("dec(kb_rp); kb_ret := kb_rs[kb_rp]; goto L_RET;", c.line)
+
+    def s_DIM(self, c, t):
+        while True:
+            n = c.next()
+            if not n or n.kind != "id":
+                self.err(c.line, c.col(), "DIM NAME(size)")
+            if not (c.peek() and c.peek().isop("(")):
+                self.err(c.line, c.col(), "DIM %s(size): the size in ( )" % n.val)
+            c.next()
+            dims = []
+            while True:
+                d = c.next()
+                if not d or d.kind != "num" or not re.fullmatch(r"\d+", d.val):
+                    if d and d.kind == "id" and d.val in self.const_vals:
+                        dims.append(int(self.const_vals[d.val]))
+                    else:
+                        self.err(c.line, d.col if d else c.col(), "an array's size is a whole number (or a CONST)")
+                else:
+                    dims.append(int(d.val))
+                s = c.next()
+                if s and s.isop(")"):
+                    break
+                if not s or not s.isop(","):
+                    self.err(c.line, c.col(), "',' or ')' expected")
+            if len(dims) > 2:
+                self.err(c.line, n.col, "one or two dimensions")
+            if n.val in self.arrays:
+                self.err(c.line, n.col, "%s is DIMmed twice (or used before its DIM)" % n.val)
+            if n.val.endswith("$"):
+                size = 81
+            elif n.val.endswith("%"):
+                size = 2
+            else:
+                size = 4
+            cells = 1
+            for d in dims:
+                cells *= d + 1
+            if cells * size > 24000:
+                self.err(c.line, n.col, "%s is too big for the program's memory (%d bytes)" % (n.val, cells * size))
+            self.arrays[n.val] = dims
+            if not (c.peek() and c.peek().isop(",")):
+                break
+            c.next()
+        self.end_of(c, "DIM")
+
+    def s_CONST(self, c, t):
+        n = c.next()
+        if not n or n.kind != "id":
+            self.err(c.line, t.col, "CONST NAME = value")
+        self.expect_op(c, "=")
+        v = c.peek()
+        e = self.expr(c)
+        self.end_of(c, "CONST's value")
+        self.consts.add(n.val)
+        if v and v.kind == "num":
+            self.const_vals[n.val] = v.val
+        self.assign((self.declare(n.val), vtype(n.val)), e, c.line)
+
+    def call(self, c, t):
+        kind, params, _ = self.subs[t.val]
+        if c.peek() and c.peek().isop("("):
+            a = self.args(c)
+        else:
+            a = []
+            while not c.at_end():
+                a.append(self.expr(c))
+                if c.peek() and c.peek().isop(","):
+                    c.next()
+        self.end_of(c, "the SUB's values")
+        if len(a) != len(params):
+            self.err(c.line, t.col, "%s takes %d value(s)" % (t.val, len(params)))
+        self.emit("u_%s(%s);" % (t.val.rstrip("$%").lower(), ", ".join(self.parg(x, p, c.line) for x, p in zip(a, params))), c.line)
+
+    def s_CALL(self, c, t):
+        n = c.next()
+        if not n or n.kind != "id" or n.val not in self.subs or self.subs[n.val][0] != "SUB":
+            self.err(c.line, t.col, "CALL which SUB?")
+        self.call(c, n)
+
+    def s_EXIT(self, c, t):
+        w = c.next()
+        if not w or not w.iskw("FOR", "DO", "SUB", "FUNCTION"):
+            self.err(c.line, t.col, "EXIT FOR, EXIT DO, EXIT SUB or EXIT FUNCTION")
+        if w.val in ("SUB", "FUNCTION"):
+            if not self.scope:
+                self.err(c.line, t.col, "EXIT %s outside a %s" % (w.val, w.val))
+            self.emit("exit;", c.line)
+            return
+        kinds = {"FOR": "for", "DO": "do"}
+        if kinds[w.val] not in self.loops:
+            self.err(c.line, t.col, "EXIT %s outside a %s loop" % (w.val, w.val))
+        if self.loops[-1] != kinds[w.val]:
+            self.err(c.line, t.col, "EXIT %s from inside another kind of loop" % w.val)
+        self.emit("break;", c.line)
+
+    # -- blocks
+    def run(self):
+        self.const_vals = {}
+        self.prescan()
+        i = self.block(0, None)
+        if i < len(self.items):
+            it = self.items[i]
+            self.err(it[1], 1, "this does not belong here")
+        self.main = self.out
+        if any(vtype(n) == "s" for n in self.arrays):
+            self.vars["kb_ts"] = "s"          # the empty string the arrays start from
+        for lab, (line, col) in self.used_labels.items():
+            if lab not in self.labels:
+                self.err(line, col, "there is no label %s" % lab)
+
+    def prescan(self):
+        """SUB and FUNCTION names first: a call may come before them"""
+        for it in self.items:
+            if it[0] != "stmt":
+                continue
+            toks = it[2]
+            if toks[0].iskw("SUB", "FUNCTION") and len(toks) > 1 and toks[1].kind == "id":
+                name = toks[1].val
+                params = [t.val for t in toks[2:] if t.kind == "id"]
+                if name in self.subs:
+                    self.err(it[1], toks[1].col, "%s is defined twice" % name)
+                self.subs[name] = (toks[0].val, params, it[1])
+
+    def first_kw(self, it):
+        if it[0] != "stmt":
+            return None
+        t = it[2][0]
+        return t.val if t.kind == "kw" else None
+
+    def is_end(self, it, what):
+        if it[0] != "stmt":
+            return False
+        toks = it[2]
+        return toks[0].iskw("END") and len(toks) > 1 and toks[1].iskw(what)
+
+    def block(self, i, stop):
+        """statements from item i until stop(item) is true; returns that item's index"""
+        while i < len(self.items):
+            it = self.items[i]
+            if stop and stop(it):
+                return i
+            if it[0] == "label":
+                _, line, name, col = it
+                if self.scope:
+                    self.err(line, col, "labels stay outside SUBs and FUNCTIONs here")
+                if name in self.labels:
+                    self.err(line, col, "label %s is there twice" % name)
+                self.labels[name] = line
+                self.out.append(("L_%s:" % name, line))
+                i += 1
+                continue
+            _, line, toks = it
+            kw = toks[0].val if toks[0].kind == "kw" else None
+            if kw == "IF":
+                i = self.b_if(i)
+            elif kw == "FOR":
+                i = self.b_for(i)
+            elif kw == "WHILE":
+                i = self.b_while(i)
+            elif kw == "DO":
+                i = self.b_do(i)
+            elif kw == "SELECT":
+                i = self.b_select(i)
+            elif kw in ("SUB", "FUNCTION"):
+                i = self.b_sub(i)
+            elif kw in ("NEXT", "WEND", "LOOP", "ELSE", "ELSEIF", "CASE") or (kw == "END" and len(toks) > 1 and toks[1].iskw("IF", "SELECT", "SUB", "FUNCTION")):
+                self.err(line, toks[0].col, "%s without its start" % " ".join(str(t.val) for t in toks[:2] if t.kind == "kw"))
+            else:
+                self.statement(toks, line)
+                i += 1
+        return i
+
+    def closer(self, i, line, what):
+        if i >= len(self.items):
+            self.err(line, 1, "%s is never closed" % what)
+
+    def b_if(self, i):
+        _, line, toks = self.items[i]
+        c = self.Cursor(toks[1:], line)
+        then = None
+        for k, t in enumerate(toks):
+            if t.iskw("THEN"):
+                then = k
+                break
+        if then is None:
+            # IF cond GOTO label
+            gk = [k for k, t in enumerate(toks) if t.iskw("GOTO")]
+            if not gk:
+                self.err(line, toks[0].col, "IF ... THEN")
+            then = gk[0] - 1
+            toks = toks[:gk[0]] + [Tok("kw", "THEN", toks[gk[0]].col)] + toks[gk[0]:]
+            then = gk[0]
+        cond = self.to_bool(self.expr(self.Cursor(toks[1:then], line)), line)
+        rest = toks[then + 1:]
+        if rest:                                       # the one-line IF
+            k = [j for j, t in enumerate(rest) if t.iskw("ELSE")]
+            yes, no = (rest[:k[0]], rest[k[0] + 1:]) if k else (rest, [])
+            self.emit("if %s then begin" % cond, line)
+            self.indent += 1
+            self.inline(yes, line)
+            self.indent -= 1
+            if no:
+                self.emit("end else begin", line)
+                self.indent += 1
+                self.inline(no, line)
+                self.indent -= 1
+            self.emit("end;", line)
+            return i + 1
+        self.emit("if %s then begin" % cond, line)
+        self.indent += 1
+        i += 1
+        while True:
+            i = self.block(i, lambda it: it[0] == "stmt" and (it[2][0].iskw("ELSE", "ELSEIF") or self.is_end(it, "IF")))
+            self.closer(i, line, "IF (END IF)")
+            _, l2, t2 = self.items[i]
+            self.indent -= 1
+            if t2[0].iskw("ELSEIF"):
+                th = [k for k, t in enumerate(t2) if t.iskw("THEN")]
+                if not th:
+                    self.err(l2, t2[0].col, "ELSEIF ... THEN")
+                cond = self.to_bool(self.expr(self.Cursor(t2[1:th[0]], l2)), l2)
+                self.emit("end else if %s then begin" % cond, l2)
+            elif t2[0].iskw("ELSE"):
+                self.emit("end else begin", l2)
+            else:
+                self.emit("end;", l2)
+                return i + 1
+            self.indent += 1
+            i += 1
+
+    def inline(self, toks, line):
+        """the statements of a one-line IF: ':'-separated; a bare label is GOTO"""
+        if len(toks) == 1 and toks[0].kind == "num":
+            toks = [Tok("kw", "GOTO", toks[0].col), toks[0]]
+        cur, depth = [], 0
+        parts = []
+        for t in toks:
+            if t.isop("("):
+                depth += 1
+            elif t.isop(")"):
+                depth -= 1
+            if t.isop(":") and depth == 0:
+                parts.append(cur)
+                cur = []
+            else:
+                cur.append(t)
+        parts.append(cur)
+        for p in parts:
+            if p:
+                self.statement(p, line)
+
+    def b_for(self, i):
+        _, line, toks = self.items[i]
+        c = self.Cursor(toks[1:], line)
+        v = self.target(c)
+        if "[" in v[0]:
+            self.err(line, toks[1].col, "FOR's variable cannot be an array element")
+        if v[1] == "s":
+            self.err(line, toks[1].col, "FOR counts with a number, not a string")
+        self.expect_op(c, "=")
+        start = self.expr(c)
+        t = c.next()
+        if not t or not t.iskw("TO"):
+            self.err(line, c.col(), "FOR ... = ... TO ...")
+        end = self.expr(c)
+        step = None
+        if c.peek() and c.peek().iskw("STEP"):
+            c.next()
+            step = self.expr(c)
+        self.end_of(c, "FOR")
+        lim = self.temp(v[1])
+        self.emit("%s := %s;" % (v[0], self.conv(start, v[1], line)), line)
+        self.emit("%s := %s;" % (lim, self.conv(end, v[1], line)), line)
+        if step is None:
+            cond = "%s <= %s" % (v[0], lim)
+            inc = "%s := %s + 1;" % (v[0], v[0])
+        else:
+            stp = self.temp(v[1])
+            self.emit("%s := %s;" % (stp, self.conv(step, v[1], line)), line)
+            cond = "((%s > 0) and (%s <= %s)) or ((%s < 0) and (%s >= %s)) or (%s = 0)" % (stp, v[0], lim, stp, v[0], lim, stp)
+            inc = "%s := %s + %s;" % (v[0], v[0], stp)
+        self.emit("while %s do begin" % cond, line)
+        self.indent += 1
+        self.loops.append("for")
+        j = self.block(i + 1, lambda it: it[0] == "stmt" and it[2][0].iskw("NEXT"))
+        self.closer(j, line, "FOR (NEXT)")
+        self.loops.pop()
+        _, l2, t2 = self.items[j]
+        if len(t2) > 1 and t2[1].kind == "id" and pname(t2[1].val) != v[0]:
+            self.err(l2, t2[1].col, "NEXT %s, but the FOR counts %s" % (t2[1].val, toks[1].val))
+        self.emit(inc, l2)
+        self.indent -= 1
+        self.emit("end;", l2)
+        return j + 1
+
+    def b_while(self, i):
+        _, line, toks = self.items[i]
+        cond = self.to_bool(self.expr(self.Cursor(toks[1:], line)), line)
+        self.emit("while %s do begin" % cond, line)
+        self.indent += 1
+        self.loops.append("do")
+        j = self.block(i + 1, lambda it: it[0] == "stmt" and it[2][0].iskw("WEND"))
+        self.closer(j, line, "WHILE (WEND)")
+        self.loops.pop()
+        self.indent -= 1
+        self.emit("end;", self.items[j][1])
+        return j + 1
+
+    def b_do(self, i):
+        _, line, toks = self.items[i]
+        pre = None
+        if len(toks) > 1:
+            if not toks[1].iskw("WHILE", "UNTIL"):
+                self.err(line, toks[1].col, "DO, DO WHILE ... or DO UNTIL ...")
+            cond = self.to_bool(self.expr(self.Cursor(toks[2:], line)), line)
+            pre = cond if toks[1].val == "WHILE" else "not %s" % cond
+        self.loops.append("do")
+        if pre:
+            self.emit("while %s do begin" % pre, line)
+        else:
+            self.emit("repeat", line)
+        self.indent += 1
+        j = self.block(i + 1, lambda it: it[0] == "stmt" and it[2][0].iskw("LOOP"))
+        self.closer(j, line, "DO (LOOP)")
+        self.loops.pop()
+        _, l2, t2 = self.items[j]
+        self.indent -= 1
+        post = None
+        if len(t2) > 1:
+            if pre:
+                self.err(l2, t2[1].col, "a condition at DO or at LOOP, not both")
+            if not t2[1].iskw("WHILE", "UNTIL"):
+                self.err(l2, t2[1].col, "LOOP, LOOP WHILE ... or LOOP UNTIL ...")
+            cond = self.to_bool(self.expr(self.Cursor(t2[2:], l2)), l2)
+            post = cond if t2[1].val == "UNTIL" else "not %s" % cond
+        if pre:
+            self.emit("end;", l2)
+        else:
+            self.emit("until %s;" % (post or "false"), l2)
+        return j + 1
+
+    def b_select(self, i):
+        _, line, toks = self.items[i]
+        if len(toks) < 3 or not toks[1].iskw("CASE"):
+            self.err(line, toks[0].col, "SELECT CASE value")
+        e = self.expr(self.Cursor(toks[2:], line))
+        ty = "s" if e[1] == "s" else "n"
+        sel = self.temp(ty)
+        v = self.conv(e, ty, line)
+        self.emit("%s := %s;" % (sel, "SGet(%s)" % v if ty == "s" else v), line)
+        if ty == "s":
+            sel = "SVar(%s)" % sel
+        j = i + 1
+        first = True
+        opened = False
+        while True:
+            j = self.block_until_case(j, opened)
+            self.closer(j, line, "SELECT CASE (END SELECT)")
+            _, l2, t2 = self.items[j]
+            if opened:
+                self.indent -= 1
+            if self.is_end(self.items[j], "SELECT"):
+                if opened:
+                    self.emit("end;", l2)
+                return j + 1
+            # CASE ...
+            if len(t2) > 1 and t2[1].iskw("ELSE"):
+                cond = None
+            else:
+                cond = self.case_cond(t2[1:], sel, ty, l2)
+            if cond is None:
+                self.emit("begin" if first else "end else begin", l2)
+            else:
+                self.emit(("if %s then begin" if first else "end else if %s then begin") % cond, l2)
+            first = False
+            opened = True
+            self.indent += 1
+            j += 1
+
+    def block_until_case(self, j, opened):
+        stop = lambda it: it[0] == "stmt" and (it[2][0].iskw("CASE") or self.is_end(it, "SELECT"))
+        if not opened:
+            while j < len(self.items) and not stop(self.items[j]):
+                it = self.items[j]
+                self.err(it[1], 1, "only CASE can come straight after SELECT CASE")
+            return j
+        return self.block(j, stop)
+
+    def case_cond(self, toks, sel, ty, line):
+        """CASE 1, 2 / CASE 3 TO 5 / CASE IS > 7 / CASE "a" """
+        parts, cur, depth = [], [], 0
+        for t in toks:
+            if t.isop("("):
+                depth += 1
+            elif t.isop(")"):
+                depth -= 1
+            if t.isop(",") and depth == 0:
+                parts.append(cur)
+                cur = []
+            else:
+                cur.append(t)
+        parts.append(cur)
+        conds = []
+        for p in parts:
+            if not p:
+                self.err(line, 1, "an empty CASE value")
+            if p[0].iskw("IS"):
+                op = p[1]
+                if not op.isop("=", "<>", "<", ">", "<=", ">="):
+                    self.err(line, op.col, "CASE IS < > = <= >= <> value")
+                v = self.conv(self.expr(self.Cursor(p[2:], line)), ty, line)
+                conds.append(self.cmp(sel, op.val, v, ty))
+                continue
+            to = [k for k, t in enumerate(p) if t.iskw("TO")]
+            if to:
+                a = self.conv(self.expr(self.Cursor(p[:to[0]], line)), ty, line)
+                b = self.conv(self.expr(self.Cursor(p[to[0] + 1:], line)), ty, line)
+                conds.append("(%s and %s)" % (self.cmp(sel, ">=", a, ty), self.cmp(sel, "<=", b, ty)))
+            else:
+                v = self.conv(self.expr(self.Cursor(p, line)), ty, line)
+                conds.append(self.cmp(sel, "=", v, ty))
+        return "(" + " or ".join(conds) + ")"
+
+    def cmp(self, a, op, b, ty):
+        if ty == "s":
+            return "(SCmp(%s, %s) %s 0)" % (a, b, op)
+        return "(%s %s %s)" % (a, op, b)
+
+    def b_sub(self, i):
+        _, line, toks = self.items[i]
+        kind = toks[0].val
+        if self.scope:
+            self.err(line, toks[0].col, "a %s inside a %s" % (kind, self.scope))
+        if len(toks) < 2 or toks[1].kind != "id":
+            self.err(line, toks[0].col, "%s name(...)" % kind)
+        name = toks[1].val
+        _, params, _ = self.subs[name]
+        saved_out, saved_indent, saved_loops = self.out, self.indent, self.loops
+        self.out, self.indent, self.loops = [], 1, []
+        self.scope = name
+        self.scope_params = set(pname(p) for p in params)
+        j = self.block(i + 1, lambda it: self.is_end(it, kind))
+        self.closer(j, line, "%s (END %s)" % (kind, kind))
+        body = self.out
+        self.scope = None
+        self.scope_params = set()
+        self.out, self.indent, self.loops = saved_out, saved_indent, saved_loops
+        plist = "; ".join("%s: %s" % (pname(p), PTYPE[vtype(p)]) for p in params)
+        base = name.rstrip("$%").lower()
+        if kind == "SUB":
+            head = "procedure u_%s(%s);" % (base, plist) if params else "procedure u_%s;" % base
+        else:
+            head = ("function f_%s(%s): %s;" % (base, plist, PTYPE[vtype(name)]) if params
+                    else "function f_%s: %s;" % (base, PTYPE[vtype(name)]))
+        lines = [(head, line), ("begin", line)]
+        if kind == "FUNCTION":
+            lines.append(("  %s;" % ("Result[0] := chr(0)" if vtype(name) == "s" else "Result := 0"), line))
+        lines += body + [("end;", self.items[j][1])]
+        self.blocks[name] = lines
+        return j + 1
+
+    # -- the Pascal program
+    def pascal(self, progname):
+        out = []
+
+        def put(text, line=0):
+            out.append((text, line))
+        put("// Made by k4510-bas from %s -- edit that, not this." % self.filename)
+        put("program %s;" % progname)
+        put("uses crt, k4510, kbasrt%s;" % (", graph" if self.uses_gfx else ""))
+        labels = ["L_END"] + ["L_%s" % l for l in self.labels]
+        if self.uses_gosub:
+            labels += ["L_RET"] + ["R_%d" % n for n in range(1, self.gosubs + 1)]
+        put("label %s;" % ", ".join(labels))
+        if self.vars or self.arrays or self.temps or self.uses_gosub or self.uses_gfx:
+            put("var")
+        for p, ty in sorted(self.vars.items()):
+            put("  %s: %s;" % (p, PTYPE[ty]))
+        for name, dims in sorted(self.arrays.items()):
+            ty = "string[80]" if vtype(name) == "s" else PTYPE[vtype(name)]
+            put("  %s: array[%s] of %s;" % (aname(name), ", ".join("0..%d" % d for d in dims), ty))
+        for name, ty in self.temps:
+            put("  %s: %s;" % (name, PTYPE[ty]))
+        if any(vtype(n) == "s" for n in self.arrays):
+            put("  kb_k, kb_j: word;")
+        if self.uses_gosub:
+            put("  kb_rs: array[0..63] of byte;")
+            put("  kb_rp, kb_ret: byte;")
+        if self.uses_gfx:
+            put("  kb_gfx: boolean;")
+            for l in GFX_HELPERS.strip("\n").split("\n"):
+                put(l)
+        put("procedure KB_Halt;")
+        put("begin")
+        if self.uses_gfx:
+            put("  if kb_gfx then begin ReadKey; CloseGraph; end;")
+        put("  KEnd; halt;")
+        put("end;")
+        for name in self.blocks:
+            out.extend(self.blocks[name])
+        put("begin")
+        put("  kb_file := '%s';" % self.filename.replace("'", "''"))
+        put("  KStart;")
+        if self.uses_gfx:
+            put("  kb_gfx := false;")
+        if self.uses_gosub:
+            put("  kb_rp := 0;")
+        for p, ty in sorted(self.vars.items()):
+            put("  %s;" % ("%s[0] := chr(0)" % p if ty == "s" else "%s := 0" % p))
+        for name in sorted(self.arrays):
+            dims = self.arrays[name]
+            if vtype(name) != "s":
+                put("  FillChar(%s, SizeOf(%s), 0);" % (aname(name), aname(name)))
+            elif len(dims) == 1:     # (not FillChar: a string array is a table of pointers in Mad Pascal)
+                put("  for kb_k := 0 to %d do %s[kb_k] := kb_ts;" % (dims[0], aname(name)))
+            else:
+                put("  for kb_k := 0 to %d do for kb_j := 0 to %d do %s[kb_k, kb_j] := kb_ts;" % (dims[0], dims[1], aname(name)))
+        out.extend(self.main)
+        put("  goto L_END;")
+        if self.uses_gosub:
+            put("L_RET:")
+            if self.gosubs:
+                put("  case kb_ret of")
+                for n in range(1, self.gosubs + 1):
+                    put("    %d: goto R_%d;" % (n, n))
+                put("  end;")
+        put("L_END:")
+        if self.uses_gfx:
+            put("  if kb_gfx then begin ReadKey; CloseGraph; end;")
+        put("  KEnd;")
+        put("end.")
+        return out
+
+
+# The graphics words' Pascal: the bitmap comes on at the first drawing word
+# (GRAPHICS 3, the screen as it is, unless GRAPHICS said otherwise), and a
+# program that ends with it on waits for a key and closes it.
+GFX_HELPERS = '''
+procedure KGraphics(m: smallint);
+begin
+  if kb_gfx then CloseGraph;
+  kb_gfx := m > 0;
+  if m = 1 then InitGraph(1) else if m > 1 then InitGraph(0);
+end;
+procedure KGfxOn;
+begin
+  if not kb_gfx then KGraphics(3);
+end;
+function KGfxSize(h: byte): smallint;
+begin
+  KGfxOn;
+  if h = 1 then Result := GetMaxY else Result := GetMaxX;   // (the K4510 unit's GetMaxX is the width)
+end;
+'''
+
+
+# --- the command ----------------------------------------------------------------
+
+def main():
+    args = sys.argv[1:]
+    if not args or args[0] in ("-h", "--help"):
+        print(__doc__.strip().split("\n\n")[0], file=sys.stderr)
+        sys.exit(2)
+    root = os.environ.get("K4510_ROOT", "")
+    err_path = os.path.join(root, "SYSTEM/LOG/MAKE.ERR") if root and os.path.isdir(os.path.join(root, "SYSTEM/LOG")) else None
+    errs = []
+
+    def report(kind, line, col, msg, fname):
+        errs.append("%s:%d:%d:%s:%s" % (fname, line, col, kind, msg))
+        where = "%s:%d: " % (fname.upper(), line) if line else ""
+        print("%s%s%s" % (where, "Error: " if kind == "E" else "", msg), file=sys.stderr)
+
+    def finish(status):
+        if err_path:
+            with open(err_path, "w") as f:
+                f.write("".join(e + "\n" for e in errs))
+        sys.exit(status)
+
+    if err_path:
+        open(err_path, "w").close()
+    src = args[0]
+    if src.startswith("/") and root:
+        src = root + src
+    d, base = os.path.split(src)
+    d = d or "."
+    if not base.upper().endswith(".BAS"):
+        base += ".BAS"
+    found = [f for f in os.listdir(d) if f.upper() == base.upper()] if os.path.isdir(d) else []
+    if not found:
+        report("E", 0, 0, "k4510-bas: %s: no such file" % base, "-")
+        finish(1)
+    fname = found[0]
+    with open(os.path.join(d, fname), "rb") as f:
+        source = f.read().decode("latin-1")     # CP437 bytes, kept as they are
+    stem = os.path.splitext(fname)[0]
+    progname = re.sub(r"[^a-z0-9_]", "_", stem.lower())
+    if not re.match(r"[a-z]", progname):
+        progname = "p_" + progname
+    try:
+        tr = Translator(source, fname)
+        tr.run()
+        lines = tr.pascal(progname)
+    except BasicError as e:
+        report("E", e.line, max(e.col, 0), e.msg, fname)
+        finish(1)
+
+    k4510 = os.environ.get("K4510") or os.path.dirname(HERE)   # tools/.. in a K4510 checkout
+    pas = os.path.join(HERE, "k4510-pas")
+    if not os.path.exists(pas):
+        pas = os.path.join(k4510, "tools", "k4510-pas")
+    rt = os.path.join(HERE, "kbasrt.pas")
+    if not os.path.exists(rt):
+        rt = os.path.join(HERE, "kbasic", "kbasrt.pas")
+    tmp = tempfile.mkdtemp(prefix="k4510-bas.")
+    try:
+        pasname = progname.upper() + ".PAS"
+        with open(os.path.join(tmp, pasname), "wb") as f:
+            f.write("".join(t + "\n" for t, _ in lines).encode("latin-1"))
+        shutil.copy(rt, os.path.join(tmp, "KBASRT.PAS"))
+        env = dict(os.environ)
+        sroot = os.path.join(tmp, "root")              # k4510-pas's MAKE.ERR goes here: ours is written from it
+        os.makedirs(os.path.join(sroot, "SYSTEM", "LOG"))
+        env["K4510_ROOT"] = sroot
+        p = subprocess.run([pas, pasname], cwd=tmp, env=env, capture_output=True, text=True, errors="replace")
+        if p.returncode != 0:
+            perr = os.path.join(sroot, "SYSTEM", "LOG", "MAKE.ERR")
+            got = open(perr, errors="replace").read().splitlines() if os.path.exists(perr) else []
+            for msg in got:
+                f = msg.split(":", 4)
+                if len(f) < 5 or f[3] != "E":
+                    continue
+                if f[0].upper() == pasname and f[1].isdigit():
+                    pl = int(f[1])
+                    bl = lines[pl - 1][1] if 0 < pl <= len(lines) else 0
+                    report("E", bl, 0, "(compiler) " + f[4], fname)
+                else:
+                    report("E", 0, 0, "(compiler) %s%s" % (f[0] + ": " if f[0] != "-" else "", f[4]), "-")
+            if not got:
+                for msg in (p.stderr + p.stdout).splitlines():
+                    if msg.strip():
+                        report("E", 0, 0, "(compiler) " + msg.strip(), "-")
+            if os.environ.get("K4510_BAS_KEEP"):
+                print("k4510-bas: the Pascal is kept in %s" % tmp, file=sys.stderr)
+                tmp = None
+            finish(1)
+        prg = progname + ".prg"
+        shutil.copy(os.path.join(tmp, prg), os.path.join(d, stem.lower() + ".prg"))
+        size = os.path.getsize(os.path.join(d, stem.lower() + ".prg"))
+        print("%s.prg: %d bytes" % (stem.lower(), size))
+        errs.append("-:0:0:I:%s.prg: %d bytes" % (stem.lower(), size))
+        if os.environ.get("K4510_BAS_KEEP"):
+            print("k4510-bas: the Pascal is kept in %s" % tmp, file=sys.stderr)
+            tmp = None
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
+    finish(0)
+
+
+if __name__ == "__main__":
+    main()

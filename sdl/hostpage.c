@@ -141,6 +141,31 @@ void host_battery_poll(void)
     }
     battery_info();
 }
+/* Someone logged in to the Linux beneath from elsewhere (2026-10-08, for the
+ * REMOTE marker): an sshd session, Tailscale SSH's (tailscaled be-child ssh),
+ * or a mosh-server -- found by name in /proc every five seconds, which is a
+ * few hundred small reads and catches every way in this machine has. */
+int host_remote_login(void)
+{
+    static Uint32 at; static int first = 1, found;
+    if (!first && SDL_GetTicks() - at < 5000) return found;
+    first = 0; at = SDL_GetTicks(); found = 0;
+    DIR *d = opendir("/proc"); struct dirent *de; char path[64], buf[256];
+    if (!d) return 0;
+    while (!found && (de = readdir(d))) {
+        if (de->d_name[0] < '1' || de->d_name[0] > '9') continue;
+        snprintf(path, sizeof path, "/proc/%s/cmdline", de->d_name);
+        int fd = open(path, O_RDONLY); if (fd < 0) continue;
+        ssize_t n = read(fd, buf, sizeof buf - 1); close(fd);
+        if (n <= 0) continue;
+        for (ssize_t i = 0; i < n; i++) if (!buf[i]) buf[i] = ' ';
+        buf[n] = 0;
+        if (strstr(buf, "be-child ssh") || !strncmp(buf, "mosh-server", 11) || !strncmp(buf, "sshd-session", 12)
+            || (!strncmp(buf, "sshd: ", 6) && strchr(buf, '@'))) found = 1;
+    }
+    closedir(d);
+    return found;
+}
 /* The network for the bottom band (io_net), every ten seconds: a cable that
  * is up wins, then Wi-Fi with its link quality (/proc/net/wireless, out of
  * 70), then anything else up but the loopback (a container's veth, a VPN).

@@ -30,6 +30,7 @@ const char sys_version[16] = K4510_BUILD;
 int io_host_kind;
 uint8_t io_battery = 0xFF;    /* $D53A: none until the frontend finds one */
 uint8_t io_frame = 11, io_frame_follow = 1;
+uint8_t io_remote;                 /* REMOTE_*: the bottom band's marker */
 char io_palname[64]; int io_palname_new;
 uint8_t io_vidcap_req, io_vidcap_state; uint16_t io_vidcap_k;   /* $D548: SETUP's pixel budget, measured by the frontend */           /* $D547: the kept palette, and "the machine loaded another" */
 static char palname_in[64]; static uint8_t palname_n, palname_rd;   /* the frame: dark grey, the palette's */

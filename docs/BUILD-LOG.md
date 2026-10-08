@@ -11983,3 +11983,12 @@ is an institution's own build, K4510_CAMERA=1.  The Dell's layer gets overlayfs
 whiteouts over the base's module directories (dell-build-here.sh; the
 whiteout-in-a-middle-layer behaviour tried on ubuntu-s1 with two squashfs).
 docs/CAMERA.md, README.
+
+**2026-10-08: REMOTE at the bottom left** (Doc's rule, relayed by doc-18: remote
+control off by default, and always visible when on).  JIM draws a reversed
+REMOTE and keys / login / viewed at the left of the bottom band (io_remote, set
+by the frontend: the key pipe's setting, a /proc scan every 5 s for sshd
+sessions, Tailscale SSH's be-child and mosh-server, a minute after a SIGUSR1/2
+screen read); the volume and piped-key echo move right of it; with no bands it
+is in the window-foot bar.  The key pipe starts off.  docs/REMOTE.md.  Seen on
+ubuntu-s1: "REMOTE keys login" (its own Tailscale SSH sessions).

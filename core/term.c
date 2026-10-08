@@ -1097,6 +1097,8 @@ static void bstr(int col, int row, int end, const char *s, uint8_t f, uint8_t b)
 {
     while (*s && col < end) bcell(col++, row, (uint8_t) *s++, f, b);
 }
+static int band_left = 1;                         /* where the bottom band's left-hand notes start, after REMOTE */
+int term_band_left(void) { return band_left; }
 static void bfill(int row, int cols, uint8_t f, uint8_t b) { for (int c = 0; c < cols; c++) bcell(c, row, ' ', f, b); }
 static int screen2_shown(void);                  /* below */
 static void bands_tick(int force)
@@ -1119,7 +1121,7 @@ static void bands_tick(int force)
     time_t now = time(NULL); struct tm m; localtime_r(&now, &m);
     uint32_t sig = 2166136261u;
     #define MIX(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
-    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_batt_min); MIX(io_frame); MIX(io_frame_follow); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
+    MIX(oy); MIX(rows); MIX(bot); MIX(cols); MIX(fmt); MIX(io_battery); MIX(io_batt_min); MIX(io_frame); MIX(io_frame_follow); MIX(io_remote); MIX(io_net); MIX(io_net_q); MIX(f); MIX(b);
     MIX(TS[0].deffg); MIX(TS[0].defbg); MIX(vis); MIX(screen2_shown()); MIX(vicky_palette_gen());
     MIX(m.tm_min); MIX(m.tm_hour); MIX(m.tm_mday); MIX(m.tm_mon); MIX(m.tm_year);
     for (const char *q = band_note; *q; q++) MIX(*q);
@@ -1185,8 +1187,18 @@ static void bands_tick(int force)
             }
             if (right - n - 2 > cols / 2) { bstr(right - n - 2, last, right, nt, f, b); right = right - n - 2; }
         }
+        int left = 1;
+        if (io_remote) {                                                                 /* REMOTE, reversed, first: nobody watches unseen */
+            char rm[40]; int n = snprintf(rm, sizeof rm, " REMOTE ");
+            bstr(0, last, right, rm, b, f);
+            n = snprintf(rm, sizeof rm, "%s%s%s ", io_remote & REMOTE_KEYS ? " keys" : "", io_remote & REMOTE_LOGIN ? " login" : "",
+                         io_remote & REMOTE_VIEW ? " viewed" : "");
+            bstr(8, last, right, rm, f, b);
+            left = 8 + n + 1;
+        }
+        band_left = left;
         { int end = right - 1;                                                           /* the note, left, up to them */
-          if (band_note[0] && end > 1) bstr(1, last, end, band_note, f, b); }
+          if (band_note[0] && end > left) bstr(left, last, end, band_note, f, b); }
     }
 }
 void term_bands_redraw(void) { band_sig = 0; }

@@ -125,7 +125,8 @@ static void mlog(const char *what)
     clock_gettime(CLOCK_REALTIME, &ts); localtime_r(&ts.tv_sec, &tm);
     fprintf(stderr, "%02d:%02d:%02d.%03ld %s\n", tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000000, what); fflush(stderr);
 }
-static void shot_signal(int sig) { (void) sig; shot_req = 1; }
+static volatile sig_atomic_t viewed;           /* the screen was read from outside: REMOTE says so for a minute */
+static void shot_signal(int sig) { (void) sig; shot_req = 1; viewed = 1; }
 /* The machine's text screen, as text -- SIGUSR2 (tools/k4510-screen), for
  * reading the machine from another computer without a picture (Doc,
  * 2026-09-14: the remote harness, "standardize it ... for testing and
@@ -164,7 +165,7 @@ static int sb_rgb_hue(uint32_t c, int *sat, int *val)
     return h < 0 ? h + 1536 : h;
 }
 static volatile sig_atomic_t screen_req;
-static void screen_signal(int sig) { (void) sig; screen_req = 1; }
+static void screen_signal(int sig) { (void) sig; screen_req = 1; viewed = 1; }
 /* SIGHUP -- the ssh or terminal that started us going away -- ends the run the
  * way closing the window does, so settings are saved and the Tube is stopped.
  * SDL does this for INT and TERM itself; HUP it leaves at "die now". */
@@ -797,7 +798,7 @@ static void bands_overlay(void)
         echo_banded = 1;
         if (echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0) {
             char buf[64]; snprintf(buf, sizeof buf, " %s%.*s", echo_tag, echo_len, echo_txt);
-            band_text(rows - 1, 0, cols - 26, buf, stride, rh, cw, y0);   /* clear of the network and the battery */
+            band_text(rows - 1, term_band_left() - 1, cols - 26 - term_band_left(), buf, stride, rh, cw, y0);   /* after REMOTE, clear of the network and the battery */
             VICKY_TOUCH();                       /* drawn into fb: the next frame draws the band again, so it goes when the echo does */
         }
     }
@@ -1767,6 +1768,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             { char b[96]; snprintf(b, sizeof b, "palette: the machine loaded '%.60s'; kept", io_palname); mlog(b); }
             if (settings_changed()) settings_save(cfg);
         }
+        { static Uint32 view_until; int login = host_remote_login();   /* REMOTE at the bottom left (core/io.h io_remote) */
+          if (viewed) { viewed = 0; view_until = SDL_GetTicks() + 60000; }
+          io_remote = (uint8_t)((settings_get(SET_INPUT_KEYPIPE) ? REMOTE_KEYS : 0) | (login ? REMOTE_LOGIN : 0)
+                                | ((Sint32)(view_until - SDL_GetTicks()) > 0 ? REMOTE_VIEW : 0)); }
         host_battery_poll();                                          /* $D53A, every ten seconds */
         host_net_poll();                                              /* the band's network, the same */
         { static Uint32 beat_at; static unsigned long loops; loops++;  /* the heartbeat: a freeze is the beats stopping */
@@ -1981,7 +1986,8 @@ tex_done:
          * of every idle frame on the Dell.  Skipped, the display keeps what it
          * has.  A window event, a screenshot, or a second since the last full
          * frame (the sidebars' timer lives in there) draws it again. */
-        int echo_vis = echo_len && !echo_banded && (Sint32)(echo_until - SDL_GetTicks()) > 0 && font_panel;
+        int echo_on = echo_len && (Sint32)(echo_until - SDL_GetTicks()) > 0;
+        int echo_vis = !echo_banded && font_panel && (echo_on || io_remote);   /* REMOTE too: with no bands to carry it (off, claimed, the menu up) it is here, always */
         { static uint32_t last_sig; static Uint32 last_full; static int captures = -1;
           int ow = 0, oh = 0; SDL_GetRendererOutputSize(ren, &ow, &oh);
           uint32_t sig = 2166136261u;
@@ -2367,7 +2373,10 @@ tex_done:
           frame_sides = !frame_static && panel_kind == PANEL_OFF && !open && !echo_vis;   /* only the sidebars move */
           if (echo_vis) {   /* until four seconds after the last key; the bottom band has it when there is one */
               static SDL_Texture *etex; static int etw, eth;
-              char eline[64]; int en = snprintf(eline, sizeof eline, " %s%.*s ", echo_tag, echo_len, echo_txt);
+              char eline[96]; int en = 0;
+              if (io_remote) en = snprintf(eline, sizeof eline, " REMOTE:%s%s%s%s", io_remote & REMOTE_KEYS ? " keys" : "", io_remote & REMOTE_LOGIN ? " login" : "",
+                                           io_remote & REMOTE_VIEW ? " viewed" : "", echo_on ? " |" : " ");
+              if (echo_on) en += snprintf(eline + en, sizeof eline - (size_t) en, " %s%.*s ", echo_tag, echo_len, echo_txt);
               int tw = en * 8, th = font_panel_rows;
               if (!etex || etw != tw || eth != th) {
                   if (etex) SDL_DestroyTexture(etex);

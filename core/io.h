@@ -79,6 +79,15 @@ extern uint16_t io_batt_min;
  * frontend draws the band lines with those (vicky_band_line).  Set by the
  * frontend every frame. */
 extern uint8_t io_frame, io_frame_follow;
+/* Remote control, shown (Doc, 2026-10-08): anything that lets someone else see
+ * or drive the machine is off unless turned on, and while it is on the student
+ * can always see it -- JIM draws a REMOTE marker at the left of the bottom
+ * band, where the volume shows too.  Set by the frontend every few seconds. */
+extern uint8_t io_remote;
+#define REMOTE_KEYS  1            /* the key pipe is on: keys may be typed from another computer */
+#define REMOTE_LOGIN 2            /* someone is logged in to the Linux beneath from elsewhere (ssh, Tailscale SSH, mosh) */
+#define REMOTE_VIEW  4            /* the screen was read from outside in the last minute (k4510-shot, k4510-screen) */
+int term_band_left(void);         /* cells the marker takes at the bottom band's left: where the frontend's notes start */
 /* The network the machine's Linux has, for the bottom band (2026-10-06, Doc:
  * "a WIFI or Network indicator ... bottom right"): set by the frontend every
  * ten seconds from /sys/class/net.  $FF: not known (headless). */

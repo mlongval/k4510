@@ -98,7 +98,7 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "input.caps_ctrl",     "Caps Lock is Ctrl", ST_BOOL, 0, 0, 1, 1, 0, 0, SF_LIVE },   /* the old Unix keyboard's Ctrl, where Caps Lock sits (Doc, 2026-09-12) */
     { "input.kbd_layout",    "Keyboard layout", ST_ENUM, 0, 0, 0, 0, kbd_names, 9, SF_LIVE },   /* the machine's; the K4510 Linux follows it */
     { "host.lid",            "Lid closed",     ST_ENUM, 0, 0, 0, 0, lid_names, 2, SF_LIVE },   /* keep running (Doc's rule of 2026-09-11), or suspend */
-    { "input.keypipe",       "Key pipe",       ST_ENUM, 2, 0, 0, 0, pipe_names, 3, SF_LIVE },  /* remote typing: off / on / on, shown (the default) */
+    { "input.keypipe",       "Key pipe",       ST_ENUM, 0, 0, 0, 0, pipe_names, 3, SF_LIVE },  /* remote typing: off (the default since 2026-10-08: remote control is off unless turned on) / on / on, shown */
     { "text.codepage",       "Code page",      ST_ENUM,  PAGE_CP437, 0, 0, 0, page_names, PAGE_COUNT, SF_LIVE },
     { "video.hdfont",        "Font",           ST_ENUM,  HDFONT_ZHEKOV, 0, 0, 0, hdfont_names, HDFONT_COUNT, SF_LIVE },
     { "video.base",          "Canvas",         ST_ENUM,  0, 0, 0, 0, base_names, 2, SF_LIVE },

@@ -115,7 +115,7 @@ The K4510 Linux has `mosh` beside `ssh`, and a small command that chooses betwee
     k4510-connect you@server                     a shell there
     k4510-connect you@server tmux new -A -s k4510   the same tmux every time
 
-`k4510-connect` tries mosh first. If mosh is not on this side, or cannot start a session on the other — no `mosh-server` there, or its UDP ports blocked — it says so and runs `ssh -t` instead. A mosh session that ran and ended keeps its own result; only a mosh that fails within its first fifteen seconds falls back. Set `K4510_REMOTE=ssh` to skip mosh altogether. The same line can go in `/SYSTEM/ETC/TERMINAL.CFG`, so that Alt+2 opens it ([Chapter 2, The Shell](02-shell.md)).
+`k4510-connect` tries mosh first. If mosh is not on this side, or cannot start a session on the other — no `mosh-server` there, or its UDP ports blocked — it says so and runs `ssh -t` instead. A mosh session that ran and ended keeps its own result; only a mosh that fails within its first fifteen seconds falls back. Set `K4510_REMOTE=ssh` to skip mosh altogether. Either way the other side finds `K4510_CLIENT=1` in its environment — mosh calls every terminal `xterm-256color`, so a prompt or a tmux bar that dresses itself for the K4510 by `TERM` has this to go by. The same line can go in `/SYSTEM/ETC/TERMINAL.CFG`, so that Alt+2 opens it ([Chapter 2, The Shell](02-shell.md)).
 
 **The other computer** needs `mosh` installed (it brings `mosh-server`) and UDP ports 60000–61000 open to you — on the tailnet, and on the home network if you connect there by its local address. Logging in is still ssh’s: a password, or a key if you give this machine one.
 

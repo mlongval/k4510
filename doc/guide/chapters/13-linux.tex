@@ -227,7 +227,10 @@ side, or cannot start a session on the other --- no \verb|mosh-server|
 there, or its UDP ports blocked --- it says so and runs \verb|ssh -t|
 instead. A mosh session that ran and ended keeps its own result; only a
 mosh that fails within its first fifteen seconds falls back. Set
-\verb|K4510_REMOTE=ssh| to skip mosh altogether. The same line can go in
+\verb|K4510_REMOTE=ssh| to skip mosh altogether. Either way the other side finds
+\verb|K4510_CLIENT=1| in its environment --- mosh calls every terminal
+\verb|xterm-256color|, so a prompt or a tmux bar that dresses itself for
+the K4510 by \verb|TERM| has this to go by. The same line can go in
 \pth{/SYSTEM/ETC/TERMINAL.CFG}, so that Alt+2 opens it
 (Chapter~\ref{cha:shell}).
 

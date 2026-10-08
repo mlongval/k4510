@@ -103,6 +103,8 @@ list is free for programs --- in the main \texttt{\$0040000} to
 \texttt{\$0030000} & the console's text cells, 4 bytes each, up to 180$\times$67\\
 \texttt{\$003C000} & the status bands' own cells, drawn by JIM (12\,KB)\\
 \texttt{\$003F000} & one blank text row in the current colours\\
+\texttt{\$003F800} & EhBASIC's sprite table, 128 $\times$ 16 bytes\\
+\texttt{\$04E0000} & a K4510 BASIC program's sprite table, and at \texttt{\$04F0000} its runtime error line, while it runs\\
 \texttt{\$E000000-\$EC00000} & the editors' (VI, EDIT, PROG): document slots, the file as loaded, the unnamed register, RENUM's table, MAKE.ERR\\
 \texttt{\$F000000} & the editors' undo\\
 \texttt{\$FD00000} & \verb|SWAP|'s copy of the caller's 64\,KB\\
@@ -122,8 +124,8 @@ A \texttt{.prg} begins with two addresses, where it loads and where it
 starts, and the shell honours both. The C programs of \pth{/SYSTEM/BIN}
 load at \texttt{\$0800}, as Mad Pascal's do (their C stack is the top
 of \texttt{\$0800-\$CFFF}; the big ones --- VI, EDIT, PROG, WORD ---
-have layouts of their own that also use the RAM under the ROM), MS BASIC at
-\texttt{\$7000}, EhBASIC in the RAM under the ROM (it leaves
+have layouts of their own that also use the RAM under the ROM; a K4510
+BASIC program is a Mad Pascal one), EhBASIC in the RAM under the ROM (it leaves
 \texttt{\$0800-\$BCFF} to BASIC), and \verb|MONITOR| at \texttt{\$E000}, in the
 RAM under the ROM --- so that the memory a monitor is there to look at,
 \texttt{\$0800} to \texttt{\$CFFF}, is left exactly as it was.

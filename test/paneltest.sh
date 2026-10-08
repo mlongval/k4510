@@ -49,7 +49,7 @@ has "MODE 5: 90x67 text, 720x540 pixels, scale 2" "an option after the operand"
 out=$(run 1920x1080 'MODE --bogus
 MODE 999x1
 ')
-has "mode: -l (--list)" "an unknown option says what there is"
+has "mode: -l, -s N" "an unknown option says what there is"
 has "mode: WxH, 160x100 at least" "a size too small to be one"
 # Integer Best Fit (2026-10-08): a size the panel does not offer is the program's own,
 # at the largest whole multiple -- smoothed only when asked; larger than the panel refused
@@ -64,4 +64,19 @@ has "800x600 pixels, smoothed to the panel" "--smooth asks for smoothing"
 out=$(run 1366x768 'MODE 1600x1200
 ')
 has "mode: larger than this panel" "a size larger than the panel is refused"
-echo "paneltest: OK (the list on 1080p, 768p, 4K and the whole panel; MODE -l, -s, --scale=, WxH, -d; the grids and their fallbacks; Integer Best Fit and --smooth)"
+# scanlines (2026-10-08): on any mode, kept by a new size, off with -p
+out=$(run 1920x1080 'MODE -c
+MODE
+')
+has "640x480 pixels, scanlines" "MODE -c: scanlines on the shell's own mode"
+out=$(run 1920x1080 'MODE -c
+MODE 640x480
+MODE
+')
+has "640x480 pixels, the best whole multiple, scanlines" "a new size keeps the scanlines"
+out=$(run 1920x1080 'MODE -c
+MODE -p
+MODE
+')
+echo "$out" | grep -q "pixels.*scanlines" && fail "MODE -p takes them off"
+echo "paneltest: OK (the list on 1080p, 768p, 4K and the whole panel; MODE -l, -s, --scale=, WxH, -d; the grids and their fallbacks; Integer Best Fit, --smooth, --scanlines and --plain)"

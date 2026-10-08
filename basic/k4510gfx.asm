@@ -1,5 +1,6 @@
 ; ---- K4510 graphics commands for EhBASIC ---------------------------------
-; GRAPHICS n   0 = off, 1 = 320x240, 2 = 640x480 (8 bpp bitmap on VICKY layer 1,
+; GRAPHICS n   0 = off, 1 = 320x240, 2 = 640x480, 3 = the screen as it is --
+;              whatever *MODE made it (2026-10-08) (8 bpp bitmap on VICKY layer 1,
 ;              above the text; index 0 is transparent; clears the bitmap)
 ; GCLS         clear the bitmap
 ; PLOT x,y,c   LINE x1,y1,x2,y2,c   TRI x1,y1,x2,y2,x3,y3,c   (blitter ops)
@@ -81,6 +82,10 @@ K_GRAPHICS
 	JMP	k_gfx_off
 k_gfx_some
 	STA	gmode
+	CMP	#3			; 3: the screen MODE left, no mode change (k_gfx_cur, in the tail)
+	BNE	k_gfx_mode
+	JMP	k_gfx_cur
+k_gfx_mode
 	LDA	gprev			; remember the console mode we found, once
 	BNE	k_gfx_saved		; (GRAPHICS 2 after GRAPHICS 1 keeps the first)
 	LDA	VK+$00
@@ -116,6 +121,7 @@ k_gfx_on
 	; and a CTRL the console is not laid out for cuts the screen in half.
 	; MODE n does CTRL + layout + palette + cls, and the host's menu follows.
 	JSR	k_gm_run
+k_gfx_lay
 	; layer 1: bitmap, 8 bpp, stride = width, data = GFX_BUF
 	; (video_init turned every layer above the text off; set ours up fresh)
 	STZ	VK+$21			; palofs
@@ -148,23 +154,7 @@ K_GCLS
 	LDA	#^GFX_BUF
 	STA	DMA+6
 	STZ	DMA+7
-	; length = gw * gh: 320*240 = 76800 ($12C00), 640*480 = 307200 ($4B000)
-	LDA	gmode
-	CMP	#1
-	BEQ	k_len_lo
-	STZ	DMA+8
-	LDA	#$B0
-	STA	DMA+9
-	LDA	#$04
-	STA	DMA+10
-	BRA	k_len_go
-k_len_lo
-	STZ	DMA+8
-	LDA	#$2C
-	STA	DMA+9
-	LDA	#$01
-	STA	DMA+10
-k_len_go
+	JSR	k_gfx_len		; length = gw * gh, any size (the tail)
 	STZ	DMA+11
 	LDA	#2
 	STA	DMA+12			; DMA fill
@@ -177,6 +167,8 @@ k_gfx_off
 	LDA	#'1'			; GRAPHICS 0 with none on: the default text mode
 k_go_have
 	STZ	gprev
+	CMP	#$FF			; GRAPHICS 3 changed no mode: none to put back
+	BEQ	k_gfx_rts
 	JMP	k_gm_run		; MODE n: the ROM puts layout, palette and a clean screen back
 
 ; k_gm_run / k_ctrl2digit / k_gmstr live in the $BE00 tail (k4510basic.asm):

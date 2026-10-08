@@ -2322,7 +2322,37 @@ tex_done:
                     } else if (!custom) SDL_RenderSetLogicalSize(ren, lw, canvas_h);
                 }
             }
-            if (!drawn) SDL_RenderCopy(ren, tex, &gsrc, &dr); }
+            if (!drawn) SDL_RenderCopy(ren, tex, &gsrc, &dr);
+            /* Scanlines (VICKY's GLASSCTL bit6, 2026-10-08: MODE -c, Doc's
+             * "scanline options"): every machine row keeps its top half and
+             * has its bottom half dimmed, as a CRT's beam left a dark gap
+             * between lines.  Only where a row is two screen lines or more --
+             * at scale 1 there is no half to dim.  A 1-wide column of k
+             * screen lines a row, laid over the picture: hard at a whole
+             * scale, smoothed at a fitted one. */
+            if (vicky_glass_ctl() & 0x40) {
+                static SDL_Texture *slt; static int slh, slk;
+                double rowpx = (double) dr.h * (custom ? 1.0 : esy) / gh;
+                int k = (int)(rowpx + 0.5);
+                if (k >= 2) {
+                    if (!slt || slh != gh || slk != k) {
+                        if (slt) SDL_DestroyTexture(slt);
+                        slt = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1, gh * k);
+                        slh = gh; slk = k;
+                        void *lp; int lpitch;
+                        if (slt && SDL_LockTexture(slt, NULL, &lp, &lpitch) == 0) {
+                            for (int y = 0; y < gh * k; y++)
+                                *(uint32_t *)((uint8_t *) lp + y * lpitch) = y % k >= k - k / 2 ? 0x90000000u : 0;
+                            SDL_UnlockTexture(slt);
+                        }
+                        if (slt) SDL_SetTextureBlendMode(slt, SDL_BLENDMODE_BLEND);
+                    }
+                    if (slt) {
+                        SDL_SetTextureScaleMode(slt, rowpx - k > 0.02 || k - rowpx > 0.02 ? SDL_ScaleModeLinear : SDL_ScaleModeNearest);
+                        SDL_RenderCopy(ren, slt, NULL, &dr);
+                    }
+                }
+            } }
           /* The F12 menu: its own 640x480 layer over the picture, scaled the
            * same way whatever the mode -- hard pixels to the whole multiple,
            * smoothing for the rest.  Stretched into the picture it was drawn

@@ -38,4 +38,8 @@ rm -f fs/TESTOUT.TXT fs/LANG/BBCBASIC/TESTOUT.TXT
 keys=$(python3 -c "import sys; sys.stdout.write('EHBASIC\n~~10 PRINT \"STILL HERE\"\n~*PROG\n~~~~\x11~~~~PRINT 6*7\n~~RUN\n~~')")
 out=$(./test/headless rom/kernal.bin "$keys" 1200 2>&1)
 echo "$out" | grep -q "^ 42" && echo "$out" | grep -q "^STILL HERE" || { echo "$out"; echo "basictest: FAILED: *PROG did not come back to EhBASIC with its program"; exit 1; }
-echo "basictest: OK (EhBASIC 34 checks + SAVE + *, BBC BASIC 28 checks + files + ULA graphics/sound + *, *PROG and back; both verbose, both PASSED)"
+# GRAPHICS 3 (2026-10-08): a bitmap the size *MODE made -- Integer Best Fit's 400x300
+keys=$(python3 -c "import sys; sys.stdout.write('EHBASIC\n~~*MODE 400x300\n~~GRAPHICS 3\n~PRINT PEEK(949)+256*PEEK(950);PEEK(951)+256*PEEK(952)\n~~GRAPHICS 0\n~*MODE\n~~')")
+out=$(K4510_PANEL=1920x1080 ./test/headless rom/kernal.bin "$keys" 900 2>&1)
+echo "$out" | grep -q "^ 400 300" && echo "$out" | grep -q "MODE 5: .*400x300 pixels, the best whole" || { echo "$out"; echo "basictest: FAILED: GRAPHICS 3 on *MODE 400x300"; exit 1; }
+echo "basictest: OK (EhBASIC 34 checks + SAVE + *, BBC BASIC 28 checks + files + ULA graphics/sound + *, *PROG and back; GRAPHICS 3 on *MODE 400x300; both verbose, both PASSED)"

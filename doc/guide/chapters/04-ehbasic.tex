@@ -33,6 +33,7 @@ program hands over to another, exactly as on a C64.
 \section{The machine's own statements}
 \begin{type}
 GRAPHICS 2          640x480 bitmap over the text
+GRAPHICS 3          a bitmap the size of the screen as it is
 PLOT X,Y,C          LINE X1,Y1,X2,Y2,C
 TRI X1,Y1,X2,Y2,X3,Y3,C
 PALETTE I,R,G,B     GCLS            GRAPHICS 0
@@ -40,6 +41,17 @@ PALETTE I,R,G,B     GCLS            GRAPHICS 0
 
 Colours 0--15 belong to the text screen; demos use 16 and up. \verb|GRAPHICS 0|
 puts the text mode and its palette back, whatever the program changed.
+
+\verb|GRAPHICS 3| changes no mode: it covers whatever screen there is, so a
+program asks for its size first and then draws on it ---
+\verb|*MODE 400x300| then \verb|GRAPHICS 3| gives a 400$\times$300 bitmap at
+the panel's best whole multiple (Section~\ref{sec:resolution}).
+\verb|*MODE 400x300 -m| smooths it to the panel, \verb|-c| adds scanlines.
+VICKY says what came: the screen's width and height are at 53462 and 53464
+(two bytes each, \verb|PEEK(53462)+256*PEEK(53463)|), the panel's at 53440
+and 53442. \verb|RES.BAS| (R in the demo menu) walks through the sizes and
+effects, saying at each step what was asked and what came. When the program
+ends, the shell's own screen comes back.
 
 \section{Hardware sprites}
 The 128 sprites VICKY carries are reachable from BASIC, which is unusual

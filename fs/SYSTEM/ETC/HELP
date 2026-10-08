@@ -28,7 +28,8 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          panel offers; -s N (--scale=N) or WxH
          picks one -- any other WxH is that size
          at the best whole multiple (-m, --smooth:
-         smoothed instead); -d (--double) twice the rows
+         smoothed instead); -c (--scanlines) scanlines,
+         -p (--plain) none; -d (--double) twice the rows
          in smaller letters, -n (--normal) back;
          0 640x480; 5 6 7 scale 1 2 4.  MODE
          alone says which

@@ -371,6 +371,53 @@ K_SPROFF
 	.byte	$A3, $00
 	RTS
 
+; ---- GRAPHICS 3: a bitmap the size of the screen *MODE made ------------------
+; (2026-10-08, Integer Best Fit: *MODE 400x300 then GRAPHICS 3.)  VICKY's
+; GLASSW/GLASSH ($D0D6-$D0D9) into gw/gh ($03B5-$03B8, in that order); no MODE
+; is run, so GRAPHICS 0 has none to put back ($FF in gprev).
+k_gfx_cur
+	LDX	#3
+k_gc_cp	LDA	VK+$D6,X
+	STA	gw,X
+	DEX
+	BPL	k_gc_cp
+	LDA	gprev
+	BNE	k_gc_kept
+	DEC	gprev
+k_gc_kept
+	JMP	k_gfx_lay
+; DMA+8..10 = gw * gh, by adding gw gh times (1200 at most)
+k_gfx_len
+	STZ	gargs
+	STZ	gargs+1
+	STZ	gargs+2
+	LDX	gh
+	LDY	gh+1
+k_gl_lp	TXA
+	BNE	k_gl_dx
+	TYA
+	BEQ	k_gl_done
+	DEY
+k_gl_dx	DEX
+	CLC
+	LDA	gargs
+	ADC	gw
+	STA	gargs
+	LDA	gargs+1
+	ADC	gw+1
+	STA	gargs+1
+	BCC	k_gl_lp
+	INC	gargs+2
+	BRA	k_gl_lp
+k_gl_done
+	LDA	gargs
+	STA	DMA+8
+	LDA	gargs+1
+	STA	DMA+9
+	LDA	gargs+2
+	STA	DMA+10
+	RTS
+
 ; ---- GRAPHICS mode plumbing (k4510gfx.asm calls these) -------------------
 ; A = the console MODE digit: run "MODE d" through the ROM's shell.  The
 ; line is copied to gargs first -- the ROM cannot read this image while it

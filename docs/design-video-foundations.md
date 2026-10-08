@@ -586,6 +586,8 @@ done in the frontend as a per-program option drawn at the panel's
 resolution (one dark line every n panel lines, n the scale), not in
 VICKY and not for K/OS. Recommendation: not now; the register sketch
 keeps a bit for it so a program can ask once it exists (question 10).
+**Built 2026-10-08** that way: GLASSCTL bit6, MODE -c (Doc: "Please build the
+scanline options").
 
 ### 4.5 The register sketch
 

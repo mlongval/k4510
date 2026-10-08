@@ -12014,3 +12014,19 @@ such a size gets the shell's size back when it ends.  Pascal:
 Handbook: "Choosing a resolution" in the I/O chapter, MODE in the reference
 (sources only, not rebuilt).  test/paneltest.sh covers 640x480, 800x600 -m and
 the refusal.
+
+**2026-10-08: scanlines, asked for; GRAPHICS 3; RES.BAS** (Doc: "Please build
+the scanline options first ... Make a EhBasic demo program that illustrates
+... the different resolutions and options").  `MODE -c` (`--scanlines`) sets
+VICKY's GLASSCTL bit6 over any mode; the frontend lays a 1-wide column of
+dimmed half-rows over the picture (hard at a whole scale, smoothed at a fitted
+one), only where a machine row is two panel lines or more.  A new size keeps
+it, `-p` (`--plain`) takes every effect off, a program's effects end with it.
+Scanlines were cut 2026-09-14 as a setting; they come back only as something
+a program or the user asks for.  EhBASIC's `GRAPHICS 3` is a bitmap the size
+of the screen as it is (GLASSW/H), no mode change, and GCLS fills any size.
+EX/RES.BAS, R in the demo menu: 640x480, 320x240, 400x300 (x3 on 1080),
+400x300 -m, 320x240 -c, both, -s 1, and 4000x3000 refused -- each step says
+what was asked and what came, and draws frame, ruler and circle on it.
+Checked on the SDL frontend under Xvfb at 1920x1080, every step.
+paneltest and basictest cover -c/-p and GRAPHICS 3.

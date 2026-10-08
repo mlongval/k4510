@@ -67,7 +67,8 @@
  *                    software shows: 0 the largest whole scale, 1 fit
  *                    (sharp-bilinear: the whole multiple, then smoothing);
  *                    2, stretched to 4:3, is reserved and fits for now.
- *                    bit6 reserved (scanlines).
+ *                    bit6 scanlines (2026-10-08): the lower half of every
+ *                    machine row dimmed, where a row is 2 panel lines or more.
  *     $D1  IDRSEL    RW the scale wanted: one not offered becomes the next
  *                    larger scale that is, else the largest offered
  *     $D2,D3 SWW     RW a software resolution, 160-1920 wide  } clamped to the

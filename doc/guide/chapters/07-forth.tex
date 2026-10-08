@@ -47,6 +47,13 @@ here  2 lda.#  0 sta.z  drop
 The dictionary has about 31.7\,KB free for your words. \verb|BYE| returns
 to the shell with the screen and the session exactly as you left them.
 
+\textbf{Escape or Ctrl+C stops a word that has run away}, as in the
+BASICs, RX and LOGO: Forth says \texttt{stopped} and is back at its prompt
+with its stacks emptied and your words kept. It looks for the key each
+time it prints a character and each time a program asks \verb|KEY?|, so a
+loop that does neither --- \verb|BEGIN AGAIN| with nothing in it --- still
+needs the reset chord.
+
 \begin{aside}
 No file words yet: Forth source lives in \pth{/LANG/FORTH} but must be
 typed.

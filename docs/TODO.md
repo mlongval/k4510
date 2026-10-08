@@ -90,10 +90,10 @@ Fixed the same day except these:
       `tailscale logout` before lending the stick.  No build change.
 - [ ] **STAT/CHDIR on ftp/sftp/http fetch the whole file** — a HEAD
       request (`curl -sI`) for the size; cache one listing per CD→DIR.
-- [ ] **Chess's port reply buffer is unbounded** (~40 BOARD lines in one
-      .CMD); RX `RANDOM(5,4)` divides by zero; PARSE patterns copy a clause
+- [x] **Chess's port reply buffer** (done 2026-10-08: stops with "reply full" when under 160 bytes are left).
+- [ ] RX `RANDOM(5,4)` divides by zero; PARSE patterns copy a clause
       into 160-byte temps; `EX/SPIRAL.LGO` is empty.
-- [ ] **`nav_list`'s `b[256]`** on the shell's stack — list into the
+- [x] **`nav_list`'s `b[256]`** on the shell's stack (done: 128 with the size told the device, 2026-09-15) — list into the
       resident `line` with CAP = its size, as GETCWD does.
 - [x] **Header dependencies** (done 2026-10-07): `-MMD -MP` in CFLAGS, `-include` the `.d` files;
       the frontend built an object a file so each has its list.
@@ -141,7 +141,7 @@ carries them: packages.list has them since 2026-10-06).
 - [ ] **GLASSCTL's stretch-to-4:3** (bit5) is reserved and fits for now;
       the frontend's 4:3 box for a software resolution of any shape.
 - [x] **k4510-vidcap on the Dell** (run 2026-10-07); SETUP runs it ($D548) and keeps the cap.
-- [ ] **FORTH has no break key** — poll `$D103` like RX and LOGO do.
+- [x] **FORTH has no break key** (done 2026-10-08: `$D103` at every character printed and every KEY?; test/forthtest.sh).
       EhBASIC keeps its own Ctrl-C (touching it overflowed the `$C000`
       slice once).
 - [ ] **LOGO lists** — phase 2 (a009fee) brought the sprite turtle, FILL
@@ -172,7 +172,7 @@ carries them: packages.list has them since 2026-10-06).
       rodata), RM and RADIO (from bank 0's window) -- and the monitor words out of
       ROM2 into bank 0.  Free now: ROM2 442, ROM1A 614, ROM1C 387, SW2 3681,
       SW4 3860 (`python3 tools/romfree.py`).  New resident code still goes in a bank.
-- [ ] **User banks** — document the convention: sideways banks 5-16 are
+- [x] **User banks** (documented 2026-10-08, the memory chapter) — the convention: sideways banks 5-16 are
       user RAM banks; the ROM never claims above bank 4 (bank 3 = the line
       editor and `DIR -l` since 2026-09-08/11; bank 4 = PALETTE, RM, RADIO
       since 2026-10-07).  The handbook's memory map says so.

@@ -30,6 +30,18 @@ window. The 256\,MB of physical memory is reached three ways:
 \end{tabular}
 \end{center}
 
+\paragraph{Sideways banks for programs.} The sixteen 8\,KB slots at
+\texttt{\$FF00000} are RAM. K/OS loads its own banks into 1 to 4 at power-on
+and never touches 5 to 16 (\texttt{\$FF08000-\$FF1FFFF}), so a program may
+keep code or tables there and show one in its \texttt{\$A000-\$BFFF} window
+the way the ROM does: the three base bytes of block 5's bank register
+(\texttt{\$D614-\$D616}) then \texttt{\$00} to \texttt{\$D617} to switch it in,
+\texttt{\$80} to switch it out --- or simply read and write them with flat
+pointers or DMA. Bank $n$ is at \texttt{\$FF00000} $+ (n-1)\times$\texttt{\$2000}.
+They are RAM like the rest, so a power cycle clears them and a reset does
+not; a program that ends with the block still switched in has it switched
+out by the ROM, whose \verb|MAP| off at exit clears every bank.
+
 \noindent Three bytes of system state are fixed, so that programs can
 rely on them:
 

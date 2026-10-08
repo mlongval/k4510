@@ -11944,3 +11944,16 @@ k4510-radio's own + and - went.  Every request now fails in one line naming
 the server it could not reach (and asking after Tailscale for a .ts.net or
 100.x address) after 10 s at most, and an endless random list stops quietly
 when the network goes.
+
+## 2026-10-08 -- FORTH's break; the chess port's reply; the programs' banks
+
+FORTH stops on ESC or Ctrl-C ($D103) at every character it prints and every
+KEY?, says "stopped" and ABORTs to its prompt, its words kept
+(forth/platform.asm; test/forthtest.sh, in the battery).  A silent loop still
+needs the reset chord.  The chess port stops taking commands when under 160
+bytes of its 2816-byte reply are left and says "reply full" (fifty BOARDs:
+2700 bytes, clean); only po_str had been bounded.  nav_list's buffer was
+already 128 and bounded (2026-09-15): the TODO was stale.  The memory chapter
+documents sideways banks 5-16 for programs.  The handbook's sources are
+updated (Forth, memory, the sound appendix: the neighbour and one volume);
+the PDF is not rebuilt this time, on Doc's word.

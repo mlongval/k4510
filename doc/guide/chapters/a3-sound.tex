@@ -280,3 +280,24 @@ Everything above this section is kept exactly as it was written, because
 the route matters more than the destination, and a book that quietly
 rewrote its own history would be worth less than one that admits what it
 tried.
+
+\section{A neighbour, and one volume}
+In October 2026 the machine got a neighbour: \verb|k4510-radio|, music from
+a Navidrome server, radio stations and podcasts, played by \verb|mpg123| on
+the Linux beneath the machine rather than by the machine itself. The first
+question was whether the two could sound at once, and the answer was in a
+part of the stack nobody had looked at: the K4510's own Linux has no sound
+server, no PulseAudio, no PipeWire, and the emulator and anything else
+share the card through ALSA's default device, which on the laptop's Intel
+sound is \texttt{dmix}, ALSA's own mixer. \verb|k4510-soundtest| plays two
+tones at once as two programs and reports whether both got the device; on
+the Dell they did, with the machine sounding underneath.
+
+The second question came a day later, from the chair: the machine's
+volume keys did nothing to the music. They had only ever scaled the
+machine's own samples, which was right on a desktop --- the desktop owns
+the volume there --- and wrong on a computer whose only job is to be this
+machine. So on the K4510's own Linux the volume setting now drives ALSA's
+Master, and the machine's sound is made at full: F12's volume and the
+volume keys are the computer's volume, for everything it plays. On a
+desktop nothing changed.

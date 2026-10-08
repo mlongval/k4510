@@ -99,13 +99,36 @@ _restored:
         .byte $ea               ; EOM
         rts                     ; back to the K/OS shell
 
+; The break (2026-10-08, as RX and LOGO have it): an ESC or Ctrl-C waiting
+; anywhere in the keyboard queue -- $D103 hands it over and takes it out --
+; stops what is running, says so, and ABORTs to the prompt.  Looked for at
+; every character Forth prints and every KEY?, so a loop that prints or polls
+; the keys stops; a silent one (BEGIN AGAIN) still needs the reset chord.
 kernel_putc:
+        pha
+        lda $d103               ; KBDBREAK
+        bne forth_break
+        pla
         phx
         phy
         jsr $ff80               ; CHROUT
         ply
         plx
         rts
+
+forth_break:
+        ldx #0
+-       lda s_break,x
+        beq +
+        phx
+        jsr $ff80
+        plx
+        inx
+        bra -
++       jmp xt_abort            ; the stacks reset, back to the interpreter
+
+s_break:
+        .text AscLF, "stopped", AscLF, 0
 
 kernel_getc:
         phx
@@ -116,6 +139,8 @@ kernel_getc:
         rts
 
 kernel_kbhit:
+        lda $d103               ; the break first (above)
+        bne forth_break
         lda $d101               ; KBDST: bit 7 = a key is waiting
         and #$80                ; (peeked, not consumed)
         rts

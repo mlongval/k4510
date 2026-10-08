@@ -1186,6 +1186,11 @@ static void port_run(const char *file)
         while (*p && *p != '\n' && k < 79) { if (*p != '\r') lbuf[k++] = *p; p++; }
         lbuf[k] = 0;
         while (*p == '\n' || *p == '\r') p++;
+        if ((uint16_t)(po - PORTRPL) > PORTMAX - 160) {   /* the reply is all but full: the biggest answer (BOARD, FEN) is
+                                                          * under 100 bytes, and only po_str stopped at the end before --
+                                                          * forty BOARDs in one .CMD wrote past it (review 2026-09-12) */
+            po_str("reply full: the rest not done\n"); rc = 1; break;
+        }
         if (port_line(lbuf)) rc = 1;
     }
     port_state(1);

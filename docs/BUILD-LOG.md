@@ -11957,3 +11957,17 @@ already 128 and bounded (2026-09-15): the TODO was stale.  The memory chapter
 documents sideways banks 5-16 for programs.  The handbook's sources are
 updated (Forth, memory, the sound appendix: the neighbour and one volume);
 the PDF is not rebuilt this time, on Doc's word.
+
+**2026-10-08: RADIO is k4510-radio's remote; plain mosh carries the mark; tmux.**
+K/OS's RADIO, which drove the sidelined Navidrome sidebar, now reaches
+k4510-radio through the frontend (radio_cmd; the sidebar keeps it while it
+plays): MUSIC [playlist], STATION n, PODCAST n [m] start a player in the
+background (`k4510-radio --background`, double-forked, setsid); NEXT PAUSE
+RESUME STOP go down a FIFO the player reads beside its keys; RADIO alone reads
+the file it keeps of what plays.  One player at a time: a new one tells the
+old to stop.  Tried with a stand-in for mpg123: station 1, RADIO, PAUSE,
+STOP, NEXT with nothing playing.  `k4510-radio next|pause|resume|stop|now`
+does the same from a shell.  Doc: through plain `mosh` Claude's status line
+stayed in its own theme -- only k4510-connect set K4510_CLIENT=1; the K4510
+Linux now has /usr/local/bin/mosh, which adds it when no command is given.
+tmux joins the package list.

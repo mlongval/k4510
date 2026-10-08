@@ -364,6 +364,60 @@ static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP4
  * page's order and CP437's; a face whose files are missing is drawn as unscii. */
 static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384], hd_fonts16[HDFONT_COUNT][PAGE_COUNT][8192]; static int hd_have[HDFONT_COUNT];
 static uint8_t hd_fonts48[HDFONT_COUNT][PAGE_COUNT][36864], hd_fonts24[HDFONT_COUNT][PAGE_COUNT][18432]; static int hd_have3[HDFONT_COUNT];   /* the same at 3x: 480x360 (2026-10-07) */
+/* RADIO at the machine's prompt (2026-10-08): the remote for k4510-radio, the
+ * player on the Linux beside the machine -- it starts one in the background
+ * (MUSIC [playlist], STATION n, PODCAST n [m]) and steers whichever is
+ * running, in the Terminal screen or not (NEXT PAUSE RESUME STOP; alone, what
+ * plays).  The Navidrome sidebar, while it plays, keeps RADIO as it was. */
+static const char *radio_prog(void)
+{
+    return access("/usr/local/bin/k4510-radio", X_OK) == 0 ? "/usr/local/bin/k4510-radio" : "linux/config/includes.chroot/usr/local/bin/k4510-radio";
+}
+static void radio_run(const char *arg, char *reply, size_t max)   /* k4510-radio ARG, its answer into reply */
+{
+    char cmd[160]; FILE *p; size_t n = strlen(reply);
+    snprintf(cmd, sizeof cmd, "python3 %s %s 2>&1", radio_prog(), arg);
+    if (!(p = popen(cmd, "r"))) return;
+    while (n + 1 < max && fgets(reply + n, (int)(max - n), p)) n = strlen(reply);
+    pclose(p);
+}
+static void radio_cmd(const char *cmd, char *reply, size_t max)
+{
+    char word[16], rest[128], *av[12]; int i = 0, ac = 0;
+    if (navi_playing()) { navi_command(cmd, reply, max); return; }
+    while (*cmd == ' ') cmd++;
+    for (; *cmd && *cmd != ' ' && i < 15; cmd++) word[i++] = (char) tolower((unsigned char) *cmd);
+    word[i] = 0;
+    while (*cmd == ' ') cmd++;
+    snprintf(rest, sizeof rest, "%s", cmd);
+    reply[0] = 0;
+    if (!word[0] || !strcmp(word, "status") || !strcmp(word, "help")) {
+        radio_run("now", reply, max);
+        snprintf(reply + strlen(reply), max - strlen(reply),
+                 "RADIO MUSIC [playlist]   RADIO STATION n   RADIO PODCAST n [m]   (your lists: /SYSTEM/ETC/RADIO.CFG)\n"
+                 "RADIO NEXT / PAUSE / RESUME / STOP     -- or k4510-radio in the Terminal (Alt+2)\n");
+        return;
+    }
+    if (!strcmp(word, "next") || !strcmp(word, "pause") || !strcmp(word, "resume") || !strcmp(word, "stop") || !strcmp(word, "off")) {
+        radio_run(!strcmp(word, "off") ? "stop" : word, reply, max);
+        if (!reply[0]) snprintf(reply, max, "%s\n", word);
+        return;
+    }
+    if (strcmp(word, "music") && strcmp(word, "play") && strcmp(word, "station") && strcmp(word, "podcast")) {
+        snprintf(reply, max, "RADIO: MUSIC [playlist], STATION n, PODCAST n [m], NEXT, PAUSE, RESUME, STOP\n"); return;
+    }
+    snprintf(reply, max, "starting %s%s%s in the background (RADIO alone says what plays)\n", word, rest[0] ? " " : "", rest);
+    av[ac++] = "python3"; av[ac++] = (char *) radio_prog(); av[ac++] = "--background"; av[ac++] = !strcmp(word, "play") ? "music" : word;
+    for (char *t = strtok(rest, " "); t && ac < 11; t = strtok(NULL, " ")) av[ac++] = t;
+    av[ac] = NULL;
+    pid_t pid = fork();
+    if (pid == 0) {                                      /* twice, so the player is nobody's child here */
+        setsid();
+        if (fork() == 0) { execvp("python3", av); _exit(127); }
+        _exit(0);
+    }
+    if (pid > 0) waitpid(pid, NULL, 0);
+}
 /* F12 -> Machine -> Save and power off (Doc, 2026-10-07, in place of a Linux
  * hibernate): the whole machine to this file, then the computer off; the next
  * start loads it and deletes it, so you are back where you were -- the
@@ -916,7 +970,7 @@ int k4510_frontend_main(int argc, char **argv)
      * X server goes -- still stops the co-processor.  Idempotent, so the clean
      * path calling it too is fine. */
     atexit(io_tube_shutdown);
-    io_radio_hook = navi_command;                  /* RADIO at the prompt reaches the Navidrome sidebar's player */
+    io_radio_hook = radio_cmd;                     /* RADIO at the prompt: k4510-radio's remote (the Navidrome sidebar's while it plays) */
     int no_startup = 0;
     { int i, j;
       for (i = 1; i < argc; i++)

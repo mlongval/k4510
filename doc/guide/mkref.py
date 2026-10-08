@@ -73,7 +73,7 @@ DESC = {
     "COPY":    (4, "COPY from.to dest", "Copy memory, by DMA. Not files: that is CP."),
     # languages
     "BBCBASIC":(5, "BBC", "BBC BASIC on the Tube@cha:tube@."),
-    "RADIO":   (7, "RADIO [words]", "The Navidrome sidebar's player, from the prompt: alone, what is playing and the words; PLAY [playlist], ALBUM name, ARTIST name, SONG words, SEARCH words, NEXT, PAUSE, RESUME, OFF. It plays whether or not the sidebar is on the glass; the volume is the machine's."),
+    "RADIO":   (7, "RADIO [words]", "The remote for k4510-radio, the player on the Linux beside the machine: alone, what is playing; MUSIC [playlist], STATION n, PODCAST n [m] start one in the background; NEXT, PAUSE, RESUME, STOP steer whichever is running, in the Terminal screen or not. Lists in /SYSTEM/ETC/RADIO.CFG; the volume is the machine's."),
     "CPM":     (5, "CPM [command]", "CP/M 2.2 on the Z80@cha:cpm@. A command runs at boot."),
     "EHBASIC": (5, "EHBASIC", "Enhanced BASIC with the machine's graphics@cha:basic@."),
     "FORTH":   (5, "FORTH", "Tali Forth 2@cha:forth@."),
@@ -152,7 +152,7 @@ def shipkey(where, name):
 
 # ROM words that belong to something SHIPPING.CFG can leave out: sidelined
 # 2026-10-07 (Doc), they leave the reference with it.
-ROM_KEYS = {"CPM": "chapter:09-cpm", "RADIO": "sidebar:navidrome"}
+ROM_KEYS = {"CPM": "chapter:09-cpm"}
 
 
 def chapkeys():

@@ -1,0 +1,22 @@
+#!/bin/sh
+# mosh, as the K4510 Linux runs it: Debian's /usr/bin/mosh, but a plain
+# "mosh [options] host" -- no command given -- also tells the other side it is
+# a K4510 (K4510_CLIENT=1 in the session), as k4510-connect does.  mosh calls
+# every terminal xterm or xterm-256color, so a prompt, a tmux bar or Claude's
+# status line that dresses itself for the K4510 by TERM has this to go by
+# instead (Doc, 2026-10-08: "coming in via MOSH still does not change the
+# claude status bar").  With a command, or a --, nothing is added.
+host=
+skip=0
+for a in "$@"; do
+    if [ $skip = 1 ]; then skip=0; continue; fi
+    if [ -n "$host" ]; then exec /usr/bin/mosh "$@"; fi      # a command after the host: as it is
+    case $a in
+        --) exec /usr/bin/mosh "$@" ;;                        # the caller says where the command starts
+        -p|--port|--ssh|--server|--client|--predict|--family|--bind-server|--experimental-remote-ip) skip=1 ;;
+        -*) ;;
+        *) host=$a ;;
+    esac
+done
+[ -n "$host" ] || exec /usr/bin/mosh "$@"
+exec /usr/bin/mosh "$@" -- sh -c 'export K4510_CLIENT=1; exec "${SHELL:-/bin/sh}" -l'

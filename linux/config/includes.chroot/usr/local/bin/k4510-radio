@@ -11,6 +11,10 @@ command line mp3 player on linux side to play music from navidrome").
                                     or episode M of feed N straight away
 
 While it plays:  n next   space pause   q quit
+From the machine's prompt, K/OS's RADIO does the same to a player running
+anywhere (RADIO NEXT, PAUSE, RESUME, STOP, and RADIO alone says what plays),
+and starts one in the background: RADIO MUSIC [PLAYLIST], RADIO STATION N,
+RADIO PODCAST N [M] -- the frontend runs "k4510-radio --background ...".
 The volume is the machine's: its volume keys, or F12 -> Audio -> Volume.
 
 It sounds through mpg123 on ALSA's default device, which the K4510 Linux
@@ -64,19 +68,69 @@ def get(url, timeout=10):
         raise Unreachable("cannot reach %s: %s%s" % (host, why, hint))
 
 # ---- playing ---------------------------------------------------------------
+# The player's door for K/OS's RADIO (2026-10-08): a FIFO it reads commands
+# from (NEXT PAUSE RESUME STOP, a line each) and a file saying what plays.
+RUN = os.environ.get("XDG_RUNTIME_DIR") or "/tmp"
+CTL = os.path.join(RUN, "k4510-radio-%d.ctl" % os.getuid())
+NOW = os.path.join(RUN, "k4510-radio-%d.now" % os.getuid())
+BACKGROUND = False                                   # --background: no keys, no screen; RADIO is the remote
+
+def now(state, title=""):
+    try:
+        with open(NOW + ".tmp", "w") as f: f.write("%d\n%s\n%s\n" % (os.getpid(), state, title))
+        os.replace(NOW + ".tmp", NOW)
+    except OSError:
+        pass
+
+def take_over():
+    """One player at a time: another one still going is told to stop."""
+    try:
+        pid = int(open(NOW).read().split()[0])
+        if pid != os.getpid():
+            os.kill(pid, 0)
+            fd = os.open(CTL, os.O_WRONLY | os.O_NONBLOCK); os.write(fd, b"STOP\n"); os.close(fd)
+            for _ in range(20):
+                try: os.kill(pid, 0)
+                except OSError: break
+                select.select([], [], [], 0.1)
+    except (OSError, ValueError, IndexError):
+        pass
+
 class Keys:
-    """The terminal a key at a time while something plays, put back after."""
+    """The terminal a key at a time while something plays, put back after --
+    and RADIO's commands through the FIFO, as the same keys."""
     def __enter__(self):
-        self.fd = sys.stdin.fileno() if sys.stdin.isatty() else None
+        self.fd = sys.stdin.fileno() if sys.stdin.isatty() and not BACKGROUND else None
         if self.fd is not None:
             self.old = termios.tcgetattr(self.fd); tty.setcbreak(self.fd)
+        take_over()
+        try:
+            if not os.path.exists(CTL): os.mkfifo(CTL, 0o600)
+            self.ctl = os.open(CTL, os.O_RDONLY | os.O_NONBLOCK)
+            self.hold = os.open(CTL, os.O_WRONLY | os.O_NONBLOCK)   # a writer kept open: no end-of-file between commands
+        except OSError:
+            self.ctl = self.hold = None
+        self.pending = ""
         return self
     def __exit__(self, *a):
         if self.fd is not None: termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+        for f in (self.ctl, self.hold):
+            if f is not None: os.close(f)
+        try:
+            if int(open(NOW).read().split()[0]) == os.getpid(): os.remove(NOW)
+        except (OSError, ValueError, IndexError):
+            pass
     def get(self, wait):
-        if self.fd is None: select.select([], [], [], wait); return None
-        r, _, _ = select.select([self.fd], [], [], wait)
-        return os.read(self.fd, 1).decode("latin-1") if r else None
+        fds = [f for f in (self.fd, self.ctl) if f is not None]
+        r, _, _ = select.select(fds, [], [], wait)
+        if self.ctl in r:
+            self.pending += os.read(self.ctl, 256).decode("latin-1", "replace")
+        if "\n" in self.pending:
+            line, self.pending = self.pending.split("\n", 1)
+            return {"NEXT": "n", "PAUSE": "P", "RESUME": "R", "STOP": "q", "OFF": "q"}.get(line.strip().upper())
+        if self.fd is not None and self.fd in r:
+            return os.read(self.fd, 1).decode("latin-1")
+        return None
 
 def play(url, title, keys):
     """Stream url into mpg123; 'done' when it ends, 'next' or 'quit' when asked."""
@@ -101,14 +155,16 @@ def play(url, title, keys):
         except Exception: pass
     t = threading.Thread(target=pump, daemon=True); t.start()
     print("  > %s" % title, flush=True)
+    now("playing", title)
     paused, result = False, "done"
     while proc.poll() is None:
         k = keys.get(0.25)
         if k in ("q", "Q"): result = "quit"; break
         if k in ("n", "N"): result = "next"; break
-        if k == " ":
+        if k == " " or (k == "P" and not paused) or (k == "R" and paused):
             paused = not paused
             proc.send_signal(signal.SIGSTOP if paused else signal.SIGCONT)
+            now("paused" if paused else "playing", title)
             print("  (paused -- space goes on)" if paused else "  (playing)", flush=True)
     stop.set()
     if proc.poll() is None:
@@ -127,6 +183,7 @@ def play_list(items):
             if play(url, title, keys) == "quit": return
 
 def choose(rows, what):
+    if BACKGROUND: return 0 if rows else None          # no one to ask: the first
     for i, r in enumerate(rows, 1): print("%3d  %s" % (i, r))
     try:
         s = input("%s (number, Enter to leave): " % what).strip()
@@ -185,6 +242,11 @@ def playlists(cfg):
 RB = ("https://de1.api.radio-browser.info", "https://nl1.api.radio-browser.info", "https://at1.api.radio-browser.info")
 
 def station(cfg, words):
+    if len(words) == 1 and words[0].isdigit():         # RADIO STATION 2: the second of your list
+        mine = [s.rpartition("|") if "|" in s else (s, "", s) for s in cfg["station"]]
+        n = int(words[0]) - 1
+        if not 0 <= n < len(mine): sys.exit("k4510-radio: there are %d stations in your list" % len(mine))
+        play_list([(mine[n][2].strip(), (mine[n][0] or mine[n][2]).strip())]); return
     if not words:
         mine = []
         for s in cfg["station"]:
@@ -242,6 +304,22 @@ def podcast(cfg, args):
 def main(argv):
     if not argv or argv[0] in ("-h", "--help", "help"):
         print(__doc__.split("\n\n")[1]); return
+    global BACKGROUND
+    if argv and argv[0] == "--background":                  # started by the frontend for K/OS's RADIO
+        BACKGROUND = True; argv = argv[1:]
+        devnull = os.open(os.devnull, os.O_RDWR)
+        for fd in (0, 1, 2): os.dup2(devnull, fd)
+    if argv and argv[0] in ("next", "pause", "resume", "stop"):   # the remote, from a shell: k4510-radio next
+        try:
+            fd = os.open(CTL, os.O_WRONLY | os.O_NONBLOCK); os.write(fd, (argv[0].upper() + "\n").encode()); os.close(fd)
+        except OSError:
+            sys.exit("k4510-radio: nothing is playing")
+        return
+    if argv and argv[0] == "now":
+        try: _, state, title = open(NOW).read().split("\n")[:3]; print("%s: %s" % (state, title))
+        except (OSError, ValueError): print("nothing is playing")
+        return
+    if not argv: print(__doc__.split("\n\n")[1]); return
     cfg = read_cfg(CFG)
     cmd, rest = argv[0], argv[1:]
     try:

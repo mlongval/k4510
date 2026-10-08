@@ -60,6 +60,10 @@ system:  INFO [-vcmgsft]   TIME   HUSH   RESET
          ECHO   CLS   BANNER   WALL   TERMINAL
          (TERMINAL: JIM's second screen, a session on
          the Linux; Alt+1 back, Alt+2 there again)
+         RADIO [MUSIC [list] | STATION n | PODCAST n [m] |
+                NEXT | PAUSE | RESUME | STOP]
+         (music, radio, podcasts on the Linux beside
+         the machine; RADIO alone: what plays)
          (on the Linux, k4510-connect you@server is
          mosh, or ssh if mosh cannot: put it in
          /SYSTEM/ETC/TERMINAL.CFG)

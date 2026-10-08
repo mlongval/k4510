@@ -227,7 +227,8 @@ side, or cannot start a session on the other --- no \verb|mosh-server|
 there, or its UDP ports blocked --- it says so and runs \verb|ssh -t|
 instead. A mosh session that ran and ended keeps its own result; only a
 mosh that fails within its first fifteen seconds falls back. Set
-\verb|K4510_REMOTE=ssh| to skip mosh altogether. Either way the other side finds
+\verb|K4510_REMOTE=ssh| to skip mosh altogether. Either way --- and with plain \verb|mosh host|, which on the K4510 Linux
+adds it too --- the other side finds
 \verb|K4510_CLIENT=1| in its environment --- mosh calls every terminal
 \verb|xterm-256color|, so a prompt or a tmux bar that dresses itself for
 the K4510 by \verb|TERM| has this to go by. The same line can go in
@@ -265,7 +266,13 @@ k4510-radio station swiss jazz    a search of radio-browser.info
 k4510-radio podcast               your podcasts, then an episode
 \end{type}
 
-\noindent While it plays: \verb|n| the next, space to pause, \verb|q| to
+\noindent From the machine's own prompt, \verb|RADIO| is its remote:
+\verb|RADIO MUSIC|, \verb|RADIO STATION 2| or \verb|RADIO PODCAST 1 3| starts
+one in the background, \verb|RADIO NEXT|, \verb|PAUSE|, \verb|RESUME| and
+\verb|STOP| steer whichever is playing --- in the Terminal screen or not ---
+and \verb|RADIO| alone says what plays.
+
+\noindent While it plays in the Terminal: \verb|n| the next, space to pause, \verb|q| to
 stop; the volume is the machine's --- its volume keys, or F12
 $\rightarrow$ Audio, which on the K4510's own Linux set the computer's
 whole volume, the machine's sound and this together. The settings are

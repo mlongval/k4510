@@ -95,8 +95,8 @@ Fixed the same day except these:
       into 160-byte temps; `EX/SPIRAL.LGO` is empty.
 - [ ] **`nav_list`'s `b[256]`** on the shell's stack — list into the
       resident `line` with CAP = its size, as GETCWD does.
-- [ ] **Header dependencies**: `-MMD -MP` in CFLAGS and `-include *.d`;
-      today no `.d` is ever produced and the three cleanups clean nothing.
+- [x] **Header dependencies** (done 2026-10-07): `-MMD -MP` in CFLAGS, `-include` the `.d` files;
+      the frontend built an object a file so each has its list.
 - [ ] `tekplay`/`tekmenu` break on plot paths with spaces; `tek40xx/build.sh`
       clones an unpinned upstream; `git archive | tar` masks a git failure
       (POSIX sh, no pipefail) in build-live/podman.

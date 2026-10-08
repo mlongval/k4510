@@ -8,6 +8,11 @@
 
 CC      ?= gcc
 CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
+# Every object and every one-file program writes its header list beside it
+# (foo.o -> foo.d, test/x -> test/x.d), read back at the end of this file: a
+# changed header rebuilds what includes it.  The hand-kept lists below never
+# had them all -- sdl/k4510 named none of core's headers (2026-10-07).
+override CFLAGS += -MMD -MP
 # The exact build, stamped into the machine's version register so a BUG report
 # can name the commit it came from.  Only core/sys.o pays for it, so a new commit
 # does not rebuild the world.  Must fit 15 characters.
@@ -61,6 +66,10 @@ $(NVIM_SYNTAX) &: basic/basic.asm demo/logo.c tools/mknvim.py
 	python3 tools/mknvim.py
 # and what draws them: sdl/savers.c picks, one scene a file in sdl/sidebars/
 SIDEBAR_C = sdl/savers.c $(wildcard sdl/sidebars/*.c)
+SIDEBAR_O = $(SIDEBAR_C:.c=.o)
+# the frontend, an object a file, so each has its own header list (.d): one
+# gcc line with several sources writes the last one's only
+SDL_OBJS = sdl/main.o sdl/panel.o sdl/png.o sdl/hostpage.o
 
 
 all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
@@ -94,8 +103,8 @@ test/termreplay: test/termreplay.c $(CORE_OBJS)   # replay a K4510_TERMLOG throu
 
 test/fstest: test/fstest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
-test/sidebartest: test/sidebartest.c $(CORE_OBJS) $(SIDEBAR_C) sdl/savers.h sdl/sidebars/canvas.h   # the sidebars: the list from the zips, and the scenes
-	$(CC) $(CFLAGS) -o $@ test/sidebartest.c $(SIDEBAR_C) $(CORE_OBJS) $(LDLIBS)
+test/sidebartest: test/sidebartest.c $(CORE_OBJS) $(SIDEBAR_O)   # the sidebars: the list from the zips, and the scenes
+	$(CC) $(CFLAGS) -o $@ test/sidebartest.c $(SIDEBAR_O) $(CORE_OBJS) $(LDLIBS)
 test/ziptest: test/ziptest.c $(CORE_OBJS)   # MOUNT a zip; its fixtures are made by test/ziptest.sh
 	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
 
@@ -163,8 +172,11 @@ core/vice_clk.o: core/vice_clk.c core/vice_clk.h core/opl2/alarm.h
 core/opl2/fmopl.o: core/opl2/fmopl.c
 	$(CC) $(CFLAGS) -Icore/opl2 -Wno-unused-parameter -c -o $@ $<
 
-sdl/k4510: sdl/main.c sdl/panel.c sdl/png.c sdl/png.h sdl/hostpage.c sdl/hostpage.h sdl/panel.h sdl/panel_ops.h $(SIDEBAR_C) sdl/savers.h sdl/sidebars/canvas.h $(CORE_OBJS)
-	$(CC) $(CFLAGS) $(SDL_CFLAGS) -o $@ sdl/main.c sdl/panel.c sdl/png.c sdl/hostpage.c $(SIDEBAR_C) $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
+$(SDL_OBJS) $(SIDEBAR_O): %.o: %.c
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -c -o $@ $<
+sdl/main.o: core/build.h                         # generated: before the first .d exists to say so
+sdl/k4510: $(SDL_OBJS) $(SIDEBAR_O) $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(SDL_OBJS) $(SIDEBAR_O) $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
 	ln -sf sdl/k4510 k4510          # so it starts as ./k4510 from the repo root
 
 test/cputest: test/cputest.c $(CORE_OBJS)
@@ -268,6 +280,7 @@ GEN_S = $(patsubst demo/%.c,demo/%.s,$(wildcard demo/*.c))
 clean-demos:
 	rm -f $(DEMOS) demo/*.o $(GEN_S) demo/*.map
 
+	rm -f core/*.d core/*/*.d sdl/*.d sdl/sidebars/*.d test/*.d sdl/sidebars/*.o
 	rm -f core/*.o core/ui/*.o core/xemu/*.o sdl/*.o core/opl2/*.o test/fstest test/seqtest test/romtest test/kostest rom/kernal.bin rom/kernal.s rom/*.o rom/kernal.map test/cputest test/woztest test/maptest test/dmatest test/vickytest test/capture sdl/k4510 k4510 rom/wozmon.bin
 
 .PHONY: all test clean rom
@@ -439,3 +452,6 @@ cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
 
 demos: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg
 .PHONY: demos
+
+# the header lists the compiler wrote (CFLAGS' -MMD -MP, at the top)
+-include $(wildcard core/*.d core/*/*.d sdl/*.d sdl/sidebars/*.d test/*.d)

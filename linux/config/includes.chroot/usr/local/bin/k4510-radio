@@ -1,0 +1,246 @@
+#!/usr/bin/python3
+"""k4510-radio -- music, radio stations and podcasts on the K4510 Linux, in
+the Terminal screen (Alt+2), beside the machine (Doc, 2026-10-07: "run a
+command line mp3 player on linux side to play music from navidrome").
+
+    k4510-radio music [PLAYLIST]    Navidrome: a playlist by name, else random songs
+    k4510-radio playlists           the playlists Navidrome has for you
+    k4510-radio station [WORDS]     internet radio: your stations, or a search of
+                                    radio-browser.info (MP3 streams only)
+    k4510-radio podcast [N [M]]     your podcasts: the list, feed N's episodes,
+                                    or episode M of feed N straight away
+
+While it plays:  n next   space pause   + - volume   q quit
+
+It sounds through mpg123 on ALSA's default device, which the K4510 Linux
+mixes with the machine's own sound (k4510-soundtest says whether this
+computer does).  The machine's F12 volume does not reach it; + and - set the
+Linux master volume, which reaches both.  Only MP3 plays: Navidrome is asked
+to convert to it, the radio search keeps to MP3 stations, and a podcast
+episode in another format is said and skipped.
+
+Settings: /SYSTEM/ETC/RADIO.CFG on the machine's disk (edit it with VI or
+EDIT): the Navidrome server, user and password -- or, without them there,
+the Navidrome sidebar's /SYSTEM/SIDEBARS/NAVIDROME/OPTIONS.CFG -- and your
+stations and podcasts, one a line.  Everything here is Python's own library
+and mpg123: no other package.
+"""
+import hashlib, json, os, random, select, signal, string, subprocess, sys, termios, threading, tty
+import urllib.parse, urllib.request, xml.etree.ElementTree as ET
+
+K4510 = os.environ.get("K4510_DIR") or os.path.expanduser("~/k4510")
+CFG = os.path.join(K4510, "fs/SYSTEM/ETC/RADIO.CFG")
+NAVI = os.path.join(K4510, "fs/SYSTEM/SIDEBARS/NAVIDROME/OPTIONS.CFG")
+UA = "k4510-radio/1.0"
+
+def read_cfg(path):
+    """key = value lines (# a comment); station and podcast may repeat."""
+    out = {"station": [], "podcast": []}
+    try:
+        for line in open(path, encoding="utf-8", errors="replace"):
+            line = line.split("#", 1)[0].strip() if not line.lstrip().startswith(("station", "podcast")) else line.strip()
+            if "=" not in line: continue
+            k, v = (x.strip() for x in line.split("=", 1))
+            k = k.lower()
+            if k in ("station", "podcast"): out[k].append(v)
+            elif v: out[k] = v
+    except OSError:
+        pass
+    return out
+
+def get(url, timeout=20):
+    return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=timeout)
+
+# ---- playing ---------------------------------------------------------------
+class Keys:
+    """The terminal a key at a time while something plays, put back after."""
+    def __enter__(self):
+        self.fd = sys.stdin.fileno() if sys.stdin.isatty() else None
+        if self.fd is not None:
+            self.old = termios.tcgetattr(self.fd); tty.setcbreak(self.fd)
+        return self
+    def __exit__(self, *a):
+        if self.fd is not None: termios.tcsetattr(self.fd, termios.TCSADRAIN, self.old)
+    def get(self, wait):
+        if self.fd is None: select.select([], [], [], wait); return None
+        r, _, _ = select.select([self.fd], [], [], wait)
+        return os.read(self.fd, 1).decode("latin-1") if r else None
+
+def volume(step):
+    subprocess.run(["amixer", "-q", "sset", "Master", "5%" + step], stderr=subprocess.DEVNULL)
+
+def play(url, title, keys):
+    """Stream url into mpg123; 'done' when it ends, 'next' or 'quit' when asked."""
+    try:
+        resp = get(url, timeout=30)
+    except Exception as e:
+        print("  could not open it: %s" % e); return "done"
+    ctype = resp.headers.get("Content-Type", "")
+    if ctype and "mpeg" not in ctype and "mp3" not in ctype and "octet-stream" not in ctype:
+        print("  not MP3 (%s): skipped" % ctype); resp.close(); return "done"
+    proc = subprocess.Popen(["mpg123", "-q", "-"], stdin=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    stop = threading.Event()
+    def pump():
+        try:
+            while not stop.is_set():
+                b = resp.read(16384)
+                if not b: break
+                proc.stdin.write(b)
+        except Exception:
+            pass
+        try: proc.stdin.close()
+        except Exception: pass
+    t = threading.Thread(target=pump, daemon=True); t.start()
+    print("  > %s" % title, flush=True)
+    paused, result = False, "done"
+    while proc.poll() is None:
+        k = keys.get(0.25)
+        if k in ("q", "Q"): result = "quit"; break
+        if k in ("n", "N"): result = "next"; break
+        if k == " ":
+            paused = not paused
+            proc.send_signal(signal.SIGSTOP if paused else signal.SIGCONT)
+            print("  (paused -- space goes on)" if paused else "  (playing)", flush=True)
+        if k in ("+", "="): volume("+")
+        if k in ("-", "_"): volume("-")
+    stop.set()
+    if proc.poll() is None:
+        if paused: proc.send_signal(signal.SIGCONT)
+        proc.terminate()
+        try: proc.wait(3)
+        except subprocess.TimeoutExpired: proc.kill()
+    try: resp.close()
+    except Exception: pass
+    return result
+
+def play_list(items):
+    """items: (url, title) pairs, or a callable giving the next lot."""
+    with Keys() as keys:
+        for url, title in items:
+            if play(url, title, keys) == "quit": return
+
+def choose(rows, what):
+    for i, r in enumerate(rows, 1): print("%3d  %s" % (i, r))
+    try:
+        s = input("%s (number, Enter to leave): " % what).strip()
+    except EOFError:
+        return None
+    return int(s) - 1 if s.isdigit() and 0 < int(s) <= len(rows) else None
+
+# ---- Navidrome (Subsonic) --------------------------------------------------
+def subsonic(cfg):
+    navi = read_cfg(NAVI)
+    server = (cfg.get("server") or navi.get("server") or "").rstrip("/")
+    user, pw = cfg.get("user") or navi.get("user"), cfg.get("password") or navi.get("password")
+    if not (server and user and pw):
+        sys.exit("k4510-radio: no Navidrome server, user and password in %s (or the sidebar's %s)" % (CFG, NAVI))
+    def url(method, **q):
+        salt = "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(12))
+        q.update(u=user, t=hashlib.md5((pw + salt).encode()).hexdigest(), s=salt, v="1.16.1", c="k4510-radio", f="json")
+        return "%s/rest/%s?%s" % (server, method, urllib.parse.urlencode(q))
+    def call(method, **q):
+        r = json.load(get(url(method, **q)))["subsonic-response"]
+        if r.get("status") != "ok": sys.exit("k4510-radio: Navidrome says: %s" % r.get("error", {}).get("message", r))
+        return r
+    return url, call
+
+def songs_of(lst):
+    return [(s["id"], "%s -- %s" % (s.get("artist", "?"), s.get("title", "?"))) for s in lst]
+
+def music(cfg, name):
+    url, call = subsonic(cfg)
+    def stream(sid): return url("stream", id=sid, format="mp3", maxBitRate=192)
+    if name:
+        pls = call("getPlaylists").get("playlists", {}).get("playlist", [])
+        hit = [p for p in pls if p["name"].lower() == name.lower()] or [p for p in pls if name.lower() in p["name"].lower()]
+        if not hit: sys.exit("k4510-radio: no playlist called %r (k4510-radio playlists)" % name)
+        songs = songs_of(call("getPlaylist", id=hit[0]["id"]).get("playlist", {}).get("entry", []))
+        print("%s: %d songs" % (hit[0]["name"], len(songs)))
+        play_list((stream(i), t) for i, t in songs)
+    else:
+        def endless():
+            while True:
+                for i, t in songs_of(call("getRandomSongs", size=40).get("randomSongs", {}).get("song", [])):
+                    yield stream(i), t
+        print("random songs, until q")
+        play_list(endless())
+
+def playlists(cfg):
+    _, call = subsonic(cfg)
+    for p in call("getPlaylists").get("playlists", {}).get("playlist", []):
+        print("%-40s %4s songs" % (p["name"], p.get("songCount", "?")))
+
+# ---- radio -----------------------------------------------------------------
+RB = ("https://de1.api.radio-browser.info", "https://nl1.api.radio-browser.info", "https://at1.api.radio-browser.info")
+
+def station(cfg, words):
+    if not words:
+        mine = []
+        for s in cfg["station"]:
+            name, _, u = s.rpartition("|") if "|" in s else (s, "", s)
+            mine.append(((name or u).strip(), u.strip()))
+        if not mine: sys.exit("k4510-radio: no stations in %s yet: k4510-radio station WORDS searches" % CFG)
+        i = choose([n for n, _ in mine], "station")
+        if i is not None: play_list([(mine[i][1], mine[i][0])])
+        return
+    q = urllib.parse.urlencode({"name": " ".join(words), "codec": "MP3", "hidebroken": "true",
+                                "order": "clickcount", "reverse": "true", "limit": 25})
+    found = None
+    for base in RB:
+        try: found = json.load(get("%s/json/stations/search?%s" % (base, q), timeout=10)); break
+        except Exception: continue
+    if found is None: sys.exit("k4510-radio: radio-browser.info did not answer")
+    if not found: sys.exit("k4510-radio: no MP3 station by that name")
+    rows = ["%-36.36s %s %s kbps" % (s["name"].strip(), s.get("countrycode", ""), s.get("bitrate", "?")) for s in found]
+    i = choose(rows, "station")
+    if i is None: return
+    s = found[i]
+    print("  (to keep it: station = %s | %s  in RADIO.CFG)" % (s["name"].strip(), s["url_resolved"]))
+    play_list([(s["url_resolved"], s["name"].strip())])
+
+# ---- podcasts --------------------------------------------------------------
+def feed(u):
+    root = ET.parse(get(u)).getroot()
+    ch = root.find("channel")
+    title = (ch.findtext("title") or u).strip()
+    eps = []
+    for it in ch.findall("item"):
+        enc = it.find("enclosure")
+        if enc is None or not enc.get("url"): continue
+        eps.append(((it.findtext("title") or "?").strip(), (it.findtext("pubDate") or "")[:16], enc.get("url"), enc.get("type", "")))
+    return title, eps
+
+def podcast(cfg, args):
+    feeds = cfg["podcast"]
+    if not feeds: sys.exit("k4510-radio: no podcasts in %s yet: podcast = https://.../feed.xml" % CFG)
+    n = int(args[0]) - 1 if args and args[0].isdigit() else None
+    if n is None:
+        rows = []
+        for u in feeds:
+            try: rows.append(feed(u)[0])
+            except Exception as e: rows.append("%s (%s)" % (u, e))
+        n = choose(rows, "podcast")
+        if n is None: return
+    if not 0 <= n < len(feeds): sys.exit("k4510-radio: there are %d podcasts" % len(feeds))
+    title, eps = feed(feeds[n])
+    eps = eps[:30]
+    m = int(args[1]) - 1 if len(args) > 1 and args[1].isdigit() else choose(["%s  %s" % (d, t) for t, d, _, _ in eps], title)
+    if m is None or not 0 <= m < len(eps): return
+    play_list([(u, "%s: %s" % (title, t)) for t, d, u, ty in eps[m:]])   # that one, then the older ones after it
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help", "help"):
+        print(__doc__.split("\n\n")[1]); return
+    cfg = read_cfg(CFG)
+    cmd, rest = argv[0], argv[1:]
+    try:
+        if cmd == "music": music(cfg, " ".join(rest))
+        elif cmd == "playlists": playlists(cfg)
+        elif cmd in ("station", "radio"): station(cfg, rest)
+        elif cmd in ("podcast", "podcasts"): podcast(cfg, rest)
+        else: sys.exit("k4510-radio: music, playlists, station or podcast (k4510-radio --help)")
+    except KeyboardInterrupt:
+        print()
+
+if __name__ == "__main__":
+    main(sys.argv[1:])

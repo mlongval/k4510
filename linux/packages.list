@@ -70,6 +70,9 @@ openssh-client
 # that survives the network changing under it (Doc, 2026-10-07).  k4510-connect
 # tries it first and falls back to ssh.
 mosh
+# mpg123 for k4510-radio: music from Navidrome, radio stations and podcasts on
+# the Linux beside the machine, mixed with its sound by ALSA (Doc, 2026-10-07)
+mpg123
 
 # --- the hardware ---
 # KMSDRM is the ONLY video path here, so the GPU firmware is not optional:

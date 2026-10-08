@@ -250,6 +250,30 @@ waits for a client that will not come back; the next connection starts a
 new one, and tmux's \verb|-A| puts you back in the old session. To leave
 a mosh that has lost its server, press Ctrl+\verb|^| then \verb|.|.
 
+\section{Music, radio and podcasts beside the machine}
+\verb|k4510-radio| plays on the Linux underneath, in the Terminal screen,
+while the machine goes on with whatever it is doing --- the two sounds are
+mixed by ALSA before the speakers (\verb|k4510-soundtest| plays two tones
+at once and says whether this computer does).
+
+\begin{type}
+k4510-radio music                 random songs from Navidrome
+k4510-radio music Jazz            one of your playlists
+k4510-radio playlists             which there are
+k4510-radio station               your stations
+k4510-radio station swiss jazz    a search of radio-browser.info
+k4510-radio podcast               your podcasts, then an episode
+\end{type}
+
+\noindent While it plays: \verb|n| the next, space to pause, \verb|+| and
+\verb|-| the volume, \verb|q| to stop. The settings are
+\pth{/SYSTEM/ETC/RADIO.CFG} on the machine's disk: the Navidrome server,
+user and password (or the Navidrome sidebar's), and your stations and
+podcasts, one a line. It plays MP3 through \verb|mpg123|: Navidrome is
+asked to convert to it, the search keeps to MP3 stations, and an episode
+in another format is skipped. The machine's F12 volume does not reach it;
+\verb|+| and \verb|-| move the Linux master volume, which reaches both.
+
 \section{On a stick}
 \begin{type}
 sudo ./linux/build-live.sh

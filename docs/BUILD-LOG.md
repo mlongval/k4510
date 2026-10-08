@@ -11914,3 +11914,22 @@ not nest.  A small script over rom/kernal.s (each proc's segment and its jsr
 targets) checked that nothing moved calls a routine in another bank.  Free
 now: ROM2 442, ROM1A 614, ROM1C 387, SW2 3681, SW4 3860.  The ROM claims banks
 1-4; 5-16 are the programs'.
+
+## 2026-10-07 -- k4510-radio and k4510-soundtest
+
+Doc: if the machine's sound and the Linux's are mixed before the speakers, a
+command-line player on the Linux side could play Navidrome.  The K4510 Linux
+has no PulseAudio or PipeWire; SDL opens ALSA's default device, which on
+Intel HDA is dmix -- so they should mix.  Not yet tried on the Dell:
+`k4510-soundtest` plays two tones at once through the default device as two
+programs and says whether both got it (make the machine sound too).
+
+`k4510-radio` (Python's library and mpg123, nothing else): `music [PLAYLIST]`
+from Navidrome (Subsonic, token auth, the server converting to MP3; random
+songs endlessly without a playlist), `playlists`, `station [WORDS]` (your
+list, or radio-browser.info's MP3 stations), `podcast [N [M]]` (RSS feeds; an
+episode and the older ones after it).  n next, space pause, + - the ALSA
+master, q.  Settings: /SYSTEM/ETC/RADIO.CFG, falling back to the Navidrome
+sidebar's server/user/password.  The radio search and a podcast tried here
+with a stand-in for mpg123; Navidrome not (no credentials on ubuntu-s1).
+mpg123 joins the package list and the Dell build's EXTRA_PKGS.

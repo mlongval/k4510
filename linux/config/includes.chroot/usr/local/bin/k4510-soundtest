@@ -1,0 +1,45 @@
+#!/bin/sh
+# k4510-soundtest -- can a Linux program sound while the machine does?
+# (Doc, 2026-10-07: "do the k4510 opl output and the linux sound output get
+# mixed before hitting the speakers?")
+#
+# The K4510 Linux has no PulseAudio or PipeWire: the emulator and anything
+# else share the card through ALSA's default device, which on most cards is
+# dmix, ALSA's own mixer.  This plays two tones at once through that device,
+# a low one and a high one, as two programs: hearing both, with no "busy"
+# below, means k4510-radio will play beside the machine.  Make the machine
+# sound at the same time (Alt+1: a game, or OPLPLAY) for the whole answer.
+#
+#   k4510-soundtest          the check, and the two tones (3 s)
+#   k4510-soundtest -q       the check only, no sound
+echo "== the default device"
+if aplay -L 2>/dev/null | grep -q '^dmix'; then echo "dmix is there"; else echo "no dmix device listed"; fi
+def=$(aplay -L 2>/dev/null | sed -n '/^default/{n;p;q}' | sed 's/^ *//')
+echo "default: ${def:-?}"
+echo "== who has the sound card now"
+for f in /dev/snd/pcmC*p; do
+    [ -e "$f" ] || continue
+    who=$(fuser "$f" 2>/dev/null | tr -s ' ')
+    [ -n "$who" ] && for p in $who; do echo "$f: $p $(cat /proc/$p/comm 2>/dev/null)"; done
+done
+grep -h '^access\|^state' /proc/asound/card*/pcm*p/sub*/status 2>/dev/null | sort | uniq -c
+[ "$1" = -q ] && exit 0
+echo "== two tones at once, 3 seconds: 440 Hz and 660 Hz"
+speaker-test -D default -t sine -f 440 -l 1 -p 3 >/tmp/k4510-st1.log 2>&1 &
+a=$!
+sleep 0.5
+speaker-test -D default -t sine -f 660 -l 1 -p 3 >/tmp/k4510-st2.log 2>&1 &
+b=$!
+sleep 3.5; kill $a $b 2>/dev/null; wait 2>/dev/null
+bad=0
+for l in /tmp/k4510-st1.log /tmp/k4510-st2.log; do
+    if grep -qi 'busy\|error' "$l"; then bad=1; echo "$(basename "$l" .log): $(grep -i -m1 'busy\|error' "$l")"; fi
+done
+rm -f /tmp/k4510-st1.log /tmp/k4510-st2.log
+if [ $bad = 0 ]; then
+    echo "both opened the device: they are mixed (two tones should have sounded)."
+    echo "k4510-radio will play beside the machine."
+else
+    echo "one of them could not have the device: no mixing here."
+    echo "k4510-radio would stop the machine's sound, or be stopped by it."
+fi

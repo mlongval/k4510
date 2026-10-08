@@ -280,7 +280,9 @@ bands), and the clock and date format they print.
 => 02-SHELL.GMI The status bands
 
 Audio
-volume.
+volume. On the K4510's own Linux it is the computer's whole volume (ALSA's
+Master), so it governs the music k4510-radio plays beside the machine too; on
+a desktop, the machine's sound alone.
 
 Input
 the reset chord; which key opens the menu; whether a click captures the mouse

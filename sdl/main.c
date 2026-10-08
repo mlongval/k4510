@@ -298,13 +298,14 @@ static inline void ring_put(int16_t v)
                                                                                            * the index first, and the callback played a stale slot (review 2026-09-17) */
     if (v) sound_ms = SDL_GetTicks();
 }
+static int vol_machine(void);                 /* below: the volume the machine's own sound is made at */
 static void audio_cb(void *ud, Uint8 *stream, int len)
 {
     (void)ud; int16_t *out = (int16_t *)stream; int n = len / 2;
     int gap = 0;
     for (int i = 0; i < n; i++) { if (ring_h != ring_w) out[i] = ring[ring_h++ & RING_MASK]; else { out[i] = 0; gap = 1; } }
     if (gap && io_audio_gaps != 0xFFFF) io_audio_gaps++;     /* one per callback that ran dry: what "choppy" is, counted */
-    { int mv = settings_get(SET_AUDIO_VOLUME); int q = (int)((int64_t) mv * mv * mv * 32768 / 1000000);   /* the same cube as vol_gain, computed here without its shared cache (the audio thread must not touch it) */
+    { int mv = vol_machine(); int q = (int)((int64_t) mv * mv * mv * 32768 / 1000000);   /* the same cube as vol_gain, computed here without its shared cache (the audio thread must not touch it) */
       navi_mix(out, n, q); }                                 /* the Navidrome radio, decoded elsewhere, mixed HERE on the audio
                                                              * thread (near idle) -- not on the emulation thread, which is at
                                                              * 80% of a core running the machine and starved the radio to a
@@ -753,6 +754,30 @@ static void bands_overlay(void)
  * why the volume keys "did nothing".  Cubed, a step is 2-3 dB near the top,
  * 50% is -18 dB and the bottom of the range is properly quiet.  100% is still
  * unity, so nothing gets louder than it was. */
+/* On the K4510 Linux the volume is the computer's (Doc, 2026-10-08: "k4510
+ * volume controls do not control music volume" -- k4510-radio plays on the
+ * Linux beside the machine): F12's volume and the volume keys set ALSA's
+ * Master, which every sound on the computer goes through, and the machine's
+ * own sound is made at full.  On a desktop the desktop owns the volume, and the
+ * setting scales the machine's sound alone, as before. */
+static int vol_owned = -1;                    /* 1: the K4510 Linux, where the setting is ALSA's Master */
+static int vol_machine(void)
+{
+    if (vol_owned < 0) vol_owned = access("/etc/k4510-linux", F_OK) == 0;
+    return vol_owned ? 100 : settings_get(SET_AUDIO_VOLUME);
+}
+static void vol_master(int v)                 /* the setting to ALSA's Master, in the background */
+{
+    static pid_t last; char pc[8]; pid_t pid;
+    if (last > 0) waitpid(last, NULL, WNOHANG);   /* the one before: no zombie left over */
+    snprintf(pc, sizeof pc, "%d%%", v);
+    if ((pid = fork()) == 0) {
+        int fd = open("/dev/null", O_RDWR); if (fd >= 0) { dup2(fd, 1); dup2(fd, 2); }
+        execlp("amixer", "amixer", "-q", "-M", "sset", "Master", pc, v ? "unmute" : "mute", (char *) NULL);
+        _exit(127);
+    }
+    last = pid;
+}
 static int vol_gain(int vol)
 {
     static int last = -1, g;
@@ -1562,9 +1587,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         Uint64 p_a = SDL_GetPerformanceCounter();
         int open = menu_is_open();
         if ((!open && !paused) || mode_pending) {            /* frozen while the menu is open OR paused; paused keeps the picture */
-            machine_frame(settings_get(SET_AUDIO_VOLUME));
+            machine_frame(vol_machine());
         } else if (paused && dbg_req) {                       /* the panel's keys: a step of the chosen size */
-            int vol = settings_get(SET_AUDIO_VOLUME);
+            int vol = vol_machine();
             if (dbg_req == 1) machine_insn(vol); else if (dbg_req == 2) machine_line(vol); else machine_frame(vol);
             dbg_req = 0;
         }
@@ -1579,7 +1604,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
          * note a fraction longer instead of cutting it.  Only after a frame the
          * machine ran -- frozen under the menu, it is silent, as before. */
         if (((!open && !paused) || mode_pending) && sndq_owner() == SNDQ_OWNER_CPU) {
-            int vol = settings_get(SET_AUDIO_VOLUME);
+            int vol = vol_machine();
             int guard = 4096;                                 /* never more than a few frames of sound ahead */
             while (RING_DEPTH < RING_TARGET && guard--) {
                 int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
@@ -1679,6 +1704,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                   } else { io_vidcap_state = 3; mlog("vidcap: no answer from tools/k4510-vidcap"); }
               }
           } }
+        if (vol_machine() == 100 && vol_owned) {                    /* the K4510 Linux: the setting is ALSA's Master, applied when it moves */
+            static int vol_applied = -1; int v = settings_get(SET_AUDIO_VOLUME);
+            if (v != vol_applied) { vol_applied = v; vol_master(v); }
+        }
         if (io_palname_new) {                                         /* the machine loaded a palette (or PALETTE RESET): kept, */
             io_palname_new = 0; settings_set_palette(io_palname);    /* written at once -- a power cut should not lose it */
             { char b[96]; snprintf(b, sizeof b, "palette: the machine loaded '%.60s'; kept", io_palname); mlog(b); }

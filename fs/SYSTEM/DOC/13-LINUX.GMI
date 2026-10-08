@@ -256,13 +256,15 @@ k4510-radio station swiss jazz    a search of radio-browser.info
 k4510-radio podcast               your podcasts, then an episode
 ```
 
-While it plays: n the next, space to pause, + and - the volume, q to stop. The
+While it plays: n the next, space to pause, q to stop; the volume is the
+machine's -- its volume keys, or F12 -> Audio, which on the K4510's own Linux
+set the computer's whole volume, the machine's sound and this together. The
 settings are /SYSTEM/ETC/RADIO.CFG on the machine's disk: the Navidrome
 server, user and password (or the Navidrome sidebar's), and your stations and
 podcasts, one a line. It plays MP3 through mpg123: Navidrome is asked to
 convert to it, the search keeps to MP3 stations, and an episode in another
-format is skipped. The machine's F12 volume does not reach it; + and - move
-the Linux master volume, which reaches both.
+format is skipped. Without the network -- Tailscale not up, say -- it says
+which server it could not reach and stops.
 
 ## On a stick
 

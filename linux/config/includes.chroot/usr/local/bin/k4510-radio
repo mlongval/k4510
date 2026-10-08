@@ -10,12 +10,13 @@ command line mp3 player on linux side to play music from navidrome").
     k4510-radio podcast [N [M]]     your podcasts: the list, feed N's episodes,
                                     or episode M of feed N straight away
 
-While it plays:  n next   space pause   + - volume   q quit
+While it plays:  n next   space pause   q quit
+The volume is the machine's: its volume keys, or F12 -> Audio -> Volume.
 
 It sounds through mpg123 on ALSA's default device, which the K4510 Linux
 mixes with the machine's own sound (k4510-soundtest says whether this
-computer does).  The machine's F12 volume does not reach it; + and - set the
-Linux master volume, which reaches both.  Only MP3 plays: Navidrome is asked
+computer does); on the K4510 Linux the machine's volume is ALSA's Master,
+so it governs both (2026-10-08).  Only MP3 plays: Navidrome is asked
 to convert to it, the radio search keeps to MP3 stations, and a podcast
 episode in another format is said and skipped.
 
@@ -48,8 +49,19 @@ def read_cfg(path):
         pass
     return out
 
-def get(url, timeout=20):
-    return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=timeout)
+class Unreachable(Exception):
+    pass
+
+def get(url, timeout=10):
+    """The answer, or Unreachable saying why in a line -- never a traceback (Doc,
+    2026-10-08: with Tailscale down it "crashes hard")."""
+    try:
+        return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": UA}), timeout=timeout)
+    except Exception as e:
+        host = urllib.parse.urlsplit(url).hostname or url
+        why = getattr(e, "reason", None) or e
+        hint = "  (Tailscale up?  tailscale status)" if host.endswith(".ts.net") or host.startswith("100.") else ""
+        raise Unreachable("cannot reach %s: %s%s" % (host, why, hint))
 
 # ---- playing ---------------------------------------------------------------
 class Keys:
@@ -66,15 +78,12 @@ class Keys:
         r, _, _ = select.select([self.fd], [], [], wait)
         return os.read(self.fd, 1).decode("latin-1") if r else None
 
-def volume(step):
-    subprocess.run(["amixer", "-q", "sset", "Master", "5%" + step], stderr=subprocess.DEVNULL)
-
 def play(url, title, keys):
     """Stream url into mpg123; 'done' when it ends, 'next' or 'quit' when asked."""
     try:
-        resp = get(url, timeout=30)
-    except Exception as e:
-        print("  could not open it: %s" % e); return "done"
+        resp = get(url, timeout=15)
+    except Unreachable as e:
+        print("  %s" % e); return "done"
     ctype = resp.headers.get("Content-Type", "")
     if ctype and "mpeg" not in ctype and "mp3" not in ctype and "octet-stream" not in ctype:
         print("  not MP3 (%s): skipped" % ctype); resp.close(); return "done"
@@ -101,8 +110,6 @@ def play(url, title, keys):
             paused = not paused
             proc.send_signal(signal.SIGSTOP if paused else signal.SIGCONT)
             print("  (paused -- space goes on)" if paused else "  (playing)", flush=True)
-        if k in ("+", "="): volume("+")
-        if k in ("-", "_"): volume("-")
     stop.set()
     if proc.poll() is None:
         if paused: proc.send_signal(signal.SIGCONT)
@@ -160,7 +167,9 @@ def music(cfg, name):
     else:
         def endless():
             while True:
-                for i, t in songs_of(call("getRandomSongs", size=40).get("randomSongs", {}).get("song", [])):
+                try: lot = call("getRandomSongs", size=40).get("randomSongs", {}).get("song", [])
+                except Unreachable as e: print("  %s" % e); return      # the network went: stop, quietly
+                for i, t in songs_of(lot):
                     yield stream(i), t
         print("random songs, until q")
         play_list(endless())
@@ -243,6 +252,10 @@ def main(argv):
         else: sys.exit("k4510-radio: music, playlists, station or podcast (k4510-radio --help)")
     except KeyboardInterrupt:
         print()
+    except Unreachable as e:
+        sys.exit("k4510-radio: %s" % e)
+    except (ValueError, ET.ParseError) as e:
+        sys.exit("k4510-radio: the answer made no sense: %s" % e)
 
 if __name__ == "__main__":
     main(sys.argv[1:])

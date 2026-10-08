@@ -11933,3 +11933,14 @@ master, q.  Settings: /SYSTEM/ETC/RADIO.CFG, falling back to the Navidrome
 sidebar's server/user/password.  The radio search and a podcast tried here
 with a stand-in for mpg123; Navidrome not (no credentials on ubuntu-s1).
 mpg123 joins the package list and the Dell build's EXTRA_PKGS.
+
+**2026-10-08: the volume is the computer's; k4510-radio without a network.**
+Doc: the machine's volume keys did not reach the music, and with Tailscale
+down the player "crashes hard".  On the K4510 Linux the volume setting now
+drives ALSA's Master (amixer -M, when it changes) and the machine's own sound
+is made at full, so the volume keys and F12 govern everything the computer
+plays; on a desktop it scales the machine's sound alone, as before.
+k4510-radio's own + and - went.  Every request now fails in one line naming
+the server it could not reach (and asking after Tailscale for a .ts.net or
+100.x address) after 10 s at most, and an endless random list stops quietly
+when the network goes.

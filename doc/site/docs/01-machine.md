@@ -125,7 +125,7 @@ Terminal
 *status bands*, on or off (a row at the top, a row at the bottom) ([The status bands](02-shell.md#the-status-bands)), and the clock and date format they print.
 
 Audio  
-volume.
+volume. On the K4510’s own Linux it is the computer’s whole volume (ALSA’s Master), so it governs the music `k4510-radio` plays beside the machine too; on a desktop, the machine’s sound alone.
 
 Input  
 the reset chord; which key opens the menu; whether a click captures the mouse pointer, and whether the host’s pointer shows over the picture (full screen, the pointer stays on the machine’s picture, and goes into the side panel only when there is one); the keyboard, above; and the *key pipe*, typing from another computer ([Chapter 11, The Linux Underneath](13-linux.md)): *off*, *on*, or *on, shown* — the one it starts at — where every key typed that way is echoed in a bar at the foot of the window for a few seconds, so nobody types into the machine unseen.

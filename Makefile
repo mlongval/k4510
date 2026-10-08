@@ -13,6 +13,7 @@ CFLAGS  ?= -O2 -g -Wall -Wno-unused-function -Icore
 # changed header rebuilds what includes it.  The hand-kept lists below never
 # had them all -- sdl/k4510 named none of core's headers (2026-10-07).
 override CFLAGS += -MMD -MP
+# (so a program's prerequisites include headers: the link lines take $(filter %.c %.o,$^))
 # The exact build, stamped into the machine's version register so a BUG report
 # can name the commit it came from.  Only core/sys.o pays for it, so a new commit
 # does not rebuild the world.  Must fit 15 characters.
@@ -86,36 +87,36 @@ rom/kernal.bin: rom/kernal.c rom/crt0.s rom/opt.s rom/k4510.cfg
 	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/opt.o rom/kernal.o none.lib -m rom/kernal.map
 
 test/seqtest: test/seqtest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/renumtest: test/renumtest.c demo/renum.h    # VI's :renum and EDIT's Ctrl-R, on the host
 	$(CC) $(CFLAGS) -o $@ test/renumtest.c
 test/statetest: test/statetest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/uitest: test/uitest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/termtest: test/termtest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 test/termreplay: test/termreplay.c $(CORE_OBJS)   # replay a K4510_TERMLOG through JIM (a crash hunt)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/fstest: test/fstest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 test/sidebartest: test/sidebartest.c $(CORE_OBJS) $(SIDEBAR_O)   # the sidebars: the list from the zips, and the scenes
 	$(CC) $(CFLAGS) -o $@ test/sidebartest.c $(SIDEBAR_O) $(CORE_OBJS) $(LDLIBS)
 test/ziptest: test/ziptest.c $(CORE_OBJS)   # MOUNT a zip; its fixtures are made by test/ziptest.sh
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/romtest: test/romtest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/kostest: test/kostest.c $(CORE_OBJS)   # K/OS's own base page and stacks, the stack fence
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/bench: test/bench.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 # the governor's rules alone: no core, no window (core/governor.h)
 test/govtest: test/govtest.c core/governor.h
@@ -128,13 +129,13 @@ test/idrtest: test/idrtest.c core/idr.c core/idr.h
 
 # what a frame of pictures costs per glass (the design doc's section 3); by hand
 test/vidbench: test/vidbench.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/headless: test/headless.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/capture: test/capture.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 rom: rom/wozmon.bin rom/kernal.bin
 
@@ -180,25 +181,25 @@ sdl/k4510: $(SDL_OBJS) $(SIDEBAR_O) $(CORE_OBJS)
 	ln -sf sdl/k4510 k4510          # so it starts as ./k4510 from the repo root
 
 test/cputest: test/cputest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/woztest: test/woztest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/banktest: test/banktest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/maptest: test/maptest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/dmatest: test/dmatest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/vickytest: test/vickytest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/mathtest: test/mathtest.c $(CORE_OBJS)
-	$(CC) $(CFLAGS) -o $@ $^ $(LDLIBS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 
 # Are the tracked binaries what their sources actually produce?  They are

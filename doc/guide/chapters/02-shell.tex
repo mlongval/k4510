@@ -555,7 +555,10 @@ only honest one.
 \verb|SETUP| measures the computer the machine is running on, with the
 sound and the picture really running, and keeps the fastest clock it
 holds without a gap --- for that computer, so a later boot there pays
-nothing. \verb|BENCH| measures it again whenever you like: frames a
+nothing. It also times how many pixels that computer can draw a frame
+with half of it to spare (\pth{tools/k4510-vidcap}, run beside the
+machine) and keeps that as the pixel cap: from the next start, the
+panel's resolutions above it are not offered. \verb|BENCH| measures it again whenever you like: frames a
 second and gaps in the sound at every clock of the menu's ladder, about
 25 seconds, the report in \pth{/SYSTEM/LOG/BENCH-NN.TXT}. A clock is
 right for a host when it holds 60 frames a second with no gaps.

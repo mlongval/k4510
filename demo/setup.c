@@ -99,6 +99,7 @@ static uint8_t  swp_fps[CLKMAX];
 static unsigned swp_gap[CLKMAX], swp_fill[CLKMAX];
 static uint8_t  chosen = 0xFF, settled_short;   /* settled_short: the best available, not a clean one */
 static uint8_t  vid_ok, aud_ok, net_ok;      /* 0 fail, 1 pass, 2 skipped, 3 not fitted */
+static uint16_t cap_k;                        /* the host's pixel budget, thousands a frame; 0 not measured */
 
 /* every road out of SETUP goes through here */
 static uint8_t opr[16], opg[16], opb[16], pal_saved;
@@ -253,8 +254,25 @@ static void test_video(void)
 
     at(3, 7); say("Text geometry now ............................... ");
     sgr(1); num(REG(TERM + 5)); put('x'); num(REG(TERM + 6)); sgr(0);
-    at(3, 9); say("The picture you are reading is itself the test of the text");
-    at(3, 10); say("path: these characters came through VICKY from far memory.");
+    /* How many pixels this host draws a frame with half of it to spare
+     * (2026-10-07: tools/k4510-vidcap, run by the frontend beside the
+     * machine, $D548).  It caps the panel's resolutions from the next start. */
+    at(3, 9); say("Pixels this host can draw a frame (a few seconds) ");
+    {
+        uint8_t st, s0 = now_s(), w = 0;
+        REG(SYS + 0x48) = 1;
+        while ((st = REG(SYS + 0x48)) == 1 && w < 90) { uint8_t s = now_s(); if (s != s0) { s0 = s; w++; put('.'); } REG(SYS + 0x45) = 1; }
+        at(53, 9); eol();
+        if (st == 2) {
+            cap_k = REG(SYS + 0x49) | ((uint16_t)REG(SYS + 0x4A) << 8);
+            sgr(1); num(cap_k); say(" thousand"); sgr(0);
+            at(3, 10); say("Kept in k4510.cfg as the pixel cap: the resolutions above it");
+            at(3, 11); say("are not offered from the next start.");
+        } else { sgr(33); say("not measured"); sgr(0);
+            at(3, 10); say("(tools/k4510-vidcap did not answer; the cap stays as it was)"); }
+    }
+    at(3, 13); say("The picture you are reading is itself the test of the text");
+    at(3, 14); say("path: these characters came through VICKY from far memory.");
     vid_ok = bad ? 0 : 1;
     anykey("press a key to test the sound");
 }
@@ -379,6 +397,7 @@ static void write_report(void)
         add("\n");
     }
     add("\nVideo:    "); add(verdict(vid_ok));
+    if (cap_k) { add("\nPixels:   "); addn(cap_k); add(" thousand a frame (video.cap, from the next start)"); }
     add("\nAudio:    "); add(verdict(aud_ok));
     add("\nNetwork:  "); add(verdict(net_ok));
     add("\n\nThe kept clock is written to k4510.cfg and read at every later\n");
@@ -442,7 +461,7 @@ void main(void)
     at(3, 4);  say("SETUP measures this machine and keeps the answer, so that the");
     at(3, 5);  say("boot never has to.  It will:");
     at(5, 7);  sgr(1); say("1"); sgr(0); say("  sweep every CPU clock, with a note sounding");
-    at(5, 8);  sgr(1); say("2"); sgr(0); say("  check VICKY's palette and the DMA engine");
+    at(5, 8);  sgr(1); say("2"); sgr(0); say("  check VICKY and time how many pixels this host draws");
     at(5, 9);  sgr(1); say("3"); sgr(0); say("  play four notes and ask you what you heard");
     at(5, 10); sgr(1); say("4"); sgr(0); say("  look for the network");
     at(3, 12); say("The sound will change pitch and the picture may stutter while");

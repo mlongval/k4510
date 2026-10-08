@@ -155,16 +155,20 @@ k4510}.
 
 ### Graphics on VICKY
 
-uses graph draws on VICKY's layer 1: a 640x480 8-bit bitmap at $200000 -- the
-one BBC BASIC's ULA uses too -- over the console, which stays visible wherever
-the picture is transparent (colour 0), as in a BBC MODE. InitGraph(0) switches
-the video to 480 lines and clears the bitmap; CloseGraph puts the console's
-mode back. PutPixel and GetPixel go through the 45GS02's flat addressing (the
-MEGA65 multiplier does the row arithmetic); Line, LineTo and the K4510
-additions DrawLine, FillBar and FillTriangle are the blitter's LINE, FILL and
-TRIANGLE operations -- one register write each; Circle, Ellipse, Rectangle and
-the rest of Mad Pascal's generic GRAPH build on those; OutTextXY writes with
-the console's font. PGRAPH is the demonstration.
+uses graph draws on VICKY's layer 1: an 8-bit bitmap at $200000 -- the one BBC
+BASIC's ULA uses too -- over the console, which stays visible wherever the
+picture is transparent (colour 0), as in a BBC MODE. InitGraph(0) draws at the
+glass the machine is showing: in one of the panel's integer display
+resolutions that glass itself (720x540, 1440x1080, 360x270, up to 1920x1200),
+in the classic modes 640x480; GetMaxX and GetMaxY say which. InitGraph(1) asks
+for 640x480 whatever the glass, putting the console in MODE 0 for it when it
+has to; CloseGraph puts the console's mode back. PutPixel and GetPixel go
+through the 45GS02's flat addressing (the MEGA65 multiplier does the row
+arithmetic); Line, LineTo and the K4510 additions DrawLine, FillBar and
+FillTriangle are the blitter's LINE, FILL and TRIANGLE operations -- one
+register write each; Circle, Ellipse, Rectangle and the rest of Mad Pascal's
+generic GRAPH build on those; OutTextXY writes with the console's font. PGRAPH
+is the demonstration.
 
 => IMG/PGRAPH.PIC PGRAPH
 
@@ -474,17 +478,23 @@ end.
 
 ### GRAPH: lines, bars and text on VICKY
 
-uses graph. A 640 by 480 picture, one byte a pixel, on VICKY's layer 1 over
-the console. Pixels count from 0, (0,0) is the top left, and colour 0 is
-transparent, so the console's text shows through wherever nothing is drawn.
-Colours are palette indexes; 0 to 15 are the same sixteen as CRT's. Anything
-off the screen is quietly dropped.
+uses graph. A picture one byte a pixel, on VICKY's layer 1 over the console,
+as big as the glass (GetMaxX by GetMaxY). Pixels count from 0, (0,0) is the
+top left, and colour 0 is transparent, so the console's text shows through
+wherever nothing is drawn. Colours are palette indexes; 0 to 15 are the same
+sixteen as CRT's. Anything off the screen is quietly dropped.
 
 ##### InitGraph(0)
 
-Switches the video to 480 lines, points the layer at the bitmap and clears it.
-Call it first. (InitGraph(driver, mode, path) is accepted too, for programs
-written for other Mad Pascal targets; it does the same.)
+Points the layer at the bitmap, sized to the glass the machine is showing, and
+clears it. Call it first, and place things by GetMaxX and GetMaxY rather than
+by numbers: PGRAPH.PAS draws the same picture at 640x480 and at 1440x1080.
+InitGraph(1) (GFX_VGA) is 640x480 always, as the unit was until alpha-0.9: in
+an integer display resolution it puts the console in MODE 0 first, and
+CloseGraph puts the resolution back -- the BBC unit asks for it, because its
+sprites live at $260000, just above a 640x480 bitmap. (InitGraph(driver, mode,
+path) is accepted too, for programs written for other Mad Pascal targets; it
+does the same as InitGraph(mode).)
 
 ##### CloseGraph
 

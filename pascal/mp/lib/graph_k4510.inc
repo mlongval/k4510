@@ -25,9 +25,9 @@ asm
 	lda #$20
 	sta $D076
 	stz $D077
-	mwa #640 $D078			; W
-	mwa #480 $D07A			; H
-	mwa #640 $D07E			; DS
+	mwa gfx_width $D078			; W
+	mwa gfx_height $D07A			; H
+	mwa gfx_width $D07E			; DS
 	lda op
 	sta $D080
 	lda #1
@@ -37,7 +37,8 @@ end;
 
 procedure ClearDevice;
 begin
-	DMAS := 0; DMAD := GFX_BASE; DMAL := GFX_W * GFX_H; DMAC := 2;
+	MULA := gfx_width; MULB := gfx_height;
+	DMAS := 0; DMAD := GFX_BASE; DMAL := MULOUT; DMAC := 2;
 end;
 
 
@@ -57,22 +58,33 @@ end;
 procedure InitGraph(mode: byte); overload;
 (*
 @description:
-Init graphics mode: VICKY layer 1 as a 640x480 8-bit bitmap over the console
-(in an HD console mode, MODE 0 first, and CloseGraph puts the mode back)
+Init graphics mode: VICKY layer 1 as an 8-bit bitmap over the console.
+0 (GFX_GLASS): at the glass the machine shows -- an integer display
+resolution's own size, 640x480 in the classic modes.  1 (GFX_VGA): 640x480
+always (in an integer display resolution, MODE 0 first, and CloseGraph puts
+the mode back)
 *)
 begin
-	if (VREG[0] and $20) <> 0 then begin	(* the HD family: no 640x480 field to put the bitmap in *)
-		if gfx_hd = 255 then gfx_hd := KOS_MODE;
-		gfx_kmode(0);
+	if (VREG[0] and $20) <> 0 then begin	(* the HD family: the panel's integer display resolutions *)
+		if mode = GFX_VGA then begin
+			if gfx_hd = 255 then gfx_hd := KOS_MODE;
+			gfx_kmode(0);
+			gfx_width := GFX_W; gfx_height := GFX_H;
+		end else begin
+			gfx_width := VREG[$D6] + VREG[$D7] * 256;	(* GLASSW, GLASSH: what the panel is showing *)
+			gfx_height := VREG[$D8] + VREG[$D9] * 256;
+		end;
+	end else begin
+		gfx_width := GFX_W; gfx_height := GFX_H;
 	end;
-	ScreenWidth := GFX_W;
-	ScreenHeight := GFX_H;
+	ScreenWidth := gfx_width;
+	ScreenHeight := gfx_height;
 	VREG[$21] := 0; VREG[$22] := 0; VREG[$23] := 0; VREG[$24] := 0; VREG[$25] := 0;   (* palette offset, scroll *)
-	VREG[$26] := lo(GFX_W); VREG[$27] := hi(GFX_W);                                  (* stride *)
+	VREG[$26] := lo(gfx_width); VREG[$27] := hi(gfx_width);                                  (* stride *)
 	VREG[$28] := 0; VREG[$29] := 0; VREG[$2A] := $20; VREG[$2B] := 0;                (* data at $200000 *)
 	ClearDevice;
 	gfx_ctrl := VREG[0];
-	VREG[0] := gfx_ctrl and $F9;                                                     (* 640x480, no line doubling: the console's MODE 1 is 640x240 *)
+	if (gfx_ctrl and $20) = 0 then VREG[0] := gfx_ctrl and $F9;                      (* 640x480, no line doubling: the console's MODE 1 is 640x240 *)
 	VREG[$20] := $19;                                                                (* enable | bitmap | 8 bpp *)
 	GetColor := 1;
 	CurrentX := 0; CurrentY := 0;
@@ -122,25 +134,22 @@ Puts a point at (X,Y) in the current colour; off-screen points are dropped
 asm
 	lda y+1
 	bmi done
-	cmp #2
+	lda y				; y < gfx_height
+	cmp gfx_height
+	lda y+1
+	sbc gfx_height+1
 	bcs done
-	bne yok
-	lda y
-	cmp #480-256
-	bcs done
-yok	lda x+1
+	lda x+1
 	bmi done
-	cmp #3
+	lda x				; x < gfx_width
+	cmp gfx_width
+	lda x+1
+	sbc gfx_width+1
 	bcs done
-	cmp #2
-	bne xok
-	lda x
-	cmp #640-512
-	bcs done
-xok	mwa y $D770			; y * 640
+	mwa y $D770			; y * the width
 	stz $D772
 	stz $D773
-	mwa #640 $D774
+	mwa gfx_width $D774
 	stz $D776
 	stz $D777
 	clc
@@ -183,25 +192,22 @@ asm
 	sta Result
 	lda y+1
 	bmi done
-	cmp #2
+	lda y				; y < gfx_height
+	cmp gfx_height
+	lda y+1
+	sbc gfx_height+1
 	bcs done
-	bne yok
-	lda y
-	cmp #480-256
-	bcs done
-yok	lda x+1
+	lda x+1
 	bmi done
-	cmp #3
+	lda x				; x < gfx_width
+	cmp gfx_width
+	lda x+1
+	sbc gfx_width+1
 	bcs done
-	cmp #2
-	bne xok
-	lda x
-	cmp #640-512
-	bcs done
-xok	mwa y $D770
+	mwa y $D770
 	stz $D772
 	stz $D773
-	mwa #640 $D774
+	mwa gfx_width $D774
 	stz $D776
 	stz $D777
 	clc
@@ -255,12 +261,12 @@ var t: smallint;
 begin
 	if x0 > x1 then begin t := x0; x0 := x1; x1 := t; end;
 	if y0 > y1 then begin t := y0; y0 := y1; y1 := t; end;
-	if (x1 < 0) or (y1 < 0) or (x0 >= GFX_W) or (y0 >= GFX_H) then exit;
+	if (x1 < 0) or (y1 < 0) or (x0 >= smallint(gfx_width)) or (y0 >= smallint(gfx_height)) then exit;
 	if x0 < 0 then x0 := 0;
 	if y0 < 0 then y0 := 0;
-	if x1 >= GFX_W then x1 := GFX_W - 1;
-	if y1 >= GFX_H then y1 := GFX_H - 1;
-	MULA := y0; MULB := GFX_W;
+	if x1 >= smallint(gfx_width) then x1 := gfx_width - 1;
+	if y1 >= smallint(gfx_height) then y1 := gfx_height - 1;
+	MULA := y0; MULB := gfx_width;
 	asm
 		lda GetColor
 		sta $D070
@@ -282,7 +288,7 @@ begin
 	w := x1 - x0 + 1; h := y1 - y0 + 1;	(* into a word first: hi(x1 - x0 + 1) compiled to 0, so no bar was wider than 255 (2026-10-03) *)
 	VREG[$78] := lo(w); VREG[$79] := hi(w);
 	VREG[$7A] := lo(h); VREG[$7B] := hi(h);
-	VREG[$7E] := lo(GFX_W); VREG[$7F] := hi(GFX_W);
+	VREG[$7E] := lo(gfx_width); VREG[$7F] := hi(gfx_width);
 	VREG[$80] := 2; VREG[$82] := 1;
 end;
 

@@ -236,7 +236,7 @@ The miller-column file manager.
 Prints its arguments: the smallest program there is.
 
 **`SETUP`** — */SYSTEM/BIN*  
-Measures this host thoroughly and keeps the clock it settles on.
+Measures this host thoroughly and keeps the clock it settles on, and the pixels it can draw a frame.
 
 **`SPLIT`** — */SYSTEM/BIN*  
 A split screen held by SHEILA: blitter lines above, four rows of text below, and how many lines a second.

@@ -385,6 +385,15 @@ void dbg_watch_hit(void);                    /* mem.c reports; io.c dumps and di
  * at every reset, after the VIC-II sixteen.  The frontend fills io_palname
  * from k4510.cfg (video.palette) and saves it when io_palname_new is set. */
 #define IO_PALNAME     (IO_SYS + 0x47)
+/* --- VIDCAP ($D548-$D54A): SETUP asks the host how many pixels it can draw a
+ * frame (2026-10-07).  Write 1 to $D548: the frontend runs tools/k4510-vidcap
+ * beside the machine (a few seconds; the machine goes on running).  Read
+ * $D548: 0 not asked, 1 measuring, 2 done, 3 it could not.  $D549/A: the cap
+ * it found, in thousands of pixels, which the frontend has written to
+ * k4510.cfg (video.cap) for the next start. */
+#define IO_VIDCAP      (IO_SYS + 0x48)
+extern uint8_t  io_vidcap_req, io_vidcap_state;
+extern uint16_t io_vidcap_k;
 extern char io_palname[64];
 extern int  io_palname_new;
 #define KEY_RESIZE     0x8F

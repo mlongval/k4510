@@ -179,7 +179,7 @@ begin
 		TERM_CTL := 2;
 		exit;
 	end;
-	InitGraph(0);
+	InitGraph(GFX_VGA);	(* 640x480 whatever the glass: the sprites at $260000 sit above it *)
 	TERM_CTL := 2;			(* the console's MODE clears the text too *)
 	bon := true;
 	for i := 0 to 15 do begin

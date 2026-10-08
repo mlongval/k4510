@@ -134,13 +134,13 @@ carries them: packages.list has them since 2026-10-06).
 
 ## Small, known
 
-- [ ] **Pascal's graph unit and the integer display resolutions**
+- [x] **Pascal's graph unit and the integer display resolutions** (done 2026-10-07: InitGraph(0) at the glass, InitGraph(1) 640x480; Circle past r 255)
       (Doc, 2026-10-07): it asks for MODE 0 in an HD mode because its
       bitmap is 640x480; on a panel's own IDRs it should draw at the glass
       it is given (VICKY $D0D6-$D0D9) or ask for a software resolution.
 - [ ] **GLASSCTL's stretch-to-4:3** (bit5) is reserved and fits for now;
       the frontend's 4:3 box for a software resolution of any shape.
-- [ ] **k4510-vidcap on the Dell** (run 2026-10-07); still to decide whether SETUP runs it.
+- [x] **k4510-vidcap on the Dell** (run 2026-10-07); SETUP runs it ($D548) and keeps the cap.
 - [ ] **FORTH has no break key** — poll `$D103` like RX and LOGO do.
       EhBASIC keeps its own Ctrl-C (touching it overflowed the `$C000`
       slice once).

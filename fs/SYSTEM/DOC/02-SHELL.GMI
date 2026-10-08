@@ -558,10 +558,14 @@ care to type, so the longer road is the only honest one.
 
 SETUP measures the computer the machine is running on, with the sound and the
 picture really running, and keeps the fastest clock it holds without a gap --
-for that computer, so a later boot there pays nothing. BENCH measures it again
-whenever you like: frames a second and gaps in the sound at every clock of the
-menu's ladder, about 25 seconds, the report in /SYSTEM/LOG/BENCH-NN.TXT. A
-clock is right for a host when it holds 60 frames a second with no gaps.
+for that computer, so a later boot there pays nothing. It also times how many
+pixels that computer can draw a frame with half of it to spare
+(tools/k4510-vidcap, run beside the machine) and keeps that as the pixel cap:
+from the next start, the panel's resolutions above it are not offered. BENCH
+measures it again whenever you like: frames a second and gaps in the sound at
+every clock of the menu's ladder, about 25 seconds, the report in
+/SYSTEM/LOG/BENCH-NN.TXT. A clock is right for a host when it holds 60 frames
+a second with no gaps.
 
 MODE on its own says where you are; MODE n moves. The text always starts in
 the top-left cell: there is no margin. Moving clears the screen -- the old

@@ -3,7 +3,10 @@
 # pixels VICKY draws a frame (k4510.cfg's video.cap; the emulator reads it at
 # its next start).  The busiest picture is timed per pixel, and the cap is what
 # fits in half a frame, the rest left to the CPU (test/vidbench --suggest;
-# docs/design-video-foundations.md).  From the machine: !k4510-vidcap
+# docs/design-video-foundations.md).  From the machine: !k4510-vidcap, or
+# SETUP, which asks the emulator to run it ($D548) -- with "-": the suggestion
+# printed, no file written (the emulator keeps it itself).
 cd "$(dirname "$0")/.." || exit 1
 make -s test/vidbench >/dev/null || exit 1
+[ "$1" = - ] && exec ./test/vidbench --suggest
 exec ./test/vidbench --suggest "${1:-k4510.cfg}"

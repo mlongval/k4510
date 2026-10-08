@@ -227,6 +227,10 @@ The ROM arms it at reset (crt0.s); INFO -m shows it. The first trip writes a DUM
 
 — PALNAME (`$D547`): the palette the machine last loaded, kept by the host for the next power-on (Doc, 2026-10-07: “the palette chosen in F12 is not saved”). Write: PALETTE LOAD’s file path a character at a time, then 0 – a 0 alone (PALETTE RESET) is the VIC-II sixteen; `$FF` starts the read again. Read: the kept path a character at a time, 0 at its end. The ROM loads it at every reset, after the VIC-II sixteen. The frontend fills io_palname from k4510.cfg (video.palette) and saves it when io_palname_new is set.
 
+### 
+
+— VIDCAP (`$D548-$D54A`): SETUP asks the host how many pixels it can draw a frame (2026-10-07). Write 1 to `$D548`: the frontend runs tools/k4510-vidcap beside the machine (a few seconds; the machine goes on running). Read `$D548`: 0 not asked, 1 measuring, 2 done, 3 it could not. `$D549`/A: the cap it found, in thousands of pixels, which the frontend has written to k4510.cfg (video.cap) for the next start.
+
 ### The Tube
 
 The Tube (`$D800`): Acorn’s answer, refitted. The HOST runs Richard Russell’s BBC BASIC interpreter (the vendored BBCTTY console edition, tube/bbcbasic) on a pty; the machine talks to it byte-wise:

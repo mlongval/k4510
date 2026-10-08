@@ -162,12 +162,16 @@ transcendentals are in the \texttt{k4510} unit --- \verb|MathSqrt|,
 \texttt{system.pas} under \verb|{$ifdef k4510}|.
 
 \subsection*{Graphics on VICKY}
-\verb|uses graph| draws on VICKY's layer~1: a 640$\times$480 8-bit bitmap
-at \texttt{\$200000} --- the one BBC BASIC's ULA uses too --- over the
+\verb|uses graph| draws on VICKY's layer~1: an 8-bit bitmap at
+\texttt{\$200000} --- the one BBC BASIC's ULA uses too --- over the
 console, which stays visible wherever the picture is transparent
-(colour~0), as in a BBC MODE. \verb|InitGraph(0)| switches the video to
-480 lines and clears the bitmap; \verb|CloseGraph| puts the console's
-mode back. \verb|PutPixel| and \verb|GetPixel| go through the 45GS02's
+(colour~0), as in a BBC MODE. \verb|InitGraph(0)| draws at the glass the
+machine is showing: in one of the panel's integer display resolutions
+that glass itself (720$\times$540, 1440$\times$1080, 360$\times$270, up to
+1920$\times$1200), in the classic modes 640$\times$480; \verb|GetMaxX| and
+\verb|GetMaxY| say which. \verb|InitGraph(1)| asks for 640$\times$480
+whatever the glass, putting the console in \verb|MODE 0| for it when it
+has to; \verb|CloseGraph| puts the console's mode back. \verb|PutPixel| and \verb|GetPixel| go through the 45GS02's
 flat addressing (the MEGA65 multiplier does the row arithmetic);
 \verb|Line|, \verb|LineTo| and the K4510 additions \verb|DrawLine|,
 \verb|FillBar| and \verb|FillTriangle| are the blitter's LINE, FILL and
@@ -442,16 +446,23 @@ end.
 \end{verbatim}
 
 \subsection*{GRAPH: lines, bars and text on VICKY}
-\verb|uses graph|. A 640 by 480 picture, one byte a pixel, on VICKY's layer~1
-over the console. Pixels count from 0, \verb|(0,0)| is the top left, and
+\verb|uses graph|. A picture one byte a pixel, on VICKY's layer~1 over the
+console, as big as the glass (\verb|GetMaxX| by \verb|GetMaxY|). Pixels count from 0, \verb|(0,0)| is the top left, and
 colour~0 is transparent, so the console's text shows through wherever nothing
 is drawn. Colours are palette indexes; 0 to 15 are the same sixteen as CRT's.
 Anything off the screen is quietly dropped.
 
-\paragraph{\texttt{InitGraph(0)}} Switches the video to 480 lines, points the
-layer at the bitmap and clears it. Call it first. (\verb|InitGraph(driver, mode, path)|
-is accepted too, for programs written for other Mad Pascal targets; it does
-the same.)
+\paragraph{\texttt{InitGraph(0)}} Points the layer at the bitmap, sized to
+the glass the machine is showing, and clears it. Call it first, and place
+things by \verb|GetMaxX| and \verb|GetMaxY| rather than by numbers:
+\pth{PGRAPH.PAS} draws the same picture at 640$\times$480 and at
+1440$\times$1080. \verb|InitGraph(1)| (\verb|GFX_VGA|) is 640$\times$480
+always, as the unit was until alpha-0.9: in an integer display resolution
+it puts the console in \verb|MODE 0| first, and \verb|CloseGraph| puts the
+resolution back --- the BBC unit asks for it, because its sprites live at
+\texttt{\$260000}, just above a 640$\times$480 bitmap. (\verb|InitGraph(driver, mode, path)|
+is accepted too, for programs written for other Mad Pascal
+targets; it does the same as \verb|InitGraph(mode)|.)
 
 \paragraph{\texttt{CloseGraph}} Switches the picture off and puts the
 console's video mode back. A program that does not call it leaves the

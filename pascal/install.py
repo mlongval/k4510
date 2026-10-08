@@ -100,6 +100,15 @@ if '[K4510] the MATH unit' not in s:
     open(p, 'w').write(s); print('   patched lib/system.pas: Sqrt/Sin/Cos/ArcTan/Exp/Ln on the MATH unit')
 else:
     print('   lib/system.pas already routes the transcendentals to the MATH unit')
+# 3b. lib/graph.inc's Circle counts in bytes, so no radius over 255: the panel's
+# integer display resolutions draw at up to 1920x1200 (2026-10-07)
+p = os.path.join(mp, 'lib', 'graph.inc'); s = open(p).read()
+old = 'var a: smallint;\n    b, c: byte;\n'
+if '[K4510] radius' not in s and old in s:
+    s = s.replace(old, 'var a: smallint;\n{$ifdef k4510}\n    b, c: smallint;\t(* [K4510] radius over 255 *)\n{$else}\n    b, c: byte;\n{$endif}\n', 1)
+    open(p, 'w').write(s); print('   patched lib/graph.inc: Circle past a radius of 255')
+else:
+    print('   lib/graph.inc: Circle already patched' if '[K4510] radius' in s else '   lib/graph.inc: Circle not as expected, not patched')
 # 4. build
 subprocess.run(['make', 'clean'], cwd=os.path.join(mp, 'src'), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)   # FPC keeps stale units otherwise
 r = subprocess.run(['make', '-s'], cwd=os.path.join(mp, 'src'))

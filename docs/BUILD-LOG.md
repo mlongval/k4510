@@ -11864,3 +11864,21 @@ says 0.9.
 the name of tools/k4510-remote (which drives a K4510 from another computer,
 2026-09-14); the `!` shell puts tools/ first on its PATH, so Doc's `ubu`
 alias would have run the wrong one.  Renamed everywhere it meant the helper.
+
+## 2026-10-07 -- Pascal's graph unit at the glass; SETUP times the pixels
+
+**graph.** `InitGraph(0)` now draws at the glass the machine is showing --
+an integer display resolution's own size (GLASSW/GLASSH, $D0D6-$D0D9), 640x480
+in the classic modes -- instead of putting the console in MODE 0; GetMaxX and
+GetMaxY say which, the bitmap at $200000 runs to 1920x1200.  `InitGraph(1)`
+(GFX_VGA) is the old 640x480, and the BBC unit asks for it: its sprites at
+$260000 sit just above a 640x480 bitmap.  PGRAPH places everything as a share
+of GetMaxX x GetMaxY (seen at 720x540, 1440x1080, 360x270).  Mad Pascal's
+generic Circle counted in bytes, so no radius past 255: pascal/install.py
+patches lib/graph.inc for the K4510 (rerun `make pascal-install`).
+
+**SETUP.**  The video step asks the frontend to time the host ($D548): it runs
+`tools/k4510-vidcap -` beside the machine, reads the suggestion through a
+pipe a frame at a time, keeps it as video.cap in k4510.cfg (the next start
+applies it) and answers in thousands of pixels ($D549/A).  ubuntu-s1, with the
+emulator drawing every frame beside it: 1555200 (1440x1080).

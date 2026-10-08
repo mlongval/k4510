@@ -1641,6 +1641,34 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         { static int host_open_was; static Uint32 host_read_at;   /* the Host page: read at open, then every 2 s while open */
           if (open && (!host_open_was || SDL_GetTicks() - host_read_at >= 2000)) { host_info_refresh(); host_read_at = SDL_GetTicks(); }
           host_open_was = open; host_reap(); }
+        /* SETUP's pixel budget ($D548): tools/k4510-vidcap beside the machine,
+         * its answer read through a pipe a frame at a time, so the machine
+         * runs on while the host is timed. */
+        { static pid_t vc_pid; static int vc_fd = -1; static char vc_out[2048]; static size_t vc_n;
+          if (io_vidcap_req && !vc_pid) {
+              int pfd[2]; io_vidcap_req = 0; vc_n = 0;
+              if (pipe(pfd) == 0 && (vc_pid = fork()) == 0) {
+                  dup2(pfd[1], 1); dup2(pfd[1], 2); close(pfd[0]); close(pfd[1]);
+                  execl("/bin/sh", "sh", "tools/k4510-vidcap", "-", (char *) NULL); _exit(127);
+              }
+              if (vc_pid > 0) { close(pfd[1]); vc_fd = pfd[0]; fcntl(vc_fd, F_SETFL, O_NONBLOCK); mlog("vidcap: measuring the host for SETUP"); }
+              else { io_vidcap_state = 3; vc_pid = 0; }
+          }
+          if (vc_pid > 0) {
+              ssize_t r;
+              while (vc_n < sizeof vc_out - 1 && (r = read(vc_fd, vc_out + vc_n, sizeof vc_out - 1 - vc_n)) > 0) vc_n += (size_t) r;
+              int st;
+              if (waitpid(vc_pid, &st, WNOHANG) == vc_pid) {
+                  while (vc_n < sizeof vc_out - 1 && (r = read(vc_fd, vc_out + vc_n, sizeof vc_out - 1 - vc_n)) > 0) vc_n += (size_t) r;
+                  close(vc_fd); vc_fd = -1; vc_pid = 0; vc_out[vc_n] = 0;
+                  const char *m = strstr(vc_out, "suggested video.cap = "); long cap = m ? atol(m + 22) : 0;
+                  if (cap >= 64000) {
+                      settings_set(SET_VIDEO_CAP, (int) cap); settings_save(cfg);
+                      io_vidcap_k = (uint16_t)(cap / 1000); io_vidcap_state = 2;
+                      char b[96]; snprintf(b, sizeof b, "vidcap: video.cap = %ld, kept for the next start", cap); mlog(b);
+                  } else { io_vidcap_state = 3; mlog("vidcap: no answer from tools/k4510-vidcap"); }
+              }
+          } }
         if (io_palname_new) {                                         /* the machine loaded a palette (or PALETTE RESET): kept, */
             io_palname_new = 0; settings_set_palette(io_palname);    /* written at once -- a power cut should not lose it */
             { char b[96]; snprintf(b, sizeof b, "palette: the machine loaded '%.60s'; kept", io_palname); mlog(b); }

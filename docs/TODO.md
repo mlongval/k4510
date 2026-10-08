@@ -127,7 +127,7 @@ carries them: packages.list has them since 2026-10-06).
 - [ ] **Frame buffer compression.** i915 says "FBC disabled: pixel format not
       supported" for the plane SDL draws on; find a format it compresses
       (XRGB8888) and the panel's refresh costs less.
-- [ ] **The charge limit for a trip.** BAT0 stops at 80% (kind to the
+- [x] **The charge limit for a trip.** (done 2026-10-07: F12 -> Host -> Charge to 100% once) BAT0 stops at 80% (kind to the
       battery); an F12 switch to 100% before a long day away, and back.
       The battery is at 66% of its design capacity: worth more than any
       setting.
@@ -140,7 +140,7 @@ carries them: packages.list has them since 2026-10-06).
       it is given (VICKY $D0D6-$D0D9) or ask for a software resolution.
 - [ ] **GLASSCTL's stretch-to-4:3** (bit5) is reserved and fits for now;
       the frontend's 4:3 box for a software resolution of any shape.
-- [ ] **k4510-vidcap on the Dell**, then decide whether SETUP runs it.
+- [ ] **k4510-vidcap on the Dell** (run 2026-10-07); still to decide whether SETUP runs it.
 - [ ] **FORTH has no break key** — poll `$D103` like RX and LOGO do.
       EhBASIC keeps its own Ctrl-C (touching it overflowed the `$C000`
       slice once).
@@ -162,7 +162,7 @@ carries them: packages.list has them since 2026-10-06).
       system call costs ~1000 cycles less.
       docs/BUILD-LOG.md 2026-10-06 has the numbers.
 
-- [ ] **core/io.c split** into per-chip files (agreed earlier; unblocked).
+- [x] **core/io.c split** into per-chip files (done 2026-10-07, f57e75b).
 - [x] **Zero page relief:** the ROM's base page is its own since
       2026-10-06 ($0600): ZP is $02-$2F (46 bytes, was 32), no copying.
 - [ ] **BSS relief:** BSSR $0440-$05FF, 381 of 448 bytes (the 64-byte zp

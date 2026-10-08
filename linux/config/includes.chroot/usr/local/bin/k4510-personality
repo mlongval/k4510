@@ -1,0 +1,44 @@
+#!/bin/sh
+# k4510-personality -- run one of the K4510's other machines: the C64, C128
+# and PET (VICE, SDL) or the Amiga 500 and 1200 (Amiberry).
+#
+#   k4510-personality NAME [args]   run it, on tty1's display; returns when it quits
+#   k4510-personality               list the ones on this machine
+#
+# The boot menu does this (k4510.personality=NAME, see linux/k4510-grub-
+# personalities and profile.d/k4510.sh): the machine comes up as a C64, and
+# quitting the C64 (F12 -> Quit) brings up the K4510.
+#
+# The machines live in one squashfs per family on the SAVED partition (p4),
+# personalities/vice.squashfs and amiga.squashfs, each with a .list beside it
+# (NAME<TAB>title).  Like the K4510 itself they run from RAM: the chosen
+# family's image is copied into /run (tmpfs) and mounted from there at
+# /opt/personalities/<family>, ~5 MB for VICE, ~18 MB for the Amiga.  A boot
+# that does not ask for one reads none of it.  What the machines save --
+# disks, the A1200's hard drive, settings -- is in ~/personalities/NAME, on
+# the disk with the rest of the home.  Made and deployed by Doc's
+# ~/Projects/BMC64Port (ubuntu-s1).
+set -e
+RAM=/run/k4510-personalities
+stores() { for d in /run/live/persistence/*/personalities; do [ -d "$d" ] && echo "$d"; done; }
+if [ -z "$1" ]; then
+    found=
+    for d in $(stores); do for l in "$d"/*.list; do [ -f "$l" ] && { found=1; sed 's/^/  /' "$l"; }; done; done
+    [ -n "$found" ] || echo "k4510-personality: no personalities on this machine"
+    exit 0
+fi
+name=$1; shift
+fam=
+for d in $(stores); do
+    for l in "$d"/*.list; do
+        [ -f "$l" ] && grep -q "^$name	" "$l" && { fam=$(basename "$l" .list); img="$d/$fam.squashfs"; break 2; }
+    done
+done
+[ -n "$fam" ] && [ -f "$img" ] || { echo "k4510-personality: no personality called $name (k4510-personality lists them)" >&2; exit 1; }
+MNT=/opt/personalities/$fam
+if ! mountpoint -q "$MNT"; then
+    sudo -n mkdir -p "$RAM" "$MNT"
+    sudo -n cp "$img" "$RAM/$fam.squashfs"
+    sudo -n mount -t squashfs -o loop,ro "$RAM/$fam.squashfs" "$MNT"
+fi
+"$MNT/run/$name" "$@"

@@ -38,6 +38,16 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
             sudo -n mount -o remount,async "$m" 2>/dev/null
         fi
     done
+    # A personality chosen in the boot menu (k4510.personality=NAME: the C64,
+    # C128, PET, Amiga 500/1200; linux/k4510-grub-personalities) comes first,
+    # once a boot -- quitting it falls through to the K4510 below, and the
+    # marker keeps a later tty1 login from starting it again.  Its output goes
+    # to a log in RAM, like the emulator's.  Doc, 2026-10-08.
+    P=$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^k4510\.personality=//p' | head -n1)
+    if [ -n "$P" ] && [ ! -e /run/k4510-personality.started ]; then
+        : > /run/k4510-personality.started 2>/dev/null || sudo -n touch /run/k4510-personality.started
+        k4510-personality "$P" >>/tmp/k4510-personality.log 2>&1
+    fi
     # The same switch keeps the emulator's own account too: its stderr (tube
     # sessions, every way out, a heartbeat every ten seconds) in
     # emulator-<time>.log beside the byte log, and a core dump if it crashes --

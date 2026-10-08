@@ -11859,3 +11859,8 @@ POSIX options for every command; programs told when the screen changes;
 Save and power off; the battery's time and a one-time full charge; mosh
 for the Terminal; and the jettison of the trial balloons.  The version
 says 0.9.
+
+**After the release: k4510-remote is k4510-connect.**  The mosh helper took
+the name of tools/k4510-remote (which drives a K4510 from another computer,
+2026-09-14); the `!` shell puts tools/ first on its PATH, so Doc's `ubu`
+alias would have run the wrong one.  Renamed everywhere it meant the helper.

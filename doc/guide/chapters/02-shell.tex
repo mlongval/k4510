@@ -301,10 +301,10 @@ session every time, and so as many terminals as you like behind the one
 screen:
 
 \begin{verbatim}
-k4510-remote you@server tmux new -A -s k4510
+k4510-connect you@server tmux new -A -s k4510
 \end{verbatim}
 
-\noindent \texttt{k4510-remote} is mosh when it can be and ssh when it
+\noindent \texttt{k4510-connect} is mosh when it can be and ssh when it
 cannot. Over a phone's hotspot mosh is the one to have: what you type
 shows at once instead of after the round trip, and the session goes on
 through a network that drops or changes under it. The server needs

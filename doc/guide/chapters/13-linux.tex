@@ -209,7 +209,7 @@ work as Chapter~\ref{cha:shell} describes.
 
 \section{mosh: another computer, over a poor network}\label{sec:mosh}
 The K4510 Linux has \verb|mosh| beside \verb|ssh|, and a small
-command that chooses between the two: \verb|k4510-remote|. ssh sends every key to
+command that chooses between the two: \verb|k4510-connect|. ssh sends every key to
 the other computer and shows it only when the echo comes back, so on a
 phone's hotspot each keystroke waits out the round trip, and a network
 that drops for a moment can end the session. mosh logs in with ssh, then
@@ -218,11 +218,11 @@ until the other side agrees), and the session goes on through a dropped
 link, a change from the hotspot to home Wi-Fi, or a closed lid.
 
 \begin{type}
-k4510-remote you@server                     a shell there
-k4510-remote you@server tmux new -A -s k4510   the same tmux every time
+k4510-connect you@server                     a shell there
+k4510-connect you@server tmux new -A -s k4510   the same tmux every time
 \end{type}
 
-\noindent \verb|k4510-remote| tries mosh first. If mosh is not on this
+\noindent \verb|k4510-connect| tries mosh first. If mosh is not on this
 side, or cannot start a session on the other --- no \verb|mosh-server|
 there, or its UDP ports blocked --- it says so and runs \verb|ssh -t|
 instead. A mosh session that ran and ended keeps its own result; only a

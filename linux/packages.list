@@ -67,7 +67,7 @@ inetutils-telnetd
 curl
 openssh-client
 # mosh for the Terminal screen over a phone's hotspot: local echo, and a session
-# that survives the network changing under it (Doc, 2026-10-07).  k4510-remote
+# that survives the network changing under it (Doc, 2026-10-07).  k4510-connect
 # tries it first and falls back to ssh.
 mosh
 

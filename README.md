@@ -74,7 +74,7 @@ A release about the screen and what frames it.
 - **A laptop's companion:** the battery's time left in the bottom band
   (`77%↓ (7:16)`), *Charge to 100% once* for a trip, and a file you save
   is on the disk when SAVE returns.
-- **The Terminal screen over mosh** (`k4510-remote`), falling back to ssh:
+- **The Terminal screen over mosh** (`k4510-connect`), falling back to ssh:
   what you type shows at once over a phone's hotspot. A K4510 power cycle
   no longer leaves holes in it.
 - **RANGER opens files by extension** (`/SYSTEM/ETC/RANGER.RC`: `.PAS` in

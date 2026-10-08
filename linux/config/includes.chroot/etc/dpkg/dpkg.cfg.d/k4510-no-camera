@@ -16,3 +16,5 @@ path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/pwc/*
 path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/stkwebcam/*
 path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/zr364xx/*
 path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/s2255/*
+path-exclude=/lib/modules/*/kernel/drivers/media/common/uvc.ko*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/common/uvc.ko*

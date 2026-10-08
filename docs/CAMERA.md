@@ -18,7 +18,8 @@ Four layers, from the build outwards:
 1. **dpkg never installs them.**  `etc/dpkg/dpkg.cfg.d/k4510-no-camera`
    (in `linux/config/includes.chroot`) is in place before the kernel package
    is installed, with `path-exclude` lines for the USB camera drivers
-   (`drivers/media/usb/{uvc,gspca,pwc,stkwebcam,zr364xx,s2255}`), so they are
+   (`drivers/media/usb/{uvc,gspca,pwc,stkwebcam,zr364xx,s2255}`, and the UVC
+   helpers `drivers/media/common/uvc.ko`), so they are
    never unpacked -- and a kernel upgrade inside the image cannot bring them
    back.
 2. **The build deletes any that got in and runs `depmod`** (`camera_check` in

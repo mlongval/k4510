@@ -156,6 +156,7 @@ camera_check() {
     for m in "$ROOT"/lib/modules/* "$ROOT"/usr/lib/modules/*; do
         [ -d "$m" ] || continue
         for d in $CAMERA_DIRS; do rm -rf "$m/kernel/drivers/media/usb/$d"; done
+        rm -f "$m"/kernel/drivers/media/common/uvc.ko*            # the UVC helpers uvcvideo leans on
         $CHROOT_ENV chroot "$ROOT" depmod -a "$(basename "$m")"
     done
     left=$(find "$ROOT/lib/modules" "$ROOT/usr/lib/modules" -name 'uvcvideo.ko*' -o -name 'gspca_main.ko*' 2>/dev/null | head -3)

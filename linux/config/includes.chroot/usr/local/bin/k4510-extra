@@ -1,0 +1,25 @@
+#!/bin/sh
+# k4510-extra -- run a program from the extras image on the disk (mpv, ffmpeg,
+# ffprobe: k4510-extras says how it is made).  Called by its link's name.
+# Touching /opt/extras is what mounts the image; ten idle minutes unmount it.
+# A program the system itself has is run as it is.
+n=$(basename "$0"); [ "$n" = k4510-extra ] && { n=$1; shift; }
+[ -n "$n" ] || { echo "k4510-extra: which program?"; exit 1; }
+[ -x "/usr/bin/$n" ] && exec "/usr/bin/$n" "$@"
+X=/opt/extras
+if [ ! -e /run/k4510-extras.squashfs ] || [ ! -x "$X/usr/bin/$n" ]; then
+    echo "$n: not on this machine -- it lives in the extras image on the disk:"
+    echo "    sudo k4510-extras build      (once; mpv and ffmpeg, about 100 MB, not in RAM)"
+    exit 127
+fi
+LD_LIBRARY_PATH=$(tr '\n' ':' < $X/.k4510/ld.path)${LD_LIBRARY_PATH}
+export LD_LIBRARY_PATH
+[ -d $X/usr/lib/x86_64-linux-gnu/dri ] && export LIBVA_DRIVERS_PATH=$X/usr/lib/x86_64-linux-gnu/dri:/usr/lib/x86_64-linux-gnu/dri
+# what the image's programs call (mpv runs yt-dlp for a web address): its own
+# first, and its Python modules
+PATH=$X/usr/bin:$PATH; PYTHONPATH=$X/usr/lib/python3/dist-packages${PYTHONPATH:+:$PYTHONPATH}
+export PATH PYTHONPATH
+# mpv tries PipeWire first, which this Linux has not: straight to ALSA (dmix,
+# mixed with the machine), unless the command line says otherwise
+[ "$n" = mpv ] && exec "$X/usr/bin/mpv" --ao=alsa "$@"
+exec "$X/usr/bin/$n" "$@"

@@ -1,0 +1,11 @@
+[Unit]
+# mpv, ffmpeg and their libraries, from the saved partition -- read from the
+# disk as needed, never copied to RAM (k4510-extras; docs/STORAGE.md)
+Description=K4510 extras, from the disk
+ConditionPathExists=/run/k4510-extras.squashfs
+
+[Mount]
+What=/run/k4510-extras.squashfs
+Where=/opt/extras
+Type=squashfs
+Options=ro,loop,nodev,nosuid

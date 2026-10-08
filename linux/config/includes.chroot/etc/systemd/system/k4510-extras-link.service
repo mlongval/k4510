@@ -1,0 +1,13 @@
+[Unit]
+# Where the extras image is (k4510-extras): a link, nothing mounted or read.
+Description=K4510: find the extras image on the disk
+After=local-fs.target
+Before=opt-extras.automount
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/k4510-extras link
+
+[Install]
+WantedBy=multi-user.target

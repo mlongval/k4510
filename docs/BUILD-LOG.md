@@ -12039,3 +12039,18 @@ needs 80x30 just runs `MODE 0` through the shell and exits.  Tested from
 `-s 2`, `400x300 -c` and `-s 3 -d` with a Pascal program doing Shell('MODE 0').
 Not covered: a program that leaves by cold reset (EhBASIC's *QUIT jumps
 through $FFFC), which keeps the mode it set, as before.
+
+**2026-10-08: the extras -- on the disk, loaded as needed** (Doc: "can the
+extra megabytes be only loaded as needed? ie a 'loaded into ram partition'
+and a 'stays on disk and loaded as needed' partition").  Not a partition: a
+file on the one already there for what is saved, p4's extras/extras.squashfs.
+`sudo k4510-extras build` makes it on the machine (apt --download-only works
+out what the running system lacks, dpkg -x, mksquashfs); a boot service links
+it at /run/k4510-extras.squashfs, systemd's automount mounts it on /opt/extras
+the first time anything looks, and lets go after ten idle minutes.  mpv,
+ffmpeg, ffprobe and yt-dlp in /usr/local/bin are k4510-extra: the image's
+program with its libraries (LD_LIBRARY_PATH from the image's own list); mpv
+straight to ALSA (PipeWire is not here).  On the Dell: mpv + ffmpeg = 199
+packages, 121 MB on p4, 2.5 minutes to build; mpv 0.40 played a test tone
+through dmix, yt-dlp 2025.04.30.  squashfs-tools joins the base.
+docs/STORAGE.md 3a, handbook (Linux chapter).

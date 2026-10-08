@@ -1,0 +1,12 @@
+[Unit]
+# mounted the first time a program looks in /opt/extras; ten idle minutes and
+# it is let go again
+Description=K4510 extras, mounted when asked for
+After=k4510-extras-link.service
+
+[Automount]
+Where=/opt/extras
+TimeoutIdleSec=600
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,86 @@
+#!/bin/sh
+# k4510-extras -- the programs too big to carry in RAM, kept on the disk.
+# (Doc, 2026-10-08: "can the extra megabytes be only loaded as needed? ie a
+# 'loaded into ram partition' and a 'stays on disk and loaded as needed'
+# partition".)
+#
+# The K4510 Linux is copied into RAM at every boot (toram, docs/STORAGE.md),
+# so everything in the base and the layer costs RAM for ever.  mpv and ffmpeg
+# with their libraries are ~100 MB: they live instead in one squashfs file on
+# the SAVED partition (p4, label K4510), extras/extras.squashfs, and are
+# mounted from there the first time a program asks -- systemd's automount on
+# /opt/extras -- and unmounted after ten idle minutes.  Nothing is copied:
+# Linux reads the pages it needs from the disk and keeps them in its cache.
+# /usr/local/bin/mpv, ffmpeg, ffprobe are k4510-extra, which runs the one in
+# /opt/extras with its libraries.
+#
+#   sudo k4510-extras build [pkg...]   make the image (default: mpv ffmpeg) with
+#                                      whatever those need that this system lacks
+#   k4510-extras status                where it is, what is in it, mounted or not
+#   sudo k4510-extras remove           delete it
+#   k4510-extras link                  (at boot) point /run/k4510-extras.squashfs at it
+set -e
+PKGS_DEFAULT="mpv ffmpeg"
+LINK=/run/k4510-extras.squashfs
+MNT=/opt/extras
+find_image() {
+    for f in /run/live/persistence/*/extras/extras.squashfs /run/live/medium/extras/extras.squashfs; do
+        [ -f "$f" ] && { echo "$f"; return 0; }
+    done
+    return 1
+}
+store_dir() {                       # the saved partition, written to
+    for d in /run/live/persistence/*; do
+        [ -d "$d" ] && [ -w "$d" ] && { echo "$d/extras"; return 0; }
+    done
+    return 1
+}
+do_link() {
+    if f=$(find_image); then ln -sfn "$f" $LINK; echo "extras: $f"; else rm -f $LINK; echo "extras: none on this machine"; fi
+}
+case "$1" in
+link)
+    do_link ;;
+status)
+    if f=$(find_image); then
+        echo "image:   $f ($(du -h "$f" | cut -f1) on the disk, not in RAM)"
+        [ -f "$MNT/.k4510/packages" ] && echo "holds:   $(tr '\n' ' ' < $MNT/.k4510/packages)"
+        if grep -q " $MNT squashfs" /proc/mounts; then echo "mounted: yes, at $MNT (unmounted after 10 idle minutes)"; else echo "mounted: no (the first program that asks mounts it)"; fi
+    else
+        echo "no extras image: sudo k4510-extras build"
+    fi ;;
+remove)
+    [ "$(id -u)" = 0 ] || { echo "k4510-extras remove: run it with sudo"; exit 1; }
+    systemctl stop opt-extras.automount opt-extras.mount 2>/dev/null || true
+    f=$(find_image) && rm -f "$f" && echo "removed $f"
+    rm -f $LINK
+    systemctl start opt-extras.automount 2>/dev/null || true ;;
+build)
+    [ "$(id -u)" = 0 ] || { echo "k4510-extras build: run it with sudo (apt and mksquashfs need root)"; exit 1; }
+    shift; PKGS="${*:-$PKGS_DEFAULT}"
+    D=$(store_dir) || { echo "k4510-extras: no saved partition (persistence) to keep it on -- a stick without one has nowhere"; exit 1; }
+    T=/tmp/k4510-extras-tree; A=/tmp/k4510-extras-debs
+    rm -rf $T $A; mkdir -p $T/.k4510 $A/partial
+    echo "== what $PKGS need that this system lacks (apt works it out)"
+    apt-get install --download-only -y -qq -o Dir::Cache::archives=$A $PKGS >/dev/null 2>&1 \
+      || { apt-get update -qq >/dev/null 2>&1; apt-get install --download-only -y -qq -o Dir::Cache::archives=$A $PKGS; }
+    n=0; for d in $A/*.deb; do [ -f "$d" ] || continue; dpkg -x "$d" $T; n=$((n + 1)); done
+    [ $n -gt 0 ] || { echo "k4510-extras: apt found nothing to fetch (already in the system?)"; exit 1; }
+    echo "== $n packages unpacked"
+    for P in $PKGS; do [ -e $T/usr/bin/$P ] || [ ! -e $T/usr/bin/$P.bin ] || ln -s $P.bin $T/usr/bin/$P; done
+    # every directory with a shared library in it, for k4510-extra's LD_LIBRARY_PATH
+    (cd $T && find . -name '*.so*' \( -type f -o -type l \) -not -path '*/python3*' | sed 's|^\.||; s|/[^/]*$||' | sort -u) | sed "s|^|$MNT|" > $T/.k4510/ld.path
+    echo "$PKGS" | tr ' ' '\n' > $T/.k4510/packages
+    ls $A/*.deb | sed 's|.*/||' > $T/.k4510/debs
+    date -u +%F > $T/.k4510/built
+    mkdir -p "$D"
+    systemctl stop opt-extras.automount opt-extras.mount 2>/dev/null || true
+    mksquashfs $T "$D/extras.squashfs.new" -comp zstd -noappend -no-progress >/dev/null
+    mv "$D/extras.squashfs.new" "$D/extras.squashfs"
+    rm -rf $T $A
+    do_link
+    systemctl start opt-extras.automount 2>/dev/null || true
+    echo "== $D/extras.squashfs, $(du -h "$D/extras.squashfs" | cut -f1); try: mpv --version" ;;
+*)
+    sed -n '2,/^set -e/p' "$0" | sed '$d; s/^# \{0,1\}//'; exit 1 ;;
+esac

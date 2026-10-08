@@ -111,3 +111,6 @@ zstd
 # before and after of every battery change.  k4510-power reads the battery.
 powertop
 linux-cpupower
+# k4510-extras builds the on-disk extras image (mpv, ffmpeg: not in RAM) with
+# mksquashfs (2026-10-08)
+squashfs-tools

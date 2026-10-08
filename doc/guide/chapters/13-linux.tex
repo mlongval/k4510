@@ -283,6 +283,24 @@ asked to convert to it, the search keeps to MP3 stations, and an episode
 in another format is skipped. Without the network --- Tailscale not up, say
 --- it says which server it could not reach and stops.
 
+\section{The extras: big programs kept on the disk}
+Everything of the K4510's own Linux is copied into RAM at every start, so
+whatever is in it costs memory all the time. Programs too large for that ---
+\verb|mpv| and \verb|ffmpeg| with their libraries, about 100\,MB --- are kept
+instead in one file on the partition where your work is saved, and read from
+the disk only when something runs:
+
+\begin{type}
+sudo k4510-extras build           once: mpv and ffmpeg (or name others)
+k4510-extras status               where it is, what it holds, mounted or not
+mpv https://.../stream.mp3        mounted the first time, let go after 10 idle minutes
+\end{type}
+
+\noindent The build asks Debian for whatever those programs need that the
+system lacks, and needs the network once. A deploy does not touch the file;
+\verb|sudo k4510-extras remove| deletes it. A stick without a persistence
+partition has nowhere to keep it.
+
 \section{On a stick}
 \begin{type}
 sudo ./linux/build-live.sh

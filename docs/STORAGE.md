@@ -84,6 +84,25 @@ in the layer and was never edited is not here at all.
 
 RAM after boot: ~0.9 GB for the system images plus ~0.8 GB in use, of 32 GB.
 
+## 3a. The extras: on the disk, loaded as needed
+
+Doc, 2026-10-08: "can the extra megabytes be only loaded as needed?"  Yes:
+programs too big to pay for in RAM at every boot -- mpv, ffmpeg and their
+libraries, ~100 MB -- are one squashfs file on **p4**, not in `/live`:
+
+    /extras/extras.squashfs             mpv, ffmpeg + what they need that the base lacks
+
+| | |
+|---|---|
+| made by | `sudo k4510-extras build [pkg...]` on the machine itself (apt works out what the running system lacks; `dpkg -x`; mksquashfs) |
+| found at boot | `k4510-extras-link.service`: a link `/run/k4510-extras.squashfs`, nothing read |
+| mounted | by systemd's automount, the first time anything looks in `/opt/extras`; let go after 10 idle minutes |
+| run | `/usr/local/bin/mpv`, `ffmpeg`, `ffprobe` are `k4510-extra`: the program in `/opt/extras` with its libraries on `LD_LIBRARY_PATH` |
+| costs | disk; RAM only for the pages actually read, as page cache |
+| a deploy | does not touch it; `k4510-extras status`, `sudo k4510-extras remove` |
+
+A stick without persistence has nowhere to keep it.
+
 ## 4. The rules that follow
 
 - **Everything in the layer costs RAM at every boot; nothing on p4 does.**

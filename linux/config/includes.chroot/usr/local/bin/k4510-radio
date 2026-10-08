@@ -167,7 +167,9 @@ def music(cfg, name):
 
 def playlists(cfg):
     _, call = subsonic(cfg)
-    for p in call("getPlaylists").get("playlists", {}).get("playlist", []):
+    pls = call("getPlaylists").get("playlists", {}).get("playlist", [])
+    if not pls: print("no playlists for this user yet: make some in Navidrome's web page (k4510-radio music plays random songs meanwhile)")
+    for p in pls:
         print("%-40s %4s songs" % (p["name"], p.get("songCount", "?")))
 
 # ---- radio -----------------------------------------------------------------

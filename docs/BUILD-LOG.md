@@ -11992,3 +11992,12 @@ sessions, Tailscale SSH's be-child and mosh-server, a minute after a SIGUSR1/2
 screen read); the volume and piped-key echo move right of it; with no bands it
 is in the window-foot bar.  The key pipe starts off.  docs/REMOTE.md.  Seen on
 ubuntu-s1: "REMOTE keys login" (its own Tailscale SSH sessions).
+
+**2026-10-08: other consoles' keys no longer reach the machine.**  Doc typed
+`k4510`, `dir`, `df -h`, `htop` ... at tty2's login (Ctrl+Alt+F2) and every key
+went to the machine too -- into the Terminal screen's mosh session, Claude's
+prompt on ubuntu-s1.  SDL on KMSDRM reads evdev, which knows nothing of
+consoles.  vt_away() asks the kernel (VT_GETSTATE on our own /dev/tty, every
+100 ms) whether our console is the active one, and while it is not, keyboard,
+mouse and touchpad events are dropped.  A password typed at another console
+would have gone the same way: this mattered.

@@ -44,7 +44,8 @@
 #if defined(__linux__)
 #include <fcntl.h>
 #include <sys/ioctl.h>
-#include <linux/vt.h>      /* VT_ACTIVATE: Ctrl+Alt+F2..F6 on the K4510 Linux */
+#include <linux/vt.h>      /* VT_ACTIVATE: Ctrl+Alt+F2..F6 on the K4510 Linux; VT_GETSTATE: is ours up (vt_away) */
+#include <sys/sysmacros.h> /* major, minor: which console is ours */
 #endif
 
 /* A screenshot on request -- SIGUSR1 (tools/k4510-shot) or PrtSc -- of the
@@ -365,6 +366,33 @@ static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP4
  * page's order and CP437's; a face whose files are missing is drawn as unscii. */
 static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384], hd_fonts16[HDFONT_COUNT][PAGE_COUNT][8192]; static int hd_have[HDFONT_COUNT];
 static uint8_t hd_fonts48[HDFONT_COUNT][PAGE_COUNT][36864], hd_fonts24[HDFONT_COUNT][PAGE_COUNT][18432]; static int hd_have3[HDFONT_COUNT];   /* the same at 3x: 480x360 (2026-10-07) */
+/* Is another console up (Ctrl+Alt+F2...)?  SDL on KMSDRM reads the keyboard
+ * and mouse through evdev, which knows nothing of consoles: switched away to
+ * tty2, every key typed at its login went to the machine as well -- into the
+ * Terminal screen's session on another computer (Doc, 2026-10-08: "typing
+ * from the consoles is leaking through to the SDL side").  While our console
+ * is not the active one, input is dropped.  Asked of the kernel (VT_GETSTATE)
+ * at most every 100 ms; 0 off the K4510 Linux or without a console. */
+static int vt_away(void)
+{
+#if defined(__linux__)
+    static int fd = -2, ours, away; static Uint32 at;
+    if (fd == -2) {
+        struct stat st;
+        fd = access("/etc/k4510-linux", F_OK) == 0 ? open("/dev/tty", O_RDONLY) : -1;
+        if (fd >= 0 && (fstat(fd, &st) != 0 || major(st.st_rdev) != 4 || minor(st.st_rdev) < 1 || minor(st.st_rdev) > 63)) { close(fd); fd = -1; }
+        else if (fd >= 0) ours = (int) minor(st.st_rdev);
+    }
+    if (fd < 0) return 0;
+    if (SDL_GetTicks() - at >= 100) {
+        struct vt_stat vs; at = SDL_GetTicks();
+        away = ioctl(fd, VT_GETSTATE, &vs) == 0 && vs.v_active != ours;
+    }
+    return away;
+#else
+    return 0;
+#endif
+}
 /* RADIO at the machine's prompt (2026-10-08): the remote for k4510-radio, the
  * player on the Linux beside the machine -- it starts one in the background
  * (MUSIC [playlist], STATION n, PODCAST n [m]) and steers whichever is
@@ -1257,6 +1285,10 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         if (hup_req) { hup_req = 0; mlog("quit: SIGHUP"); running = 0; }
         uint8_t pend = 0;               /* a printable key waiting to see whether SDL sends its text */
         while (SDL_PollEvent(&e)) {
+            if ((e.type == SDL_KEYDOWN || e.type == SDL_KEYUP || e.type == SDL_TEXTINPUT || e.type == SDL_TEXTEDITING
+                 || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEWHEEL
+                 || e.type == SDL_FINGERDOWN || e.type == SDL_FINGERMOTION || e.type == SDL_FINGERUP)
+                && vt_away()) continue;                                  /* another console's keys are not the machine's */
             if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP || e.type == SDL_TEXTINPUT || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN
                 || e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEWHEEL || e.type == SDL_JOYAXISMOTION || e.type == SDL_JOYBUTTONDOWN) input_ms = SDL_GetTicks();
             switch (e.type) {

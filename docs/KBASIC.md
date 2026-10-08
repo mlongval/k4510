@@ -19,7 +19,8 @@ quick calculation or a one-line try, use RX: there `PRINT` works like
 `SAY`, so `PRINT 6*7` prints 42.
 
 EhBASIC is still on the machine for the old numbered programs in
-`/LANG/EHBASIC`.
+`/LANG/EHBASIC`. Every one of its examples is in `/LANG/BASIC/EX` too,
+written again in K4510 BASIC: `DEMOS` and `BENCH` are the menus.
 
 ## A first program
 
@@ -75,7 +76,8 @@ A whole-number variable rounds what it is given: `n% = 3.7` makes 4. A
 value outside -32768..32767 stops the program with "Overflow".
 
 **Every variable belongs to the whole program**, wherever it is used,
-except the parameters of a SUB or FUNCTION (see below).
+except the parameters of a SUB or FUNCTION and what a SUB or FUNCTION
+DIMs for itself (see below).
 
 ### Arrays
 
@@ -232,9 +234,55 @@ PRINT Area(3, 4)
 - They can be written anywhere in the file, before or after they are
   used.
 - `EXIT SUB` and `EXIT FUNCTION` leave early.
-- **Only the parameters are their own.** Every other variable inside a
-  SUB or FUNCTION is the program's variable of that name.
+- **Local variables:** `DIM x, n%, s$` or `DIM t(3)` inside a SUB or
+  FUNCTION makes them its own, 0 or "" at every call, hiding the
+  program's variables of the same name. Its parameters are its own too.
+  Every other variable inside it is the program's variable of that name.
+- A SUB or FUNCTION cannot call itself (no recursion): its own
+  variables are kept in one place, not one set per call.
+- `Name: next statement` is a call of the SUB Name followed by another
+  statement; for any other name, `Name:` at the start of a line is a
+  label.
 - Labels, GOTO and GOSUB stay outside SUBs and FUNCTIONs.
+
+### DATA and READ
+
+```basic
+FOR i = 1 TO 3: READ name$, age: PRINT name$; age: NEXT
+DATA Ada, 36, "Grace", 85
+DATA Alan, 41
+RESTORE           ' READ starts again from the first DATA
+RESTORE Colours   ' ... or from the DATA after a label
+```
+
+- DATA can be anywhere in the program; READ takes the items in order.
+- An item is a number, a "quoted" text, or text written as it is (the
+  spaces round it trimmed).
+- READ past the last item stops the program with "Out of DATA".
+
+### ON ... GOTO, DEF FN
+
+```basic
+ON choice% GOTO One, Two, Three     ' 1 to One, 2 to Two ...
+ON choice% GOSUB One, Two, Three
+DEF FNarea(w, h) = w * h            ' a one-line function
+DEF FNfull$(a$, b$) = a$ + " " + b$
+PRINT FNarea(3, 4)
+```
+
+A value outside 1 to the number of labels goes on to the next statement.
+
+### The shell: * and SHELL
+
+```basic
+*MODE 640x480               ' the rest of the line goes to K/OS, : and all
+SHELL "MODE " + size$       ' a command worked out by the program
+SHELL "INVADERS"            ' runs another program; this one goes on after it
+```
+
+A program that changes the screen gets the shell's own screen back when
+it ends (which clears it): wait for a key before END if the last words
+matter.
 
 ### Other statements
 
@@ -243,7 +291,7 @@ PRINT Area(3, 4)
 | `LET x = 5` | the same as `x = 5` |
 | `SLEEP 1.5` | waits that many seconds |
 | `RANDOMIZE` | new random numbers (every program already starts with fresh ones) |
-| `POKE address, value` | writes a byte into memory |
+| `POKE address, value` | writes a byte into memory: 0-65535 is what the CPU sees, I/O included; 65536 and up is the machine's far memory (to 16 MB), as `PEEK` reads it |
 
 ## Functions
 
@@ -279,9 +327,14 @@ do. Colour 0 is see-through: the text shows through it.
 
 | Statement | What it does |
 |---|---|
-| `GRAPHICS 1` | the picture on, 640 x 480 |
-| `GRAPHICS 3` | the picture on, at the size of the screen as it is |
-| `GRAPHICS 0` | the picture off |
+| `GRAPHICS 1` | the picture on, 320 x 240 (MODE 2), as in EhBASIC |
+| `GRAPHICS 2` | the picture on, 640 x 480 (MODE 0) |
+| `GRAPHICS 3` | the picture on, at the size of the screen as it is (after `*MODE 400x300`, say) |
+| `GRAPHICS 0` | the picture off, and the text mode GRAPHICS found back |
+| `PALETTE i, r, g, b` | colour i (0-255) as red, green, blue (0-255); 0-15 are the text's |
+| `SPRDEF n, page, w, h, bpp` | sprite n (0-127) has its shape at page*256 in far memory, w x h (8, 16, 32, 64), 4 or 8 bits a pixel |
+| `SPRITE n, x, y` | puts sprite n there and shows it |
+| `SPROFF n` | hides it |
 | `GCLS` | clears the picture |
 | `PLOT x, y, c` | one dot |
 | `LINE x1, y1, x2, y2, c` | a line |
@@ -328,12 +381,10 @@ SELECT CASE), labels, SUB and FUNCTION, CONST.
 
 **Not there (yet):**
 
-- `DATA`, `READ`, `RESTORE`
-- `ON ... GOTO` / `ON ... GOSUB`, `DEF FN`
 - `PRINT USING`, `LINE INPUT`, `WRITE`
 - `SWAP`, `ERASE`, `REDIM`
-- local variables (only parameters are a SUB's own), `SHARED`, `STATIC`
+- recursion; `SHARED`, `STATIC`
 - labels, `GOTO` and `GOSUB` inside a SUB or FUNCTION
-- files (`OPEN`, `LOAD`, `SAVE`), `SOUND`, `PALETTE`, `TIMER`, `DATE$`
+- files (`OPEN`, `LOAD`, `SAVE`), `SOUND`, `TIMER`, `DATE$`
 - arrays of more than two dimensions; text array elements longer than 80
 - immediate mode (use RX)

@@ -1,0 +1,27 @@
+' K4510 BASIC benchmarks menu, timed by the 60 Hz frame counter.  Each is
+' its own program, run through the shell; the EhBASIC originals are in
+' /LANG/EHBASIC/EX, for the same programs interpreted.
+DO
+  CLS
+  PRINT "K4510 BASIC  BENCHMARKS  (COMPILED; TIMED BY THE 60 HZ FRAME COUNTER)": PRINT
+  PRINT "  1-8  RUGG/FELDMAN 1977 BENCHMARK 1..8   (C64: 1.2 S TO 47.5 S)"
+  PRINT "  A    AHL'S SIMPLE BENCHMARK 1983       (C64: 1:53)"
+  PRINT "  S    BYTE SIEVE 1981, FULL SIZE"
+  PRINT "  F    FLOAT: 5000 X SQR, SIN, *, /"
+  PRINT "  E    EXPRESSIONS: 20000 EVALUATIONS"
+  PRINT "  M    MANDELBROT (GORDON HENDERSON'S)"
+  PRINT "  Q    BACK": PRINT
+  PRINT "CHOICE? ";
+  DO: GET k$: LOOP UNTIL k$ <> ""
+  PRINT k$
+  k$ = UCASE$(k$)
+  IF k$ >= "1" AND k$ <= "8" THEN SHELL "RF" + k$
+  SELECT CASE k$
+    CASE "A": SHELL "AHL"
+    CASE "S": SHELL "SIEVE"
+    CASE "F": SHELL "FLOAT"
+    CASE "E": SHELL "EXPR"
+    CASE "M": SHELL "DROGON": PRINT "ANY KEY...";: DO: GET k$: LOOP UNTIL k$ <> ""
+    CASE "Q": EXIT DO
+  END SELECT
+LOOP

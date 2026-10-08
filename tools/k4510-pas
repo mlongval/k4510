@@ -85,7 +85,7 @@ main=$(printf %s "$src" | tr A-Z a-z)
 ( cd "$tmp/src" && "$MP_DIR/bin/mp" "$main" -target:k4510 -o:"$tmp/prog.a65" ) > "$tmp/log" 2>&1
 st=$?
 if [ $st -eq 0 ]; then
-    "$MADS" "$tmp/prog.a65" -x -i:"$MP_DIR/base" -o:"$tmp/prog.prg" > "$tmp/mads.log" 2>&1
+    "$MADS" "$tmp/prog.a65" -x -i:"$MP_DIR/base" ${K4510_MADS_FLAGS:-} -o:"$tmp/prog.prg" > "$tmp/mads.log" 2>&1
     st=$?
     [ $st -eq 0 ] || grep -i 'error' "$tmp/mads.log" >> "$tmp/log"
 fi

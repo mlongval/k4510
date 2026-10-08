@@ -4,9 +4,11 @@
 /* -----------------------------------------------------------------------
 /*                CPU 6502 runtime library - K4510  [K4510]
 /* -----------------------------------------------------------------------
-/* rtl_default.asm's list, with one substitution: SINGLE arithmetic on
+/* rtl_default.asm's list, with two substitutions: SINGLE arithmetic on
 /* the MATH unit at $D700 (k4510\single.asm) instead of the software
-/* library -- unless it is assembled with mads -d:SOFTFLOAT=1.
+/* library -- unless it is assembled with mads -d:SOFTFLOAT=1 -- and the
+/* whole-number multiply and divide on FRED's integer unit at $D770
+/* (k4510\fredint.asm, word.asm, cardinal.asm) -- mads -d:SOFTINT=1 not.
 /* The console is JIM, the terminal at $DA00: @putchar and @ClrScr
 /* write there.
 /* -----------------------------------------------------------------------
@@ -61,8 +63,9 @@ numread	.word		; pointer to variable, length of loaded data
 	icl 'common\smallint.asm'
 	icl 'common\integer.asm'
 	icl 'common\byte.asm'
-	icl 'common\word.asm'
-	icl 'common\cardinal.asm'
+	icl 'k4510\fredint.asm'		; whole-number * and / on FRED's integer unit ($D770)
+	icl 'k4510\word.asm'		; common\'s, leaf routines through fredint (mads -d:SOFTINT=1: not)
+	icl 'k4510\cardinal.asm'
 
 	icl 'common\shortreal.asm'
 	icl 'common\shortreal_trunc.asm'

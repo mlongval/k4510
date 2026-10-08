@@ -52,7 +52,8 @@ class BasicError(Exception):
 KEYWORDS = set("""PRINT INPUT LET IF THEN ELSE ELSEIF END FOR TO STEP NEXT
 WHILE WEND DO LOOP UNTIL EXIT GOTO GOSUB RETURN DIM CONST REM CLS COLOR
 LOCATE RANDOMIZE STOP AND OR NOT XOR MOD SELECT CASE IS SUB FUNCTION CALL
-SLEEP GET POKE GRAPHICS GCLS PLOT LINE TRI BOX CIRCLE""".split())
+SLEEP GET POKE GRAPHICS GCLS PLOT LINE TRI BOX CIRCLE DATA READ RESTORE ON
+DEF SHELL PALETTE SPRDEF SPRITE SPROFF""".split())
 
 TOKEN_RE = re.compile(r"""
     (?P<ws>[ \t]+)
@@ -93,6 +94,9 @@ def tokenize(text, lineno):
             continue
         if kind == "op" and val == "'":
             break                                       # a comment
+        if kind == "op" and val == "*" and (not toks or toks[-1].isop(":") or (len(toks) == 1 and toks[0].kind == "num")):
+            toks.append(Tok("shell", text[pos:].strip(), col))   # *command: the rest of the line, to K/OS
+            break
         if kind == "str":
             if not val.endswith('"') or len(val) == 1:
                 raise BasicError(lineno, col, 'a string with no closing "')
@@ -100,6 +104,9 @@ def tokenize(text, lineno):
         elif kind == "id":
             up = val.upper()
             if up == "REM":
+                break
+            if up == "DATA":
+                toks.append(Tok("data", text[pos:], col))       # the items, as written
                 break
             if up in KEYWORDS:
                 kind, val = "kw", up
@@ -118,8 +125,10 @@ class Stmt:
         self.line, self.toks = line, toks
 
 
-def split_statements(source):
-    """The program as (line, [Tok]) statements, labels as ('label', name)."""
+def split_statements(source, subs=()):
+    """The program as (line, [Tok]) statements, labels as ('label', name).
+    "Name:" is a label unless Name is a SUB: then it is a call, and the ':'
+    separates it from the next statement."""
     out = []
     for lineno, text in enumerate(source.split("\n"), 1):
         text = text.rstrip("\r")
@@ -130,7 +139,7 @@ def split_statements(source):
         if toks[0].kind == "num" and re.fullmatch(r"\d+", toks[0].val):
             out.append(("label", lineno, toks[0].val, toks[0].col))
             toks = toks[1:]
-        elif len(toks) > 1 and toks[0].kind == "id" and toks[1].isop(":") and not toks[0].val.endswith(("$", "%")):
+        elif len(toks) > 1 and toks[0].kind == "id" and toks[1].isop(":") and not toks[0].val.endswith(("$", "%")) and toks[0].val not in subs:
             out.append(("label", lineno, toks[0].val, toks[0].col))
             toks = toks[2:]
         cur = []
@@ -181,12 +190,32 @@ def strlit(s):
     return "SLit('" + s.replace("'", "''") + "')"
 
 
+def split_data(raw):
+    """DATA's items: "quoted" or as written, separated by commas"""
+    items, cur, q, quoted = [], "", False, False
+    for ch in raw:
+        if ch == '"':
+            if not q and not quoted:
+                cur = ""                     # the spaces before an opening quote are not the item's
+            q = not q
+            quoted = True
+            continue
+        if ch == "," and not q:
+            items.append(cur if quoted else cur.strip())
+            cur, quoted = "", False
+            continue
+        cur += ch
+    items.append(cur if quoted else cur.strip())
+    return items
+
+
 # --- the translator ---------------------------------------------------------------
 
 class Translator:
     def __init__(self, source, filename):
         self.filename = filename
-        self.items = split_statements(source)
+        subs = set(n.upper() for n in re.findall(r"(?im)^\s*(?:\d+\s+)?SUB\s+([A-Za-z_][A-Za-z0-9_]*)", source))
+        self.items = split_statements(source, subs)
         self.vars = {}            # pascal name -> type
         self.arrays = {}          # BASIC name -> (dims)
         self.consts = set()
@@ -198,6 +227,11 @@ class Translator:
         self.gosubs = 0
         self.uses_gosub = False
         self.uses_gfx = False
+        self.uses_data = False
+        self.restores = []
+        self.data = []
+        self.data_at = {}
+        self.scope_locals = {}
         self.out = []             # (pascal text, basic line) of the block being written
         self.indent = 1
         self.scope = None         # the SUB or FUNCTION being written
@@ -223,7 +257,7 @@ class Translator:
 
     def declare(self, name):
         p = pname(name)
-        if self.scope and p in self.scope_params:
+        if self.scope and (p in self.scope_params or p in self.scope_locals):
             return p
         self.vars.setdefault(p, vtype(name))
         return p
@@ -425,7 +459,7 @@ class Translator:
         "COS": ("n", "n", "MathCos({0})"), "TAN": ("n", "n", "MathTan({0})"), "ATN": ("n", "n", "MathAtan({0})"),
         "EXP": ("n", "n", "MathExp({0})"), "LOG": ("n", "n", "MathLn({0})"),
         "LEN": ("s", "i", "SLen({0})"), "ASC": ("s", "i", "SAsc({0})"), "VAL": ("s", "n", "SVal({0})"),
-        "PEEK": ("n", "i", "Peek(KAddr({0}))"), "INSTR": ("ss", "i", "SInstr({0}, {1})"),
+        "PEEK": ("n", "i", "KPeek({0})"), "INSTR": ("ss", "i", "SInstr({0}, {1})"),
         "LEFT$": ("si", "s", "SLeft({0}, {1})"), "RIGHT$": ("si", "s", "SRight({0}, {1})"),
         "CHR$": ("i", "s", "SCh({0})"), "STR$": ("n", "s", "SStrN({0})"),
         "UCASE$": ("s", "s", "SUpper({0})"), "LCASE$": ("s", "s", "SLower({0})"),
@@ -512,12 +546,22 @@ class Translator:
         """NAME(i[, j]) -- an array element (DIMmed to 10 if never DIMmed)"""
         name = t.val
         a = self.args(c)
-        if name not in self.arrays:
-            self.arrays[name] = [10] * len(a)
-        dims = self.arrays[name]
+        arrays = self.scope_arrays if self.scope and name in self.scope_arrays else self.arrays
+        if name not in arrays:
+            arrays[name] = [10] * len(a)
+        dims = arrays[name]
         if len(a) != len(dims):
             self.err(c.line, t.col, "%s has %d dimension(s)" % (name, len(dims)))
-        idx = ", ".join("KIdx(%s, %d, %d)" % (self.to_int(x, c.line), d, c.line) for x, d in zip(a, dims))
+        parts = []
+        for x, d in zip(a, dims):
+            ix = self.to_int(x, c.line)
+            if re.fullmatch(r"\d+", ix) and int(ix) <= d:
+                parts.append(ix)                          # a number in range: nothing to check
+            elif re.fullmatch(r"\d+", ix):
+                self.err(c.line, t.col, "%s(%s): the array goes to %d" % (name, ix, d))
+            else:
+                parts.append("KIdx(%s, %d, %d)" % (ix, d, c.line))
+        idx = ", ".join(parts)
         return ("%s[%s]" % (aname(name), idx), vtype(name))
 
     # -- statements
@@ -539,6 +583,15 @@ class Translator:
             return ("Result", vtype(t.val))
         return (self.declare(t.val), vtype(t.val))
 
+    def assign_raw(self, code, t, v, line):
+        """code := v, v already Pascal of type t (a string one as a string)"""
+        if "[" in code and "Result" not in code:
+            tmp = {"n": "kb_tn", "i": "kb_ti", "s": "kb_ts"}[t]
+            self.vars[tmp] = t
+            self.emit("%s := %s;" % (tmp, v), line)
+            v = tmp
+        self.emit("%s := %s;" % (code, v), line)
+
     def assign(self, lhs, e, line):
         code, t = lhs
         v = self.conv(e, t, line)
@@ -557,6 +610,11 @@ class Translator:
         """one simple statement (blocks are handled by block())"""
         c = self.Cursor(toks, line)
         t = c.peek()
+        if t.kind == "shell":
+            self.emit("Shell(SGet(%s)); kb_col := 0;" % strlit(t.val), line)
+            return
+        if t.kind == "data":
+            return                                      # gathered by prescan
         if t.kind == "kw":
             kw = t.val
             c.next()
@@ -671,10 +729,11 @@ class Translator:
         self.emit("Randomize;", c.line)
 
     def s_POKE(self, c, t):
-        a = "KAddr(%s)" % self.to_single(self.expr(c), c.line)
+        a = self.to_single(self.expr(c), c.line)
         self.expect_op(c, ",")
         v = self.to_int(self.expr(c), c.line)
-        self.emit("Poke(%s, byte(%s));" % (a, v), c.line)
+        self.end_of(c, "POKE address, value")
+        self.emit("KPoke(%s, %s);" % (a, v), c.line)
 
     # -- graphics: the GRAPH unit's bitmap over the text (EhBASIC's words)
     def gargs(self, c, n, what):
@@ -716,6 +775,119 @@ class Translator:
     def s_CIRCLE(self, c, t):
         a = self.gargs(c, 4, "CIRCLE x, y, radius, colour")
         self.emit("KGfxOn; SetColor(%s); Circle(%s, %s, %s);" % (a[3], a[0], a[1], a[2]), c.line)
+
+    def s_READ(self, c, t):
+        self.uses_data = True
+        while True:
+            code, ty = self.target(c)
+            h = "KB_Read(%d)" % c.line
+            v = {"s": "SGet(%s)" % h, "n": "SVal(%s)" % h, "i": "KToI(SVal(%s), %d)" % (h, c.line)}[ty]
+            self.assign_raw(code, ty, v, c.line)
+            if not (c.peek() and c.peek().isop(",")):
+                break
+            c.next()
+        self.end_of(c, "READ's variables")
+
+    def s_RESTORE(self, c, t):
+        self.uses_data = True
+        if c.at_end():
+            self.emit("kb_dp := 0; kb_do := 0;", c.line)
+            return
+        lab = c.next()
+        self.end_of(c, "RESTORE's label")
+        if not lab or lab.val not in self.data_at:
+            self.err(c.line, lab.col if lab else c.col(), "RESTORE to which label?")
+        k = self.data_at[lab.val]
+        off = sum(len(x) + 1 for x in self.data[:k])
+        self.emit("kb_dp := %d; kb_do := %d;" % (k, off), c.line)
+
+    def s_ON(self, c, t):
+        v = self.to_int(self.expr(c), c.line)
+        how = c.next()
+        if not how or not how.iskw("GOTO", "GOSUB"):
+            self.err(c.line, c.col(), "ON value GOTO a, b, ... (or GOSUB)")
+        labs = []
+        while True:
+            lab = c.next()
+            if not lab or lab.kind not in ("id", "num"):
+                self.err(c.line, c.col(), "a label after ON ... %s" % how.val)
+            self.use_label(lab, c.line)
+            labs.append(lab.val)
+            if not (c.peek() and c.peek().isop(",")):
+                break
+            c.next()
+        self.end_of(c, "ON's labels")
+        self.vars["kb_on"] = "i"
+        self.emit("kb_on := %s;" % v, c.line)
+        cases = " ".join("%d: goto L_%s;" % (k + 1, l) for k, l in enumerate(labs))
+        if how.val == "GOTO":
+            self.emit("if (kb_on > 0) and (kb_on < %d) then case byte(kb_on) of %s end;" % (len(labs) + 1, cases), c.line)
+            return
+        self.uses_gosub = True
+        self.gosubs += 1
+        n = self.gosubs
+        self.emit("if (kb_on > 0) and (kb_on < %d) then begin" % (len(labs) + 1), c.line)
+        self.emit("  if kb_rp = 64 then KError(%d, 'Too many GOSUBs inside each other');" % c.line, c.line)
+        self.emit("  kb_rs[kb_rp] := %d; inc(kb_rp);" % n, c.line)
+        self.emit("  case byte(kb_on) of %s end;" % cases, c.line)
+        self.emit("end;", c.line)
+        self.out.append(("R_%d:" % n, c.line))
+
+    def s_DEF(self, c, t):
+        n = c.next()
+        name = n.val
+        _, params, _ = self.subs[name]
+        while c.peek() and not c.peek().isop("="):
+            c.next()
+        c.next()
+        saved_out, saved_indent = self.out, self.indent
+        self.out, self.indent = [], 1
+        self.scope, self.scope_params = name, set(pname(p) for p in params)
+        self.scope_locals = {}
+        e = self.expr(c)
+        self.end_of(c, "DEF FN's value")
+        self.assign(("Result", vtype(name)), e, c.line)
+        body = self.out
+        self.scope, self.scope_params = None, set()
+        self.out, self.indent = saved_out, saved_indent
+        self.make_block("FUNCTION", name, params, body, c.line, c.line, {}, {})
+
+    def s_SHELL(self, c, t):
+        h = self.to_str(self.expr(c), c.line)
+        self.end_of(c, "SHELL's command")
+        self.emit("Shell(SGet(%s)); kb_col := 0;" % h, c.line)
+
+    def s_PALETTE(self, c, t):
+        a = [self.to_int(self.expr(c), c.line)]
+        while c.peek() and c.peek().isop(","):
+            c.next()
+            a.append(self.to_int(self.expr(c), c.line))
+        self.end_of(c, "PALETTE")
+        if len(a) != 4:
+            self.err(c.line, t.col, "PALETTE index, red, green, blue")
+        self.emit("KPalette(%s);" % ", ".join(a), c.line)
+
+    def s_SPRDEF(self, c, t):
+        a = self.ints(c, 5, "SPRDEF n, page, width, height, bpp")
+        self.emit("KSprDef(%s);" % ", ".join(a), c.line)
+
+    def s_SPRITE(self, c, t):
+        a = self.ints(c, 3, "SPRITE n, x, y")
+        self.emit("KSprite(%s);" % ", ".join(a), c.line)
+
+    def s_SPROFF(self, c, t):
+        a = self.ints(c, 1, "SPROFF n")
+        self.emit("KSprOff(%s);" % a[0], c.line)
+
+    def ints(self, c, n, what):
+        a = [self.to_int(self.expr(c), c.line)]
+        while c.peek() and c.peek().isop(","):
+            c.next()
+            a.append(self.to_int(self.expr(c), c.line))
+        self.end_of(c, what)
+        if len(a) != n:
+            self.err(c.line, c.col(), what)
+        return a
 
     def s_END(self, c, t):
         self.end_of(c, "END")
@@ -766,7 +938,18 @@ class Translator:
             if not n or n.kind != "id":
                 self.err(c.line, c.col(), "DIM NAME(size)")
             if not (c.peek() and c.peek().isop("(")):
-                self.err(c.line, c.col(), "DIM %s(size): the size in ( )" % n.val)
+                # DIM x: in a SUB or FUNCTION, a variable of its own
+                if self.scope:
+                    p = pname(n.val)
+                    if p in self.scope_params:
+                        self.err(c.line, n.col, "%s is already a parameter" % n.val)
+                    self.scope_locals[p] = vtype(n.val)
+                else:
+                    self.declare(n.val)
+                if not (c.peek() and c.peek().isop(",")):
+                    break
+                c.next()
+                continue
             c.next()
             dims = []
             while True:
@@ -785,7 +968,8 @@ class Translator:
                     self.err(c.line, c.col(), "',' or ')' expected")
             if len(dims) > 2:
                 self.err(c.line, n.col, "one or two dimensions")
-            if n.val in self.arrays:
+            arrays = self.scope_arrays if self.scope else self.arrays
+            if n.val in arrays:
                 self.err(c.line, n.col, "%s is DIMmed twice (or used before its DIM)" % n.val)
             if n.val.endswith("$"):
                 size = 81
@@ -798,7 +982,7 @@ class Translator:
                 cells *= d + 1
             if cells * size > 24000:
                 self.err(c.line, n.col, "%s is too big for the program's memory (%d bytes)" % (n.val, cells * size))
-            self.arrays[n.val] = dims
+            arrays[n.val] = dims
             if not (c.peek() and c.peek().isop(",")):
                 break
             c.next()
@@ -863,18 +1047,37 @@ class Translator:
             it = self.items[i]
             self.err(it[1], 1, "this does not belong here")
         self.main = self.out
-        if any(vtype(n) == "s" for n in self.arrays):
-            self.vars["kb_ts"] = "s"          # the empty string the arrays start from
+        if self.arrays or any(b for b in self.blocks.values()):
+            self.vars["kb_es"] = "s"          # "" for the string arrays to start from
         for lab, (line, col) in self.used_labels.items():
             if lab not in self.labels:
                 self.err(line, col, "there is no label %s" % lab)
 
     def prescan(self):
-        """SUB and FUNCTION names first: a call may come before them"""
+        """SUB, FUNCTION and DEF FN names first: a call may come before them;
+        and every DATA item, in order, with where each label starts in them"""
+        self.data = []                 # the items, as strings
+        self.data_at = {}              # label -> index of the first item after it
         for it in self.items:
-            if it[0] != "stmt":
+            if it[0] == "label":
+                self.data_at[it[2]] = len(self.data)
                 continue
             toks = it[2]
+            for t in toks:
+                if t.kind == "data":
+                    self.data += split_data(t.val)
+            if toks[0].iskw("DEF"):
+                if len(toks) < 2 or toks[1].kind != "id" or not toks[1].val.startswith("FN"):
+                    self.err(it[1], toks[0].col, "DEF FNname(x) = value")
+                name = toks[1].val
+                eq = [k for k, t in enumerate(toks) if t.isop("=")]
+                if not eq:
+                    self.err(it[1], toks[0].col, "DEF FNname(x) = value")
+                params = [t.val for t in toks[2:eq[0]] if t.kind == "id"]
+                if name in self.subs:
+                    self.err(it[1], toks[1].col, "%s is defined twice" % name)
+                self.subs[name] = ("FUNCTION", params, it[1])
+                continue
             if toks[0].iskw("SUB", "FUNCTION") and len(toks) > 1 and toks[1].kind == "id":
                 name = toks[1].val
                 params = [t.val for t in toks[2:] if t.kind == "id"]
@@ -1036,10 +1239,17 @@ class Translator:
             cond = "%s <= %s" % (v[0], lim)
             inc = "%s := %s + 1;" % (v[0], v[0])
         else:
-            stp = self.temp(v[1])
-            self.emit("%s := %s;" % (stp, self.conv(step, v[1], line)), line)
-            cond = "((%s > 0) and (%s <= %s)) or ((%s < 0) and (%s >= %s)) or (%s = 0)" % (stp, v[0], lim, stp, v[0], lim, stp)
-            inc = "%s := %s + %s;" % (v[0], v[0], stp)
+            lit = re.fullmatch(r"\(?(-?)\(?(\d+(?:\.\d+)?)\)?\)?", step[0].replace(" ", ""))
+            if lit:                                        # STEP 2, STEP -1: the direction is known
+                sv = float(lit.group(1) + lit.group(2))
+                stp = step[0] if v[1] == "n" or sv == int(sv) else self.conv(step, v[1], line)
+                cond = ("%s <= %s" if sv > 0 else "%s >= %s" if sv < 0 else "%s = %s") % (v[0], lim) if sv != 0 else "true"
+                inc = "%s := %s + %s;" % (v[0], v[0], stp if v[1] == "n" else str(int(sv)))
+            else:
+                stp = self.temp(v[1])
+                self.emit("%s := %s;" % (stp, self.conv(step, v[1], line)), line)
+                cond = "((%s > 0) and (%s <= %s)) or ((%s < 0) and (%s >= %s)) or (%s = 0)" % (stp, v[0], lim, stp, v[0], lim, stp)
+                inc = "%s := %s + %s;" % (v[0], v[0], stp)
         self.emit("while %s do begin" % cond, line)
         self.indent += 1
         self.loops.append("for")
@@ -1200,12 +1410,20 @@ class Translator:
         self.out, self.indent, self.loops = [], 1, []
         self.scope = name
         self.scope_params = set(pname(p) for p in params)
+        self.scope_locals, self.scope_arrays = {}, {}
         j = self.block(i + 1, lambda it: self.is_end(it, kind))
         self.closer(j, line, "%s (END %s)" % (kind, kind))
         body = self.out
+        locals_, arrays = self.scope_locals, self.scope_arrays
         self.scope = None
-        self.scope_params = set()
+        self.scope_params, self.scope_locals, self.scope_arrays = set(), {}, {}
         self.out, self.indent, self.loops = saved_out, saved_indent, saved_loops
+        self.make_block(kind, name, params, body, line, self.items[j][1], locals_, arrays)
+        return j + 1
+
+    def make_block(self, kind, name, params, body, line, endline, locals_, arrays):
+        """the Pascal procedure or function; its DIMmed variables are its own,
+        0 or "" at each call (static underneath: no recursion)"""
         plist = "; ".join("%s: %s" % (pname(p), PTYPE[vtype(p)]) for p in params)
         base = name.rstrip("$%").lower()
         if kind == "SUB":
@@ -1213,12 +1431,38 @@ class Translator:
         else:
             head = ("function f_%s(%s): %s;" % (base, plist, PTYPE[vtype(name)]) if params
                     else "function f_%s: %s;" % (base, PTYPE[vtype(name)]))
-        lines = [(head, line), ("begin", line)]
+        lines = [(head, line)]
+        decl, init = [], []
+        for p, ty in sorted(locals_.items()):
+            decl.append("  %s: %s;" % (p, PTYPE[ty]))
+            init.append("  %s;" % ("%s[0] := chr(0)" % p if ty == "s" else "%s := 0" % p))
+        for an, dims in sorted(arrays.items()):
+            decl.append("  %s: %s;" % (aname(an), self.array_type(an, dims)))
+            init += ["  " + x for x in self.array_init(an, dims)]
+        if any(vtype(an) == "s" for an in arrays):
+            decl.append("  kb_k, kb_j: word;")
+        if decl:
+            lines.append(("var", line))
+            lines += [(d, line) for d in decl]
+        lines.append(("begin", line))
+        lines += [(x, line) for x in init]
         if kind == "FUNCTION":
             lines.append(("  %s;" % ("Result[0] := chr(0)" if vtype(name) == "s" else "Result := 0"), line))
-        lines += body + [("end;", self.items[j][1])]
+        lines += body + [("end;", endline)]
         self.blocks[name] = lines
-        return j + 1
+
+    def array_type(self, name, dims):
+        ty = "string[80]" if vtype(name) == "s" else PTYPE[vtype(name)]
+        return "array[%s] of %s" % (", ".join("0..%d" % d for d in dims), ty)
+
+    def array_init(self, name, dims):
+        """not FillChar for strings: a string array is a table of pointers in Mad Pascal"""
+        self.vars["kb_es"] = "s"
+        if vtype(name) != "s":
+            return ["FillChar(%s, SizeOf(%s), 0);" % (aname(name), aname(name))]
+        if len(dims) == 1:
+            return ["for kb_k := 0 to %d do %s[kb_k] := kb_es;" % (dims[0], aname(name))]
+        return ["for kb_k := 0 to %d do for kb_j := 0 to %d do %s[kb_k, kb_j] := kb_es;" % (dims[0], dims[1], aname(name))]
 
     # -- the Pascal program
     def pascal(self, progname):
@@ -1233,13 +1477,20 @@ class Translator:
         if self.uses_gosub:
             labels += ["L_RET"] + ["R_%d" % n for n in range(1, self.gosubs + 1)]
         put("label %s;" % ", ".join(labels))
-        if self.vars or self.arrays or self.temps or self.uses_gosub or self.uses_gfx:
+        if self.uses_data:
+            b = []
+            for x in self.data:
+                enc = x.encode("latin-1")[:255]
+                b += [len(enc)] + list(enc)
+            put("const")
+            put("  KB_DN = %d;" % len(self.data))
+            put("  KB_DATA: array[0..%d] of byte = (%s);" % (max(len(b), 1) - 1, ", ".join(str(v) for v in (b or [0]))))
+        if self.vars or self.arrays or self.temps or self.uses_gosub or self.uses_gfx or self.uses_data:
             put("var")
         for p, ty in sorted(self.vars.items()):
             put("  %s: %s;" % (p, PTYPE[ty]))
         for name, dims in sorted(self.arrays.items()):
-            ty = "string[80]" if vtype(name) == "s" else PTYPE[vtype(name)]
-            put("  %s: array[%s] of %s;" % (aname(name), ", ".join("0..%d" % d for d in dims), ty))
+            put("  %s: %s;" % (aname(name), self.array_type(name, dims)))
         for name, ty in self.temps:
             put("  %s: %s;" % (name, PTYPE[ty]))
         if any(vtype(n) == "s" for n in self.arrays):
@@ -1247,8 +1498,18 @@ class Translator:
         if self.uses_gosub:
             put("  kb_rs: array[0..63] of byte;")
             put("  kb_rp, kb_ret: byte;")
+        if self.uses_data:
+            put("  kb_dp, kb_do: word;")
         if self.uses_gfx:
             put("  kb_gfx: boolean;")
+            put("  kb_gmode: byte;")
+            put("  KB_KMODE: byte absolute $022F;")
+            put("  KB_V: array[0..255] of byte absolute $D000;")
+        # every variable above, every routine below (a routine ends the var section)
+        if self.uses_data:
+            for l in DATA_HELPERS.strip("\n").split("\n"):
+                put(l)
+        if self.uses_gfx:
             for l in GFX_HELPERS.strip("\n").split("\n"):
                 put(l)
         put("procedure KB_Halt;")
@@ -1263,19 +1524,16 @@ class Translator:
         put("  kb_file := '%s';" % self.filename.replace("'", "''"))
         put("  KStart;")
         if self.uses_gfx:
-            put("  kb_gfx := false;")
+            put("  kb_gfx := false; kb_gmode := 255;")
+        if self.uses_data:
+            put("  kb_dp := 0; kb_do := 0;")
         if self.uses_gosub:
             put("  kb_rp := 0;")
         for p, ty in sorted(self.vars.items()):
             put("  %s;" % ("%s[0] := chr(0)" % p if ty == "s" else "%s := 0" % p))
         for name in sorted(self.arrays):
-            dims = self.arrays[name]
-            if vtype(name) != "s":
-                put("  FillChar(%s, SizeOf(%s), 0);" % (aname(name), aname(name)))
-            elif len(dims) == 1:     # (not FillChar: a string array is a table of pointers in Mad Pascal)
-                put("  for kb_k := 0 to %d do %s[kb_k] := kb_ts;" % (dims[0], aname(name)))
-            else:
-                put("  for kb_k := 0 to %d do for kb_j := 0 to %d do %s[kb_k, kb_j] := kb_ts;" % (dims[0], dims[1], aname(name)))
+            for x in self.array_init(name, self.arrays[name]):
+                put("  " + x)
         out.extend(self.main)
         put("  goto L_END;")
         if self.uses_gosub:
@@ -1297,11 +1555,32 @@ class Translator:
 # (GRAPHICS 3, the screen as it is, unless GRAPHICS said otherwise), and a
 # program that ends with it on waits for a key and closes it.
 GFX_HELPERS = '''
-procedure KGraphics(m: smallint);
+procedure KGraphics(m: smallint);   // 0 off, 1 320x240, 2 640x480, 3 the screen as it is (EhBASIC's)
+var c: byte;
 begin
   if kb_gfx then CloseGraph;
   kb_gfx := m > 0;
-  if m = 1 then InitGraph(1) else if m > 1 then InitGraph(0);
+  if m = 0 then begin
+    if kb_gmode < 3 then begin                  // the console mode GRAPHICS found
+      if kb_gmode = 0 then Shell('MODE 0') else if kb_gmode = 1 then Shell('MODE 1') else Shell('MODE 2');
+      kb_gmode := 255;
+    end;
+    exit;
+  end;
+  if (m = 1) or (m = 2) then
+    if kb_gmode = 255 then kb_gmode := KB_KMODE and 7;
+  if m = 1 then begin                           // MODE 2 doubles a 320x240 picture
+    if (KB_KMODE and 7) <> 2 then Shell('MODE 2');
+    c := KB_V[0];
+    InitGraph(0);
+    KB_V[0] := c;
+    gfx_width := 320; gfx_height := 240; ScreenWidth := 320; ScreenHeight := 240;
+    KB_V[$26] := 64; KB_V[$27] := 1;            // the stride: 320
+    ClearDevice;
+  end else if m = 2 then begin
+    if (KB_KMODE and 7) <> 0 then Shell('MODE 0');
+    InitGraph(1);
+  end else InitGraph(0);
 end;
 procedure KGfxOn;
 begin
@@ -1310,7 +1589,21 @@ end;
 function KGfxSize(h: byte): smallint;
 begin
   KGfxOn;
-  if h = 1 then Result := GetMaxY else Result := GetMaxX;   // (the K4510 unit's GetMaxX is the width)
+  if h = 1 then Result := gfx_height else Result := gfx_width;
+end;
+'''
+
+# DATA's reader: the items are packed as [length][bytes] in KB_DATA
+DATA_HELPERS = '''
+function KB_Read(line: word): byte;
+var n, i: byte; s: string;
+begin
+  if kb_dp = KB_DN then KError(line, 'Out of DATA');
+  n := KB_DATA[kb_do];
+  for i := 1 to n do s[i] := chr(KB_DATA[kb_do + i]);
+  s[0] := chr(n);
+  kb_do := kb_do + n + 1; inc(kb_dp);
+  Result := SPut(s);
 end;
 '''
 
@@ -1354,9 +1647,8 @@ def main():
     with open(os.path.join(d, fname), "rb") as f:
         source = f.read().decode("latin-1")     # CP437 bytes, kept as they are
     stem = os.path.splitext(fname)[0]
-    progname = re.sub(r"[^a-z0-9_]", "_", stem.lower())
-    if not re.match(r"[a-z]", progname):
-        progname = "p_" + progname
+    # always prefixed: FLOAT.BAS as "program float" collides with Mad Pascal's type
+    progname = "b_" + re.sub(r"[^a-z0-9_]", "_", stem.lower())
     try:
         tr = Translator(source, fname)
         tr.run()

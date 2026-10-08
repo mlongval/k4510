@@ -67,6 +67,12 @@ function KIdx(i: smallint; max: smallint; line: word): word;
 procedure KSleep(x: single);
 procedure KColor(f, b: smallint);
 procedure KLocate(r, c: smallint);
+function KPeek(a: single): byte;
+procedure KPoke(a: single; v: smallint);
+procedure KPalette(i, r, g, b: smallint);
+procedure KSprDef(n, page, w, h, bpp: smallint);
+procedure KSprite(n, x, y: smallint);
+procedure KSprOff(n: smallint);
 procedure KError(line: word; const msg: string);
 procedure KStart;
 procedure KEnd;
@@ -75,9 +81,12 @@ implementation
 
 const
   ERRBUF = $4F0000;                // far memory for MAKE.ERR's line
+  SPRTAB = $03F800;                // the sprite table, 128 x 16 bytes (where EhBASIC keeps it)
   NSLOT = 24;
 
 var
+  VK: array[0..255] of byte absolute $D000;
+  kb_sprinit: boolean;
   kb_ss: array[0..NSLOT - 1] of string;
   kb_sn: byte;
 
@@ -448,6 +457,72 @@ begin
   GotoXY(c, r); kb_col := c - 1;
 end;
 
+// PEEK and POKE: 0-65535 the CPU's view (I/O at $D000 too), above that
+// far memory, flat -- as EhBASIC's programs expect ($040000 for sprites)
+function KPeek(a: single): byte;
+var c: cardinal;
+begin
+  if a < 0 then a := 0;
+  c := trunc(a);
+  if c < 65536 then Result := Peek(c) else Result := FarPeek(c);
+end;
+
+procedure KPoke(a: single; v: smallint);
+var c: cardinal;
+begin
+  if a < 0 then a := 0;
+  c := trunc(a);
+  if c < 65536 then Poke(c, v and 255) else FarPoke(c, v and 255);
+end;
+
+procedure KPalette(i, r, g, b: smallint);
+begin
+  VK[6] := i; VK[7] := r; VK[8] := g; VK[9] := b;   // the fourth write commits
+end;
+
+// the sprite table's entry for sprite n, the table pointed at and enabled
+function SprBase(n: smallint): cardinal;
+begin
+  if not kb_sprinit then begin DmaFill(SPRTAB, 2048, 0); kb_sprinit := true; end;
+  VK[$0A] := SPRTAB and 255; VK[$0B] := (SPRTAB shr 8) and 255; VK[$0C] := SPRTAB shr 16; VK[$0D] := 0;
+  VK[$0E] := 1;
+  Result := SPRTAB + cardinal(n and 127) * 16;
+end;
+
+function SizeCode(w: smallint): byte;
+begin
+  if w = 8 then Result := 0 else if w = 32 then Result := 2 else if w = 64 then Result := 3 else Result := 1;
+end;
+
+// SPRDEF n,page,w,h,bpp: the picture at page*256, w x h of 8/16/32/64, 4 or 8 bpp
+procedure KSprDef(n, page, w, h, bpp: smallint);
+var e: cardinal; c: byte;
+begin
+  e := SprBase(n);
+  FarPoke(e + 4, 0); FarPoke(e + 5, page and 255); FarPoke(e + 6, (page shr 8) and 255); FarPoke(e + 7, 0);
+  FarPoke(e + 9, SizeCode(w) or (SizeCode(h) shl 2));
+  c := (FarPeek(e + 8) and 1) or $30;
+  if bpp = 8 then c := c or 2;
+  FarPoke(e + 8, c);
+  if bpp = 8 then FarPoke(e + 10, 0) else FarPoke(e + 10, 1);
+end;
+
+procedure KSprite(n, x, y: smallint);
+var e: cardinal;
+begin
+  e := SprBase(n);
+  FarPoke(e, x and 255); FarPoke(e + 1, (x shr 8) and 255);
+  FarPoke(e + 2, y and 255); FarPoke(e + 3, (y shr 8) and 255);
+  FarPoke(e + 8, FarPeek(e + 8) or 1);
+end;
+
+procedure KSprOff(n: smallint);
+var e: cardinal;
+begin
+  e := SprBase(n);
+  FarPoke(e + 8, FarPeek(e + 8) and $FE);
+end;
+
 procedure EPut(var p: cardinal; const s: string);
 var i: byte;
 begin
@@ -471,7 +546,7 @@ end;
 
 procedure KStart;
 begin
-  kb_col := 0; kb_sn := 0;
+  kb_col := 0; kb_sn := 0; kb_sprinit := false;
   Randomize;
 end;
 

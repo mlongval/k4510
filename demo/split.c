@@ -22,7 +22,7 @@
  * Meanwhile the program draws a ribbon of blitter lines into the bitmap
  * above the split as fast as it can, erasing the line sixteen behind, and
  * prints in the text band how many lines a second it managed.
- * EX/SPLIT.BAS in EhBASIC and SPLIT.BAS in /LANG/MSBASIC do the same thing,
+ * EX/SPLIT.BAS in EhBASIC does the same thing (MS BASIC's SPLIT.BAS went with it, 2026-10-07),
  * to see what a BASIC makes of it.
  *
  * Any key leaves: SHEILA off, the layers back, the ROM's screen restored --

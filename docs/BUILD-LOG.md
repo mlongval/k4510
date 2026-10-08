@@ -12086,3 +12086,29 @@ handbook not rebuilt.  The EhBASIC chapter points new programs to it.
 SHIPPING.CFG: chapter:05-basic and lang:BASIC are new, as `maybe' -- Doc's
 mark to make.  Deployed earlier today: 0.9-53dfa45 on the Dell, bastest 25/25
 there, a FOR/PRINT program compiled and run.
+
+**2026-10-08: the EhBASIC examples in K4510 BASIC; integer maths on FRED.**
+Doc: "Please convert all the EhBasic examples to the new compatible dialect".
+/LANG/BASIC/EX has them all, written again: the benchmarks (RF1-8 run 100
+times and divided -- compiled they finish inside one frame; SIEVE in a
+whole-number array, 1899 primes in 0.24 s), the graphics demos, RES with its
+steps as DATA, INVADERS with LOCATE/COLOR/SUBs instead of poking the screen,
+INVADER2 straight into far memory, a self-test, and DEMOS and BENCH as menus
+that SHELL each program.  INVADER2 and TEST wait on a translator fix (a SUB
+calling a FUNCTION written below it; a Pascal compile that dies silently), and
+are out of the Makefile until then.  doc-18's batches: DATA/READ/RESTORE,
+ON GOTO/GOSUB, DEF FN, *command and SHELL, EhBASIC's GRAPHICS numbering,
+PALETTE, sprites, DIM-locals, far PEEK/POKE; docs/KBASIC.md and the chapter.
+Recursion: Mad Pascal does it (a self-calling routine gets its locals per
+call; `pascal` for mutual recursion), tested on the machine -- sent to doc-18.
+Then Doc, via doc-18: "move all maths to FRED ONLY if it improves speed".  The
+Pascal runtime's whole-number multiply and divide (imulCX, imulCX_AL, imulECX,
+@WORD, @divAX_CL, @CARDINAL, idivEAX_CX) now go through FRED's integer unit
+at $D770 (pascal/mp/base/k4510/fredint.asm; mads -d:SOFTINT=1 for the old
+ones).  A checksum over 2000 mixed cases matches the software routines, and
+20000 of each, in frames: word*word 16 -> 5, word div 7 14 -> 7, word div
+word 21 -> 7, cardinal* 46 -> 7, cardinal div 115 -> 14, smallint* 16 -> 4,
+smallint div 17 -> 10, cardinal mod 10 65 -> 9; byte*byte 5 -> 5 (the
+compiler does that one inline).  Every case won, so all of it stays.  The
+BASIC benchmarks did not move: their variables are floats (on the MATH unit
+already) and array indexing multiplies nothing.

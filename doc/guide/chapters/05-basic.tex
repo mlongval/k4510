@@ -26,7 +26,8 @@ quick calculation or a one-line try, use RX: there \verb|PRINT| works like
 \verb|SAY|, so \texttt{PRINT 6*7} prints 42.
 
 EhBASIC is still on the machine for the old numbered programs in
-\verb|/LANG/EHBASIC|.
+\verb|/LANG/EHBASIC|. Every one of its examples is in \verb|/LANG/BASIC/EX| too,
+written again in K4510 BASIC: \verb|DEMOS| and \verb|BENCH| are the menus.
 
 \section{A first program}
 
@@ -88,7 +89,8 @@ A whole-number variable rounds what it is given: \texttt{n\% = 3.7} makes 4. A
 value outside -32768..32767 stops the program with ``Overflow''.
 
 \textbf{Every variable belongs to the whole program}, wherever it is used,
-except the parameters of a SUB or FUNCTION (see below).
+except the parameters of a SUB or FUNCTION and what a SUB or FUNCTION
+DIMs for itself (see below).
 
 \subsection{Arrays}
 
@@ -268,9 +270,51 @@ PRINT Area(3, 4)
 \item A FUNCTION gives back the value assigned to its own name.
 \item They can be written anywhere in the file, before or after they are used.
 \item \texttt{EXIT SUB} and \texttt{EXIT FUNCTION} leave early.
-\item \textbf{Only the parameters are their own.} Every other variable inside a SUB or FUNCTION is the program's variable of that name.
+\item \textbf{Local variables:} \texttt{DIM x, n\%, s\$} or \texttt{DIM t(3)} inside a SUB or FUNCTION makes them its own, 0 or ``'' at every call, hiding the program's variables of the same name. Its parameters are its own too. Every other variable inside it is the program's variable of that name.
+\item A SUB or FUNCTION cannot call itself (no recursion): its own variables are kept in one place, not one set per call.
+\item \texttt{Name: next statement} is a call of the SUB Name followed by another statement; for any other name, \verb|Name:| at the start of a line is a label.
 \item Labels, GOTO and GOSUB stay outside SUBs and FUNCTIONs.
 \end{itemize}
+
+\subsection{DATA and READ}
+
+\begin{type}
+FOR i = 1 TO 3: READ name$, age: PRINT name$; age: NEXT
+DATA Ada, 36, "Grace", 85
+DATA Alan, 41
+RESTORE           ' READ starts again from the first DATA
+RESTORE Colours   ' ... or from the DATA after a label
+\end{type}
+
+\begin{itemize}
+\item DATA can be anywhere in the program; READ takes the items in order.
+\item An item is a number, a ``quoted'' text, or text written as it is (the spaces round it trimmed).
+\item READ past the last item stops the program with ``Out of DATA''.
+\end{itemize}
+
+\subsection{ON ... GOTO, DEF FN}
+
+\begin{type}
+ON choice% GOTO One, Two, Three     ' 1 to One, 2 to Two ...
+ON choice% GOSUB One, Two, Three
+DEF FNarea(w, h) = w * h            ' a one-line function
+DEF FNfull$(a$, b$) = a$ + " " + b$
+PRINT FNarea(3, 4)
+\end{type}
+
+A value outside 1 to the number of labels goes on to the next statement.
+
+\subsection{The shell: * and SHELL}
+
+\begin{type}
+*MODE 640x480               ' the rest of the line goes to K/OS, : and all
+SHELL "MODE " + size$       ' a command worked out by the program
+SHELL "INVADERS"            ' runs another program; this one goes on after it
+\end{type}
+
+A program that changes the screen gets the shell's own screen back when
+it ends (which clears it): wait for a key before END if the last words
+matter.
 
 \subsection{Other statements}
 
@@ -283,7 +327,7 @@ PRINT Area(3, 4)
 \texttt{LET x = 5} & the same as \texttt{x = 5} \\
 \texttt{SLEEP 1.5} & waits that many seconds \\
 \verb|RANDOMIZE| & new random numbers (every program already starts with fresh ones) \\
-\texttt{POKE address, value} & writes a byte into memory \\
+\texttt{POKE address, value} & writes a byte into memory: 0-65535 is what the CPU sees, I/O included; 65536 and up is the machine's far memory (to 16 MB), as \verb|PEEK| reads it \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -333,9 +377,14 @@ do. Colour 0 is see-through: the text shows through it.
 \toprule
 \textbf{Statement} & \textbf{What it does} \\
 \midrule
-\texttt{GRAPHICS 1} & the picture on, 640 x 480 \\
-\texttt{GRAPHICS 3} & the picture on, at the size of the screen as it is \\
-\texttt{GRAPHICS 0} & the picture off \\
+\texttt{GRAPHICS 1} & the picture on, 320 x 240 (MODE 2), as in EhBASIC \\
+\texttt{GRAPHICS 2} & the picture on, 640 x 480 (MODE 0) \\
+\texttt{GRAPHICS 3} & the picture on, at the size of the screen as it is (after \texttt{*MODE 400x300}, say) \\
+\texttt{GRAPHICS 0} & the picture off, and the text mode GRAPHICS found back \\
+\texttt{PALETTE i, r, g, b} & colour i (0-255) as red, green, blue (0-255); 0-15 are the text's \\
+\texttt{SPRDEF n, page, w, h, bpp} & sprite n (0-127) has its shape at page*256 in far memory, w x h (8, 16, 32, 64), 4 or 8 bits a pixel \\
+\texttt{SPRITE n, x, y} & puts sprite n there and shows it \\
+\texttt{SPROFF n} & hides it \\
 \verb|GCLS| & clears the picture \\
 \texttt{PLOT x, y, c} & one dot \\
 \texttt{LINE x1, y1, x2, y2, c} & a line \\
@@ -393,13 +442,11 @@ SELECT CASE), labels, SUB and FUNCTION, CONST.
 \textbf{Not there (yet):}
 
 \begin{itemize}
-\item \verb|DATA|, \verb|READ|, \verb|RESTORE|
-\item \texttt{ON ... GOTO} / \texttt{ON ... GOSUB}, \texttt{DEF FN}
 \item \texttt{PRINT USING}, \texttt{LINE INPUT}, \verb|WRITE|
 \item \verb|SWAP|, \verb|ERASE|, \verb|REDIM|
-\item local variables (only parameters are a SUB's own), \verb|SHARED|, \verb|STATIC|
+\item recursion; \verb|SHARED|, \verb|STATIC|
 \item labels, \verb|GOTO| and \verb|GOSUB| inside a SUB or FUNCTION
-\item files (\verb|OPEN|, \verb|LOAD|, \verb|SAVE|), \verb|SOUND|, \verb|PALETTE|, \verb|TIMER|, \verb|DATE$|
+\item files (\verb|OPEN|, \verb|LOAD|, \verb|SAVE|), \verb|SOUND|, \verb|TIMER|, \verb|DATE$|
 \item arrays of more than two dimensions; text array elements longer than 80
 \item immediate mode (use RX)
 \end{itemize}

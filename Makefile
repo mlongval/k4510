@@ -318,6 +318,18 @@ fs/LANG/PASCAL/EX/$1.prg: fs/LANG/PASCAL/EX/$(call uc,$1).PAS fs/LANG/PASCAL/EX/
 	cd fs/LANG/PASCAL/EX && MP_DIR=$$(MP_DIR) MADS=$$(MADS) ../../../../tools/k4510-pas $(call uc,$1) >/dev/null
 endef
 $(foreach n,$(PAS_EX_NAMES),$(eval $(call PAS_EX_RULE,$n)))
+# The K4510 BASIC examples (fs/LANG/BASIC/EX, the EhBASIC ones carried over,
+# 2026-10-08): tools/k4510-bas turns each into Pascal with its runtime
+# (tools/kbasic/kbasrt.pas) and k4510-pas compiles it, name.prg beside it.
+BAS_EX_NAMES = rf1 rf2 rf3 rf4 rf5 rf6 rf7 rf8 float expr ahl drogon sieve bench \
+               lines tris sine stars split graph2d graph3d res invaders demos readme
+BAS_EX_PRGS = $(foreach n,$(BAS_EX_NAMES),fs/LANG/BASIC/EX/$n.prg)
+pascal-prgs: $(BAS_EX_PRGS)
+define BAS_EX_RULE
+fs/LANG/BASIC/EX/$1.prg: fs/LANG/BASIC/EX/$(call uc,$1).BAS tools/k4510-bas tools/kbasic/kbasrt.pas tools/k4510-pas $$(wildcard pascal/mp/base/k4510/*) $$(wildcard pascal/mp/lib/*)
+	MP_DIR=$$(MP_DIR) MADS=$$(MADS) K4510_ROOT=$$(CURDIR)/fs tools/k4510-bas /LANG/BASIC/EX/$(call uc,$1).BAS >/dev/null
+endef
+$(foreach n,$(BAS_EX_NAMES),$(eval $(call BAS_EX_RULE,$n)))
 
 # Programs in C with cc65, .prg files (4-byte header) loaded by the ROM.
 # Where each lands is where it belongs on the machine's disk (fs/HOME/README.TXT):

@@ -1,0 +1,11 @@
+' Sine waves plotted point by point -- K4510 BASIC
+GRAPHICS 2
+PALETTE 16, 255, 255, 255: PALETTE 17, 255, 120, 0: PALETTE 18, 0, 200, 255
+LINE 0, 240, 639, 240, 16
+FOR x% = 0 TO 639
+  PLOT x%, 240 - 100 * SIN(x% / 40), 17
+  PLOT x%, 240 - 60 * SIN(x% / 15), 18
+NEXT
+PRINT "ANY KEY"
+DO: GET k$: LOOP UNTIL k$ <> ""
+GRAPHICS 0

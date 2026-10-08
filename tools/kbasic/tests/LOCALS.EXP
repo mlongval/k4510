@@ -1,0 +1,5 @@
+L: 0  0
+L: 5 local 10
+L: 6 local 12
+G: 100 global 42
+ 10  7  4  1

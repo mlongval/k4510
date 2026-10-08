@@ -50,5 +50,18 @@ out=$(run 1920x1080 'MODE --bogus
 MODE 999x1
 ')
 has "mode: -l (--list)" "an unknown option says what there is"
-has "mode: not a size this panel offers" "a size the panel has not"
-echo "paneltest: OK (the list on 1080p, 768p, 4K and the whole panel; MODE -l, -s, --scale=, WxH, -d; the grids and their fallbacks)"
+has "mode: WxH, 160x100 at least" "a size too small to be one"
+# Integer Best Fit (2026-10-08): a size the panel does not offer is the program's own,
+# at the largest whole multiple -- smoothed only when asked; larger than the panel refused
+out=$(run 1920x1080 'MODE 640x480
+MODE
+')
+has "MODE 5: 80x30 text, 640x480 pixels, the best whole multiple" "MODE 640x480: Integer Best Fit, 80x30 in 8x16 cells"
+out=$(run 1920x1080 'MODE 800x600 --smooth
+MODE
+')
+has "800x600 pixels, smoothed to the panel" "--smooth asks for smoothing"
+out=$(run 1366x768 'MODE 1600x1200
+')
+has "mode: larger than this panel" "a size larger than the panel is refused"
+echo "paneltest: OK (the list on 1080p, 768p, 4K and the whole panel; MODE -l, -s, --scale=, WxH, -d; the grids and their fallbacks; Integer Best Fit and --smooth)"

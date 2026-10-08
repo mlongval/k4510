@@ -77,6 +77,8 @@ procedure DmaFill(dst, len: cardinal; v: byte);
 (* @description: the DMA engine fills len bytes with v *)
 procedure Shell(const cmd: string);
 (* @description: one shell line, as if typed (the ROM's SHELL call) *)
+procedure SetResolution(w, h: word; smooth: boolean);
+(* @description: ask for a screen of w x h pixels (MODE WxH): the panel's own if it has one that size, else Integer Best Fit -- the largest whole multiple, centred and bordered; smooth asks for smoothing to the panel instead.  Too large for the panel: nothing changes.  The graph unit's InitGraph(0) then draws at that size *)
 function LoadFile(const name: string; dest: cardinal): cardinal;
 (* @description: a whole file to a physical address (the ROM's LOAD); the size, 0 on failure *)
 function SaveFile(const name: string; src, len: cardinal): boolean;
@@ -149,6 +151,22 @@ end;
    wrote a file called "C#", and Shell made K/OS answer "?" (2026-10-03).
    A name or command line is cut at 95 characters, the buffer's size (and
    the shell's own line): a longer one ran over the stack (2026-10-04). *)
+procedure SetResolution(w, h: word; smooth: boolean);
+var s: string[32];
+    procedure num(v: word);
+    var d: array[0..5] of char; k: byte;
+    begin
+        k := 0;
+        repeat d[k] := chr(48 + v mod 10); v := v div 10; inc(k); until v = 0;
+        while k > 0 do begin dec(k); inc(s[0]); s[ord(s[0])] := d[k]; end;
+    end;
+begin
+	s := 'MODE ';
+	num(w); inc(s[0]); s[ord(s[0])] := 'x'; num(h);
+	if smooth then s := concat(s, ' -m');
+	Shell(s);
+end;
+
 procedure Shell(const cmd: string);
 var buf: array[0..95] of char;
     i, n: byte;

@@ -64,7 +64,7 @@ void rtc_latch(void);
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
  * banks 1+ are appended 8 KB images called through sw_call(): 1-4 are used. */
-static uint8_t COLS, ROWS, vmode, vdiv, rows60, rows60_set;   /* rows60: the mode's other cells -- 640x480 in 8x8 (80x60, Doc, 2026-09-15),
+static uint8_t COLS, ROWS, vmode, vdiv, rows60, rows60_set, vsoft;   /* vsoft: GLASSCTL's presentation bits for a software size (vdiv VDIV_SOFT) */   /* rows60: the mode's other cells -- 640x480 in 8x8 (80x60, Doc, 2026-09-15),
                                                          * and since 2026-10-06 720x540 in 8x8 (90x67), 1440x1080 in 16x16 (90x67) */                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240);
                                                       * hd-modes: 5 90x33 (1440x1080, 16x32 cells)  6 90x33 (720x540)  7 45x33 (360x270); video_init sets them */
 uint8_t PCOLS;                                       /* physical text cells: the terminal starts at (0,0); */
@@ -304,6 +304,7 @@ static uint8_t caps(uint8_t k)
  * keeps the whole thing ~20 bytes, which is what the resident ROM has. */
 static void video_init(void);
 static void cls(void);
+#define VDIV_SOFT 0xFF                    /* vdiv: not an IDR but a size of the program's own (MODE WxH, Integer Best Fit) */
 #pragma code-name (push, "CODE2")   /* resident; ROM1C is full, ROM2 has the room */
 static void mode_do(void)
 {
@@ -839,7 +840,7 @@ static void run_at(uint16_t a)
     /* Layer 0 is the console itself, so it is in the list: a program that
      * borrows it for a bitmap (CHESS at 640x480) and switches it off on the
      * way out left the mode unchanged and the console dark (2026-09-07). */
-    uint8_t v0 = REG(VICKY + 0), bgc = REG(VICKY + 1), l0 = REG(VICKY + 0x10), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E);
+    uint8_t v0 = REG(VICKY + 0), bgc = REG(VICKY + 1), l0 = REG(VICKY + 0x10), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E), svm, svd;
     for (i = 0; i < sizeof tpl; i++) t[i] = tpl[i];
     for (b = 5; b <= 7; b++) {
         uint8_t *slot = t + 2 + 3 * (b - 5);
@@ -862,11 +863,13 @@ static void run_at(uint16_t a)
                                                  * there is no way out of the editor.  The shell
                                                  * gets its caps lock back when the program ends. */
       REG(SYS + 0x41) = 1;                      /* the title: this program (the host has its name from the load) */
+      svm = vmode; svd = vdiv;                  /* a size the program asked for (MODE WxH) ends with it */
       prog_running = 1; call_prog(TRAMP); prog_running = 0;
       REG(SYS + 0x41) = 2;                      /* ... and back to whoever ran it */
       capslock = cl; }
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); jim_cursor(0); }   /* and the console follows a program that used it */
     jraw("\x1b[10m\x1b[?7h"); jim_fg = 0xFF;    /* what a program may have left: glyphs for controls, autowrap off; colours again */
+    if (vdiv == VDIV_SOFT && (vmode != svm || vdiv != svd)) { vmode = svm; vdiv = svd; v0 = (uint8_t) ~REG(VICKY + 0); }   /* the shell's own screen again */
     if (v0 != REG(VICKY + 0) || bgc != REG(VICKY + 1) || l0 != REG(VICKY + 0x10) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
         l3 != REG(VICKY + 0x40) || sc != REG(VICKY + 0x0E)) {
         video_init();
@@ -1911,7 +1914,7 @@ static void mode_row(uint8_t i)
 }
 static void cmd_mode(const char *p)
 {
-    uint8_t c, d, list = 0, set = 0, i, n; uint16_t m;
+    uint8_t c, d, list = 0, set = 0, i, n, smooth = 0; uint16_t m;
     /* POSIX options since 2026-10-07 (Doc: "/1 etc is a DOS era throwback"):
      *   MODE                 the mode now
      *   MODE -l, --list      this panel's integer display resolutions
@@ -1919,14 +1922,20 @@ static void cmd_mode(const char *p)
      *   MODE WxH             the same, by its size
      *   MODE -d, --double    the smaller cells: twice the rows
      *   MODE -n, --normal    the larger again
-     *   MODE 0-2, 5-7        the numbers, as before (5 6 7: scale 1 2 4) */
-  opt_p = p; opt_l = "llist\0s:scale\0ddouble\0nnormal\0";
+     *   MODE 0-2, 5-7        the numbers, as before (5 6 7: scale 1 2 4)
+     *   MODE WxH, any other  Integer Best Fit (2026-10-08, Doc): that size, at
+     *                        the largest whole multiple the panel holds, centred,
+     *                        bordered in the frame colour; -m (--smooth) asks for
+     *                        smoothing instead -- an effect is asked for, never
+     *                        given.  Larger than the panel is refused. */
+  opt_p = p; opt_l = "llist\0s:scale\0ddouble\0nnormal\0msmooth\0";
   for (;;) {                                         /* options before the operand and after it */
     while ((c = opt_next()) != 0) {
         if (c == 'l') list = 1;
         else if (c == 's') { m = opt_num(&d); if (!d || !m) { error("mode: -s N, a scale MODE -l lists"); return; } vdiv = (uint8_t) m; vmode = 5; set = 1; }
         else if (c == 'd' || c == 'n') { rows60 = (uint8_t)(c == 'd'); rows60_set = 1; set = 1; }
-        else { error("mode: -l (--list), -s N (--scale=N), WxH, -d (--double), -n (--normal), 0-2 5-7"); return; }
+        else if (c == 'm') { smooth = 1; if (vdiv == VDIV_SOFT) { vsoft = 0x10; set = 1; } }
+        else { error("mode: -l (--list), -s N (--scale=N), WxH [-m (--smooth)], -d (--double), -n (--normal), 0-2 5-7"); return; }
     }
     p = opt_p;
     if (*p) {
@@ -1934,8 +1943,13 @@ static void cmd_mode(const char *p)
         if (d && (*p | 0x20) == 'x') {                    /* WxH: the IDR of that size */
             uint16_t h; ++p; h = decnum(&p, &d); n = REG(VICKY + 0xC8);
             for (i = 0; i < n; i++) { REG(VICKY + 0xC9) = i; if (r16(VICKY + 0xCC) == m && r16(VICKY + 0xCE) == h) break; }
-            if (!d || i == n) { error("mode: not a size this panel offers -- MODE -l"); return; }
-            vdiv = REG(VICKY + 0xCA); vmode = 5;
+            if (!d || m < 160 || h < 100) { error("mode: WxH, 160x100 at least"); return; }
+            if (i < n && !smooth) { vdiv = REG(VICKY + 0xCA); vmode = 5; }   /* one of the panel's own: as it is */
+            else {                                                           /* any other: the program's own size (VICKY's software glass) */
+                if (m > r16(VICKY + 0xC0) || h > r16(VICKY + 0xC2)) { error("mode: larger than this panel -- no whole multiple fits"); return; }
+                w16(VICKY + 0xD2, m); w16(VICKY + 0xD4, h);
+                vdiv = VDIV_SOFT; vsoft = (uint8_t)(smooth ? 0x10 : 0); vmode = 5;
+            }
         } else {
             /* 0-2 only. 3 (320x200) and 4 (160x200) leave too few columns to read a
              * way back out, and someone meeting the machine for the first time should
@@ -1952,7 +1966,9 @@ static void cmd_mode(const char *p)
         puts_("MODE "); putdec(vmode); puts_(": "); putdec(COLS); k_chrout('x'); putdec(ROWS); puts_(" text, ");
         if (vmode < 5) puts_(vmode == 0 ? "640x480" : vmode == 1 ? "640x240" : vmode == 2 ? "320x240" : vmode == 3 ? "320x200" : "160x200");
         else { putdec(r16(VICKY + 0xD6)); k_chrout('x'); putdec(r16(VICKY + 0xD8)); }
-        puts_(" pixels"); if (vmode >= 5) { puts_(", scale "); putdec(REG(VICKY + 0xDA)); }
+        puts_(" pixels");
+        if (vdiv == VDIV_SOFT && vmode >= 5) puts_(vsoft ? ", smoothed to the panel" : ", the best whole multiple");
+        else if (vmode >= 5) { puts_(", scale "); putdec(REG(VICKY + 0xDA)); }
         newline();
         if (list) { puts_("this panel, "); putdec(r16(VICKY + 0xC0)); k_chrout('x'); putdec(r16(VICKY + 0xC2)); puts_(", offers:"); newline();
                     for (n = REG(VICKY + 0xC8), i = 0; i < n; i++) mode_row(i); }
@@ -2137,7 +2153,8 @@ static void video_init(void)
      * cells. */
     if (vmode >= 5) {
         uint8_t d = vmode == 6 ? 2 : vmode == 7 ? 4 : (vdiv ? vdiv : 1);
-        REG(VICKY + 0xD1) = d; REG(VICKY + 0xD0) = 1;
+        if (vmode == 5 && vdiv == VDIV_SOFT) REG(VICKY + 0xD0) = (uint8_t)(2 | vsoft);   /* a program's own size: Integer Best Fit, or smoothed if it asked */
+        else { REG(VICKY + 0xD1) = d; REG(VICKY + 0xD0) = 1; }
         d = (uint8_t)(REG(VICKY + 0xDA) == 1 || REG(VICKY + 0xD7) > 4);   /* scale 1, or wider than 1279: 16-wide cells (132 columns at most) */
         csz = (uint8_t)(d ? (alt ? 2 : 3) : (alt ? 0 : 1));
         REG(VICKY + 0xDB) = csz;

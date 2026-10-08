@@ -55,7 +55,7 @@ DESC = {
     # screen
     "CLS":     (2, "CLS", "Clear the text screen."),
     "CLG":     (2, "CLG", "Clear the bitmap over the text, whoever drew it."),
-    "MODE":    (2, "MODE [-l] [-s N | WxH | n] [-d | -n]", "Alone, say the mode. -l (--list): this panel's integer display resolutions, each with its text grids. -s N (--scale=N), or its size: the one at scale N. -d (--double): twice the rows, in smaller letters; -n (--normal) the larger again. 0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4."),
+    "MODE":    (2, "MODE [-l] [-s N | WxH [-m] | n] [-d | -n]", "Alone, say the mode. -l (--list): this panel's integer display resolutions, each with its text grids. -s N (--scale=N), or its size: the one at scale N. Any other size WxH is Integer Best Fit: exactly that, at the largest whole multiple the panel holds, centred and bordered; -m (--smooth) smooths it to the panel instead; larger than the panel is refused. A program's size ends with the program. -d (--double): twice the rows, in smaller letters; -n (--normal) the larger again. 0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4."),
     "COLOR":   (2, "COLOR fg [bg] [!]", "The text colours, as palette indices in hex. A pair the palette makes hard to read is refused, with one that reads suggested; ! has it anyway."),
     "PALETTE": (2, "PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]", "The 256 colours: list them, set one, load a .PAL from /SYSTEM/ETC/PALETTES, save them, or put the machine's own back."),
     "BANNER":  (2, "BANNER", "Clear the screen and print the power-on banner again."),

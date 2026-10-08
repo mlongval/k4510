@@ -296,7 +296,7 @@ clean-demos:
 TOOLCHAIN := $(firstword $(wildcard $(HOME)/Projects/K4510/toolchain $(HOME)/Projects/neo6502_dev) $(HOME)/Projects/K4510/toolchain)
 MP_DIR ?= $(TOOLCHAIN)/Mad-Pascal
 MADS   ?= $(TOOLCHAIN)/Mad-Assembler/mads
-PAS_NAMES = hello pfloat pgraph pmandel psieve animal funcs bankwin kunit
+PAS_NAMES = hello pfloat pgraph pibf pmandel psieve animal funcs bankwin kunit
 PAS_PRGS = $(foreach n,$(PAS_NAMES),fs/LANG/PASCAL/$n.prg)
 pascal-prgs: $(PAS_PRGS)
 pascal: pascal-prgs

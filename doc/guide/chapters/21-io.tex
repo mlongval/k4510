@@ -27,6 +27,38 @@ firmware source. This chapter is the map of what lives where:
 \end{tabular}
 \end{center}
 
+\section{Choosing a resolution}\label{sec:resolution}
+A program never assumes a screen. The panel decides what the machine
+shows --- 1920$\times$1080, 1366$\times$768, whatever the computer has --- and
+K/OS picks one of that panel's integer display resolutions for itself. A
+program does one of two things:
+
+\begin{itemize}[leftmargin=1.4em]
+\item \textbf{Use the screen it is given.} VICKY says its size
+  (\texttt{\$D0D6} GLASSW, \texttt{\$D0D8} GLASSH; Pascal's
+  \verb|GetMaxX| and \verb|GetMaxY| after \verb|InitGraph(0)|), and the
+  program places things as shares of it.
+\item \textbf{Ask for a size.} \verb|MODE 640x480| --- from the prompt, from
+  a program through the shell (\verb|rom_shell| in C, \verb|SetResolution(640, 480, false)| in Pascal's \verb|k4510| unit, \verb|*MODE 640x480| in
+  EhBASIC). If the panel has an integer resolution of that size, that is
+  it. If not, it is \textbf{Integer Best Fit}: exactly 640$\times$480
+  pixels, shown at the largest whole multiple the panel holds, centred,
+  the rest bordered in the frame colour --- on 1920$\times$1080, twice,
+  1280$\times$960 with borders of 320 and 60. Nothing is blurred.
+  K/OS lays its text out on it (80$\times$30 in 8$\times$16 cells), and when
+  the program ends the shell's own screen comes back.
+\end{itemize}
+
+\noindent \textbf{Effects are asked for, never given.}
+\verb|MODE 640x480 --smooth| (\verb|-m|; \verb|SetResolution(640, 480, true)|)
+fills the panel instead, by the largest whole multiple and then smoothing
+--- sharp-bilinear, soft only at the last step. Scanlines will be asked for
+the same way (VICKY reserves \texttt{\$D0D0} bit~6). A size larger than the
+panel is refused: no whole multiple fits, and shrinking is not a fit.
+Underneath it is VICKY's software resolution: \texttt{\$D0D0} GLASSCTL~2,
+the size in \texttt{\$D0D2}-\texttt{\$D0D5}, bit~4 for smoothing
+(Appendix~\ref{cha:registers}).
+
 \section{A split screen: SHEILA}\label{sec:split}
 The Apple~II put four lines of text under its graphics; C64 programmers
 did the same with a raster interrupt timed to the line. On this machine

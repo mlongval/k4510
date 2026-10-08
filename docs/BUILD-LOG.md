@@ -12001,3 +12001,16 @@ consoles.  vt_away() asks the kernel (VT_GETSTATE on our own /dev/tty, every
 100 ms) whether our console is the active one, and while it is not, keyboard,
 mouse and touchpad events are dropped.  A password typed at another console
 would have gone the same way: this mattered.
+
+**2026-10-08: Integer Best Fit -- a program may ask for its size** (Doc's
+idea).  `MODE WxH` with a size the panel does not list is no longer an error:
+the machine draws a WxH screen and shows it at the largest whole multiple that
+fits the panel, black around it (software glass, GLASSCTL 2).  `-m`/`--smooth`
+asks for smoothing to the panel instead; scanlines are reserved (GLASSCTL bit
+6) for later.  Smaller than 160x100, or larger than the panel, is refused.  K/OS
+lays its text out on the new size (640x480: 80x30).  A program that changed to
+such a size gets the shell's size back when it ends.  Pascal:
+`SetResolution(w, h, smooth)` (PIBF.PAS shows it); EhBASIC: `*MODE 640x480`.
+Handbook: "Choosing a resolution" in the I/O chapter, MODE in the reference
+(sources only, not rebuilt).  test/paneltest.sh covers 640x480, 800x600 -m and
+the refusal.

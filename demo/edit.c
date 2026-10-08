@@ -40,6 +40,7 @@
 #include "k4510.h"
 static void ui_start(void);
 #define ED_SCREEN_BACK() ui_start()
+#define ED_HICODE                               /* a little of ed.h at $E000 too (2026-10-08) */
 #include "ed.h"
 #include "dosui.h"
 #define DOSED_SCROLL_HI                                /* dosed.h's scroll_rows at $E000 */

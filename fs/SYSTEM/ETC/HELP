@@ -86,8 +86,9 @@ system:  INFO [-vcmgsft]   TIME   HUSH   RESET
          BUG (asks you about a fault and writes the
          report to /SYSTEM/LOG/BUGREPORTS)
 tongues: EHBASIC  BBC  FORTH  LOGO  RX
-         PAS name / CC name (compile name.PAS or
-         name.C here into name.prg)
+         PAS name / CC name / BAS name (compile
+         name.PAS, name.C or name.BAS here into
+         name.prg); RX's PRINT is SAY
          in a BASIC, *command is the shell's and
          *BYE comes back here; *VI edits the program
 linux:   !command / ! (the Linux beneath)

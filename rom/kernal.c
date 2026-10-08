@@ -2068,6 +2068,7 @@ static void shell_line(const char *p)
     if (*p == '!') { p++; skipsp(&p); cmd_bang(p); return; }   /* !ls -l  the host's shell, where there is one */
     if (is_cmd(&p, "PAS")) { cmd_compile("k4510-pas", p); return; }   /* PAS HELLO: HELLO.PAS -> hello.prg, here */
     if (is_cmd(&p, "CC"))  { cmd_compile("k4510-cc", p); return; }
+    if (is_cmd(&p, "BAS")) { cmd_compile("k4510-bas", p); return; }   /* BAS HELLO: HELLO.BAS compiled -> hello.prg (2026-10-08, doc-18's translator) */
     if (is_cmd(&p, "SSH")) { cmd_compile("ssh", p); return; }        /* SSH [user@]host -- an interactive session on the Linux's ssh */
     alias_hit = 0; sw_call(3, nav, p); if (alias_hit) return;   /* CD/CHDIR/MOUNT/UMOUNT, bank 3 */
     { const shcmd_t *c;                                   /* DIR, TYPE, RUN, ... (shcmds, above) */

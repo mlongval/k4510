@@ -85,6 +85,7 @@ DESC = {
     "TERMINAL":(6, "TERMINAL", "Show JIM's second screen: a terminal session on the Linux beneath, or wherever /SYSTEM/ETC/TERMINAL.CFG says (an ssh to a tmux, say), running whatever the machine does. Alt+1 comes back to K/OS, Alt+2 goes there again. Locked off with !@sec:screens@."),
     "PAS":     (6, "PAS name", "Compile name.PAS here with Mad Pascal into name.prg."),
     "CC":      (6, "CC name", "Compile name.C here with cc65 into name.prg."),
+    "BAS":     (6, "BAS name", "Compile name.BAS here into name.prg: BASIC with EhBASIC's words, labels, blocks, SUB and FUNCTION, no line numbers needed. Errors, and the program's own errors when it runs, go to MAKE.ERR with the BASIC line."),
     # programs
     "BANDS":     (7, "BANDS", "A program writing to the bottom status band."),
     "BOOK":      (7, "BOOK [n | word | page]", "This handbook, on the machine: the contents, chapter n, or the chapter whose title holds the word. Tab chooses a link, Enter follows it, Backspace comes back."),
@@ -229,7 +230,7 @@ def commands():
                 w = where
                 if names[0] == "HELP":
                     w = "runs TYPE"
-                elif names[0] in ("PAS", "CC", "SSH"):
+                elif names[0] in ("PAS", "CC", "BAS", "SSH"):
                     w = "ROM, on the Linux"
                 found.append((names, w))
     if "*p == '!'" not in func_body(src, "shell_line"):

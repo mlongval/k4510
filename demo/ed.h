@@ -587,6 +587,18 @@ static void mkdir_of_name(void)                      /* the file's directory: MA
     for (s = name; s < e && k < NAMEMAX - 1; ) ed_mkdir[k++] = *s++;
     ed_mkdir[k] = 0;
 }
+#ifdef ED_HICODE
+#pragma code-name (push, "HICODE")                /* PROG: its main image is full (2026-10-08) */
+#endif
+static unsigned first_e(void)                        /* MAKE.ERR's first error (not a warning), or nerr */
+{
+    unsigned e; uint8_t k;
+    for (e = 0; e < nerr; e++) { far_get(ERRTAB + ((uint32_t)e << 7) + 3, &k, 1); if (k == 'E') break; }
+    return e;
+}
+#ifdef ED_HICODE
+#pragma code-name (pop)
+#endif
 static uint8_t do_make(void)                         /* 1 if it compiled without an error */
 {
     char *c = shline; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
@@ -616,7 +628,7 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
         note = nbuf;
         return 1;
     }
-    for (e = 0; e < nerr; e++) { far_get(ERRTAB + ((uint32_t)e << 7) + 3, &i, 1); if (i == 'E') break; }
+    e = first_e();
     if (e < nerr) err_go(e);
     else if (nerr) err_go(0);
     else { nb_reset(); nb_s("make: failed, rc "); nb_n(rc); nb_s(" -- nothing in MAKE.ERR"); note = nbuf; }
@@ -653,7 +665,10 @@ static void do_run(void)
     goline(keepy); cx = keepx;
     if (cx >= ln[0]) cx = ln[0] ? (uint8_t)(ln[0] - 1) : 0;
     dirty = 0;
-    if (rx) { err_load(); if (nerr) { err_go(0); return; } }   /* "RX: line 12: ..." -- to line 12 */
+    /* "RX: line 12: ..." -- to line 12; and a compiled program's runtime
+     * error (compiled BASIC's runtime writes NAME.BAS:N:0:E:msg, 2026-10-08):
+     * the compile left warnings only, so an E there is the run's */
+    if (rx || !interp) { unsigned e; err_load(); if ((e = first_e()) < nerr) { err_go(e); return; } }
     if (rc) { nb_reset(); nb_s("run: rc "); nb_n(rc); nb_s(" (from inside a SWAP? leave the editor and run it)"); note = nbuf; }
     else note = "ran it; the file is as saved";
 }

@@ -12054,3 +12054,14 @@ straight to ALSA (PipeWire is not here).  On the Dell: mpv + ffmpeg = 199
 packages, 121 MB on p4, 2.5 minutes to build; mpv 0.40 played a test tone
 through dmix, yt-dlp 2025.04.30.  squashfs-tools joins the base.
 docs/STORAGE.md 3a, handbook (Linux chapter).
+
+**2026-10-08: the K4510 side of compiled BASIC** (Doc via doc-18: "go ahead,
+start the translator and the rest"; doc-18 writes tools/k4510-bas, a BASIC to
+Mad Pascal translator with EhBASIC's words, labels and blocks).  The shell
+word `BAS name` runs k4510-bas as PAS and CC run theirs (allowed past the
+Linux lock too).  PROG and VI, after running a compiled program, read
+MAKE.ERR again: an E line there is the program's runtime error (the compile
+leaves warnings only) and the cursor goes to it, as for RX.  PROG and EDIT
+were full: MAKE.ERR's first-error search went to $E000.  RX takes PRINT for
+SAY -- the scratchpad that BASIC's immediate mode was.  Still to come with the
+tool: .BAS in PROG compiles instead of running EhBASIC.

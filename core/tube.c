@@ -405,7 +405,7 @@ static void tube_start(int prog)                  /* 1 = BBC BASIC, 3 = CP/M (Ru
         /* Locked (k4510-menu.cfg): no way into Linux -- `!`, `!cmd`, SSH.  PAS and
          * CC come through here too, as k4510-pas/k4510-cc, and may pass.  The
          * reason goes out as the session's only output, and no session starts. */
-        if (io_lock_linux && strncmp(cmd, "k4510-pas", 9) && strncmp(cmd, "k4510-cc", 8)) {
+        if (io_lock_linux && strncmp(cmd, "k4510-pas", 9) && strncmp(cmd, "k4510-cc", 8) && strncmp(cmd, "k4510-bas", 9)) {
             const char *m = "Linux is locked on this machine (k4510-menu.cfg)\r\n";
             while (*m) ring_put((uint8_t) *m++);
             tube_refused = 1;

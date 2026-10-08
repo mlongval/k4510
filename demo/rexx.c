@@ -1212,7 +1212,7 @@ static void exec_stmt(const char *s)
         setlen(sym, skipsp(s), n); resolve(sym, name);
         eval(r + 1, v); var_set(name, v); tpop(); tpop(); tpop(); return;
     }
-    if (!strcmp(w, "SAY")) { char *v = tpush(); if (*r) eval(r, v); outs(v); nl(); tpop(); return; }
+    if (!strcmp(w, "SAY") || !strcmp(w, "PRINT")) {   /* PRINT: BASIC's word for it (Doc, 2026-10-08: RX the scratchpad BASIC's immediate mode was) */ char *v = tpush(); if (*r) eval(r, v); outs(v); nl(); tpop(); return; }
     if (!strcmp(w, "NOP")) return;
     if (!strcmp(w, "IF")) {
         char *v = tpush(); char *t = find_kw((char *)r, "THEN"); uint8_t yes;

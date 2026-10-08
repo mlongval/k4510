@@ -33,6 +33,7 @@
 #define ED_NO_RENUM                             /* renumbering BASIC is EDIT's and VI's: PROG has no room for it */
 static void ui_start(void);
 #define ED_SCREEN_BACK() ui_start()
+#define ED_HICODE                               /* a little of ed.h at $E000 too */
 #include "ed.h"
 #include "dosui.h"
 #include "dosed.h"

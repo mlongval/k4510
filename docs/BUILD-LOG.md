@@ -11894,3 +11894,23 @@ bit1 says three.  tools/mkhdfonts.py makes every face at 24x48 and 24x24 too:
 Terminus and Spleen from their 12x24 cuts doubled, the TrueType faces drawn at
 24x48, the VGA, Proggy and Tamzen tripled; the 16x32 files came out
 byte-identical.  480x360 draws 1440x1080, the cap's own size.
+
+## 2026-10-07 -- header dependencies; ROM room: bank 4
+
+**Dependencies.**  `-MMD -MP` in CFLAGS and the `.d` files included: a changed
+header rebuilds what includes it (core/vicky.h: fifteen objects and the
+frontend files).  The frontend is built an object a file -- one gcc line with
+several sources writes only the last one's list -- and the link lines take
+`$(filter %.c %.o,$^)`, since the prerequisites now include headers ($^ handed
+them to gcc, which wrote a precompiled header where test/woztest belonged).
+
+**ROM room.**  ROM2 had 77 bytes, bank 2 43, bank 0's window 308; today's
+palette code only just fitted.  Sideways bank 4 is opened (rom/k4510.cfg SW4;
+kernal.bin 48 KB -> 56 KB): PALETTE whole moves there from bank 2 (with
+pal_after's strings, which were resident in CODE2), and RM and RADIO from bank
+0's window; the monitor words (MON WOZ FILL COPY) move from ROM2 into bank 0's
+window -- not a sideways bank, because they run a shell line and sw_call does
+not nest.  A small script over rom/kernal.s (each proc's segment and its jsr
+targets) checked that nothing moved calls a routine in another bank.  Free
+now: ROM2 442, ROM1A 614, ROM1C 387, SW2 3681, SW4 3860.  The ROM claims banks
+1-4; 5-16 are the programs'.

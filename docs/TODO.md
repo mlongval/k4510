@@ -168,11 +168,14 @@ carries them: packages.list has them since 2026-10-06).
 - [ ] **BSS relief:** BSSR $0440-$05FF, 381 of 448 bytes (the 64-byte zp
       save buffers went 2026-10-06).  $063A-$06FF, the rest of the base
       page, is free for a second BSS segment if it is needed.
-- [ ] **ROM2 has 461 bytes free** (2026-10-06, with the workspace stub; 156 on 2026-10-01, after the band's MHz went;
-      `rom/kernal.map`, CODE2 end to $FEFF).  New resident code goes in a bank.
-- [ ] **User banks** — document the convention: sideways banks 4-15 are
-      user RAM banks; the ROM never claims above bank 3 (bank 3 = the line
-      editor and `DIR -l` since 2026-09-08/11).
+- [x] **ROM room** (2026-10-07): bank 4 opened -- PALETTE (from bank 2 and ROM2's
+      rodata), RM and RADIO (from bank 0's window) -- and the monitor words out of
+      ROM2 into bank 0.  Free now: ROM2 442, ROM1A 614, ROM1C 387, SW2 3681,
+      SW4 3860 (`python3 tools/romfree.py`).  New resident code still goes in a bank.
+- [ ] **User banks** — document the convention: sideways banks 5-16 are
+      user RAM banks; the ROM never claims above bank 4 (bank 3 = the line
+      editor and `DIR -l` since 2026-09-08/11; bank 4 = PALETTE, RM, RADIO
+      since 2026-10-07).  The handbook's memory map says so.
 - [ ] **Wozmon stays** (Doc, 2026-08-29) — recorded here so nobody spends
       its 1.1K: it is the in-shell `MON`/`WOZ` for when the machine is too
       broken to load `SUPERMON.prg` (`docs/BUILD-LOG.md`, 2026-08-29).

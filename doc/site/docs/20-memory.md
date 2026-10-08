@@ -199,7 +199,7 @@ The 256 MB behind the window, by 28-bit address. Everything not in the list is
 </tr>
 <tr class="even">
 <td style="text-align: left;"><code>$FF00000-$FF1FFFF</code></td>
-<td style="text-align: left;">sideways ROM banks 1 to 16, 8 KB each (1 to 3 are used)</td>
+<td style="text-align: left;">sideways ROM banks 1 to 16, 8 KB each: 1 to 4 are the ROM’s, 5 to 16 free for programs</td>
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>$FFFA000-$FFFFFFF</code></td>

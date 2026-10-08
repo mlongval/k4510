@@ -103,7 +103,8 @@ $FD40000           the second screen's text cells (Two screens)
 $FDFF000           the shell's palette, kept while a program runs
 $FE00000           EXEC's script, loaded whole
 $FE10000           a .PAL being loaded
-$FF00000-$FF1FFFF  sideways ROM banks 1 to 16, 8 KB each (1 to 3 are used)
+$FF00000-$FF1FFFF  sideways ROM banks 1 to 16, 8 KB each: 1 to 4 are the
+                   ROM's, 5 to 16 free for programs
 $FFFA000-$FFFFFFF  the ROM image, 24 KB, with a hole where the I/O page covers
                    it
 ```

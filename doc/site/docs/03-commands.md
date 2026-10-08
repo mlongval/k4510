@@ -47,7 +47,7 @@ Alone, say where the machine’s own disk really is – the system in RAM, what 
 **`RENAME [-f] old new`** — *ROM*  
 Rename or move a file. Refuses to overwrite without -f. Also REN, MV.
 
-**`RM [-f] name`** — *ROM*  
+**`RM [-f] name`** — *ROM, bank 4*  
 Move a file to /.TRASH, where DELETE -r gets it back. -f really removes it. Also ERASE, DEL.
 
 **`RMDIR dir`** — *ROM, bank 1*  
@@ -102,7 +102,7 @@ The text colours, as palette indices in hex. A pair the palette makes hard to re
 **`MODE [-l] [-s N | WxH | n] [-d | -n]`** — *ROM, bank 3*  
 Alone, say the mode. -l (–list): this panel’s integer display resolutions, each with its text grids. -s N (–scale=N), or its size: the one at scale N. -d (–double): twice the rows, in smaller letters; -n (–normal) the larger again. 0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4.
 
-**`PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]`** — *ROM, bank 2*  
+**`PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]`** — *ROM, bank 4*  
 The 256 colours: list them, set one, load a .PAL from `/SYSTEM/ETC/PALETTES`, save them, or put the machine’s own back.
 
 ## The machine

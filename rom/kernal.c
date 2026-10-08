@@ -63,7 +63,7 @@ void rtc_latch(void);
 #pragma code-name ("CODE2")
 /* Resident code defaults to CODE2 (the $E000 half). Cold commands live in
  * the sideways window $A000-$BFFF: bank 0 is the base image (SWCODE0),
- * banks 1+ are appended 8 KB images called through sw_call(). */
+ * banks 1+ are appended 8 KB images called through sw_call(): 1-4 are used. */
 static uint8_t COLS, ROWS, vmode, vdiv, rows60, rows60_set;   /* rows60: the mode's other cells -- 640x480 in 8x8 (80x60, Doc, 2026-09-15),
                                                          * and since 2026-10-06 720x540 in 8x8 (90x67), 1440x1080 in 16x16 (90x67) */                    /* MODE 0: 80x30 (640x480, 8x16)  1: 80x30 (640x240)  2: 40x30 (320x240);
                                                       * hd-modes: 5 90x33 (1440x1080, 16x32 cells)  6 90x33 (720x540)  7 45x33 (360x270); video_init sets them */
@@ -611,6 +611,8 @@ static void cmd_mkdir(const char *p)
  * overwritten.  That has to be asked with STAT beforehand -- the device's
  * RENAME takes the host's semantics and overwrites in silence, which is how
  * RANGER's first trash lost a file (docs/BUILD-LOG.md, 2026-08-29). */
+#pragma code-name (push, "SWCODE4")   /* bank 4 (2026-10-07: out of bank 0's window, for room there) */
+#pragma rodata-name (push, "SWRODATA4")
 static void cmd_rm(const char *p)
 {
     char name[NAMEMAX], dst[NAMEMAX + 12];                 /* "/.TRASH/" + name + "~99" + NUL */
@@ -641,6 +643,8 @@ static void cmd_rm(const char *p)
     fs_name(name); w32(FS + 8, (uint16_t)dst);
     if (fs_cmd(16)) { error("rm: could not move it to the trash"); return; }
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 #pragma code-name (push, "SWCODE1")   /* cold: bank 1 (ROM2 was full, 2026-09-07) */
 #pragma rodata-name (push, "SWRODATA1")
 static void cmd_rmdir(const char *p)
@@ -813,6 +817,7 @@ static void video_init(void);
  * half that built it is gone until the next system call. */
 #define TRAMP 0x02D8u
 static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p);
+#define PAL_BANK 4                                /* PALETTE and the palette helpers: sideways bank 4 */
 static void pal_snap(const char *p); static void pal_restore(const char *p); static void pal_reset16(const char *p); static void pal_load(const char *name);
 static void run_at(uint16_t a)
 {
@@ -851,7 +856,7 @@ static void run_at(uint16_t a)
     t[12] = (uint8_t)a; t[13] = (uint8_t)(a >> 8);
     jim_cursor(0);                               /* the program shows one if it wants one */
     jat(cx, cy); jcol();                         /* JIM starts where the console is */
-    sw_call(2, pal_snap, 0);                     /* the shell's palette, to come back to */
+    sw_call(PAL_BANK, pal_snap, 0);                     /* the shell's palette, to come back to */
     { uint8_t cl = capslock; capslock = 0;       /* a program wants the keys as they were typed:
                                                  * with caps lock on, VI's :q arrives as :Q and
                                                  * there is no way out of the editor.  The shell
@@ -867,7 +872,7 @@ static void run_at(uint16_t a)
         video_init();
         cls();
     }
-    sw_call(2, pal_restore, 0);                  /* whatever the program did to the colours, undone */
+    sw_call(PAL_BANK, pal_restore, 0);                  /* whatever the program did to the colours, undone */
 }
 
 /* EXEC name: run a file of shell lines (and /STARTUP.BAT at power-on). The file
@@ -1210,6 +1215,8 @@ static void cmd_idea(const char *p)
  * not the machine's -- so the storage device carries the line over
  * (FS_RADIO, 25) and brings the answer back a line at a time, as MOUNT's
  * listing comes.  Doc, 2026-09-17: "How do I control Navidrome playback?" */
+#pragma code-name (push, "SWCODE4")   /* bank 4 (2026-10-07) */
+#pragma rodata-name (push, "SWRODATA4")
 static void cmd_radio(const char *p)
 {
     char b[128]; uint8_t i; const char *q;
@@ -1221,6 +1228,8 @@ static void cmd_radio(const char *p)
         newline();
     }
 }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 
 /* CPM [command]: RunCPM reads AUTOEXEC.TXT at boot and runs its first line,
  * so a command given here is written there, CP/M is started, and the file is
@@ -1458,8 +1467,8 @@ static void cmd_clg(const char *p)
  * engaged, bank 0's commands are not in the window, and sw_call does not nest.
  * Everything it reads from the caller -- the shell line, the C stack -- is
  * resident too, and the expanded line is copied into `line' before returning. */
-#pragma code-name (push, "SWCODE2")
-#pragma rodata-name (push, "SWRODATA2")
+#pragma code-name (push, "SWCODE4")   /* bank 4: PALETTE, the whole of it (2026-10-07: bank 2 and ROM2 were all but full) */
+#pragma rodata-name (push, "SWRODATA4")
 
 /* ---- PALETTE -------------------------------------------------------------
  * VICKY has 256 entries of 24-bit RGB, one palette shared by everything: the
@@ -1477,9 +1486,10 @@ static void cmd_clg(const char *p)
  * "index rr gg bb" in hex, # to end of line is a comment, and a file only
  * changes the entries it names -- an amber terminal is two lines, not sixteen.
  *
- * This lives in bank 2 with its own table because bank 1 has 964 bytes left
- * and bank 2 has 6762; it calls only resident helpers (fs_cmd, fs_name,
- * parsehex, puts_, error), as everything in this bank must. */
+ * This lived in bank 2 beside the alias engine until 2026-10-07, when that
+ * bank and the resident ROM2 had 43 and 77 bytes left; bank 4 is its own.  It
+ * calls only resident helpers (fs_cmd, fs_name, parsehex, puts_, error,
+ * contrast), as everything in a sideways bank must: sw_call does not nest. */
 #define PALBUF   0x0FE10000UL            /* a .PAL, loaded whole; clear of EXECBUF */
 static const uint8_t pal_vic2[16][3] = {
     {0,0,0},{255,255,255},{136,0,0},{170,255,238},{204,68,204},{0,204,85},{0,0,170},{238,238,119},
@@ -1541,7 +1551,7 @@ static void pal_path(const char *name, char *out)
     out[i] = 0;
 }
 
-#pragma rodata-name (push, "CODE2")   /* its words resident: bank 2 has room for the code, not for them too */
+#pragma rodata-name (push, "SWRODATA4")   /* its words beside it (resident, in CODE2, until bank 4) */
 /* After a .PAL (here, in bank 2 beside it -- CODE2 is full): the bars' pair again, and -- when the file said no COLOR and the
  * shell's colours no longer read -- a pair that does, the best text on the ground
  * there is, or on the darkest entry if nothing reads on it. */
@@ -1981,6 +1991,9 @@ static void shell_copy(const char *p);      /* resident, below k_shell: HELP use
 /* MON WOZ FILL COPY: "MONITOR <word> <args>", run as a line of the shell's own
  * (line[], so the program can read its ARGS -- see HELP).  p points into
  * line[] itself, hence the copy through b. */
+#pragma code-name (push, "SWCODE0")   /* bank 0's window, called directly: out of ROM2 (2026-10-07).  Not a sideways
+                                       * bank: it runs a shell line, and sw_call does not nest */
+#pragma rodata-name (push, "SWRODATA0")
 static void mon_prg(const char *word, const char *p)
 {
     char b[NAMEMAX]; uint8_t i = 0;
@@ -1995,6 +2008,8 @@ static void mon_prg(const char *word, const char *p)
 static void mon_mon(const char *p)  { mon_prg("MON", p); }
 static void mon_fill(const char *p) { mon_prg("FILL", p); }
 static void mon_copy(const char *p) { mon_prg("COPY", p); }
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 #pragma rodata-name (push, "CODE2")
 #define N(x) static const char n_##x[] = #x;
 N(DIR) N(LS) N(MKDIR) N(RMDIR) N(RM) N(ERASE) N(DEL) N(LOAD) N(SAVE)
@@ -2005,18 +2020,18 @@ N(CAPS) N(MON) N(WOZ) N(CPM) N(IDEA) N(RADIO)
 static const shcmd_t shcmds[] = {
     { n_DIR, 0, cmd_dir },       { n_LS, 0, cmd_dir },
     { n_MKDIR, 1, cmd_mkdir },   { n_RMDIR, 1, cmd_rmdir },
-    { n_RM, 0, cmd_rm },         { n_ERASE, 0, cmd_rm },     { n_DEL, 0, cmd_rm },
+    { n_RM, 4, cmd_rm },         { n_ERASE, 4, cmd_rm },     { n_DEL, 4, cmd_rm },
     { n_LOAD, 0, cmd_load },     { n_SAVE, 1, cmd_save },
     { n_XD, 1, cmd_xd },         { n_HEX, 1, cmd_xd },
     { n_EXEC, 0, cmd_exec },     { n_HUSH, 1, cmd_hush },    { n_RUN, 0, cmd_run },
     { n_FILL, 0, mon_fill },     { n_COPY, 0, mon_copy },    { n_DUMP, 1, cmd_dump },
     { n_INFO, 1, cmd_info },     { n_TIME, 1, cmd_time },
     { n_COLOR, 1, cmd_color },   { n_COLOUR, 1, cmd_color },
-    { n_PALETTE, 2, cmd_palette }, { n_MODE, 3, cmd_mode },
+    { n_PALETTE, PAL_BANK, cmd_palette }, { n_MODE, 3, cmd_mode },
     { n_SWAP, 0, cmd_swap },     { n_ALIAS, ALIAS_BANK, cmd_alias },
     { n_CLG, 1, cmd_clg },       { n_CAPSLOCK, 1, cmd_caps }, { n_CAPS, 1, cmd_caps },
     { n_MON, 0, mon_mon },       { n_WOZ, 0, mon_mon },      { n_CPM, 0, cmd_cpm },
-    { n_IDEA, 0, cmd_idea },     { n_RADIO, 0, cmd_radio },
+    { n_IDEA, 0, cmd_idea },     { n_RADIO, 4, cmd_radio },
     { 0, 0, 0 }
 };
 #pragma rodata-name (pop)
@@ -2405,7 +2420,7 @@ int main(void)
     if (vmode) vmode--;                           /* nothing published: 640x480 */
     vdiv = REG(SYS + 0x3D);                       /* MODE 5's scale on the panel, as the host saved it */
     video_init();
-    sw_call(2, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
+    sw_call(PAL_BANK, pal_reset16, 0);                   /* a warm RESET after a game used to keep the game's palette */
     /* ...and then the palette last loaded, which the host kept ($D547; Doc,
      * 2026-10-07: "the palette chosen in F12 is not saved").  Quietly: no
      * second banner, and nothing at all if the file has gone. */
@@ -2413,7 +2428,7 @@ int main(void)
       REG(SYS + 0x47) = 0xFF;                     /* the host's name, from its start */
       while ((c = REG(SYS + 0x47)) != 0 && i < sizeof line - 1) line[i++] = (char)c;
       line[i] = 0;
-      if (i) { fs_name(line); if (!fs_cmd(8)) { sw_call(2, pal_load, line); mode_note = 0; pal_pend = 0; } } }
+      if (i) { fs_name(line); if (!fs_cmd(8)) { sw_call(PAL_BANK, pal_load, line); mode_note = 0; pal_pend = 0; } } }
     fg = C_FG;
     banner();
     /* /STARTUP.BAT.  No grace window and no "hold a key to skip" any more:

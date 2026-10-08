@@ -1,5 +1,16 @@
 # K4510 BASIC
 
+K4510 BASIC is its own dialect. For every keyword, one rule:
+**QuickBASIC's shape** (blocks, SUB/FUNCTION, SELECT CASE, labels, local
+variables, spelled as QuickBASIC spells them, so books and tutorials
+carry over), **EhBASIC's words** (the machine's vocabulary: GRAPHICS
+numbering, PLOT/LINE/TRI/BOX/CIRCLE, PALETTE, sprites, *commands, so old
+programs keep working), and **the K4510's hardware** (MELODY sound, held
+keys, VICKY collisions, far memory, FRED maths). Where it costs little,
+the other spelling is accepted too. No PC-isms (SCREEN palettes, OUT
+ports). Files are named, never numbered. Every error names the BASIC
+line.
+
 K4510 BASIC is the machine's BASIC for writing programs. It speaks
 EhBASIC's words (PRINT, INPUT, FOR, GOSUB, PLOT ...), but it is
 *compiled*: `k4510-bas` turns your `.BAS` file into Mad Pascal, and Mad
@@ -238,8 +249,8 @@ PRINT Area(3, 4)
   FUNCTION makes them its own, 0 or "" at every call, hiding the
   program's variables of the same name. Its parameters are its own too.
   Every other variable inside it is the program's variable of that name.
-- A SUB or FUNCTION cannot call itself (no recursion): its own
-  variables are kept in one place, not one set per call.
+- SUBs and FUNCTIONs may call themselves, or each other: every call
+  has its own parameters and its own DIMmed variables.
 - `Name: next statement` is a call of the SUB Name followed by another
   statement; for any other name, `Name:` at the start of a line is a
   label.
@@ -284,6 +295,77 @@ A program that changes the screen gets the shell's own screen back when
 it ends (which clears it): wait for a key before END if the last words
 matter.
 
+### Repeating, again
+
+```basic
+REPEAT
+  n = n + 1
+UNTIL n = 10
+SWAP a, b            ' exchanges two variables of the same type
+```
+
+### Sound
+
+```basic
+SOUND 440, 0.5                    ' 440 Hz for half a second: queued, the program goes on
+SOUND OFF
+PLAY "T120 O4 L8 CDEFGAB > C"     ' QBasic's music strings
+PLAY 2, "O3 C4 E4 G2"             ' on channel 2 (1-3), with the others
+```
+
+PLAY's string: the notes `A`-`G` with `#`/`+` sharp and `-` flat, a
+length after a note (`C4`, `C8.`), `O` the octave and `<` `>` down and up,
+`L` the length, `T` the tempo, `V` the volume, `N` a note by number, `P`
+or `R` a rest.
+
+### Keys, joystick and time
+
+| Word | Gives |
+|---|---|
+| `JOY(0)` | the joystick (or the keys standing for it): UP 1, DOWN 2, LEFT 4, RIGHT 8, FIRE 16, A 32, B 64, added together |
+| `KEYDOWN(mask)` | true while those are held -- no waiting, no key queue |
+| `WAITFRAME` / `WAITFRAME n` | waits for the next frame (60 a second), or n of them |
+| `FRAMES` | frames since the machine started |
+| `TIMER` | seconds since midnight, from the machine's clock |
+
+### Moving sprites
+
+```basic
+SPRDEF 0, 1024, 16, 16, 4
+MOVSPR 0, 100, 120         ' put it there
+SPRVEL 0, 2, -1            ' and let it move by itself: 2 right, 1 up every WAITFRAME
+DO
+  WAITFRAME
+  IF HIT(0) THEN PRINT "BUMP"      ' it touched another sprite
+  IF HITBG(0) THEN SPRVEL 0, 0, 0  ' ... or the picture
+LOOP UNTIL SPRX(0) > 300
+```
+
+SPRVEL works for sprites 0 to 15; `SPRX(n)` and `SPRY(n)` say where a
+sprite is. HIT and HITBG read VICKY's collision bits.
+
+### Files
+
+```basic
+OPEN "SCORES.TXT" FOR OUTPUT AS SCORES
+PRINT SCORES, name$, points
+CLOSE SCORES
+OPEN "SCORES.TXT" FOR INPUT AS SCORES      ' FOR INPUT may be left out
+DO UNTIL EOF(SCORES)
+  INPUT SCORES, n$, p
+  PRINT n$; p
+LOOP
+CLOSE SCORES
+OPEN "LOG.TXT" FOR APPEND AS LOG
+LINE INPUT LOG, a$                          ' a whole line, commas and all (on an INPUT file)
+```
+
+A file has a **name** in the program, never a number (`#SCORES` is
+accepted too). PRINT to a file puts commas between the values, so INPUT
+reads them back. At most four files are open at once, each up to 64 KB:
+a file for INPUT is read whole when it opens; OUTPUT and APPEND are
+written when they close, or when the program ends.
+
 ### Other statements
 
 | Statement | What it does |
@@ -291,6 +373,8 @@ matter.
 | `LET x = 5` | the same as `x = 5` |
 | `SLEEP 1.5` | waits that many seconds |
 | `RANDOMIZE` | new random numbers (every program already starts with fresh ones) |
+| `LINE INPUT "Name: "; a$` | a whole line, commas and all |
+| `PRINT USING "###.##"; x` | numbers in a pattern: `#` a digit, `.` the point; `!` `&` for text |
 | `POKE address, value` | writes a byte into memory: 0-65535 is what the CPU sees, I/O included; 65536 and up is the machine's far memory (to 16 MB), as `PEEK` reads it |
 
 ## Functions
@@ -315,6 +399,9 @@ matter.
 | `INSTR(a$, b$)` | where b$ is in a$ (1 = first character), 0 if it is not |
 | `UCASE$(a$)` `LCASE$(a$)` | in capitals / small letters |
 | `SPACE$(n)` | n spaces |
+| `STRING$(n, "*")` | n of a character (or of a code: `STRING$(n, 42)`) |
+| `LTRIM$(a$)` `RTRIM$(a$)` | without the spaces at the left / right |
+| `HEX$(n)` | n in hexadecimal |
 | `INKEY$` | the key pressed, or "": does not wait |
 | `PEEK(address)` | a byte of memory |
 
@@ -381,10 +468,26 @@ SELECT CASE), labels, SUB and FUNCTION, CONST.
 
 **Not there (yet):**
 
-- `PRINT USING`, `LINE INPUT`, `WRITE`
-- `SWAP`, `ERASE`, `REDIM`
-- recursion; `SHARED`, `STATIC`
+- `WRITE`, `ERASE`, `REDIM`, `SHARED`, `STATIC`
+- `ON ERROR`, `TYPE ... END TYPE`, `PAINT`, text on the picture (Doc's list for later)
 - labels, `GOTO` and `GOSUB` inside a SUB or FUNCTION
-- files (`OPEN`, `LOAD`, `SAVE`), `SOUND`, `TIMER`, `DATE$`
+- `DATE$`
 - arrays of more than two dimensions; text array elements longer than 80
 - immediate mode (use RX)
+
+## Where things live
+
+The program itself is in the CPU's 64 KB from `$0800`, as every Mad
+Pascal program is. Text does not crowd it: every string variable, text
+array element and SUB string is a 256-byte slot in far memory, copied by
+DMA.
+
+| Far memory | Holds |
+|---|---|
+| `$4C0000` | the ring of text values being worked on (48 slots) |
+| `$4D0000` | SUBs' and FUNCTIONs' text, call by call (250 slots) |
+| `$4E0000` | the sprite table |
+| `$4F0000` | the line MAKE.ERR gets on a runtime error |
+| `$5F0000` | file names |
+| `$600000` | the four files' buffers, 64 KB each |
+| `$800000` | string variables, up to 32768 of them (8 MB) |

@@ -78,7 +78,7 @@ DO
   DrawGrid: SPRITE 0, px, 220
   ' ---- once a frame
   DO
-    WaitFrame
+    WAITFRAME
     DO                                   ' every queued key, then one draw
       GET k$
       IF k$ = "" THEN EXIT DO
@@ -99,7 +99,7 @@ DO
   LOOP
   IF lives% = 0 THEN EXIT DO
   wave% = wave% + 1: PRINT "WAVE CLEARED"
-  FOR i% = 1 TO 60: WaitFrame: NEXT
+  FOR i% = 1 TO 60: WAITFRAME: NEXT
 LOOP
 
 PRINT "GAME OVER  SCORE"; score%
@@ -108,10 +108,6 @@ PRINT "ANY KEY...";
 DO: GET k$: LOOP UNTIL k$ <> ""
 END
 
-SUB WaitFrame
-  f% = PEEK(54541)
-  DO: LOOP WHILE PEEK(54541) = f%
-END SUB
 
 SUB DrawGrid
   FOR r% = 0 TO 2

@@ -12112,3 +12112,19 @@ smallint div 17 -> 10, cardinal mod 10 65 -> 9; byte*byte 5 -> 5 (the
 compiler does that one inline).  Every case won, so all of it stays.  The
 BASIC benchmarks did not move: their variables are floats (on the MATH unit
 already) and array indexing multiplies nothing.
+
+**2026-10-08: K4510 BASIC, the rest of doc-18's list; all 27 examples.**
+doc-18's delivery (K4510-Ed 7c7a3b3): SOUND and PLAY (QBasic's music strings,
+on the $D5E0 sequencer), JOY/KEYDOWN/WAITFRAME/TIMER/FRAMES, MOVSPR/SPRVEL/
+HIT/HITBG, files by NAME (OPEN ... AS SCORES), SWAP, LINE INPUT, STRING$,
+LTRIM$/RTRIM$/HEX$, PRINT USING, REPEAT...UNTIL, recursion (Mad Pascal's own,
+'pascal' on every SUB, a forward for each -- INVADER2's F_HITBASE), and string
+variables moved to far memory (256-byte slots by DMA: TINY 21 KB -> 6 KB).
+TEST.BAS's silent crash was Mad Pascal's: TCallGraphNode.AddChild added the
+same child once per level of nested arguments until a Word overflowed;
+pascal/install.py now patches it (a child once) and rebuilds mp.  INVADER2
+and TEST are in the Makefile: INVADER2 plays, TEST passes 45/45 once its
+clock check stopped expecting 40500 kHz (the governor moves it; it reads the
+three bytes now).  docs/KBASIC.md opens with the dialect charter Doc agreed
+with doc-18; the chapter regenerated (tools/md2tex.py), the memory map has
+the program's far-memory areas.

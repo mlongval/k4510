@@ -104,7 +104,8 @@ list is free for programs --- in the main \texttt{\$0040000} to
 \texttt{\$003C000} & the status bands' own cells, drawn by JIM (12\,KB)\\
 \texttt{\$003F000} & one blank text row in the current colours\\
 \texttt{\$003F800} & EhBASIC's sprite table, 128 $\times$ 16 bytes\\
-\texttt{\$04E0000} & a K4510 BASIC program's sprite table, and at \texttt{\$04F0000} its runtime error line, while it runs\\
+\texttt{\$04C0000-\$063FFFF} & a K4510 BASIC program's, while it runs: text being worked on, SUBs' text, the sprite table (\texttt{\$04E0000}), the runtime error line, file names and buffers (Chapter~\ref{cha:kbasic})\\
+\texttt{\$0800000} & ... and its string variables, up to 8\,MB\\
 \texttt{\$E000000-\$EC00000} & the editors' (VI, EDIT, PROG): document slots, the file as loaded, the unnamed register, RENUM's table, MAKE.ERR\\
 \texttt{\$F000000} & the editors' undo\\
 \texttt{\$FD00000} & \verb|SWAP|'s copy of the caller's 64\,KB\\

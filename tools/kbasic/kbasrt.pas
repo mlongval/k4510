@@ -54,6 +54,9 @@ function KField(h: byte; n: byte): byte;
 function KRnd: single;
 function KInt(x: single): single;
 function KFix(x: single): single;
+function KN(x: single): single;
+function KIv(x: smallint): smallint;
+function KF(x: smallint): single;
 function KAddr(x: single): word;
 function KAbs(x: single): single;
 function KSgn(x: single): single;
@@ -67,6 +70,18 @@ function KIdx(i: smallint; max: smallint; line: word): word;
 procedure KSleep(x: single);
 procedure KColor(f, b: smallint);
 procedure KLocate(r, c: smallint);
+// The strings of recursive SUBs and FUNCTIONs: Mad Pascal gives a recursive
+// routine fresh locals, but a string among them (or a string parameter)
+// wrecks its stack (2026-10-08).  So those strings live here, a stack of
+// LSLOT, LAlloc'd on entry and LFree'd on the way out.
+function LAlloc(n: byte): byte;
+procedure LFree(n: byte);
+function LH(i: byte): byte;
+procedure LSet(i: byte; h: byte);
+procedure KVarInit(n: word);
+function VH(i: word): byte;
+procedure VSet(i: word; h: byte);
+
 function KPeek(a: single): byte;
 procedure KPoke(a: single; v: smallint);
 procedure KPalette(i, r, g, b: smallint);
@@ -74,6 +89,40 @@ procedure KSprDef(n, page, w, h, bpp: smallint);
 procedure KSprite(n, x, y: smallint);
 procedure KSprOff(n: smallint);
 procedure KError(line: word; const msg: string);
+function SString(n, c: smallint): byte;
+function SLtrim(h: byte): byte;
+function SRtrim(h: byte): byte;
+function SHex(x: single): byte;
+
+procedure KSound(hz, sec: single);
+procedure KSoundOff;
+procedure KPlay(h: byte; ch: smallint);
+function KJoy: byte;
+procedure KWaitFrame(n: smallint);
+function KTimer: single;
+function KFrames: single;
+procedure KMovSpr(n, x, y: smallint);
+procedure KSprVel(n, dx, dy: smallint);
+function KSprX(n: smallint): smallint;
+function KSprY(n: smallint): smallint;
+function KHit(n: smallint): boolean;
+function KHitBg(n: smallint): boolean;
+
+procedure KOpen(k, h, mode: byte; line: word);
+procedure KFPrintS(k, h: byte; line: word);
+procedure KFPrintN(k: byte; x: single; line: word);
+procedure KFComma(k: byte; line: word);
+procedure KFNL(k: byte; line: word);
+function KFLine(k: byte; line: word): byte;
+function KFEof(k: byte): boolean;
+procedure KClose(k: byte);
+procedure KCloseAll;
+
+procedure KUsingStart(h: byte);
+procedure KUsingN(x: single);
+procedure KUsingS(h: byte);
+procedure KUsingEnd;
+
 procedure KStart;
 procedure KEnd;
 
@@ -81,13 +130,16 @@ implementation
 
 const
   ERRBUF = $4F0000;                // far memory for MAKE.ERR's line
-  SPRTAB = $03F800;                // the sprite table, 128 x 16 bytes (where EhBASIC keeps it)
-  NSLOT = 24;
+  SPRTAB = $4E0000;                // the sprite table, 128 x 16 bytes (not EhBASIC's $03F800: under K/OS's text it wiped the screen)
+  NSLOT = 48;
+  SLOTS = $4C0000;                 // the string slots (NSLOT x 256 bytes)
 
 var
   VK: array[0..255] of byte absolute $D000;
+  kb_lp: byte;
+  kb_sf: byte;                     // the lowest slot SPut may reuse: a recursive call's caller keeps the ones below
   kb_sprinit: boolean;
-  kb_ss: array[0..NSLOT - 1] of string;
+  kb_u, kb_v: string;              // the handle wrappers' scratch (one each would cost 256 bytes a routine)
   kb_sn: byte;
 
 function xNul: string;
@@ -368,6 +420,23 @@ begin
   if neg then Result := -Result;
 end;
 
+// KN, KIv: an array element read through a call (Mad Pascal compiles
+// "a[i] = 100" wrong, 2026-10-08); KF: a whole number as a number
+function KN(x: single): single;
+begin
+  Result := x;
+end;
+
+function KIv(x: smallint): smallint;
+begin
+  Result := x;
+end;
+
+function KF(x: smallint): single;
+begin
+  Result := x;
+end;
+
 function KAddr(x: single): word;    // a PEEK or POKE address, 0..65535
 var c: cardinal;
 begin
@@ -457,6 +526,61 @@ begin
   GotoXY(c, r); kb_col := c - 1;
 end;
 
+const
+  LSLOTS = $4D0000;                // SUBs' strings: 250 x 256 bytes, a stack
+
+function LAlloc(n: byte): byte;
+var i: byte;
+begin
+  if kb_lp + n > 250 then KError(0, 'Too deep: SUBs inside each other hold 250 strings at most');
+  Result := kb_lp;
+  for i := 1 to n do begin FarPoke(LSLOTS + cardinal(kb_lp) * 256, 0); inc(kb_lp); end;
+end;
+
+// The program's string variables live in far memory too, a slot each
+// (VSLOTS, 256 bytes: a length, then the bytes); the DMA engine copies a
+// slot to a handle's and back, at once.
+const
+  VSLOTS = $800000;                // up to 32768 string variables and array elements
+
+function NextSlot: byte;
+begin
+  inc(kb_sn); if kb_sn = NSLOT then kb_sn := kb_sf;
+  Result := kb_sn;
+end;
+
+function LH(i: byte): byte;        // a SUB's string i, as a handle
+begin
+  Result := NextSlot;
+  DmaCopy(LSLOTS + cardinal(i) * 256, SLOTS + cardinal(Result) * 256, 256);
+end;
+
+procedure LSet(i: byte; h: byte);
+begin
+  DmaCopy(SLOTS + cardinal(h) * 256, LSLOTS + cardinal(i) * 256, 256);
+end;
+
+procedure LFree(n: byte);
+begin
+  kb_lp := kb_lp - n;
+end;
+
+procedure KVarInit(n: word);       // every string variable ""
+begin
+  DmaFill(VSLOTS, cardinal(n) * 256, 0);
+end;
+
+function VH(i: word): byte;        // string variable i, as a handle
+begin
+  Result := NextSlot;
+  DmaCopy(VSLOTS + cardinal(i) * 256, SLOTS + cardinal(Result) * 256, 256);
+end;
+
+procedure VSet(i: word; h: byte);
+begin
+  DmaCopy(SLOTS + cardinal(h) * 256, VSLOTS + cardinal(i) * 256, 256);
+end;
+
 // PEEK and POKE: 0-65535 the CPU's view (I/O at $D000 too), above that
 // far memory, flat -- as EhBASIC's programs expect ($040000 for sprites)
 function KPeek(a: single): byte;
@@ -534,6 +658,7 @@ procedure KError(line: word; const msg: string);
 var p: cardinal; n: string;
 begin
   Str(line, n);
+  KCloseAll;                       // what was written so far is kept
   if kb_col > 0 then PrintNL;
   TextColor(10); write('Line ', n, ': ', msg); TextColor(1); writeln;
   p := ERRBUF;
@@ -544,14 +669,435 @@ begin
   halt;
 end;
 
+
+// --- more strings ------------------------------------------------------------
+
+function SString(n, c: smallint): byte;   // STRING$(n, c): n times character c
+var t: string; i: smallint;
+begin
+  if n > 255 then n := 255;
+  if n < 0 then n := 0;
+  for i := 1 to n do t[i] := chr(c and 255);
+  t[0] := chr(n);
+  Result := SPut(t);
+end;
+
+function SLtrim(h: byte): byte;
+var u, t: string; i, n, k: byte;
+begin
+  u := SGet(h); n := length(u); i := 1;
+  while (i < n + 1) and (u[i] = ' ') do inc(i);
+  k := 0;
+  while i < n + 1 do begin inc(k); t[k] := u[i]; inc(i); end;
+  t[0] := chr(k);
+  Result := SPut(t);
+end;
+
+function SRtrim(h: byte): byte;
+var u: string; n: byte;
+begin
+  u := SGet(h); n := length(u);
+  while (n > 0) and (u[n] = ' ') do dec(n);
+  u[0] := chr(n);
+  Result := SPut(u);
+end;
+
+function SHex(x: single): byte;           // HEX$(255) = "FF"
+var c: cardinal; t, r: string; n, i, d: byte;
+begin
+  if x < 0 then x := 0;
+  c := trunc(x); n := 0;
+  repeat
+    d := c and 15; inc(n);
+    if d < 10 then t[n] := chr(48 + d) else t[n] := chr(55 + d);
+    c := c shr 4;
+  until c = 0;
+  for i := 1 to n do r[i] := t[n + 1 - i];
+  r[0] := chr(n);
+  Result := SPut(r);
+end;
+
+// --- sound: the K4510's sound sequencer at $D5E0 (queued notes on MELODY,
+// BBC-style: they play while the program goes on).  Pitch in quarter
+// semitones, 53 = middle C; duration in 20ths of a second.
+
+var
+  SQCH: byte absolute $D5E0;
+  SQAMP: byte absolute $D5E1;
+  SQPITCH: byte absolute $D5E2;
+  SQDUR: byte absolute $D5E3;
+  kb_po, kb_pl, kb_pv: byte;       // PLAY's octave, note length, volume (they last from PLAY to PLAY)
+  kb_pt: smallint;                 // and its tempo, quarter notes a minute
+
+procedure SeqNote(ch: byte; vol: byte; pitch: smallint; dur: smallint);
+begin
+  if pitch < 0 then pitch := 0;
+  if pitch > 254 then pitch := 254;
+  if dur < 1 then dur := 1;
+  if dur > 254 then dur := 254;
+  SQCH := ch and 3;
+  SQAMP := (256 - (vol and 15)) and 255;  // 0 silent, -15 loudest
+  SQPITCH := pitch;
+  SQDUR := dur;                           // this write queues the note
+end;
+
+procedure KSound(hz, sec: single);
+var p: smallint;
+begin
+  if hz < 20 then begin SeqNote(1, 0, 53, round(sec * 20)); exit; end;
+  p := 53 + round(MathLn(hz / 261.6256) * 69.2481);   // 48 quarter semitones an octave / ln 2
+  SeqNote(1, 15, p, round(sec * 20));
+end;
+
+procedure KSoundOff;
+begin
+  SQCH := $80;
+end;
+
+// PLAY "T120 O4 L4 C D E F G2 > C": QBasic's music macro language
+var
+  kb_pm: string;                   // the PLAY string being read
+
+function PNum(var j: byte; def: smallint): smallint;   // a number in it, or def
+var v: smallint; got: boolean; n: byte;
+begin
+  v := 0; got := false; n := length(kb_pm);
+  while (j < n + 1) and (kb_pm[j] > '/') and (kb_pm[j] < ':') do begin v := v * 10 + (ord(kb_pm[j]) - 48); inc(j); got := true; end;
+  if got then Result := v else Result := def;
+end;
+
+procedure KPlay(h: byte; ch: smallint);
+var i, n, c: byte; semi, len, dur: smallint; dots: byte;
+begin
+  kb_pm := SGet(h); n := length(kb_pm); i := 1;
+  if (ch < 1) or (ch > 3) then ch := 1;
+  while i < n + 1 do begin
+    c := ord(kb_pm[i]); if (c > 96) and (c < 123) then c := c - 32;
+    inc(i);
+    semi := -1;
+    case c of
+      67: semi := 0; 68: semi := 2; 69: semi := 4; 70: semi := 5;     // C D E F
+      71: semi := 7; 65: semi := 9; 66: semi := 11;                    // G A B
+      79: kb_po := PNum(i, kb_po) and 7;                                // O
+      60: if kb_po > 0 then dec(kb_po);                                // <
+      62: if kb_po < 7 then inc(kb_po);                                // >
+      76: begin kb_pl := PNum(i, 4); if kb_pl = 0 then kb_pl := 4; end; // L
+      84: begin kb_pt := PNum(i, 120); if kb_pt < 32 then kb_pt := 32; end;   // T
+      86: kb_pv := PNum(i, 12) and 15;                                  // V
+      77: if i < n + 1 then inc(i);                                    // MF MB MN ML MS: no meaning here
+      78: begin semi := PNum(i, 0); if semi = 0 then semi := -2 else semi := semi + 100; end;   // N n
+      80, 82: semi := -2;                                              // P R: a rest
+    end;
+    if semi <> -1 then begin
+      if (semi > -1) and (semi < 100) and (i < n + 1) then begin
+        if (kb_pm[i] = '#') or (kb_pm[i] = '+') then begin inc(semi); inc(i); end
+        else if kb_pm[i] = '-' then begin dec(semi); inc(i); end;
+      end;
+      len := PNum(i, kb_pl); if len = 0 then len := kb_pl;
+      dur := round(4800.0 / (kb_pt * len));
+      dots := 0;
+      while (i < n + 1) and (kb_pm[i] = '.') do begin inc(dots); inc(i); end;
+      if dots > 0 then dur := dur + dur div 2;
+      if dots > 1 then dur := dur + dur div 4;
+      if semi = -2 then SeqNote(ch, 0, 53, dur)
+      else begin
+        if semi > 99 then semi := semi - 100 else semi := kb_po * 12 + semi;
+        SeqNote(ch, kb_pv, 53 + 4 * (semi - 48), dur);
+      end;
+    end;
+  end;
+end;
+
+// --- game input and time -------------------------------------------------------
+
+function KJoy: byte;              // the keys held now: UP 1 DOWN 2 LEFT 4 RIGHT 8 FIRE 16 A 32 B 64
+begin
+  Result := Peek($D104);
+end;
+
+var
+  kb_sx, kb_sy, kb_vx, kb_vy: array[0..15] of smallint;   // sprites 0-15: where, and their speed a frame
+  kb_css, kb_csl: array[0..15] of byte;                   // collisions read and not yet asked about
+
+procedure KMovSpr(n, x, y: smallint);
+begin
+  if (n > -1) and (n < 16) then begin kb_sx[n] := x; kb_sy[n] := y; end;
+  KSprite(n, x, y);
+end;
+
+procedure KSprVel(n, dx, dy: smallint);
+begin
+  if (n > -1) and (n < 16) then begin kb_vx[n] := dx; kb_vy[n] := dy; end;
+end;
+
+function KSprX(n: smallint): smallint;
+begin
+  Result := 0;
+  if (n > -1) and (n < 16) then Result := kb_sx[n];
+end;
+
+function KSprY(n: smallint): smallint;
+begin
+  Result := 0;
+  if (n > -1) and (n < 16) then Result := kb_sy[n];
+end;
+
+procedure KWaitFrame(n: smallint);   // n frames (60 a second); moving sprites move once each
+var i: byte;
+begin
+  if n < 1 then n := 1;
+  while n > 0 do begin
+    WaitVBlank;
+    for i := 0 to 15 do
+      if (kb_vx[i] <> 0) or (kb_vy[i] <> 0) then KMovSpr(i, kb_sx[i] + kb_vx[i], kb_sy[i] + kb_vy[i]);
+    dec(n);
+  end;
+end;
+
+function KTimer: single;           // seconds, from the machine's millisecond clock
+var a, b: cardinal;
+begin
+  repeat
+    a := Peek($D536) or (cardinal(Peek($D537)) shl 8) or (cardinal(Peek($D538)) shl 16) or (cardinal(Peek($D539)) shl 24);
+    b := Peek($D536) or (cardinal(Peek($D537)) shl 8) or (cardinal(Peek($D538)) shl 16) or (cardinal(Peek($D539)) shl 24);
+  until (a shr 8) = (b shr 8);
+  Result := b / 1000.0;
+end;
+
+function KFrames: single;
+begin
+  Result := Peek($D50D) + 256.0 * Peek($D50E) + 65536.0 * Peek($D50F);
+end;
+
+procedure ColRead;                 // VICKY's collision bits: reading $90 or $A0 clears them all, so last
+var i, j: byte;
+begin
+  for i := 15 downto 0 do begin
+    j := $90 + i; kb_css[i] := kb_css[i] or VK[j];
+    j := $A0 + i; kb_csl[i] := kb_csl[i] or VK[j];
+  end;
+end;
+
+function KHit(n: smallint): boolean;      // HIT(n): sprite n touched another sprite since the last HIT(n)
+var b, m: byte;
+begin
+  ColRead;
+  b := (n shr 3) and 15; m := 1 shl (n and 7);
+  Result := (kb_css[b] and m) <> 0;
+  kb_css[b] := kb_css[b] and (255 xor m);
+end;
+
+function KHitBg(n: smallint): boolean;    // HITBG(n): sprite n touched the picture or the text
+var b, m: byte;
+begin
+  ColRead;
+  b := (n shr 3) and 15; m := 1 shl (n and 7);
+  Result := (kb_csl[b] and m) <> 0;
+  kb_csl[b] := kb_csl[b] and (255 xor m);
+end;
+
+// --- files: named streams, each a 64 KB buffer in far memory.  The K4510's
+// file device keeps one file open at a time, so INPUT loads the whole file
+// at OPEN and OUTPUT/APPEND saves it at CLOSE (or when the program ends).
+
+const
+  FBUF = $600000;
+  FNAMES = $5F0100;
+  FNAMEB = $5F0000;
+
+var
+  kb_fmode: array[0..3] of byte;    // 0 closed, 1 INPUT, 2 OUTPUT/APPEND
+  kb_flen, kb_fpos: array[0..3] of cardinal;
+  // the four file names live in far memory at FNAMES + k * 128
+
+function FExists(const name: string): boolean;
+var i: byte;
+begin
+  for i := 1 to length(name) do FarPoke(FNAMEB + i - 1, ord(name[i]));
+  FarPoke(FNAMEB + length(name), 0);
+  FS_NAMEPTR := FNAMEB; FS_CMD := FS_STAT;
+  Result := FS_STATUS = 0;
+end;
+
+procedure KOpen(k, h, mode: byte; line: word);   // mode 1 INPUT, 2 OUTPUT, 3 APPEND
+var t: string; base, n: cardinal;
+begin
+  if kb_fmode[k] <> 0 then KClose(k);
+  t := SGet(h);
+  FarPoke(FNAMES + cardinal(k) * 128, length(t) and 127);
+  for n := 1 to length(t) and 127 do FarPoke(FNAMES + cardinal(k) * 128 + n, ord(t[n]));
+  base := FBUF + cardinal(k) * $10000;
+  kb_flen[k] := 0; kb_fpos[k] := 0;
+  if mode = 2 then begin kb_fmode[k] := 2; exit; end;
+  if not FExists(t) then begin
+    if mode = 3 then begin kb_fmode[k] := 2; exit; end;
+    KError(line, xCat('File not found: ', t));
+  end;
+  if FS_SIZE > $FFFF then KError(line, 'The file is bigger than 64 KB');
+  n := LoadFile(t, base);
+  kb_flen[k] := n;
+  if mode = 3 then begin kb_fmode[k] := 2; kb_fpos[k] := n; end
+  else kb_fmode[k] := 1;
+end;
+
+procedure FPut(k, c: byte; line: word);
+begin
+  if kb_fmode[k] <> 2 then KError(line, 'That file is not open FOR OUTPUT or APPEND');
+  if kb_flen[k] > $FFFE then KError(line, 'The file is full (64 KB)');
+  FarPoke(FBUF + cardinal(k) * $10000 + kb_flen[k], c);
+  inc(kb_flen[k]);
+end;
+
+procedure KFPrintS(k, h: byte; line: word);
+var u: string; i: byte;
+begin
+  u := SGet(h);
+  for i := 1 to length(u) do FPut(k, ord(u[i]), line);
+end;
+
+procedure KFPrintN(k: byte; x: single; line: word);
+var u: string; i: byte;
+begin
+  u := xStrN(x);
+  for i := 1 to length(u) do FPut(k, ord(u[i]), line);
+end;
+
+procedure KFComma(k: byte; line: word);
+begin
+  FPut(k, 44, line);
+end;
+
+procedure KFNL(k: byte; line: word);
+begin
+  FPut(k, 10, line);
+end;
+
+function KFLine(k: byte; line: word): byte;   // the next line (without its end)
+var t: string; c, n: byte; base: cardinal;
+begin
+  if kb_fmode[k] <> 1 then KError(line, 'That file is not open FOR INPUT');
+  if not (kb_fpos[k] < kb_flen[k]) then KError(line, 'Past the end of the file (check EOF first)');
+  base := FBUF + cardinal(k) * $10000;
+  n := 0;
+  while kb_fpos[k] < kb_flen[k] do begin
+    c := FarPeek(base + kb_fpos[k]); inc(kb_fpos[k]);
+    if c = 10 then break;
+    if (c <> 13) and (n < 255) then begin inc(n); t[n] := chr(c); end;
+  end;
+  t[0] := chr(n);
+  Result := SPut(t);
+end;
+
+function KFEof(k: byte): boolean;
+begin
+  Result := (kb_fmode[k] <> 1) or not (kb_fpos[k] < kb_flen[k]);
+end;
+
+procedure KClose(k: byte);
+var t: string; n, i: byte;
+begin
+  if kb_fmode[k] = 2 then begin
+    n := FarPeek(FNAMES + cardinal(k) * 128);
+    for i := 1 to n do t[i] := chr(FarPeek(FNAMES + cardinal(k) * 128 + i));
+    t[0] := chr(n);
+    SaveFile(t, FBUF + cardinal(k) * $10000, kb_flen[k]);
+  end;
+  kb_fmode[k] := 0;
+end;
+
+procedure KCloseAll;
+var k: byte;
+begin
+  for k := 0 to 3 do KClose(k);
+end;
+
+// --- PRINT USING "###.##"; x: a format with #-fields and literal text ----
+
+var
+  kb_uf: string;
+  kb_ui: byte;
+  kb_uv: boolean;                  // a value has been placed (the format starts over when it runs out)
+
+function UField(i: byte): boolean;
+begin
+  Result := false;
+  if i > length(kb_uf) then exit;
+  if (kb_uf[i] = '#') or (kb_uf[i] = '!') or (kb_uf[i] = '&') then Result := true
+  else if (kb_uf[i] = '.') and (i < length(kb_uf)) then Result := kb_uf[i + 1] = '#';
+end;
+
+procedure UsLit;                   // the literal text up to the next field
+begin
+  if (kb_ui > length(kb_uf)) and kb_uv then kb_ui := 1;
+  while (kb_ui < length(kb_uf) + 1) and not UField(kb_ui) do begin xPrintS(xCh(ord(kb_uf[kb_ui]))); inc(kb_ui); end;
+  if (kb_ui > length(kb_uf)) and kb_uv then begin
+    kb_ui := 1;
+    while (kb_ui < length(kb_uf) + 1) and not UField(kb_ui) do begin xPrintS(xCh(ord(kb_uf[kb_ui]))); inc(kb_ui); end;
+  end;
+end;
+
+procedure KUsingStart(h: byte);
+begin
+  kb_uf := SGet(h); kb_ui := 1; kb_uv := false;
+end;
+
+procedure KUsingN(x: single);
+var w, d, i, n: byte; neg: boolean; v, p: cardinal; t, r: string;
+begin
+  UsLit;
+  w := 0; d := 0;
+  while (kb_ui < length(kb_uf) + 1) and (kb_uf[kb_ui] = '#') do begin inc(w); inc(kb_ui); end;
+  if (kb_ui < length(kb_uf) + 1) and (kb_uf[kb_ui] = '.') then begin
+    inc(kb_ui);
+    while (kb_ui < length(kb_uf) + 1) and (kb_uf[kb_ui] = '#') do begin inc(d); inc(kb_ui); end;
+  end;
+  kb_uv := true;
+  neg := x < 0; if neg then x := -x;
+  p := 1; for i := 1 to d do p := p * 10;
+  v := round(x * p);
+  n := 0;                                       // the digits, backwards
+  for i := 1 to d do begin inc(n); t[n] := chr(48 + v mod 10); v := v div 10; end;
+  if d > 0 then begin inc(n); t[n] := '.'; end;
+  repeat inc(n); t[n] := chr(48 + v mod 10); v := v div 10; until v = 0;
+  if neg then begin inc(n); t[n] := '-'; end;
+  r[0] := chr(0);
+  if d > 0 then i := w + d + 1 else i := w;
+  if n > i then xPrintS('%')                     // too wide for the field
+  else while i > n do begin xPrintS(' '); dec(i); end;
+  for i := n downto 1 do xPrintS(xCh(ord(t[i])));
+end;
+
+procedure KUsingS(h: byte);
+var u: string;
+begin
+  UsLit;
+  u := SGet(h);
+  kb_uv := true;
+  if kb_ui > length(kb_uf) then begin xPrintS(u); exit; end;
+  if kb_uf[kb_ui] = '!' then begin
+    if length(u) > 0 then xPrintS(xCh(ord(u[1])));
+  end else xPrintS(u);
+  inc(kb_ui);
+end;
+
+procedure KUsingEnd;
+begin
+  while (kb_ui < length(kb_uf) + 1) and not UField(kb_ui) do begin xPrintS(xCh(ord(kb_uf[kb_ui]))); inc(kb_ui); end;
+end;
+
 procedure KStart;
 begin
-  kb_col := 0; kb_sn := 0; kb_sprinit := false;
+  kb_col := 0; kb_sn := 0; kb_sprinit := false; kb_lp := 0; kb_sf := 0;
+  kb_po := 4; kb_pl := 4; kb_pv := 12; kb_pt := 120;
+  FillChar(kb_vx, SizeOf(kb_vx), 0); FillChar(kb_vy, SizeOf(kb_vy), 0);
+  FillChar(kb_css, SizeOf(kb_css), 0); FillChar(kb_csl, SizeOf(kb_csl), 0);
+  FillChar(kb_fmode, SizeOf(kb_fmode), 0);
   Randomize;
 end;
 
 procedure KEnd;
 begin
+  KCloseAll;
   if kb_col > 0 then PrintNL;
   write(chr(27), '[0m');
   CursorOn;
@@ -560,16 +1106,26 @@ end;
 
 // --- the handles (see the interface) -------------------------------------------
 
+// The slots live in far memory (SLOTS, 256 bytes each: a length, then the
+// bytes): as Pascal strings they were NSLOT x 256 bytes of every program.
 function SPut(const s: string): byte;
+var a: cardinal; i, n: byte;
 begin
-  inc(kb_sn); if kb_sn = NSLOT then kb_sn := 0;
-  kb_ss[kb_sn] := s;
+  inc(kb_sn); if kb_sn = NSLOT then kb_sn := kb_sf;
+  a := SLOTS + cardinal(kb_sn) * 256;
+  n := length(s);
+  FarPoke(a, n);
+  for i := 1 to n do FarPoke(a + i, ord(s[i]));
   Result := kb_sn;
 end;
 
 function SGet(h: byte): string;
+var a: cardinal; i, n: byte;
 begin
-  Result := kb_ss[h];
+  a := SLOTS + cardinal(h) * 256;
+  n := FarPeek(a);
+  for i := 1 to n do Result[i] := chr(FarPeek(a + i));
+  Result[0] := chr(n);
 end;
 
 function SVar(const s: string): byte;
@@ -593,40 +1149,34 @@ begin
 end;
 
 function SCat(a, b: byte): byte;
-var u, v: string;
 begin
-  u := kb_ss[a]; v := kb_ss[b];
-  Result := SPut(xCat(u, v));
+  kb_u := SGet(a); kb_v := SGet(b);
+  Result := SPut(xCat(kb_u, kb_v));
 end;
 
 function SMid(h: byte; st, n: smallint): byte;
-var u: string;
 begin
-  u := kb_ss[h]; Result := SPut(xMid(u, st, n));
+  kb_u := SGet(h); Result := SPut(xMid(kb_u, st, n));
 end;
 
 function SLeft(h: byte; n: smallint): byte;
-var u: string;
 begin
-  u := kb_ss[h]; Result := SPut(xLeft(u, n));
+  kb_u := SGet(h); Result := SPut(xLeft(kb_u, n));
 end;
 
 function SRight(h: byte; n: smallint): byte;
-var u: string;
 begin
-  u := kb_ss[h]; Result := SPut(xRight(u, n));
+  kb_u := SGet(h); Result := SPut(xRight(kb_u, n));
 end;
 
 function SUpper(h: byte): byte;
-var u: string;
 begin
-  u := kb_ss[h]; Result := SPut(xUpper(u));
+  kb_u := SGet(h); Result := SPut(xUpper(kb_u));
 end;
 
 function SLower(h: byte): byte;
-var u: string;
 begin
-  u := kb_ss[h]; Result := SPut(xLower(u));
+  kb_u := SGet(h); Result := SPut(xLower(kb_u));
 end;
 
 function SSpace(n: smallint): byte;
@@ -640,32 +1190,28 @@ begin
 end;
 
 function SVal(h: byte): single;
-var u: string;
 begin
-  u := kb_ss[h]; Result := xVal(u);
+  kb_u := SGet(h); Result := xVal(kb_u);
 end;
 
 function SAsc(h: byte): smallint;
-var u: string;
 begin
-  u := kb_ss[h]; Result := xAsc(u);
+  kb_u := SGet(h); Result := xAsc(kb_u);
 end;
 
 function SLen(h: byte): smallint;
 begin
-  Result := length(kb_ss[h]);
+  Result := FarPeek(SLOTS + cardinal(h) * 256);
 end;
 
 function SInstr(a, b: byte): smallint;
-var u, v: string;
 begin
-  u := kb_ss[a]; v := kb_ss[b]; Result := xInstr(u, v);
+  kb_u := SGet(a); kb_v := SGet(b); Result := xInstr(kb_u, kb_v);
 end;
 
 function SCmp(a, b: byte): smallint;
-var u, v: string;
 begin
-  u := kb_ss[a]; v := kb_ss[b]; Result := xCmp(u, v);
+  kb_u := SGet(a); kb_v := SGet(b); Result := xCmp(kb_u, kb_v);
 end;
 
 function SInkey: byte;
@@ -674,21 +1220,18 @@ begin
 end;
 
 procedure PrintS(h: byte);
-var u: string;
 begin
-  u := kb_ss[h]; xPrintS(u);
+  kb_u := SGet(h); xPrintS(kb_u);
 end;
 
 function KLine(prompt: byte): byte;
-var u: string;
 begin
-  u := kb_ss[prompt]; Result := SPut(xKLine(u));
+  kb_u := SGet(prompt); Result := SPut(xKLine(kb_u));
 end;
 
 function KField(h: byte; n: byte): byte;
-var u: string;
 begin
-  u := kb_ss[h]; Result := SPut(xKField(u, n));
+  kb_u := SGet(h); Result := SPut(xKField(kb_u, n));
 end;
 
 end.

@@ -109,6 +109,20 @@ if '[K4510] radius' not in s and old in s:
     open(p, 'w').write(s); print('   patched lib/graph.inc: Circle past a radius of 255')
 else:
     print('   lib/graph.inc: Circle already patched' if '[K4510] radius' in s else '   lib/graph.inc: Circle not as expected, not patched')
+# 3c. src/CompilerTypes.pas: TCallGraphNode.AddChild adds a child once.  A
+# call nested in another's arguments was compiled again at every level and
+# added again each time -- exponential -- until Word NumChildren_ overflowed
+# and mp died with nothing said (K4510 BASIC's TEST.BAS; doc-18, 2026-10-08)
+p = os.path.join(mp, 'src', 'CompilerTypes.pas'); s = open(p).read()
+old = 'procedure TCallGraphNode.AddChild(const BlockIndex: TBlockIndex);\nvar\n  capacity: Integer;\nbegin\n'
+if '[K4510] once is enough' not in s and old in s:
+    s = s.replace(old, 'procedure TCallGraphNode.AddChild(const BlockIndex: TBlockIndex);\nvar\n  capacity: Integer;\n  i: Integer;\nbegin\n'
+                  '  // [K4510] once is enough: a call compiled again for every level of nested\n'
+                  '  // arguments added a child each time until Word NumChildren_ overflowed\n'
+                  '  for i := 0 to NumChildren_ - 1 do\n    if ChildBlockArray[i] = BlockIndex then exit;\n', 1)
+    open(p, 'w').write(s); print('   patched src/CompilerTypes.pas: a call graph child once')
+else:
+    print('   src/CompilerTypes.pas: AddChild already patched' if '[K4510] once is enough' in s else '   src/CompilerTypes.pas: AddChild not as expected, not patched')
 # 4. build
 subprocess.run(['make', 'clean'], cwd=os.path.join(mp, 'src'), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)   # FPC keeps stale units otherwise
 r = subprocess.run(['make', '-s'], cwd=os.path.join(mp, 'src'))

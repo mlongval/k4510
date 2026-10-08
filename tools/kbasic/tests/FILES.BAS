@@ -1,0 +1,18 @@
+' named files: write, append, read back
+OPEN "KBT.TXT" FOR OUTPUT AS SCORES
+PRINT SCORES, "ann", 120
+PRINT #SCORES, "bob"; ","; 95
+CLOSE SCORES
+OPEN "KBT.TXT" FOR APPEND AS SCORES
+PRINT SCORES, "cat", 7.5
+CLOSE
+OPEN "KBT.TXT" AS SCORES
+n = 0
+DO UNTIL EOF(SCORES)
+  INPUT SCORES, who$, pts
+  n = n + 1: PRINT "F:"; who$; pts
+LOOP
+CLOSE SCORES
+OPEN "KBT.TXT" FOR INPUT AS T
+LINE INPUT T, l$: PRINT "L:"; l$
+PRINT "N:"; n

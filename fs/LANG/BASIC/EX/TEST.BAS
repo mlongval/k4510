@@ -99,8 +99,9 @@ Check ar(10) = 100: Check ar(3) = 9
 Check br(2, 3) = 77 AND br(3, 2) = 0
 Result "A(10)=" + STR$(ar(10)) + " A(3)=" + STR$(ar(3)) + " B(2,3)=" + STR$(br(2, 3)) + " B(3,2)=" + STR$(br(3, 2))
 
-Begin "The machine (SYS regs, frame counter)", "clock kHz, RAM MB from $D500, POKE/PEEK, 60Hz counter", "40500 kHz  256 MB  counter moves"
-Check PEEK(54528) + 256 * PEEK(54529) = 40500
+Begin "The machine (SYS regs, frame counter)", "clock kHz, RAM MB from $D500, POKE/PEEK, 60Hz counter", "a clock in kHz, 256 MB, counter moves"
+khz = PEEK(54528) + 256 * PEEK(54529) + 65536 * PEEK(54566)   ' $D500/01/26: the clock moves with the governor
+Check khz >= 1000
 Check PEEK(54530) + 256 * PEEK(54531) = 256
 POKE 48896, 123: Check PEEK(48896) = 123
 fz = PEEK(54541) + 256 * PEEK(54542)
@@ -108,7 +109,7 @@ FOR i = 1 TO 20000
   IF PEEK(54541) + 256 * PEEK(54542) <> fz THEN EXIT FOR
 NEXT
 Check PEEK(54541) + 256 * PEEK(54542) <> fz
-Result STR$(PEEK(54528) + 256 * PEEK(54529)) + " kHz " + STR$(PEEK(54530) + 256 * PEEK(54531)) + " MB counter " + STR$(fz) + " ->" + STR$(PEEK(54541) + 256 * PEEK(54542))
+Result STR$(khz) + " kHz " + STR$(PEEK(54530) + 256 * PEEK(54531)) + " MB counter " + STR$(fz) + " ->" + STR$(PEEK(54541) + 256 * PEEK(54542))
 
 Begin "Graphics (VICKY bitmap over the text)", "GRAPHICS 2, PLOT LINE TRI BOX CIRCLE PALETTE GCLS, back", "draws, then GRAPHICS 0 restores"
 GRAPHICS 2: PLOT 10, 10, 17: LINE 0, 0, 639, 479, 18
@@ -123,6 +124,8 @@ Check -1: Result "the shell said it"
 
 PRINT: PRINT "KBTEST: "; n% - f%; " OF "; n%; " CHECKS PASSED"
 IF f% = 0 THEN PRINT "KBTEST PASSED" ELSE PRINT "KBTEST FAILED"
+PRINT "ANY KEY...";              ' the screen goes back to the shell's at END
+DO: GET k$: LOOP UNTIL k$ <> ""
 END
 
 CONST TRIES = 7

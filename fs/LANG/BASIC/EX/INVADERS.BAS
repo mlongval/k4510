@@ -31,7 +31,7 @@ DO
   Status
   ' ---- once a frame
   DO
-    WaitFrame
+    WAITFRAME
     GET k$
     IF k$ = "q" OR k$ = "Q" THEN lives% = 0: EXIT DO
     IF (k$ = "a" OR k$ = "A" OR k$ = CHR$(130)) AND px% > 1 THEN
@@ -42,7 +42,7 @@ DO
     END IF
     IF k$ = " " AND by% = 0 THEN
       by% = prow% - 1: bx% = px% + 1
-      Sound 16, 120, 2                        ' the shot: noise
+      Sfx 16, 120, 2                        ' the shot: noise
     END IF
     IF by% THEN MoveBullet
     IF ey% THEN MoveBomb
@@ -55,25 +55,21 @@ DO
   LOOP
   IF lives% = 0 THEN EXIT DO
   CLS: LOCATE h% \ 2, w% \ 2 - 7: COLOR 7: PRINT "WAVE CLEARED!"
-  FOR i% = 1 TO 60: WaitFrame: NEXT
+  FOR i% = 1 TO 60: WAITFRAME: NEXT
   wave% = wave% + 1
 LOOP
 
 ' ---- game over
 LOCATE h% \ 2, w% \ 2 - 4: COLOR 2: PRINT "GAME OVER"
-FOR i% = 1 TO 180: WaitFrame: NEXT
+FOR i% = 1 TO 180: WAITFRAME: NEXT
 POKE SND, 128
 COLOR 1: CLS
 PRINT CHR$(27); "[?25h";                      ' the cursor back
 PRINT "SCORE"; score%
 END
 
-SUB WaitFrame
-  f% = PEEK(54541)
-  DO: LOOP WHILE PEEK(54541) = f%
-END SUB
 
-SUB Sound (ch%, pitch%, dur%)
+SUB Sfx (ch%, pitch%, dur%)
   POKE SND, ch%: POKE SND + 1, 241: POKE SND + 2, pitch%: POKE SND + 3, dur%
 END SUB
 
@@ -130,7 +126,7 @@ SUB MoveBullet
     alive%(n%) = 0: left% = left% - 1
     score% = score% + (3 - (n% - 1) \ 8) * 10 + wave% * 5
     LOCATE by%, bx%: PRINT " ";
-    Sound 18, 60, 4                         ' a hit
+    Sfx 18, 60, 4                         ' a hit
     by% = 0: Status
   ELSE
     LOCATE by%, bx%: COLOR 1: PRINT "!";
@@ -151,9 +147,9 @@ SUB MoveBomb
   IF ey% = prow% AND ex% >= px% AND ex% <= px% + 2 THEN
     ' the player is hit
     ey% = 0: lives% = lives% - 1
-    Sound 17, 20, 30
+    Sfx 17, 20, 30
     Status
-    FOR i% = 1 TO 30: WaitFrame: NEXT
+    FOR i% = 1 TO 30: WAITFRAME: NEXT
     DrawPlayer
     EXIT SUB
   END IF

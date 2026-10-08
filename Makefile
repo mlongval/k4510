@@ -322,7 +322,7 @@ $(foreach n,$(PAS_EX_NAMES),$(eval $(call PAS_EX_RULE,$n)))
 # 2026-10-08): tools/k4510-bas turns each into Pascal with its runtime
 # (tools/kbasic/kbasrt.pas) and k4510-pas compiles it, name.prg beside it.
 BAS_EX_NAMES = rf1 rf2 rf3 rf4 rf5 rf6 rf7 rf8 float expr ahl drogon sieve bench \
-               lines tris sine stars split graph2d graph3d res invaders demos readme
+               lines tris sine stars split graph2d graph3d res invaders invader2 test demos readme
 BAS_EX_PRGS = $(foreach n,$(BAS_EX_NAMES),fs/LANG/BASIC/EX/$n.prg)
 pascal-prgs: $(BAS_EX_PRGS)
 define BAS_EX_RULE

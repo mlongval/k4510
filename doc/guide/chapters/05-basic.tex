@@ -1,0 +1,405 @@
+\chapter{K4510 BASIC}\label{cha:kbasic}
+
+K4510 BASIC is the machine's BASIC for writing programs. It speaks
+EhBASIC's words (PRINT, INPUT, FOR, GOSUB, PLOT ...), but it is
+\emph{compiled}: \verb|k4510-bas| turns your \verb|.BAS| file into Mad Pascal, and Mad
+Pascal turns that into a \verb|.prg|, the same kind of program as everything
+in \verb|/APPS|. The result runs many times faster than EhBASIC.
+
+You write a program in PROG (or VI, or any editor), save it as
+\verb|NAME.BAS|, and then:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.72\linewidth}@{}}
+\toprule
+\textbf{Where} & \textbf{What to do} \\
+\midrule
+At the prompt & \texttt{BAS NAME} compiles NAME.BAS into \verb|name.prg|; \verb|NAME| runs it \\
+In PROG & \textbf{F9} compiles; \textbf{Ctrl-F9} compiles and runs \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+There is no ``immediate mode'' (typing \texttt{PRINT 2+2} and getting 4). For a
+quick calculation or a one-line try, use RX: there \verb|PRINT| works like
+\verb|SAY|, so \texttt{PRINT 6*7} prints 42.
+
+EhBASIC is still on the machine for the old numbered programs in
+\verb|/LANG/EHBASIC|.
+
+\section{A first program}
+
+\begin{type}
+' guess the number -- the first K4510 BASIC program
+CONST TRIES = 7
+secret = 42
+n% = 0
+DO
+  INPUT "Your guess"; g
+  n% = n% + 1
+  IF g < secret THEN
+    PRINT "Higher"
+  ELSEIF g > secret THEN
+    PRINT "Lower"
+  END IF
+LOOP UNTIL g = secret OR n% = TRIES
+GOSUB Bravo
+PRINT "Tries:"; n%; "of"; TRIES
+END
+Bravo:
+  IF g = secret THEN PRINT "You got it!" ELSE PRINT "Too bad"
+  RETURN
+\end{type}
+
+No line numbers, keywords in any case, a label (\verb|Bravo:|) where an old
+BASIC would have had \texttt{GOSUB 1000}.
+
+\section{Writing it down}
+
+\begin{itemize}
+\item \textbf{One statement per line}, or several separated by \verb|:|.
+\item \textbf{Keywords in any case}: \verb|print|, \verb|Print| and \verb|PRINT| are the same. So are variable names: \verb|Score| and \verb|SCORE| are one variable.
+\item \textbf{Comments} start with \verb|'| or \verb|REM| and run to the end of the line.
+\item \textbf{Labels}: a name followed by \verb|:| at the start of a line (\verb|Again:|). \texttt{GOTO Again} and \texttt{GOSUB Again} jump there.
+\item \textbf{Line numbers} still work, as labels: \texttt{100 PRINT "HI"} and \texttt{GOTO 100}. You can mix both, and leave most lines without one.
+\end{itemize}
+
+\section{Variables}
+
+\begin{center}
+\small
+\begin{tabular}{@{}l >{\raggedright\arraybackslash}p{0.56\linewidth} l@{}}
+\toprule
+\textbf{Written} & \textbf{Holds} & \textbf{Starts as} \\
+\midrule
+\verb|score| & a number with decimals (single precision, about 7 figures) & 0 \\
+\verb|lives%| & a whole number, -32768 to 32767 & 0 \\
+\verb|name$| & text, up to 255 characters & ``'' \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\verb|a|, \verb|a%| and \verb|a$| are three different variables. Names can be as long
+as you like, and every letter counts (EhBASIC only looked at the first
+two).
+
+A whole-number variable rounds what it is given: \texttt{n\% = 3.7} makes 4. A
+value outside -32768..32767 stops the program with ``Overflow''.
+
+\textbf{Every variable belongs to the whole program}, wherever it is used,
+except the parameters of a SUB or FUNCTION (see below).
+
+\subsection{Arrays}
+
+\begin{type}
+DIM scores(10), board%(7, 7), names$(30)
+scores(3) = 9.5
+board%(0, 7) = 1
+\end{type}
+
+\begin{itemize}
+\item One or two dimensions. \texttt{DIM a(10)} has 11 elements, 0 to 10.
+\item The size is a whole number or a CONST.
+\item An array used without a DIM is \verb|DIM|med to 10 for you.
+\item An element of a text array holds up to 80 characters.
+\item An array may use about 24 KB at most (DIM tells you if it is bigger).
+\item A wrong index (\verb|scores(11)|, \verb|scores(-1)|) stops the program with ``Index out of range''.
+\end{itemize}
+
+\subsection{CONST}
+
+\begin{type}
+CONST TRIES = 7
+CONST GREETING$ = "Hello"
+\end{type}
+
+A CONST is a variable that may not be changed: \texttt{TRIES = 8} is an error
+when the program is compiled. A CONST made from a plain number can be
+an array's size: \texttt{DIM grid(SIZE)}.
+
+\section{Values and operators}
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.44\linewidth} >{\raggedright\arraybackslash}p{0.44\linewidth}@{}}
+\toprule
+\textbf{Operator} & \textbf{Means} \\
+\midrule
+\texttt{+ -{} * /} & add, subtract, multiply, divide (\verb|/| always gives decimals) \\
+\verb|\| & whole-number division: \texttt{7 \textbackslash{} 2} is 3 \\
+\verb|MOD| & remainder: \texttt{7 MOD 2} is 1 \\
+\verb|^| & power: \texttt{2 \textasciicircum{} 10} is 1024 \\
+\verb|+| on text & joins: \texttt{"ab" + "cd"} is \verb|"abcd"| \\
+\texttt{= <> < > <= >=} & compare numbers, or text (alphabetical, by character code) \\
+\texttt{AND OR XOR NOT} & combine conditions; on numbers, they work bit by bit \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\verb|^| comes first, then a minus sign, then \texttt{* /}, \verb|\|, \verb|MOD|, \texttt{+ -{}}, the
+comparisons, \verb|NOT|, \verb|AND|, \verb|XOR|, \verb|OR|. So \texttt{-{}2 \textasciicircum{} 2} is -4. Brackets
+change the order as usual.
+
+A comparison used as a number is -1 (true) or 0 (false):
+\texttt{x = (3 > 2)} makes x -1. A number used as a condition is true when it
+is not 0: \texttt{IF lives\% THEN ...}.
+
+Numbers can be written \verb|12|, \verb|3.75|, \verb|.5|, \verb|1.5E+12| or in hexadecimal
+\verb|&HFF|.
+
+\section{Statements}
+
+\subsection{Printing and asking}
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.44\linewidth} >{\raggedright\arraybackslash}p{0.44\linewidth}@{}}
+\toprule
+\textbf{Statement} & \textbf{What it does} \\
+\midrule
+\texttt{PRINT a; b\$; c} & prints; \verb|;| keeps going on the same line \\
+\texttt{PRINT a, b} & \verb|,| moves to the next column of 14 \\
+\texttt{PRINT TAB(20); "x"} & \verb|TAB(n)| moves to column n, \verb|SPC(n)| prints n spaces \\
+\texttt{PRINT "no new line";} & a \verb|;| or \verb|,| at the end keeps the cursor on the line \\
+\texttt{? "hi"} & \verb|?| is short for PRINT \\
+\texttt{INPUT "Your age"; age} & prints the question and \texttt{? }, waits for a line \\
+\texttt{INPUT "Name: ", n\$} & with \verb|,| no \texttt{? } is added \\
+\texttt{INPUT a, b} & several values, typed separated by commas \\
+\texttt{GET k\$} & the key pressed, or ``'' if none: does not wait \\
+\verb|CLS| & clears the screen \\
+\texttt{COLOR 7} / \texttt{COLOR 7, 6} & text colour, and background (0-15, the palette) \\
+\texttt{LOCATE 10, 30} & moves the cursor to row 10, column 30 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+A number is printed with a space in front (where a minus sign would
+go) and one after: \texttt{PRINT 5; 6} shows \texttt{ 5  6 }. Text is printed as it
+is. Numbers show at most six figures, without useless zeros: \verb|3.75|,
+\verb|0.333333|, and very big or very small ones as \verb|1.5E+12|.
+
+\subsection{Deciding}
+
+\begin{type}
+IF x > 10 THEN PRINT "big" ELSE PRINT "small"
+
+IF age < 13 THEN
+  PRINT "child"
+ELSEIF age < 18 THEN
+  PRINT "teenager"
+ELSE
+  PRINT "adult"
+END IF
+
+SELECT CASE n%
+  CASE 1, 2
+    PRINT "one or two"
+  CASE 3 TO 9
+    PRINT "a few"
+  CASE IS >= 10
+    PRINT "lots"
+  CASE ELSE
+    PRINT "none"
+END SELECT
+\end{type}
+
+\begin{itemize}
+\item The one-line IF keeps everything after THEN on that line; \texttt{IF x THEN 100} and \texttt{IF x GOTO 100} jump to a label or line number.
+\item A many-line IF has nothing after THEN and ends with \texttt{END IF}.
+\item \texttt{SELECT CASE} works with numbers and with text (\texttt{CASE "yes", "y"}).
+\end{itemize}
+
+\subsection{Repeating}
+
+\begin{type}
+FOR i = 1 TO 10 STEP 2 ... NEXT i
+WHILE lives% > 0 ... WEND
+DO WHILE x < 5 ... LOOP
+DO UNTIL done% ... LOOP
+DO ... LOOP UNTIL key$ = "q"
+DO ... LOOP WHILE x < 5
+DO ... LOOP              ' forever, until EXIT DO
+\end{type}
+
+\begin{itemize}
+\item \verb|STEP| may be negative (\texttt{FOR i = 10 TO 1 STEP -{}1}) or have decimals. Without STEP, the count goes up by 1.
+\item \verb|NEXT| may name its variable (\texttt{NEXT i}) or not.
+\item \texttt{EXIT FOR} and \texttt{EXIT DO} leave the loop they are in.
+\end{itemize}
+
+\subsection{Jumping}
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.44\linewidth} >{\raggedright\arraybackslash}p{0.44\linewidth}@{}}
+\toprule
+\textbf{Statement} & \textbf{What it does} \\
+\midrule
+\texttt{GOTO label} & continues at the label (or line number) \\
+\texttt{GOSUB label} & runs from the label until RETURN, then comes back \\
+\verb|RETURN| & back to the statement after the GOSUB \\
+\verb|END| or \verb|STOP| & ends the program \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+GOSUBs can be inside each other up to 64 deep.
+
+\subsection{SUB and FUNCTION}
+
+\begin{type}
+SUB Stars (n%)
+  FOR i% = 1 TO n%: PRINT "*";: NEXT
+  PRINT
+END SUB
+
+FUNCTION Area (w, h)
+  Area = w * h
+END FUNCTION
+
+Stars 5
+CALL Stars(3)
+PRINT Area(3, 4)
+\end{type}
+
+\begin{itemize}
+\item A SUB is called by its name (with or without brackets round the values) or with \verb|CALL|.
+\item A FUNCTION gives back the value assigned to its own name.
+\item They can be written anywhere in the file, before or after they are used.
+\item \texttt{EXIT SUB} and \texttt{EXIT FUNCTION} leave early.
+\item \textbf{Only the parameters are their own.} Every other variable inside a SUB or FUNCTION is the program's variable of that name.
+\item Labels, GOTO and GOSUB stay outside SUBs and FUNCTIONs.
+\end{itemize}
+
+\subsection{Other statements}
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.44\linewidth} >{\raggedright\arraybackslash}p{0.44\linewidth}@{}}
+\toprule
+\textbf{Statement} & \textbf{What it does} \\
+\midrule
+\texttt{LET x = 5} & the same as \texttt{x = 5} \\
+\texttt{SLEEP 1.5} & waits that many seconds \\
+\verb|RANDOMIZE| & new random numbers (every program already starts with fresh ones) \\
+\texttt{POKE address, value} & writes a byte into memory \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Functions}
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.46\linewidth} >{\raggedright\arraybackslash}p{0.46\linewidth}@{}}
+\toprule
+\textbf{Function} & \textbf{Gives} \\
+\midrule
+\verb|ABS(x)| & x without its sign \\
+\verb|INT(x)| & x rounded down: \verb|INT(-2.5)| is -3 \\
+\verb|FIX(x)| & x with its decimals cut off: \verb|FIX(-2.5)| is -2 \\
+\verb|SGN(x)| & -1, 0 or 1 \\
+\verb|SQR(x)| & square root \\
+\texttt{SIN COS TAN ATN (x)} & trigonometry, in radians \\
+\verb|EXP(x)| \verb|LOG(x)| & e to the power x; natural logarithm \\
+\verb|RND| or \verb|RND(1)| & a random number from 0 up to (not including) 1 \\
+\verb|LEN(a$)| & how many characters \\
+\verb|ASC(a$)| & the code of the first character (0 if empty) \\
+\verb|CHR$(n)| & the character with code n \\
+\verb|VAL(a$)| & the number written in a\$ (\verb|VAL("3.5")| is 3.5) \\
+\verb|STR$(x)| & the number as text, without the leading space \\
+\texttt{LEFT\$(a\$, n)} \texttt{RIGHT\$(a\$, n)} & the first / last n characters \\
+\texttt{MID\$(a\$, start)} \texttt{MID\$(a\$, start, n)} & n characters from position start (from 1) \\
+\texttt{INSTR(a\$, b\$)} & where b\$ is in a\$ (1 = first character), 0 if it is not \\
+\verb|UCASE$(a$)| \verb|LCASE$(a$)| & in capitals / small letters \\
+\verb|SPACE$(n)| & n spaces \\
+\verb|INKEY$| & the key pressed, or ``'': does not wait \\
+\verb|PEEK(address)| & a byte of memory \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+To make a whole number from 1 to 6: \texttt{INT(RND * 6) + 1}.
+
+\section{Graphics}
+
+The graphics words draw on a picture laid over the text, as EhBASIC's
+do. Colour 0 is see-through: the text shows through it.
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.46\linewidth} >{\raggedright\arraybackslash}p{0.46\linewidth}@{}}
+\toprule
+\textbf{Statement} & \textbf{What it does} \\
+\midrule
+\texttt{GRAPHICS 1} & the picture on, 640 x 480 \\
+\texttt{GRAPHICS 3} & the picture on, at the size of the screen as it is \\
+\texttt{GRAPHICS 0} & the picture off \\
+\verb|GCLS| & clears the picture \\
+\texttt{PLOT x, y, c} & one dot \\
+\texttt{LINE x1, y1, x2, y2, c} & a line \\
+\texttt{BOX x1, y1, x2, y2, c} & a filled rectangle \\
+\texttt{TRI x1, y1, x2, y2, x3, y3, c} & a filled triangle \\
+\texttt{CIRCLE x, y, r, c} & a circle \\
+\verb|GWIDTH| \verb|GHEIGHT| & the picture's width and height, in dots \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The first drawing word turns the picture on (\texttt{GRAPHICS 3}) if the
+program has not. A program that ends with the picture on waits for a
+key, then takes it away. Coordinates and colours are whole numbers;
+(0, 0) is the top left.
+
+\section{Errors}
+
+\textbf{When compiling.} A mistake stops the compile with a message and the
+line it is on: ``IF (END IF) is never closed'', ``there is no label
+Bravo'', ``TRIES is a CONST: it cannot change'', ``a number was expected
+here, not a string''. In PROG, F9 puts the cursor on that line.
+
+\textbf{When running.} Some mistakes can only be seen while the program
+runs. The program stops, prints the line and the reason, and goes back
+to K/OS; PROG then puts the cursor on that line:
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.46\linewidth} >{\raggedright\arraybackslash}p{0.46\linewidth}@{}}
+\toprule
+\textbf{Message} & \textbf{Because} \\
+\midrule
+\texttt{Line N: Division by zero} & \verb|/|, \verb|\| or \verb|MOD| by 0 \\
+\texttt{Line N: Index out of range (DIM it bigger?)} & an array index outside its DIM \\
+\texttt{Line N: Overflow: a whole number (\%) holds -{}32768 to 32767} & too big for a \verb|%| variable \\
+\texttt{Line N: RETURN without GOSUB} & a RETURN reached without a GOSUB \\
+\texttt{Line N: Too many GOSUBs inside each other} & more than 64 GOSUBs not yet RETURNed \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{Compared with EhBASIC and QuickBASIC}
+
+\textbf{Like EhBASIC:} the words, the graphics statements, the variable
+types, PRINT's look.
+
+\textbf{Unlike EhBASIC:} compiled, not interpreted; no line numbers needed;
+keywords in any case; every letter of a name counts; multi-line IF,
+SELECT CASE, SUB and FUNCTION, labels, LOCATE, COLOR, CLS, INKEY\$.
+
+\textbf{Like QuickBASIC:} the block statements (IF ... END IF, DO ... LOOP,
+SELECT CASE), labels, SUB and FUNCTION, CONST.
+
+\textbf{Not there (yet):}
+
+\begin{itemize}
+\item \verb|DATA|, \verb|READ|, \verb|RESTORE|
+\item \texttt{ON ... GOTO} / \texttt{ON ... GOSUB}, \texttt{DEF FN}
+\item \texttt{PRINT USING}, \texttt{LINE INPUT}, \verb|WRITE|
+\item \verb|SWAP|, \verb|ERASE|, \verb|REDIM|
+\item local variables (only parameters are a SUB's own), \verb|SHARED|, \verb|STATIC|
+\item labels, \verb|GOTO| and \verb|GOSUB| inside a SUB or FUNCTION
+\item files (\verb|OPEN|, \verb|LOAD|, \verb|SAVE|), \verb|SOUND|, \verb|PALETTE|, \verb|TIMER|, \verb|DATE$|
+\item arrays of more than two dimensions; text array elements longer than 80
+\item immediate mode (use RX)
+\end{itemize}

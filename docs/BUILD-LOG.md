@@ -12078,3 +12078,11 @@ programs (EHBASIC, RUN "NAME.BAS").  Checked end to end: VI KB1.BAS, :run,
 division by zero -> "error 1 of 1: line 3: Division by zero", cursor on 3.
 test/bastest.sh, 25 programs, in make test.  The language: docs/KBASIC.md;
 keyword help (EN, FR) in /LANG/BASIC, not yet wired to PROG's F1.
+
+**2026-10-08: the handbook's K4510 BASIC chapter** (05-basic, from
+docs/KBASIC.md; doc-18: "please adapt docs/KBASIC.md yourself").  Compiled on
+its own with the guide's preamble: no errors, no overfull lines; the full
+handbook not rebuilt.  The EhBASIC chapter points new programs to it.
+SHIPPING.CFG: chapter:05-basic and lang:BASIC are new, as `maybe' -- Doc's
+mark to make.  Deployed earlier today: 0.9-53dfa45 on the Dell, bastest 25/25
+there, a FOR/PRINT program compiled and run.

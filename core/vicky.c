@@ -108,17 +108,22 @@ static void txt_grid(int *cols, int *rows, int *vpad, int *hpad)
 }
 
 /* ---- HD text (vicky.h) ---------------------------------------------------- */
-static const uint8_t *hd_font, *hd_stock, *hd_font16, *hd_stock8;
-static int hd_on;                                /* this frame: 720x540 with an HD font, drawn at 1440x1080 */
+static const uint8_t *hd_font, *hd_stock, *hd_font16, *hd_stock8, *hd_font48, *hd_font24;
+static int hd_on;                                /* this frame: 0, or 2 / 3 -- the glass drawn at twice / three times, text from the HD font */
 void vicky_hd_font(const uint8_t *hd, const uint8_t *stock, const uint8_t *hd16, const uint8_t *stock8)
 {
     if (hd != hd_font || stock != hd_stock || hd16 != hd_font16 || stock8 != hd_stock8) vicky_dirty = 1;
     hd_font = hd; hd_stock = stock; hd_font16 = hd16; hd_stock8 = stock8;
 }
+void vicky_hd_font3(const uint8_t *hd48, const uint8_t *hd24)
+{
+    if (hd48 != hd_font48 || hd24 != hd_font24) vicky_dirty = 1;
+    hd_font48 = hd48; hd_font24 = hd24;
+}
 int vicky_cell_w(int n) { uint8_t c = reg[VR_LAYER(n & 3) + VL_CTRL]; return ((c >> 1) & 3) == VL_MODE_TEXT32 && (c & 0x40) ? 16 : 8; }
 int vicky_cell_h(int n) { uint8_t c = reg[VR_LAYER(n & 3) + VL_CTRL]; int z = (c >> 5) & 3;
                           return z == 3 && ((c >> 1) & 3) == VL_MODE_TEXT32 ? 32 : z ? 16 : 8; }
-int vicky_out_scale(void) { return hd_on ? 2 : 1; }
+int vicky_out_scale(void) { return hd_on ? hd_on : 1; }
 int vicky_out_w(void) { return glass_w * vicky_out_scale(); }
 int vicky_out_h(void) { return glass_h * vicky_out_scale(); }
 /* What the text32 layer left at each pixel of the line, for the HD pass:
@@ -178,7 +183,7 @@ uint8_t vicky_read(uint8_t r)
     case VR_IDRN: return (uint8_t) vicky_idr_count();
     case VR_IDRS: case VR_IDRF: case VR_IDRW: case VR_IDRW + 1: case VR_IDRH: case VR_IDRH + 1:
         { const vicky_idr *d = vicky_idr_at(reg[VR_IDRIX]); if (!d) return 0;
-          return r == VR_IDRS ? (uint8_t) d->scale : r == VR_IDRF ? (uint8_t) d->hd
+          return r == VR_IDRS ? (uint8_t) d->scale : r == VR_IDRF ? (uint8_t)((d->hd ? 1 : 0) | (d->hd == 3 ? 2 : 0))
                : r < VR_IDRH ? (uint8_t)(d->w >> (8 * (r - VR_IDRW))) : (uint8_t)(d->h >> (8 * (r - VR_IDRH))); }
     case VR_GLASSW: case VR_GLASSW + 1: case VR_GLASSH: case VR_GLASSH + 1: case VR_SCALE:
         { int w, h, hd, sc; glass_of((uint8_t)(reg[VR_CTRL] | ((reg[VR_GLASSCTL] & 3) ? 0x20 : 0)), &w, &h, &hd, &sc);   /* GLASSCTL implies bit5, as for TXT */
@@ -582,21 +587,25 @@ void vicky_begin_frame(uint8_t *fb, int pitch)
     vicky_dirty = 0; vicky_low = reads_low();
     glass_latch();
     { int i = glass_scale ? vicky_idr_of_scale(glass_scale) : -1;     /* an IDR at an even scale, the doubled frame in the limits */
-      int on = hd_font && hd_stock && hd_font16 && hd_stock8 && glass_hd && i >= 0 && idrs[i].hd;
+      int on = !(hd_stock && hd_stock8 && glass_hd && i >= 0) ? 0
+             : idrs[i].hd == 2 && hd_font && hd_font16 ? 2 : idrs[i].hd == 3 && hd_font48 && hd_font24 ? 3 : 0;
       if (on != hd_on) { hd_on = on; frame_skip = 0; }
       hd_ok_data[0] = hd_ok_data[1] = 0xFFFFFFFFu; }                             /* a program may have changed a glyph since */
     memset(col_ss, 0, 16); memset(col_sl, 0, 16);
     sh_pc = rd32(&reg[VR_SHEILA]); sh_wait = (reg[VR_SHEILACTL] & 1) ? -1 : -2;
 }
 
-/* One machine line of an HD frame: composed at 720 as ever (with hd_src
- * kept), then written as two lines of 1440 -- each pixel doubled, unless a
- * text32 cell is on top whose glyph is the stock one: then the HD glyph's two
- * rows and two columns for it. */
+/* One machine line of an HD frame: composed at the glass as ever (with hd_src
+ * kept), then written as K lines of K times the width -- each pixel K x K,
+ * unless a text32 cell is on top whose glyph is the stock one: then the HD
+ * glyph's K rows and K columns for it.  K is 2 (16-wide glyphs, two bytes a
+ * row) or 3 (24-wide, three bytes; 2026-10-07, for 480x360). */
 static void hd_line_draw(int y, uint8_t ctrl)
 {
-    const int w = glass_w;
-    uint8_t *o0 = frame_fb + (size_t)(2 * y) * frame_pitch, *o1 = o0 + frame_pitch;
+    const int w = glass_w, K = hd_on, GW = 8 * K;
+    const unsigned full = (1u << GW) - 1, bar = ((1u << (GW / 4)) - 1) << (GW - GW / 4);
+    uint8_t *o[3];
+    for (int s = 0; s < K; s++) o[s] = frame_fb + (size_t)(K * y + s) * frame_pitch;
     memset(hd_line, reg[VR_BGCOL], (size_t) w); memset(hd_src, 0, (size_t) w);
     if (ctrl & 1) {
         memset(owner, 0, (size_t) w); memset(layer_hit, 0, (size_t) w);
@@ -608,40 +617,42 @@ static void hd_line_draw(int y, uint8_t ctrl)
     }
     for (int x = 0; x < w; x++) {
         uint8_t p = hd_line[x];
-        int k = hd_src[x] - 1;                                   /* 0: an 8x16 cell (16x32 HD), 1: an 8x8 one (16x16) */
-        if (k < 0 || hd_g[x] > 255) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        int k = hd_src[x] - 1;                                   /* 0: an 8x16 cell, 1: an 8x8 one */
+        if (k < 0 || hd_g[x] > 255) { for (int s = 0; s < K; s++) memset(o[s] + K * x, p, (size_t) K); continue; }
         int H = k ? 8 : 16; const uint8_t *st = k ? hd_stock8 : hd_stock;
         if (hd_data[x] != hd_ok_data[k]) {                       /* which glyphs in RAM are the stock ones: once a frame */
             hd_ok_data[k] = hd_data[x];
             for (int g = 0; g < 256; g++) { hd_ok[k][g] = 1;
                 for (int r = 0; r < H; r++) if (ram(hd_ok_data[k] + (uint32_t)(g * H + r)) != st[g * H + r]) { hd_ok[k][g] = 0; break; } }
         }
-        if (!hd_ok[k][hd_g[x]]) { o0[2 * x] = o0[2 * x + 1] = o1[2 * x] = o1[2 * x + 1] = p; continue; }
+        if (!hd_ok[k][hd_g[x]]) { for (int s = 0; s < K; s++) memset(o[s] + K * x, p, (size_t) K); continue; }
+        const uint8_t *font = K == 3 ? (k ? hd_font24 : hd_font48) : (k ? hd_font16 : hd_font);
+        const uint8_t *gr = font + ((size_t) hd_g[x] * (size_t)(K * H) + (size_t) hd_gy[x] * K) * K;   /* the HD glyph's K rows, K bytes each */
+        uint8_t fg = hd_fg[x], bg = hd_bg[x];
+        unsigned m = hd_cur[x] == 2 ? full : hd_cur[x] ? bar : 0;   /* the shaped cursor at the HD size */
         /* A whole cell with nothing over it -- the common case, a line of text:
-         * its two glyph rows once, all sixteen pixels of each (2026-10-07: the
-         * test above, made once a pixel, cost HD text 13-50% over the same
-         * glyphs drawn as 16-wide cells). */
+         * its K glyph rows once, every pixel of each (2026-10-07: the test
+         * below, made once a pixel, cost HD text 13-50% over the same glyphs
+         * drawn as 16-wide cells). */
         if (hd_gx[x] == 0 && x + 8 <= w) {
             int whole = 1;
             for (int i = 1; i < 8 && whole; i++)
                 whole = hd_src[x + i] == hd_src[x] && hd_g[x + i] == hd_g[x] && hd_gx[x + i] == i && hd_cur[x + i] == hd_cur[x]
                         && hd_fg[x + i] == hd_fg[x] && hd_bg[x + i] == hd_bg[x];
             if (whole) {
-                const uint8_t *gr = (k ? hd_font16 : hd_font) + ((size_t) hd_g[x] * (size_t)(2 * H) + (size_t) hd_gy[x] * 2) * 2;
-                unsigned w0 = (unsigned) gr[0] << 8 | gr[1], w1 = (unsigned) gr[2] << 8 | gr[3];
-                uint8_t fg = hd_fg[x], bg = hd_bg[x], *d0 = o0 + 2 * x, *d1 = o1 + 2 * x;
-                if (hd_cur[x] == 2) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; } else if (hd_cur[x]) { w0 ^= 0xF000; w1 ^= 0xF000; }
-                for (int b = 0; b < 16; b++) { d0[b] = (w0 >> (15 - b)) & 1 ? fg : bg; d1[b] = (w1 >> (15 - b)) & 1 ? fg : bg; }
+                for (int s = 0; s < K; s++) {
+                    const uint8_t *r = gr + s * K; unsigned bits = K == 3 ? (unsigned) r[0] << 16 | (unsigned) r[1] << 8 | r[2] : (unsigned) r[0] << 8 | r[1];
+                    bits ^= m; uint8_t *d = o[s] + K * x;
+                    for (int b = 0; b < GW; b++) d[b] = (bits >> (GW - 1 - b)) & 1 ? fg : bg;
+                }
                 x += 7; continue;
             }
         }
-        const uint8_t *gr = (k ? hd_font16 : hd_font) + ((size_t) hd_g[x] * (size_t)(2 * H) + (size_t) hd_gy[x] * 2) * 2;   /* the HD glyph's two rows */
-        unsigned w0 = (unsigned) gr[0] << 8 | gr[1], w1 = (unsigned) gr[2] << 8 | gr[3];
-        if (hd_cur[x] == 2) { w0 ^= 0xFFFF; w1 ^= 0xFFFF; }      /* the shaped cursor at the HD size (text32 has */
-        else if (hd_cur[x]) { w0 ^= 0xF000; w1 ^= 0xF000; }      /* left only the rows an underline covers) */
-        int sh = 14 - 2 * hd_gx[x]; uint8_t fg = hd_fg[x], bg = hd_bg[x];
-        o0[2 * x] = (w0 >> (sh + 1)) & 1 ? fg : bg; o0[2 * x + 1] = (w0 >> sh) & 1 ? fg : bg;
-        o1[2 * x] = (w1 >> (sh + 1)) & 1 ? fg : bg; o1[2 * x + 1] = (w1 >> sh) & 1 ? fg : bg;
+        for (int s = 0; s < K; s++) {
+            const uint8_t *r = gr + s * K; unsigned bits = K == 3 ? (unsigned) r[0] << 16 | (unsigned) r[1] << 8 | r[2] : (unsigned) r[0] << 8 | r[1];
+            bits ^= m; uint8_t *d = o[s] + K * x;
+            for (int t = 0; t < K; t++) d[t] = (bits >> (GW - 1 - (hd_gx[x] * K + t))) & 1 ? fg : bg;
+        }
     }
 }
 
@@ -656,10 +667,10 @@ void vicky_line(int y)
     line_band = 0;
     /* bit1: columns halved (320); bit2: lines halved (240); bit3: a 200-line
      * field, 40 blank lines above and below it; bit4: columns quartered (160). */
-    if (hd_on) {                                     /* 720x540 drawn at 1440x1080, text from the HD font */
+    if (hd_on) {                                     /* the glass drawn at 2x or 3x, text from the HD font */
         if (y >= glass_h) return;
         hd_line_draw(y, ctrl);
-        if (2 * y + 1 < VICKY_HEIGHT) band_out[2 * y] = band_out[2 * y + 1] = line_band;
+        for (int s = 0; s < hd_on; s++) if (hd_on * y + s < VICKY_HEIGHT) band_out[hd_on * y + s] = line_band;
         return;
     }
     if (glass_hd) {                                  /* the HD family: its own size, nothing doubled */

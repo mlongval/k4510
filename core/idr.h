@@ -45,9 +45,11 @@ int  idr_list(int pw, int ph, int base, const idr_limits *lim, idr_t *out, int m
 void idr_grid(int w, int h, int cell_w, int cell_h, int *cols, int *rows);
 
 /* Can this IDR draw HD text -- 16-wide glyphs in the cells of its 8-wide
- * grid, VICKY drawing the frame at twice the IDR (as 720x540 does today)?
- * Only at an even scale, so a glyph pixel is scale/2 panel pixels, whole; and
- * only if the doubled frame is inside the limits.  lim NULL: the defaults. */
-int  idr_hd_text(const idr_t *r, const idr_limits *lim);
+ * grid, VICKY drawing the frame at twice the IDR (as 720x540 does)?  At an
+ * even scale, 2: a glyph pixel is scale/2 panel pixels, whole.  At an odd
+ * scale that three divides (480x360 at /3, 2026-10-07), 3: 24-wide glyphs,
+ * the frame at three times.  0 when neither, or when the frame drawn that big
+ * is outside the limits.  lim NULL: the defaults. */
+int  idr_hd_text(const idr_t *r, const idr_limits *lim);   /* 0, 2 or 3 */
 
 #endif

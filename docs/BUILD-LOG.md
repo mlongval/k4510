@@ -11882,3 +11882,15 @@ patches lib/graph.inc for the K4510 (rerun `make pascal-install`).
 pipe a frame at a time, keeps it as video.cap in k4510.cfg (the next start
 applies it) and answers in thousands of pixels ($D549/A).  ubuntu-s1, with the
 emulator drawing every frame beside it: 1555200 (1440x1080).
+
+## 2026-10-07 -- HD text at 480x360: three times
+
+Doc: "I would like HD font choice to extend to include 480x360 mode."  480x360
+is /3 on a 1080 panel, an odd scale, so the HD pass (the glass drawn at twice,
+16-wide glyphs) could not reach it.  idr_hd_text now answers 2 or 3 -- 2 at
+even scales, 3 at scales three divides -- and hd_line_draw draws K lines of K
+pixels a machine pixel, the glyphs 8K wide (two or three bytes a row); IDRF
+bit1 says three.  tools/mkhdfonts.py makes every face at 24x48 and 24x24 too:
+Terminus and Spleen from their 12x24 cuts doubled, the TrueType faces drawn at
+24x48, the VGA, Proggy and Tamzen tripled; the 16x32 files came out
+byte-identical.  480x360 draws 1440x1080, the cap's own size.

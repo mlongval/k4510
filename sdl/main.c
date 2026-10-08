@@ -362,6 +362,7 @@ static uint8_t font_437_8[2048], font_437_16[4096];  /* both again in strict CP4
 /* The HD text fonts (vicky_hd_font, tools/mkhdfonts.py): per face, the K4510
  * page's order and CP437's; a face whose files are missing is drawn as unscii. */
 static uint8_t hd_fonts[HDFONT_COUNT][PAGE_COUNT][16384], hd_fonts16[HDFONT_COUNT][PAGE_COUNT][8192]; static int hd_have[HDFONT_COUNT];
+static uint8_t hd_fonts48[HDFONT_COUNT][PAGE_COUNT][36864], hd_fonts24[HDFONT_COUNT][PAGE_COUNT][18432]; static int hd_have3[HDFONT_COUNT];   /* the same at 3x: 480x360 (2026-10-07) */
 /* F12 -> Machine -> Save and power off (Doc, 2026-10-07, in place of a Linux
  * hibernate): the whole machine to this file, then the computer off; the next
  * start loads it and deletes it, so you are back where you were -- the
@@ -678,7 +679,9 @@ static void line_begin(void)
           if (f != wide_face || pg != wide_page) wide_fonts(f, pg);
           if (f != HDFONT_UNSCII && hd_have[f]) vicky_hd_font(hd_fonts[f][pg], pg == PAGE_K4510 ? font_panel : font_437_16,
                                                               hd_fonts16[f][pg], pg == PAGE_K4510 ? font_menu : font_437_8);
-          else vicky_hd_font(NULL, NULL, NULL, NULL); }
+          else vicky_hd_font(NULL, NULL, NULL, NULL);
+          if (f != HDFONT_UNSCII && hd_have3[f]) vicky_hd_font3(hd_fonts48[f][pg], hd_fonts24[f][pg]); else vicky_hd_font3(NULL, NULL);
+          if (f != HDFONT_UNSCII && !hd_have[f] && hd_have3[f]) vicky_hd_font(NULL, pg == PAGE_K4510 ? font_panel : font_437_16, NULL, pg == PAGE_K4510 ? font_menu : font_437_8); }   /* the stock glyphs, for 3x alone */
         vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1;
         frame_lines = vicky_glass_h(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;   /* a frame is 1/60 s however many lines */
     }
@@ -908,6 +911,13 @@ int k4510_frontend_main(int argc, char **argv)
             snprintf(p[k], sizeof p[k], "data/fonts/hd/%s-%s.bin", hdfont_files[i], pg[k]);
             snprintf(p[2 + k], sizeof p[2 + k], "data/fonts/hd/%s16-%s.bin", hdfont_files[i], pg[k]);
             if (load_file(p[k], hd_fonts[i][k], 16384) != 16384 || load_file(p[2 + k], hd_fonts16[i][k], 8192) != 8192) hd_have[i] = 0;
+        }
+        hd_have3[i] = 1;                                         /* and at 3x, 24x48 and 24x24 */
+        for (int k = 0; k < 2; k++) {
+            char a[80], b[80];
+            snprintf(a, sizeof a, "data/fonts/hd/%s48-%s.bin", hdfont_files[i], pg[k]);
+            snprintf(b, sizeof b, "data/fonts/hd/%s24-%s.bin", hdfont_files[i], pg[k]);
+            if (load_file(a, hd_fonts48[i][k], 36864) != 36864 || load_file(b, hd_fonts24[i][k], 18432) != 18432) hd_have3[i] = 0;
         }
     }
     load_file("data/fonts/unscii/font8-cp437.bin", font_437_8, sizeof font_437_8);      /* optional: IBM's page */

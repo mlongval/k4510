@@ -19,6 +19,12 @@ writes data/fonts/hd/<face>-{k4510,cp437}.bin (16x32, 16384 bytes) and
 <face>16-{k4510,cp437}.bin (16x16, 8192 bytes: each pair of the 16x32's rows
 ORed into one, so a stroke one row thick survives), for every face
 (run from the checkout's root).  Provenance: data/fonts/hd/VENDORED-FROM.txt.
+
+And the same at three times, for 480x360 shown at /3 (2026-10-07):
+<face>48-*.bin (24x48, three bytes a row, 36864 bytes) and <face>24-*.bin
+(24x24, 18432 bytes).  Terminus and Spleen from their 12x24 cuts, doubled
+(console-setup's *-Terminus{Bold,}24x12.psf.gz; SRC_DIR/spleen-12x24.bdf);
+the TrueType faces drawn at 24x48; the 8x16 faces tripled.
 """
 import glob, gzip, os, re, struct, sys
 
@@ -33,14 +39,20 @@ def k4510_page():
     assert len(v) == 256
     return v
 
-def double8(rows8):                       # 8-wide rows (ints) -> 16x32 rows (ints)
+K = 2                                     # 2: 16x32 glyphs; 3: 24x48 (main() runs both)
+
+def widen(rows, w, f):                    # rows w bits wide (ints) -> f times wider and f times taller
     out = []
-    for r in rows8:
-        w = 0
-        for b in range(8):
-            if r & (0x80 >> b): w |= 0xC000 >> (2 * b)
-        out += [w, w]
+    for r in rows:
+        v = 0
+        for b in range(w):
+            if r & (1 << (w - 1 - b)):
+                for i in range(f): v |= 1 << (w * f - 1 - (b * f + i))
+        out += [v] * f
     return out
+
+def double8(rows8):                       # 8-wide rows (ints) -> the HD size: 16x32 (K 2) or 24x48 (K 3)
+    return widen(rows8, 8, K)
 
 def unscii16():
     g = {}
@@ -52,15 +64,17 @@ def unscii16():
 
 def terminus(d, weight):
     g = {}
-    for fn in sorted(glob.glob(os.path.join(d, "*-Terminus%s32x16.psf.gz" % weight)), key=lambda f: (not os.path.basename(f).startswith("Uni"), f)):
+    size = "32x16" if K == 2 else "24x12"            # at three times, the 12x24 cut doubled
+    for fn in sorted(glob.glob(os.path.join(d, "*-Terminus%s%s.psf.gz" % (weight, size))), key=lambda f: (not os.path.basename(f).startswith("Uni"), f)):
         data = gzip.open(fn).read()
         magic, ver, hs, flags, n, bpg, h, w = struct.unpack_from("<8I", data)
-        assert magic == 0x864ab572 and (w, h) == (16, 32) and flags & 1, fn
+        assert magic == 0x864ab572 and (w, h) == ((16, 32) if K == 2 else (12, 24)) and flags & 1, fn
         glyphs = [data[hs + i * bpg: hs + (i + 1) * bpg] for i in range(n)]
         p = hs + n * bpg
         for i in range(n):
             e = data.index(b"\xff", p); seq = data[p:e]; p = e + 1
-            rows = [glyphs[i][2 * r] << 8 | glyphs[i][2 * r + 1] for r in range(32)]
+            rows = [glyphs[i][2 * r] << 8 | glyphs[i][2 * r + 1] for r in range(h)]
+            if K == 3: rows = widen([r >> 4 for r in rows], 12, 2)
             for ch in seq.split(b"\xfe")[0].decode("utf-8", "ignore"):
                 g.setdefault(ord(ch), rows)
     return g
@@ -96,34 +110,39 @@ def vga(fn):
     for c in range(256): g.setdefault(CP437[c], double8(vals[c * 16:(c + 1) * 16]))
     return g
 
+def put_row(out, r):                                     # a glyph row, K bytes, MSB first
+    out += bytes((r >> (8 * (K - 1 - i))) & 0xFF for i in range(K))
+
 def write(name, face, fallback, table, tag):
+    ch = 16 * K
     out, missing = bytearray(), []
     for b, u in enumerate(table):
-        if b == 0 or u in (0, 0xA0): rows = [0] * 32
+        if b == 0 or u in (0, 0xA0): rows = [0] * ch
         elif u in face: rows = face[u]
         elif u == 0x201E and 0x201D in face:               # the low double quote: the closing one, on the baseline
-            src = face[0x201D]; lit = [i for i in range(32) if src[i]]
-            rows = [0] * 32
-            for i in lit: rows[min(31, 26 + (i - lit[-1]))] = src[i]
+            src = face[0x201D]; lit = [i for i in range(ch) if src[i]]
+            rows = [0] * ch
+            for i in lit: rows[min(ch - 1, ch * 13 // 16 + (i - lit[-1]))] = src[i]
         elif u in fallback: rows = fallback[u]; missing.append("$%02X" % b)
-        else: rows = [0] * 32; missing.append("$%02X(blank)" % b)
-        for r in rows: out += bytes((r >> 8, r & 0xFF))
-    assert len(out) == 16384
-    open(os.path.join(OUT, "%s-%s.bin" % (name, tag)), "wb").write(out)
+        else: rows = [0] * ch; missing.append("$%02X(blank)" % b)
+        for r in rows: put_row(out, r)
+    assert len(out) == 256 * ch * K
+    big, small = ("%s-%s.bin", "%s16-%s.bin") if K == 2 else ("%s48-%s.bin", "%s24-%s.bin")
+    open(os.path.join(OUT, big % (name, tag)), "wb").write(out)
     half = bytearray()
     for b in range(256):
-        rows = [out[(b * 32 + r) * 2] << 8 | out[(b * 32 + r) * 2 + 1] for r in range(32)]
-        for r in halve(rows): half += bytes((r >> 8, r & 0xFF))
-    open(os.path.join(OUT, "%s16-%s.bin" % (name, tag)), "wb").write(half)
-    print("%s-%s.bin: %d from unscii %s" % (name, tag, len(missing), " ".join(missing)))
+        rows = [int.from_bytes(out[(b * ch + r) * K:(b * ch + r + 1) * K], "big") for r in range(ch)]
+        for r in halve(rows): put_row(half, r)
+    open(os.path.join(OUT, small % (name, tag)), "wb").write(half)
+    print("%s: %d from unscii %s" % (big % (name, tag), len(missing), " ".join(missing)))
 
 def raster(fn, size=None, wght=None, double=False):
     """A TrueType face drawn without anti-aliasing (FreeType's own hinting) into
     16x32 -- or, double=True, at its design size into 8x16 and doubled."""
     from PIL import Image, ImageDraw, ImageFont
-    cw, ch = (8, 16) if double else (16, 32)
+    cw, ch = (8, 16) if double else (8 * K, 16 * K)
     if size is None:                                     # the largest size whose cell fits
-        size = 40
+        size = 20 * K
         while True:
             f = ImageFont.truetype(fn, size)
             if wght: f.set_variation_by_axes([wght])
@@ -154,29 +173,37 @@ def raster(fn, size=None, wght=None, double=False):
         g[u] = double8(r) if double else r
     return g
 
-def halve(rows32):                                       # 16x32 -> 16x16: each pair of rows ORed
-    return [rows32[2 * i] | rows32[2 * i + 1] for i in range(16)]
+def halve(rows):                                         # 16x32 -> 16x16 (24x48 -> 24x24): each pair of rows ORed
+    return [rows[2 * i] | rows[2 * i + 1] for i in range(len(rows) // 2)]
 
 def bdf8(fn):                                            # an 8-wide BDF (Tamzen 8x16), doubled
     g = {}
     for u, rows in bdf(fn, 16, 8).items(): g[u] = double8(rows)
     return g
 
-if __name__ == "__main__":
-    tdir, src = sys.argv[1:3]
-    S = lambda n: os.path.join(src, n)
-    os.makedirs(OUT, exist_ok=True)
-    U, K = unscii16(), k4510_page()
+def spleen():                                           # 16x32, or at three times the 12x24 cut doubled
+    if K == 2: return bdf(S("spleen-16x32.bdf"))
+    return {u: widen([r >> 4 for r in rows], 12, 2) for u, rows in bdf(S("spleen-12x24.bdf"), 24, 16).items()}
+
+def build():
+    U, KP = unscii16(), k4510_page()
     vg = vga(S("font_8x16.c"))
     def boxes(face):                     # the line and block drawings (U+2500-259F) from the VGA, which fill the cell
         for u, r in vg.items():          # and meet their neighbours; a drawn face's own stop short of the edges
             if 0x2500 <= u <= 0x259F: face[u] = r
         return face
     faces = (("zhekov-bold", terminus(tdir, "Bold")), ("zhekov", terminus(tdir, "")),
-             ("spleen", bdf(S("spleen-16x32.bdf"))), ("ibm-vga", vg),
+             ("spleen", spleen()), ("ibm-vga", vg),
              ("atkinson", boxes(raster(S("AtkinsonHyperlegibleMono.ttf"), wght=700))),
              ("go-mono", boxes(raster(S("Go-Mono-Bold.ttf")))), ("fira-mono", boxes(raster(S("FiraMono-Bold.ttf")))),
              ("proggy", boxes(raster(S("ProggyClean.ttf"), size=16, double=True))), ("tamzen-bold", boxes(bdf8(S("Tamzen8x16b.bdf")))))
     for name, face in faces:
-        for table, tag in ((K, "k4510"), (CP437, "cp437")):
+        for table, tag in ((KP, "k4510"), (CP437, "cp437")):
             write(name, face, U, table, tag)
+
+if __name__ == "__main__":
+    tdir, src = sys.argv[1:3]
+    S = lambda n: os.path.join(src, n)
+    os.makedirs(OUT, exist_ok=True)
+    for K in (2, 3):
+        build()

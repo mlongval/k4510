@@ -33,5 +33,6 @@ placed at `K4510_FONT32_PHYS` / `K4510_FONT16W_PHYS` (core/io.h).  unscii
 stays the machine's 8-wide font -- what a program reads and redefines; a
 redefined character is drawn from RAM, doubled.  Zhekov Bold and Zhekov
 (Terminus Font), Spleen, IBM VGA, Atkinson Mono, Go Mono, Fira Mono, Proggy
-Clean, Tamzen Bold; built by `tools/mkhdfonts.py`, provenance and licences in
+Clean, Tamzen Bold, each also at three times (`<face>48-*.bin` 24x48 and
+`<face>24-*.bin` 24x24) for 480x360 at /3; built by `tools/mkhdfonts.py`, provenance and licences in
 `hd/VENDORED-FROM.txt` and the `hd/LICENSE-*.txt` files.

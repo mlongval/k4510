@@ -459,7 +459,7 @@ $C9IDRIX RW which one $CA-$CF describe (0 = the largest)
 
 $CAIDRS R its scale: panel pixels a machine pixel, each way
 
-$CBIDRF R bit0 HD text possible there
+$CBIDRF R bit0 HD text possible there; bit1 at three times (24-wide glyphs)
 
 $CC,CDIDRW R its width
 

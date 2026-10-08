@@ -41,7 +41,7 @@ static void tables(void)
                 for (int k = 0; k < 4; k++) { int c, rr; idr_grid(r[i].w, r[i].h, cell[k][0], cell[k][1], &c, &rr); snprintf(g[k], sizeof g[k], "%dx%d%s", c, rr, fits(c, rr)); }
                 if (i == 0) printf("| %dx%d | %dx%d ", panels[p][0], panels[p][1], cw, ch); else printf("| | ");
                 printf("| %s%dx%d%s | %d | %s | %s | %s | %s | %s |\n", over ? "~~" : "", r[i].w, r[i].h, over ? "~~" : "", r[i].scale,
-                       g[0], g[1], g[2], g[3], !(r[i].scale & 1) ? (idr_hd_text(&r[i], NULL) ? "yes" : "~~yes~~") : "");
+                       g[0], g[1], g[2], g[3], idr_hd_text(&r[i], NULL) ? (idr_hd_text(&r[i], NULL) == 3 ? "3x" : "yes") : !(r[i].scale & 1) ? "~~yes~~" : "");
             }
         }
     }
@@ -83,7 +83,9 @@ int main(int argc, char **argv)
     idr_grid(720, 540, 8, 8, &c, &r); CHECK(c == 90 && r == 67, "720x540 8x8: %dx%d", c, r);
     idr_grid(1066, 800, 16, 32, &c, &r); CHECK(c == 66 && r == 25, "1066x800 16x32: %dx%d", c, r);
     { idr_t a = { 720, 540, 2 }, b = { 480, 360, 3 }, e = { 1440, 1080, 1 }, f = { 360, 270, 4 }, k = { 1440, 1080, 2 }, m = { 960, 540, 2 };
-      CHECK(idr_hd_text(&a, NULL) && !idr_hd_text(&b, NULL) && !idr_hd_text(&e, NULL) && idr_hd_text(&f, NULL), "HD text at even scales only");
+      CHECK(idr_hd_text(&a, NULL) == 2 && idr_hd_text(&b, NULL) == 3 && !idr_hd_text(&e, NULL) && idr_hd_text(&f, NULL) == 2,
+            "HD text at 2x at even scales, 3x at scales three divides (480x360 /3), none at /1");
+      { idr_t g5 = { 288, 216, 5 }; CHECK(!idr_hd_text(&g5, NULL), "none at /5: neither divides it"); }
       CHECK(!idr_hd_text(&k, NULL), "HD text in 4K's 1440x1080 would draw 2880x2160: over the cap");
       CHECK(idr_hd_text(&m, NULL), "960x540 HD draws 1920x1080: at the cap, allowed"); }
 

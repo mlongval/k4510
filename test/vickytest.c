@@ -398,7 +398,7 @@ int main(void)
       CHECK(R(VR_IDRN) == 4 && (R(VR_CANVW) | R(VR_CANVW + 1) << 8) == 1440, "1920x1080 at 4:3: four IDRs on a 1440x1080 canvas");
       W(VR_IDRIX, 2); CHECK(R(VR_IDRS) == 3 && (R(VR_IDRW) | R(VR_IDRW + 1) << 8) == 480 && (R(VR_IDRH) | R(VR_IDRH + 1) << 8) == 360, "the third is 480x360 /3");
       W(VR_IDRIX, 1); CHECK(R(VR_IDRF) == 1, "720x540 /2 can draw HD text");
-      W(VR_IDRIX, 2); CHECK(R(VR_IDRF) == 0, "480x360 /3 cannot: an odd scale");
+      W(VR_IDRIX, 2); CHECK(R(VR_IDRF) == 3, "480x360 /3 can, at three times (2026-10-07; it could not, an odd scale)");
       vicky_set_panel(3840, 2160, 0);
       W(VR_GLASSCTL, VG_IDR); W(VR_IDRSEL, 1);
       CHECK((R(VR_GLASSW) | R(VR_GLASSW + 1) << 8) == 1440 && R(VR_SCALE) == 2, "4K: /1 is over the cap, so /1 becomes /2, 1440x1080");

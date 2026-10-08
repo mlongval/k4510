@@ -351,7 +351,7 @@ Blits are 8 bpp (one byte per pixel) in this version.
 
 `$CA`**`IDRS`** R its scale: panel pixels a machine pixel, each way
 
-`$CB`**`IDRF`** R bit0 HD text possible there
+`$CB`**`IDRF`** R bit0 HD text possible there; bit1 at three times (24-wide glyphs)
 
 `$CC,CD`**`IDRW`** R its width
 

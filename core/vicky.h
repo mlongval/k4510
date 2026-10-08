@@ -59,7 +59,7 @@
  *     $C8  IDRN      R  how many IDRs it offers, largest first
  *     $C9  IDRIX     RW which one $CA-$CF describe (0 = the largest)
  *     $CA  IDRS      R  its scale: panel pixels a machine pixel, each way
- *     $CB  IDRF      R  bit0 HD text possible there
+ *     $CB  IDRF      R  bit0 HD text possible there; bit1 at three times (24-wide glyphs)
  *     $CC,CD IDRW    R  its width                  $CE,CF IDRH   R
  *     $D0  GLASSCTL  RW what CTRL bit5's glass is.  bits0-1: 0 CTRL's own
  *                    bits (1, 2, 4 -- the canvas /1, /2, /4: MODE 5-7); 1 the
@@ -267,7 +267,7 @@ void     vicky_reset(void);
 void     vicky_set_panel(int pw, int ph, int base);
 void     vicky_set_cap(long pixels);                  /* the most pixels VICKY draws a frame (the host's limit) */
 long     vicky_cap(void);
-typedef struct { int w, h, scale, hd; } vicky_idr;    /* hd: HD text possible there */
+typedef struct { int w, h, scale, hd; } vicky_idr;    /* hd: HD text possible there, drawn 2x or 3x (0 no) */
 int      vicky_idr_count(void);
 const vicky_idr *vicky_idr_at(int i);                 /* largest first; NULL past the end */
 int      vicky_idr_of_scale(int scale);               /* the list index a wanted scale becomes (IDRSEL's rule); -1 none */
@@ -302,10 +302,12 @@ extern int vicky_dirty, vicky_low;     /* vicky_low: something VICKY shows is in
  * glyph a program changed is drawn as it is, doubled.  NULL turns it off.  The
  * machine sees nothing of this: its glass stays 720x540. */
 void     vicky_hd_font(const uint8_t *hd, const uint8_t *stock, const uint8_t *hd16, const uint8_t *stock8);
+void     vicky_hd_font3(const uint8_t *hd48, const uint8_t *hd24);   /* the same at three times (480x360 at /3): 256 x 24x48
+                                                      * and 256 x 24x24, three bytes a row, MSB first; NULL: none */
                                                       /* and the same for 8x8 cells: HD16 256 x 16x16, STOCK8 256 x 8 */
 int      vicky_cell_w(int layer);                     /* a text layer's cell: 8 or 16 wide (text32's field 2 and 3), */
 int      vicky_cell_h(int layer);                     /* 8, 16 or 32 tall */
-int      vicky_out_scale(void);                       /* 2 while this frame is drawn HD, else 1 */
+int      vicky_out_scale(void);                       /* 2 or 3 while this frame is drawn HD, else 1 */
 int      vicky_out_w(void);                           /* the frame buffer's picture: the glass x the scale */
 int      vicky_out_h(void);
 int      vicky_glass_w(void);                         /* this frame's glass, latched at its start: 640x480, */

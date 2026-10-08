@@ -34,6 +34,12 @@ fira-mono     Fira Mono Bold, Mozilla / Telefonica -- SIL OFL 1.1, no Reserved
 proggy        Proggy Clean, Tristan Grimmer -- MIT (LICENSE-proggy.txt).
               github.com/bluescan/proggyfonts ProggyOriginal/ProggyClean.ttf at
               its design size (7x13 in 8x16), doubled, sha256 527d2a443ce051f93f7e77b855609722b8cb220a9f104b4aa037be5c90b71324
+At three times (24x48 <face>48-*.bin, 24x24 <face>24-*.bin, three bytes a row;
+2026-10-07, for 480x360 at /3): Terminus from console-setup's
+*-Terminus{Bold,}24x12.psf.gz and Spleen from spleen-12x24.bdf
+(github.com/fcambus/spleen, sha256 ab7f434db312de6700e55ee7f174ebd0bd57fef16f7a15bc9ac9478fb26f2cd1), each doubled; the
+TrueType faces drawn at 24x48; the VGA, Proggy and Tamzen tripled.
+
 tamzen-bold   Tamzen 8x16 Bold, Suraj N. Kurapati (after Scott Fial's Tamsyn) --
               "free to use, copy, modify, and distribute" (LICENSE-tamzen.txt).
               github.com/sunaku/tamzen-font bdf/Tamzen8x16b.bdf, doubled,

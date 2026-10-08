@@ -38,8 +38,9 @@ void idr_grid(int w, int h, int cell_w, int cell_h, int *cols, int *rows)
 int idr_hd_text(const idr_t *r, const idr_limits *lim)
 {
     if (!lim) lim = &idr_default_limits;
-    if (r->scale < 2 || (r->scale & 1)) return 0;
-    if ((long) r->w * r->h * 4 > lim->max_pixels) return 0;
-    if ((lim->max_w && 2 * r->w > lim->max_w) || (lim->max_h && 2 * r->h > lim->max_h)) return 0;
-    return 1;
+    int k = r->scale >= 2 && !(r->scale & 1) ? 2 : r->scale >= 3 && r->scale % 3 == 0 ? 3 : 0;   /* the frame drawn 2x, or 3x (2026-10-07: 480x360) */
+    if (!k) return 0;
+    if ((long) r->w * r->h * k * k > lim->max_pixels) return 0;
+    if ((lim->max_w && k * r->w > lim->max_w) || (lim->max_h && k * r->h > lim->max_h)) return 0;
+    return k;
 }

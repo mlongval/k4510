@@ -263,15 +263,15 @@ another panel comes up at the same /n (a program may still put the machine in
 640x480 and the others, and the row says so); canvas, 4:3 or the whole panel;
 font, the text's face at the panel's own pixels. At scale 1 it is the
 machine's font, 16 wide; at an even scale each 8x16 cell is drawn as 16x32 (an
-8x8 one as 16x16) while the graphics stay the machine's, and a character a
-program has redefined keeps its own shape. The faces: Zhekov Bold (to begin
-with) and Zhekov -- Dimitar Zhekov's Terminus Font, renamed as its licence
-asks of a changed copy -- Spleen, IBM VGA, Atkinson Mono (the Braille
-Institute's face for low vision), Go Mono, Fira Mono, Proggy Clean, Tamzen
-Bold, or unscii, the machine's own drawn doubled; and placement, which is the
-section after next. The picture is always full screen and scaled by a whole
-number, every pixel the same size. The figures in this book are taken with the
-effects off.
+8x8 one as 16x16), and at scale 3 -- 480x360 on a 1080 panel -- as 24x48
+(24x24), while the graphics stay the machine's, and a character a program has
+redefined keeps its own shape. The faces: Zhekov Bold (to begin with) and
+Zhekov -- Dimitar Zhekov's Terminus Font, renamed as its licence asks of a
+changed copy -- Spleen, IBM VGA, Atkinson Mono (the Braille Institute's face
+for low vision), Go Mono, Fira Mono, Proggy Clean, Tamzen Bold, or unscii, the
+machine's own drawn doubled; and placement, which is the section after next.
+The picture is always full screen and scaled by a whole number, every pixel
+the same size. The figures in this book are taken with the effects off.
 
 Terminal
 status bands, on or off (a row at the top, a row at the bottom) (The status

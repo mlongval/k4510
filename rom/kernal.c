@@ -840,7 +840,7 @@ static void run_at(uint16_t a)
     /* Layer 0 is the console itself, so it is in the list: a program that
      * borrows it for a bitmap (CHESS at 640x480) and switches it off on the
      * way out left the mode unchanged and the console dark (2026-09-07). */
-    uint8_t v0 = REG(VICKY + 0), bgc = REG(VICKY + 1), l0 = REG(VICKY + 0x10), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E), svm, svd, svf;
+    uint8_t v0 = REG(VICKY + 0), bgc = REG(VICKY + 1), l0 = REG(VICKY + 0x10), l1 = REG(VICKY + 0x20), l2 = REG(VICKY + 0x30), l3 = REG(VICKY + 0x40), sc = REG(VICKY + 0x0E), svm, svd, svf, sv6;
     for (i = 0; i < sizeof tpl; i++) t[i] = tpl[i];
     for (b = 5; b <= 7; b++) {
         uint8_t *slot = t + 2 + 3 * (b - 5);
@@ -863,13 +863,13 @@ static void run_at(uint16_t a)
                                                  * there is no way out of the editor.  The shell
                                                  * gets its caps lock back when the program ends. */
       REG(SYS + 0x41) = 1;                      /* the title: this program (the host has its name from the load) */
-      svm = vmode; svd = vdiv; svf = vsoft;     /* a size, or scanlines, the program asked for (MODE WxH, -c) ends with it */
+      svm = vmode; svd = vdiv; svf = vsoft; sv6 = (uint8_t)(rows60 | rows60_set << 1);   /* any MODE the program asked for ends with it (2026-10-08: PTABLE's MODE 0, a WxH, -c, -d) */
       prog_running = 1; call_prog(TRAMP); prog_running = 0;
       REG(SYS + 0x41) = 2;                      /* ... and back to whoever ran it */
       capslock = cl; }
     if (REG(TERM + 1) & 1) { cx = REG(TERM + 9); cy = REG(TERM + 10); jim_cursor(0); }   /* and the console follows a program that used it */
     jraw("\x1b[10m\x1b[?7h"); jim_fg = 0xFF;    /* what a program may have left: glyphs for controls, autowrap off; colours again */
-    if ((vdiv == VDIV_SOFT && (vmode != svm || vdiv != svd)) || vsoft != svf) { vmode = svm; vdiv = svd; vsoft = svf; v0 = (uint8_t) ~REG(VICKY + 0); }   /* the shell's own screen again */
+    if (vmode != svm || vdiv != svd || vsoft != svf || (rows60 | rows60_set << 1) != sv6) { vmode = svm; vdiv = svd; vsoft = svf; rows60 = (uint8_t)(sv6 & 1); rows60_set = (uint8_t)(sv6 >> 1); v0 = (uint8_t) ~REG(VICKY + 0); }   /* the shell's own screen again */
     if (v0 != REG(VICKY + 0) || bgc != REG(VICKY + 1) || l0 != REG(VICKY + 0x10) || l1 != REG(VICKY + 0x20) || l2 != REG(VICKY + 0x30) ||
         l3 != REG(VICKY + 0x40) || sc != REG(VICKY + 0x0E)) {
         video_init();

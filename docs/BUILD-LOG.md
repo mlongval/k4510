@@ -12030,3 +12030,12 @@ EX/RES.BAS, R in the demo menu: 640x480, 320x240, 400x300 (x3 on 1080),
 what was asked and what came, and draws frame, ruler and circle on it.
 Checked on the SDL frontend under Xvfb at 1920x1080, every step.
 paneltest and basictest cover -c/-p and GRAPHICS 3.
+
+**2026-10-08: any MODE a program sets ends with it** (asked by doc-18 for
+PTABLE: "come back to the previous resolution after exit").  The run path
+snapshots vmode, the scale, the effects and the -d cells, and puts back
+whatever differs when the program returns -- not only a WxH.  A program that
+needs 80x30 just runs `MODE 0` through the shell and exits.  Tested from
+`-s 2`, `400x300 -c` and `-s 3 -d` with a Pascal program doing Shell('MODE 0').
+Not covered: a program that leaves by cold reset (EhBASIC's *QUIT jumps
+through $FFFC), which keeps the mode it set, as before.

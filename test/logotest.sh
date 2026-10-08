@@ -69,7 +69,9 @@ out=$(K4510_SYSOPT=0xA4 timeout 120 ./test/headless rom/kernal.bin 'LOGO
 ~BYE
 ~~MODE
 ~' 1500 2>/dev/null) || true
-check "and the machine is left at 320x240" "$(echo "$out" | tr -d ' \n' | grep -c "MODE2:" || true)" "1"
+# since 2026-10-08 any MODE a program sets ends with it (PTABLE, Doc: "come
+# back to the previous resolution after exit"): back to where LOGO found it
+check "and after BYE the machine is back where it was" "$(echo "$out" | tr -d ' \n' | grep -c "MODE4:" || true)" "1"
 
 echo "4. both shapes are there, sixteen frames of 32x32"
 for f in TURTLE BIRD; do

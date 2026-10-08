@@ -11971,3 +11971,15 @@ does the same from a shell.  Doc: through plain `mosh` Claude's status line
 stayed in its own theme -- only k4510-connect set K4510_CLIENT=1; the K4510
 Linux now has /usr/local/bin/mosh, which adds it when no command is given.
 tmux joins the package list.
+
+**2026-10-08: no webcam driver in the image** (Doc, relayed by another session:
+"Webcamera module is not SHIPPED by DEFAULT. It will require the end
+user/institution to enable them.").  The blacklist and udev rule of 10-06 were
+a soft off: uvcvideo.ko was still in the image.  Now dpkg's path-exclude keeps
+the USB camera drivers from ever being unpacked, build-live.sh deletes any that
+got in and runs depmod (full and REBUILD paths), and the build fails if
+uvcvideo.ko or gspca_main.ko is in the rootfs or either squashfs.  The opt-in
+is an institution's own build, K4510_CAMERA=1.  The Dell's layer gets overlayfs
+whiteouts over the base's module directories (dell-build-here.sh; the
+whiteout-in-a-middle-layer behaviour tried on ubuntu-s1 with two squashfs).
+docs/CAMERA.md, README.

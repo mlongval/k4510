@@ -148,6 +148,31 @@ OVERLAY_FILES=$(cd "$HERE/config/includes.chroot" && find . \( -type f -o -type 
 # deployed, and still asked for a password -- the new layer simply did not
 # contain the file.  Found by reading the dates: the live copy was the base's.
 LAYER_DIRS="home/k4510/k4510 usr/local/bin usr/local/sbin var/lib/tailscale $OVERLAY_FILES"
+# The webcam drivers out of the image, whatever put them there, and the build
+# stopped if any is left (see K4510_CAMERA above).
+CAMERA_DIRS="uvc gspca pwc stkwebcam zr364xx s2255"
+camera_check() {
+    [ "${K4510_CAMERA:-0}" = 1 ] && return 0
+    for m in "$ROOT"/lib/modules/* "$ROOT"/usr/lib/modules/*; do
+        [ -d "$m" ] || continue
+        for d in $CAMERA_DIRS; do rm -rf "$m/kernel/drivers/media/usb/$d"; done
+        $CHROOT_ENV chroot "$ROOT" depmod -a "$(basename "$m")"
+    done
+    left=$(find "$ROOT/lib/modules" "$ROOT/usr/lib/modules" -name 'uvcvideo.ko*' -o -name 'gspca_main.ko*' 2>/dev/null | head -3)
+    if [ -n "$left" ]; then echo "THE IMAGE HAS A WEBCAM DRIVER: $left -- refusing to build it (K4510_CAMERA=1 to mean it)"; exit 1; fi
+    echo "== no webcam driver in the image =="
+}
+# ...and the squashed images themselves, whichever way they were made (a reused
+# rootfs, the fast REBUILD path): a webcam driver in either fails the build.
+camera_image_check() {
+    [ "${K4510_CAMERA:-0}" = 1 ] && return 0
+    for sq in "$STAGE/live/filesystem.squashfs" "$STAGE/live/k4510.squashfs"; do
+        [ -f "$sq" ] || continue
+        if unsquashfs -l "$sq" 2>/dev/null | grep -qE '/(uvcvideo|gspca_main)\.ko'; then
+            echo "THE IMAGE HAS A WEBCAM DRIVER ($sq) -- refusing to build it (K4510_CAMERA=1 to mean it)"; exit 1
+        fi
+    done
+}
 squash_base() {
     echo "== squashfs: the base =="
     # zstd: decompresses fast, and the whole thing is read into RAM once at boot.
@@ -163,7 +188,7 @@ squash_base() {
 squash_layer() {
     echo "== squashfs: the machine layer =="
     [ -d "$ROOT/var/lib/tailscale" ] || install -d -m 700 "$ROOT/var/lib/tailscale"   # see LAYER_DIRS
-    rm -rf "$WORK/layer"; for d in $LAYER_DIRS; do mkdir -p "$WORK/layer/$(dirname "$d")"; cp -a "$ROOT/$d" "$WORK/layer/$d"; done
+    rm -rf "$WORK/layer"; for d in $LAYER_DIRS; do [ -e "$ROOT/$d" ] || [ -L "$ROOT/$d" ] || continue; mkdir -p "$WORK/layer/$(dirname "$d")"; cp -a "$ROOT/$d" "$WORK/layer/$d"; done   # (a K4510_CAMERA=1 build has no no-camera files)
     # Empty /proc and /sys: squash_base's "-e proc sys" drops the directories
     # themselves, so the live root had no mount points, and initramfs-tools'
     # "mount -o move /sys ${rootmnt}/sys" printed "mount point does not exist"
@@ -173,11 +198,12 @@ squash_layer() {
         -comp zstd -Xcompression-level 19 -noappend -no-progress
     rm -rf "$WORK/layer"
 }
-squash() { squash_base; squash_layer; }
+squash() { squash_base; squash_layer; camera_image_check; }
 
 if [ "$REUSE" = 1 ] && [ -f "$STAGE/live/filesystem.squashfs" ] && [ -f "$STAGE/live/k4510.squashfs" ]; then
     echo "== reusing the rootfs and squashfs already in $WORK =="
     mkdir -p "$MNT"
+    camera_image_check
 elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # The middle mode, and the one to reach for after a fix to the emulator:
     # keep the rootfs that debootstrap and three compilers took half an hour to
@@ -199,6 +225,10 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # This checkout's /etc overlay too (the lid setting, keymaps...): a config
     # change must reach the fast path, not only a 30-minute full build.
     cp -a "$HERE/config/includes.chroot/." "$ROOT/"   # etc, usr/local/bin, usr/share (the console font)
+    # a rootfs from before 2026-10-08 still has the webcam drivers: out, and the base squashed again
+    if [ "${K4510_CAMERA:-0}" != 1 ] && find "$ROOT/lib/modules" "$ROOT/usr/lib/modules" -name 'uvcvideo.ko*' 2>/dev/null | grep -q .; then
+        camera_check; rm -f "$STAGE/.split"
+    fi
     # Tek40xx: sidelined 2026-10-07 (Doc).  To bring it back:
     #   $CHROOT_ENV chroot "$ROOT" sh /home/$USER_NAME/k4510/linux/tek40xx/build.sh
     binds_down
@@ -207,6 +237,7 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # split base (an older WORK dir), make it once now
     [ -f "$STAGE/live/filesystem.squashfs" ] && grep -q k4510layer "$STAGE/.split" 2>/dev/null || { squash_base; echo k4510layer > "$STAGE/.split"; }
     squash_layer
+    camera_image_check
 else
 
 rm -rf "$WORK"
@@ -239,6 +270,18 @@ EOF
 # tek40xx BINARY but not the usr/local/bin wrapper that sets KMSDRM and full
 # screen (Doc, the Dell, 2026-09-11).  It also carries usr/share/consolefonts.
 cp -a "$HERE/config/includes.chroot/." "$ROOT/"
+# No webcam driver (Doc, 2026-10-08: "Webcamera module is not SHIPPED by DEFAULT.
+# It will require the end user/institution to enable them. I do not want some
+# freak pirating this project and spying on kids.").  Three layers: dpkg is told
+# never to install the USB camera drivers (etc/dpkg/dpkg.cfg.d/k4510-no-camera,
+# in place before the kernel package below), any that got in are deleted and
+# the build fails if uvcvideo.ko is still there (camera_check, below); and the
+# blacklist and the udev rule stay as they were.  K4510_CAMERA=1 is the opt-in:
+# an institution's own build, with the drivers -- docs/CAMERA.md.
+if [ "${K4510_CAMERA:-0}" = 1 ]; then
+    echo "== K4510_CAMERA=1: this image will have webcam drivers =="
+    rm -f "$ROOT/etc/dpkg/dpkg.cfg.d/k4510-no-camera" "$ROOT/etc/modprobe.d/k4510-no-camera.conf" "$ROOT/etc/udev/rules.d/91-k4510-no-camera.rules"
+fi
 # The boot splash's picture (Plymouth, usr/share/plymouth/themes/k4510, above):
 # the logo tools/mkbootlogo.py draws, kept once, in data/, not twice.
 install -m 644 "$REPO/data/bootlogo.png" "$ROOT/usr/share/plymouth/themes/k4510/logo.png"
@@ -458,6 +501,8 @@ $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
     "printf '# STARTUP.BAT -- runs at power-on; it is yours to edit.\n# /SYSTEM/ETC/STARTUP.SAMPLE has more: CP/M aliases, colours, palettes.\n\n# a login on the Linux beneath, with its own tty: the same door as\n# F12 > Host > Telnet into the host, and it asks for no password\nALIAS HOST TELNET 127.0.0.1 23\n' > ~/k4510/fs/STARTUP.BAT"
 $CHROOT_ENV chroot "$ROOT" chown -R $USER_NAME:$USER_NAME "/home/$USER_NAME"
+
+camera_check
 
 echo "== initramfs =="
 # live-boot's hooks have to be in the initramfs or `boot=live` means nothing.

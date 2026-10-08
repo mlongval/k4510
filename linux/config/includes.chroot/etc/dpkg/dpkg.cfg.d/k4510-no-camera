@@ -1,0 +1,18 @@
+# The K4510x ships without a webcam driver (Doc, 2026-10-08: "Webcamera module is not
+# SHIPPED by DEFAULT. It will require the end user/institution to enable them. I do not
+# want some freak pirating this project and spying on kids.").  dpkg never installs the
+# USB camera drivers, so a kernel upgrade cannot bring them back either; linux/build-live.sh
+# deletes any that slip through and fails the build if uvcvideo.ko is in the image.
+# The opt-in is a build of your own: K4510_CAMERA=1 ./linux/build-live.sh (docs/CAMERA.md).
+path-exclude=/lib/modules/*/kernel/drivers/media/usb/uvc/*
+path-exclude=/lib/modules/*/kernel/drivers/media/usb/gspca/*
+path-exclude=/lib/modules/*/kernel/drivers/media/usb/pwc/*
+path-exclude=/lib/modules/*/kernel/drivers/media/usb/stkwebcam/*
+path-exclude=/lib/modules/*/kernel/drivers/media/usb/zr364xx/*
+path-exclude=/lib/modules/*/kernel/drivers/media/usb/s2255/*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/uvc/*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/gspca/*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/pwc/*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/stkwebcam/*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/zr364xx/*
+path-exclude=/usr/lib/modules/*/kernel/drivers/media/usb/s2255/*

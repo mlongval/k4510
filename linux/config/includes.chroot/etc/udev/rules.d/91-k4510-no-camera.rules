@@ -3,7 +3,9 @@
 # device with a video-class interface (class 0e: the Dell's
 # Integrated_Webcam_HD, or one plugged in) is de-authorized as it appears:
 # the kernel lets go of it, no driver binds, and the port may power down.
-# To have it back: delete this file and /etc/modprobe.d/k4510-no-camera.conf
-# (from includes.chroot, so the next layer carries it), or for one session
+# Since 2026-10-08 this is the second line: the image has no webcam driver at
+# all (docs/CAMERA.md); a camera is an institution's own build,
+# K4510_CAMERA=1 ./linux/build-live.sh.  For a device that is not a camera but
+# has a video interface, for one session
 #   echo 1 | sudo tee /sys/bus/usb/devices/<port>/authorized
 SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_interface", ATTR{bInterfaceClass}=="0e", RUN+="/bin/sh -c 'echo 0 > /sys%p/../authorized'"

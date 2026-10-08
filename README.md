@@ -98,6 +98,11 @@ builds everything and runs the test battery. `./k4510` starts the
 machine from the repo root; `./k4510 --no-startup.bat` skips
 `/STARTUP.BAT` for that one run.
 
+**No camera.** The K4510x image ships with no webcam driver at all, on
+purpose: a machine meant for children, which anyone may copy, should not
+carry the means to watch them. An institution that needs one builds its own
+image with `K4510_CAMERA=1`; `docs/CAMERA.md` has how and why.
+
 **From a USB stick:** `sudo ./linux/build-live.sh` makes the
 image (Debian, debootstrap and a few compilers; about half an hour the
 first time), write it to a stick with `dd`, boot the laptop from it.

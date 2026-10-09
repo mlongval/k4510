@@ -33,6 +33,7 @@ test/banktest
 !demo/mark-asm.s
 test/mathtest
 test/seqtest
+test/sndtest
 test/woztest
 dumps/
 !demo/prg0.s

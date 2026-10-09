@@ -257,42 +257,61 @@ static void shot_save_full(const uint32_t *px, int W, int H) {
 #define SCALE 2
 #define AUDIO_RATE 48000
 
-/* Audio: core renders into a ring per scanline; SDL drains it in its thread.
+/* Audio: the OPL2 is rendered HERE, on SDL's audio thread, a callback's
+ * worth at a time at the device's rate (core/audio.c, audio_pull); the
+ * machine's thread queues its register writes, stamped, and they land at
+ * their own sample (core/sndq.h).  Until 2026-10-09 the machine's thread
+ * rendered into a ring -- 800 samples a frame plus a top-up after each
+ * frame to a 38 ms lead -- and the callback drained it; on the Dell, where
+ * frames come 18.5 ms apart and uneven under KMSDRM, a frame late by more
+ * than the lead let two callbacks drain the ring and the notes crackled,
+ * at every clock from 60 MHz to 10.  Doc: "decouple it".  Now a late frame
+ * makes its notes late; the tone under them does not stop, because the
+ * chip is clocked by the card.
  *
- * RING_TARGET is the lead the ring is kept at -- one callback, plus a frame,
- * so a late frame does not starve the device.  RING_CAP is the other side of
- * it, and it was missing: the writers would fill to RING_MASK, 683 ms, and
- * anything that made the machine produce sound slightly faster than the
- * device consumed it walked the lead up there and stayed (four sounding
- * SIDs did exactly that, in the days the machine had them: 56 ms of lead to
- * 226 ms in 38 seconds and still climbing).  The chip is clocked either
- * way -- pitch is its own and does not move -- but past the cap the samples
- * are let go, so the lead cannot drift late however the two rates disagree. */
-static volatile int16_t ring[1 << 15]; static volatile unsigned ring_w, ring_h;   /* the slots volatile too: that is what orders a sample's store before its index's */
-#define RING_MASK ((1 << 15) - 1)
-#define RING_TARGET (1024 + 800)          /* one callback, plus a frame */
-#define RING_CAP    (RING_TARGET + 800)   /* a frame of slack above the lead */
-#define RING_DEPTH  ((ring_w - ring_h) & RING_MASK)
+ * Ownership (sndq.h): the audio thread has the chip while the device is
+ * open; closed, the machine's thread has it back and performs the writes
+ * itself, so nothing is lost while it is shut.  The hand-over happens only
+ * where SDL guarantees the callback is not running: before the device is
+ * unpaused, and after SDL_CloseAudioDevice (which joins the thread).
+ *
+ * The callback plays zeros while the machine is frozen -- the menu open,
+ * or paused -- and does not move the chip, so a held note waits under the
+ * menu and continues when it closes.  snd_frozen is the machine's thread's
+ * word on it. */
+#define A_LOAD(p)     __atomic_load_n((p), __ATOMIC_ACQUIRE)
+#define A_STORE(p, v) __atomic_store_n((p), (v), __ATOMIC_RELEASE)
+static volatile int snd_frozen;
 /* The audio device closes in silence (2026-10-06, for time on battery): an
  * open stream keeps the sound hardware awake and interrupting fifty times a
- * second even when every sample is zero.  sound_ms is when a sample last was
- * not; ring_put notes it. */
+ * second even when every sample is zero.  sound_ms is when there last was
+ * something to hear: the machine's thread notes a register write (it is
+ * what the sound will come from) and a sample it rendered itself that was
+ * not zero; the audio thread notes the same in loud_ms, read back below. */
 static Uint32 sound_ms;
-static inline void ring_put(int16_t v)
-{
-    if (RING_DEPTH < RING_CAP) { ring[ring_w & RING_MASK] = v; ring_w = ring_w + 1; }   /* the sample, THEN the index: `ring[ring_w++] = v` let gcc publish
-                                                                                           * the index first, and the callback played a stale slot (review 2026-09-17) */
-    if (v) sound_ms = SDL_GetTicks();
-}
+static volatile Uint32 loud_ms;
+static Uint32 cb_last_ms;                     /* when the callback before this one ran (the audio thread's; zeroed before a device is unpaused) */
 static int vol_machine(void);                 /* below: the volume the machine's own sound is made at */
 static void audio_cb(void *ud, Uint8 *stream, int len)
 {
     (void)ud; int16_t *out = (int16_t *)stream; int n = len / 2;
-    int gap = 0;
-    for (int i = 0; i < n; i++) { if (ring_h != ring_w) out[i] = ring[ring_h++ & RING_MASK]; else { out[i] = 0; gap = 1; } }
-    if (gap && io_audio_gaps != 0xFFFF) io_audio_gaps++;     /* one per callback that ran dry: what "choppy" is, counted */
-    { int mv = vol_machine(); int q = (int)((int64_t) mv * mv * mv * 32768 / 1000000);   /* the same cube as vol_gain, computed here without its shared cache (the audio thread must not touch it) */
-      navi_mix(out, n, q); }                                 /* the Navidrome radio, decoded elsewhere, mixed HERE on the audio
+    Uint32 now_ms = SDL_GetTicks();
+    int mv = vol_machine(); int q = (int)((int64_t) mv * mv * mv * 32768 / 1000000);   /* the setting cubed, as it always was: a slider that sounds even */
+    /* A gap, now: the card starved.  SDL does not say, but the device holds
+     * two callbacks' worth and asks for the next as one empties, so a
+     * callback that comes more than two blocks after the one before it came
+     * too late for the card -- that is the silence Doc hears, counted.  The
+     * first callback after a (re)open has nothing to be late against. */
+    if (cb_last_ms && now_ms - cb_last_ms > (Uint32)(2 * n * 1000 / AUDIO_RATE) + 1 && io_audio_gaps != 0xFFFF) io_audio_gaps++;
+    cb_last_ms = now_ms;
+    if (A_LOAD(&snd_frozen)) { for (int i = 0; i < n; i++) out[i] = 0; }
+    else {
+        int behind = 0;
+        if (audio_pull(out, n, &behind)) A_STORE(&loud_ms, now_ms);
+        if (behind) io_audio_fill = (io_audio_fill > 0xFFFF - behind) ? 0xFFFF : (uint16_t)(io_audio_fill + behind);   /* $D52A: sound made past the machine's clock */
+        for (int i = 0; i < n; i++) out[i] = (int16_t)(out[i] * q >> 15);
+    }
+    navi_mix(out, n, q);                                     /* the Navidrome radio, decoded elsewhere, mixed HERE on the audio
                                                              * thread (near idle) -- not on the emulation thread, which is at
                                                              * 80% of a core running the machine and starved the radio to a
                                                              * scratch (Doc, 2026-09-17: aplay alone was clean, so it is the
@@ -305,6 +324,8 @@ static unsigned cpu_hz_now = CPU_HZ, cycles_per_line = CPU_HZ / 60 / 480;
 static int frame_lines = 480;                 /* this frame's lines: 480, or an HD mode's height (vicky_glass_h) */
 /* what the guest reads at SYS+$36: the wall clock, not the frame count */
 static uint32_t sdl_ms_now(void) { return (uint32_t)SDL_GetTicks(); }
+/* the microsecond the sound's frame marks are placed by (core/audio.c) */
+static uint32_t sdl_us_now(void) { return (uint32_t)((double) SDL_GetPerformanceCounter() * 1e6 / (double) SDL_GetPerformanceFrequency()); }
 /* the governor steps down above GOV_LATE_MS of the frame spent inside the
  * machine: 14 ms of 16.67 leaves the frontend its texture and its present,
  * and a machine costing more than that is not holding 60 frames a second.
@@ -851,6 +872,7 @@ static void line_begin(void)
         vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1;
         if (lat_f && io_lat_read_ns && !lat_armed) { lat_armed = io_lat_read_ns; io_lat_read_ns = 0; }   /* read before this raster: drawn by it */
         frame_lines = vicky_glass_h(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;   /* a frame is 1/60 s however many lines */
+        if (sndq_owner() != SNDQ_OWNER_CPU) audio_frame_mark();   /* the frame's start: where its sound goes on the card (core/audio.c) */
     }
     cpu65.irqLevel = vicky_irq() ? 1 : 0;
 }
@@ -944,23 +966,26 @@ static void vol_master(int v)                 /* the setting to ALSA's Master, i
     }
     last = pid;
 }
-static int vol_gain(int vol)
-{
-    static int last = -1, g;
-    if (vol != last) { last = vol; g = (int)((int64_t) vol * vol * vol * 32768 / 1000000); }
-    return g;
-}
 static void line_end(int vol)                 /* the scanline's picture and sound, then on to the next */
 {
     Uint64 t1 = PCLK();
     vicky_line(m_line);
     Uint64 t2 = PCLK();
     /* The audio clock the OPL2 writes are stamped with: one scanline of it,
-     * whoever is rendering.  See core/sndq.h. */
-    sndq_tick(1000000u / (60u * (unsigned) frame_lines));
+     * whoever is rendering, with its fraction kept -- 34 us a line and not
+     * 34.72 would run it two per cent slow against the card.  See
+     * core/sndq.h. */
+    { static double tick_acc; tick_acc += 1000000.0 / (60.0 * frame_lines);
+      unsigned us = (unsigned) tick_acc; tick_acc -= us; sndq_tick(us); }
+    /* With no device open the chip is this thread's: rendered a scanline at
+     * a time as it always was, the samples thrown away -- what this keeps is
+     * the chip's timers running and its state where the program put it --
+     * and a sample that is not zero says there is something to hear, so the
+     * device is opened for it (below). */
     if (sndq_owner() == SNDQ_OWNER_CPU)
     { int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-      for (int i = 0; i < n; i++) ring_put((int16_t)(tmp[i] * vol_gain(vol) >> 15)); }
+      for (int i = 0; i < n; i++) if (tmp[i]) { sound_ms = SDL_GetTicks(); break; } }
+    (void) vol;
     Uint64 t3 = PCLK();
     p_vic += t2 - t1; p_snd += t3 - t2;
     m_cyc = 0;
@@ -1239,8 +1264,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
 
     SDL_AudioSpec want = { 0 }, have;
     want.freq = AUDIO_RATE; want.format = AUDIO_S16SYS; want.channels = 1; want.samples = 1024; want.callback = audio_cb;
+    /* The chip goes to the audio thread BEFORE the device is unpaused, and
+     * comes back only once the device is closed: never two owners. */
+    audio_set_clock(sdl_us_now);
+    audio_take(SNDQ_OWNER_OTHER);
     SDL_AudioDeviceID adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0);
-    if (adev) SDL_PauseAudioDevice(adev, 0); else fprintf(stderr, "no audio: %s\n", SDL_GetError());
+    if (adev) { cb_last_ms = 0; SDL_PauseAudioDevice(adev, 0); } else { audio_take(SNDQ_OWNER_CPU); fprintf(stderr, "no audio: %s\n", SDL_GetError()); }
     int audio_ever = adev != 0;                    /* a host with no sound is not asked again and again */
     sound_ms = SDL_GetTicks();
     SDL_StartTextInput();
@@ -1302,21 +1331,27 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                if (r == -2) { host_zero(k4510_ram, K4510_PHYS_SIZE); mem_reset(); load_fonts(); mem_load_rom(rom); cpu65_reset(); } }
     }
     while (running) {
-        /* The audio device closes after AUDIO_IDLE_MS of nothing but zeros --
+        /* The audio device closes after AUDIO_IDLE_MS of nothing to hear --
          * no FM (the OPL2 sleeps), no radio -- and the sound hardware powers
-         * down.  The first sample
-         * that is not zero opens it again; the ring keeps the last frame's
-         * samples while it is closed, so the sound starts with its start. */
-        if (audio_ever && sndq_owner() == SNDQ_OWNER_CPU) {
+         * down.  The first register write opens it again (the sound will come
+         * from it, and opening takes a frame or two: asked for at the write,
+         * the device is up for the note's attack rather than its tail); while
+         * it is closed the machine's thread has the chip and performs the
+         * writes itself, so the chip is where the program left it when the
+         * device comes back. */
+        if (audio_ever) {
 #define AUDIO_IDLE_MS 5000
-            int need = navi_playing() || io_tube_kind() == 6 || io_tube_kind() == 7 || SDL_GetTicks() - sound_ms < AUDIO_IDLE_MS;
-            if (!need && adev) { SDL_CloseAudioDevice(adev); adev = 0; mlog("audio: closed, nothing to hear"); }
+            Uint32 tick = SDL_GetTicks();
+            if (opl2_touched() || tick - A_LOAD(&loud_ms) < AUDIO_IDLE_MS) sound_ms = tick;
+            int need = navi_playing() || io_tube_kind() == 6 || io_tube_kind() == 7 || tick - sound_ms < AUDIO_IDLE_MS;
+            if (!need && adev) { SDL_CloseAudioDevice(adev); adev = 0; audio_take(SNDQ_OWNER_CPU); mlog("audio: closed, nothing to hear"); }   /* closed, THEN taken: SDL has joined its thread */
             else if (need && !adev) {
                 static Uint32 tried;                       /* a device that will not open: once a second, not every frame */
-                if (SDL_GetTicks() - tried >= 1000) { tried = SDL_GetTicks();
-                    if ((adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0)) != 0) { SDL_PauseAudioDevice(adev, 0); mlog("audio: open again"); } }
+                if (tick - tried >= 1000) { tried = tick;
+                    audio_take(SNDQ_OWNER_OTHER);          /* taken, THEN opened: the callback never finds the chip owned by nobody */
+                    if ((adev = SDL_OpenAudioDevice(NULL, 0, &want, &have, 0)) != 0) { cb_last_ms = 0; SDL_PauseAudioDevice(adev, 0); mlog("audio: open again"); }
+                    else audio_take(SNDQ_OWNER_CPU); }
             }
-            if (!adev) { unsigned keep = (unsigned) AUDIO_RATE / 60; if (RING_DEPTH > keep) ring_h = ring_w - keep; }   /* closed: only the last frame's, for the start of a sound */
         }
         { Uint64 c = SDL_GetPerformanceCounter();
           /* the window opens 20 s after start, so it measures the machine at
@@ -1767,36 +1802,26 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (dbg_req == 1) machine_insn(vol); else if (dbg_req == 2) machine_line(vol); else machine_frame(vol);
             dbg_req = 0;
         }
-        /* The sound keeps going when the CPU is late.  Audio was made only by
-         * the machine's frames -- 800 samples each -- so a machine at 58 fps
-         * made 46,400 a second against the 48,000 the device consumes, and any
-         * shortfall at all drained the ring and gapped for ever after (a lead
-         * only delayed the first gap; BENCH went from 45 gaps to 55).  Real
-         * hardware does not stop its sound chip because the CPU stalled: here
-         * it is clocked on without it until the ring holds a target again.
-         * Pitch is the chip's own and does not move; a slow frame sustains a
-         * note a fraction longer instead of cutting it.  Only after a frame the
-         * machine ran -- frozen under the menu, it is silent, as before. */
-        if (((!open && !paused) || mode_pending) && sndq_owner() == SNDQ_OWNER_CPU) {
-            int vol = vol_machine();
-            int guard = 4096;                                 /* never more than a few frames of sound ahead */
-            while (RING_DEPTH < RING_TARGET && guard--) {
-                int16_t tmp[256]; int n = audio_render(CYCLES_PER_LINE, tmp, 256);
-                for (int i = 0; i < n; i++) ring_put((int16_t)(tmp[i] * vol_gain(vol) >> 15));
-                /* how much of the sound the machine did not make: the honest
-                 * measure of choppy, now that the ring is kept from running dry */
-                if (n > 0) io_audio_fill = (io_audio_fill > 0xFFFF - n) ? 0xFFFF : (uint16_t)(io_audio_fill + n);
-            }
-        }
+        /* The sound keeps going when the CPU is late: the chip is the audio
+         * thread's and clocked by the card (audio_cb, above), so there is
+         * nothing to top up here any more.  What the machine's thread says
+         * is whether it is frozen -- under the menu, or paused -- and the
+         * callback plays silence for as long as it is, the chip held still,
+         * so a note resumes where it stopped.  The debugger's single steps
+         * while paused queue their writes; they land when the freeze lifts. */
+        A_STORE(&snd_frozen, !((!open && !paused) || mode_pending));
         { Uint64 d = SDL_GetPerformanceCounter() - p_a; p_mach += d; gov_mach += d; gov_frames++; }
-        /* K4510_RINGLOG=1: the audio lead, every two seconds, on stderr.  A
-         * lead that climbs is sound arriving later and later behind the
-         * picture; one that sits at zero with the gap count rising is sound
-         * the device asked for and did not get.  The two faults look alike
-         * from the chair and not at all alike here. */
+        /* K4510_RINGLOG=1: the audio lead, every two seconds, on stderr: how
+         * far ahead of the renderer this frame's writes land (core/audio.c)
+         * -- between zero and a callback when the machine keeps up.  A
+         * lead that sits negative is a machine behind the card, its notes
+         * landing as they come; a gap count that climbs is the card
+         * starving; a filled count that climbs is sound played on past
+         * writes already due; a dropped count is a queue nobody drained.
+         * The faults look alike from the chair and not at all alike here. */
         if (ring_log) { static Uint32 rt; if (SDL_GetTicks() - rt >= 2000) { rt = SDL_GetTicks();
-            fprintf(stderr, "ring: lead %u samples (%.0f ms), gaps %u, %.1f MHz\n", RING_DEPTH,
-                    RING_DEPTH * 1000.0 / AUDIO_RATE, io_audio_gaps, settings_cpu_hz() / 1e6); } }
+            fprintf(stderr, "sound: lead %.1f ms, gaps %u, filled %u, dropped %u, %.1f MHz%s\n", audio_lead_us() / 1000.0,
+                    io_audio_gaps, io_audio_fill, sndq_dropped(), settings_cpu_hz() / 1e6, adev ? "" : " (device closed)"); } }
         /* what the menu asked for */
         { int act = menu_take_action();
           if (act >= ACT_SAVE_SLOT && act < ACT_SAVE_SLOT + MENU_SLOTS) { state_save(slot_path(act - ACT_SAVE_SLOT)); slot_refresh(act - ACT_SAVE_SLOT); act = ACT_NONE; }

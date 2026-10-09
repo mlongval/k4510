@@ -18,8 +18,11 @@ void    opl2_reset(void);
 void    opl2_write(uint8_t reg, uint8_t v);   /* reg 0 = ADDR, 1 = DATA */
 void    opl2_write_reg(uint8_t reg, uint8_t v);   /* the machine's own use (the sequencer): one register, the
                                                    * address latch put back so a program's ADDR/DATA pair survives */
-void    opl2_apply(uint8_t reg, uint8_t v);   /* the same write, performed on the rendering core
-                                               * after the queue has carried it there (core/sndq.h) */
+void    opl2_apply(uint8_t reg, uint8_t v);   /* the same write, performed on the rendering thread
+                                               * after the queue has carried it there (core/sndq.h);
+                                               * reg SNDQ_EV_RESET = the chip put back to power-on */
+int     opl2_touched(void);                   /* 1 once per write or reset since last asked: the CPU's
+                                               * side, so the frontend opens the device for what is coming */
 uint8_t opl2_read(uint8_t reg);               /* reg 0 = STATUS, 1 = data readback, 2 = ID */
 int     opl2_render(int n, int16_t *out, int max);
 #ifdef __cplusplus

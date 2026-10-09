@@ -21,6 +21,7 @@
  */
 #include "opl2.h"
 #include "sndq.h"
+#include "audio.h"
 #include "vice_clk.h"
 #include <string.h>
 #include "opl2/fmopl.h"
@@ -70,9 +71,12 @@ static uint8_t opl_shadow[256];      /* what was last written where, so DATA rea
  * was half a millisecond of every frame on the Dell, sound or none.  Any
  * write wakes it.  (Its timers are the alarms', not the render's: they run
  * on.  What does not advance while it sleeps is the LFO's phase, which no
- * silence can show.) */
+ * silence can show.)  Both are the rendering side's: with the audio thread
+ * rendering, a write wakes the chip there, when the queue delivers it. */
 static unsigned opl_quiet;           /* samples of exact silence in a row */
 static int      opl_asleep;
+static int      opl_written;         /* a write since last asked (opl2_touched): the CPU's side, for
+                                      * the frontend to know there may be something to hear */
 #define OPL_WAKE() (opl_quiet = 0, opl_asleep = 0)
 
 void opl2_init(int rate)
@@ -85,14 +89,28 @@ void opl2_init(int rate)
     memset(opl_shadow, 0, sizeof opl_shadow);
     opl_addr = 0; OPL_WAKE();
 }
+/* The chip itself, put back to power-on: on the rendering side, so with the
+ * audio thread rendering it is queued as SNDQ_EV_RESET and performed in its
+ * turn there (opl2_apply) -- a program's writes before the reset still land,
+ * the ones after it start from a clean chip, and no thread touches the chip
+ * while another renders from it.  The microsecond clock the timers run on
+ * is put back with it: the two belong together (a timer set before the reset
+ * must not stay due after). */
+static void opl2_reset_chip(void)
+{
+    vice_clk_reset();
+    OPL_WAKE();
+    if (opl) ym3812_reset_chip(opl);
+}
 void opl2_reset(void)
 {
     /* nalarms stays: the chip object survives a reset and still owns its two
      * alarms.  Zeroing it here left the timers dead after every power cycle
      * (review 2026-09-12, 4); opl2_init rebuilds both chip and alarms. */
     memset(opl_shadow, 0, sizeof opl_shadow);
-    opl_addr = 0; OPL_WAKE();
-    if (opl) ym3812_reset_chip(opl);
+    opl_addr = 0; opl_written = 1;
+    if (sndq_owner() != SNDQ_OWNER_CPU) sndq_push(audio_due(), SNDQ_EV_RESET, 0);
+    else opl2_reset_chip();
 }
 
 /* The write, once it is the rendering side's turn to perform it.  Port 0 and
@@ -102,6 +120,7 @@ void opl2_apply(uint8_t reg, uint8_t v)
 {
     if (!opl) opl2_init(opl_rate);
     if (!opl) return;
+    if (reg == SNDQ_EV_RESET) { opl2_reset_chip(); return; }
     OPL_WAKE();
     if (reg < 2) ym3812_write(opl, reg, v);
 }
@@ -115,19 +134,22 @@ void opl2_write(uint8_t reg, uint8_t v)
     if (!opl) opl2_init(opl_rate);
     if (!opl) return;
     if (reg > 1) return;
-    OPL_WAKE();
     /* The shadow and the address latch are this side's own bookkeeping: they
      * answer the readback at $D481 and must be right here, now, whoever is
      * doing the rendering. */
     if (reg == 0) opl_addr = v; else opl_shadow[opl_addr] = v;
-    /* Another core has the sound: hand the write over stamped, and it is
+    opl_written = 1;
+    /* Another thread has the sound: hand the write over stamped, and it is
      * performed there as the render passes its moment (core/sndq.h).
-     * Without this the chip's state was being mutated here while core 3
-     * rendered from it.  A full queue means that core has stopped, so write
-     * through instead: wrong sound beats none. */
-    if (sndq_owner() != SNDQ_OWNER_CPU && sndq_push(reg, v)) return;
+     * Without this the chip's state was being mutated here while the other
+     * thread rendered from it -- and the chip's sleep (opl_asleep) is that
+     * side's too, so not even OPL_WAKE is done here.  A full queue drops the
+     * write (counted; sndq.h says why writing through would be worse). */
+    if (sndq_owner() != SNDQ_OWNER_CPU) { sndq_push(audio_due(), reg, v); return; }
+    OPL_WAKE();
     ym3812_write(opl, reg, v);
 }
+int opl2_touched(void) { int t = opl_written; opl_written = 0; return t; }
 /* One register, from the machine itself rather than a program: the sound
  * sequencer ($D5E0) plays its notes through here from the frame tick, which
  * can land between a program's ADDR write and its DATA write.  The latch is

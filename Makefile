@@ -73,7 +73,7 @@ SIDEBAR_O = $(SIDEBAR_C:.c=.o)
 SDL_OBJS = sdl/main.o sdl/panel.o sdl/png.o sdl/hostpage.o
 
 
-all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510 sdl/k4510-chooser
+all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/sndtest sdl/k4510 sdl/k4510-chooser
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -87,6 +87,8 @@ rom/kernal.bin: rom/kernal.c rom/crt0.s rom/opt.s rom/k4510.cfg
 	ld65 -C rom/k4510.cfg -o $@ rom/crt0.o rom/opt.o rom/kernal.o none.lib -m rom/kernal.map
 
 test/seqtest: test/seqtest.c $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
+test/sndtest: test/sndtest.c $(CORE_OBJS)    # the sound on the audio thread: late frames, placement, the hand-over
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
 test/renumtest: test/renumtest.c demo/renum.h    # VI's :renum and EDIT's Ctrl-R, on the host
@@ -254,7 +256,7 @@ check-artifacts: $(DEMOS) rom/kernal.bin $(SIDEBAR_ZIPS)
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/vtconf test/jimgfxtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/sndtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/vtconf test/jimgfxtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -264,6 +266,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/dmatest
 	./test/vickytest
 	./test/seqtest
+	./test/sndtest
 	./test/fstest
 	sh ./test/ziptest.sh
 	sh ./test/mounttest.sh

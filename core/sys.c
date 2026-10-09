@@ -120,7 +120,7 @@ static void sys_latch(void)
     sys_reg[12] = m->tm_wday;
 }
 static uint8_t sys_opts;                 /* the menu's switches, readable by the guest */
-uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks that found nothing to play */
+uint16_t io_audio_gaps;                   /* the frontend counts: audio callbacks the card was starved before (sdl/main.c audio_cb) */
 static int mode_acked;
 void io_set_opts(uint8_t v)
 {
@@ -157,9 +157,18 @@ int  io_measuring(void) { return measuring; }
  * ring ran dry, and that fix stops it running dry by clocking the sound on
  * without the CPU when the machine is late -- so gaps read 0 across the whole
  * band where a host is merely losing, and Doc could hear drops on rows both
- * BENCH and SETUP called clean.  This counts the samples that came from that
- * top-up rather than from a frame the machine ran: it is the sound the
- * machine did not make, which is the sound he is hearing. */
+ * BENCH and SETUP called clean.  This counted the samples that came from that
+ * top-up rather than from a frame the machine ran: the sound the machine did
+ * not make, which is the sound he was hearing.
+ *
+ * Since 2026-10-09 the sound is made on the audio thread, clocked by the
+ * card, and the machine's register writes are queued for it, each due at a
+ * sample (core/audio.c).  There is no top-up any more; what this counts now
+ * is the samples the sound played on PAST a write that was already due --
+ * the machine so late with its frame that the card got there first, and the
+ * note landed as it came.  Same meaning from the chair: sound the machine
+ * was not there to make.  0 on a host keeping up, so BENCH's and SETUP's
+ * "nothing filled" rows read as before. */
 uint16_t io_audio_fill;
 
 /* A real-time millisecond counter at SYS+$36..$39 (32-bit, little endian).
@@ -205,12 +214,12 @@ uint8_t sys_read(uint8_t r)
      * a step actually became. */
     if (r == 0x23) { int v = settings_get(SET_CPU_CLOCK), f = settings_first(SET_CPU_CLOCK);   /* the ladder as the machine sees it starts at the cap; */
                      return (uint8_t)(v > f ? v - f : 0); }                                    /* a value never loaded (headless) reads as its top, not -4 */
-    if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks that found the ring empty, since last cleared */
+    if (r == 0x24) return (uint8_t)(io_audio_gaps & 0xFF);       /* audio callbacks the card starved before, since last cleared */
     if (r == 0x25) return (uint8_t)(io_audio_gaps >> 8);
     if (r == 0x27) return (uint8_t)(settings_choices(SET_CPU_CLOCK) - settings_first(SET_CPU_CLOCK));
     if (r == 0x28) return (uint8_t)clock_measured;                /* 0: no measured clock for this host yet -- run SETUP */
     if (r == 0x29) return (uint8_t)measuring;
-    if (r == 0x2A) return (uint8_t)(io_audio_fill & 0xFF);       /* filled samples since last cleared, saturating */
+    if (r == 0x2A) return (uint8_t)(io_audio_fill & 0xFF);       /* samples played on past a write already due, since last cleared, saturating */
     if (r == 0x2B) return (uint8_t)(io_audio_fill >> 8);
     if (r == 0x26) return (uint8_t)(sys_cpu_khz >> 16);   /* the clock in kHz needs a third byte: SYS+0/1 alone stop at 65.5 MHz, and the ladder goes to 202500 */
     if (dbg_reg_read(r, &dv)) return dv;     /* WATCH $30-$35, DUMP $F0, $F2 (core/debug.c) */

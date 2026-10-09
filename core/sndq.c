@@ -1,5 +1,5 @@
-/* See sndq.h.  Single producer (the CPU's core), single consumer (whichever
- * core is rendering), no lock -- the ring's two indices are the only shared
+/* See sndq.h.  Single producer (the CPU's thread), single consumer (whichever
+ * thread is rendering), no lock -- the ring's two indices are the only shared
  * mutable state and each is written by one side only. */
 #include "sndq.h"
 
@@ -11,10 +11,15 @@
 #define A_ADD(p, v)      __atomic_fetch_add((p), (v), __ATOMIC_RELEASE)
 #define A_LOAD_RLX(p)    __atomic_load_n((p), __ATOMIC_RELAXED)
 
-#define QN 4096                                  /* ~85 ms of the busiest tune at a write a scanline */
-typedef struct { uint32_t us; uint8_t port, val, pad[2]; } ev_t;
+/* ~340 ms of the busiest tune at a write a scanline (was 4096, 85 ms, when
+ * the consumer was a core of its own that never slept; SDL's audio thread
+ * can be held off that long by a host that is swapping, and the writes it
+ * then finds are what keep the chip's registers right). */
+#define QN 16384
+typedef struct { uint32_t at; uint8_t port, val, pad[2]; } ev_t;
 static ev_t q[QN];
 static volatile unsigned q_w, q_r;
+static volatile unsigned dropped;
 
 static volatile uint32_t now_us;
 static volatile int owner = SNDQ_OWNER_CPU;
@@ -25,11 +30,12 @@ uint32_t sndq_now(void)         { return A_LOAD(&now_us); }
 int      sndq_owner(void)       { return A_LOAD(&owner); }
 int      sndq_pending(void)     { return A_LOAD(&want) != A_LOAD(&owner); }
 void     sndq_accept(void)      { A_STORE(&owner, A_LOAD(&want)); }
+void     sndq_take(int o)       { A_STORE(&want, o); A_STORE(&owner, o); }
+unsigned sndq_dropped(void)     { return A_LOAD(&dropped); }
 
 void sndq_reset(void)
 {
     A_STORE(&q_w, 0u); A_STORE(&q_r, 0u);
-    A_STORE(&now_us, 0u);
 }
 
 /* The rendezvous.  The asking side spins -- this is called at a point where
@@ -51,25 +57,33 @@ int sndq_request(int o)
     return 0;                                                  /* nobody answered: nothing moved */
 }
 
-int sndq_push(uint8_t port, uint8_t val)
+int sndq_push(uint32_t at, uint8_t port, uint8_t val)
 {
     unsigned w = A_LOAD_RLX(&q_w);
     unsigned n = (w + 1) & (QN - 1);
-    if (n == A_LOAD(&q_r)) return 0;                                         /* full */
-    q[w].us = sndq_now(); q[w].port = port; q[w].val = val;
+    if (n == A_LOAD(&q_r)) { A_ADD(&dropped, 1u); return 0; }                /* full: dropped, see sndq.h */
+    q[w].at = at; q[w].port = port; q[w].val = val;
     A_STORE(&q_w, n);
     return 1;
 }
 
-void sndq_drain(uint32_t us, void (*apply)(uint8_t port, uint8_t val))
+int sndq_next(uint32_t *at)
+{
+    unsigned r = A_LOAD_RLX(&q_r);
+    if (r == A_LOAD(&q_w)) return 0;
+    *at = q[r].at;
+    return 1;
+}
+
+void sndq_drain(uint32_t at, void (*apply)(uint8_t port, uint8_t val))
 {
     unsigned r = A_LOAD_RLX(&q_r);
     for (;;) {
         unsigned w = A_LOAD(&q_w);
         if (r == w) break;
-        /* Unsigned wrap-safe "is it due yet": the stamp is 32 bits of
-         * microseconds and rolls over every 71 minutes. */
-        if ((uint32_t)(us - q[r].us) >= 0x80000000u) break;                   /* still in the future */
+        /* Unsigned wrap-safe "is it due yet": the moment is 32 bits that
+         * roll over -- a day of samples at 48 kHz. */
+        if ((uint32_t)(at - q[r].at) >= 0x80000000u) break;                   /* still in the future */
         apply(q[r].port, q[r].val);
         r = (r + 1) & (QN - 1);
         A_STORE(&q_r, r);

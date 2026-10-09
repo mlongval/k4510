@@ -52,7 +52,7 @@ void    io_set_clock_measured(int yes);  /* the frontend: has this host a measur
 int     io_clock_measured(void);         /* ...and back again */
 int     io_adopt_requested(void);        /* 1 once: the guest asked to keep the clock in force (SETUP) */
 int     io_measuring(void);              /* the guest is measuring: the governor must keep its hands off */
-extern uint16_t io_audio_fill;           /* samples the sound made WITHOUT the machine, because it was late */
+extern uint16_t io_audio_fill;           /* samples the sound played on past a write already due: the machine late (core/sys.c) */
 #define IO_BANK        0xD600u   /* $D600-$D6FF  bank registers (K-01)   */
 #define IO_NET         0xD900u   /* $D900-$D9FF  the N: device: TCP and HTTP channels (core/net.h) */
 /*      IO_TERM        0xDA00     $DA00-$DAFF  JIM, the terminal: a VT100/ANSI in hardware (core/term.h) */
@@ -344,7 +344,7 @@ void    io_set_cpu_khz(unsigned khz);
  * moment the guest asks.  For anything that must keep real time rather than
  * frame time -- see the note in io.c. */
 void    io_set_ms_source(uint32_t (*fn)(void));
-extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback */            /* what SYS $00/01 report */
+extern uint16_t io_audio_gaps;                  /* counted by the frontend's audio callback: the card starved */            /* what SYS $00/01 report */
 /* --- WATCH ($D530-$D535): who is trampling this byte? ------------------
  *   $30-$33  28-bit physical address to watch
  *   $34      write 1 to arm; write 0 to disarm; reads back the armed state

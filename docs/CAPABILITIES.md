@@ -107,9 +107,9 @@ CUT   Boot speed test  GONE 2026-09-01 (core/calib.c deleted).  It had been comp
 
 ## 5. Languages and guest systems
 
-?  EhBASIC             the primary BASIC.  Has the K4510 words: GRAPHICS, PLOT,
-                       LINE, TRI, PALETTE, SPRITE, far PEEK/POKE, shell escape
-                       (~1,850 lines, basic/k4510*.asm)
+?  K4510 BASIC         the machine's BASIC, compiled (tools/k4510-bas, BAS NAME):
+                       GRAPHICS, PLOT, LINE, TRI, PALETTE, SPRITE, SOUND, files, *
+GONE  EhBASIC         removed 2026-10-09 (Doc): K4510 BASIC took its words.
 GONE  MS BASIC        removed 2026-10-07 (Doc): a third BASIC, no graphics.
 ?  BBC BASIC           on the Tube co-processor
 ?  CP/M (RunCPM)       K:/P:/D: drives, .SUB launchers, CPM [command]
@@ -146,7 +146,7 @@ KEEP  Screen font      one: unscii (PD) -- 8x8 for the 240-line modes, 8x16
                                   still in the tree
 CUT   ANSIDEMO.prg                 nuked 2026-09-18 (SHIPPING.CFG): out of the image, and
                   unlisted from the Makefile 2026-09-20.  Source and rule kept, so it can
-                  be built by hand; jimtest drives ANSI mode from EhBASIC instead (no ROM)
+                  be built by hand; jimtest drives ANSI mode from RX instead (no ROM)
 ?  PETSCII.prg                     the other mode's demo (no ROM)
 
 ## 8. Sound
@@ -221,7 +221,7 @@ for named keys, so a scripted harness cannot finish it -- it is not faulty).
 
 ?  BOMBER      Bomb Party, CC-BY art
 ?  LODE        procedural art
-?  GRAPH2D / GRAPH3D  EhBASIC
+?  GRAPH2D / GRAPH3D  K4510 BASIC
 ?  CUBE, MANDEL, SIEVE, BENCH, LOGO
 ?  CHROUT, SAY, BUG, SETUP         all start and hand the shell back
 CUT   SEGDEMO                      nuked with ANSIDEMO; the far-call gate it showed is

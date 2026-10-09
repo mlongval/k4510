@@ -374,8 +374,8 @@ so, \texttt{game.prg: 4211 bytes (1 compiled, 2 kept)}.
 \begin{aside}
 \textbf{Where it is going.} This is PROG's fourth stage: projects came
 third, the mouse and selection fourth, and REXX is already in. Next come
-the other interpreters: EhBASIC,
-LOGO and Forth run on the file in front of you, their errors in the same
+the other interpreters: LOGO and
+Forth run on the file in front of you, their errors in the same
 list.
 \end{aside}
 
@@ -425,21 +425,21 @@ another kind of file altogether and WORD says so rather than guessing; save
 it as \texttt{.DOCX} in Word first. A \texttt{.TXT} opens too.
 
 \section{Editing from inside a BASIC}\label{sec:editfrombasic}
-There are two cases, and they look alike, so here is the rule.
+This is for an interpreter, BBC BASIC on the Tube; K4510 BASIC is a file
+you edit in PROG or VI and compile (Chapter~\ref{cha:kbasic}). There are
+two cases, and they look alike, so here is the rule.
 
 \textbf{To edit the program you are writing}, type \verb|*EDIT| or
-\verb|*VI| with nothing after it. BASIC saves the program to a temporary
-file, runs the editor on it, and loads it back when you leave --- so what
-you type in the editor is what you \verb|LIST| afterwards. Variables do
-not survive the round trip, exactly as with \verb|LOAD|.
-Section~\ref{sec:basicvi} has the details for EhBASIC; BBC BASIC does the
-same with \verb|*VI| and \verb|*EDIT|
-(Chapter~\ref{cha:tube}), and LOGO with
+\verb|*VI| with nothing after it. BBC BASIC saves the program to a
+temporary file, runs the editor on it, and loads it back when you leave
+--- so what you type in the editor is what you \verb|LIST| afterwards.
+Variables do not survive the round trip, exactly as with \verb|LOAD|
+(Chapter~\ref{cha:tube}). LOGO does the same with
 \verb|EDIT "name| (Chapter~\ref{cha:logo}).
 
 \textbf{To renumber it}, which none of those BASICs could do for itself,
 use \verb|:renum| in VI or Ctrl-R in EDIT. Both know the language from the
-file: a \texttt{.BAS} is EhBASIC's, a \texttt{.BBC} is BBC
+file: a \texttt{.BAS} is K4510 BASIC's, a \texttt{.BBC} is BBC
 BASIC's, with its \verb|ELSE| targets and its lower-case variables (a
 \texttt{goto} there is a name, not a jump). The lines' own numbers change,
 and so does every target after \verb|GOTO|, \verb|GOSUB|, \verb|THEN|,

@@ -141,9 +141,6 @@ The machine monitor, Wozmon’s grammar with 28-bit addresses. With a line, runs
 **`BBC`** — *ROM*  
 BBC BASIC on the Tube ([Chapter 6, The Tube](06-tube.md)). Also BBC.
 
-**`EHBASIC`** — */LANG/EHBASIC*  
-Enhanced BASIC with the machine’s graphics ([Chapter 4, EhBASIC](04-ehbasic.md)).
-
 **`FORTH`** — */LANG/FORTH*  
 Tali Forth 2 ([Chapter 7, Forth](07-forth.md)).
 

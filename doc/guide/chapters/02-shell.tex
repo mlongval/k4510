@@ -61,11 +61,11 @@ A bare name not found where you are is looked for, in this order, in
 \pth{/HOME/PROJECTS/NAME/} --- where \emph{NAME} is the name you typed
 without its extension, uppercased, because on this disk \textbf{the name
 is the folder} --- and then by extension: a \texttt{.BAS} in
-\pth{/LANG/EHBASIC/EX}, a \texttt{.BBC} in \pth{/LANG/BBCBASIC/EX}, a
+\pth{/LANG/BASIC/EX}, a \texttt{.BBC} in \pth{/LANG/BBCBASIC/EX}, a
 \texttt{.RX} in \pth{/LANG/RX}, a \texttt{.PAS}, \texttt{.C} or
 \texttt{.prg} in the two compiled languages' folders. So \verb|SKYFIRE|,
-\verb|EHBASIC|, \verb|RANGER| and \verb|HELLO| run from wherever you are
-standing, and \verb|RUN "INVADERS.BAS"| inside EhBASIC still finds it. A
+\verb|LOGO|, \verb|RANGER| and \verb|HELLO| run from wherever you are
+standing, and \verb|BAS INVADERS| finds \texttt{INVADERS.BAS}. A
 name is matched regardless of case when the exact one is absent, and
 \texttt{..} never climbs above \texttt{/}.
 
@@ -118,12 +118,12 @@ you cannot tell from the prompt which is which, which is the point. The
 disk is the host's (and on the K4510's own Linux, in RAM), so a program
 starts as quickly as a word in the ROM.
 
-These words open whole languages: \verb|EHBASIC| (Chapter~\ref{cha:basic}),
-\verb|BBC|
+These words open whole languages: \verb|BBC|
 (Chapter~\ref{cha:tube}), \verb|FORTH| (Chapter~\ref{cha:forth}),
 \verb|LOGO| (Chapter~\ref{cha:logo}),
 \verb|RX| (Chapter~\ref{cha:rx}) and
 \verb|CPM|\shipif{chapter:09-cpm}{ (Chapter~\ref{cha:cpm})}.
+BASIC is compiled instead: \verb|BAS NAME| (Chapter~\ref{cha:kbasic}).
 
 \subsection*{What is on the disk}
 \pth{/APPS} holds the programs the machine ships with, one folder each,
@@ -185,8 +185,8 @@ the caller back untouched:
 *SWAP EDIT MYPROG.BAS
 \end{type}
 
-from EhBASIC edits a file and returns to your program, variables and screen
-as they were. One level deep; the thing being run must be an ordinary
+from a BASIC program edits a file and returns to the program, its
+variables and screen as they were. One level deep; the thing being run must be an ordinary
 program, and a BASIC's far memory is not disturbed because nothing else
 touches it. BBC BASIC needs none of this: it lives on the co-processor,
 out of reach of anything running here.
@@ -246,8 +246,8 @@ pokes into the console's screen can reach them. \textbf{The top band}
 names what is on the screen at its left and has the clock and the date at
 its right, in whichever formats the Terminal page is set to. The first
 name is what is running: \texttt{K/OS} at the prompt,
-\texttt{EhBASIC INVADER2.BAS} once a program is loaded,
-\texttt{EhBASIC PROG.BAS > VI EDITTMP.BAS} while \verb|*VI| has it, and
+\texttt{LOGO SQUARES.LGO} once a program is loaded,
+\texttt{LOGO SQUARES.LGO > VI SQUARES.LGO} while VI has it, and
 \texttt{BBC BASIC > VI EDITTMP.BBC} from the Tube --- a trail of who
 started whom, with the file each one has open, LOGO's \texttt{.LGO},
 BOOK's page and CP/M or the Linux prompt on the Tube included. While the
@@ -342,8 +342,7 @@ CP http://example.org/game.prg game.prg
 RUN http://example.org/game.prg
 \end{type}
 
-EhBASIC's \verb|LOAD| and BBC BASIC's \verb|LOAD| on the Tube take URLs the
-same way. The idea is the C64's Meatloaf cartridge, where a disk name could
+BBC BASIC's \verb|LOAD| on the Tube takes URLs the same way. The idea is the C64's Meatloaf cartridge, where a disk name could
 be an address on the internet; here it costs the ROM nothing, because the
 ROM never looks at a name --- the host does the fetching. A typed line is 95
 characters, and so is the longest URL.
@@ -434,7 +433,7 @@ speaks:
 \section{CAPSLOCK}
 \verb|CAPSLOCK| toggles a caps-lock: while it is on, letters read from the
 keyboard come up uppercase, so a language whose keywords are uppercase ---
-BBC BASIC, EhBASIC --- needs no Shift held. Digits and symbols are
+BBC BASIC, LOGO, RX --- needs no Shift held. Digits and symbols are
 untouched, so it is a caps lock and not a shift lock, and Shift gives you
 the \emph{other} case while it is on. It is also suspended while a
 program is running, so a program that wants lower case gets it, and the

@@ -87,7 +87,8 @@ A release about the screen and what frames it.
 - **RANGER opens files by extension** (`/SYSTEM/ETC/RANGER.RC`: `.PAS` in
   PROG ...); EDIT's menus no longer break after About.
 - **The jettison:** DOOM, the Apple IIe, Microsoft BASIC, TINY and the
-  other trial balloons are gone; CP/M, the Tek40xx and the Navidrome radio
+  other trial balloons are gone, and EhBASIC after them (2026-10-09):
+  K4510 BASIC, compiled, is the machine's BASIC and RX its interpreter; CP/M, the Tek40xx and the Navidrome radio
   are sidelined; `core/io.c` is one file a device.
 
 `docs/BUILD-LOG.md` has the measurements and the reasoning.
@@ -148,8 +149,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   programs load at $0800), and the zero page and the stack page are the
   program's own: K/OS runs on a base page and a 6502 stack of its own
   (pages 6 and 7), with its C stack in a kilobyte of RAM in the I/O page,
-  watched by a **stack fence** (`INFO -m` shows the margin). EhBASIC
-  boots with 46335 bytes free. The handbook's Memory chapter maps every
+  watched by a **stack fence** (`INFO -m` shows the margin). The handbook's Memory chapter maps every
   byte the system uses, in the 64 KB and in the 256 MB.
 - **VICKY**, the video chip: 640×480, 640×240, 320×240, 320×200 and
   160×200, and the panel's own integer display resolutions (on 1920×1080:
@@ -197,9 +197,10 @@ never touches the internal drive. `docs/LINUX.md` has the details.
   unknown word runs `name.prg` from disk with its arguments — the REXX
   rule; `SAY` is the demo. Files live in `fs/`, one directory per
   language; bare names are searched across them.
-- **The languages:** **EhBASIC 2.22** with graphics, sprites, the
-  MATH unit and `*command` for any shell command (`*VI` edits the program
-  in memory); **LOGO**; **RX**, a REXX; **C**, compiled
+- **The languages:** **K4510 BASIC**, compiled (`BAS NAME`, by way of Mad
+  Pascal) with graphics, sprites, sound, files and `*command` for any
+  shell command (`docs/KBASIC.md`); **LOGO**; **RX**, a REXX, the
+  interpreter for a quick try; **C**, compiled
   on the machine's own Linux with cc65 (`fs/LANG/C`); **BBC BASIC** — Richard Russell's interpreter (BBCTTY, zlib)
   on **the Tube**, a co-processor port of Acorn heritage, with its own flat
   256 MB; and **Forth** — Tali Forth 2, native 45GS10 code.  (**CP/M 2.2**
@@ -268,7 +269,6 @@ never touches the internal drive. `docs/LINUX.md` has the details.
     linux/       the Linux the machine boots on: the live-stick build, the container flavour; Tek40xx (sidelined)
     rom/         system ROM (cc65) and Wozmon
     demo/        programs in C -> fs/SYSTEM/BIN and fs/APPS/NAME/*.prg  (the editors, TELNET, BUG, the games)
-    basic/       EhBASIC 2.22 + K4510 glue
     forth/       Tali Forth 2 (vendored) + the platform file
     mon/         SUPERMON, the machine-code monitor (vendored, ported)
     tube/        Richard Russell's BBC BASIC, console edition (vendored, altered as marked)
@@ -285,8 +285,7 @@ never touches the internal drive. `docs/LINUX.md` has the details.
 
 GPL-2.0-or-later for the project (full text in `LICENSE`); Copyright
 (C) 2026 Michael Longval. Components and their terms are listed in
-`LICENSES.md`, the thanks in `CREDITS.md`. EhBASIC is free for
-non-commercial use only — see `basic/README-EhBASIC.txt`. "BBC BASIC"
+`LICENSES.md`, the thanks in `CREDITS.md`. "BBC BASIC"
 is the name of Richard Russell's interpreter; it appears here only to
 identify what is vendored, and this project claims nothing in it.
 

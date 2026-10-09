@@ -419,11 +419,9 @@ To edit the program you are writing, type *EDIT or *VI with nothing after it.
 BASIC saves the program to a temporary file, runs the editor on it, and loads
 it back when you leave -- so what you type in the editor is what you LIST
 afterwards. Variables do not survive the round trip, exactly as with LOAD.
-Editing the program in VI has the details for EhBASIC; BBC BASIC does the same
-with *VI and *EDIT (Chapter 6, The Tube), and LOGO with EDIT "name (Chapter 8,
+BBC BASIC does the same with *VI and *EDIT (Chapter 6, The Tube), and LOGO with EDIT "name (Chapter 8,
 LOGO).
 
-=> 04-EHBASIC.GMI Editing the program in VI
 => 06-TUBE.GMI Chapter 6, The Tube
 => 08-LOGO.GMI Chapter 8, LOGO
 

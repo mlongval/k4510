@@ -28,7 +28,6 @@ where each one came from and how to verify it):
 | `data/fonts/hd/proggy*.bin`, built by `tools/mkhdfonts.py` | Proggy Clean (Tristan Grimmer) -- a text font; `LICENSE-proggy.txt` | MIT |
 | `data/fonts/hd/tamzen-bold*.bin`, built by `tools/mkhdfonts.py` | Tamzen 8x16 Bold (Suraj N. Kurapati) -- a text font; `LICENSE-tamzen.txt` | permissive ("free to use, copy, modify, and distribute") |
 | `data/bombparty/` | Bomb Party sprite sheet, devurandom/richtaur/cemkalyoncu (`demo/bomber.c` renders it; see `data/bombparty/VENDORED-FROM.txt`) | CC-BY-3.0 |
-| `basic/basic.asm` | EhBASIC 2.22, Lee Davison (ca65 form via jefftranter/6502) | **free for non-commercial use**; derivatives must carry "Derived from EhBASIC" — see `basic/README-EhBASIC.txt`. It is a separate program (`fs/ehbasic.prg`), not linked with the GPL code. |
 | `cpm/src/` | RunCPM (CP/M 2.2 environment with internal CCP), Marcelo Dantas "Mockba the Borg" (vendored unmodified; see `cpm/VENDORED-FROM.txt`) | MIT |
 | `forth/tali/` | Tali Forth 2, Scot W. Stevenson / Sam Colwell / Patrick Surry (vendored unmodified; see `forth/tali/VENDORED-FROM.txt`) | public domain |
 | ROM and `.prg` binaries | linked against the cc65 runtime (`none.lib`) | cc65's zlib-style licence |
@@ -67,8 +66,8 @@ Mad Pascal checkout.
 
 ## If you redistribute
 
-Ship the sources you built from, keep this file with them, and remember the two easy
-traps: EhBASIC is non-commercial-only, and the "BBC BASIC" name is
+Ship the sources you built from, keep this file with them, and remember the easy
+trap: the "BBC BASIC" name is
 licensed to this project and not to yours — call your fork's BASIC
 something else.
 

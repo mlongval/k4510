@@ -89,7 +89,7 @@ prints `HELLO FROM THE DISK` — there is no `SAY` command, only a `say.prg` in 
 
 Several of the machine’s commands are programs in exactly this sense — `TYPE`, `VI`, `SETUP` and the monitor among them — and you cannot tell from the prompt which is which, which is the point. The disk is the host’s (and on the K4510’s own Linux, in RAM), so a program starts as quickly as a word in the ROM.
 
-These words open whole languages: `EHBASIC` ([Chapter 4, EhBASIC](04-ehbasic.md)), `BBC` ([Chapter 6, The Tube](06-tube.md)), `FORTH` ([Chapter 7, Forth](07-forth.md)), `LOGO` ([Chapter 8, LOGO](08-logo.md)), `RX` ([Chapter 11, RX: the Machine’s REXX](12-rx.md)) and `CPM`.
+These words open whole languages: `BBC` ([Chapter 6, The Tube](06-tube.md)), `FORTH` ([Chapter 7, Forth](07-forth.md)), `LOGO` ([Chapter 8, LOGO](08-logo.md)), `RX` ([Chapter 11, RX: the Machine’s REXX](12-rx.md)) and `CPM`.
 
 ### What is on the disk
 

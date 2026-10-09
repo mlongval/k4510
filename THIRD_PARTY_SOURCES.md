@@ -100,17 +100,16 @@ back.
 | Altered | No. |
 | Verify | `dir: ebeb4a68bb2d232f` |
 
-## EhBASIC 2.22
+## EhBASIC 2.22 — REMOVED 2026-10-09
 
-| | |
-|---|---|
-| Role | The machine's first BASIC. |
-| Local path | `basic/basic.asm` (the K4510 glue in `basic/k4510*.asm` is ours) |
-| Upstream | Lee Davison (1966--2013); the ca65 form came via https://github.com/jefftranter/6502 |
-| Version | 2.22 |
-| Licence | Free for non-commercial use. Derivatives must carry the string **"Derived from EhBASIC"** in any binary image, and `basic/README-EhBASIC.txt` in any human-readable distribution. Shipped as a separate program (`fs/EHBASIC/ehbasic.prg`), not linked with the GPL code. |
-| Altered | **Yes** -- extended with the machine's graphics, sound, file and `*` statements. |
-| Verify | `dir: df25f7f9fc1cb7ba` (whole `basic/`, ours and theirs together) |
+Lee Davison's EhBASIC (the ca65 form from https://github.com/jefftranter/6502),
+extended with the machine's graphics, sound, file and `*` statements, was
+`basic/` and shipped as `fs/LANG/EHBASIC/ehbasic.prg`, a separate program,
+until 2026-10-09, when Doc retired it for K4510 BASIC (`tools/k4510-bas`,
+which shares no code with it). Its licence (free for non-commercial use;
+derivatives carry "Derived from EhBASIC") no longer applies to anything
+shipped; the git history has it (last present at the commit before the
+removal, digest `dir: df25f7f9fc1cb7ba`).
 
 ## K4510x console font (Linux kernel VGA 8x16)
 
@@ -210,7 +209,7 @@ honest gap, so none were guessed.
 ## Re-check commands
 
     # a directory digest, as used above.  The same command for every
-    # component -- .asm/.s/.inc for Tali Forth and EhBASIC.
+    # component -- .asm/.s/.inc for Tali Forth.
     # LC_ALL=C matters: without it the sort order and the digest change.
     dir_digest() {
       find "$1" -type f \( -name '*.c' -o -name '*.h' -o -name '*.cc' \

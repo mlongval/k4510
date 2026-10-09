@@ -142,14 +142,11 @@ carries them: packages.list has them since 2026-10-06).
       the frontend's 4:3 box for a software resolution of any shape.
 - [x] **k4510-vidcap on the Dell** (run 2026-10-07); SETUP runs it ($D548) and keeps the cap.
 - [x] **FORTH has no break key** (done 2026-10-08: `$D103` at every character printed and every KEY?; test/forthtest.sh).
-      EhBASIC keeps its own Ctrl-C (touching it overflowed the `$C000`
-      slice once).
+      (EhBASIC kept its own Ctrl-C until it went, 2026-10-09.)
 - [ ] **LOGO lists** — phase 2 (a009fee) brought the sprite turtle, FILL
       and EDIT; lists are what is still owed.
 - [ ] **KEYTEST's bugs** (deferred 2026-09-09).
 - [ ] **LODE sound and music** ("maybe later").
-- [ ] `fs/LANG/EHBASIC/README.BAS` ↔ `EX/DEMOS.BAS` chain by absolute path
-      now (2026-09-11) — check it on a real run, the tests do not cover it.
 
 ## Code debt
 

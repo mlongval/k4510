@@ -587,5 +587,5 @@ $800000     string variables, up to 32768 of them (8 MB)
 ```
 
 => INDEX.GMI Contents
-=> 04-EHBASIC.GMI Previous: 4. EhBASIC
+=> 03-COMMANDS.GMI Previous: 3. Every Command
 => 06-TUBE.GMI Next: 6. The Tube

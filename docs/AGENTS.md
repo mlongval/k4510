@@ -13,7 +13,7 @@ This is the convention.
 |---|---|
 | `doc/guide/` — the handbook, its figures and build scripts | **handbook** |
 | `docs/*.md` except the notes below | **handbook** |
-| `core/`, `rom/`, `sdl/`, `pi/`, `demo/`, `basic/`, `forth/`, `test/`, `Makefile` | **coding** |
+| `core/`, `rom/`, `sdl/`, `pi/`, `demo/`, `forth/`, `test/`, `Makefile` | **coding** |
 | `fs/` (the machine's own files) | **coding** |
 | `README.md`, `CREDITS.md`, `LICENSES.md`, `THIRD_PARTY_SOURCES.md` | either — say so in your note first |
 | `docs/BUILD-LOG.md` | either — append only, never rewrite |

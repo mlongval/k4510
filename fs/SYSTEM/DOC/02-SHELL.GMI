@@ -126,7 +126,6 @@ These words open whole languages: EHBASIC (Chapter 4, EhBASIC), BBC (Chapter
 6, The Tube), FORTH (Chapter 7, Forth), LOGO (Chapter 8, LOGO), RX (Chapter
 11, RX: the Machine's REXX) and CPM.
 
-=> 04-EHBASIC.GMI Chapter 4, EhBASIC
 => 06-TUBE.GMI Chapter 6, The Tube
 => 07-FORTH.GMI Chapter 7, Forth
 => 08-LOGO.GMI Chapter 8, LOGO

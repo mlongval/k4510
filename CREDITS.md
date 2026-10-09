@@ -25,8 +25,8 @@ Thank you:
   sound generator written for MAME, which is the machine's YM3812 at
   $D480; and **Marco van den Heuvel**, who adapted it for VICE, where
   this copy comes from.
-- **Lee Davison** (1966–2013) — EhBASIC, the machine's first tongue.
-  Derived from EhBASIC.
+- **Lee Davison** (1966–2013) — EhBASIC, the machine's first tongue
+  (until 2026-10-09); K4510 BASIC kept its words.
 - **R.T. Russell** — BBC BASIC (console edition), running on the Tube
   co-processor. The name "BBC BASIC" is used by his permission.
 - **Marcelo Dantas** ("Mockba the Borg") —

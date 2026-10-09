@@ -3,19 +3,19 @@
 K4510 BASIC is its own dialect. For every keyword, one rule:
 **QuickBASIC's shape** (blocks, SUB/FUNCTION, SELECT CASE, labels, local
 variables, spelled as QuickBASIC spells them, so books and tutorials
-carry over), **EhBASIC's words** (the machine's vocabulary: GRAPHICS
-numbering, PLOT/LINE/TRI/BOX/CIRCLE, PALETTE, sprites, *commands, so old
+carry over), **the machine's own words** (from EhBASIC, its first
+BASIC: GRAPHICS numbering, PLOT/LINE/TRI/BOX/CIRCLE, PALETTE, sprites, *commands, so old
 programs keep working), and **the K4510's hardware** (MELODY sound, held
 keys, VICKY collisions, far memory, FRED maths). Where it costs little,
 the other spelling is accepted too. No PC-isms (SCREEN palettes, OUT
-ports). Files are named, never numbered. Every error names the BASIC
+ports). Files are named (a number works too). Every error names the BASIC
 line.
 
 K4510 BASIC is the machine's BASIC for writing programs. It speaks
-EhBASIC's words (PRINT, INPUT, FOR, GOSUB, PLOT ...), but it is
+the classic BASIC words (PRINT, INPUT, FOR, GOSUB, PLOT ...), but it is
 *compiled*: `k4510-bas` turns your `.BAS` file into Mad Pascal, and Mad
 Pascal turns that into a `.prg`, the same kind of program as everything
-in `/APPS`. The result runs many times faster than EhBASIC.
+in `/APPS`. The result runs many times faster than an interpreter can.
 
 You write a program in PROG (or VI, or any editor), save it as
 `NAME.BAS`, and then:
@@ -29,9 +29,11 @@ There is no "immediate mode" (typing `PRINT 2+2` and getting 4). For a
 quick calculation or a one-line try, use RX: there `PRINT` works like
 `SAY`, so `PRINT 6*7` prints 42.
 
-EhBASIC is still on the machine for the old numbered programs in
-`/LANG/EHBASIC`. Every one of its examples is in `/LANG/BASIC/EX` too,
-written again in K4510 BASIC: `DEMOS` and `BENCH` are the menus.
+K4510 BASIC is the machine's only BASIC since 2026-10-09, when EhBASIC,
+the interpreter before it, was retired. Its examples are all in
+`/LANG/BASIC/EX`, written again in K4510 BASIC: `DEMOS` and `BENCH` are
+the menus. An old numbered program compiles too: its line numbers are
+labels.
 
 ## A first program
 
@@ -80,8 +82,8 @@ BASIC would have had `GOSUB 1000`.
 | `name$` | text, up to 255 characters | "" |
 
 `a`, `a%` and `a$` are three different variables. Names can be as long
-as you like, and every letter counts (EhBASIC only looked at the first
-two).
+as you like, and every letter counts (EhBASIC, the old interpreter, looked
+only at the first two).
 
 A whole-number variable rounds what it is given: `n% = 3.7` makes 4. A
 value outside -32768..32767 stops the program with "Overflow".
@@ -360,8 +362,9 @@ OPEN "LOG.TXT" FOR APPEND AS LOG
 LINE INPUT LOG, a$                          ' a whole line, commas and all (on an INPUT file)
 ```
 
-A file has a **name** in the program, never a number (`#SCORES` is
-accepted too). PRINT to a file puts commas between the values, so INPUT
+A file is given a **name** in the program (`#SCORES` is accepted
+too). A number such as `#1` also works, so old listings type in
+unchanged, but a name says what the file is. PRINT to a file puts commas between the values, so INPUT
 reads them back. At most four files are open at once, each up to 64 KB:
 a file for INPUT is read whole when it opens; OUTPUT and APPEND are
 written when they close, or when the program ends.
@@ -410,11 +413,11 @@ To make a whole number from 1 to 6: `INT(RND * 6) + 1`.
 ## Graphics
 
 The graphics words draw on a picture laid over the text, as EhBASIC's
-do. Colour 0 is see-through: the text shows through it.
+did. Colour 0 is see-through: the text shows through it.
 
 | Statement | What it does |
 |---|---|
-| `GRAPHICS 1` | the picture on, 320 x 240 (MODE 2), as in EhBASIC |
+| `GRAPHICS 1` | the picture on, 320 x 240 (MODE 2) |
 | `GRAPHICS 2` | the picture on, 640 x 480 (MODE 0) |
 | `GRAPHICS 3` | the picture on, at the size of the screen as it is (after `*MODE 400x300`, say) |
 | `GRAPHICS 0` | the picture off, and the text mode GRAPHICS found back |
@@ -455,6 +458,8 @@ to K/OS; PROG then puts the cursor on that line:
 | `Line N: Too many GOSUBs inside each other` | more than 64 GOSUBs not yet RETURNed |
 
 ## Compared with EhBASIC and QuickBASIC
+
+EhBASIC was the machine's BASIC until 2026-10-09.
 
 **Like EhBASIC:** the words, the graphics statements, the variable
 types, PRINT's look.

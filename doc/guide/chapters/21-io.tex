@@ -40,7 +40,7 @@ program does one of two things:
   program places things as shares of it.
 \item \textbf{Ask for a size.} \verb|MODE 640x480| --- from the prompt, from
   a program through the shell (\verb|rom_shell| in C, \verb|SetResolution(640, 480, false)| in Pascal's \verb|k4510| unit, \verb|*MODE 640x480| in
-  EhBASIC). If the panel has an integer resolution of that size, that is
+  BASIC). If the panel has an integer resolution of that size, that is
   it. If not, it is \textbf{Integer Best Fit}: exactly 640$\times$480
   pixels, shown at the largest whole multiple the panel holds, centred,
   the rest bordered in the frame colour --- on 1920$\times$1080, twice,
@@ -60,7 +60,7 @@ lines --- only where a row is two panel lines or more, so not at scale~1.
 A new size keeps them; \verb|MODE -p| (\verb|--plain|) takes every effect
 off. The two combine: \verb|MODE 400x300 -m -c|. A size larger than the
 panel is refused: no whole multiple fits, and shrinking is not a fit.
-\verb|RES.BAS| in \pth{/LANG/EHBASIC/EX} tours all of it, drawing on each
+\verb|RES.BAS| in \pth{/LANG/BASIC/EX} tours all of it, drawing on each
 screen with \verb|GRAPHICS 3|.
 Underneath it is VICKY's software resolution: \texttt{\$D0D0} GLASSCTL~2,
 the size in \texttt{\$D0D2}-\texttt{\$D0D5}, bit~4 for smoothing, bit~6
@@ -104,10 +104,10 @@ program}, so a program that turns it on turns it off when it leaves.
 console's last four rows below, and SHEILA holding the line between
 them.}
 
-\verb|SPLIT| is the demonstration, and it has two twins that draw the
+\verb|SPLIT| is the demonstration, and it has a twin that draws the
 same ribbon of lines --- endpoints bouncing, the line sixteen behind
-erased --- as fast as they can, and say how fast in the text band:
-\pth{/LANG/EHBASIC/EX/SPLIT.BAS}, with EhBASIC's own
+erased --- as fast as it can, and says how fast in the text band:
+\pth{/LANG/BASIC/EX/SPLIT.BAS}, with K4510 BASIC's own
 \verb|LINE|. At the 40.5\,MHz a host starts at:
 
 \begin{center}
@@ -117,7 +117,7 @@ erased --- as fast as they can, and say how fast in the text band:
 \textbf{Language} & \textbf{lines/s} & \textbf{how it draws one} \\
 \midrule
 C (\verb|SPLIT|) & 7400 & fifteen register writes \\
-EhBASIC & 330 & \verb|LINE|, one blitter operation \\
+K4510 BASIC (compiled) & 2700 & \verb|LINE|, one blitter operation \\
 
 \bottomrule
 \end{tabular}

@@ -12142,3 +12142,32 @@ in DIR/antfarm.DAT across runs.  test/sidetest dlopens it in make test; the
 Dell's layer build makes it beside sdl/k4510.  Also the Dell (2026-10-08,
 late): 0.9-a5cdeb0 with the space-bar personality menu (no GRUB), the
 toolchain at ~/Projects/K4510/toolchain in the layer, the lid kept running.
+
+**2026-10-09: EhBASIC jettisoned.**  Doc: "yes jettison EhBASIC".  K4510
+BASIC (tools/k4510-bas, compiled through Mad Pascal) is the machine's BASIC
+and RX its interpreter, so the third BASIC went the way of MS BASIC on
+10-07: `basic/` (Lee Davison's basic.asm and our glue), fs/LANG/EHBASIC
+(ehbasic.prg, README.BAS, EX/), the handbook's EhBASIC chapter (04) with its
+web page, its GMI page and the demos/invaders shots, the Makefile rule, the
+`ehbasic` title name and its EDITTMP.BAS case in core/sys.c, and VI/EDIT/PROG's
+'E' interpreter case.  A bare `.BAS` now searches /LANG/BASIC/EX
+(core/hostfs.c); NVIM's :Run compiles a .BAS with k4510-bas and runs the
+.prg; mknvim reads K4510 BASIC's word lists from tools/k4510-bas instead of
+basic.asm's table.  Tests moved off it: basictest runs K4510 BASIC's
+TEST.BAS (compiled) where EhBASIC's ran, *PROG-from-a-program is PROG from an
+RX script, GRAPHICS 3 on *MODE 400x300 is a small compiled program;
+jimtest's CR fold and ANSI checks and opltest's $D536 check are RX scripts;
+benchmarks.sh runs the compiled RF1-8/SIEVE/AHL.  The examples in
+/LANG/BASIC/EX no longer send anyone to /LANG/EHBASIC.  SHIPPING.CFG: lang:BASIC
+and chapter:05-basic now essential (EhBASIC's marks).  The handbook sources
+are fixed (no ??, checked with xelatex -draftmode); the PDF, web and GMI
+editions are not rebuilt -- the latter two had only their links to chapter 4
+cut, so their chapter numbers wait for Doc's next rebuild.  Lee Davison
+stays in the thanks and CREDITS; THIRD_PARTY_SOURCES records the removal.
+On the Dell, Doc's own /LANG/EHBASIC/EX/GRAPH3D.BAS is in p4's persistence
+(the overlay's upper), so a deploy keeps it -- the only thing left in
+/LANG/EHBASIC -- but there is no ehbasic.prg to run it, and a bare
+GRAPH3D.BAS now means /LANG/BASIC/EX's, the shipped K4510 BASIC one.  His
+is an EhBASIC program: to keep using it, copy it beside the other and try
+BAS on it (numbered lines are labels; EhBASIC-only words will be named in
+MAKE.ERR).

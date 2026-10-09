@@ -13,7 +13,6 @@ needs neither a printer nor a browser.
 => 01-MACHINE.GMI 1. The Machine
 => 02-SHELL.GMI 2. The Shell
 => 03-COMMANDS.GMI 3. Every Command
-=> 04-EHBASIC.GMI 4. EhBASIC
 => 05-BASIC.GMI 5. K4510 BASIC
 => 06-TUBE.GMI 6. The Tube
 => 07-FORTH.GMI 7. Forth

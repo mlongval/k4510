@@ -75,7 +75,6 @@ DESC = {
     "BBCBASIC":(5, "BBC", "BBC BASIC on the Tube@cha:tube@."),
     "RADIO":   (7, "RADIO [words]", "The remote for k4510-radio, the player on the Linux beside the machine: alone, what is playing; MUSIC [playlist], STATION n, PODCAST n [m] start one in the background; NEXT, PAUSE, RESUME, STOP steer whichever is running, in the Terminal screen or not. Lists in /SYSTEM/ETC/RADIO.CFG; the volume is the machine's."),
     "CPM":     (5, "CPM [command]", "CP/M 2.2 on the Z80@cha:cpm@. A command runs at boot."),
-    "EHBASIC": (5, "EHBASIC", "Enhanced BASIC with the machine's graphics@cha:basic@."),
     "FORTH":   (5, "FORTH", "Tali Forth 2@cha:forth@."),
     "LOGO":    (5, "LOGO", "Turtle graphics@cha:logo@."),
     "RX":      (5, "RX name", "Run a REXX script@cha:rx@; a bare HELLO runs HELLO.RX."),
@@ -85,7 +84,7 @@ DESC = {
     "TERMINAL":(6, "TERMINAL", "Show JIM's second screen: a terminal session on the Linux beneath, or wherever /SYSTEM/ETC/TERMINAL.CFG says (an ssh to a tmux, say), running whatever the machine does. Alt+1 comes back to K/OS, Alt+2 goes there again. Locked off with !@sec:screens@."),
     "PAS":     (6, "PAS name", "Compile name.PAS here with Mad Pascal into name.prg."),
     "CC":      (6, "CC name", "Compile name.C here with cc65 into name.prg."),
-    "BAS":     (6, "BAS name", "Compile name.BAS here into name.prg: BASIC with EhBASIC's words, labels, blocks, SUB and FUNCTION, no line numbers needed. Errors, and the program's own errors when it runs, go to MAKE.ERR with the BASIC line."),
+    "BAS":     (6, "BAS name", "Compile name.BAS here into name.prg: K4510 BASIC@cha:kbasic@, with labels, blocks, SUB and FUNCTION, no line numbers needed. Errors, and the program's own errors when it runs, go to MAKE.ERR with the BASIC line."),
     # programs
     "BANDS":     (7, "BANDS", "A program writing to the bottom status band."),
     "BOOK":      (7, "BOOK [n | word | page]", "This handbook, on the machine: the contents, chapter n, or the chapter whose title holds the word. Tab chooses a link, Enter follows it, Backspace comes back."),

@@ -190,11 +190,6 @@ BBC BASIC on the Tube (Chapter 6, The Tube). Also BBC.
 
 => 06-TUBE.GMI Chapter 6, The Tube
 
-EHBASIC -- /LANG/EHBASIC
-Enhanced BASIC with the machine's graphics (Chapter 4, EhBASIC).
-
-=> 04-EHBASIC.GMI Chapter 4, EhBASIC
-
 FORTH -- /LANG/FORTH
 Tali Forth 2 (Chapter 7, Forth).
 
@@ -380,4 +375,4 @@ and tables; Save As Text@sec:word@.
 
 => INDEX.GMI Contents
 => 02-SHELL.GMI Previous: 2. The Shell
-=> 04-EHBASIC.GMI Next: 4. EhBASIC
+=> 05-BASIC.GMI Next: 5. K4510 BASIC

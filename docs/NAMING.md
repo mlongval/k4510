@@ -154,7 +154,7 @@ runs at 15 MHz".
 
 | | K4510 | BMC-K4510 | K4510x |
 |---|---|---|---|
-| Code | `rom/`, `core/`, `sdl/`, `basic/`, `forth/`, `demo/`, `mon/`, `cpm/`, `tube/`, `fs/` | `pi/` | nothing yet — it is a distribution, not a port |
+| Code | `rom/`, `core/`, `sdl/`, `forth/`, `demo/`, `mon/`, `cpm/`, `tube/`, `fs/` | `pi/` | nothing yet — it is a distribution, not a port |
 | Docs | the handbook, `VICKY-SPEC.md`, `K4510-Design.md`, Appendix A | `pi/README-SD.txt`, the SD-card sections | its own image-building notes, when it exists |
 | Anything the guest can see | banner, status bar, `INFO`, the settings file | — | — |
 | Anything you hold | — | the card, the board, the cables | the USB stick, the laptop it rescued |
@@ -175,7 +175,7 @@ are the machine and should read `K4510`.
   `K4510`. Saves four bytes of rodata and costs nothing.
 - **Shared host chrome** — the SDL window title, the F12 menu heading,
   the settings-file header, the dump header in `core/io.c`: `K4510`.
-- **File-header comments** across `demo/`, `pascal/`, `basic/`,
+- **File-header comments** across `demo/`, `pascal/`,
   `forth/`, `tube/`, `cpm/`, `mon/`, `test/`, `tools/`: `K4510`. This is
   the bulk of the count and the least urgent part of it.
 - **`pi/`** keeps `BMC-K4510` throughout: `kernel.cpp`'s boot line,

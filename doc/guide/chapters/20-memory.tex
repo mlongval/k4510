@@ -70,9 +70,9 @@ The first two kilobytes, where the machine and its programs meet:
 \texttt{\$0100-\$01FF} & program & the 6502 stack, all of it: a program started at the prompt finds it empty\\
 \texttt{\$0200-\$022D} & K/OS    & the ROM's initialised variables\\
 \texttt{\$022E-\$022F} & K/OS    & a script is running; the console's mode (above)\\
-\texttt{\$0230-\$02CF} & EhBASIC & lent to the interpreter: part of its code\\
+\texttt{\$0230-\$02CF} & program & lent to programs: a K4SG segment may load here\\
 \texttt{\$02D8-\$02F5} & K/OS    & the launch trampoline: banks the RAM under the ROM in, calls the program, banks it out\\
-\texttt{\$0300-\$043F} & program & EhBASIC's vectors and input buffer; \texttt{\$03FF} the result (above)\\
+\texttt{\$0300-\$043F} & program & the program's; \texttt{\$03FF} the result (above)\\
 \texttt{\$0440-\$05FF} & K/OS    & the ROM's variables\\
 \texttt{\$0600-\$06FF} & K/OS    & K/OS's own base page: its zero page at \texttt{\$0602-\$062F}, the caller's \texttt{\$F0-\$F9} copied to \texttt{\$0630} during LOAD, SAVE and ARGS; the rest free\\
 \texttt{\$0700-\$07FF} & K/OS    & K/OS's own 6502 stack\\
@@ -103,7 +103,6 @@ list is free for programs --- in the main \texttt{\$0040000} to
 \texttt{\$0030000} & the console's text cells, 4 bytes each, up to 180$\times$67\\
 \texttt{\$003C000} & the status bands' own cells, drawn by JIM (12\,KB)\\
 \texttt{\$003F000} & one blank text row in the current colours\\
-\texttt{\$003F800} & EhBASIC's sprite table, 128 $\times$ 16 bytes\\
 \texttt{\$04C0000-\$063FFFF} & a K4510 BASIC program's, while it runs: text being worked on, SUBs' text, the sprite table (\texttt{\$04E0000}), the runtime error line, file names and buffers (Chapter~\ref{cha:kbasic})\\
 \texttt{\$0800000} & ... and its string variables, up to 8\,MB\\
 \texttt{\$E000000-\$EC00000} & the editors' (VI, EDIT, PROG): document slots, the file as loaded, the unnamed register, RENUM's table, MAKE.ERR\\
@@ -126,8 +125,7 @@ starts, and the shell honours both. The C programs of \pth{/SYSTEM/BIN}
 load at \texttt{\$0800}, as Mad Pascal's do (their C stack is the top
 of \texttt{\$0800-\$CFFF}; the big ones --- VI, EDIT, PROG, WORD ---
 have layouts of their own that also use the RAM under the ROM; a K4510
-BASIC program is a Mad Pascal one), EhBASIC in the RAM under the ROM (it leaves
-\texttt{\$0800-\$BCFF} to BASIC), and \verb|MONITOR| at \texttt{\$E000}, in the
+BASIC program is a Mad Pascal one), and \verb|MONITOR| at \texttt{\$E000}, in the
 RAM under the ROM --- so that the memory a monitor is there to look at,
 \texttt{\$0800} to \texttt{\$CFFF}, is left exactly as it was.
 
@@ -136,7 +134,7 @@ frame should say so: a write of anything to \texttt{\$D545}, WAIT, puts
 the CPU to sleep until the next interrupt --- the frame's, sixty a second
 --- or a key. Nothing is missed, the loop simply looks again when the CPU
 wakes, and an idle machine stops costing the computer beneath it most of
-a core. The ROM's own key wait, EhBASIC's line input and
+a core. The ROM's own key wait, the interpreters' line input and
 \verb|wait_vblank()| in \pth{demo/k4510.h} all use it:
 \begin{verbatim}
 while (!(k = rom_getin())) K_WAIT();

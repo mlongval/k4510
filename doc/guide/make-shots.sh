@@ -35,14 +35,6 @@ shot dir 200 "cd /
 shot mon 120 "mon
 ff80.ff8f
 "
-shot demos 900 "run ehbasic
-
-RUN \"DEMOS.BAS\"
-"
-shot invaders 1400 "run ehbasic
-
-RUN \"INVADER2.BAS\"
-"
 shot split 300 "SPLIT
 "
 shot logo 1500 "logo

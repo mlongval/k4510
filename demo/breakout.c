@@ -1,6 +1,5 @@
 /* K4510: BREAKOUT -- a wall of bricks, a ball, and a paddle to keep it up.
  *
- * On a 640x480 bitmap (VICKY layer 1, as PAINT and BOOK's pictures use it).
  * Eight rows of bricks in the old colours -- yellow, green, orange, red --
  * worth 1, 3, 5 and 7.  The mouse moves the paddle, or the arrow keys do;
  * the button or Space sends the ball.  Where the ball meets the paddle
@@ -12,8 +11,17 @@
  *   mouse or Left/Right   the paddle     button or Space   serve
  *   P pause   M sound on/off   Escape end the game
  *
- * The blitter does all the drawing (fills); the ball and the paddle are
- * rubbed out and drawn again where they have moved, once a frame.
+ * The look, since 2026-10-09, is the Personality Chooser's, as CHESS has it
+ * (Doc: "redo Tetris and Blockout in a similar style"): 320x240 doubled,
+ * grey bands above and below (the name and the time; the keys), the blue
+ * glass, the banner's five bars, unscii drawn into the bitmap, bevelled
+ * 8-bit bricks, a panel on the right with the score, the level, the balls
+ * and the best, and the start and the end as the Chooser's list.  Only the
+ * machine's first sixteen colours, never written here.
+ *
+ * The blitter does all the drawing (fills, and each glyph built in gl[] and
+ * copied); the ball and the paddle are rubbed out and drawn again where
+ * they have moved, once a frame.
  */
 #include "k4510.h"
 
@@ -25,8 +33,12 @@
 #define OPL_ADDR 0xD480u
 #define OPL_DATA 0xD481u
 #define OPL_ID   0xD482u
-#define W 640
-#define H 480
+#define FONT16  0x00010800UL                 /* unscii-16, beside FONT8 (unscii-8) */
+#define W 320
+#define H 240
+#define BAND 12                              /* a band: 8-pixel text with 2 above and below */
+#define GY BAND                              /* the glass: lines 12..227 */
+#define GB (H - BAND)                        /* the bottom band's first line */
 
 static void rom_video(void) { ((void (*)(void))0xFF92)(); }
 static unsigned char rom_save(void) { return ((unsigned char (*)(void))0xFF8C)(); }
@@ -34,38 +46,43 @@ static unsigned char rom_load(void) { return ((unsigned char (*)(void))0xFF89)()
 static void zp16(uint8_t a, uint16_t v) { REG(a) = v; REG(a + 1) = v >> 8; }
 static void zp32(uint8_t a, uint32_t v) { REG(a) = v; REG(a + 1) = v >> 8; REG(a + 2) = v >> 16; REG(a + 3) = v >> 24; }
 
-/* the game's colours, 16-27 (put back on the way out) */
+/* the machine's sixteen (a .PAL changes them, as it changes the Chooser) */
 #define C_BLACK  0
-#define C_WALL   16
-#define C_PADDLE 17
-#define C_BALL   18
-#define C_TEXT   19
-#define C_DIM    20
-#define C_RED    21
-#define C_ORANGE 22
-#define C_GREEN  23
-#define C_YELLOW 24
-#define C_BLUE   25
-static const uint8_t mypal[30] = {
-    0x80,0x80,0x90,  0x60,0xC0,0xFF,  0xFF,0xFF,0xFF,  0xFF,0xFF,0xFF,  0x80,0x80,0x80,
-    0xD8,0x30,0x30,  0xF0,0x90,0x20,  0x30,0xB0,0x40,  0xF0,0xE0,0x40,  0x40,0x60,0xE0 };
+#define C_WHITE  1
+#define C_RED    2
+#define C_GREEN  5
+#define C_BLUE   6
+#define C_YELLOW 7
+#define C_ORANGE 8
+#define C_BROWN  9
+#define C_LRED   10
+#define C_DGREY  11
+#define C_LGREEN 13
+#define C_LBLUE  14
+#define C_LGREY  15
 
+/* the field: framed in light blue, open at the bottom */
+#define FX0   8                              /* the inside */
+#define FX1   218
+#define FY0   (GY + 6)                       /* the roof */
 #define BCOLS 14
 #define BROWS 8
-#define BX0   12                             /* the wall's left edge */
-#define BY0   72
-#define BW    44                             /* a brick and its gap */
-#define BH    18
-#define TOP   40                             /* the play area's roof */
-#define PY    440                            /* the paddle's top */
-#define PH    10
-#define BALL  8
+#define BX0   FX0                            /* the wall's left edge */
+#define BY0   (FY0 + 18)
+#define BW    15                             /* a brick and its gap */
+#define BH    8
+#define PY    214                            /* the paddle's top */
+#define PH    4
+#define BALL  4
+#define PX    228                            /* the panel */
 
 static uint8_t brick[BROWS][BCOLS], left;
 static const uint8_t rowcol[BROWS] = { C_RED, C_RED, C_ORANGE, C_ORANGE, C_GREEN, C_GREEN, C_YELLOW, C_YELLOW };
+static const uint8_t rowlit[BROWS] = { C_LRED, C_LRED, C_YELLOW, C_YELLOW, C_LGREEN, C_LGREEN, C_WHITE, C_WHITE };
+static const uint8_t rowdim[BROWS] = { C_BROWN, C_BROWN, C_BROWN, C_BROWN, C_DGREY, C_DGREY, C_ORANGE, C_ORANGE };
 static const uint8_t rowpts[BROWS] = { 7, 7, 5, 5, 3, 3, 1, 1 };
 static int bx, by, vx, vy;                   /* the ball, in 1/16 pixels */
-static int px, pw = 80, opx = -1, obx = -1, oby = -1;
+static int px, pw = 30, opx = -1, obx = -1, oby = -1;
 static uint8_t lives, level, served, over, paused, sound_on = 1, hits, reached_orange, reached_red, speed;
 static uint16_t score;
 
@@ -81,33 +98,70 @@ static void box(int x, int y, int w, int h, uint8_t c)
     w32(BLT + 4, BITMAP + (uint32_t) y * W + x); w16(BLT + 8, (uint16_t) w); w16(BLT + 10, (uint16_t) h); w16(BLT + 14, W);
     REG(BLT + 0x10) = 2; REG(BLT + 0x12) = 1;
 }
-static uint8_t gl[16];
-static void text(int x, int y, const char *s, uint8_t fg)   /* the 8x8 font, twice the size */
+#define F8 0                                 /* text(): unscii-8, unscii-16, unscii-8 doubled */
+#define F16 1
+#define F8X2 2
+static uint8_t gl[256];
+static int text(int x, int y, const char *s, uint8_t fg, uint8_t bg, uint8_t font)   /* the x after it */
 {
-    uint8_t r, b, i;
-    for (; *s; s++, x += 16)
-        for (r = 0; r < 8; r++) {
-            b = far_peek(FONT8 + (uint16_t)(uint8_t) *s * 8 + r);
-            for (i = 0; i < 8; i++) gl[i * 2] = gl[i * 2 + 1] = (b & (0x80 >> i)) ? fg : C_BLACK;
-            dma_copy((uint32_t)(uint16_t) gl, BITMAP + (uint32_t)(y + r * 2) * W + x, 16);
-            dma_copy((uint32_t)(uint16_t) gl, BITMAP + (uint32_t)(y + r * 2 + 1) * W + x, 16);
+    uint8_t r, b, bits, h = font == F8 ? 8 : 16, w = font == F8X2 ? 16 : 8, *g;
+    for (; *s; s++, x += w) {
+        g = gl;
+        for (r = 0; r < h; r++) {
+            bits = font == F16 ? far_peek(FONT16 + (uint16_t)(uint8_t) *s * 16 + r)
+                 : far_peek(FONT8 + (uint16_t)(uint8_t) *s * 8 + (font == F8X2 ? r >> 1 : r));
+            if (font == F8X2) { for (b = 0x80; b; b >>= 1) { *g++ = (bits & b) ? fg : bg; *g++ = (bits & b) ? fg : bg; } }
+            else for (b = 0x80; b; b >>= 1) *g++ = (bits & b) ? fg : bg;
         }
+        w32(BLT, (uint32_t)(uint16_t) gl); w32(BLT + 4, BITMAP + (uint32_t) y * W + x);
+        w16(BLT + 8, w); w16(BLT + 10, h); w16(BLT + 12, w); w16(BLT + 14, W);
+        REG(BLT + 0x10) = 0; REG(BLT + 0x12) = 1;
+    }
+    return x;
 }
 static char nb[8];
-static const char *num(uint16_t v, uint8_t w)
+static const char *num(uint16_t v, uint8_t w)  /* w digits, leading zeros: an arcade score */
 {
     uint8_t i = 7;
     nb[7] = 0;
-    do { nb[--i] = (char)('0' + v % 10); v /= 10; } while (v && i);
-    while (i > 7 - w) nb[--i] = ' ';
+    do { nb[--i] = (char)('0' + v % 10); v /= 10; } while (i > 7 - w);
     return nb + i;
 }
-static void center(int y, const char *s, uint8_t fg)
+static void center(int x0, int w, int y, const char *s, uint8_t fg, uint8_t font)   /* centred in x0..x0+w, on the glass */
 {
-    int n = (int) strlen(s);
-    box(W / 2 - n * 8 - 8, y - 4, n * 16 + 16, 24, C_BLACK);
-    text(W / 2 - n * 8, y, s, fg);
+    int n = (int) strlen(s) * (font == F8X2 ? 16 : 8);
+    text(x0 + (w - n) / 2, y, s, fg, C_BLUE, font);
 }
+static void band_text(int y, const char *s)  /* centred in a band, black on grey */
+{
+    box(0, y, W, BAND, C_LGREY);
+    text((W - (int) strlen(s) * 8) / 2, y + 2, s, C_BLACK, C_LGREY, F8);
+}
+static void bars(int x, int y, uint8_t h, uint8_t w)   /* the banner's five */
+{
+    static const uint8_t col[5] = { C_RED, C_ORANGE, C_YELLOW, C_GREEN, C_LBLUE };
+    static const uint8_t len[5] = { 8, 6, 4, 6, 8 };
+    uint8_t i;
+    for (i = 0; i < 5; i++) box(x, y + i * h, len[i] * w, h, col[i]);
+}
+static uint8_t clock_shown = 0xFF, rtc_read;
+static void put2(char *b, uint8_t v) { b[0] = (char)('0' + v / 10); b[1] = (char)('0' + v % 10); }
+static void draw_top(void)                   /* the name on the left, the time on the right, as the Chooser's band */
+{
+    static char b[17]; uint16_t y;
+    rtc_read = REG(SYS + 4);                 /* latch the clock: a store, as cc65 drops a (void) read */
+    clock_shown = REG(SYS + 6);
+    put2(b, REG(SYS + 7)); b[2] = ':'; put2(b + 3, REG(SYS + 6)); b[5] = ' ';
+    put2(b + 6, REG(SYS + 8)); b[8] = '.'; put2(b + 9, REG(SYS + 9)); b[11] = '.';
+    y = REG(SYS + 0x0A) | (REG(SYS + 0x0B) << 8);
+    b[12] = (char)('0' + (y / 1000) % 10); b[13] = (char)('0' + (y / 100) % 10); b[14] = (char)('0' + (y / 10) % 10); b[15] = (char)('0' + y % 10); b[16] = 0;
+    box(0, 0, W, BAND, C_LGREY);
+    text(8, 2, "K4510 BREAKOUT", C_BLACK, C_LGREY, F8);
+    text(W - 8 - 16 * 8, 2, b, C_BLACK, C_LGREY, F8);
+}
+static void tick_top(void) { rtc_read = REG(SYS + 4); if (REG(SYS + 6) != clock_shown) draw_top(); }
+static const char KEYS[] = "ARROWS/MOUSE  SPACE SERVE  P PAUSE  ESC";
+static void glass(void) { box(0, GY, W, GB - GY, C_BLUE); }
 
 /* ---- the sound ---------------------------------------------------------- */
 static const uint8_t opslot[3] = { 0, 1, 2 };
@@ -167,30 +221,95 @@ static void hs_save(void)
     zp16(0xF0, (uint16_t) hname); zp32(0xF2, (uint32_t)(uint16_t) hbuf); zp32(0xF6, 41);
     rom_save();
 }
+static void hs_line(int x, int y, uint8_t j, uint8_t fg)   /* "1  ABC  01234" */
+{
+    static char line[16];
+    uint16_t v = hs_s[j]; uint8_t n;
+    line[0] = (char)('1' + j); line[1] = ' '; line[2] = ' ';
+    strcpy(line + 3, hs_n[j]); line[6] = ' '; line[7] = ' ';
+    for (n = 0; n < 5; n++) { line[12 - n] = (char)('0' + v % 10); v /= 10; }
+    line[13] = 0;
+    text(x, y, line, fg, C_BLUE, F8);
+}
+
+/* ---- the Chooser's list ---------------------------------------------------- */
+#define ROW_H 20
+static void menu_row(int x, int y, int w, uint8_t i, const char *s, uint8_t on)
+{
+    static char d[2];
+    box(x, y, w, ROW_H - 2, on ? C_LBLUE : C_BLUE);
+    box(x + 6, y + 3, 12, 12, on ? C_BLUE : C_LBLUE);   /* the number box */
+    d[0] = (char)('1' + i); d[1] = 0; text(x + 8, y + 5, d, on ? C_LBLUE : C_BLUE, on ? C_BLUE : C_LBLUE, F8);
+    text(x + 28, y + 1, s, on ? C_BLUE : C_YELLOW, on ? C_LBLUE : C_BLUE, F16);
+}
+/* the rows at x,y,w; the choice, or 255 for Escape.  Space picks the first. */
+static uint8_t list(int x, int y, int w, const char *const *items, uint8_t n, uint8_t cur)
+{
+    uint8_t i, k, b, bwas = REG(MOUSEB); int my;
+    for (i = 0; i < n; i++) menu_row(x, y + i * ROW_H, w, i, items[i], i == cur);
+    for (;;) {
+        k = key_get();
+        if (k == 0x80 || k == 0x81) {
+            menu_row(x, y + cur * ROW_H, w, cur, items[cur], 0);
+            cur = (uint8_t)(k == 0x80 ? (cur + n - 1) % n : (cur + 1) % n);
+            menu_row(x, y + cur * ROW_H, w, cur, items[cur], 1);
+        }
+        else if (k == 13) return cur;
+        else if (k == ' ') return 0;
+        else if (k >= '1' && k < '1' + n) return (uint8_t)(k - '1');
+        else if (k == 0x1B) return 255;
+        b = REG(MOUSEB);
+        if ((b & 1) && !(bwas & 1)) {                         /* a click on a row */
+            my = (REG(MOUSEX + 2) | (REG(MOUSEX + 3) << 8)) >> 1;     /* the glass is 640x480: halved */
+            if (my >= y && my < y + n * ROW_H) return (uint8_t)((my - y) / ROW_H);
+        }
+        bwas = b;
+        sfx_tick(); tick_top();
+        wait_vblank();
+    }
+}
 
 /* ---- the game ----------------------------------------------------------- */
-static void draw_brick(uint8_t r, uint8_t c)
+static void draw_brick(uint8_t r, uint8_t c)  /* bevelled: lit above and left, shaded below and right */
 {
     int x = BX0 + c * BW, y = BY0 + r * BH;
-    if (brick[r][c]) { box(x, y, BW - 4, BH - 4, rowcol[r]); box(x, y, BW - 4, 2, C_TEXT); }
-    else box(x, y, BW - 4, BH - 4, C_BLACK);
+    if (brick[r][c]) {
+        box(x, y, BW - 1, BH - 1, rowcol[r]);
+        box(x, y, BW - 1, 1, rowlit[r]); box(x, y, 1, BH - 1, rowlit[r]);
+        box(x + 1, y + BH - 2, BW - 2, 1, rowdim[r]); box(x + BW - 2, y + 1, 1, BH - 2, rowdim[r]);
+    }
+    else box(x, y, BW - 1, BH - 1, C_BLUE);
+}
+static void draw_panel(void)                 /* what does not change in a game */
+{
+    box(PX - 4, GY, W - PX + 4, GB - GY, C_BLUE);
+    bars(PX, GY + 8, 3, 3);
+    text(PX - 4, GY + 28, "Breakout", C_WHITE, C_BLUE, F16);
+    text(PX, GY + 52, "SCORE", C_LBLUE, C_BLUE, F8);
+    text(PX, GY + 84, "LEVEL", C_LBLUE, C_BLUE, F8);
+    text(PX, GY + 116, "BALLS", C_LBLUE, C_BLUE, F8);
+    text(PX, GY + 144, "BEST", C_LBLUE, C_BLUE, F8);
 }
 static void draw_status(void)
 {
     uint8_t i;
-    box(0, 0, W, TOP - 8, C_BLACK);
-    text(16, 8, "SCORE", C_DIM); text(112, 8, num(score, 5), C_TEXT);
-    text(260, 8, "LEVEL", C_DIM); text(356, 8, num(level, 2), C_TEXT);
-    for (i = 0; i < lives && i < 8; i++) box(W - 30 - i * 24, 12, 16, 8, C_PADDLE);
+    text(PX, GY + 62, num(score, 5), C_YELLOW, C_BLUE, F16);
+    text(PX, GY + 94, num(level, 2), C_YELLOW, C_BLUE, F16);
+    box(PX, GY + 127, 96, 4, C_BLUE);
+    for (i = 0; i < lives && i < 8; i++) { box(PX + i * 11, GY + 127, 9, 3, C_LBLUE); box(PX + i * 11, GY + 127, 9, 1, C_WHITE); }
+    text(PX, GY + 154, num(hs_s[0] > score ? hs_s[0] : score, 5), C_WHITE, C_BLUE, F16);
+    text(PX, GY + 174, hs_s[0] > score ? hs_n[0] : "YOU", C_LBLUE, C_BLUE, F8);
+    text(PX, GY + 196, sound_on ? "         " : "SOUND OFF", C_LRED, C_BLUE, F8);
 }
 static void new_wall(void)
 {
     uint8_t r, c;
-    box(0, TOP - 8, W, H - TOP + 8, C_BLACK);
-    box(0, TOP - 8, W, 8, C_WALL); box(0, TOP - 8, 8, H - TOP + 8, C_WALL); box(W - 8, TOP - 8, 8, H - TOP + 8, C_WALL);
+    box(0, GY, PX - 4, GB - GY, C_BLUE);
+    box(FX0 - 2, FY0 - 2, FX1 - FX0 + 4, 2, C_LBLUE);           /* the frame: roof and walls */
+    box(FX0 - 2, FY0, 2, GB - FY0, C_LBLUE); box(FX1, FY0, 2, GB - FY0, C_LBLUE);
     for (r = 0; r < BROWS; r++) for (c = 0; c < BCOLS; c++) { brick[r][c] = 1; draw_brick(r, c); }
     left = BROWS * BCOLS; hits = 0; reached_orange = reached_red = 0;
-    speed = (uint8_t)(3 + level);            /* sixteenths of a pixel a frame, times sixteen: see serve() */
+    speed = (uint8_t)(3 + level);            /* see launch() */
     opx = obx = oby = -1;
 }
 static void serve(void)
@@ -199,10 +318,10 @@ static void serve(void)
     bx = (px + pw / 2 - BALL / 2) * 16; by = (PY - BALL - 1) * 16;
     vx = 0; vy = 0;
 }
-static void launch(void)
+static void launch(void)                     /* sixteenths of a pixel a frame: half the 640-wide game's */
 {
     served = 1;
-    vx = (level & 1 ? 1 : -1) * speed * 8; vy = -speed * 14;
+    vx = (level & 1 ? 1 : -1) * speed * 4; vy = -speed * 7;
 }
 static void quicken(void)                    /* the same direction, a step faster */
 {
@@ -216,7 +335,7 @@ static uint8_t brick_at(int x, int y, uint8_t *pr, uint8_t *pc)   /* the brick u
     if (x < BX0 || y < BY0) return 0;
     c = (x - BX0) / BW; r = (y - BY0) / BH;
     if (c >= BCOLS || r >= BROWS) return 0;
-    if ((x - BX0) % BW >= BW - 4 || (y - BY0) % BH >= BH - 4) return 0;   /* the gap */
+    if ((x - BX0) % BW >= BW - 1 || (y - BY0) % BH >= BH - 1) return 0;   /* the gap */
     if (!brick[r][c]) return 0;
     *pr = (uint8_t) r; *pc = (uint8_t) c;
     return 1;
@@ -239,23 +358,23 @@ static void move_ball(void)
 {
     int nx, ny, x, y, off;
     nx = bx + vx; x = nx / 16; y = by / 16;
-    if (x < 8) { nx = 8 * 16; vx = -vx; sfx(1, N(5, G), 4); }
-    else if (x + BALL > W - 8) { nx = (W - 8 - BALL) * 16; vx = -vx; sfx(1, N(5, G), 4); }
+    if (x < FX0) { nx = FX0 * 16; vx = -vx; sfx(1, N(5, G), 4); }
+    else if (x + BALL > FX1) { nx = (FX1 - BALL) * 16; vx = -vx; sfx(1, N(5, G), 4); }
     else if (hit_brick(x, y)) { vx = -vx; nx = bx; }
     bx = nx;
     ny = by + vy; x = bx / 16; y = ny / 16;
-    if (y < TOP) { ny = TOP * 16; vy = -vy; sfx(1, N(5, G), 4); }
+    if (y < FY0) { ny = FY0 * 16; vy = -vy; sfx(1, N(5, G), 4); }
     else if (vy > 0 && y + BALL >= PY && y + BALL <= PY + PH && x + BALL > px && x < px + pw) {
         off = (x + BALL / 2) - (px + pw / 2);            /* -pw/2 .. pw/2 */
-        vy = -(speed * 14);
-        vx = (int)((long) off * speed * 26 / (pw / 2));
+        vy = -(speed * 7);
+        vx = (int)((long) off * speed * 13 / (pw / 2));
         ny = (PY - BALL) * 16;
         sfx(1, N(4, C), 5);
     }
     else if (hit_brick(x, y)) { vy = -vy; ny = by; }
-    else if (y > H) {                                    /* missed */
+    else if (y + BALL > GB) {                            /* missed: gone through the floor */
         sfx(2, N(2, C), 25);
-        box(obx, oby, BALL, BALL, C_BLACK); obx = -1;
+        box(obx, oby, BALL, BALL, C_BLUE); obx = -1;
         if (!--lives) { over = 1; return; }
         draw_status(); serve();
         return;
@@ -266,13 +385,13 @@ static void draw_moving(void)
 {
     int x = bx / 16, y = by / 16;
     if (px != opx) {
-        if (opx >= 0) { if (px > opx) box(opx, PY, px - opx, PH, C_BLACK); else box(px + pw, PY, opx - px, PH, C_BLACK); }
-        box(px, PY, pw, PH, C_PADDLE); box(px, PY, pw, 2, C_TEXT);
+        if (opx >= 0) { if (px > opx) box(opx, PY, px - opx, PH, C_BLUE); else box(px + pw, PY, opx - px, PH, C_BLUE); }
+        box(px, PY, pw, PH, C_LBLUE); box(px, PY, pw, 1, C_WHITE); box(px, PY + PH - 1, pw, 1, C_LGREY);
         opx = px;
     }
     if (x != obx || y != oby) {
-        if (obx >= 0) box(obx, oby, BALL, BALL, C_BLACK);
-        box(x, y, BALL, BALL, C_BALL);
+        if (obx >= 0) box(obx, oby, BALL, BALL, C_BLUE);
+        box(x, y, BALL, BALL, C_WHITE);
         obx = x; oby = y;
     }
 }
@@ -282,24 +401,32 @@ static uint8_t bwas;
 static void control(void)
 {
     uint8_t held = keys_held(), b = REG(MOUSEB);
-    int mx = REG(MOUSEX) | (REG(MOUSEX + 1) << 8);
+    int mx = (REG(MOUSEX) | (REG(MOUSEX + 1) << 8)) >> 1;          /* the glass is 640 wide */
     if (mouse_was >= 0 && mx != mouse_was) px = mx - pw / 2;          /* the mouse moved: it has the paddle */
     mouse_was = mx;
-    if (held & HELD_LEFT) px -= 9;
-    if (held & HELD_RIGHT) px += 9;
-    if (px < 8) px = 8;
-    if (px > W - 8 - pw) px = W - 8 - pw;
+    if (held & HELD_LEFT) px -= 4;
+    if (held & HELD_RIGHT) px += 4;
+    if (px < FX0) px = FX0;
+    if (px > FX1 - pw) px = FX1 - pw;
     if (!served) { bx = (px + pw / 2 - BALL / 2) * 16; if ((b & 1) && !(bwas & 1)) launch(); }
     bwas = b;
 }
 
-static uint8_t wait_key(void) { uint8_t k; while ((k = key_get()) == 0) sfx_tick(); return k; }
+#define PAUSE_X 54
+#define PAUSE_Y 130
+static void pause_box(uint8_t on)
+{
+    if (on) { box(PAUSE_X, PAUSE_Y, 120, 32, C_LBLUE); box(PAUSE_X + 2, PAUSE_Y + 2, 116, 28, C_BLUE); center(PAUSE_X, 120, PAUSE_Y + 8, "PAUSED", C_YELLOW, F16); band_text(GB, "P GOES ON   ESC ENDS THE GAME"); }
+    else { box(PAUSE_X, PAUSE_Y, 120, 32, C_BLUE); band_text(GB, KEYS); obx = -1; opx = -1; }
+}
+static uint8_t wait_key(void) { uint8_t k; while ((k = key_get()) == 0) { sfx_tick(); tick_top(); } return k; }
 static void play(void)
 {
     uint8_t lf, fc, d, k;
     level = 1; lives = 5; score = 0; over = 0; paused = 0;
-    px = W / 2 - pw / 2;
-    new_wall(); draw_status(); serve();
+    px = (FX0 + FX1) / 2 - pw / 2;
+    glass(); draw_panel(); new_wall(); draw_status(); serve();
+    band_text(GB, KEYS);
     lf = REG(SYS + 0x0D);
     while (!over) {
         fc = REG(SYS + 0x0D);
@@ -308,10 +435,11 @@ static void play(void)
         if (d > 3) d = 3;
         while ((k = key_get()) != 0) {
             if (k == 0x1B) { over = 1; break; }
-            if (k == 'p' || k == 'P') { paused ^= 1; if (paused) center(300, "PAUSED", C_YELLOW); else { box(0, 290, W, 30, C_BLACK); obx = -1; opx = -1; } }
-            else if (k == 'm' || k == 'M') sound_on ^= 1;
+            if (k == 'p' || k == 'P') { paused ^= 1; pause_box(paused); }
+            else if (k == 'm' || k == 'M') { sound_on ^= 1; draw_status(); }
             else if (k == ' ' && !served && !paused) launch();
         }
+        tick_top();
         if (paused) continue;
         while (d--) {
             sfx_tick();
@@ -326,21 +454,22 @@ static void play(void)
         draw_moving();
     }
 }
-static uint8_t game_over(void)
+static const char *const AGAIN[2] = { "Play again", "Leave" };
+static uint8_t game_over(void)               /* 1: again */
 {
-    static char ini[4], line[12];
-    uint8_t k, i, j, pos = 0, n;
-    uint16_t v;
-    for (k = 0; k < 45; k++) wait_vblank();
+    static char ini[4];
+    uint8_t k, i, j, pos = 0;
+    for (k = 0; k < 45; k++) { sfx_tick(); wait_vblank(); }
     while (key_get()) ;
-    box(120, 200, W - 240, 250, C_BLACK);
-    center(210, "GAME OVER", C_RED);
+    box(16, 34, FX1 - 24, 186, C_LBLUE); box(18, 36, FX1 - 28, 182, C_BLUE);   /* the field's middle, framed */
+    center(16, FX1 - 24, 42, "GAME OVER", C_LRED, F8X2);
     for (i = 0; i < 5 && hs_s[i] >= score; i++) ;
     if (i < 5 && score) {
-        center(240, "YOUR INITIALS", C_YELLOW);
+        center(16, FX1 - 24, 66, "YOUR INITIALS", C_YELLOW, F8);
+        band_text(GB, "LETTERS, RETURN KEEPS THEM");
         strcpy(ini, "___");
         for (;;) {
-            center(266, ini, C_TEXT);
+            center(16, FX1 - 24, 78, ini, C_WHITE, F8X2);
             k = wait_key();
             if (k >= 'a' && k <= 'z') k = (uint8_t)(k - 32);
             if (((k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9')) && pos < 3) ini[pos++] = (char) k;
@@ -354,51 +483,54 @@ static uint8_t game_over(void)
             hs_s[i] = score; strcpy(hs_n[i], ini);
             hs_save();
         }
-        box(120, 236, W - 240, 50, C_BLACK);
+        box(18, 64, FX1 - 28, 32, C_BLUE);
     }
-    for (j = 0; j < 5; j++) {
-        strcpy(line, hs_n[j]); strcat(line, " ");
-        v = hs_s[j];
-        for (n = 0; n < 5; n++) { line[8 - n] = (char)(n && !v ? ' ' : '0' + v % 10); v /= 10; }
-        line[9] = 0;
-        center(300 + j * 24, line, j == i ? C_YELLOW : C_TEXT);
-    }
-    center(430, "SPACE AGAIN  ESC QUIT", C_DIM);
-    for (;;) { k = wait_key(); if (k == ' ' || k == 13) return 1; if (k == 0x1B) return 0; }
+    center(16, FX1 - 24, 72, "THE BEST FIVE", C_LBLUE, F8);
+    for (j = 0; j < 5; j++) hs_line(64, 86 + j * 11, j, j == i ? C_YELLOW : C_WHITE);
+    band_text(GB, "1-2 or cursor keys, RETURN picks");
+    k = list(24, 148, FX1 - 40, AGAIN, 2, 0);
+    return k == 0;
+}
+static const char *const TITLE[2] = { "Play", "Leave" };
+static uint8_t title(void)                   /* 1: play */
+{
+    uint8_t j, k;
+    glass();
+    bars(12, GY + 8, 5, 6);
+    text(72, GY + 8, "Breakout", C_WHITE, C_BLUE, F8X2);
+    text(72, GY + 28, "Mouse or arrows, SPACE serves", C_YELLOW, C_BLUE, F8);
+    text(24, 128, "THE BEST FIVE", C_LBLUE, C_BLUE, F8);
+    for (j = 0; j < 5; j++) hs_line(24, 142 + j * 11, j, C_WHITE);
+    text(184, 142, "P   pause", C_LBLUE, C_BLUE, F8);
+    text(184, 153, "M   sound", C_LBLUE, C_BLUE, F8);
+    text(184, 164, "ESC ends", C_LBLUE, C_BLUE, F8);
+    band_text(GB, "1-2 or cursor keys, RETURN picks");
+    k = list(12, GY + 44, W - 24, TITLE, 2, 0);
+    return k == 0;
 }
 
 void main(void)
 {
-    static uint8_t palsave[10 * 3];
-    uint8_t i, k, ctrl_was, l0_was, bg_was;
-    for (i = 0; i < 10; i++) { REG(V_PALIDX) = (uint8_t)(16 + i); palsave[i * 3] = REG(V_PALR); palsave[i * 3 + 1] = REG(V_PALG); palsave[i * 3 + 2] = REG(V_PALB); }
-    for (i = 0; i < 10; i++) pal((uint8_t)(16 + i), mypal[i * 3], mypal[i * 3 + 1], mypal[i * 3 + 2]);
+    uint8_t i, ctrl_was, l0_was, l1_was, bg_was;
     opl_ok = REG(OPL_ID) == 0x02;
     if (opl_ok) { for (i = 0; i < 0xF6; i++) opl(i, 0); opl(0x01, 0x20); patch(0, p_blip); patch(1, p_bell); patch(2, p_thud); }
     hs_load();
 
-    ctrl_was = REG(VICKY); l0_was = REG(VICKY + 0x10); bg_was = REG(V_BGCOL);
+    ctrl_was = REG(VICKY); l0_was = REG(VICKY + 0x10); l1_was = REG(VICKY + 0x20); bg_was = REG(V_BGCOL);
     for (i = 0x21; i <= 0x25; i++) REG(VICKY + i) = 0;
     REG(VICKY + 0x26) = W & 255; REG(VICKY + 0x27) = W >> 8;
     REG(VICKY + 0x28) = 0; REG(VICKY + 0x29) = 0; REG(VICKY + 0x2A) = 0x20; REG(VICKY + 0x2B) = 0;
     REG(BLT + 0x11) = 0;
-    box(0, 0, W, H, C_BLACK);
-    REG(V_BGCOL) = 0;
-    REG(VICKY) = (uint8_t)(ctrl_was & 0xD9);  /* 640x480, as PAINT */
+    box(0, 0, W, H, C_BLUE);
+    REG(V_BGCOL) = 0;                        /* a pixel of colour 0 is the ground: black */
+    REG(VICKY) = 1 | 2 | 4;                  /* 320 x 240, doubled: the Chooser's chunky pixels */
     REG(VICKY + 0x10) = 0;
     REG(VICKY + 0x20) = 0x19;
+    draw_top();
 
-    level = 1; lives = 5; score = 0;
-    new_wall(); draw_status();
-    center(300, "BREAKOUT", C_YELLOW);
-    center(340, "MOUSE OR ARROWS  SPACE SERVES", C_DIM);
-    center(370, "SPACE STARTS  ESC LEAVES", C_TEXT);
-    for (;;) { k = wait_key(); if (k == ' ' || k == 13) break; if (k == 0x1B) goto out; }
-    do play(); while (game_over());
-out:
+    if (title()) do play(); while (game_over());
     if (opl_ok) for (i = 0; i < 0xF6; i++) opl(i, 0);
-    REG(VICKY + 0x20) = 0; REG(VICKY + 0x10) = l0_was; REG(VICKY) = ctrl_was; REG(V_BGCOL) = bg_was;
-    for (i = 0; i < 10; i++) pal((uint8_t)(16 + i), palsave[i * 3], palsave[i * 3 + 1], palsave[i * 3 + 2]);
+    REG(VICKY + 0x20) = l1_was; REG(VICKY + 0x10) = l0_was; REG(VICKY) = ctrl_was; REG(V_BGCOL) = bg_was;
     rom_video();
     REG(TERM + 4) = 2;
 }

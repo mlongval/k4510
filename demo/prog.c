@@ -42,8 +42,10 @@ static uint8_t vimode;                                /* VI's keys: Options, or 
 #define DOSVI_P2 0x0EF10000UL
 static uint8_t find_files_o(void);                    /* in VIO2 too: slot 10 (dosvi.h's DOSVI_NEXTRA) */
 static void __fastcall__ help_o(uint8_t about);       /* and slot 11 */
-#define DOSVI_NEXTRA 2
-#define DOSVI_EXTRA_INIT() (vi_tab[10].entry = (uint16_t)find_files_o, vi_tab[11].entry = (uint16_t)help_o)
+static uint8_t show_pas_o(void);                      /* and slot 12 */
+#define DOSVI_NEXTRA 3
+#define DOSVI_EXTRA_INIT() (vi_tab[10].entry = (uint16_t)find_files_o, vi_tab[11].entry = (uint16_t)help_o, vi_tab[12].entry = (uint16_t)show_pas_o)
+#define show_pas_gate() ((uint8_t (*)(void))VIG(12))()
 #define find_files_gate() ((uint8_t (*)(void))VIG(10))()
 #define help_gate(a) ((void (__fastcall__ *)(uint8_t))VIG(11))(a)
 #include "dosvi.h"
@@ -53,7 +55,7 @@ static void __fastcall__ help_o(uint8_t about);       /* and slot 11 */
 
 enum { C_OPEN = 1, C_SAVE, C_SAVEAS, C_QUIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_FIND, C_NEXT, C_REPL, C_GOTO, C_MAKE, C_RUN, C_MNEXT, C_MPREV, C_RENUM, C_HELP, C_ABOUT,
-       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI, C_TABW, C_RUNONLY };
+       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI, C_TABW, C_RUNONLY, C_SHOWPAS };
 
 static uint8_t eh, msgs_due = 1;
 static unsigned mtop;
@@ -565,6 +567,48 @@ static void find_files(void)
     else note = info[0] ? info : "nothing found";
 }
 
+/* Build > Show Pascal (Doc, 2026-10-09): what K4510 BASIC made of this .BAS.
+ * BAS -p compiles it and keeps the Pascal beside it as B_NAME.PAS (with
+ * KBASRT.PAS, so PAS compiles it by hand: tools/k4510-bas); that file opens
+ * in a tab.  The work is in VIO2, which cannot reach open_in_tab at $E000,
+ * so it leaves the name in ibuf and run_cmd opens it (1); after a BASIC
+ * error there is no Pascal, and run_cmd goes to the error instead (2).  Its
+ * texts are arrays, in VIO2 with it (a literal would go to the main image). */
+#pragma code-name (push, "VIO2")
+#pragma rodata-name (push, "VIO2")
+static const char sp_cmd[] = "BAS -p ", sp_pre[] = "B_", sp_ext[] = ".PAS", sp_only[] = "Show Pascal: a .BAS file only";
+static uint8_t show_pas_o(void)
+{
+    const char *t = compiler(), *e = base_of(name), *s, *d = 0; uint8_t k = 0, i = 0, c;
+    if (!t || t[0] != 'B') { nb_reset(); nb_s(sp_only); note = nbuf; return 0; }
+    t_end();
+    for (s = sp_cmd; *s; ) gline[i++] = *s++;
+    for (s = name; *s && i < sizeof gline - 1; ) gline[i++] = *s++;
+    gline[i] = 0;
+    mkdir_of_name();                                   /* MAKE.ERR's names are in the file's directory */
+    rom_shell(gline);
+    screen_back();
+    err_load();
+    msgs_due = full = 1;
+    for (i = 0; i < nerr; i++) {                       /* the BASIC did not translate: no Pascal, its error instead */
+        far_get(ERRTAB + ((uint32_t)i << 7), ebuf, 128);   /* (Mad Pascal's own say "(compiler) ...": the Pascal is there) */
+        if (ebuf[3] == 'E' && ebuf[6] != '(') { ecur = i; return 2; }
+    }
+    for (s = name; s < e && k < NAMEMAX - 1; ) ibuf[k++] = *s++;
+    for (s = sp_pre; *s; ) ibuf[k++] = *s++;
+    for (s = e; *s; s++) if (*s == '.') d = s;
+    for (s = e; *s && s != d && k < NAMEMAX - 5; s++) {   /* the program's name, as k4510-bas makes it */
+        c = rn_up((uint8_t)*s);
+        if (!((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9'))) c = '_';
+        ibuf[k++] = (char)c;
+    }
+    for (s = sp_ext; *s; ) ibuf[k++] = *s++;
+    ibuf[k] = 0;
+    return 1;
+}
+#pragma rodata-name (pop)
+#pragma code-name (pop)
+
 /* ---- help ---------------------------------------------------------------
  * The keys page and About, in VIO2 since 2026-10-05: the main image was full
  * once EDIT's furniture drew through JIM.  Each text is one array -- lines
@@ -641,6 +685,7 @@ static void run_cmd(uint8_t c)
     case C_GOTO:   goto_dlg(); break;
     case C_MAKE:   if (!save_all()) { note = "A file would not save -- nothing compiled"; break; }
                    pj_arm(); do_make(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; full = 1; break;
+    case C_SHOWPAS: if (save_all()) { c = show_pas_gate(); if (c == 1) open_in_tab(ibuf); else if (c == 2) goto_msg(ecur); } break;
     case C_RUNONLY: run_build = 0;   /* Run: what was compiled last, as it is (Doc, 2026-10-09); then as C_RUN */
     case C_RUN:    if (!save_all()) { note = "A file would not save -- nothing run"; run_build = 1; break; }
                    pj_arm(); ptr_off(); do_run(); run_build = 1; ptr_on(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; full = 1; break;
@@ -659,7 +704,7 @@ static void run_cmd(uint8_t c)
     wantx = cx;
 }
 
-static void busy(void) { status_line("Compiling... please wait", name); }   /* ed_busy: during a compile (Doc, 2026-10-09) */
+static void busy(void) { status_line("Compiling...", name); }   /* ed_busy: during a compile (Doc, 2026-10-09) */
 
 /* ---- the menus ------------------------------------------------------------ */
 static const char *const mtitle[] = { "File", "Edit", "Search", "Build", "Options", "Help" };
@@ -674,7 +719,7 @@ static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "R
                                         { "Find in Files...", 5, C_FINDF, "Shift+Ctrl+F" }, { "Change...", 0, C_REPL, "Ctrl+R" },
                                         { "Go To Line...", 0, C_GOTO, "Ctrl+G" }, { 0, 0, 0, 0 } };
 static const struct item m_build[]  = { { "Compile", 0, C_MAKE, "F9" }, { "Compile and Run", 12, C_RUN, "Ctrl+F9" },
-                                        { "Run", 1, C_RUNONLY, "Shift+F9" },
+                                        { "Run", 1, C_RUNONLY, "Shift+F9" }, { "Show Pascal", 0, C_SHOWPAS, "" },
                                         { "", 0, C_SEP, "" }, { "Next Message", 0, C_MNEXT, "F4" }, { "Previous Message", 0, C_MPREV, "Shift+F4" },
                                         { 0, 0, 0, 0 } };
 static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },

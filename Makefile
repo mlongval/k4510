@@ -101,6 +101,10 @@ test/termtest: test/termtest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 test/termreplay: test/termreplay.c $(CORE_OBJS)   # replay a K4510_TERMLOG through JIM (a crash hunt)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
+test/vtconf: test/vtconf.c $(CORE_OBJS)          # JIM against VT100/VT220/xterm behaviour (known failures marked)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
+test/jimbench: test/jimbench.c $(CORE_OBJS)      # JIM on recorded nvim/tmux/mosh streams (test/jim/)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS) -ldl
 
 test/fstest: test/fstest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
@@ -231,7 +235,7 @@ check-artifacts: $(DEMOS) rom/kernal.bin $(SIDEBAR_ZIPS)
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/vtconf test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -252,6 +256,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/sidebartest
 	./test/sidetest sdl/libk4510side.so
 	./test/termtest
+	./test/vtconf
 	./test/uitest
 	./test/statetest
 	./test/pastest.sh

@@ -50,6 +50,8 @@ tube/*.o
 tube/bbcbasic
 test/termtest
 test/termreplay
+test/vtconf
+test/jimbench
 test/uitest
 test/statetest
 k4510-slot*.k4s

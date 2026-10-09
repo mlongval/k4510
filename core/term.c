@@ -97,7 +97,19 @@ static void blank_span(int y, int x0, int x1) { for (int x = x0; x <= x1; x++) b
 /* Per cell, not one memcpy of the row: cellp wraps the START of a cell only,
  * so a row placed at the top of physical RAM ran the copy off the end of the
  * mapping (review 2026-09-12, 1). */
-static void copy_row(int dst, int src) { for (int x = 0; x < T.cols; x++) memcpy(cellp(x, dst), cellp(x, src), 4); }
+/* ...except when both rows lie whole in RAM, which is every row of every real
+ * map: then one memmove, the cell-by-cell copy kept for the row that wraps.
+ * A row is whole when its last cell is where its first plus the width says --
+ * cellp wraps or zeroes an address that runs off the end, so the two cannot
+ * agree then.  Scrolling was a third of what a scrolling update cost JIM
+ * (the JIM review, 2026-10-09: two cellp calls a cell). */
+static void copy_row(int dst, int src)
+{
+    size_t span = (size_t)(T.cols - 1) * 4;
+    uint8_t *d = cellp(0, dst), *s = cellp(0, src);
+    if (cellp(T.cols - 1, dst) == d + span && cellp(T.cols - 1, src) == s + span) { memmove(d, s, span + 4); return; }
+    for (int x = 0; x < T.cols; x++) memcpy(cellp(x, dst), cellp(x, src), 4);
+}
 /* Where the text window is on the glass, in pixels, for the pictures that live
  * among the cells (core/jimgfx.h).  The console is VICKY's layer 0: its cells
  * are 8 wide and 8 or 16 tall by that layer's size field, and the ROM scrolls

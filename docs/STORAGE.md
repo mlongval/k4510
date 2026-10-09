@@ -128,10 +128,13 @@ A stick without persistence has nowhere to keep it.
 ## 3b. The personalities: other machines, on the disk, into RAM when chosen
 
 Doc, 2026-10-08: a boot list of "personalities, like FPGA images" -- the
-K4510 first, then the C64, C128, PET and Amiga.  Right Shift at power-on
-brings up GRUB as before; the entries `K4510 > Commodore 64` ... `K4510 >
-Amiga 1200` boot this same system with `k4510.personality=NAME`, and
-profile.d runs that machine before the K4510 (quitting it brings up the K4510).
+K4510 first, then the C64, C128, PET and Amiga.  Hold SPACE at power-on:
+GRUB boots the K4510 as always, and on tty1, just before the emulator,
+`k4510-boot-menu` waits one second for the (autorepeating) space and lists
+them -- the K4510 first and chosen.  The one chosen runs from RAM; quitting
+it brings up the K4510.  No space: the K4510, one second later.  (GRUB has
+no entries for them: Doc wanted the choice made by Debian, not the loader.
+`k4510.personality=NAME` on the kernel command line still starts one.)
 
     /personalities/vice.squashfs    ~5 MB   x64sc, x128, xpet (VICE 3.10, SDL2 UI) + ROMs
     /personalities/amiga.squashfs  ~18 MB   Amiberry 8.3 (SDL3) + Kickstart 1.3 and 3.1
@@ -140,7 +143,7 @@ profile.d runs that machine before the K4510 (quitting it brings up the K4510).
 | | |
 |---|---|
 | made by | `~/Projects/BMC64Port` on ubuntu-s1 (`tools/make-images.sh`), deployed there too |
-| in the menu | `linux/k4510-grub-personalities` writes `/etc/grub.d/43_k4510_personalities` on the host; a family's entries show only while its image is on p4; none of them `savedefault` |
-| run | `k4510-personality NAME`: the family's image is copied to `/run` (RAM) and mounted at `/opt/personalities/<family>` -- only on a boot that asks for it |
+| in the menu | `k4510-boot-menu` (profile.d, tty1) reads the `.list` files; a family shows only while its image is on p4, and with none there it does not wait |
+| run | `k4510-personality NAME`: the family's image is copied to `/run` (RAM) and mounted at `/opt/personalities/<family>` -- only when one is chosen |
 | saves | `~/personalities/NAME/` -- disks, the A1200's hard drive (a directory, Workbench 3.1), `.uae`; VICE's settings in `~/.config/vice` |
 | a deploy | of the layer does not touch them |

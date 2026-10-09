@@ -1,0 +1,71 @@
+#!/bin/bash
+# k4510-boot-menu -- hold SPACE while the K4510 comes up to choose another
+# machine (a "personality": the C64, C128, PET, Amiga 500/1200) instead.
+#
+# profile.d/k4510.sh runs this on tty1 just before the emulator.  It waits
+# one second for a space: a key held since power-on is autorepeating by now,
+# so one turns up in that second if it is down at all.  No space, and it
+# returns and the K4510 starts, one second later than it would have.  A
+# space brings up the list -- the K4510 first and chosen, then each machine
+# in the .list files beside the images -- and the chosen one runs through
+# k4510-personality; quitting it (F12 -> Quit, or the Amiga's F12 menu)
+# returns here and the K4510 starts as usual.  Space does nothing in the
+# list, so the repeats still arriving after the menu appears choose nothing,
+# and the keyboard's buffer is emptied before anything starts.  A machine
+# with no personalities on it does not wait at all.  Doc, 2026-10-08: "if it
+# saw the spacebar was being pressed it would show a menu".
+LOG=/tmp/k4510-personality.log
+[ -t 0 ] || exit 0
+names=(k4510) titles=(K4510)
+for d in /run/live/persistence/*/personalities; do
+    for l in "$d"/vice.list "$d"/*.list; do    # the Commodores first
+        [ -f "$l" ] || continue
+        case " $seen " in *" $l "*) continue ;; esac; seen="$seen $l"
+        while IFS=$'\t' read -r n t; do
+            [ -n "$n" ] && { names+=("$n"); titles+=("${t:-$n}"); }
+        done < "$l"
+    done
+done
+[ ${#names[@]} -gt 1 ] || exit 0
+
+saved=$(stty -g)
+trap 'stty "$saved"' EXIT
+stty -icanon -echo
+key() { IFS= read -rsn1 -d '' "$@" k; }
+flush() { while IFS= read -rsn1 -d '' -t 0.1 _; do :; done; }
+usec() { echo "${EPOCHREALTIME/./}"; }
+
+held=
+end=$(( $(usec) + 1000000 ))
+while left=$(( end - $(usec) )); [ $left -gt 0 ]; do
+    key -t "$((left / 1000000)).$(printf %06d $((left % 1000000)))" || continue
+    [ "$k" = " " ] && { held=1; break; }
+done
+[ -n "$held" ] || exit 0
+
+sel=0 n=${#names[@]}
+draw() {
+    printf '\033[H\033[2J\n   Personalities\n\n'
+    for i in "${!names[@]}"; do
+        if [ $i = $sel ]; then printf '  \033[7m %d  %-32s\033[0m\n' $((i + 1)) "${titles[i]}"
+        else printf '   %d  %s\n' $((i + 1)) "${titles[i]}"; fi
+    done
+    printf '\n   Up/Down and Return, or the number.  Esc: K4510\n'
+}
+while draw; do
+    key || exit 0
+    case $k in
+        $'\e') if key -t 0.05 && [ "$k" = "[" ] && key -t 0.05; then
+                    case $k in A) sel=$(( (sel + n - 1) % n )) ;; B) sel=$(( (sel + 1) % n )) ;; esac
+                else sel=0; break; fi ;;
+        $'\n'|$'\r') break ;;
+        [1-9]) [ "$k" -le $n ] && { sel=$((k - 1)); break; } ;;
+    esac
+done
+printf '\033[H\033[2J'
+flush
+[ $sel = 0 ] && exit 0
+k4510-personality "${names[sel]}" >>"$LOG" 2>&1
+printf '\033[H\033[2J'
+flush
+exit 0

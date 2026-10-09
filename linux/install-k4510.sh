@@ -228,9 +228,6 @@ menuentry "K4510 (text boot)" --class k4510 {
 MENU
 EOF
 chmod +x "$GRUB_D/42_k4510"
-# the personalities (C64, C128, PET, Amiga): entries that appear once their
-# images are on the K4510 partition -- k4510-grub-personalities says how
-GRUB_D=$GRUB_D DST_LABEL=$DST_LABEL "$(dirname "$0")/k4510-grub-personalities"
 
 [ -n "${K4510_GRUB_D:-}" ] && { say "done (rehearsal: $GRUB_D/42_k4510 written, grub.cfg left alone)"; exit 0; }
 GCFG=

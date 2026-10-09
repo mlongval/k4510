@@ -38,15 +38,18 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
             sudo -n mount -o remount,async "$m" 2>/dev/null
         fi
     done
-    # A personality chosen in the boot menu (k4510.personality=NAME: the C64,
-    # C128, PET, Amiga 500/1200; linux/k4510-grub-personalities) comes first,
-    # once a boot -- quitting it falls through to the K4510 below, and the
-    # marker keeps a later tty1 login from starting it again.  Its output goes
-    # to a log in RAM, like the emulator's.  Doc, 2026-10-08.
+    # The personalities -- the C64, C128, PET, Amiga 500/1200: hold SPACE at
+    # power-on and k4510-boot-menu lists them (it waits one second for the
+    # space, and not at all on a machine without them); quitting the one
+    # chosen falls through to the K4510 below.  k4510.personality=NAME on the
+    # kernel command line starts one without asking, once a boot (the marker
+    # keeps a later tty1 login from starting it again).  Doc, 2026-10-08.
     P=$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^k4510\.personality=//p' | head -n1)
     if [ -n "$P" ] && [ ! -e /run/k4510-personality.started ]; then
         : > /run/k4510-personality.started 2>/dev/null || sudo -n touch /run/k4510-personality.started
         k4510-personality "$P" >>/tmp/k4510-personality.log 2>&1
+    else
+        k4510-boot-menu 2>>/tmp/k4510-personality.log
     fi
     # The same switch keeps the emulator's own account too: its stderr (tube
     # sessions, every way out, a heartbeat every ten seconds) in

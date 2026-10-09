@@ -5,9 +5,9 @@
 #   k4510-personality NAME [args]   run it, on tty1's display; returns when it quits
 #   k4510-personality               list the ones on this machine
 #
-# The boot menu does this (k4510.personality=NAME, see linux/k4510-grub-
-# personalities and profile.d/k4510.sh): the machine comes up as a C64, and
-# quitting the C64 (F12 -> Quit) brings up the K4510.
+# SPACE held at power-on does this (k4510-boot-menu, from profile.d/k4510.sh;
+# or k4510.personality=NAME on the kernel command line): the machine comes up
+# as a C64, and quitting the C64 (F12 -> Quit) brings up the K4510.
 #
 # The machines live in one squashfs per family on the SAVED partition (p4),
 # personalities/vice.squashfs and amiga.squashfs, each with a .list beside it

@@ -1,21 +1,24 @@
 #!/bin/sh
 # k4510-personality -- run one of the K4510's other machines: the C64, C128
-# and PET (VICE, SDL) or the Amiga 500 and 1200 (Amiberry).
+# and PET (VICE, SDL), the Amiga 500 and 1200 (Amiberry) or the Commander X16
+# (x16emu).
 #
 #   k4510-personality NAME [args]   run it, on tty1's display; returns when it quits
 #   k4510-personality               list the ones on this machine
 #
 # SPACE held at power-on does this (k4510-boot-menu, from profile.d/k4510.sh;
 # or k4510.personality=NAME on the kernel command line): the machine comes up
-# as a C64, and quitting the C64 (F12 -> Quit) brings up the K4510.
+# as a C64, and quitting the C64 (F12 -> Quit) brings up the K4510.  Each
+# machine's way out: VICE F12 -> Quit, the Amiga F12 -> Quit, the X16 Alt+F4
+# or POWEROFF.
 #
 # The machines live in one squashfs per family on the SAVED partition (p4),
-# personalities/vice.squashfs and amiga.squashfs, each with a .list beside it
+# personalities/vice.squashfs, amiga.squashfs and x16.squashfs, each with a .list beside it
 # (NAME<TAB>title).  Like the K4510 itself they run from RAM: the chosen
 # family's image is copied into /run (tmpfs) and mounted from there at
-# /opt/personalities/<family>, ~5 MB for VICE, ~18 MB for the Amiga.  A boot
+# /opt/personalities/<family>, ~5 MB for VICE, ~18 MB for the Amiga, 0.2 MB for the X16.  A boot
 # that does not ask for one reads none of it.  What the machines save --
-# disks, the A1200's hard drive, settings -- is in ~/personalities/NAME, on
+# disks, the A1200's hard drive, the X16's files, settings -- is in ~/personalities/NAME, on
 # the disk with the rest of the home.  Made and deployed by Doc's
 # ~/Projects/BMC64Port (ubuntu-s1).
 set -e

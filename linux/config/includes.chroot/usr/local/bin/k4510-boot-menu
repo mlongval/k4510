@@ -1,6 +1,6 @@
 #!/bin/bash
 # k4510-boot-menu -- hold SPACE while the K4510 comes up to choose another
-# machine (a "personality": the C64, C128, PET, Amiga 500/1200) instead.
+# machine (a "personality": the C64, C128, PET, Amiga 500/1200, X16) instead.
 #
 # profile.d/k4510.sh runs this on tty1 just before the emulator.  It waits
 # one second for a space: a key held since power-on is autorepeating by now,

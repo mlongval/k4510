@@ -128,7 +128,8 @@ A stick without persistence has nowhere to keep it.
 ## 3b. The personalities: other machines, on the disk, into RAM when chosen
 
 Doc, 2026-10-08: a boot list of "personalities, like FPGA images" -- the
-K4510 first, then the C64, C128, PET and Amiga.  Hold SPACE at power-on:
+K4510 first, then the C64, C128, PET, Amiga and (added the same night) the
+Commander X16.  Hold SPACE at power-on:
 GRUB boots the K4510 as always, and on tty1, just before the emulator,
 `k4510-boot-menu` waits one second for the (autorepeating) space and lists
 them -- the K4510 first and chosen.  The one chosen runs from RAM; quitting
@@ -138,6 +139,7 @@ no entries for them: Doc wanted the choice made by Debian, not the loader.
 
     /personalities/vice.squashfs    ~5 MB   x64sc, x128, xpet (VICE 3.10, SDL2 UI) + ROMs
     /personalities/amiga.squashfs  ~18 MB   Amiberry 8.3 (SDL3) + Kickstart 1.3 and 3.1
+    /personalities/x16.squashfs   ~0.2 MB  x16emu r49 + the X16 ROM (CBM KERNAL/BASIC licensed for the X16)
     /personalities/*.list                   NAME<TAB>title of each machine in the image
 
 | | |
@@ -145,5 +147,6 @@ no entries for them: Doc wanted the choice made by Debian, not the loader.
 | made by | `~/Projects/BMC64Port` on ubuntu-s1 (`tools/make-images.sh`), deployed there too |
 | in the menu | `k4510-boot-menu` (profile.d, tty1) reads the `.list` files; a family shows only while its image is on p4, and with none there it does not wait |
 | run | `k4510-personality NAME`: the family's image is copied to `/run` (RAM) and mounted at `/opt/personalities/<family>` -- only when one is chosen |
-| saves | `~/personalities/NAME/` -- disks, the A1200's hard drive (a directory, Workbench 3.1), `.uae`; VICE's settings in `~/.config/vice` |
+| saves | `~/personalities/NAME/` -- disks, the A1200's hard drive (a directory, Workbench 3.1), `.uae`; VICE's settings in `~/.config/vice`; the X16's drive 8 is `~/personalities/x16` itself (HostFS: plain files), plus `nvram.bin` |
+| quitting | VICE and the Amiga: F12 -> Quit; the X16: Alt+F4, or POWEROFF at its BASIC prompt |
 | a deploy | of the layer does not touch them |

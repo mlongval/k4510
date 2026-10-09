@@ -38,7 +38,7 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
             sudo -n mount -o remount,async "$m" 2>/dev/null
         fi
     done
-    # The personalities -- the C64, C128, PET, Amiga 500/1200: hold SPACE at
+    # The personalities -- the C64, C128, PET, Amiga 500/1200, X16: hold SPACE at
     # power-on and k4510-boot-menu lists them (it waits one second for the
     # space, and not at all on a machine without them); quitting the one
     # chosen falls through to the K4510 below.  k4510.personality=NAME on the

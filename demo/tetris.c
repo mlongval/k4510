@@ -1,4 +1,4 @@
-/* K4510: TETRIS -- the falling blocks, in MODE 7 (45 x 33).
+/* K4510: TETRIS -- the falling blocks, in the Personality Chooser's look.
  *
  * A ten-by-twenty well, the next piece, score, level and lines, and the five
  * best scores kept in /APPS/TETRIS/HISCORE.DAT.  Korobeiniki plays on the
@@ -11,21 +11,23 @@
  *   Down        soft drop      Space  hard drop       P       pause
  *   M           music on/off                          Escape  end the game
  *
- * The screen is text32 cells written straight into the console, a row at a
- * time by DMA, the way BANNER writes them.  The program takes the status
- * bands for itself (JIM $DA0E bit 3), so MODE 7's 33 rows are all its own,
- * and it puts the bands and the user's MODE back when it leaves.
+ * The screen, since 2026-10-09, is CHESS's and the Chooser's (Doc: "I very
+ * much like the Chess game ... Please redo Tetris ... in a similar style"):
+ * 320x240 doubled, grey bands with the time and the keys, the blue glass,
+ * the banner's bars, unscii drawn into a bitmap through the blitter, and
+ * chunky bevelled 10 px blocks blitted from tiles built at the start -- only
+ * the cells that changed are drawn.  The title, the pause and the end of a
+ * game are the Chooser's list.  The bitmap is layer 1 with layer 0 switched
+ * off, as BREAKOUT does, so the console is left as it was and comes back
+ * when the program ends.
  */
 #include "k4510.h"
 
 #define TERM     0xDA00u
-#define SCREEN   0x00030000UL
 #define OPL_ADDR 0xD480u
 #define OPL_DATA 0xD481u
 #define OPL_ID   0xD482u
-#define CMDLINE  ((char *)0x0300)            /* rom_shell's line: page 3, the ROM cannot read our image during the call */
 
-void __fastcall__ rom_chrout(unsigned char c);
 static void rom_video(void) { ((void (*)(void))0xFF92)(); }
 static unsigned char rom_save(void) { return ((unsigned char (*)(void))0xFF8C)(); }
 static unsigned char rom_load(void) { return ((unsigned char (*)(void))0xFF89)(); }
@@ -60,92 +62,6 @@ static int8_t px, py;
 static uint32_t score;
 static uint16_t lines;
 
-/* ---- the screen --------------------------------------------------------- */
-static uint8_t cols, rows, ox, oy, stride, top, flags_was;
-#define WX 2                                 /* the well's left wall */
-#define PX 27                                /* the panel */
-static uint8_t rb[48 * 4], rn;               /* a row being built */
-
-static void rb_put(uint8_t glyph, uint8_t fg, uint8_t bg)
-{
-    uint8_t *q = rb + rn * 4;
-    if (rn >= 48) return;
-    q[0] = glyph; q[1] = 0; q[2] = fg; q[3] = bg; rn++;
-}
-static void rb_out(uint8_t r, uint8_t c)
-{
-    if (r < rows && rn) dma_copy((uint32_t)(uint16_t)rb, SCREEN + ((uint32_t)(r + oy) * stride + c + ox) * 4, (uint32_t)rn * 4);
-    rn = 0;
-}
-static void text(uint8_t r, uint8_t c, const char *s, uint8_t fg)
-{
-    while (*s) rb_put((uint8_t) *s++, fg, BLACK);
-    rb_out(r, c);
-}
-static char nb[12];
-static void num(uint8_t r, uint8_t c, uint32_t v, uint8_t w, uint8_t fg)
-{
-    uint8_t i = 10;
-    nb[10] = 0;
-    do { nb[--i] = (char)('0' + (uint8_t)(v % 10)); v /= 10; } while (v && i);
-    while (i > 10 - w) nb[--i] = ' ';
-    text(r, c, nb + i, fg);
-}
-
-/* A line of the well, centred, over whatever was there. */
-static void well_msg(uint8_t r, const char *s, uint8_t fg)
-{
-    uint8_t n = (uint8_t) strlen(s), i, l;
-    if (n > 20) n = 20;
-    l = (uint8_t)((20 - n) / 2);
-    for (i = 0; i < 20; i++) rb_put((uint8_t)(i >= l && i < l + n ? s[i - l] : ' '), fg, BLACK);
-    rb_out((uint8_t)(top + 4 + r), WX + 1);
-}
-
-static uint8_t ov[20][10];                   /* the falling piece and its shadow, over the board */
-static void stamp(int8_t y, uint8_t v)
-{
-    uint16_t m = shape[cur][rot], bit = 0x8000u;
-    uint8_t i; int8_t cy;
-    for (i = 0; i < 16; i++, bit >>= 1)
-        if (m & bit) { cy = (int8_t)(y + (i >> 2)); if (cy >= 0) ov[cy][px + (i & 3)] = v; }
-}
-static uint8_t fits(uint8_t p, uint8_t r, int8_t x, int8_t y)
-{
-    uint16_t m = shape[p][r], bit = 0x8000u;
-    uint8_t i; int8_t cx, cy;
-    for (i = 0; i < 16; i++, bit >>= 1) {
-        if (!(m & bit)) continue;
-        cx = (int8_t)(x + (i & 3)); cy = (int8_t)(y + (i >> 2));
-        if (cx < 0 || cx >= 10 || cy >= 20) return 0;
-        if (cy >= 0 && bd[cy][cx]) return 0;
-    }
-    return 1;
-}
-
-static void draw_well(void)
-{
-    uint8_t r, c, v, g; int8_t gy;
-    memset(ov, 0, sizeof ov);
-    if (active) {
-        gy = py; while (fits(cur, rot, px, (int8_t)(gy + 1))) gy++;
-        stamp(gy, 9); stamp(py, (uint8_t)(cur + 1));
-    }
-    g = pcol[cur + 1];
-    for (r = 0; r < 20; r++) {
-        rb_put(0xBA, GREY, BLACK);
-        for (c = 0; c < 10; c++) {
-            v = ov[r][c]; if (!v) v = bd[r][c];
-            if (v == 8)      { rb_put(0xDB, WHITE, WHITE); rb_put(0xDB, WHITE, WHITE); }
-            else if (v == 9) { rb_put(0xB0, g, BLACK); rb_put(0xB0, g, BLACK); }
-            else if (v)      { rb_put('[', BLACK, pcol[v]); rb_put(']', BLACK, pcol[v]); }
-            else             { rb_put(' ', DGREY, BLACK); rb_put(0xFA, DGREY, BLACK); }
-        }
-        rb_put(0xBA, GREY, BLACK);
-        rb_out((uint8_t)(top + 4 + r), WX);
-    }
-}
-
 /* ---- the best five ------------------------------------------------------ */
 static char hname[] = "/APPS/TETRIS/HISCORE.DAT";
 static uint32_t hs_s[5];
@@ -178,57 +94,224 @@ static void hs_save(void)
     rom_save();
 }
 
-/* ---- the panel ---------------------------------------------------------- */
-static void box_row(uint8_t r, uint8_t l, uint8_t m, uint8_t rt)
+/* ---- the screen: the Chooser's look ------------------------------------ */
+#define SW 320
+#define BAND 12                                       /* a band: 8-pixel text with 2 above and below */
+#define GY BAND                                       /* the glass: lines 12..227 */
+#define BBOT (240 - BAND)
+#define BMP 0x00200000UL                              /* 320x240, 8 bpp, layer 1 */
+#define CELL 10
+#define WXP 24                                        /* the well's inside */
+#define WYP 18
+#define PXP 140                                       /* the panel */
+#define F8 0
+#define F16 1
+#define F8X2 2
+#define FONT8P  0x00010000UL                          /* unscii-8 and -16, where the frontend puts them */
+#define FONT16P 0x00010800UL
+static uint8_t f8[96 * 8], f16[96 * 16];              /* ' '..DEL, copied near once */
+static uint8_t gbuf[256];
+static uint8_t tiles[16][CELL * CELL];                /* 0 empty, 1-7 the pieces, 8 a row going, 9-15 the shadows */
+static uint8_t shown[20][10];                         /* the tile each cell of the well shows: only a change is drawn */
+static uint8_t newest = 0xFF;                         /* the best-five row just written: the Chooser's bar */
+static void rect(uint16_t x, uint8_t y, uint16_t w, uint8_t h, uint8_t c)
 {
-    uint8_t i;
-    rb_put(l, GREY, BLACK);
-    for (i = 0; i < 12; i++) rb_put(m, GREY, BLACK);
-    rb_put(rt, GREY, BLACK);
-    rb_out(r, PX);
+    uint32_t p = BMP + (uint32_t)y * SW + x;
+    while (h--) { dma_fill(c, p, w); p += SW; }
 }
-static void draw_frame(void)                 /* everything that does not change */
+static void blit_from(const uint8_t *src, uint16_t x, uint8_t y, uint8_t w, uint8_t h)   /* near pixels, w x h, to the screen */
 {
-    static const char title[] = "T E T R I S";
-    static const uint8_t tcol[6] = { RED, ORANGE, YELLOW, GREEN, LBLUE, PURPLE };
-    uint8_t r, c;
-    for (r = 0; r < rows; r++) { for (c = 0; c < cols && c < 48; c++) rb_put(' ', WHITE, BLACK); rb_out(r, 0); }
-    for (c = 0; title[c]; c++) rb_put((uint8_t) title[c], tcol[c / 2], BLACK);
-    rb_out((uint8_t)(top + 1), WX + 5);
-    text((uint8_t)(top + 2), WX + 5, "on the K4510", DGREY);
-    rb_put(0xC8, GREY, BLACK); for (c = 0; c < 20; c++) rb_put(0xCD, GREY, BLACK); rb_put(0xBC, GREY, BLACK);
-    rb_out((uint8_t)(top + 24), WX);
-    box_row((uint8_t)(top + 4), 0xC9, 0xCD, 0xBB);
-    for (r = 5; r < 9; r++) box_row((uint8_t)(top + r), 0xBA, ' ', 0xBA);
-    box_row((uint8_t)(top + 9), 0xC8, 0xCD, 0xBC);
-    text((uint8_t)(top + 4), PX + 2, " NEXT ", WHITE);
-    text((uint8_t)(top + 11), PX, "SCORE", GREY);
-    text((uint8_t)(top + 14), PX, "LEVEL", GREY);
-    text((uint8_t)(top + 17), PX, "LINES", GREY);
-    text((uint8_t)(top + 20), PX, "BEST", GREY);
-    text((uint8_t)(top + 26), WX, "\x1B \x1A move   \x18 X turn   Z turn back", GREY);
-    text((uint8_t)(top + 27), WX, "\x19 soft drop   SPACE drop   P pause", GREY);
-    text((uint8_t)(top + 28), WX, "M music   ESC end the game", GREY);
+    w32(VICKY + 0x70, (uint32_t)(uint16_t)src); w32(VICKY + 0x74, BMP + (uint32_t)y * SW + x);
+    w16(VICKY + 0x78, w); w16(VICKY + 0x7A, h); w16(VICKY + 0x7C, w); w16(VICKY + 0x7E, SW);
+    REG(VICKY + 0x80) = 0; REG(VICKY + 0x81) = 0; REG(VICKY + 0x82) = 1;
+}
+static void fonts_near(void)
+{
+    uint16_t i;
+    for (i = 0; i < sizeof f8; i++) f8[i] = far_peek(FONT8P + 256 + i);
+    for (i = 0; i < sizeof f16; i++) f16[i] = far_peek(FONT16P + 512 + i);
+}
+static uint16_t text(uint16_t x, uint8_t y, const char *s, uint8_t fg, uint8_t bg, uint8_t font)   /* the x after it */
+{
+    uint8_t c, r, b, bits, *g, h = font == F8 ? 8 : 16, w = font == F8X2 ? 16 : 8;
+    const uint8_t *src;
+    for (; *s; s++, x += w) {
+        c = (uint8_t)*s; if (c < 32 || c > 127) c = '?';
+        if (font == F16) src = f16 + (c - 32) * 16; else src = f8 + (c - 32) * 8;
+        g = gbuf;
+        for (r = 0; r < h; r++) {
+            bits = font == F8X2 ? src[r >> 1] : src[r];
+            if (font == F8X2) { for (b = 0x80; b; b >>= 1) { *g++ = (bits & b) ? fg : bg; *g++ = (bits & b) ? fg : bg; } }
+            else for (b = 0x80; b; b >>= 1) *g++ = (bits & b) ? fg : bg;
+        }
+        blit_from(gbuf, x, y, w, h);
+    }
+    return x;
+}
+static char nb[12];
+static const char *fmt(uint32_t v, uint8_t w)         /* v right-aligned in w places */
+{
+    uint8_t i = 10;
+    nb[10] = 0;
+    do { nb[--i] = (char)('0' + (uint8_t)(v % 10)); v /= 10; } while (v && i);
+    while (i > 10 - w) nb[--i] = ' ';
+    return nb + i;
+}
+static void band_text(uint8_t y, const char *s)        /* centred in a band, black on grey */
+{
+    uint8_t n = (uint8_t) strlen(s);
+    rect(0, y, SW, BAND, LGREY);
+    text((uint16_t)((SW - n * 8) / 2), (uint8_t)(y + 2), s, BLACK, LGREY, F8);
+}
+static uint8_t clock_shown = 0xFF, rtc_read, frame_seen;
+static void rtc_latch(void) { rtc_read = REG(SYS + 4); }   /* a store, not a (void) read: cc65 drops that */
+static void put2(char *b, uint8_t v) { b[0] = (char)('0' + v / 10); b[1] = (char)('0' + v % 10); }
+static void draw_top(void)                            /* K4510 TETRIS on the left, the time on the right, as the Chooser's band */
+{
+    char b[17]; uint16_t y;
+    rtc_latch();
+    clock_shown = REG(SYS + 6);
+    put2(b, REG(SYS + 7)); b[2] = ':'; put2(b + 3, REG(SYS + 6)); b[5] = ' ';
+    put2(b + 6, REG(SYS + 8)); b[8] = '.'; put2(b + 9, REG(SYS + 9)); b[11] = '.';
+    y = REG(SYS + 0x0A) | (REG(SYS + 0x0B) << 8);
+    b[12] = (char)('0' + (y / 1000) % 10); b[13] = (char)('0' + (y / 100) % 10); b[14] = (char)('0' + (y / 10) % 10); b[15] = (char)('0' + y % 10); b[16] = 0;
+    rect(0, 0, SW, BAND, LGREY);
+    text(8, 2, "K4510 TETRIS", BLACK, LGREY, F8);
+    text(SW - 8 - 16 * 8, 2, b, BLACK, LGREY, F8);
+}
+static void tick_top(void)                            /* once a frame at most: each read of the clock asks the host */
+{
+    uint8_t f = REG(SYS + 0x0D);
+    if (f == frame_seen) return;
+    frame_seen = f; rtc_latch();
+    if (REG(SYS + 6) != clock_shown) draw_top();
+}
+static void bars(uint16_t x, uint8_t y, uint8_t h, uint8_t w)   /* the banner's five bars */
+{
+    static const uint8_t col[5] = { RED, ORANGE, YELLOW, GREEN, LBLUE };
+    static const uint8_t len[5] = { 8, 6, 4, 6, 8 };
+    uint8_t i;
+    for (i = 0; i < 5; i++) rect(x, (uint8_t)(y + i * h), (uint16_t)(len[i] * w), h, col[i]);
+}
+static void glass(void) { rect(0, GY, SW, BBOT - GY, BLUE); }
+static void header(const char *sub, uint8_t subcol)   /* a full-glass screen: the bars, Tetris, a line under it */
+{
+    glass();
+    bars(12, GY + 8, 5, 6);
+    text(72, GY + 8, "Tetris", WHITE, BLUE, F8X2);
+    text(72, GY + 28, sub, subcol, BLUE, F8);
+}
+
+/* The blocks: chunky and bevelled, a light edge top and left, a dark one
+ * bottom and right, in the VIC colours; the shadow is the piece's colour
+ * as a frame; a row going is white. */
+static const uint8_t plite[8] = { BLACK, WHITE, CYAN, YELLOW, WHITE, LGREEN, LRED, LRED };
+static const uint8_t pdark[8] = { BLACK, LBLUE, BLUE, BROWN, ORANGE, DGREY, BLUE, BROWN };
+static void tile_fill(uint8_t *t, uint8_t x, uint8_t y, uint8_t w, uint8_t h, uint8_t c)
+{
+    uint8_t i, j;
+    for (j = y; j < y + h; j++) for (i = x; i < x + w; i++) t[j * CELL + i] = c;
+}
+static void make_tiles(void)
+{
+    uint8_t k, c, l, d, *t;
+    for (k = 0; k < 16; k++) {
+        t = tiles[k]; memset(t, BLACK, CELL * CELL);
+        if (k == 0) t[4 * CELL + 4] = DGREY;                               /* the well's dot grid */
+        else if (k <= 8) {
+            c = k == 8 ? WHITE : pcol[k]; l = k == 8 ? WHITE : plite[k]; d = k == 8 ? LGREY : pdark[k];
+            tile_fill(t, 0, 0, CELL, CELL, d);
+            tile_fill(t, 0, 0, CELL - 1, CELL - 1, l);
+            tile_fill(t, 1, 1, CELL - 2, CELL - 2, c);
+        } else {
+            tile_fill(t, 1, 1, CELL - 2, CELL - 2, pcol[k - 8]);
+            tile_fill(t, 2, 2, CELL - 4, CELL - 4, BLACK);
+        }
+    }
+}
+static void cell(uint16_t x, uint8_t y, uint8_t k) { blit_from(tiles[k], x, y, CELL, CELL); }
+
+/* the best five, as the Chooser's list: a number box, the initials, the score */
+static void draw_best(uint16_t x, uint8_t y)
+{
+    uint8_t i, on; char d[2];
+    for (i = 0; i < 5; i++, y += 16) {
+        on = i == newest;
+        rect(x - 2, y - 2, 168, 16, on ? LBLUE : BLUE);
+        rect(x, y, 12, 12, on ? BLUE : LBLUE);
+        d[0] = (char)('1' + i); d[1] = 0; text(x + 2, y + 2, d, on ? LBLUE : BLUE, on ? BLUE : LBLUE, F8);
+        text(x + 20, y + 2, hs_n[i], on ? BLUE : YELLOW, on ? LBLUE : BLUE, F8);
+        { const char *v = "        -";                  /* an if, not a ?: -- cc65 will not mix the two pointer types */
+          if (hs_s[i]) v = fmt(hs_s[i], 9);
+          text(x + 56, y + 2, v, on ? BLUE : WHITE, on ? LBLUE : BLUE, F8); }
+    }
+}
+
+/* the play screen's still parts: the well's frame, the panel's labels */
+static void draw_frame(void)
+{
+    glass();
+    rect(WXP - 2, WYP - 2, 10 * CELL + 4, 20 * CELL + 4, LBLUE);
+    rect(WXP, WYP, 10 * CELL, 20 * CELL, BLACK);
+    memset(shown, 0xFF, sizeof shown);
+    bars(PXP, WYP, 3, 3);
+    text(PXP + 32, WYP - 1, "Tetris", WHITE, BLUE, F8X2);
+    text(PXP, WYP + 24, "NEXT", LBLUE, BLUE, F8);
+    text(PXP + 60, WYP + 24, "SCORE", LBLUE, BLUE, F8);
+    text(PXP, WYP + 70, "LEVEL", LBLUE, BLUE, F8);
+    text(PXP + 60, WYP + 70, "LINES", LBLUE, BLUE, F8);
+    text(PXP, WYP + 106, "BEST", WHITE, BLUE, F8);
+    band_text(BBOT, "X/Up turn  Z back  SPACE drop  P pause");
+}
+
+static uint8_t ov[20][10];                   /* the falling piece and its shadow, over the board */
+static void stamp(int8_t y, uint8_t v)
+{
+    uint16_t m = shape[cur][rot], bit = 0x8000u;
+    uint8_t i; int8_t cy;
+    for (i = 0; i < 16; i++, bit >>= 1)
+        if (m & bit) { cy = (int8_t)(y + (i >> 2)); if (cy >= 0) ov[cy][px + (i & 3)] = v; }
+}
+static uint8_t fits(uint8_t p, uint8_t r, int8_t x, int8_t y)
+{
+    uint16_t m = shape[p][r], bit = 0x8000u;
+    uint8_t i; int8_t cx, cy;
+    for (i = 0; i < 16; i++, bit >>= 1) {
+        if (!(m & bit)) continue;
+        cx = (int8_t)(x + (i & 3)); cy = (int8_t)(y + (i >> 2));
+        if (cx < 0 || cx >= 10 || cy >= 20) return 0;
+        if (cy >= 0 && bd[cy][cx]) return 0;
+    }
+    return 1;
+}
+
+static void draw_well(void)                  /* only the cells whose tile changed */
+{
+    uint8_t r, c, v, k; int8_t gy;
+    memset(ov, 0, sizeof ov);
+    if (active) {
+        gy = py; while (fits(cur, rot, px, (int8_t)(gy + 1))) gy++;
+        stamp(gy, 9); stamp(py, (uint8_t)(cur + 1));
+    }
+    for (r = 0; r < 20; r++)
+        for (c = 0; c < 10; c++) {
+            v = ov[r][c]; if (!v) v = bd[r][c];
+            k = v == 9 ? (uint8_t)(9 + cur) : v;                       /* the shadow: tile 9-15 by the piece */
+            if (shown[r][c] != k) { shown[r][c] = k; cell(WXP + c * CELL, (uint8_t)(WYP + r * CELL), k); }
+        }
 }
 static void draw_panel(void)
 {
-    uint8_t dy, dx, i;
+    uint8_t dy, dx;
     uint16_t m = nxt < 7 ? shape[nxt][0] : 0;
-    for (dy = 0; dy < 2; dy++) {
-        for (dx = 0; dx < 4; dx++) {
-            if (m & (0x8000u >> (dy * 4 + dx))) { rb_put('[', BLACK, pcol[nxt + 1]); rb_put(']', BLACK, pcol[nxt + 1]); }
-            else { rb_put(' ', WHITE, BLACK); rb_put(' ', WHITE, BLACK); }
-        }
-        rb_out((uint8_t)(top + 6 + dy), PX + 3);
-    }
-    num((uint8_t)(top + 12), PX, score, 10, WHITE);
-    num((uint8_t)(top + 15), PX, level, 3, WHITE);
-    num((uint8_t)(top + 18), PX, lines, 5, WHITE);
-    for (i = 0; i < 5; i++) {
-        text((uint8_t)(top + 21 + i), PX, hs_n[i], i ? LGREY : YELLOW);
-        if (hs_s[i]) num((uint8_t)(top + 21 + i), PX + 4, hs_s[i], 9, i ? LGREY : YELLOW);
-        else text((uint8_t)(top + 21 + i), PX + 4, "         ", LGREY);
-    }
+    rect(PXP, WYP + 34, 48, 28, BLACK);
+    for (dy = 0; dy < 2; dy++)
+        for (dx = 0; dx < 4; dx++)
+            if (m & (0x8000u >> (dy * 4 + dx))) cell(PXP + 4 + dx * CELL, (uint8_t)(WYP + 38 + dy * CELL), (uint8_t)(nxt + 1));
+    text(PXP + 60, WYP + 34, fmt(score, 10), YELLOW, BLUE, F16);
+    text(PXP, WYP + 80, fmt(level, 3), YELLOW, BLUE, F16);
+    text(PXP + 60, WYP + 80, fmt(lines, 5), YELLOW, BLUE, F16);
+    draw_best(PXP + 2, WYP + 118);
 }
 
 /* ---- the sound ---------------------------------------------------------- */
@@ -392,12 +475,13 @@ static void collapse(void)                   /* the flashed rows go, and the res
 }
 
 static uint8_t held_was, das, softc, grav;
+static void pause_screen(void);
 static void frame(void)
 {
     uint8_t k, held, edge;
     while ((k = key_get()) != 0) {
         if (k == K_ESC) { over = 1; active = 0; return; }
-        if (k == 'p' || k == 'P') { paused ^= 1; dirty = 3; if (paused) music_stop(); continue; }
+        if (k == 'p' || k == 'P') { paused = 1; return; }       /* the pause screen, from play_game */
         if (k == 'm' || k == 'M') { music_on ^= 1; if (!music_on) music_stop(); continue; }
         if (paused || !active) continue;
         if (k == 'x' || k == 'X') turn(1);
@@ -439,57 +523,148 @@ static void play_game(void)
         if (fc == lfc) continue;
         d = (uint8_t)(fc - lfc); lfc = fc;
         if (d > 4) d = 4;
-        while (d-- && !over) frame();
+        while (d-- && !over && !paused) frame();
+        if (paused) { pause_screen(); lfc = REG(SYS + 0x0D); continue; }
         if (dirty) {
             draw_well();
-            if (paused) well_msg(9, "PAUSED", YELLOW);
             if (dirty & 2) draw_panel();
             dirty = 0;
         }
+        tick_top();
     }
     music_stop();
 }
 
+
+/* ---- the Chooser's list: the title, the pause, the end of a game -------- */
+#define LIST_X 12
+#define ROW_H 20
+#define BEST_Y 140                                    /* the best five under a list, the keys beside them */
+#define KEYS_X 196
+#define GO_BEST_Y 146                                 /* at the end of a game: under its list */
+static void list_row(uint8_t y0, uint8_t i, const char *s, const char *right, uint8_t on)
+{
+    uint8_t y = (uint8_t)(y0 + i * ROW_H); char d[2];
+    rect(LIST_X, y, SW - 2 * LIST_X, ROW_H - 2, on ? LBLUE : BLUE);
+    rect(LIST_X + 6, y + 3, 12, 12, on ? BLUE : LBLUE);   /* the number box */
+    d[0] = (char)('1' + i); d[1] = 0; text(LIST_X + 8, y + 5, d, on ? LBLUE : BLUE, on ? BLUE : LBLUE, F8);
+    text(LIST_X + 28, y + 1, s, on ? BLUE : YELLOW, on ? LBLUE : BLUE, F16);
+    if (right) text((uint16_t)(SW - LIST_X - 8 - strlen(right) * 8), y + 1, right, on ? BLUE : WHITE, on ? LBLUE : BLUE, F16);
+}
 static uint8_t wait_key(void)
 {
     uint8_t k;
-    while ((k = key_get()) == 0) { seed++; sfx_tick(); }
+    while ((k = key_get()) == 0) { seed++; sfx_tick(); tick_top(); }
     return k;
+}
+/* a list of n rows at y0: 1-n, the arrows and RETURN; 255 for ESC.  `extra`
+ * gets the keys the list does not know (SPACE, < >, M, P), and its answer,
+ * if not 254, is the list's. */
+static uint8_t list_pick(uint8_t y0, const char *const *items, const char *const *right, uint8_t n, uint8_t cur, uint8_t (*extra)(uint8_t k, uint8_t cur))
+{
+    uint8_t i, k, r;
+    for (i = 0; i < n; i++) list_row(y0, i, items[i], right ? right[i] : 0, i == cur);
+    for (;;) {
+        k = wait_key();
+        if (k == K_UP || k == K_DOWN) {
+            list_row(y0, cur, items[cur], right ? right[cur] : 0, 0);
+            cur = (uint8_t)(k == K_UP ? (cur + n - 1) % n : (cur + 1) % n);
+            list_row(y0, cur, items[cur], right ? right[cur] : 0, 1);
+            continue;
+        }
+        if (k == 13) return cur;
+        if (k >= '1' && k < '1' + n) return (uint8_t)(k - '1');
+        if (k == K_ESC) return 255;
+        if (extra && (r = extra(k, cur)) != 254) return r;
+        if (extra) for (i = 0; i < n; i++) list_row(y0, i, items[i], right ? right[i] : 0, i == cur);   /* it may have changed a row */
+    }
+}
+
+static char lv[] = "<  0  >";
+static const char *const T_ITEMS[3] = { "Play", "Start level", "Quit" };
+static const char *t_right[3] = { 0, lv, 0 };
+static uint8_t title_key(uint8_t k, uint8_t cur)
+{
+    (void) cur;
+    if (k == ' ') return 0;
+    if (k == K_LEFT && start > 0) start--;
+    if (k == K_RIGHT && start < 9) start++;
+    lv[3] = (char)('0' + start);
+    return 254;
 }
 static uint8_t title(void)
 {
-    static char lv[] = "\x1B  0  \x1A";
-    uint8_t k;
-    memset(bd, 0, sizeof bd); active = 0; nxt = 7;
-    draw_well(); draw_panel();
-    well_msg(6, "PRESS SPACE", WHITE);
-    well_msg(10, "START LEVEL", GREY);
+    uint8_t r;
+    header("Falling blocks, on the K4510", YELLOW);
+    text(LIST_X, BEST_Y - 12, "BEST", WHITE, BLUE, F8);
+    draw_best(LIST_X + 2, BEST_Y);
+    text(KEYS_X, BEST_Y - 12, "THE KEYS", WHITE, BLUE, F8);
+    text(KEYS_X, BEST_Y, "<> move", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 11, "X or Up turn", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 22, "Z turn back", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 33, "Down soft drop", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 44, "SPACE drop", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 55, "P pause", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 66, "M music", LBLUE, BLUE, F8);
+    text(KEYS_X, BEST_Y + 77, "ESC end game", LBLUE, BLUE, F8);
+    band_text(BBOT, "SPACE plays, < > the level, ESC quits");
+    lv[3] = (char)('0' + start);
     for (;;) {
-        lv[3] = (char)('0' + start);
-        well_msg(11, lv, YELLOW);
-        k = wait_key();
-        if (k == K_ESC) return 0;
-        if (k == ' ' || k == 13) return 1;
-        if (k == K_LEFT && start > 0) start--;
-        if (k == K_RIGHT && start < 9) start++;
+        r = list_pick(GY + 46, T_ITEMS, t_right, 3, 0, title_key);
+        if (r == 0) return 1;
+        if (r == 255 || r == 2) return 0;
+        if (r == 1) { if (start < 9) start++; else start = 0; lv[3] = (char)('0' + start); }   /* RETURN on the level: the next one */
     }
 }
+
+/* P: the pause, as a list -- the well is hidden while it lasts */
+static char mus[] = "On ";
+static const char *const P_ITEMS[3] = { "Resume", "Music", "End the game" };
+static const char *p_right[3] = { "P", mus, "ESC" };
+static uint8_t pause_key(uint8_t k, uint8_t cur)
+{
+    (void) cur;
+    if (k == 'p' || k == 'P' || k == ' ') return 0;
+    if (k == 'm' || k == 'M') return 1;
+    return 254;
+}
+static void pause_screen(void)
+{
+    uint8_t r, cur = 0;
+    music_stop();
+    header("Paused", YELLOW);
+    band_text(BBOT, "P resumes, M the music, ESC ends");
+    for (;;) {
+        strcpy(mus, music_on ? "On " : "Off");
+        r = list_pick(GY + 46, P_ITEMS, p_right, 3, cur, pause_key);
+        if (r == 1) { music_on ^= 1; if (!music_on) music_stop(); cur = 1; continue; }
+        if (r == 255 || r == 2) { over = 1; active = 0; }
+        break;
+    }
+    paused = 0;
+    draw_frame(); dirty = 3;
+    held_was = keys_held();
+}
+
 static uint8_t game_over(void)
 {
     static char ini[4];
-    uint8_t k, i, j, pos = 0;
+    static const char *const G_ITEMS[2] = { "Play again", "Quit" };
+    uint8_t k, i, j, pos = 0, r;
     draw_well(); draw_panel();
     for (k = 0; k < 60; k++) wait_vblank();  /* a second to see how it ended */
     while (key_get()) ;
-    memset(bd, 0, sizeof bd); active = 0; draw_well();   /* then a clean well to write in */
-    well_msg(3, "GAME OVER", RED);
+    header("Game over", LRED);
+    text(LIST_X, GY + 40, "SCORE", LBLUE, BLUE, F8);
+    text(LIST_X + 48, GY + 36, fmt(score, 10), WHITE, BLUE, F16);
     for (i = 0; i < 5 && hs_s[i] >= score; i++) ;
+    newest = 0xFF;
     if (i < 5 && score) {
-        well_msg(5, "A NEW BEST SCORE!", YELLOW);
-        well_msg(7, "YOUR INITIALS", WHITE);
+        text(LIST_X, GY + 58, "A new best score!  Your initials:", YELLOW, BLUE, F8);
+        band_text(BBOT, "Type your initials, then RETURN");
         strcpy(ini, "___");
         for (;;) {
-            well_msg(8, ini, YELLOW);
+            text(LIST_X + 34 * 8, GY + 54, ini, WHITE, BLUE, F16);
             k = wait_key();
             if (k >= 'a' && k <= 'z') k = (uint8_t)(k - 32);
             if (((k >= 'A' && k <= 'Z') || (k >= '0' && k <= '9')) && pos < 3) ini[pos++] = (char) k;
@@ -501,64 +676,44 @@ static uint8_t game_over(void)
             for (j = 4; j > i; j--) { hs_s[j] = hs_s[j - 1]; strcpy(hs_n[j], hs_n[j - 1]); }
             for (j = pos; j < 3; j++) ini[j] = ' ';
             hs_s[i] = score; strcpy(hs_n[i], ini);
-            hs_save(); draw_panel();
-            well_msg(8, ini, YELLOW);
+            hs_save(); newest = i;
         }
+        if (pos) text(LIST_X + 34 * 8, GY + 54, hs_n[i], WHITE, BLUE, F16);   /* the initials as kept, the blanks gone */
     }
-    well_msg(12, "SPACE  PLAY AGAIN", WHITE);
-    well_msg(13, "ESC  QUIT", GREY);
-    for (;;) {
-        k = wait_key();
-        if (k == ' ' || k == 13) return 1;
-        if (k == K_ESC) return 0;
-    }
+    text(LIST_X, GO_BEST_Y - 12, "BEST", WHITE, BLUE, F8);
+    draw_best(LIST_X + 2, GO_BEST_Y);
+    band_text(BBOT, "SPACE plays again, ESC quits");
+    r = list_pick(GY + 76, G_ITEMS, 0, 2, 0, title_key);
+    return r == 0;
 }
 
 /* ---- in and out --------------------------------------------------------- */
-static char mode_was;
-static void mode_run(char digit)
-{
-    strcpy(CMDLINE, "MODE 0"); CMDLINE[5] = digit;
-    rom_shell(CMDLINE);
-}
-
 void main(void)
 {
-    switch (REG(VICKY) & 0x3E) {             /* VICKY CTRL -> the MODE digit, as LOGO reads it */
-    case 0x00: mode_was = '0'; break;
-    case 0x20: mode_was = '5'; break;
-    case 0x26: mode_was = '6'; break;
-    case 0x36: mode_was = '7'; break;
-    case 0x02: mode_was = '2'; break;
-    case 0x0A: mode_was = '3'; break;
-    case 0x1A: mode_was = '4'; break;
-    default:   mode_was = '1'; break;
-    }
-    if (mode_was != '7') mode_run('7');
-    flags_was = REG(TERM + 0x0E);
-    REG(TERM + 0x0F) = 0; REG(TERM + 0x16) = 0;
-    REG(TERM + 0x0E) = (uint8_t)((flags_was | 8) & ~1);   /* the bands are ours; no cursor */
-    rom_video();
-    cols = REG(TERM + 5); rows = REG(TERM + 6);
-    ox = REG(TERM + 7);   oy = REG(TERM + 8);
-    stride = REG(TERM + 0x0D);
-    if (!cols) cols = 45;
-    if (!rows) rows = 33;
-    if (!stride) stride = cols;
-    top = (uint8_t)(rows >= 31 ? (rows - 29) / 2 : 0);
+    uint8_t ctrl_was = REG(VICKY), l0_was = REG(VICKY + 0x10), l1_was = REG(VICKY + 0x20), bg_was = REG(V_BGCOL), spr_was = REG(V_SPRCTL), i;
     seed = (uint16_t)(REG(SYS + 0x0D) * 257u + 1);
+    fonts_near(); make_tiles();
+    REG(V_CTRL) = 0; REG(V_BGCOL) = BLACK;             /* a pixel of colour 0 is the ground: black */
+    dma_fill(BLUE, BMP, (uint32_t)SW * 240);
+    REG(VICKY + 0x10) = 0;                            /* the console's layer off, left as it is; the bitmap on layer 1 */
+    for (i = 0x21; i <= 0x25; i++) REG(VICKY + i) = 0;
+    w16(VICKY + 0x26, SW); w32(VICKY + 0x28, BMP); w32(VICKY + 0x2C, BMP);
+    REG(VICKY + 0x20) = 1 | (0 << 1) | (3 << 3);      /* bitmap, 8 bpp */
+    REG(V_SPRCTL) = 0;
+    REG(V_CTRL) = 1 | 2 | 4;                          /* 320 x 240, doubled: the Chooser's chunky pixels */
+    draw_top();
 
     sound_init();
     hs_load();
-    draw_frame();
     while (title()) {
+        draw_frame();
         play_game();
         if (!game_over()) break;
     }
 
     sound_off();
-    REG(TERM + 0x0E) = (uint8_t)(flags_was & ~8);
+    REG(VICKY + 0x20) = l1_was; REG(VICKY + 0x10) = l0_was; REG(V_SPRCTL) = spr_was;
+    REG(VICKY) = ctrl_was; REG(V_BGCOL) = bg_was;
     rom_video();
-    if (mode_was != '7') mode_run(mode_was);
-    else rom_chrout(12);
+    REG(TERM + 4) = 2;                                /* JIM: a clean screen to come back to */
 }

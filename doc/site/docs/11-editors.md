@@ -379,7 +379,7 @@ The command word is read in either case, so `:Q` and `:WQ` work with the caps lo
 
 ### Compiling from VI
 
-`:make` is the edit–compile loop without leaving the editor. It saves the file, compiles it with the machine’s own `CC` or `PAS` ([Chapter 11, The Linux Underneath](13-linux.md)) — which one, the name decides — and puts the cursor on the first error, with the message on the status line:
+`:make` is the edit–compile loop without leaving the editor. It saves the file, compiles it with the machine’s own `CC` or `PAS` ([Chapter 12, The Linux Underneath](13-linux.md)) — which one, the name decides — and puts the cursor on the first error, with the message on the status line:
 
     VI HELLO.C
     :make
@@ -543,7 +543,7 @@ The page is laid out to the window. Each paragraph is wrapped at a word, centred
 
 There are two cases, and they look alike, so here is the rule.
 
-**To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; BBC BASIC does the same with `*VI` and `*EDIT` ([Chapter 5, The Tube](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 7, LOGO](08-logo.md)).
+**To edit the program you are writing**, type `*EDIT` or `*VI` with nothing after it. BASIC saves the program to a temporary file, runs the editor on it, and loads it back when you leave — so what you type in the editor is what you `LIST` afterwards. Variables do not survive the round trip, exactly as with `LOAD`. [Editing the program in VI](04-ehbasic.md#editing-the-program-in-vi) has the details for EhBASIC; BBC BASIC does the same with `*VI` and `*EDIT` ([Chapter 6, The Tube](06-tube.md)), and LOGO with `EDIT "name` ([Chapter 8, LOGO](08-logo.md)).
 
 **To renumber it**, which none of those BASICs could do for itself, use `:renum` in VI or Ctrl-R in EDIT. Both know the language from the file: a `.BAS` is EhBASIC’s, a `.BBC` is BBC BASIC’s, with its `ELSE` targets and its lower-case variables (a `goto` there is a name, not a jump). The lines’ own numbers change, and so does every target after `GOTO`, `GOSUB`, `THEN`, `RESTORE` and `ON`…`GOTO`; strings, `REM` and `DATA` are left alone. A `GOTO` to a line that does not exist is kept as it is and counted in the message, and a program whose numbers are out of order is refused, not guessed at. LOGO has no line numbers, and says so.
 

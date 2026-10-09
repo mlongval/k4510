@@ -1,4 +1,4 @@
-# Chapter 5. The Tube
+# Chapter 6. The Tube
 
 The BBC Micro's most elegant idea was the Tube: a fast port through which a
 second processor -- another CPU with its own memory -- could take over the
@@ -157,13 +157,13 @@ directory, the editor opens on it, and when you leave, LOAD "EDITTMP.BBC"
 types itself and reads it back. Variables go the way they go with any LOAD.
 With a name (*VI NOTES.TXT) it is the ordinary star command. *EDIT, with a
 name or without, starts EDIT -u: each save puts BBC BASIC's keywords in
-capitals, so lines may be typed in lower case (Chapter 9, The Editors).
+capitals, so lines may be typed in lower case (Chapter 10, The Editors).
 
-=> 11-EDITORS.GMI Chapter 9, The Editors
+=> 11-EDITORS.GMI Chapter 10, The Editors
 
 > Edges, honestly: POINT( and TINT are not implemented; GCOL modes 1-4 draw
 > plain; VDU 5 text prints as text.
 
 => INDEX.GMI Contents
-=> 04-EHBASIC.GMI Previous: 4. EhBASIC
-=> 07-FORTH.GMI Next: 6. Forth
+=> 05-BASIC.GMI Previous: 5. K4510 BASIC
+=> 07-FORTH.GMI Next: 7. Forth

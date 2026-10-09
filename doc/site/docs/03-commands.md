@@ -8,7 +8,7 @@ ROM
 in the resident part of the operating system, always there.
 
 ROM, bank *n*  
-in one of the sideways banks ([Chapter 12, Memory](20-memory.md)), paged in for the moment it runs.
+in one of the sideways banks ([Chapter 13, Memory](20-memory.md)), paged in for the moment it runs.
 
 runs MONITOR, runs TYPE  
 a word the ROM still answers to, which hands its line to a program on the disk. The work moved out of the ROM in September 2026 to make room; the word did not change.
@@ -20,7 +20,7 @@ a program. Programs run by name from anywhere, and take their arguments the same
 a language: its folder, with its examples.
 
 ROM, on the Linux  
-a word the ROM answers to by starting something on the Linux the machine runs on ([Chapter 11, The Linux Underneath](13-linux.md)).
+a word the ROM answers to by starting something on the Linux the machine runs on ([Chapter 12, The Linux Underneath](13-linux.md)).
 
 Every word below also works from a BASIC, Forth or the monitor with a `*` in front, and a bare name that is not here is tried as a program, then as a CP/M program if F12 allows it, then as an alias, then as an RX script — in that order, so an alias never hides a command. Capitals are the convention; the shell does not mind either way.
 
@@ -99,8 +99,8 @@ Clear the text screen.
 **`COLOR fg [bg] [!]`** — *ROM, bank 1*  
 The text colours, as palette indices in hex. A pair the palette makes hard to read is refused, with one that reads suggested; ! has it anyway. Also COLOUR.
 
-**`MODE [-l] [-s N | WxH | n] [-d | -n]`** — *ROM, bank 3*  
-Alone, say the mode. -l (–list): this panel’s integer display resolutions, each with its text grids. -s N (–scale=N), or its size: the one at scale N. -d (–double): twice the rows, in smaller letters; -n (–normal) the larger again. 0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4.
+**`MODE [-l] [-s N | WxH [-m] | n] [-c | -p] [-d | -n]`** — *ROM, bank 3*  
+Alone, say the mode. -l (–list): this panel’s integer display resolutions, each with its text grids. -s N (–scale=N), or its size: the one at scale N. Any other size WxH is Integer Best Fit: exactly that, at the largest whole multiple the panel holds, centred and bordered; -m (–smooth) smooths it to the panel instead; larger than the panel is refused. -c (–scanlines): scanlines over any mode, where a row is two panel lines or more; a new size keeps them; -p (–plain) takes every effect off. A program’s size and effects end with the program. -d (–double): twice the rows, in smaller letters; -n (–normal) the larger again. 0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4.
 
 **`PALETTE [LOAD name | SAVE name | RESET | i rr gg bb]`** — *ROM, bank 4*  
 The 256 colours: list them, set one, load a .PAL from `/SYSTEM/ETC/PALETTES`, save them, or put the machine’s own back.
@@ -139,24 +139,27 @@ The machine monitor, Wozmon’s grammar with 28-bit addresses. With a line, runs
 ## Languages
 
 **`BBC`** — *ROM*  
-BBC BASIC on the Tube ([Chapter 5, The Tube](06-tube.md)). Also BBC.
+BBC BASIC on the Tube ([Chapter 6, The Tube](06-tube.md)). Also BBC.
 
 **`EHBASIC`** — */LANG/EHBASIC*  
 Enhanced BASIC with the machine’s graphics ([Chapter 4, EhBASIC](04-ehbasic.md)).
 
 **`FORTH`** — */LANG/FORTH*  
-Tali Forth 2 ([Chapter 6, Forth](07-forth.md)).
+Tali Forth 2 ([Chapter 7, Forth](07-forth.md)).
 
 **`LOGO`** — */LANG/LOGO*  
-Turtle graphics ([Chapter 7, LOGO](08-logo.md)).
+Turtle graphics ([Chapter 8, LOGO](08-logo.md)).
 
 **`RX name`** — */LANG/RX*  
-Run a REXX script ([Chapter 10, RX: the Machine’s REXX](12-rx.md)); a bare HELLO runs HELLO.RX.
+Run a REXX script ([Chapter 11, RX: the Machine’s REXX](12-rx.md)); a bare HELLO runs HELLO.RX.
 
 ## The Linux beneath
 
 **`!command or !`** — *ROM, on the Linux*  
 Run a command on the Linux beneath, or (alone) open a shell there. Can be locked off.
+
+**`BAS name`** — *ROM, on the Linux*  
+Compile name.BAS here into name.prg: BASIC with EhBASIC’s words, labels, blocks, SUB and FUNCTION, no line numbers needed. Errors, and the program’s own errors when it runs, go to MAKE.ERR with the BASIC line.
 
 **`CC name`** — *ROM, on the Linux*  
 Compile name.C here with cc65 into name.prg.
@@ -194,7 +197,7 @@ Alone, say which code page the machine speaks. 437 is IBM’s, the default; K451
 The trash: list it (-l, –list), put a file back (-r, –restore), empty it (-e, –empty), or send a file there.
 
 **`EDIT [-s] [-u] [-v] [name]`** — */SYSTEM/BIN*  
-The editor, in MS-DOS EDIT’s manner: menus, the mouse, dialogs; -s (–system) in the console’s colours, -u (–upper) BBC BASIC’s keywords in capitals at each save, -v (–vi) VI’s keys ([Chapter 9, The Editors](11-editors.md)).
+The editor, in MS-DOS EDIT’s manner: menus, the mouse, dialogs; -s (–system) in the console’s colours, -u (–upper) BBC BASIC’s keywords in capitals at each save, -v (–vi) VI’s keys ([Chapter 10, The Editors](11-editors.md)).
 
 **`FONTED [name.FNT] | -l name`** — */SYSTEM/BIN*  
 The font, edited where it lives, both sizes, every edit on the screen at once. -l (–load) loads a .FNT and leaves, for STARTUP.BAT.
@@ -218,7 +221,7 @@ The monitor as a program: MON, WOZ, FILL and COPY run it.
 The mouse registers, live, with a sprite pointer.
 
 **`NVIM [name]`** — */SYSTEM/BIN*  
-Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run ([Chapter 11, The Linux Underneath](13-linux.md)).
+Neovim, on the Linux beneath, set up for the machine: its colours, its languages, F9 to compile and F10 to run ([Chapter 12, The Linux Underneath](13-linux.md)).
 
 **`PADTEST`** — */SYSTEM/BIN*  
 The held-keys register, live: a gamepad’s first test.
@@ -227,7 +230,10 @@ The held-keys register, live: a gamepad’s first test.
 JIM, the terminal, speaking PETSCII.
 
 **`PROG [-s] [-v] [name]`** — */SYSTEM/BIN*  
-The programmer’s front end, in EDIT’s manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler’s messages under the text; -s (–system) the console’s colours, -v (–vi) VI’s keys ([Chapter 9, The Editors](11-editors.md)).
+The programmer’s front end, in EDIT’s manner: edit a C or Pascal program, compile it with F9, run it with Ctrl+F9, the compiler’s messages under the text; -s (–system) the console’s colours, -v (–vi) VI’s keys ([Chapter 10, The Editors](11-editors.md)).
+
+**`RADIO [words]`** — *ROM, bank 4*  
+The remote for k4510-radio, the player on the Linux beside the machine: alone, what is playing; MUSIC \[playlist\], STATION n, PODCAST n \[m\] start one in the background; NEXT, PAUSE, RESUME, STOP steer whichever is running, in the Terminal screen or not. Lists in `/SYSTEM/ETC/RADIO.CFG`; the volume is the machine’s.
 
 **`RANGER`** — */SYSTEM/BIN*  
 The miller-column file manager.
@@ -254,7 +260,7 @@ A terminal on a TCP connection. F12 hangs up.
 A file, a screenful at a time; Esc or Q stops. A URL works.
 
 **`VI [name]`** — */SYSTEM/BIN*  
-The modal editor ([Chapter 9, The Editors](11-editors.md)).
+The modal editor ([Chapter 10, The Editors](11-editors.md)).
 
 **`WALL`** — */SYSTEM/BIN*  
 What was sent to this machine from outside (tools`/k4510-remote` wall, on another computer): each message waiting, oldest first, answered as it asks — a key for a notice, a digit for one of its choices, a line of text — and the answer goes back. Esc leaves a message for later. When the prompt is idle the sender types WALL for you.

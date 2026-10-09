@@ -6,7 +6,7 @@ Nothing in it is reworded: every word below is a word from a header. What the ge
 
 The voice is still the voice of working code: terse, occasionally opinionated, and using the machine’s own shorthand — `LE` for little-endian, `R:` and `W:` for a register that reads and writes differently, `$` for hex. Addresses are given as an offset inside the device’s block where the block’s base is obvious, and in full where it is not.
 
-[Chapter 13, The I/O Page](21-io.md) is the map of which device lives where; this is what is inside each one.
+[Chapter 14, The I/O Page](21-io.md) is the map of which device lives where; this is what is inside each one.
 
 ## The I/O page
 
@@ -357,7 +357,7 @@ Blits are 8 bpp (one byte per pixel) in this version.
 
 `$CE,CF`**`IDRH`** R
 
-`$D0`**`GLASSCTL`** RW what CTRL bit5’s glass is. bits0-1: 0 CTRL’s own bits (1, 2, 4 – the canvas /1, /2, /4: MODE 5-7); 1 the IDR at scale IDRSEL; 2 software, SWW x SWH. bits4-5, how software shows: 0 the largest whole scale, 1 fit (sharp-bilinear: the whole multiple, then smoothing); 2, stretched to 4:3, is reserved and fits for now. bit6 reserved (scanlines).
+`$D0`**`GLASSCTL`** RW what CTRL bit5’s glass is. bits0-1: 0 CTRL’s own bits (1, 2, 4 – the canvas /1, /2, /4: MODE 5-7); 1 the IDR at scale IDRSEL; 2 software, SWW x SWH. bits4-5, how software shows: 0 the largest whole scale, 1 fit (sharp-bilinear: the whole multiple, then smoothing); 2, stretched to 4:3, is reserved and fits for now. bit6 scanlines (2026-10-08): the lower half of every machine row dimmed, where a row is 2 panel lines or more.
 
 `$D1`**`IDRSEL`** RW the scale wanted: one not offered becomes the next larger scale that is, else the largest offered
 

@@ -17,10 +17,10 @@ ROM
 in the resident part of the operating system, always there.
 
 ROM, bank n
-in one of the sideways banks (Chapter 12, Memory), paged in for the moment it
+in one of the sideways banks (Chapter 13, Memory), paged in for the moment it
 runs.
 
-=> 20-MEMORY.GMI Chapter 12, Memory
+=> 20-MEMORY.GMI Chapter 13, Memory
 
 runs MONITOR, runs TYPE
 a word the ROM still answers to, which hands its line to a program on the
@@ -36,9 +36,9 @@ a language: its folder, with its examples.
 
 ROM, on the Linux
 a word the ROM answers to by starting something on the Linux the machine runs
-on (Chapter 11, The Linux Underneath).
+on (Chapter 12, The Linux Underneath).
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 Every word below also works from a BASIC, Forth or the monitor with a * in
 front, and a bare name that is not here is tried as a program, then as a CP/M
@@ -132,11 +132,16 @@ COLOR fg [bg] [!] -- ROM, bank 1
 The text colours, as palette indices in hex. A pair the palette makes hard to
 read is refused, with one that reads suggested; ! has it anyway. Also COLOUR.
 
-MODE [-l] [-s N | WxH | n] [-d | -n] -- ROM, bank 3
+MODE [-l] [-s N | WxH [-m] | n] [-c | -p] [-d | -n] -- ROM, bank 3
 Alone, say the mode. -l (-list): this panel's integer display resolutions,
-each with its text grids. -s N (-scale=N), or its size: the one at scale N. -d
-(-double): twice the rows, in smaller letters; -n (-normal) the larger again.
-0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4.
+each with its text grids. -s N (-scale=N), or its size: the one at scale N.
+Any other size WxH is Integer Best Fit: exactly that, at the largest whole
+multiple the panel holds, centred and bordered; -m (-smooth) smooths it to the
+panel instead; larger than the panel is refused. -c (-scanlines): scanlines
+over any mode, where a row is two panel lines or more; a new size keeps them;
+-p (-plain) takes every effect off. A program's size and effects end with the
+program. -d (-double): twice the rows, in smaller letters; -n (-normal) the
+larger again. 0 640x480, 1 640x240, 2 320x240; 5, 6, 7 are scale 1, 2, 4.
 
 PALETTE [LOAD name | SAVE name | RESET | i rr gg bb] -- ROM, bank 4
 The 256 colours: list them, set one, load a .PAL from /SYSTEM/ETC/PALETTES,
@@ -181,9 +186,9 @@ it and returns. Also WOZ.
 ## Languages
 
 BBC -- ROM
-BBC BASIC on the Tube (Chapter 5, The Tube). Also BBC.
+BBC BASIC on the Tube (Chapter 6, The Tube). Also BBC.
 
-=> 06-TUBE.GMI Chapter 5, The Tube
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 EHBASIC -- /LANG/EHBASIC
 Enhanced BASIC with the machine's graphics (Chapter 4, EhBASIC).
@@ -191,26 +196,31 @@ Enhanced BASIC with the machine's graphics (Chapter 4, EhBASIC).
 => 04-EHBASIC.GMI Chapter 4, EhBASIC
 
 FORTH -- /LANG/FORTH
-Tali Forth 2 (Chapter 6, Forth).
+Tali Forth 2 (Chapter 7, Forth).
 
-=> 07-FORTH.GMI Chapter 6, Forth
+=> 07-FORTH.GMI Chapter 7, Forth
 
 LOGO -- /LANG/LOGO
-Turtle graphics (Chapter 7, LOGO).
+Turtle graphics (Chapter 8, LOGO).
 
-=> 08-LOGO.GMI Chapter 7, LOGO
+=> 08-LOGO.GMI Chapter 8, LOGO
 
 RX name -- /LANG/RX
-Run a REXX script (Chapter 10, RX: the Machine's REXX); a bare HELLO runs
+Run a REXX script (Chapter 11, RX: the Machine's REXX); a bare HELLO runs
 HELLO.RX.
 
-=> 12-RX.GMI Chapter 10, RX: the Machine's REXX
+=> 12-RX.GMI Chapter 11, RX: the Machine's REXX
 
 ## The Linux beneath
 
 !command or ! -- ROM, on the Linux
 Run a command on the Linux beneath, or (alone) open a shell there. Can be
 locked off.
+
+BAS name -- ROM, on the Linux
+Compile name.BAS here into name.prg: BASIC with EhBASIC's words, labels,
+blocks, SUB and FUNCTION, no line numbers needed. Errors, and the program's
+own errors when it runs, go to MAKE.ERR with the BASIC line.
 
 CC name -- ROM, on the Linux
 Compile name.C here with cc65 into name.prg.
@@ -259,9 +269,9 @@ The trash: list it (-l, -list), put a file back (-r, -restore), empty it (-e,
 EDIT [-s] [-u] [-v] [name] -- /SYSTEM/BIN
 The editor, in MS-DOS EDIT's manner: menus, the mouse, dialogs; -s (-system)
 in the console's colours, -u (-upper) BBC BASIC's keywords in capitals at each
-save, -v (-vi) VI's keys (Chapter 9, The Editors).
+save, -v (-vi) VI's keys (Chapter 10, The Editors).
 
-=> 11-EDITORS.GMI Chapter 9, The Editors
+=> 11-EDITORS.GMI Chapter 10, The Editors
 
 FONTED [name.FNT] | -l name -- /SYSTEM/BIN
 The font, edited where it lives, both sizes, every edit on the screen at once.
@@ -297,9 +307,9 @@ The mouse registers, live, with a sprite pointer.
 
 NVIM [name] -- /SYSTEM/BIN
 Neovim, on the Linux beneath, set up for the machine: its colours, its
-languages, F9 to compile and F10 to run (Chapter 11, The Linux Underneath).
+languages, F9 to compile and F10 to run (Chapter 12, The Linux Underneath).
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 PADTEST -- /SYSTEM/BIN
 The held-keys register, live: a gamepad's first test.
@@ -310,10 +320,17 @@ JIM, the terminal, speaking PETSCII.
 PROG [-s] [-v] [name] -- /SYSTEM/BIN
 The programmer's front end, in EDIT's manner: edit a C or Pascal program,
 compile it with F9, run it with Ctrl+F9, the compiler's messages under the
-text; -s (-system) the console's colours, -v (-vi) VI's keys (Chapter 9, The
+text; -s (-system) the console's colours, -v (-vi) VI's keys (Chapter 10, The
 Editors).
 
-=> 11-EDITORS.GMI Chapter 9, The Editors
+=> 11-EDITORS.GMI Chapter 10, The Editors
+
+RADIO [words] -- ROM, bank 4
+The remote for k4510-radio, the player on the Linux beside the machine: alone,
+what is playing; MUSIC [playlist], STATION n, PODCAST n [m] start one in the
+background; NEXT, PAUSE, RESUME, STOP steer whichever is running, in the
+Terminal screen or not. Lists in /SYSTEM/ETC/RADIO.CFG; the volume is the
+machine's.
 
 RANGER -- /SYSTEM/BIN
 The miller-column file manager.
@@ -345,9 +362,9 @@ TYPE name -- /SYSTEM/BIN
 A file, a screenful at a time; Esc or Q stops. A URL works.
 
 VI [name] -- /SYSTEM/BIN
-The modal editor (Chapter 9, The Editors).
+The modal editor (Chapter 10, The Editors).
 
-=> 11-EDITORS.GMI Chapter 9, The Editors
+=> 11-EDITORS.GMI Chapter 10, The Editors
 
 WALL -- /SYSTEM/BIN
 What was sent to this machine from outside (tools/k4510-remote wall, on

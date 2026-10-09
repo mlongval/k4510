@@ -1,4 +1,4 @@
-# Chapter 9. The Editors
+# Chapter 10. The Editors
 
 Two of them, because they answer different questions. EDIT is the one to reach
 for first: it looks and works like the editor MS-DOS shipped from version 5
@@ -200,11 +200,11 @@ on -- which is how most people arrive in VI from a BASIC.
 ### Compiling from VI
 
 :make is the edit-compile loop without leaving the editor. It saves the file,
-compiles it with the machine's own CC or PAS (Chapter 11, The Linux
+compiles it with the machine's own CC or PAS (Chapter 12, The Linux
 Underneath) -- which one, the name decides -- and puts the cursor on the first
 error, with the message on the status line:
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 ```
 VI HELLO.C
@@ -420,12 +420,12 @@ BASIC saves the program to a temporary file, runs the editor on it, and loads
 it back when you leave -- so what you type in the editor is what you LIST
 afterwards. Variables do not survive the round trip, exactly as with LOAD.
 Editing the program in VI has the details for EhBASIC; BBC BASIC does the same
-with *VI and *EDIT (Chapter 5, The Tube), and LOGO with EDIT "name (Chapter 7,
+with *VI and *EDIT (Chapter 6, The Tube), and LOGO with EDIT "name (Chapter 8,
 LOGO).
 
 => 04-EHBASIC.GMI Editing the program in VI
-=> 06-TUBE.GMI Chapter 5, The Tube
-=> 08-LOGO.GMI Chapter 7, LOGO
+=> 06-TUBE.GMI Chapter 6, The Tube
+=> 08-LOGO.GMI Chapter 8, LOGO
 
 To renumber it, which none of those BASICs could do for itself, use :renum in
 VI or Ctrl-R in EDIT. Both know the language from the file: a .BAS is
@@ -465,5 +465,5 @@ the editor exits.
 So: no file name, no SWAP needed, it is done for you; a file name, SWAP first.
 
 => INDEX.GMI Contents
-=> 10-PASCAL.GMI Previous: 8. Pascal
-=> 12-RX.GMI Next: 10. RX: the Machine's REXX
+=> 10-PASCAL.GMI Previous: 9. Pascal
+=> 12-RX.GMI Next: 11. RX: the Machine's REXX

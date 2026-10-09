@@ -17,6 +17,9 @@
 % The contents' page-number column: the book passed 100 pages, and the
 % default 1.55em is two digits wide in this face.
 \makeatletter\renewcommand{\@pnumwidth}{2.1em}\renewcommand{\@tocrmarg}{2.9em}\makeatother
+% ...and the section-number column: chapter 12 reached 12.10, wider than
+% the default 2.3em.
+\makeatletter\renewcommand*{\l@section}{\@dottedtocline{1}{1.5em}{2.8em}}\makeatother
 \RequirePackage{caption}
 \RequirePackage{fancyvrb}
 \RequirePackage[hidelinks]{hyperref}

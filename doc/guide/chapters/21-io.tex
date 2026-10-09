@@ -49,8 +49,9 @@ program does one of two things:
   the program ends the shell's own screen comes back.
 \end{itemize}
 
+\begin{sloppypar} % code words this long leave the first line no break
 \noindent \textbf{Effects are asked for, never given.}
-\verb|MODE 640x480 --smooth| (\verb|-m|; \verb|SetResolution(640, 480, true)|)
+\texttt{MODE 640x480 -{}-smooth} (\verb|-m|; \texttt{SetResolution(640, 480, true)})
 fills the panel instead, by the largest whole multiple and then smoothing
 --- sharp-bilinear, soft only at the last step. \verb|MODE -c|
 (\verb|--scanlines|) lays scanlines over whatever mode is up: the lower
@@ -59,11 +60,12 @@ lines --- only where a row is two panel lines or more, so not at scale~1.
 A new size keeps them; \verb|MODE -p| (\verb|--plain|) takes every effect
 off. The two combine: \verb|MODE 400x300 -m -c|. A size larger than the
 panel is refused: no whole multiple fits, and shrinking is not a fit.
-\verb|RES.BAS| in \verb|/LANG/EHBASIC/EX| tours all of it, drawing on each
+\verb|RES.BAS| in \pth{/LANG/EHBASIC/EX} tours all of it, drawing on each
 screen with \verb|GRAPHICS 3|.
 Underneath it is VICKY's software resolution: \texttt{\$D0D0} GLASSCTL~2,
 the size in \texttt{\$D0D2}-\texttt{\$D0D5}, bit~4 for smoothing, bit~6
 for scanlines (Appendix~\ref{cha:registers}).
+\end{sloppypar}
 
 \section{A split screen: SHEILA}\label{sec:split}
 The Apple~II put four lines of text under its graphics; C64 programmers

@@ -85,11 +85,11 @@ Names that begin with a dot are hidden; `DIR -a` shows them, and `DIR -l` lists 
 
     SAY HELLO FROM THE DISK
 
-prints `HELLO FROM THE DISK` — there is no `SAY` command, only a `say.prg` in `/SYSTEM/BIN`. The same rule takes an `.RX` script ([Chapter 10, RX: the Machine’s REXX](12-rx.md)), so a REXX program is a command too. Only a program is run this way: typing the name of a text file at the prompt does not load it over the machine.
+prints `HELLO FROM THE DISK` — there is no `SAY` command, only a `say.prg` in `/SYSTEM/BIN`. The same rule takes an `.RX` script ([Chapter 11, RX: the Machine’s REXX](12-rx.md)), so a REXX program is a command too. Only a program is run this way: typing the name of a text file at the prompt does not load it over the machine.
 
 Several of the machine’s commands are programs in exactly this sense — `TYPE`, `VI`, `SETUP` and the monitor among them — and you cannot tell from the prompt which is which, which is the point. The disk is the host’s (and on the K4510’s own Linux, in RAM), so a program starts as quickly as a word in the ROM.
 
-These words open whole languages: `EHBASIC` ([Chapter 4, EhBASIC](04-ehbasic.md)), `BBC` ([Chapter 5, The Tube](06-tube.md)), `FORTH` ([Chapter 6, Forth](07-forth.md)), `LOGO` ([Chapter 7, LOGO](08-logo.md)), `RX` ([Chapter 10, RX: the Machine’s REXX](12-rx.md)) and `CPM`.
+These words open whole languages: `EHBASIC` ([Chapter 4, EhBASIC](04-ehbasic.md)), `BBC` ([Chapter 6, The Tube](06-tube.md)), `FORTH` ([Chapter 7, Forth](07-forth.md)), `LOGO` ([Chapter 8, LOGO](08-logo.md)), `RX` ([Chapter 11, RX: the Machine’s REXX](12-rx.md)) and `CPM`.
 
 ### What is on the disk
 
@@ -117,7 +117,7 @@ These words open whole languages: `EHBASIC` ([Chapter 4, EhBASIC](04-ehbasic.md)
 </tr>
 <tr class="odd">
 <td style="text-align: left;"><code>CHESS</code></td>
-<td style="text-align: left;">a chess set with an engine; it can also be driven from a script (<a href="12-rx.md">Chapter 10, RX: the Machine’s REXX</a>)</td>
+<td style="text-align: left;">a chess set with an engine; it can also be driven from a script (<a href="12-rx.md">Chapter 11, RX: the Machine’s REXX</a>)</td>
 </tr>
 <tr class="even">
 <td style="text-align: left;"><code>OPLPLAY</code></td>
@@ -184,7 +184,7 @@ Whatever you type after the alias is added to the end, so a definition takes arg
 
 Turn on *status bands* (F12, under Terminal) and the console stops being the whole screen: a band at the top and a band at the bottom stay still while the text scrolls between them. Each band is one row high: the bands are on or off, and that is the only setting.
 
-The bands are JIM’s, the terminal’s, the way tmux’s status line is tmux’s: the machine does not draw in them, and nothing a program prints or pokes into the console’s screen can reach them. **The top band** names what is on the screen at its left and has the clock and the date at its right, in whichever formats the Terminal page is set to. The first name is what is running: `K/OS` at the prompt, `EhBASIC INVADER2.BAS` once a program is loaded, `EhBASIC PROG.BAS > VI EDITTMP.BAS` while `*VI` has it, and `BBC BASIC > VI EDITTMP.BBC` from the Tube — a trail of who started whom, with the file each one has open, LOGO’s `.LGO`, BOOK’s page and CP/M or the Linux prompt on the Tube included. While the second screen (below) is up it says `Terminal`. **The bottom band** has, at its right, the network the computer has — `LAN` for a cable, `Wi-Fi` and its signal’s quality, `offline` — and, on a laptop, the battery’s charge, with an arrow up while it charges and down while it does not — and, with *Battery time* on (F12, under Terminal), the time it has left after it, `77%`` (7:16)`, or while it charges the time to full; at its left whatever a program last asked JIM to put there, and, while somebody types into the machine from another computer ([Chapter 11, The Linux Underneath](13-linux.md)), the keys they send.
+The bands are JIM’s, the terminal’s, the way tmux’s status line is tmux’s: the machine does not draw in them, and nothing a program prints or pokes into the console’s screen can reach them. **The top band** names what is on the screen at its left and has the clock and the date at its right, in whichever formats the Terminal page is set to. The first name is what is running: `K/OS` at the prompt, `EhBASIC INVADER2.BAS` once a program is loaded, `EhBASIC PROG.BAS > VI EDITTMP.BAS` while `*VI` has it, and `BBC BASIC > VI EDITTMP.BBC` from the Tube — a trail of who started whom, with the file each one has open, LOGO’s `.LGO`, BOOK’s page and CP/M or the Linux prompt on the Tube included. While the second screen (below) is up it says `Terminal`. **The bottom band** has, at its right, the network the computer has — `LAN` for a cable, `Wi-Fi` and its signal’s quality, `offline` — and, on a laptop, the battery’s charge, with an arrow up while it charges and down while it does not — and, with *Battery time* on (F12, under Terminal), the time it has left after it, `77%`` (7:16)`, or while it charges the time to full; at its left whatever a program last asked JIM to put there, and, while somebody types into the machine from another computer ([Chapter 12, The Linux Underneath](13-linux.md)), the keys they send — after a reversed `REMOTE`, which is there whenever another computer may see or drive the machine.
 
 A program asks for that line the way it asks JIM for anything, in the stream it prints: `ESC ] 4510 ; note ; `*text*` BEL` (an empty text takes it away again). A program that wants the bands whole can still claim them from VICKY — she lays the screen out — and write into the bands’ own memory; JIM keeps out until it hands them back. `BANDS` in `/SYSTEM/BIN` is the demonstration, and Appendix A has the registers (`$D0B0`–`$D0BF`). The CPU clock is not in the bands: what it changes is how soon a long calculation ends, which the calculation shows better than a number would. `INFO` has it. Programs that take the whole screen — the games, the editors — get the whole screen anyway: the bands are part of the console, and the console is what a program leaves behind when it asks for the glass.
 
@@ -206,7 +206,7 @@ tmux’s own keys then move between its windows, and one line in that server’s
 
     bind K run-shell "printf '\033]4510;kos\007' > #{client_tty}"
 
-That is JIM’s own sequence, `ESC ] 4510 ; kos BEL` (`; term` goes the other way), and any program on either screen may send it. The session follows the machine’s `MODE`: a change of size reaches it as a terminal’s resize. When it ends, Enter starts another. A machine with Linux locked off ([Chapter 11, The Linux Underneath](13-linux.md)) has no second screen: it is a way into Linux.
+That is JIM’s own sequence, `ESC ] 4510 ; kos BEL` (`; term` goes the other way), and any program on either screen may send it. The session follows the machine’s `MODE`: a change of size reaches it as a terminal’s resize. When it ends, Enter starts another. A machine with Linux locked off ([Chapter 12, The Linux Underneath](13-linux.md)) has no second screen: it is a way into Linux.
 
 ## The network
 
@@ -245,7 +245,7 @@ A zip file mounts the same way — one on the disk, one inside another mount, or
 
 Its folders are folders and its files open like any others, so a game shipped with its data as one zip runs from where it is mounted. The zip itself is never changed: copy a file out of it to change it. The whole zip is read when it is mounted, so a zip changed on the disk afterwards needs mounting again. A zip the machine cannot read safely is refused, not guessed at: one with a name that would climb out of its folder (`../`), an encrypted file, or a zip too big for the old format (zip64).
 
-For programs that want a live connection there is the *N: device* at `$D900` (FujiNet’s name for it): four channels, each a URL opened for reading and writing — `tcp://host:port` for a connection, `http://` for a page. `TELNET host port` is the demonstration, a `telnet.prg` in `/SYSTEM/BIN`: what you type goes out, what arrives is drawn by JIM, the terminal ([Chapter 5, The Tube](06-tube.md)), so a BBS gets its ANSI colours and CP437 art and the cursor and function keys go out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers the far end the terminal types *xterm-color*, *VT220*, *VT100* and *ANSI*, and a Unix host that takes the first gets UTF-8 as well. The register map is in [Chapter 13, The I/O Page](21-io.md) and `core/net.h`.
+For programs that want a live connection there is the *N: device* at `$D900` (FujiNet’s name for it): four channels, each a URL opened for reading and writing — `tcp://host:port` for a connection, `http://` for a page. `TELNET host port` is the demonstration, a `telnet.prg` in `/SYSTEM/BIN`: what you type goes out, what arrives is drawn by JIM, the terminal ([Chapter 6, The Tube](06-tube.md)), so a BBS gets its ANSI colours and CP437 art and the cursor and function keys go out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers the far end the terminal types *xterm-color*, *VT220*, *VT100* and *ANSI*, and a Unix host that takes the first gets UTF-8 as well. The register map is in [Chapter 14, The I/O Page](21-io.md) and `core/net.h`.
 
 So that there is no guessing, this is the whole list of what the machine speaks:
 
@@ -280,7 +280,7 @@ So that there is no guessing, this is the whole list of what the machine speaks:
 
 </div>
 
-An ssh *session* is `SSH` ([Chapter 11, The Linux Underneath](13-linux.md)).
+An ssh *session* is `SSH` ([Chapter 12, The Linux Underneath](13-linux.md)).
 
 ## CAPSLOCK
 
@@ -290,7 +290,7 @@ An ssh *session* is `SSH` ([Chapter 11, The Linux Underneath](13-linux.md)).
 
 `EXEC name` runs a text file as shell commands, one per line. A line whose first character is `#` is a comment, and a blank line is ignored. At power-on the machine runs `/STARTUP.BAT` as such a script, if it exists — straight in, with no pause and nothing to catch. It is the place to put your aliases; `/SYSTEM/ETC/STARTUP.SAMPLE` is one to copy from. If one ever stops the machine booting, [When STARTUP.BAT is the problem](02-shell.md#when-startupbat-is-the-problem) is the way out.
 
-A `.BAT` boots the machine and an `.RX` automates it: when a script needs to make a decision, read a result or talk to two things at once, that is RX’s job ([Chapter 10, RX: the Machine’s REXX](12-rx.md)) and `EXEC` does not try to compete.
+A `.BAT` boots the machine and an `.RX` automates it: when a script needs to make a decision, read a result or talk to two things at once, that is RX’s job ([Chapter 11, RX: the Machine’s REXX](12-rx.md)) and `EXEC` does not try to compete.
 
 ## The monitor
 
@@ -328,7 +328,7 @@ The palette last loaded is kept, in `k4510.cfg`: the machine comes back in it at
 
 `INFO` is the machine’s self-description; `TIME` the clock; `MODE` sets the text screen — `CLS` clears it and `CLG` clears the bitmap over it, whoever drew it — and both reach a BASIC through the `*` escape, which is how you tidy up after a demo that left its picture behind. `HUSH` silences the sound, whichever part of the machine is making it. `BANNER` clears the screen and prints the power-on banner again, which is a tidy way to end a session or start a screenshot. `RESET` restarts the machine from the shell, the same cold start the reset chord performs.
 
-`IDEA` is a screenshot in words: a thought about how something could be better, kept before it goes. It takes no text. Typing `IDEA` writes a new brainshot to `/SYSTEM/BRAINSHOTS` and opens VI on it, and the thought goes in there — a line, or a page. The machine adds what it knew at that moment — the time, the directory, what was running, the screen — so an idea found a week later still says what it was about. From a BASIC it is `*IDEA`, and it loads nothing over the program. The files are plain text; `TYPE` and VI read them, and so does the person you asked to build the idea ([Chapter 11, The Linux Underneath](13-linux.md)).
+`IDEA` is a screenshot in words: a thought about how something could be better, kept before it goes. It takes no text. Typing `IDEA` writes a new brainshot to `/SYSTEM/BRAINSHOTS` and opens VI on it, and the thought goes in there — a line, or a page. The machine adds what it knew at that moment — the time, the directory, what was running, the screen — so an idea found a week later still says what it was about. From a BASIC it is `*IDEA`, and it loads nothing over the program. The files are plain text; `TYPE` and VI read them, and so does the person you asked to build the idea ([Chapter 12, The Linux Underneath](13-linux.md)).
 
 It did once take the idea on the line itself, and that is worth knowing because it is the sort of convenience that looks free and is not. The text was typed into the shell’s command line, which is 96 bytes in the ROM’s own RAM, so anything longer than ninety characters was cut — and cut at eighty-four from a BASIC, where a star command travels through that same buffer with a wrapper around it. Worse, it was cut in the middle of a word and said nothing about it, which is precisely the wrong behaviour for a thing whose whole purpose is catching a thought before it escapes. Making the line longer would mean taking RAM from the ROM’s C stack, which has form for breaking the shell when it runs short. VI holds 256 characters to a line and as many lines as you care to type, so the longer road is the only honest one.
 
@@ -365,7 +365,7 @@ It did once take the idea on the line itself, and that is worth knowing because 
 </tbody>
 </table>
 
-The F12 menu, under Video, has the same two knobs: *Resolution* shows what the machine is actually in — it follows a `MODE` you type — and choosing another asks the ROM to perform it, because the console’s geometry belongs to the ROM and not to the host. VICKY can draw smaller fields than these, but they are for a program that wants the pixels, not for a shell; a program asks for them through the video registers ([Chapter 13, The I/O Page](21-io.md)).
+The F12 menu, under Video, has the same two knobs: *Resolution* shows what the machine is actually in — it follows a `MODE` you type — and choosing another asks the ROM to perform it, because the console’s geometry belongs to the ROM and not to the host. VICKY can draw smaller fields than these, but they are for a program that wants the pixels, not for a shell; a program asks for them through the video registers ([Chapter 14, The I/O Page](21-io.md)).
 
 The picture is always painted into 640×480: a 240-line mode has each line drawn twice, and a 320-wide one has its pixels doubled sideways. Raster lines and SHEILA’s display list count the glass, 0–479, not the mode — which matters the moment a program asks VICKY for a 200-line field, where the first line of the picture is raster line 40.
 

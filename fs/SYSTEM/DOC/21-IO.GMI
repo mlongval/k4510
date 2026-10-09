@@ -1,4 +1,4 @@
-# Chapter 13. The I/O Page
+# Chapter 14. The I/O Page
 
 One page, $D000-$DFFF, always visible. The authoritative register-level
 reference is the machine's own headers, and Appendix A, The Registers is
@@ -26,9 +26,47 @@ $D900  N:         the network: four channels, tcp://, http(s):// and tnfs://
 $DA00  JIM        the terminal: a VT100/ANSI in hardware, drawing on the
                   console's screen (see core/term.h)
 $DB00  workspace  not a device: 1 KB of RAM to $DEFF, K/OS's C stack (Chapter
-                  12, Memory)
+                  13, Memory)
 $DF00  far gate   call slots, descriptor table pointer, depth
 ```
+
+## Choosing a resolution
+
+A program never assumes a screen. The panel decides what the machine shows --
+1920x1080, 1366x768, whatever the computer has -- and K/OS picks one of that
+panel's integer display resolutions for itself. A program does one of two
+things:
+
+*
+
+ Use the screen it is given. VICKY says its size ($D0D6 GLASSW, $D0D8 GLASSH;
+Pascal's GetMaxX and GetMaxY after InitGraph(0)), and the program places
+things as shares of it.
+*
+
+ Ask for a size. MODE 640x480 -- from the prompt, from a program through the
+shell (rom_shell in C, SetResolution(640, 480, false) in Pascal's k4510 unit,
+*MODE 640x480 in EhBASIC). If the panel has an integer resolution of that
+size, that is it. If not, it is Integer Best Fit: exactly 640x480 pixels,
+shown at the largest whole multiple the panel holds, centred, the rest
+bordered in the frame colour -- on 1920x1080, twice, 1280x960 with borders of
+320 and 60. Nothing is blurred. K/OS lays its text out on it (80x30 in 8x16
+cells), and when the program ends the shell's own screen comes back.
+
+Effects are asked for, never given. MODE 640x480 --smooth (-m;
+SetResolution(640, 480, true)) fills the panel instead, by the largest whole
+multiple and then smoothing -- sharp-bilinear, soft only at the last step.
+MODE -c (--scanlines) lays scanlines over whatever mode is up: the lower half
+of every machine row dimmed, as a CRT's beam left a dark gap between lines --
+only where a row is two panel lines or more, so not at scale 1. A new size
+keeps them; MODE -p (--plain) takes every effect off. The two combine: MODE
+400x300 -m -c. A size larger than the panel is refused: no whole multiple
+fits, and shrinking is not a fit. RES.BAS in /LANG/EHBASIC/EX tours all of it,
+drawing on each screen with GRAPHICS 3. Underneath it is VICKY's software
+resolution: $D0D0 GLASSCTL 2, the size in $D0D2-$D0D5, bit 4 for smoothing,
+bit 6 for scanlines (Appendix A, The Registers).
+
+=> A1-REGISTERS.GMI Appendix A, The Registers
 
 ## A split screen: SHEILA
 
@@ -85,5 +123,5 @@ for. The split itself costs every one of them nothing. A faster clock (F12, or
 SETUP) scales all three.
 
 => INDEX.GMI Contents
-=> 20-MEMORY.GMI Previous: 12. Memory
+=> 20-MEMORY.GMI Previous: 13. Memory
 => A1-REGISTERS.GMI Next: A. The Registers

@@ -64,7 +64,7 @@ Inside, it is 1985. The editor is WordStar’s: Ctrl-E, S, D and X move (the arr
 
 ## Mad Pascal, the cross-compiler
 
-*Mad Pascal* is the other kind entirely — a cross-compiler, like the cc65 this machine’s ROM is built with. You write on the desktop, `mp` compiles to 6502 assembly, MADS assembles it, and the result is a `.prg` beside the source in `/LANG/PASCAL` that the shell’s `RUN` loads like any other program — and, since 2026-09-08, one the machine can make for itself: `PAS HELLO` compiles `HELLO.PAS` in the directory you are standing in ([Chapter 11, The Linux Underneath](13-linux.md)). It is Tomasz Biela’s compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed and floating point, strings, records, pointers, units and inline assembly, made for the Atari and since taught the C64, the X16 and the Neo6502. The K4510 is its newest target.
+*Mad Pascal* is the other kind entirely — a cross-compiler, like the cc65 this machine’s ROM is built with. You write on the desktop, `mp` compiles to 6502 assembly, MADS assembles it, and the result is a `.prg` beside the source in `/LANG/PASCAL` that the shell’s `RUN` loads like any other program — and, since 2026-09-08, one the machine can make for itself: `PAS HELLO` compiles `HELLO.PAS` in the directory you are standing in ([Chapter 12, The Linux Underneath](13-linux.md)). It is Tomasz Biela’s compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16- and 32-bit integers, fixed and floating point, strings, records, pointers, units and inline assembly, made for the Atari and since taught the C64, the X16 and the Neo6502. The K4510 is its newest target.
 
     PMANDEL
 
@@ -86,7 +86,7 @@ A new program is a file in `fs/LANG/PASCAL`; `make` finds it, and so does `PAS` 
 
 ### The target
 
-Everything a Pascal program needs from the machine is in `pascal/` of the repository, laid out as it lives inside a Mad-Pascal checkout: the runtime base (`base/rtl6502_k4510.asm` and `base/k4510/`), where `@putchar` writes to JIM, the terminal ([Chapter 5, The Tube](06-tube.md)); the SYSTEM and CRT units’ machine halves (`lib/*_k4510.inc`); and a `k4510` unit. The consequences for the programmer:
+Everything a Pascal program needs from the machine is in `pascal/` of the repository, laid out as it lives inside a Mad-Pascal checkout: the runtime base (`base/rtl6502_k4510.asm` and `base/k4510/`), where `@putchar` writes to JIM, the terminal ([Chapter 6, The Tube](06-tube.md)); the SYSTEM and CRT units’ machine halves (`lib/*_k4510.inc`); and a `k4510` unit. The consequences for the programmer:
 
 - `Write` and `WriteLn` go through JIM, so the CRT unit is the real thing: `GotoXY`, `TextColor` and `TextBackground` (the palette’s constants: `BLUE`, `YELLOW`, `LIGHT_GREEN`…), `ClrScr`, `ClrEol`, `InsLine`/`DelLine`, `WhereX`/`WhereY`, `CursorOn`/`CursorOff`, `ReadKey` and `KeyPressed` on the keyboard device, `Delay` and `Pause` on the frame counter, and `Sound` on the machine’s sound sequencer — which changed its contract when the OPL2 became the machine’s chip: `Sound` takes a channel and a pitch in quarter-semitones and holds the note until `NoSound`. `TextMode(0)` puts the ROM’s screen back.
 
@@ -98,7 +98,7 @@ Everything a Pascal program needs from the machine is in `pascal/` of the reposi
 
 ### Floating point on the MATH unit
 
-`single` (IEEE-754, 32-bit) does not run in software here. The runtime’s add, subtract, multiply, divide, compare, `Trunc`, `Round` and `Frac` are the MATH unit at `$D700` ([Chapter 13, The I/O Page](21-io.md)): each is a few register moves and one write to FOP, and the unit answers in the next cycle. `PFLOAT` times five thousand rounds of multiply, divide, add and subtract: 5 frames on the unit, 24 with the software library (assemble with `mads -d:SOFTFLOAT=1` to get it back for comparison). The transcendentals are in the `k4510` unit — `MathSqrt`, `MathSin`, `MathCos`, `MathTan`, `MathAtan`, `MathAtan2`, `MathExp`, `MathLn`, `MathPow`, `MathFloor` — one register write each. SYSTEM’s own `Sqrt`/`Sin`/`Cos`/`ArcTan`/`Exp`/`Ln` on `single` run on the unit too: the installer patches `system.pas` under `{$ifdef k4510}`.
+`single` (IEEE-754, 32-bit) does not run in software here. The runtime’s add, subtract, multiply, divide, compare, `Trunc`, `Round` and `Frac` are the MATH unit at `$D700` ([Chapter 14, The I/O Page](21-io.md)): each is a few register moves and one write to FOP, and the unit answers in the next cycle. `PFLOAT` times five thousand rounds of multiply, divide, add and subtract: 5 frames on the unit, 24 with the software library (assemble with `mads -d:SOFTFLOAT=1` to get it back for comparison). The transcendentals are in the `k4510` unit — `MathSqrt`, `MathSin`, `MathCos`, `MathTan`, `MathAtan`, `MathAtan2`, `MathExp`, `MathLn`, `MathPow`, `MathFloor` — one register write each. SYSTEM’s own `Sqrt`/`Sin`/`Cos`/`ArcTan`/`Exp`/`Ln` on `single` run on the unit too: the installer patches `system.pas` under `{$ifdef k4510}`.
 
 ### Graphics on VICKY
 
@@ -136,7 +136,7 @@ Reads the whole file to far address `dest` and returns its length; 0 if it could
 Writes `len` bytes from `src` to the file, replacing it; true if it worked.
 
 **`Shell(const cmd: string)`** — *the shell*  
-Runs one line as if typed at the prompt: `DIR`, `CD`, `COPY`, `MKDIR`, `ECHO` and the rest. Its output goes to the screen; the result is the byte at `$03FF` ([Chapter 12, Memory](20-memory.md)), 0 if the command worked — read it straight after: it is the last byte of the runtime’s string buffer, and the next string operation may overwrite it.
+Runs one line as if typed at the prompt: `DIR`, `CD`, `COPY`, `MKDIR`, `ECHO` and the rest. Its output goes to the screen; the result is the byte at `$03FF` ([Chapter 13, Memory](20-memory.md)), 0 if the command worked — read it straight after: it is the last byte of the runtime’s string buffer, and the next string operation may overwrite it.
 
 **`WaitVBlank`** — *timing*  
 Waits for the next frame, a sixtieth of a second. `SYS_FRAMES` is the frame count’s low byte, for timing.
@@ -175,7 +175,7 @@ Every chip is a variable at its address, typed to fit, under the names of [Appen
 
 ##### A bank window.
 
-`FarPeek` is a call per byte. For a block of far memory used as an ordinary array — indexed, at full speed — point an 8 KB block of the CPU’s view at it with a bank register ([Chapter 12, Memory](20-memory.md)) and declare the array `absolute` there. The unit has no names for the bank registers; declare the one you use:
+`FarPeek` is a call per byte. For a block of far memory used as an ordinary array — indexed, at full speed — point an 8 KB block of the CPU’s view at it with a bank register ([Chapter 13, Memory](20-memory.md)) and declare the array `absolute` there. The unit has no names for the bank registers; declare the one you use:
 
     var win: array[0..8191] of byte absolute $8000;   { block 4 }
         BANK4: cardinal absolute D610;D600 + 4*4 }
@@ -206,7 +206,7 @@ A program names the units it wants on its `uses` line. `crt`, `graph` and `k4510
 
 ### CRT: the screen, the keyboard, the clock and the sound
 
-`uses crt`. Everything is drawn through JIM, the terminal ([Chapter 5, The Tube](06-tube.md)), so the screen is the console’s own 80 columns by 30 rows. Columns and rows count from 1, as in Turbo Pascal.
+`uses crt`. Everything is drawn through JIM, the terminal ([Chapter 6, The Tube](06-tube.md)), so the screen is the console’s own 80 columns by 30 rows. Columns and rows count from 1, as in Turbo Pascal.
 
 ##### `ClrScr`
 

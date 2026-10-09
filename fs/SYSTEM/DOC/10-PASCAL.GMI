@@ -1,4 +1,4 @@
-# Chapter 8. Pascal
+# Chapter 9. Pascal
 
 The machine has two Pascals, and they share nothing but the language. Keep
 them apart in your head from the start:
@@ -57,13 +57,13 @@ machine's ROM is built with. You write on the desktop, mp compiles to 6502
 assembly, MADS assembles it, and the result is a .prg beside the source in
 /LANG/PASCAL that the shell's RUN loads like any other program -- and, since
 2026-09-08, one the machine can make for itself: PAS HELLO compiles HELLO.PAS
-in the directory you are standing in (Chapter 11, The Linux Underneath). It is
+in the directory you are standing in (Chapter 12, The Linux Underneath). It is
 Tomasz Biela's compiler (MIT), a Turbo-Pascal-flavoured language with 8-, 16-
 and 32-bit integers, fixed and floating point, strings, records, pointers,
 units and inline assembly, made for the Atari and since taught the C64, the
 X16 and the Neo6502. The K4510 is its newest target.
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 ```
 PMANDEL
@@ -103,10 +103,10 @@ runs HELLO and PSIEVE through the ROM.
 Everything a Pascal program needs from the machine is in pascal/ of the
 repository, laid out as it lives inside a Mad-Pascal checkout: the runtime
 base (base/rtl6502_k4510.asm and base/k4510/), where @putchar writes to JIM,
-the terminal (Chapter 5, The Tube); the SYSTEM and CRT units' machine halves
+the terminal (Chapter 6, The Tube); the SYSTEM and CRT units' machine halves
 (lib/*_k4510.inc); and a k4510 unit. The consequences for the programmer:
 
-=> 06-TUBE.GMI Chapter 5, The Tube
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 *
 
@@ -141,7 +141,7 @@ the string buffer. Programs return to the shell with the ROM's state intact.
 
 single (IEEE-754, 32-bit) does not run in software here. The runtime's add,
 subtract, multiply, divide, compare, Trunc, Round and Frac are the MATH unit
-at $D700 (Chapter 13, The I/O Page): each is a few register moves and one
+at $D700 (Chapter 14, The I/O Page): each is a few register moves and one
 write to FOP, and the unit answers in the next cycle. PFLOAT times five
 thousand rounds of multiply, divide, add and subtract: 5 frames on the unit,
 24 with the software library (assemble with mads -d:SOFTFLOAT=1 to get it back
@@ -151,7 +151,7 @@ MathFloor -- one register write each. SYSTEM's own Sqrt/Sin/Cos/ArcTan/Exp/Ln
 on single run on the unit too: the installer patches system.pas under {$ifdef
 k4510}.
 
-=> 21-IO.GMI Chapter 13, The I/O Page
+=> 21-IO.GMI Chapter 14, The I/O Page
 
 ### Graphics on VICKY
 
@@ -216,11 +216,11 @@ Writes len bytes from src to the file, replacing it; true if it worked.
 Shell(const cmd: string) -- the shell
 Runs one line as if typed at the prompt: DIR, CD, COPY, MKDIR, ECHO and the
 rest. Its output goes to the screen; the result is the byte at $03FF (Chapter
-12, Memory), 0 if the command worked -- read it straight after: it is the last
+13, Memory), 0 if the command worked -- read it straight after: it is the last
 byte of the runtime's string buffer, and the next string operation may
 overwrite it.
 
-=> 20-MEMORY.GMI Chapter 12, Memory
+=> 20-MEMORY.GMI Chapter 13, Memory
 
 WaitVBlank -- timing
 Waits for the next frame, a sixtieth of a second. SYS_FRAMES is the frame
@@ -276,10 +276,10 @@ single load or store.
 
 FarPeek is a call per byte. For a block of far memory used as an ordinary
 array -- indexed, at full speed -- point an 8 KB block of the CPU's view at it
-with a bank register (Chapter 12, Memory) and declare the array absolute
+with a bank register (Chapter 13, Memory) and declare the array absolute
 there. The unit has no names for the bank registers; declare the one you use:
 
-=> 20-MEMORY.GMI Chapter 12, Memory
+=> 20-MEMORY.GMI Chapter 13, Memory
 
 ```
 var win: array[0..8191] of byte absolute $8000;   { block 4 }
@@ -339,11 +339,11 @@ units in the directory it compiles in.
 
 ### CRT: the screen, the keyboard, the clock and the sound
 
-uses crt. Everything is drawn through JIM, the terminal (Chapter 5, The Tube),
+uses crt. Everything is drawn through JIM, the terminal (Chapter 6, The Tube),
 so the screen is the console's own 80 columns by 30 rows. Columns and rows
 count from 1, as in Turbo Pascal.
 
-=> 06-TUBE.GMI Chapter 5, The Tube
+=> 06-TUBE.GMI Chapter 6, The Tube
 
 ##### ClrScr
 
@@ -699,5 +699,5 @@ the same thing.
 in assembly, write adr.buf, not buf.
 
 => INDEX.GMI Contents
-=> 08-LOGO.GMI Previous: 7. LOGO
-=> 11-EDITORS.GMI Next: 9. The Editors
+=> 08-LOGO.GMI Previous: 8. LOGO
+=> 11-EDITORS.GMI Next: 10. The Editors

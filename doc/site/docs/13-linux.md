@@ -14,7 +14,7 @@ A line beginning with `!` is not the machine’s:
 
 runs that command on the Linux the machine is standing on, with its output drawn on the machine’s screen. A bare `!` with nothing after it gives you an interactive shell there; leave it the way you leave any shell.
 
-It is carried on the Tube ([Chapter 5, The Tube](06-tube.md)), which is the part of this machine already built to have another processor’s console on the glass: the host’s shell is started on the same pty the co-processors use, JIM renders it, and the ROM’s own key loop feeds it. So the colours stay the machine’s, full-screen programs work — `nvim`, `htop` and `tmux` run in the window — and `ls --color` lands in the machine’s palette. The shell is told its terminal is **xterm-color**, and it speaks UTF-8: JIM draws what it can in the machine’s character set and a near likeness of the rest, and an accented letter you type arrives as one.
+It is carried on the Tube ([Chapter 6, The Tube](06-tube.md)), which is the part of this machine already built to have another processor’s console on the glass: the host’s shell is started on the same pty the co-processors use, JIM renders it, and the ROM’s own key loop feeds it. So the colours stay the machine’s, full-screen programs work — `nvim`, `htop` and `tmux` run in the window — and `ls --color` lands in the machine’s palette. The shell is told its terminal is **xterm-color**, and it speaks UTF-8: JIM draws what it can in the machine’s character set and a near likeness of the rest, and an accented letter you type arrives as one.
 
 JIM also draws *pictures*. It speaks the Kitty terminal’s graphics protocol, so a program that can show an image in a terminal that way shows it here, among the text, scrolling with it:
 
@@ -59,7 +59,7 @@ The compilers live on the Linux side, so the machine reaches them the same way y
     PAS HELLO
     HELLO
 
-`PAS name` compiles `name.PAS` with Mad Pascal, and leaves `name.prg` beside it; the name is looked for in the directory you are standing in, or give a path, `PAS /LANG/PASCAL/PMANDEL`. `CC name` does the same for `name.C` with cc65, using exactly the rule the machine’s own Makefile uses for its programs. A Pascal unit beside the program is found whatever case its name was saved in (Mad Pascal on Linux looks for `myunit.pas`; the machine writes `MYUNIT.PAS`). Intermediates go to a scratch directory and never appear on your disk. The compiler’s errors appear on the screen, one to a line as `FILE:LINE: Error: ...`, and in `/SYSTEM/LOG/MAKE.ERR`, which is what VI’s `:make` reads ([Chapter 9, The Editors](11-editors.md)); the exit status comes back as the result code, so a script can test it — as any `!` command’s does.
+`PAS name` compiles `name.PAS` with Mad Pascal, and leaves `name.prg` beside it; the name is looked for in the directory you are standing in, or give a path, `PAS /LANG/PASCAL/PMANDEL`. `CC name` does the same for `name.C` with cc65, using exactly the rule the machine’s own Makefile uses for its programs. A Pascal unit beside the program is found whatever case its name was saved in (Mad Pascal on Linux looks for `myunit.pas`; the machine writes `MYUNIT.PAS`). Intermediates go to a scratch directory and never appear on your disk. The compiler’s errors appear on the screen, one to a line as `FILE:LINE: Error: ...`, and in `/SYSTEM/LOG/MAKE.ERR`, which is what VI’s `:make` reads ([Chapter 10, The Editors](11-editors.md)); the exit status comes back as the result code, so a script can test it — as any `!` command’s does.
 
 That is the loop the machine owns: *edit the source on the machine, compile it from the machine’s prompt, run it on the machine.* The compiler itself still runs on the Linux beside it, which is why “self-hosted” has an “almost” in front of it — but the part that matters when you are writing a program is all on this side of the seam.
 
@@ -115,7 +115,7 @@ The K4510 Linux has `mosh` beside `ssh`, and a small command that chooses betwee
     k4510-connect you@server                     a shell there
     k4510-connect you@server tmux new -A -s k4510   the same tmux every time
 
-`k4510-connect` tries mosh first. If mosh is not on this side, or cannot start a session on the other — no `mosh-server` there, or its UDP ports blocked — it says so and runs `ssh -t` instead. A mosh session that ran and ended keeps its own result; only a mosh that fails within its first fifteen seconds falls back. Set `K4510_REMOTE=ssh` to skip mosh altogether. Either way the other side finds `K4510_CLIENT=1` in its environment — mosh calls every terminal `xterm-256color`, so a prompt or a tmux bar that dresses itself for the K4510 by `TERM` has this to go by. The same line can go in `/SYSTEM/ETC/TERMINAL.CFG`, so that Alt+2 opens it ([Chapter 2, The Shell](02-shell.md)).
+`k4510-connect` tries mosh first. If mosh is not on this side, or cannot start a session on the other — no `mosh-server` there, or its UDP ports blocked — it says so and runs `ssh -t` instead. A mosh session that ran and ended keeps its own result; only a mosh that fails within its first fifteen seconds falls back. Set `K4510_REMOTE=ssh` to skip mosh altogether. Either way — and with plain `mosh host`, which on the K4510 Linux adds it too — the other side finds `K4510_CLIENT=1` in its environment — mosh calls every terminal `xterm-256color`, so a prompt or a tmux bar that dresses itself for the K4510 by `TERM` has this to go by. The same line can go in `/SYSTEM/ETC/TERMINAL.CFG`, so that Alt+2 opens it ([Chapter 2, The Shell](02-shell.md)).
 
 **The other computer** needs `mosh` installed (it brings `mosh-server`) and UDP ports 60000–61000 open to you — on the tailnet, and on the home network if you connect there by its local address. Logging in is still ssh’s: a password, or a key if you give this machine one.
 
@@ -132,7 +132,19 @@ The K4510 Linux has `mosh` beside `ssh`, and a small command that chooses betwee
     k4510-radio station swiss jazz    a search of radio-browser.info
     k4510-radio podcast               your podcasts, then an episode
 
-While it plays: `n` the next, space to pause, `q` to stop; the volume is the machine’s — its volume keys, or F12 → Audio, which on the K4510’s own Linux set the computer’s whole volume, the machine’s sound and this together. The settings are `/SYSTEM/ETC/RADIO.CFG` on the machine’s disk: the Navidrome server, user and password (or the Navidrome sidebar’s), and your stations and podcasts, one a line. It plays MP3 through `mpg123`: Navidrome is asked to convert to it, the search keeps to MP3 stations, and an episode in another format is skipped. Without the network — Tailscale not up, say — it says which server it could not reach and stops.
+From the machine’s own prompt, `RADIO` is its remote: `RADIO MUSIC`, `RADIO STATION 2` or `RADIO PODCAST 1 3` starts one in the background, `RADIO NEXT`, `PAUSE`, `RESUME` and `STOP` steer whichever is playing — in the Terminal screen or not — and `RADIO` alone says what plays.
+
+While it plays in the Terminal: `n` the next, space to pause, `q` to stop; the volume is the machine’s — its volume keys, or F12 → Audio, which on the K4510’s own Linux set the computer’s whole volume, the machine’s sound and this together. The settings are `/SYSTEM/ETC/RADIO.CFG` on the machine’s disk: the Navidrome server, user and password (or the Navidrome sidebar’s), and your stations and podcasts, one a line. It plays MP3 through `mpg123`: Navidrome is asked to convert to it, the search keeps to MP3 stations, and an episode in another format is skipped. Without the network — Tailscale not up, say — it says which server it could not reach and stops.
+
+## The extras: big programs kept on the disk
+
+Everything of the K4510’s own Linux is copied into RAM at every start, so whatever is in it costs memory all the time. Programs too large for that — `mpv` and `ffmpeg` with their libraries, about 100 MB — are kept instead in one file on the partition where your work is saved, and read from the disk only when something runs:
+
+    sudo k4510-extras build           once: mpv and ffmpeg (or name others)
+    k4510-extras status               where it is, what it holds, mounted or not
+    mpv https://.../stream.mp3        mounted the first time, let go after 10 idle minutes
+
+The build asks Debian for whatever those programs need that the system lacks, and needs the network once. A deploy does not touch the file; `sudo k4510-extras remove` deletes it. A stick without a persistence partition has nowhere to keep it.
 
 ## On a stick
 
@@ -173,6 +185,8 @@ takes one as PrtSc would and prints the name it was saved under, in `shots/`; `k
     ssh k4510@machine "k4510-type 'BOOK\n'"
     ssh k4510@machine k4510-type --key down down enter
 
-`\n` is Enter and `~` a half-second pause; keys without a letter go by name (`up`, `pgdn`, `esc`, `f1`…). Typing and a screenshot at a time is the machine driven from another room — F12’s menu included, with `--key f12`. F12 → Input → *Key pipe* can turn it off, or — as it starts — show every key so typed at the foot of the screen. `k4510-screen` is the third tool beside them: the machine’s text screen, as text, so another computer can read what the machine says without looking at a picture.
+`\n` is Enter and `~` a half-second pause; keys without a letter go by name (`up`, `pgdn`, `esc`, `f1`…). Typing and a screenshot at a time is the machine driven from another room — F12’s menu included, with `--key f12`. F12 → Input → *Key pipe* must turn it on first — it starts off — and can show every key so typed at the foot of the screen.
+
+**Nobody watches unseen.** While anything lets another computer see or drive the machine, the left of the bottom band says `REMOTE`, reversed, and what: `keys` while the key pipe is on, `login` while someone is logged in to the Linux beneath from elsewhere (ssh, Tailscale SSH, mosh), `viewed` for a minute after the screen was read from outside (`k4510-shot`, `k4510-screen`). With the bands off, or a program holding them, the same words sit at the foot of the window instead. Remote control is off unless it is turned on, and when it is on, it shows. `k4510-screen` is the third tool beside them: the machine’s text screen, as text, so another computer can read what the machine says without looking at a picture.
 
 On the computer doing the driving, `tools/k4510-remote` puts the three together behind one command — `status`, `type`, `key`, `screen`, `expect` (wait until a text appears), `shot`, `run` (a script of those, one a line), `logs` and `reboot` — and `k4510-remote tui` is all of it from a menu, with the machine’s screen live above it and a pass-through mode in which what you type goes straight to the machine (Ctrl-\] leaves).

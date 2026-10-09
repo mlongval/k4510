@@ -15,7 +15,7 @@ The machine’s third language is native: no Tube, no co-processor, just 45GS10 
 
 ## The machine at your fingertips
 
-Forth’s oldest habit is poking hardware, and this machine is one large, friendly memory map. `C@` and `C!` reach every register of [Chapter 13, The I/O Page](21-io.md) directly:
+Forth’s oldest habit is poking hardware, and this machine is one large, friendly memory map. `C@` and `C!` reach every register of [Chapter 14, The I/O Page](21-io.md) directly:
 
     hex
     D000 C@ .            read a VICKY register
@@ -34,6 +34,8 @@ Tali brings an interactive 65C02 assembler and a disassembler, kept in because o
 ## Manners
 
 The dictionary has about 31.7 KB free for your words. `BYE` returns to the shell with the screen and the session exactly as you left them.
+
+**Escape or Ctrl+C stops a word that has run away**, as in the BASICs, RX and LOGO: Forth says `stopped` and is back at its prompt with its stacks emptied and your words kept. It looks for the key each time it prints a character and each time a program asks `KEY?`, so a loop that does neither — `BEGIN AGAIN` with nothing in it — still needs the reset chord.
 
 !!! note ""
     No file words yet: Forth source lives in `/LANG/FORTH` but must be typed. An `INCLUDED` that reads through the machine’s storage device is on the list.

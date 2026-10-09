@@ -1,0 +1,822 @@
+# K4510 BASIC
+
+K4510 BASIC is its own dialect. For every keyword, one rule: **QuickBASIC’s shape** (blocks, SUB/FUNCTION, SELECT CASE, labels, local variables, spelled as QuickBASIC spells them, so books and tutorials carry over), **EhBASIC’s words** (the machine’s vocabulary: GRAPHICS numbering, PLOT/LINE/TRI/BOX/CIRCLE, PALETTE, sprites, \*commands, so old programs keep working), and **the K4510’s hardware** (MELODY sound, held keys, VICKY collisions, far memory, FRED maths). Where it costs little, the other spelling is accepted too. No PC-isms (SCREEN palettes, OUT ports). Files are named, never numbered. Every error names the BASIC line.
+
+K4510 BASIC is the machine’s BASIC for writing programs. It speaks EhBASIC’s words (PRINT, INPUT, FOR, GOSUB, PLOT ...), but it is *compiled*: `k4510-bas` turns your `.BAS` file into Mad Pascal, and Mad Pascal turns that into a `.prg`, the same kind of program as everything in `/APPS`. The result runs many times faster than EhBASIC.
+
+You write a program in PROG (or VI, or any editor), save it as `NAME.BAS`, and then:
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Where</strong></th>
+<th style="text-align: left;"><strong>What to do</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">At the prompt</td>
+<td style="text-align: left;"><code>BAS NAME</code> compiles NAME.BAS into <code>name.prg</code>; <code>NAME</code> runs it</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">In PROG</td>
+<td style="text-align: left;"><strong>F9</strong> compiles; <strong>Ctrl-F9</strong> compiles and runs</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+There is no “immediate mode” (typing `PRINT 2+2` and getting 4). For a quick calculation or a one-line try, use RX: there `PRINT` works like `SAY`, so `PRINT 6*7` prints 42.
+
+EhBASIC is still on the machine for the old numbered programs in `/LANG/EHBASIC`. Every one of its examples is in `/LANG/BASIC/EX` too, written again in K4510 BASIC: `DEMOS` and `BENCH` are the menus.
+
+## A first program
+
+    ' guess the number -- the first K4510 BASIC program
+    CONST TRIES = 7
+    secret = 42
+    n% = 0
+    DO
+      INPUT "Your guess"; g
+      n% = n% + 1
+      IF g < secret THEN
+        PRINT "Higher"
+      ELSEIF g > secret THEN
+        PRINT "Lower"
+      END IF
+    LOOP UNTIL g = secret OR n% = TRIES
+    GOSUB Bravo
+    PRINT "Tries:"; n%; "of"; TRIES
+    END
+    Bravo:
+      IF g = secret THEN PRINT "You got it!" ELSE PRINT "Too bad"
+      RETURN
+
+No line numbers, keywords in any case, a label (`Bravo:`) where an old BASIC would have had `GOSUB 1000`.
+
+## Writing it down
+
+- **One statement per line**, or several separated by `:`.
+
+- **Keywords in any case**: `print`, `Print` and `PRINT` are the same. So are variable names: `Score` and `SCORE` are one variable.
+
+- **Comments** start with `'` or `REM` and run to the end of the line.
+
+- **Labels**: a name followed by `:` at the start of a line (`Again:`). `GOTO Again` and `GOSUB Again` jump there.
+
+- **Line numbers** still work, as labels: `100 PRINT "HI"` and `GOTO 100`. You can mix both, and leave most lines without one.
+
+## Variables
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Written</strong></th>
+<th style="text-align: left;"><strong>Holds</strong></th>
+<th style="text-align: left;"><strong>Starts as</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>score</code></td>
+<td style="text-align: left;">a number with decimals (single precision, about 7 figures)</td>
+<td style="text-align: left;">0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>lives%</code> &amp; a whole number, -32768 to 32767 &amp; 0</td>
+<td style="text-align: left;">a whole number, -32768 to 32767</td>
+<td style="text-align: left;">0</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>name$</code></td>
+<td style="text-align: left;">text, up to 255 characters</td>
+<td style="text-align: left;">“”</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+`a`, `a%` and `a$` are three different variables. Names can be as long as you like, and every letter counts (EhBASIC only looked at the first two).
+
+A whole-number variable rounds what it is given: `n% = 3.7` makes 4. A value outside -32768..32767 stops the program with “Overflow”.
+
+**Every variable belongs to the whole program**, wherever it is used, except the parameters of a SUB or FUNCTION and what a SUB or FUNCTION DIMs for itself (see below).
+
+### Arrays
+
+    DIM scores(10), board%(7, 7), names$(30)
+    scores(3) = 9.5
+    board%(0, 7) = 1
+
+- One or two dimensions. `DIM a(10)` has 11 elements, 0 to 10.
+
+- The size is a whole number or a CONST.
+
+- An array used without a DIM is `DIM`med to 10 for you.
+
+- An element of a text array holds up to 80 characters.
+
+- An array may use about 24 KB at most (DIM tells you if it is bigger).
+
+- A wrong index (`scores(11)`, `scores(-1)`) stops the program with “Index out of range”.
+
+### CONST
+
+    CONST TRIES = 7
+    CONST GREETING$ = "Hello"
+
+A CONST is a variable that may not be changed: `TRIES = 8` is an error when the program is compiled. A CONST made from a plain number can be an array’s size: `DIM grid(SIZE)`.
+
+## Values and operators
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Operator</strong></th>
+<th style="text-align: left;"><strong>Means</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>+ - * /</code></td>
+<td style="text-align: left;">add, subtract, multiply, divide (<code>/</code> always gives decimals)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>\</code>|</td>
+<td style="text-align: left;">whole-number division: <code>7 \ 2</code> is 3</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>MOD</code></td>
+<td style="text-align: left;">remainder: <code>7 MOD 2</code> is 1</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>^</code></td>
+<td style="text-align: left;">power: <code>2 ^ 10</code> is 1024</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>+</code> on text</td>
+<td style="text-align: left;">joins: <code>"ab" + "cd"</code> is <code>"abcd"</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>= &lt;&gt; &lt; &gt; &lt;= &gt;=</code></td>
+<td style="text-align: left;">compare numbers, or text (alphabetical, by character code)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>AND OR XOR NOT</code></td>
+<td style="text-align: left;">combine conditions; on numbers, they work bit by bit</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+`^` comes first, then a minus sign, then `* /`, `\`, `MOD`, `+ -`, the comparisons, `NOT`, `AND`, `XOR`, `OR`. So `-2 ^ 2` is -4. Brackets change the order as usual.
+
+A comparison used as a number is -1 (true) or 0 (false): `x = (3 > 2)` makes x -1. A number used as a condition is true when it is not 0: `IF lives% THEN ...`.
+
+Numbers can be written `12`, `3.75`, `.5`, `1.5E+12` or in hexadecimal `&HFF`.
+
+## Statements
+
+### Printing and asking
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Statement</strong></th>
+<th style="text-align: left;"><strong>What it does</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>PRINT a; b$; c</code></td>
+<td style="text-align: left;">prints; <code>;</code> keeps going on the same line</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>PRINT a, b</code></td>
+<td style="text-align: left;"><code>,</code> moves to the next column of 14</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>PRINT TAB(20); "x"</code></td>
+<td style="text-align: left;"><code>TAB(n)</code> moves to column n, <code>SPC(n)</code> prints n spaces</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>PRINT "no new line";</code></td>
+<td style="text-align: left;">a <code>;</code> or <code>,</code> at the end keeps the cursor on the line</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>? "hi"</code></td>
+<td style="text-align: left;"><code>?</code> is short for PRINT</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>INPUT "Your age"; age</code></td>
+<td style="text-align: left;">prints the question and <code>? </code>, waits for a line</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>INPUT "Name: ", n$</code></td>
+<td style="text-align: left;">with <code>,</code> no <code>? </code> is added</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>INPUT a, b</code></td>
+<td style="text-align: left;">several values, typed separated by commas</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>GET k$</code></td>
+<td style="text-align: left;">the key pressed, or “” if none: does not wait</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>CLS</code></td>
+<td style="text-align: left;">clears the screen</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>COLOR 7</code> / <code>COLOR 7, 6</code></td>
+<td style="text-align: left;">text colour, and background (0-15, the palette)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>LOCATE 10, 30</code></td>
+<td style="text-align: left;">moves the cursor to row 10, column 30</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+A number is printed with a space in front (where a minus sign would go) and one after: `PRINT 5; 6` shows ` 5 6 `. Text is printed as it is. Numbers show at most six figures, without useless zeros: `3.75`, `0.333333`, and very big or very small ones as `1.5E+12`.
+
+### Deciding
+
+    IF x > 10 THEN PRINT "big" ELSE PRINT "small"
+
+    IF age < 13 THEN
+      PRINT "child"
+    ELSEIF age < 18 THEN
+      PRINT "teenager"
+    ELSE
+      PRINT "adult"
+    END IF
+
+    SELECT CASE n%
+      CASE 1, 2
+        PRINT "one or two"
+      CASE 3 TO 9
+        PRINT "a few"
+      CASE IS >= 10
+        PRINT "lots"
+      CASE ELSE
+        PRINT "none"
+    END SELECT
+
+- The one-line IF keeps everything after THEN on that line; `IF x THEN 100` and `IF x GOTO 100` jump to a label or line number.
+
+- A many-line IF has nothing after THEN and ends with `END IF`.
+
+- `SELECT CASE` works with numbers and with text (`CASE "yes", "y"`).
+
+### Repeating
+
+    FOR i = 1 TO 10 STEP 2 ... NEXT i
+    WHILE lives% > 0 ... WEND
+    DO WHILE x < 5 ... LOOP
+    DO UNTIL done% ... LOOP
+    DO ... LOOP UNTIL key$ = "q"
+    DO ... LOOP WHILE x < 5
+    DO ... LOOP              ' forever, until EXIT DO
+
+- `STEP` may be negative (`FOR i = 10 TO 1 STEP -1`) or have decimals. Without STEP, the count goes up by 1.
+
+- `NEXT` may name its variable (`NEXT i`) or not.
+
+- `EXIT FOR` and `EXIT DO` leave the loop they are in.
+
+### Jumping
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Statement</strong></th>
+<th style="text-align: left;"><strong>What it does</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>GOTO label</code></td>
+<td style="text-align: left;">continues at the label (or line number)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>GOSUB label</code></td>
+<td style="text-align: left;">runs from the label until RETURN, then comes back</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>RETURN</code></td>
+<td style="text-align: left;">back to the statement after the GOSUB</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>END</code> or <code>STOP</code></td>
+<td style="text-align: left;">ends the program</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+GOSUBs can be inside each other up to 64 deep.
+
+### SUB and FUNCTION
+
+    SUB Stars (n%)
+      FOR i% = 1 TO n%: PRINT "*";: NEXT
+      PRINT
+    END SUB
+
+    FUNCTION Area (w, h)
+      Area = w * h
+    END FUNCTION
+
+    Stars 5
+    CALL Stars(3)
+    PRINT Area(3, 4)
+
+- A SUB is called by its name (with or without brackets round the values) or with `CALL`.
+
+- A FUNCTION gives back the value assigned to its own name.
+
+- They can be written anywhere in the file, before or after they are used.
+
+- `EXIT SUB` and `EXIT FUNCTION` leave early.
+
+- **Local variables:** `DIM x, n%, s$` or `DIM t(3)` inside a SUB or FUNCTION makes them its own, 0 or “” at every call, hiding the program’s variables of the same name. Its parameters are its own too. Every other variable inside it is the program’s variable of that name.
+
+- SUBs and FUNCTIONs may call themselves, or each other: every call has its own parameters and its own DIMmed variables.
+
+- `Name: next statement` is a call of the SUB Name followed by another statement; for any other name, `Name:` at the start of a line is a label.
+
+- Labels, GOTO and GOSUB stay outside SUBs and FUNCTIONs.
+
+### DATA and READ
+
+    FOR i = 1 TO 3: READ name, age: PRINT name; age: NEXT
+    DATA Ada, 36, "Grace", 85
+    DATA Alan, 41
+    RESTORE           ' READ starts again from the first DATA
+    RESTORE Colours   ' ... or from the DATA after a label
+
+- DATA can be anywhere in the program; READ takes the items in order.
+
+- An item is a number, a “quoted” text, or text written as it is (the spaces round it trimmed).
+
+- READ past the last item stops the program with “Out of DATA”.
+
+### ON ... GOTO, DEF FN
+
+    ON choice% GOTO One, Two, Three     ' 1 to One, 2 to Two ...
+    ON choice% GOSUB One, Two, Three
+    DEF FNarea(w, h) = w * h            ' a one-line function
+    DEF FNfull(a, b) = a + " " + b$
+    PRINT FNarea(3, 4)
+
+A value outside 1 to the number of labels goes on to the next statement.
+
+### The shell: \* and SHELL
+
+    *MODE 640x480               ' the rest of the line goes to K/OS, : and all
+    SHELL "MODE " + size$       ' a command worked out by the program
+    SHELL "INVADERS"            ' runs another program; this one goes on after it
+
+A program that changes the screen gets the shell’s own screen back when it ends (which clears it): wait for a key before END if the last words matter.
+
+### Repeating, again
+
+    REPEAT
+      n = n + 1
+    UNTIL n = 10
+    SWAP a, b            ' exchanges two variables of the same type
+
+### Sound
+
+    SOUND 440, 0.5                    ' 440 Hz for half a second: queued, the program goes on
+    SOUND OFF
+    PLAY "T120 O4 L8 CDEFGAB > C"     ' QBasic's music strings
+    PLAY 2, "O3 C4 E4 G2"             ' on channel 2 (1-3), with the others
+
+PLAY’s string: the notes `A`-`G` with `#`/`+` sharp and `-` flat, a length after a note (`C4`, `C8.`), `O` the octave and `<` `>` down and up, `L` the length, `T` the tempo, `V` the volume, `N` a note by number, `P` or `R` a rest.
+
+### Keys, joystick and time
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Word</strong></th>
+<th style="text-align: left;"><strong>Gives</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>JOY(0)</code></td>
+<td style="text-align: left;">the joystick (or the keys standing for it): UP 1, DOWN 2, LEFT 4, RIGHT 8, FIRE 16, A 32, B 64, added together</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>KEYDOWN(mask)</code></td>
+<td style="text-align: left;">true while those are held — no waiting, no key queue</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>WAITFRAME</code> / <code>WAITFRAME n</code></td>
+<td style="text-align: left;">waits for the next frame (60 a second), or n of them</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>FRAMES</code></td>
+<td style="text-align: left;">frames since the machine started</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>TIMER</code></td>
+<td style="text-align: left;">seconds since midnight, from the machine’s clock</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+### Moving sprites
+
+    SPRDEF 0, 1024, 16, 16, 4
+    MOVSPR 0, 100, 120         ' put it there
+    SPRVEL 0, 2, -1            ' and let it move by itself: 2 right, 1 up every WAITFRAME
+    DO
+      WAITFRAME
+      IF HIT(0) THEN PRINT "BUMP"      ' it touched another sprite
+      IF HITBG(0) THEN SPRVEL 0, 0, 0  ' ... or the picture
+    LOOP UNTIL SPRX(0) > 300
+
+SPRVEL works for sprites 0 to 15; `SPRX(n)` and `SPRY(n)` say where a sprite is. HIT and HITBG read VICKY’s collision bits.
+
+### Files
+
+    OPEN "SCORES.TXT" FOR OUTPUT AS SCORES
+    PRINT SCORES, name$, points
+    CLOSE SCORES
+    OPEN "SCORES.TXT" FOR INPUT AS SCORES      ' FOR INPUT may be left out
+    DO UNTIL EOF(SCORES)
+      INPUT SCORES, n$, p
+      PRINT n$; p
+    LOOP
+    CLOSE SCORES
+    OPEN "LOG.TXT" FOR APPEND AS LOG
+    LINE INPUT LOG, a$                          ' a whole line, commas and all (on an INPUT file)
+
+A file has a **name** in the program, never a number (`#SCORES` is accepted too). PRINT to a file puts commas between the values, so INPUT reads them back. At most four files are open at once, each up to 64 KB: a file for INPUT is read whole when it opens; OUTPUT and APPEND are written when they close, or when the program ends.
+
+### Other statements
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Statement</strong></th>
+<th style="text-align: left;"><strong>What it does</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>LET x = 5</code></td>
+<td style="text-align: left;">the same as <code>x = 5</code></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>SLEEP 1.5</code></td>
+<td style="text-align: left;">waits that many seconds</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>RANDOMIZE</code></td>
+<td style="text-align: left;">new random numbers (every program already starts with fresh ones)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>LINE INPUT "Name: "; a$</code></td>
+<td style="text-align: left;">a whole line, commas and all</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>PRINT USING "###.##"; x</code></td>
+<td style="text-align: left;">numbers in a pattern: <code>#</code> a digit, <code>.</code> the point; <code>!</code> <code>&amp;</code> for text</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>POKE address, value</code></td>
+<td style="text-align: left;">writes a byte into memory: 0-65535 is what the CPU sees, I/O included; 65536 and up is the machine’s far memory (to 16 MB), as <code>PEEK</code> reads it</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+## Functions
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Function</strong></th>
+<th style="text-align: left;"><strong>Gives</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>ABS(x)</code></td>
+<td style="text-align: left;">x without its sign</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>INT(x)</code></td>
+<td style="text-align: left;">x rounded down: <code>INT(-2.5)</code> is -3</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>FIX(x)</code></td>
+<td style="text-align: left;">x with its decimals cut off: <code>FIX(-2.5)</code> is -2</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>SGN(x)</code></td>
+<td style="text-align: left;">-1, 0 or 1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>SQR(x)</code></td>
+<td style="text-align: left;">square root</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>SIN COS TAN ATN (x)</code></td>
+<td style="text-align: left;">trigonometry, in radians</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>EXP(x)</code> <code>LOG(x)</code></td>
+<td style="text-align: left;">e to the power x; natural logarithm</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>RND</code> or <code>RND(1)</code></td>
+<td style="text-align: left;">a random number from 0 up to (not including) 1</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>LEN(a$)</code></td>
+<td style="text-align: left;">how many characters</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>ASC(a$)</code></td>
+<td style="text-align: left;">the code of the first character (0 if empty)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>CHR$(n)</code></td>
+<td style="text-align: left;">the character with code n</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>VAL(a$)</code></td>
+<td style="text-align: left;">the number written in a$ (<code>VAL("3.5")</code> is 3.5)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>STR$(x)</code></td>
+<td style="text-align: left;">the number as text, without the leading space</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>LEFT$(a$, n)</code> <code>RIGHT$(a$, n)</code></td>
+<td style="text-align: left;">the first / last n characters</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>MID$(a$, start)</code> <code>MID$(a$, start, n)</code></td>
+<td style="text-align: left;">n characters from position start (from 1)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>INSTR(a$, b$)</code></td>
+<td style="text-align: left;">where b$ is in a$ (1 = first character), 0 if it is not</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>UCASE(a)</code> <code>LCASE(a)</code></td>
+<td style="text-align: left;">in capitals / small letters</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>SPACE$(n)</code></td>
+<td style="text-align: left;">n spaces</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>STRING$(n, "*")</code></td>
+<td style="text-align: left;">n of a character (or of a code: <code>STRING$(n, 42)</code>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>LTRIM(a)</code> <code>RTRIM(a)</code></td>
+<td style="text-align: left;">without the spaces at the left / right</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>HEX$(n)</code></td>
+<td style="text-align: left;">n in hexadecimal</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>INKEY$</code></td>
+<td style="text-align: left;">the key pressed, or “”: does not wait</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>PEEK(address)</code></td>
+<td style="text-align: left;">a byte of memory</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+To make a whole number from 1 to 6: `INT(RND * 6) + 1`.
+
+## Graphics
+
+The graphics words draw on a picture laid over the text, as EhBASIC’s do. Colour 0 is see-through: the text shows through it.
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Statement</strong></th>
+<th style="text-align: left;"><strong>What it does</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>GRAPHICS 1</code></td>
+<td style="text-align: left;">the picture on, 320 x 240 (MODE 2), as in EhBASIC</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>GRAPHICS 2</code></td>
+<td style="text-align: left;">the picture on, 640 x 480 (MODE 0)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>GRAPHICS 3</code></td>
+<td style="text-align: left;">the picture on, at the size of the screen as it is (after <code>*MODE 400x300</code>, say)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>GRAPHICS 0</code></td>
+<td style="text-align: left;">the picture off, and the text mode GRAPHICS found back</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>PALETTE i, r, g, b</code></td>
+<td style="text-align: left;">colour i (0-255) as red, green, blue (0-255); 0-15 are the text’s</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>SPRDEF n, page, w, h, bpp</code></td>
+<td style="text-align: left;">sprite n (0-127) has its shape at page*256 in far memory, w x h (8, 16, 32, 64), 4 or 8 bits a pixel</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>SPRITE n, x, y</code></td>
+<td style="text-align: left;">puts sprite n there and shows it</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>SPROFF n</code></td>
+<td style="text-align: left;">hides it</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>GCLS</code></td>
+<td style="text-align: left;">clears the picture</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>PLOT x, y, c</code></td>
+<td style="text-align: left;">one dot</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>LINE x1, y1, x2, y2, c</code></td>
+<td style="text-align: left;">a line</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>BOX x1, y1, x2, y2, c</code></td>
+<td style="text-align: left;">a filled rectangle</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>TRI x1, y1, x2, y2, x3, y3, c</code></td>
+<td style="text-align: left;">a filled triangle</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>CIRCLE x, y, r, c</code></td>
+<td style="text-align: left;">a circle</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>GWIDTH</code> <code>GHEIGHT</code></td>
+<td style="text-align: left;">the picture’s width and height, in dots</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+The first drawing word turns the picture on (`GRAPHICS 3`) if the program has not. A program that ends with the picture on waits for a key, then takes it away. Coordinates and colours are whole numbers; (0, 0) is the top left.
+
+## Errors
+
+**When compiling.** A mistake stops the compile with a message and the line it is on: “IF (END IF) is never closed”, “there is no label Bravo”, “TRIES is a CONST: it cannot change”, “a number was expected here, not a string”. In PROG, F9 puts the cursor on that line.
+
+**When running.** Some mistakes can only be seen while the program runs. The program stops, prints the line and the reason, and goes back to K/OS; PROG then puts the cursor on that line:
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Message</strong></th>
+<th style="text-align: left;"><strong>Because</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>Line N: Division by zero</code></td>
+<td style="text-align: left;"><code>/</code>, <code>\</code>| or <code>MOD</code> by 0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>Line N: Index out of range (DIM it bigger?)</code></td>
+<td style="text-align: left;">an array index outside its DIM</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>Line N: Overflow: a whole number (%) holds -32768 to 32767</code></td>
+<td style="text-align: left;">too big for a <code>%</code> variable</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>Line N: RETURN without GOSUB</code></td>
+<td style="text-align: left;">a RETURN reached without a GOSUB</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>Line N: Too many GOSUBs inside each other</code></td>
+<td style="text-align: left;">more than 64 GOSUBs not yet RETURNed</td>
+</tr>
+</tbody>
+</table>
+
+</div>
+
+## Compared with EhBASIC and QuickBASIC
+
+**Like EhBASIC:** the words, the graphics statements, the variable types, PRINT’s look.
+
+**Unlike EhBASIC:** compiled, not interpreted; no line numbers needed; keywords in any case; every letter of a name counts; multi-line IF, SELECT CASE, SUB and FUNCTION, labels, LOCATE, COLOR, CLS, INKEY\$.
+
+**Like QuickBASIC:** the block statements (IF ... END IF, DO ... LOOP, SELECT CASE), labels, SUB and FUNCTION, CONST.
+
+**Not there (yet):**
+
+- `WRITE`, `ERASE`, `REDIM`, `SHARED`, `STATIC`
+
+- `ON ERROR`, `TYPE ... END TYPE`, `PAINT`, text on the picture (Doc’s list for later)
+
+- labels, `GOTO` and `GOSUB` inside a SUB or FUNCTION
+
+- `DATE$`
+
+- arrays of more than two dimensions; text array elements longer than 80
+
+- immediate mode (use RX)
+
+## Where things live
+
+The program itself is in the CPU’s 64 KB from `$0800`, as every Mad Pascal program is. Text does not crowd it: every string variable, text array element and SUB string is a 256-byte slot in far memory, copied by DMA.
+
+<div class="center">
+
+<table>
+<thead>
+<tr class="header">
+<th style="text-align: left;"><strong>Far memory</strong></th>
+<th style="text-align: left;"><strong>Holds</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;"><code>$4C0000</code></td>
+<td style="text-align: left;">the ring of text values being worked on (48 slots)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$4D0000</code></td>
+<td style="text-align: left;">SUBs’ and FUNCTIONs’ text, call by call (250 slots)</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$4E0000</code></td>
+<td style="text-align: left;">the sprite table</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$4F0000</code></td>
+<td style="text-align: left;">the line MAKE.ERR gets on a runtime error</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$5F0000</code></td>
+<td style="text-align: left;">file names</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$600000</code></td>
+<td style="text-align: left;">the four files’ buffers, 64 KB each</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$800000</code></td>
+<td style="text-align: left;">string variables, up to 32768 of them (8 MB)</td>
+</tr>
+</tbody>
+</table>
+
+</div>

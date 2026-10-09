@@ -110,12 +110,12 @@ SAY HELLO FROM THE DISK
 ```
 
 prints HELLO FROM THE DISK -- there is no SAY command, only a say.prg in
-/SYSTEM/BIN. The same rule takes an .RX script (Chapter 10, RX: the Machine's
+/SYSTEM/BIN. The same rule takes an .RX script (Chapter 11, RX: the Machine's
 REXX), so a REXX program is a command too. Only a program is run this way:
 typing the name of a text file at the prompt does not load it over the
 machine.
 
-=> 12-RX.GMI Chapter 10, RX: the Machine's REXX
+=> 12-RX.GMI Chapter 11, RX: the Machine's REXX
 
 Several of the machine's commands are programs in exactly this sense -- TYPE,
 VI, SETUP and the monitor among them -- and you cannot tell from the prompt
@@ -123,14 +123,14 @@ which is which, which is the point. The disk is the host's (and on the K4510's
 own Linux, in RAM), so a program starts as quickly as a word in the ROM.
 
 These words open whole languages: EHBASIC (Chapter 4, EhBASIC), BBC (Chapter
-5, The Tube), FORTH (Chapter 6, Forth), LOGO (Chapter 7, LOGO), RX (Chapter
-10, RX: the Machine's REXX) and CPM.
+6, The Tube), FORTH (Chapter 7, Forth), LOGO (Chapter 8, LOGO), RX (Chapter
+11, RX: the Machine's REXX) and CPM.
 
 => 04-EHBASIC.GMI Chapter 4, EhBASIC
-=> 06-TUBE.GMI Chapter 5, The Tube
-=> 07-FORTH.GMI Chapter 6, Forth
-=> 08-LOGO.GMI Chapter 7, LOGO
-=> 12-RX.GMI Chapter 10, RX: the Machine's REXX
+=> 06-TUBE.GMI Chapter 6, The Tube
+=> 07-FORTH.GMI Chapter 7, Forth
+=> 08-LOGO.GMI Chapter 8, LOGO
+=> 12-RX.GMI Chapter 11, RX: the Machine's REXX
 
 ### What is on the disk
 
@@ -144,7 +144,7 @@ SKYFIRE  a formation shooter, in the Galaxian rules
 FLUFFY   a platformer: variable jump height, stomping, spikes
 BOMBER   a bomb-party arena
 CHESS    a chess set with an engine; it can also be driven from a script
-         (Chapter 10, RX: the Machine's REXX)
+         (Chapter 11, RX: the Machine's REXX)
 OPLPLAY  plays .OPL streams from its TUNES/
 MANDEL   the set, drawn by the machine
 CUBE     a rotating solid
@@ -265,9 +265,10 @@ while it charges and down while it does not -- and, with Battery time on (F12,
 under Terminal), the time it has left after it, 77%`` (7:16), or while it
 charges the time to full; at its left whatever a program last asked JIM to put
 there, and, while somebody types into the machine from another computer
-(Chapter 11, The Linux Underneath), the keys they send.
+(Chapter 12, The Linux Underneath), the keys they send -- after a reversed
+REMOTE, which is there whenever another computer may see or drive the machine.
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 A program asks for that line the way it asks JIM for anything, in the stream
 it prints: ESC ] 4510 ; note ;textBEL (an empty text takes it away again). A
@@ -329,10 +330,10 @@ bind K run-shell "printf '\033]4510;kos\007' > #{client_tty}"
 That is JIM's own sequence, ESC ] 4510 ; kos BEL (; term goes the other way),
 and any program on either screen may send it. The session follows the
 machine's MODE: a change of size reaches it as a terminal's resize. When it
-ends, Enter starts another. A machine with Linux locked off (Chapter 11, The
+ends, Enter starts another. A machine with Linux locked off (Chapter 12, The
 Linux Underneath) has no second screen: it is a way into Linux.
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 ## The network
 
@@ -405,15 +406,15 @@ For programs that want a live connection there is the N: device at $D900
 (FujiNet's name for it): four channels, each a URL opened for reading and
 writing -- tcp://host:port for a connection, http:// for a page. TELNET host
 port is the demonstration, a telnet.prg in /SYSTEM/BIN: what you type goes
-out, what arrives is drawn by JIM, the terminal (Chapter 5, The Tube), so a
+out, what arrives is drawn by JIM, the terminal (Chapter 6, The Tube), so a
 BBS gets its ANSI colours and CP437 art and the cursor and function keys go
 out as VT sequences; F12 hangs up (Escape belongs to the far end). It offers
 the far end the terminal types xterm-color, VT220, VT100 and ANSI, and a Unix
 host that takes the first gets UTF-8 as well. The register map is in Chapter
-13, The I/O Page and core/net.h.
+14, The I/O Page and core/net.h.
 
-=> 06-TUBE.GMI Chapter 5, The Tube
-=> 21-IO.GMI Chapter 13, The I/O Page
+=> 06-TUBE.GMI Chapter 6, The Tube
+=> 21-IO.GMI Chapter 14, The I/O Page
 
 So that there is no guessing, this is the whole list of what the machine
 speaks:
@@ -428,9 +429,9 @@ ftp://, sftp://    a directory on a server; sftp does not check the server's
 tcp://             a raw connection, through the N: device only
 ```
 
-An ssh session is SSH (Chapter 11, The Linux Underneath).
+An ssh session is SSH (Chapter 12, The Linux Underneath).
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 ## CAPSLOCK
 
@@ -455,9 +456,9 @@ booting, When STARTUP.BAT is the problem is the way out.
 
 A .BAT boots the machine and an .RX automates it: when a script needs to make
 a decision, read a result or talk to two things at once, that is RX's job
-(Chapter 10, RX: the Machine's REXX) and EXEC does not try to compete.
+(Chapter 11, RX: the Machine's REXX) and EXEC does not try to compete.
 
-=> 12-RX.GMI Chapter 10, RX: the Machine's REXX
+=> 12-RX.GMI Chapter 11, RX: the Machine's REXX
 
 ## The monitor
 
@@ -540,9 +541,9 @@ line, or a page. The machine adds what it knew at that moment -- the time, the
 directory, what was running, the screen -- so an idea found a week later still
 says what it was about. From a BASIC it is *IDEA, and it loads nothing over
 the program. The files are plain text; TYPE and VI read them, and so does the
-person you asked to build the idea (Chapter 11, The Linux Underneath).
+person you asked to build the idea (Chapter 12, The Linux Underneath).
 
-=> 13-LINUX.GMI Chapter 11, The Linux Underneath
+=> 13-LINUX.GMI Chapter 12, The Linux Underneath
 
 It did once take the idea on the line itself, and that is worth knowing
 because it is the sort of convenience that looks free and is not. The text was
@@ -585,9 +586,9 @@ machine is actually in -- it follows a MODE you type -- and choosing another
 asks the ROM to perform it, because the console's geometry belongs to the ROM
 and not to the host. VICKY can draw smaller fields than these, but they are
 for a program that wants the pixels, not for a shell; a program asks for them
-through the video registers (Chapter 13, The I/O Page).
+through the video registers (Chapter 14, The I/O Page).
 
-=> 21-IO.GMI Chapter 13, The I/O Page
+=> 21-IO.GMI Chapter 14, The I/O Page
 
 The picture is always painted into 640x480: a 240-line mode has each line
 drawn twice, and a 320-wide one has its pixels doubled sideways. Raster lines

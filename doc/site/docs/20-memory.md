@@ -61,6 +61,10 @@ The 45GS10’s program counter is 16 bits: code executes inside a 64 KB window
 
 </div>
 
+##### Sideways banks for programs.
+
+The sixteen 8 KB slots at `$FF00000` are RAM. K/OS loads its own banks into 1 to 4 at power-on and never touches 5 to 16 (`$FF08000-$FF1FFFF`), so a program may keep code or tables there and show one in its `$A000-$BFFF` window the way the ROM does: the three base bytes of block 5’s bank register (`$D614-$D616`) then `$00` to `$D617` to switch it in, `$80` to switch it out — or simply read and write them with flat pointers or DMA. Bank n is at `$FF00000` + (n-1)×`$2000`. They are RAM like the rest, so a power cycle clears them and a reset does not; a program that ends with the block still switched in has it switched out by the ROM, whose `MAP` off at exit clears every bank.
+
 Three bytes of system state are fixed, so that programs can rely on them:
 
 `$022E` — a script is running  
@@ -166,42 +170,54 @@ The 256 MB behind the window, by 28-bit address. Everything not in the list is
 <td style="text-align: left;">one blank text row in the current colours</td>
 </tr>
 <tr class="even">
+<td style="text-align: left;"><code>$003F800</code></td>
+<td style="text-align: left;">EhBASIC’s sprite table, 128 × 16 bytes</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>$04C0000-$063FFFF</code></td>
+<td style="text-align: left;">a K4510 BASIC program’s, while it runs: text being worked on, SUBs’ text, the sprite table (<code>$04E0000</code>), the runtime error line, file names and buffers (<a href="05-basic.md">Chapter 5, K4510 BASIC</a>)</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>$0800000</code></td>
+<td style="text-align: left;">... and its string variables, up to 8 MB</td>
+</tr>
+<tr class="odd">
 <td style="text-align: left;"><code>$E000000-$EC00000</code></td>
 <td style="text-align: left;">the editors’ (VI, EDIT, PROG): document slots, the file as loaded, the unnamed register, RENUM’s table, MAKE.ERR</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>$F000000</code></td>
 <td style="text-align: left;">the editors’ undo</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>$FD00000</code></td>
 <td style="text-align: left;"><code>SWAP</code>’s copy of the caller’s 64 KB</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>$FD10000</code></td>
 <td style="text-align: left;"><code>SWAP</code>’s copy of the screen</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>$FD40000</code></td>
 <td style="text-align: left;">the second screen’s text cells (<a href="02-shell.md#two-screens">Two screens</a>)</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>$FDFF000</code></td>
 <td style="text-align: left;">the shell’s palette, kept while a program runs</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>$FE00000</code></td>
 <td style="text-align: left;"><code>EXEC</code>’s script, loaded whole</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>$FE10000</code></td>
 <td style="text-align: left;">a <code>.PAL</code> being loaded</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td style="text-align: left;"><code>$FF00000-$FF1FFFF</code></td>
 <td style="text-align: left;">sideways ROM banks 1 to 16, 8 KB each: 1 to 4 are the ROM’s, 5 to 16 free for programs</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td style="text-align: left;"><code>$FFFA000-$FFFFFFF</code></td>
 <td style="text-align: left;">the ROM image, 24 KB, with a hole where the I/O page covers it</td>
 </tr>
@@ -212,7 +228,7 @@ The 256 MB behind the window, by 28-bit address. Everything not in the list is
 
 ## Programs
 
-A `.prg` begins with two addresses, where it loads and where it starts, and the shell honours both. The C programs of `/SYSTEM/BIN` load at `$0800`, as Mad Pascal’s do (their C stack is the top of `$0800-$CFFF`; the big ones — VI, EDIT, PROG, WORD — have layouts of their own that also use the RAM under the ROM), MS BASIC at `$7000`, EhBASIC in the RAM under the ROM (it leaves `$0800-$BCFF` to BASIC), and `MONITOR` at `$E000`, in the RAM under the ROM — so that the memory a monitor is there to look at, `$0800` to `$CFFF`, is left exactly as it was.
+A `.prg` begins with two addresses, where it loads and where it starts, and the shell honours both. The C programs of `/SYSTEM/BIN` load at `$0800`, as Mad Pascal’s do (their C stack is the top of `$0800-$CFFF`; the big ones — VI, EDIT, PROG, WORD — have layouts of their own that also use the RAM under the ROM; a K4510 BASIC program is a Mad Pascal one), EhBASIC in the RAM under the ROM (it leaves `$0800-$BCFF` to BASIC), and `MONITOR` at `$E000`, in the RAM under the ROM — so that the memory a monitor is there to look at, `$0800` to `$CFFF`, is left exactly as it was.
 
 ##### Waiting.
 

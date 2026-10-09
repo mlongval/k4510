@@ -1,6 +1,8 @@
 # EhBASIC
 
-The machine has two BASICs, and this is the one with the machine in it: EhBASIC 2.22 — Lee Davison’s Enhanced BASIC — with this machine’s additions: graphics statements that ride the blitter, floating point on the MATH unit, and an escape hatch to the shell. It has no sound *keyword*: a program that wants a note pokes the sound sequencer at `$D5E0` or the OPL2 at `$D480` directly, which on a machine with a friendly memory map is not much of a hardship ([Chapter 13, The I/O Page](21-io.md)).
+**For new programs**, there is K4510 BASIC ([Chapter 5, K4510 BASIC](05-basic.md)): EhBASIC’s words, no line numbers needed, compiled into a program many times faster. EhBASIC stays for the numbered programs, the demos here among them, and for trying a line at its prompt.
+
+The machine has two BASICs, and this is the one with the machine in it: EhBASIC 2.22 — Lee Davison’s Enhanced BASIC — with this machine’s additions: graphics statements that ride the blitter, floating point on the MATH unit, and an escape hatch to the shell. It has no sound *keyword*: a program that wants a note pokes the sound sequencer at `$D5E0` or the OPL2 at `$D480` directly, which on a machine with a friendly memory map is not much of a hardship ([Chapter 14, The I/O Page](21-io.md)).
 
     RUN EHBASIC
 
@@ -20,11 +22,14 @@ The menu chains: `RUN "name"` (or `LOAD` inside a running program) loads another
 ## The machine’s own statements
 
     GRAPHICS 2          640x480 bitmap over the text
+    GRAPHICS 3          a bitmap the size of the screen as it is
     PLOT X,Y,C          LINE X1,Y1,X2,Y2,C
     TRI X1,Y1,X2,Y2,X3,Y3,C
     PALETTE I,R,G,B     GCLS            GRAPHICS 0
 
 Colours 0–15 belong to the text screen; demos use 16 and up. `GRAPHICS 0` puts the text mode and its palette back, whatever the program changed.
+
+`GRAPHICS 3` changes no mode: it covers whatever screen there is, so a program asks for its size first and then draws on it — `*MODE 400x300` then `GRAPHICS 3` gives a 400×300 bitmap at the panel’s best whole multiple ([Choosing a resolution](21-io.md#choosing-a-resolution)). `*MODE 400x300 -m` smooths it to the panel, `-c` adds scanlines. VICKY says what came: the screen’s width and height are at 53462 and 53464 (two bytes each, `PEEK(53462)+256*PEEK(53463)`), the panel’s at 53440 and 53442. `RES.BAS` (R in the demo menu) walks through the sizes and effects, saying at each step what was asked and what came. When the program ends, the shell’s own screen comes back.
 
 ## Hardware sprites
 

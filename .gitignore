@@ -52,6 +52,8 @@ test/termtest
 test/termreplay
 test/vtconf
 test/jimbench
+test/jimgfxtest
+test/asan/
 test/uitest
 test/statetest
 k4510-slot*.k4s

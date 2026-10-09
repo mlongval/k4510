@@ -8,14 +8,25 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <limits.h>
+#include <sys/stat.h>
 
+/* What a remote program can make JIM hold (the review, 2026-10-09: it was
+ * 32 images of 64 MB each, about 2.2 GB in all, and the K4510x runs on old
+ * machines from a USB stick).  The images JIM keeps add up to JIMGFX_BUDGET
+ * at most -- one at 4096 x 4096 is all of it -- and the oldest shown goes to
+ * make room.  The payload and APC buffers are let go after each picture. */
 #define MAX_IMAGES   32
 #define MAX_PIXELS   (4096u * 4096u)               /* one image: 64 MB of RGBA is the most this will hold */
-#define MAX_PAYLOAD  (48u << 20)
+#define MAX_PAYLOAD  (32u << 20)                   /* one transmission, decoded (a PNG of a 4096 x 4096 photograph fits) */
+#define MAX_NUM      100000000                     /* a key's number saturates here: no int overflow */
+#define MAX_DRAW     65536                         /* a placement's size in glass pixels, at most (it is clipped to the glass) */
 #define CUBE0        40                            /* palette entries 40..255: the 6x6x6 cube */
 
 typedef struct { int id, w, h; uint8_t *rgba; unsigned used; } image_t;
 static image_t images[MAX_IMAGES];
+static size_t images_bytes;                        /* what the held images take, against JIMGFX_BUDGET */
 static unsigned tick;
 static int plane_w, plane_h, active;
 
@@ -65,18 +76,32 @@ void jimgfx_reset(void)
 {
     if (active) { vicky_write((uint8_t)(VR_LAYER(JIMGFX_LAYER) + VL_CTRL), 0); active = 0; }
     for (int i = 0; i < MAX_IMAGES; i++) { free(images[i].rgba); memset(&images[i], 0, sizeof images[i]); }
+    images_bytes = 0;
     free(tx.data); memset(&tx, 0, sizeof tx);
 }
 
 /* ---- images ----------------------------------------------------------------- */
 static image_t *image_find(int id) { for (int i = 0; i < MAX_IMAGES; i++) if (images[i].rgba && images[i].id == id) return &images[i]; return NULL; }
-static image_t *image_slot(int id)
+static void image_drop(image_t *m) { if (m->rgba) { images_bytes -= (size_t) m->w * m->h * 4; free(m->rgba); m->rgba = NULL; } }
+size_t jimgfx_held(void) { return images_bytes; }
+/* A slot for image `id`, `bytes` of RGBA, with room for it under the budget:
+ * an image of the same id is replaced; then the one shown longest ago goes,
+ * as many times as it takes. */
+static image_t *image_slot(int id, size_t bytes)
 {
-    image_t *m = image_find(id), *old = &images[0];
-    if (m) { free(m->rgba); m->rgba = NULL; return m; }
-    for (int i = 0; i < MAX_IMAGES; i++) { if (!images[i].rgba) return &images[i]; if (images[i].used < old->used) old = &images[i]; }
-    free(old->rgba); old->rgba = NULL;                                                         /* thirty-two held: the one shown longest ago goes */
-    return old;
+    image_t *m = image_find(id);
+    if (m) image_drop(m);
+    while (images_bytes + bytes > JIMGFX_BUDGET) {
+        image_t *old = NULL;
+        for (int i = 0; i < MAX_IMAGES; i++) if (images[i].rgba && (!old || images[i].used < old->used)) old = &images[i];
+        if (!old) break;
+        image_drop(old);
+    }
+    if (m) return m;
+    { image_t *old = NULL;
+      for (int i = 0; i < MAX_IMAGES; i++) { if (!images[i].rgba) return &images[i]; if (!old || images[i].used < old->used) old = &images[i]; }
+      image_drop(old);                                                                         /* thirty-two held: the one shown longest ago goes */
+      return old; }
 }
 
 /* ---- PNG: the kinds a screenshot or a photograph come in; not interlaced ---- */
@@ -150,19 +175,38 @@ static void say(jimgfx_todo_t *todo, int id, int quiet, int ok, const char *msg)
     if (quiet >= 2 || (ok && quiet >= 1)) return;
     if (id) snprintf(todo->reply, sizeof todo->reply, "\033_Gi=%d;%s\033\\", id, msg); else if (!ok) snprintf(todo->reply, sizeof todo->reply, "\033_G;%s\033\\", msg);
 }
+/* t=t's file must be a temporary one: under /tmp, $TMPDIR or /dev/shm, after
+ * the links are followed (the review, 2026-10-09: it unlinked any path that
+ * had "tty-graphics-protocol" in it). */
+static int in_dir(const char *real, const char *dir)
+{
+    char d[PATH_MAX]; size_t l;
+    if (!dir || !*dir || !realpath(dir, d)) return 0;
+    l = strlen(d);
+    while (l > 1 && d[l - 1] == '/') d[--l] = 0;
+    return !strncmp(real, d, l) && real[l] == '/';
+}
+static int temp_ok(const char *real) { return in_dir(real, "/tmp") || in_dir(real, "/dev/shm") || in_dir(real, getenv("TMPDIR")); }
+/* A picture's file.  Only a regular file is read, and opening does not wait
+ * (a FIFO named here would have stopped the machine). */
 static uint8_t *file_read(const char *path, int host, size_t *n, int temp)
 {
-    char real[1024]; FILE *f; long sz; uint8_t *b;
-    if (host) snprintf(real, sizeof real, "%s", path); else if (!io_fs_hostpath(path, real, sizeof real)) return NULL;
-    if (!(f = fopen(real, "rb"))) return NULL;
-    fseek(f, 0, SEEK_END); sz = ftell(f); fseek(f, 0, SEEK_SET);
-    if (sz <= 0 || (size_t) sz > MAX_PAYLOAD || !(b = malloc((size_t) sz))) { fclose(f); return NULL; }
-    if (fread(b, 1, (size_t) sz, f) != (size_t) sz) { free(b); fclose(f); return NULL; }
-    fclose(f);
-    if (temp && host && strstr(real, "tty-graphics-protocol")) unlink(real);                  /* the protocol's own rule for t=t: only a file that says it is one */
-    *n = (size_t) sz; return b;
+    char name[1024], real[PATH_MAX]; struct stat st; uint8_t *b; size_t got = 0; int fd;
+    if (host) snprintf(name, sizeof name, "%s", path); else if (!io_fs_hostpath(path, name, sizeof name)) return NULL;
+    if (!realpath(name, real)) return NULL;
+    if (temp && host && (!temp_ok(real) || !strstr(real, "tty-graphics-protocol"))) return NULL;   /* the protocol's own rule for t=t: only a file that says it is one */
+    if ((fd = open(real, O_RDONLY | O_NONBLOCK | O_CLOEXEC | O_NOCTTY)) < 0) return NULL;
+    if (fstat(fd, &st) || !S_ISREG(st.st_mode) || st.st_size <= 0 || (uint64_t) st.st_size > MAX_PAYLOAD || !(b = malloc((size_t) st.st_size))) { close(fd); return NULL; }
+    while (got < (size_t) st.st_size) { ssize_t r = read(fd, b + got, (size_t) st.st_size - got); if (r <= 0) break; got += (size_t) r; }
+    close(fd);
+    if (got != (size_t) st.st_size) { free(b); return NULL; }
+    if (temp && host) unlink(real);
+    *n = got; return b;
 }
 
+/* the payload buffer is let go once a transmission is over: a 32 MB one is not kept for the next */
+static void payload_release(void) { free(tx.data); tx.data = NULL; tx.n = tx.cap = 0; }
+static void apc_command(const jimgfx_geom_t *g, jimgfx_todo_t *todo);
 void jimgfx_apc(const uint8_t *buf, size_t len, const jimgfx_geom_t *g, jimgfx_todo_t *todo)
 {
     size_t semi = 0; int more = 0, first = !tx.on;
@@ -174,7 +218,7 @@ void jimgfx_apc(const uint8_t *buf, size_t len, const jimgfx_geom_t *g, jimgfx_t
         int key = buf[p], val = 0, neg = 0; size_t q = p + 2;
         if (p + 1 >= semi || buf[p + 1] != '=') break;
         if (q < semi && (buf[q] < '0' || buf[q] > '9') && buf[q] != '-') val = buf[q++];       /* a letter: a=T, t=f, o=z */
-        else { if (q < semi && buf[q] == '-') { neg = 1; q++; } while (q < semi && buf[q] >= '0' && buf[q] <= '9') val = val * 10 + (buf[q++] - '0'); if (neg) val = -val; }
+        else { if (q < semi && buf[q] == '-') { neg = 1; q++; } while (q < semi && buf[q] >= '0' && buf[q] <= '9') { int d = buf[q++] - '0'; val = val >= MAX_NUM / 10 ? MAX_NUM : val * 10 + d; } if (neg) val = -val; }
         if (key == 'm') more = val;
         else if (first || key == 'q') switch (key) {
             case 'a': tx.a = val; break; case 'f': tx.f = val; break; case 't': tx.t = val; break; case 's': tx.s = val; break; case 'v': tx.v = val; break;
@@ -185,9 +229,16 @@ void jimgfx_apc(const uint8_t *buf, size_t len, const jimgfx_geom_t *g, jimgfx_t
         p = q + 1;
     }
     tx.on = 1;
-    if (semi < len && !payload_add(buf + semi + 1, len - semi - 1)) { say(todo, tx.i, tx.q, 0, "ENOMEM:too much"); tx.on = 0; tx.n = 0; return; }
+    if (semi < len && !payload_add(buf + semi + 1, len - semi - 1)) { say(todo, tx.i, tx.q, 0, "ENOMEM:too much"); tx.on = 0; payload_release(); return; }
     if (more) return;                                                                           /* the rest is coming */
     tx.on = 0;
+    apc_command(g, todo);
+    payload_release();
+}
+
+/* a whole command, its payload in tx.data */
+static void apc_command(const jimgfx_geom_t *g, jimgfx_todo_t *todo)
+{
 
     if (tx.a == 'd') { jimgfx_clear(); tx.n = 0; return; }                                     /* delete: whichever was meant, the glass is cleared; ids stay loaded */
     if (tx.a == 'p') {
@@ -215,25 +266,30 @@ void jimgfx_apc(const uint8_t *buf, size_t len, const jimgfx_geom_t *g, jimgfx_t
       free(owned); tx.n = 0;
       if (!rgba) { say(todo, tx.i, tx.q, 0, "EBADPNG:JIM could not make a picture of that"); return; }
       if (tx.a == 'q') { free(rgba); say(todo, tx.i, tx.q, 1, "OK"); return; }
-      { image_t *m = image_slot(tx.i); m->id = tx.i; m->w = w; m->h = h; m->rgba = rgba; m->used = ++tick; }
+      { image_t *m = image_slot(tx.i, (size_t) w * h * 4); m->id = tx.i; m->w = w; m->h = h; m->rgba = rgba; m->used = ++tick; images_bytes += (size_t) w * h * 4; }
       say(todo, tx.i, tx.q, 1, "OK");
       if (tx.a != 'T') return; }
 place_it:
     { image_t *m = image_find(tx.i); int sw, sh, cols = tx.c, rows = tx.r;
       if (!m) return;
+      if (tx.x < 0 || tx.y < 0 || tx.x >= m->w || tx.y >= m->h) { say(todo, tx.i, tx.q, 0, "EINVAL:that part is not in the image"); return; }
       sw = tx.w > 0 ? tx.w : m->w - tx.x; sh = tx.h > 0 ? tx.h : m->h - tx.y;
-      if (tx.x < 0 || tx.y < 0 || sw <= 0 || sh <= 0 || tx.x + sw > m->w || tx.y + sh > m->h) { say(todo, tx.i, tx.q, 0, "EINVAL:that part is not in the image"); return; }
+      if (sw <= 0 || sh <= 0 || (int64_t) tx.x + sw > m->w || (int64_t) tx.y + sh > m->h) { say(todo, tx.i, tx.q, 0, "EINVAL:that part is not in the image"); return; }   /* in 64 bits: x + w overflowed int (the review, 2026-10-09) */
       /* Kitty's rule: with neither c nor r the picture is its own size in
        * pixels; with both it fills exactly that box, whatever that does to
        * its shape; with one, the other follows so the shape is kept. */
-      { int pw = sw, ph = sh;
-        if (cols && rows) { pw = cols * g->cell_w; ph = rows * g->cell_h; }
-        else if (cols) { pw = cols * g->cell_w; ph = (int)((int64_t) pw * sh / sw); }
-        else if (rows) { ph = rows * g->cell_h; pw = (int)((int64_t) ph * sw / sh); }
+      { int64_t pw = sw, ph = sh;                                                             /* c= and r= are a remote's: 64 bits, then at most MAX_DRAW */
+        if (cols < 0) cols = 0;
+        if (rows < 0) rows = 0;
+        if (cols && rows) { pw = (int64_t) cols * g->cell_w; ph = (int64_t) rows * g->cell_h; }
+        else if (cols) { pw = (int64_t) cols * g->cell_w; ph = pw * sh / sw; }
+        else if (rows) { ph = (int64_t) rows * g->cell_h; pw = ph * sw / sh; }
         if (pw < 1) pw = 1;
         if (ph < 1) ph = 1;
-        cols = (pw + g->cell_w - 1) / g->cell_w; rows = (ph + g->cell_h - 1) / g->cell_h;
-        todo->pw = pw; todo->ph = ph; }
+        if (pw > MAX_DRAW) pw = MAX_DRAW;
+        if (ph > MAX_DRAW) ph = MAX_DRAW;
+        cols = (int)((pw + g->cell_w - 1) / g->cell_w); rows = (int)((ph + g->cell_h - 1) / g->cell_h);
+        todo->pw = (int) pw; todo->ph = (int) ph; }
       todo->place = 1; todo->img = tx.i; todo->cols = cols; todo->rows = rows; todo->keep_cursor = tx.C == 1;
       todo->sx = tx.x; todo->sy = tx.y; todo->sw = sw; todo->sh = sh; }
 }
@@ -248,11 +304,15 @@ void jimgfx_draw(const jimgfx_todo_t *todo, const jimgfx_geom_t *g)
     if (!m || !todo->place || dw < 1 || dh < 1) return;
     plane_on(); m->used = ++tick;
     ox = g->px0 + g->cx * g->cell_w; oy = g->py0 + g->cy * g->cell_h;
-    for (int y = 0; y < dh; y++) {
+    if (m->w < todo->sx + todo->sw || m->h < todo->sy + todo->sh || todo->sx < 0 || todo->sy < 0) return;
+    /* only the rows and columns on the glass: a placement many times its size
+     * ran these loops 10^12 times (the review, 2026-10-09) */
+    { int ylo = oy < 0 ? -oy : 0, yhi = plane_h - oy < dh ? plane_h - oy : dh, xlo = ox < 0 ? -ox : 0, xhi = plane_w - ox < dw ? plane_w - ox : dw;
+    for (int y = ylo; y < yhi; y++) {
         int gy = oy + y, y0 = todo->sy + (int)((int64_t) y * todo->sh / dh), y1 = todo->sy + (int)((int64_t)(y + 1) * todo->sh / dh);
         if (gy < 0 || gy >= plane_h) continue;
         if (y1 <= y0) y1 = y0 + 1;
-        for (int x = 0; x < dw; x++) {
+        for (int x = xlo; x < xhi; x++) {
             int gx = ox + x, x0 = todo->sx + (int)((int64_t) x * todo->sw / dw), x1 = todo->sx + (int)((int64_t)(x + 1) * todo->sw / dw);
             unsigned r = 0, gg = 0, b = 0, a = 0, cnt = 0;
             if (gx < 0 || gx >= plane_w) continue;
@@ -263,5 +323,5 @@ void jimgfx_draw(const jimgfx_todo_t *todo, const jimgfx_geom_t *g)
               for (int k = 0; k < 3; k++) { q[k] = (int)(v[k] + (unsigned) d) / 51; if (q[k] > 5) q[k] = 5; }
               plane()[(size_t) gy * plane_w + gx] = (uint8_t)(CUBE0 + q[0] * 36 + q[1] * 6 + q[2]); }
         }
-    }
+    } }
 }

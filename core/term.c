@@ -872,12 +872,14 @@ void term_host_session(int on)
  * would for that many lines of text -- scrolling, and the pictures already up
  * scroll too -- and only then is it drawn; the cursor ends on the picture's
  * last row, just past it, unless the program asked for it to stay (C=1). */
+/* a big APC's buffer is not kept for the next (the review, 2026-10-09): Kitty's chunks are 4 KB */
+static void apc_release(void) { apc_n = 0; if (apc_cap > (64u << 10)) { free(apc); apc = NULL; apc_cap = 0; } }
 static void apc_done(void)
 {
-    if (tp != &TS[0]) { apc_n = 0; return; }   /* pictures are the machine's layers: not drawn for the second screen's session */
+    if (tp != &TS[0]) { apc_release(); return; }   /* pictures are the machine's layers: not drawn for the second screen's session */
     jimgfx_geom_t g; jimgfx_todo_t todo;
     gfx_geom(&g);
-    jimgfx_apc(apc, apc_n, &g, &todo); apc_n = 0;
+    jimgfx_apc(apc, apc_n, &g, &todo); apc_release();
     if (todo.reply[0]) reply(todo.reply);
     if (!todo.place) return;
     { int room = T.bot - T.cy + 1;
@@ -948,7 +950,7 @@ static void put_byte(uint8_t c)
     case 8: if (c == 'G' || c == '@') utf8_mode(c == 'G'); T.st = 0; return;
     case 9:                                                            /* inside an APC: kept whole until its ST */
         if (c == 0x1B) { T.st = 10; return; }
-        if (apc_n + 1 > apc_cap) { size_t nc = apc_cap ? apc_cap * 2 : 8192; uint8_t *nb = nc <= (64u << 20) ? realloc(apc, nc) : NULL; if (!nb) { T.st = 3; apc_n = 0; return; } apc = nb; apc_cap = nc; }   /* absurd: skip the rest as an OSC is skipped */
+        if (apc_n + 1 > apc_cap) { size_t nc = apc_cap ? apc_cap * 2 : 8192; uint8_t *nb = nc <= JIMGFX_APC_MAX ? realloc(apc, nc) : NULL; if (!nb) { T.st = 3; apc_n = 0; return; } apc = nb; apc_cap = nc; }   /* absurd: skip the rest as an OSC is skipped */
         apc[apc_n++] = c; return;
     case 10: T.st = 0; if (c == '\\') apc_done(); else apc_n = 0; return;
     }

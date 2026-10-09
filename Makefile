@@ -105,6 +105,25 @@ test/vtconf: test/vtconf.c $(CORE_OBJS)          # JIM against VT100/VT220/xterm
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 test/jimbench: test/jimbench.c $(CORE_OBJS)      # JIM on recorded nvim/tmux/mosh streams (test/jim/)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS) -ldl
+test/jimgfxtest: test/jimgfxtest.c $(CORE_OBJS)  # JIM's pictures against a hostile remote (the review, 2026-10-09)
+	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
+# The same and a fuzzer, with AddressSanitizer and UBSan: the whole core
+# rebuilt from source into test/asan/, so the normal objects are not touched.
+#   make jimfuzz            -> jimgfxtest, termtest, vtconf, then 60 s of fuzz
+#   make jimfuzz FUZZ_SECS=600 FUZZ_SEED=7
+SAN_FLAGS = -O1 -g -fsanitize=address,undefined -fno-sanitize-recover=undefined -fno-omit-frame-pointer -Icore
+CORE_SRCS = $(CORE_OBJS:.o=.c)
+FUZZ_SECS ?= 60
+FUZZ_SEED ?= 1
+test/asan/%: test/%.c $(CORE_SRCS)
+	@mkdir -p test/asan
+	$(CC) $(SAN_FLAGS) -o $@ $< $(CORE_SRCS) $(LDLIBS)
+jimfuzz: test/asan/jimgfxtest test/asan/termtest test/asan/vtconf test/asan/jimfuzz
+	./test/asan/jimgfxtest
+	./test/asan/termtest
+	./test/asan/vtconf
+	cd test/asan && ./jimfuzz $(FUZZ_SECS) $(FUZZ_SEED)
+.PHONY: jimfuzz
 
 test/fstest: test/fstest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
@@ -235,7 +254,7 @@ check-artifacts: $(DEMOS) rom/kernal.bin $(SIDEBAR_ZIPS)
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/vtconf test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/vtconf test/jimgfxtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -257,6 +276,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	./test/sidetest sdl/libk4510side.so
 	./test/termtest
 	./test/vtconf
+	./test/jimgfxtest
 	./test/uitest
 	./test/statetest
 	./test/pastest.sh

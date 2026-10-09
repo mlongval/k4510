@@ -34,6 +34,8 @@
 
 #define JIMGFX_PLANE 0x0F000000u     /* 1440x1080 bytes at most: $0F000000-$0F17BAFF, under the ROM at $0FFF0000 */
 #define JIMGFX_LAYER 3
+#define JIMGFX_BUDGET (64u << 20)    /* every image JIM holds, as RGBA, together: 64 MB (the oldest shown goes first) */
+#define JIMGFX_APC_MAX (48u << 20)   /* one APC, as received: past this the rest is skipped */
 
 typedef struct {
     int cols, rows;                  /* the text window, in cells */
@@ -59,4 +61,5 @@ void jimgfx_clear_rows(int y0, int y1);
 void jimgfx_clear(void);                         /* every picture off the glass; the images stay in memory, as Kitty's do */
 void jimgfx_reset(void);                         /* and forgotten: RIS, a mode change */
 int  jimgfx_active(void);
+size_t jimgfx_held(void);                        /* bytes the held images take (a test's) */
 #endif

@@ -28,6 +28,11 @@
 static pid_t s2_pid;
 static int s2_fd = -1, s2_dead;
 static int s2_jiggle;                        /* frames into a redraw asked of the session (io_screen2_redraw) */
+/* What the pty would not take yet (a paste into a busy session, EAGAIN): kept
+ * in order and offered again each frame, up to S2_OUTQ bytes (the review,
+ * 2026-10-09: the rest of a paste used to be dropped). */
+#define S2_OUTQ 65536
+static uint8_t s2_outq[S2_OUTQ]; static size_t s2_outn;
 static void s2_winsize(void)
 {
     struct winsize ws; int c = 80, r = 25;
@@ -83,7 +88,8 @@ static int s2_spawn(void)
     }
     if (s2_pid < 0) { s2_pid = 0; s2_fd = -1; term2_say("terminal: no pty for a session\r\n"); return -1; }
     fcntl(s2_fd, F_SETFL, O_NONBLOCK);
-    s2_dead = 0;
+    fcntl(s2_fd, F_SETFD, FD_CLOEXEC);          /* not inherited by what the emulator starts next (a `!` session, a helper) */
+    s2_dead = 0; s2_outn = 0;
     return 0;
 }
 int io_screen2_allowed(void) { return !io_lock_linux; }
@@ -105,9 +111,18 @@ void io_screen2_redraw(void)
     term2_wipe();
     if (s2_pid) s2_jiggle = 1;
 }
+static void s2_flush(void)
+{
+    size_t done = 0;
+    while (s2_fd >= 0 && done < s2_outn) { ssize_t w = write(s2_fd, s2_outq + done, s2_outn - done); if (w <= 0) break; done += (size_t) w; }
+    if (s2_fd < 0) done = s2_outn;
+    if (done) { memmove(s2_outq, s2_outq + done, s2_outn - done); s2_outn -= done; }
+}
 static void s2_write(const uint8_t *b, size_t n)
 {
-    while (s2_fd >= 0 && n) { ssize_t w = write(s2_fd, b, n); if (w <= 0) break; b += w; n -= (size_t) w; }
+    if (s2_fd < 0) return;
+    if (!s2_outn) while (n) { ssize_t w = write(s2_fd, b, n); if (w <= 0) break; b += w; n -= (size_t) w; }
+    if (n) { if (n > S2_OUTQ - s2_outn) n = S2_OUTQ - s2_outn; memcpy(s2_outq + s2_outn, b, n); s2_outn += n; }   /* behind what waits already: the order is kept */
 }
 void s2_key(uint16_t ent)
 {
@@ -131,14 +146,16 @@ void s2_pump(void)
     if (term2_fit(&c, &r)) s2_winsize();                            /* a MODE change: the session's size follows */
     if (s2_jiggle) { if (s2_jiggle == 1 || s2_jiggle == 6) s2_winsize(); if (++s2_jiggle > 6) s2_jiggle = 0; }
     if (!s2_pid) return;
+    s2_flush();
     while (rounds-- && (n = read(s2_fd, buf, sizeof buf)) > 0) {
         size_t m; uint8_t rep[256];
         term2_feed(buf, (size_t) n);
         if ((m = term2_replies(rep, sizeof rep))) s2_write(rep, m);  /* cursor reports, DA: the session asked */
     }
     if (waitpid(s2_pid, NULL, WNOHANG) == s2_pid) {
-        while ((n = read(s2_fd, buf, sizeof buf)) > 0) term2_feed(buf, (size_t) n);
-        close(s2_fd); s2_fd = -1; s2_pid = 0; s2_dead = 1;
+        rounds = 64;                                                /* the last words, at most 512 KB: a grandchild holding the pty open must not keep this loop going */
+        while (rounds-- && (n = read(s2_fd, buf, sizeof buf)) > 0) term2_feed(buf, (size_t) n);
+        close(s2_fd); s2_fd = -1; s2_pid = 0; s2_dead = 1; s2_outn = 0;
         term2_say("\r\n\x1b[0m[the session has ended: Enter starts another, Alt+1 is K/OS]\r\n");
     }
 }

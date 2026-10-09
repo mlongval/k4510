@@ -20,6 +20,7 @@
 #include "../core/io.h"
 #include "../core/term.h"
 #include "../core/jimgfx.h"
+#include "../core/state.h"
 
 #define W(r, v) io_write(IO_TERM + (r), (uint8_t)(v))
 #define R(r) io_read(IO_TERM + (r))
@@ -149,8 +150,45 @@ int main(void)
     check(strstr(rp, "i=9;OK") != NULL, "chunked transmit replies OK", rp + (rp[0] != 0));
     check(k4510_ram[JIMGFX_PLANE] != 0, "the picture is on the plane", NULL);
 
+    start("an APC past JIMGFX_APC_MAX, then JIM's own OSC (LOW 8)", 20);
+    { /* the byte past the cap is the one dropped; what follows used to be read as
+       * the stale OSC it landed in: here ESC ] 4510;kos BEL, a screen switch */
+      static char chunk[1 << 20]; size_t left = JIMGFX_APC_MAX - 1;   /* 'G' and these fill it */
+      memset(chunk, 'A', sizeof chunk);
+      init(); term2_open();
+      term2_feed((const uint8_t *) "\033_G", 3);
+      while (left) { size_t n = left < sizeof chunk ? left : sizeof chunk; term2_feed((const uint8_t *) chunk, n); left -= n; }
+      term2_feed((const uint8_t *) "x4510;kos\007", 10);
+      check(term_screen_request() == -1, "the APC's tail is not taken for ESC ] 4510;kos", NULL); }
+
+    start("ESC inside an APC that is not ST starts a sequence (LOW 8)", 5);
+    init();
+    send("\033_Gabc\033[3;5HX"); 
+    check(R(9) == 5 && R(10) == 2, "ESC [ 3;5 H after the APC moved the cursor", NULL);
+
+    start("a state saved inside an OSC loads in the ground state (LOW 10)", 5);
+    { FILE *a = tmpfile(), *b = tmpfile(); long na, nb, last = -1; int ca, cb;
+      init();
+      send("\033]4510;"); term_state_save(a);
+      send("k"); term_state_save(b);
+      na = ftell(a); nb = ftell(b); rewind(a); rewind(b);
+      for (long i = 0; i < na && i < nb; i++) { ca = fgetc(a); cb = fgetc(b); if (ca != cb) last = i; }
+      check(na == nb && last > 8, "found T.oscn in the record", NULL);
+      rewind(b);                                                        /* as saved: ESC ] 4510;k half sent */
+      check(term_state_load(b) == 0, "the state loads", NULL);
+      send("os\007");
+      check(term_screen_request() == -1, "the OSC is not finished after the load", NULL);
+      if (last > 8) {                                                   /* oscn = 200: osc_done wrote T.osc[200], past TS[0] */
+          fseek(b, last, SEEK_SET); fputc(200, b); fflush(b); rewind(b);
+          check(term_state_load(b) == 0, "the state loads", NULL);
+          send("\007kos\007"); 
+          check(term_screen_request() == -1, "no screen switch from a half OSC", NULL);
+          check(k4510_ram[0x030000] == 'k', "the bytes after the load are text", NULL);
+      }
+      fclose(a); fclose(b); }
+
     alarm(0);
     if (fails) { printf("jimgfxtest: %d failed\n", fails); return 1; }
-    printf("jimgfxtest: OK (the review's placements, sizes, numbers, the memory budget, FIFOs and t=t, chunks)\n");
+    printf("jimgfxtest: OK (the review's placements, sizes, numbers, the memory budget, FIFOs and t=t, chunks, an APC past the cap, ESC in an APC, a state saved mid-OSC)\n");
     return 0;
 }

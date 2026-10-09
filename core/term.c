@@ -950,9 +950,11 @@ static void put_byte(uint8_t c)
     case 8: if (c == 'G' || c == '@') utf8_mode(c == 'G'); T.st = 0; return;
     case 9:                                                            /* inside an APC: kept whole until its ST */
         if (c == 0x1B) { T.st = 10; return; }
-        if (apc_n + 1 > apc_cap) { size_t nc = apc_cap ? apc_cap * 2 : 8192; uint8_t *nb = nc <= JIMGFX_APC_MAX ? realloc(apc, nc) : NULL; if (!nb) { T.st = 3; apc_n = 0; return; } apc = nb; apc_cap = nc; }   /* absurd: skip the rest as an OSC is skipped */
+        if (apc_n + 1 > apc_cap) { size_t nc = apc_cap ? apc_cap * 2 : 8192; uint8_t *nb; if (nc > JIMGFX_APC_MAX) nc = JIMGFX_APC_MAX; nb = apc_cap < JIMGFX_APC_MAX ? realloc(apc, nc) : NULL; if (!nb) { T.st = 3; T.oscn = 0xFF; apc_release(); return; } apc = nb; apc_cap = nc; }   /* absurd: skip the rest as a foreign OSC is skipped (not ours: oscn $FF, or its tail was read as ESC ] 4510 -- the review, 2026-10-09) */
         apc[apc_n++] = c; return;
-    case 10: T.st = 0; if (c == '\\') apc_done(); else apc_n = 0; return;
+    case 10:                                                           /* ESC inside an APC: ST ends it; any other ESC x cancels it and is a sequence of its own */
+        if (c == '\\') { T.st = 0; apc_done(); return; }
+        apc_release(); T.st = 1; put_byte(c); return;
     }
 }
 
@@ -1087,6 +1089,10 @@ int  term_state_load(FILE *f)
     if (T.npar > NPAR) T.npar = NPAR;                            /* ...nor may the parser's own counters (review 2026-09-17): */
     if (T.u_need > 3 || T.u_nraw + T.u_need > 4) T.u_need = T.u_nraw = 0;   /* u_raw[] is 4, a sequence at most 4 */
     T.cur_at &= K4510_PHYS_MASK;
+    /* The parser starts in the ground state: a state saved mid-sequence (or
+     * edited) had st and oscn that osc_done trusted -- oscn 64-254 wrote past
+     * T.osc (the review, 2026-10-09). */
+    T.st = 0; T.npar = T.priv = T.inter = 0; memset(T.par, 0, sizeof T.par); T.oscn = 0; apc_release();
     vicky_cursor(0, 0, 0); return 0;
 }
 

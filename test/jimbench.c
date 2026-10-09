@@ -10,8 +10,10 @@
  *   (every recording: the .jst.gz files in test/jim/streams)
  *
  * --commit  a 640x480 text layer is up and the second screen is shown, so an
- *           ESC[?2026l repaints the whole frame at once (vicky_commit), as it
- *           does in the emulator: what a synchronized update adds
+ *           ESC[?2026l would repaint the whole frame at once (vicky_commit).
+ *           Since 2026-10-09 the second screen's never does -- s2_pump feeds
+ *           it before the raster, which draws the finished update -- and this
+ *           shows that cost gone (nvim's j held: 1.8 ms an update before)
  * --vterm   the same bytes through libvterm (with its screen layer), if the
  *           host has libvterm.so.0: a reference for "is JIM slow?"
  *

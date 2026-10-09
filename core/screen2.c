@@ -25,6 +25,8 @@
  * Alt+1 / Alt+2 (the frontend), F12 > Screen, the TERMINAL command and
  * ESC ] 4510 ; kos BEL from the session switch between the two.  Locked
  * machines (k4510-menu.cfg) have no second screen: it is a way into Linux. */
+#include <time.h>
+int io_lat_on; unsigned long long io_lat_read_ns;
 static pid_t s2_pid;
 static int s2_fd = -1, s2_dead;
 static int s2_jiggle;                        /* frames into a redraw asked of the session (io_screen2_redraw) */
@@ -33,6 +35,8 @@ static int s2_jiggle;                        /* frames into a redraw asked of th
  * 2026-10-09: the rest of a paste used to be dropped). */
 #define S2_OUTQ 65536
 static uint8_t s2_outq[S2_OUTQ]; static size_t s2_outn;
+#define S2_INQ 65536                         /* what was read and not yet fed (s2_feedable, below) */
+static uint8_t s2_in[S2_INQ + 8192]; static size_t s2_inn; static int s2_in_age;
 static void s2_winsize(void)
 {
     struct winsize ws; int c = 80, r = 25;
@@ -89,10 +93,11 @@ static int s2_spawn(void)
     if (s2_pid < 0) { s2_pid = 0; s2_fd = -1; term2_say("terminal: no pty for a session\r\n"); return -1; }
     fcntl(s2_fd, F_SETFL, O_NONBLOCK);
     fcntl(s2_fd, F_SETFD, FD_CLOEXEC);          /* not inherited by what the emulator starts next (a `!` session, a helper) */
-    s2_dead = 0; s2_outn = 0;
+    s2_dead = 0; s2_outn = 0; s2_inn = 0; s2_in_age = 0;
     return 0;
 }
 int io_screen2_allowed(void) { return !io_lock_linux; }
+int io_screen2_fd(void) { return s2_pid && s2_fd >= 0 && term_screen() == 1 ? s2_fd : -1; }
 void io_screen_show(int n)
 {
     if (n && io_lock_linux) { term_screen_show(0); return; }
@@ -138,6 +143,28 @@ void s2_key(uint16_t ent)
     n = term2_replies(out, sizeof out);
     s2_write(out, n);
 }
+/* What the session said, read but not yet given to JIM: the start of a
+ * synchronized update (ESC [ ? 2026 h) whose end has not come.  JIM is fed up
+ * to it, so the frame shows the last whole update with no hold on, and the
+ * rest waits for its ESC [ ? 2026 l -- no repaint of the whole frame for
+ * every update that ends (they came three to a frame: the review, 2026-10-09).
+ * Kept half a second at most, as JIM's own hold is, and 64 KB at most. */
+static const uint8_t SYNC_H[] = "\033[?2026h", SYNC_L[] = "\033[?2026l";
+static size_t s2_last(const uint8_t *b, size_t n, const uint8_t *pat)   /* the last place of pat in b, or n */
+{
+    size_t l = 8;                                                    /* both are 8 bytes */
+    for (size_t i = n >= l ? n - l + 1 : 0; i-- > 0; ) if (b[i] == 0x1B && !memcmp(b + i, pat, l)) return i;
+    return n;
+}
+static size_t s2_feedable(void)                                     /* how much of s2_in JIM may have now */
+{
+    size_t h = s2_last(s2_in, s2_inn, SYNC_H), l;
+    if (h == s2_inn) return s2_inn;                                  /* no update begun */
+    l = s2_last(s2_in + h, s2_inn - h, SYNC_L);
+    if (l != s2_inn - h) return s2_inn;                              /* the last one begun has ended */
+    if (s2_inn >= S2_INQ || s2_in_age >= 30) return s2_inn;          /* too long unfinished: as it is */
+    return h;
+}
 void s2_pump(void)
 {
     int c, r, req;
@@ -147,13 +174,22 @@ void s2_pump(void)
     if (s2_jiggle) { if (s2_jiggle == 1 || s2_jiggle == 6) s2_winsize(); if (++s2_jiggle > 6) s2_jiggle = 0; }
     if (!s2_pid) return;
     s2_flush();
-    while (rounds-- && (n = read(s2_fd, buf, sizeof buf)) > 0) {
-        size_t m; uint8_t rep[256];
-        term2_feed(buf, (size_t) n);
-        if ((m = term2_replies(rep, sizeof rep))) s2_write(rep, m);  /* cursor reports, DA: the session asked */
+    while (rounds-- && s2_inn < S2_INQ && (n = read(s2_fd, s2_in + s2_inn, sizeof s2_in - s2_inn)) > 0) {
+        if (io_lat_on && !io_lat_read_ns) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); io_lat_read_ns = (unsigned long long) ts.tv_sec * 1000000000ull + (unsigned long long) ts.tv_nsec; }
+        s2_inn += (size_t) n;
+    }
+    if (s2_inn) {
+        size_t f = s2_feedable(), m; uint8_t rep[256];
+        if (f) {
+            term2_feed(s2_in, f);
+            memmove(s2_in, s2_in + f, s2_inn - f); s2_inn -= f; s2_in_age = 0;
+            if ((m = term2_replies(rep, sizeof rep))) s2_write(rep, m);  /* cursor reports, DA: the session asked */
+        } else s2_in_age++;
     }
     if (waitpid(s2_pid, NULL, WNOHANG) == s2_pid) {
         rounds = 64;                                                /* the last words, at most 512 KB: a grandchild holding the pty open must not keep this loop going */
+        if (s2_inn) term2_feed(s2_in, s2_inn);
+        s2_inn = 0; s2_in_age = 0;
         while (rounds-- && (n = read(s2_fd, buf, sizeof buf)) > 0) term2_feed(buf, (size_t) n);
         close(s2_fd); s2_fd = -1; s2_pid = 0; s2_dead = 1; s2_outn = 0;
         term2_say("\r\n\x1b[0m[the session has ended: Enter starts another, Alt+1 is K/OS]\r\n");

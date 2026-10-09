@@ -22,4 +22,10 @@ bot=$(K4510_SYSOPT=0x0C ./test/headless rom/kernal.bin "$keys" 300 2>/dev/null |
 case "$bot" in *"built OK"*) ;; *) fail "the note did not reach the bottom band: $bot" ;; esac
 out=$(K4510_TERMINAL='exit 0' ./test/headless rom/kernal.bin "$(printf 'TERMINAL\n~~')" 200 2>&1)
 echo "$out" | grep -q "the session has ended" || { echo "$out"; fail "an ended session did not say so"; }
-echo "screentest: OK (TERMINAL and its keys, back to K/OS by JIM's OSC, the band's title and date, a note in the bottom band, an ended session)"
+# A synchronized update the session has finished is shown; one it has begun
+# and not finished is held back (core/screen2.c s2_feedable), but only half a
+# second: then it is shown as it stands (2026-10-09)
+out=$(K4510_TERMINAL='printf "\033[?2026hSYNC-ONE\033[?2026l\r\n\033[?2026hSYNC-TWO"; sleep 30' ./test/headless rom/kernal.bin "$(printf 'TERMINAL\n~~')" 400 2>&1)
+echo "$out" | grep -q "^SYNC-ONE" || { echo "$out"; fail "a finished synchronized update was not shown"; }
+echo "$out" | grep -q "^SYNC-TWO" || { echo "$out"; fail "an unfinished synchronized update was held for good"; }
+echo "screentest: OK (TERMINAL and its keys, back to K/OS by JIM's OSC, the band's title and date, a note in the bottom band, an ended session, synchronized updates)"

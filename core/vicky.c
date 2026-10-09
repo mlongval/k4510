@@ -579,8 +579,15 @@ static int reads_low(void)
     }
     return 0;
 }
+static int repainting;                               /* vicky_repaint's own begin_frame: not a new frame */
 void vicky_begin_frame(uint8_t *fb, int pitch)
 {
+    /* The second screen's bytes are read here, before this frame's lines and
+     * before frame_skip is decided: bytes that came during the last frame are
+     * on the glass at the end of this one.  They were read at vblank, after
+     * the picture was made, and waited a frame more (the JIM review,
+     * 2026-10-09: 16.7 ms on every echo). */
+    if (!repainting) io_frame_start();
     if (fb != frame_fb || pitch != frame_pitch) vicky_dirty = 1;   /* another buffer: it has not got the last picture */
     frame_fb = fb; frame_pitch = pitch;
     frame_skip = !vicky_dirty && !(reg[VR_SHEILACTL] & 1) && !jimgfx_active();
@@ -735,7 +742,7 @@ void vicky_repaint(uint8_t *fb, int pitch)
     uint8_t *sfb = frame_fb; int spitch = frame_pitch, sline = cur_line, swait = sh_wait;
     uint32_t spc = sh_pc; uint16_t scmp = raster_cmp;
     int sskip = frame_skip, sdirty = vicky_dirty;
-    vicky_begin_frame(fb, pitch);
+    repainting = 1; vicky_begin_frame(fb, pitch); repainting = 0;
     frame_skip = 0;                                  /* a repaint draws, whatever */
     for (int y = 0; y < glass_h; y++) vicky_line(y);
     memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16);

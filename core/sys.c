@@ -105,7 +105,8 @@ void title_file(const char *p)
             return;
         }
 }
-void io_frame_tick(void) { sys_frames++; seq_tick(); s2_pump(); term_tick(); dbg_frame(); }
+void io_frame_start(void) { s2_pump(); }
+void io_frame_tick(void) { sys_frames++; seq_tick(); term_tick(); dbg_frame(); }
 unsigned sys_cpu_khz = 40500;
 void io_set_cpu_khz(unsigned khz) { sys_cpu_khz = khz; }   /* the frontend, from the CPU clock setting */
 static void sys_latch(void)

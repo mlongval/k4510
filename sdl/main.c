@@ -10,6 +10,8 @@
 #include <stdlib.h>
 #include <unistd.h>   /* access(): is this the K4510 Linux? */
 #include <sys/wait.h>
+#include <poll.h>
+#include <glob.h>
 #include <ifaddrs.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -654,6 +656,86 @@ static void mouse_to_menu(void) { if (menu_is_open() && mouse_x >= 0) menu_mouse
 static int confine_on; static SDL_Rect confine_r;
 static uint64_t drawn_bits;                   /* the last 64 frames, a bit each: drawn (1) or not; the pacer's measure of rest */
 static Uint32 input_ms;                       /* the last key, button or motion the host saw */
+/* The wait between frames (2026-10-09, the JIM timing work).  It was one
+ * SDL_Delay to the deadline -- three frames at rest -- so a key waited for the
+ * next frame to be read, 8 ms on average and 50 ms after two idle seconds,
+ * before it reached the Terminal's pty.  Now the loop waits on SDL's queue:
+ * an event ends the wait at once, is handled (a key for the Terminal is
+ * written to its pty there and then), and the wait goes on to the same
+ * deadline, so the machine keeps its 60 frames a second.  An event while at
+ * rest ends the rest.  So do bytes from the Terminal's pty: at rest the wait
+ * is cut into frames and the pty looked at between them.  Out of rest that
+ * is not needed -- the next frame reads them before it draws (io_frame_start).
+ * X11 and Wayland block in SDL_WaitEventTimeout.  KMSDRM (the K4510 Linux)
+ * cannot -- SDL would wake every millisecond there -- so the wait is a poll()
+ * on the input devices themselves (/dev/input/event*, opened read-only beside
+ * SDL's own; each reader has its own queue, so ours are read and dropped) and
+ * the pty: it sleeps until a key, the pointer or the session moves, and rest
+ * keeps its 20 wakeups a second.  Where the devices cannot be opened, slices:
+ * 4 ms, 10 ms at rest. */
+static Uint64 pace_next, pace_until;          /* the next frame's deadline (perf counter); the wait's end, later at rest */
+#define PACE_SLICE_MS 4
+#define PACE_REST_SLICE_MS 10
+#define PACE_EV_MAX 32
+static int pace_ev[PACE_EV_MAX], pace_evn = -1; static Uint32 pace_ev_at;
+static void pace_ev_scan(void)                /* the input devices, again every five seconds: one plugged in is watched too */
+{
+    glob_t g;
+    for (int i = 0; i < pace_evn; i++) close(pace_ev[i]);
+    pace_evn = 0; pace_ev_at = SDL_GetTicks();
+    if (glob("/dev/input/event*", 0, NULL, &g) != 0) return;
+    for (size_t i = 0; i < g.gl_pathc && pace_evn < PACE_EV_MAX; i++) {
+        int fd = open(g.gl_pathv[i], O_RDONLY | O_NONBLOCK | O_CLOEXEC);
+        if (fd >= 0) pace_ev[pace_evn++] = fd;
+    }
+    globfree(&g);
+}
+/* KMSDRM's wait: poll the devices and the pty for at most ms.  1 an input
+ * device stirred, 2 the pty, 0 the time ran out, -1 no devices to watch. */
+static int pace_ev_wait(Uint32 ms, int pty)
+{
+    struct pollfd p[PACE_EV_MAX + 1]; int n = 0, r;
+    if (pace_evn < 0 || SDL_GetTicks() - pace_ev_at >= 5000) pace_ev_scan();
+    if (!pace_evn) return -1;
+    for (int i = 0; i < pace_evn; i++) { p[n].fd = pace_ev[i]; p[n].events = POLLIN; p[n].revents = 0; n++; }
+    if (pty >= 0) { p[n].fd = pty; p[n].events = POLLIN; p[n].revents = 0; n++; }
+    if ((r = poll(p, (nfds_t) n, (int) ms)) <= 0) return r < 0 ? -1 : 0;
+    if (pty >= 0 && (p[n - 1].revents & POLLIN)) return 2;
+    for (int i = 0; i < pace_evn; i++) {
+        if (p[i].revents & (POLLERR | POLLHUP | POLLNVAL)) { pace_ev_at = 0; continue; }   /* unplugged: scanned again next time */
+        if (p[i].revents & POLLIN) { char b[1536]; while (read(pace_ev[i], b, sizeof b) > 0) ; }   /* whole events: 64 of 24 bytes (96 of 16 on 32-bit); not <linux/input.h>, whose KEY_ names are io.h's */
+    }
+    return 1;
+}
+static int pace_wait(void)                    /* 1: woken early -- handle the events and call again; 0: the frame's time */
+{
+    static int block = -1, pty_seen;
+    if (block < 0) { const char *d = SDL_GetCurrentVideoDriver();
+                     block = d && (!strcmp(d, "x11") || !strcmp(d, "wayland") || !strcmp(d, "windows") || !strcmp(d, "cocoa")); }
+    for (;;) {
+        Uint64 now = SDL_GetPerformanceCounter(), f = SDL_GetPerformanceFrequency();
+        int resting = pace_until > pace_next, fd; Uint32 ms, slice;
+        if (now >= pace_until) { pty_seen = 0; return 0; }
+        ms = (Uint32)((pace_until - now) * 1000 / f);
+        if (!ms) { pty_seen = 0; return 0; }                  /* under a millisecond: the frame starts now (SDL_Delay floored too) */
+        fd = resting && !pty_seen ? io_screen2_fd() : -1;
+        if (fd >= 0) { struct pollfd p = { fd, POLLIN, 0 };
+                       if (poll(&p, 1, 0) > 0) { pty_seen = 1; pace_until = pace_next; continue; } }   /* the Terminal has something to show: rest is over */
+        slice = block ? ms : resting ? PACE_REST_SLICE_MS : PACE_SLICE_MS;
+        if (fd >= 0 && slice > 16) slice = 16;                /* at rest on the Terminal: look at the pty once a frame */
+        if (slice > ms) slice = ms;
+        if (block) { if (SDL_WaitEventTimeout(NULL, (int) slice)) break; }
+        else {
+            int w = pace_ev_wait(fd >= 0 ? (ms < 16 ? ms : 16) : ms, fd);   /* the devices themselves, or (none) a slice of sleep */
+            if (w < 0) SDL_Delay(slice);
+            else if (w == 2) { pty_seen = 1; pace_until = pace_next; continue; }
+            SDL_PumpEvents();
+            if (SDL_PeepEvents(NULL, 1, SDL_PEEKEVENT, SDL_FIRSTEVENT, SDL_LASTEVENT) > 0) break;
+        }
+    }
+    if (pace_until > pace_next) pace_until = pace_next;     /* someone is there: no more rest */
+    return 1;
+}
 static int present_force = 1, frame_static, frame_sides;   /* still frames: draw the window again; nothing around the picture moves;
                                                             * only the sidebars move (they are drawn at 30 a second) */
 static int confine_clamp(int *x, int *y)          /* 1 if (x,y) was outside and has been brought to the edge */
@@ -724,6 +806,14 @@ static uint8_t fb[VICKY_WIDTH * VICKY_HEIGHT];
 static Uint64 p_cpu, p_vic, p_snd;            /* the machine's half of the frame, split three ways (PERF.TXT) */
 #define PCLK() SDL_GetPerformanceCounter()
 static int m_line, m_cyc, m_in_frame;         /* the next scanline; cycles already run on it by single steps; between begin and end */
+/* K4510_LATLOG=file (2026-10-09, the JIM timing work): for each frame that
+ * first draws bytes from the second screen's pty, a line "read_ns shown_ns"
+ * -- when s2_pump read them and when the frame with them was presented, both
+ * CLOCK_MONOTONIC -- so byte-to-glass latency can be measured on a real
+ * machine (test/jim/latrun.sh). */
+static FILE *lat_f; static unsigned long long lat_armed;
+static unsigned long long mono_ns(void) { struct timespec ts; clock_gettime(CLOCK_MONOTONIC, &ts); return (unsigned long long) ts.tv_sec * 1000000000ull + (unsigned long long) ts.tv_nsec; }
+static void lat_shown(void) { if (lat_armed) { fprintf(lat_f, "%llu %llu\n", lat_armed, mono_ns()); fflush(lat_f); lat_armed = 0; } }
 static FILE *trace_f; static unsigned trace_n;   /* T while paused: every instruction to SYSTEM/LOG/TRACE.TXT */
 #define TRACE_MAX 200000                      /* about 12 MB, then it stops itself */
 static void trace_toggle(void)
@@ -758,6 +848,7 @@ static void line_begin(void)
           if (f != HDFONT_UNSCII && hd_have3[f]) vicky_hd_font3(hd_fonts48[f][pg], hd_fonts24[f][pg]); else vicky_hd_font3(NULL, NULL);
           if (f != HDFONT_UNSCII && !hd_have[f] && hd_have3[f]) vicky_hd_font(NULL, pg == PAGE_K4510 ? font_panel : font_437_16, NULL, pg == PAGE_K4510 ? font_menu : font_437_8); }   /* the stock glyphs, for 3x alone */
         vicky_begin_frame(fb, VICKY_WIDTH); m_in_frame = 1;
+        if (lat_f && io_lat_read_ns && !lat_armed) { lat_armed = io_lat_read_ns; io_lat_read_ns = 0; }   /* read before this raster: drawn by it */
         frame_lines = vicky_glass_h(); cycles_per_line = cpu_hz_now / 60 / (unsigned) frame_lines;   /* a frame is 1/60 s however many lines */
     }
     cpu65.irqLevel = vicky_irq() ? 1 : 0;
@@ -1001,6 +1092,7 @@ int k4510_frontend_main(int argc, char **argv)
           } }
     if (getenv("K4510_NO_STARTUP")) no_startup = 1;          /* the same thing, for a script that sets it once */
     const char *rom = (argc > 1) ? argv[1] : "rom/kernal.bin";
+    { const char *lp = getenv("K4510_LATLOG"); if (lp && *lp && (lat_f = fopen(lp, "w"))) io_lat_on = 1; }
     const char *cfg = "k4510.cfg";
     if (argc > 2) fs_set_root(argv[2]);
     for (int i = 1; i < HDFONT_COUNT; i++) {                     /* optional: the HD text fonts, 16x32 and 16x16, both pages */
@@ -1275,6 +1367,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         SDL_Event e;
         if (hup_req) { hup_req = 0; mlog("quit: SIGHUP"); running = 0; }
         uint8_t pend = 0;               /* a printable key waiting to see whether SDL sends its text */
+        do {                            /* the wait for this frame's deadline is here, events handled as they come (pace_wait) */
         while (SDL_PollEvent(&e)) {
             if ((e.type == SDL_KEYDOWN || e.type == SDL_KEYUP || e.type == SDL_TEXTINPUT || e.type == SDL_TEXTEDITING
                  || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEWHEEL
@@ -1490,8 +1583,9 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
         if (pend) {                                          /* no text event came: type the key itself */
             static int said;
             if (!said) { said = 1; fprintf(stderr, "keyboard: SDL sends no text on the %s driver; typing from the key codes\n", SDL_GetCurrentVideoDriver()); }
-            kbd_push(pend);
+            kbd_push(pend); pend = 0;
         }
+        } while (running && pace_wait());
         host_poll_input();
         { static int menu_was; int m = menu_is_open();               /* the menu is the machine's outside: it frees the pointer */
           if (m && !menu_was) { grab(0); palettes_scan(); }   /* the Palette rows: what is on the disk now */
@@ -2509,6 +2603,7 @@ tex_done:
         }
         SDL_RenderPresent(ren);
 frame_still:
+        if (lat_f) lat_shown();
         p_pres += SDL_GetPerformanceCounter() - p_a;
         /* The hand pacer runs whether or not vsync is on, and the two cannot
          * fight, because it is a FLOOR and not a cadence: it sleeps only when
@@ -2532,11 +2627,13 @@ frame_still:
            * the loop sleeps three frames at a time, then runs the two it owes
            * back to back (the deadline above lets it catch up).  The machine
            * still gets its 60 frames a second, in bursts: 20 wakeups a second
-           * for the host instead of 60.  A key is seen at the next wakeup,
-           * 50 ms at most, and ends it. */
+           * for the host instead of 60 (on KMSDRM, 100: pace_wait's slices).
+           * A key wakes the wait at once and ends it (2026-10-09; it waited
+           * for the next wakeup, 50 ms at most, before). */
           int rest = SDL_GetTicks() - input_ms > 2000 && !adev && frame_static && !open && !paused && __builtin_popcountll(drawn_bits) <= 6;
           drawn_bits <<= 1;
-          if (now < next) SDL_Delay((Uint32)(((rest ? next + 2 * per : next) - now) * 1000 / SDL_GetPerformanceFrequency()));
+          pace_next = next;                                    /* waited for at the top of the loop, with the events (pace_wait); */
+          pace_until = now >= next ? 0 : rest ? next + 2 * per : next;   /* a frame owed runs at once, as it did */
         }
         { static const char *shot; static int shot_fr, shot_init;      /* K4510_SHOT=file.ppm:frames -- a screenshot of what is on the glass */
           if (!shot_init) { shot_init = 1; shot = getenv("K4510_SHOT"); if (shot) { const char *c = strrchr(shot, ':'); shot_fr = c ? atoi(c + 1) : 120; } }

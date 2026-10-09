@@ -74,6 +74,7 @@ static int scr_req = -1;                                /* a screen asked for (O
 static uint8_t *apc; static size_t apc_n, apc_cap;      /* an APC being received (not in T: a save state does not carry a half-sent picture) */
 static int host_session;                               /* a `!` session: a picture's t=f path is the Linux's, not the machine's */
 static void apc_done(void);
+static void sync_frame_end(void);
 static const uint8_t apal[8]  = { 0, 2, 5, 7, 6, 4, 3, 1 };      /* ANSI order -> the C64 palette */
 static const uint8_t apalb[8] = { 11, 10, 13, 7, 14, 4, 3, 1 };  /* the bright set */
 static const uint8_t decgfx[32] = {                              /* DEC special graphics ` a b ... ~ -> CP437 */
@@ -220,6 +221,7 @@ void term_tick(void)
     bands_tick(0);                              /* the bands are JIM's (below) */
     s2_recolour();                              /* a new palette: the Terminal's text readable again */
     for (int s = 0; s < 2; s++) if (sync_on[s] && ++sync_age[s] >= 30) sync_on[s] = 0;   /* half a second: show it anyway */
+    sync_frame_end();
     tp = &TS[vis];                              /* the cursor blinks on the screen that is up */
     if (T.shown) {
         T.frames++;
@@ -480,6 +482,26 @@ static void sgr(void)
  * second without the l, and the screen is shown anyway.  Not in T: a save
  * state does not carry a redraw in progress. */
 int term_hold(void) { return sync_on[vis]; }
+/* The finished picture, shown whole -- at most one repaint of the frame a
+ * frame (the review, 2026-10-09: up to three).  The second screen's bytes are
+ * fed before the raster (s2_pump at the frame's start), so the raster draws
+ * its finished update and nothing is repainted.  The machine's own JIM is
+ * written while the raster runs: the first update to end in a frame is
+ * painted at once; a later one waits for the frame's end (term_tick), and is
+ * painted then unless another is under way -- that one will be shown when it
+ * ends. */
+static uint8_t commit_spent, commit_owed;
+static void sync_done(int s)
+{
+    if (s == 1) return;
+    if (!commit_spent) { commit_spent = 1; vicky_commit(); }
+    else commit_owed = 1;
+}
+static void sync_frame_end(void)
+{
+    commit_spent = 0;
+    if (commit_owed) { commit_owed = 0; if (!term_hold()) { vicky_commit(); commit_spent = 1; } }   /* the next frame's one */
+}
 static void mode(int on)
 {
     for (int i = 0; i < T.npar; i++) {
@@ -492,7 +514,7 @@ static void mode(int on)
             else if (v == 4510) T.paldirect = (uint8_t) on;
             else if (v == 2026) { int s = (int)(tp - TS), was = sync_on[s];
                                   sync_on[s] = (uint8_t) on; sync_age[s] = 0;
-                                  if (was && !on && s == vis) vicky_commit(); }   /* the finished picture, shown whole at once */
+                                  if (was && !on && s == vis) sync_done(s); }
         } else if (v == 4) T.insert = (uint8_t) on;
         else if (v == 20) T.lnm = (uint8_t) on;          /* LNM */
     }

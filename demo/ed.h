@@ -640,6 +640,7 @@ static void do_run(void)
     char *c = shline; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
     const char *tool = compiler(); uint8_t rx = (uint8_t)(tool != 0 && tool[0] == 'R'), interp = interpreted(tool);
     if (run_build && !do_make()) return;
+    if (!run_build) { zp16(0xF0, (uint16_t)errfile); zp32(0xF6, 0); rom_save(); }   /* no compile: an old MAKE.ERR's error is not this run's (doc-18) */
     for (s = "SWAP -k "; *s; ) c[i++] = *s++;
     if (interp) {                                    /* REXX, BASIC, LOGO: the interpreter runs the file (REXX's die() writes MAKE.ERR) */
         for (s = tool; *s; ) c[i++] = *s++;

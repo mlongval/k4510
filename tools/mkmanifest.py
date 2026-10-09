@@ -34,6 +34,7 @@ REPO = HERE.parent
 CFG = REPO / "fs/DOCUMENTS/SHIPPING.CFG"   # on the machine's own disk: Doc edits it there, with VI
 
 MARKS = ("essential", "maybe", "nope", "nuke")
+NOTES = {}                                      # key -> the note written beside its mark in SHIPPING.CFG
 
 # The few that are not a judgement call: without these there is no machine to
 # ship, or no handbook that makes sense.  Everything else starts as `maybe`
@@ -88,11 +89,14 @@ def read_cfg():
     marks = {}
     if CFG.is_file():
         for line in CFG.read_text().splitlines():
-            line = line.split("#", 1)[0].strip()
+            line, _, note = line.partition("#")
+            line = line.strip()
             if "=" in line:
                 k, v = (x.strip() for x in line.split("=", 1))
                 if v in MARKS:
                     marks[k] = v
+                    if note.strip():
+                        NOTES[k] = note.strip()   # a note beside a mark is Doc's: kept over the generated one
     return marks
 
 
@@ -120,6 +124,7 @@ def write_cfg(items, marks):
         out.append(f"\n[{sec}]")
         for key, note in secs[sec]:
             mark = marks.get(key) or ("essential" if key in ESSENTIAL else "maybe")
+            note = NOTES.get(key, note)
             line = f"{key:<{width}} = {mark}"
             if note:
                 line = f"{line:<{width + 14}} # {note}"

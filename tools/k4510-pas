@@ -94,6 +94,20 @@ if [ $st -ne 0 ]; then
     [ -s "$tmp/err" ] || fail "k4510-pas: the compiler failed and said nothing we understood" $st
     exit $st
 fi
+# The program and its variables must end well below $D000, where the I/O
+# starts: Mad Pascal's own stack grows up from PROGRAMSTACK (the end of the
+# DATA mads reports), and past $D000 it writes over the hardware -- a silent
+# crash (doc-18's TEST reached $D389).  1 KB short of it is a warning.
+top=$(sed -n 's/^DATA: \$[0-9A-Fa-f]*\.\.\$\([0-9A-Fa-f]*\).*/\1/p' "$tmp/mads.log" | tail -1)
+if [ -n "$top" ]; then
+    if [ $((0x$top)) -ge $((0xD000)) ]; then
+        fail "k4510-pas: the program ends at \$$top, past \$D000 where the I/O starts: it would crash. Make it smaller."
+    elif [ $((0x$top)) -ge $((0xCC00)) ]; then
+        w="the program ends at \$$top, less than 1 KB below the I/O at \$D000: its stack may run into it"
+        echo "Warning: $w" >&2
+        [ -n "$ERR" ] && echo "-:0:0:W:$w" >> "$ERR"
+    fi
+fi
 cp "$tmp/prog.prg" "$out" || exit 1
 msg="$out: $(wc -c < "$out") bytes"
 echo "$msg"

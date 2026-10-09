@@ -142,6 +142,11 @@ consequences for the programmer:
   their arguments in \texttt{\$F0--\$F9}; the ROM has a zero page of its
   own); \texttt{\$0300} the string
   buffer. Programs return to the shell with the ROM's state intact.
+\item The program, its variables and the stack that grows above them
+  must end below \texttt{\$D000}, where the I/O starts. A program that
+  ends within 1~KB of it builds with a warning; one that ends past it
+  does not build at all (\texttt{k4510-pas} says where it ended). Big
+  tables belong in far memory (\verb|FarPeek|, \verb|DmaCopy|).
 \end{itemize}
 
 \subsection*{Floating point on the MATH unit}

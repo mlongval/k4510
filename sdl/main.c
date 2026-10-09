@@ -699,16 +699,30 @@ static Uint64 pace_next, pace_until;          /* the next frame's deadline (perf
 #define PACE_SLICE_MS 4
 #define PACE_REST_SLICE_MS 10
 #define PACE_EV_MAX 32
-static int pace_ev[PACE_EV_MAX], pace_evn = -1; static Uint32 pace_ev_at;
-static void pace_ev_scan(void)                /* the input devices, again every five seconds: one plugged in is watched too */
+static int pace_ev[PACE_EV_MAX], pace_ev_no[PACE_EV_MAX], pace_evn = -1; static Uint32 pace_ev_at;
+/* The input devices, looked for again every five seconds: one plugged in is
+ * watched too.  Only a NEW device is opened, and only a gone one closed.
+ * This closed and reopened them all each time, and closing an evdev fd
+ * waits for an RCU grace period: 18 of them took 440 ms on the Dell, a
+ * stall every five seconds that cost the frames past four -- most of why
+ * PERF.TXT read 54 fps there (2026-10-09). */
+static void pace_ev_drop(int i)
+{
+    close(pace_ev[i]);
+    pace_evn--; pace_ev[i] = pace_ev[pace_evn]; pace_ev_no[i] = pace_ev_no[pace_evn];
+}
+static void pace_ev_scan(void)
 {
     glob_t g;
-    for (int i = 0; i < pace_evn; i++) close(pace_ev[i]);
-    pace_evn = 0; pace_ev_at = SDL_GetTicks();
+    if (pace_evn < 0) pace_evn = 0;
+    pace_ev_at = SDL_GetTicks();
     if (glob("/dev/input/event*", 0, NULL, &g) != 0) return;
     for (size_t i = 0; i < g.gl_pathc && pace_evn < PACE_EV_MAX; i++) {
+        int no = atoi(g.gl_pathv[i] + strlen("/dev/input/event")), k;
+        for (k = 0; k < pace_evn && pace_ev_no[k] != no; k++) ;
+        if (k < pace_evn) continue;                               /* watched already */
         int fd = open(g.gl_pathv[i], O_RDONLY | O_NONBLOCK | O_CLOEXEC);
-        if (fd >= 0) pace_ev[pace_evn++] = fd;
+        if (fd >= 0) { pace_ev[pace_evn] = fd; pace_ev_no[pace_evn] = no; pace_evn++; }
     }
     globfree(&g);
 }
@@ -723,8 +737,8 @@ static int pace_ev_wait(Uint32 ms, int pty)
     if (pty >= 0) { p[n].fd = pty; p[n].events = POLLIN; p[n].revents = 0; n++; }
     if ((r = poll(p, (nfds_t) n, (int) ms)) <= 0) return r < 0 ? -1 : 0;
     if (pty >= 0 && (p[n - 1].revents & POLLIN)) return 2;
-    for (int i = 0; i < pace_evn; i++) {
-        if (p[i].revents & (POLLERR | POLLHUP | POLLNVAL)) { pace_ev_at = 0; continue; }   /* unplugged: scanned again next time */
+    for (int i = n - (pty >= 0) - 1; i >= 0; i--) {             /* backwards: a drop moves the last one into i */
+        if (p[i].revents & (POLLERR | POLLHUP | POLLNVAL)) { pace_ev_drop(i); continue; }   /* unplugged: that one closed, the rest kept */
         if (p[i].revents & POLLIN) { char b[1536]; while (read(pace_ev[i], b, sizeof b) > 0) ; }   /* whole events: 64 of 24 bytes (96 of 16 on 32-bit); not <linux/input.h>, whose KEY_ names are io.h's */
     }
     return 1;

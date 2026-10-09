@@ -22,13 +22,6 @@ expect "/HOME]" 10
 type MODE 0\n
 wait 2
 expect "/HOME]" 10
-type EHBASIC\n
-expect "Ready" 15
-type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
-expect "EH 40" 20
-shot m0-ehbasic
-type *BYE\n
-expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
 type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
@@ -58,13 +51,6 @@ shot m0-rexx
 # ---- MODE 1
 type MODE 1\n
 wait 2
-expect "/HOME]" 10
-type EHBASIC\n
-expect "Ready" 15
-type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
-expect "EH 40" 20
-shot m1-ehbasic
-type *BYE\n
 expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
@@ -96,13 +82,6 @@ shot m1-rexx
 type MODE 2\n
 wait 2
 expect "/HOME]" 10
-type EHBASIC\n
-expect "Ready" 15
-type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
-expect "EH 40" 20
-shot m2-ehbasic
-type *BYE\n
-expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
 type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
@@ -132,13 +111,6 @@ shot m2-rexx
 # ---- MODE 5
 type MODE 5\n
 wait 2
-expect "/HOME]" 10
-type EHBASIC\n
-expect "Ready" 15
-type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
-expect "EH 40" 20
-shot m5-ehbasic
-type *BYE\n
 expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
@@ -170,13 +142,6 @@ shot m5-rexx
 type MODE 6\n
 wait 2
 expect "/HOME]" 10
-type EHBASIC\n
-expect "Ready" 15
-type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
-expect "EH 40" 20
-shot m6-ehbasic
-type *BYE\n
-expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15
 type FOR I%=1 TO 40:PRINT "BBC ";STR$(I%);" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
@@ -206,13 +171,6 @@ shot m6-rexx
 # ---- MODE 7
 type MODE 7\n
 wait 2
-expect "/HOME]" 10
-type EHBASIC\n
-expect "Ready" 15
-type FOR I=1 TO 40:PRINT "EH";I;" ABCDEFGHIJKLMNOPQRSTUVWXYZ 0123456789":NEXT\n
-expect "EH 40" 20
-shot m7-ehbasic
-type *BYE\n
 expect "/HOME]" 10
 type BBC\n
 expect "R. T. Russell" 15

@@ -1,19 +1,16 @@
 #!/bin/sh
 # The classic 8-bit BASIC benchmarks (Rugg/Feldman 1977, Byte Sieve 1981,
 # Ahl's Creative Computing 1983; sources: github.com/rprouse/8bit-benchmarks)
-# on EhBASIC, plus the Byte Sieve in C and the CHROUT benchmark, all run
+# in K4510 BASIC (compiled; EhBASIC ran them until 2026-10-09), plus the Byte Sieve in C and the CHROUT benchmark, all run
 # headless and timed by the machine's own frame counter (so host speed does
 # not matter).  Usage: test/benchmarks.sh [name ...]   (default: all)
 # K4510_ROM=file runs them on another ROM (a before-and-after).
 cd "$(dirname "$0")/.." || exit 1
-run_bas() {   # $1 = file in fs/
+run_bas() {   # $1 = NAME.BAS in /LANG/BASIC/EX, compiled by make to name.prg
     printf '%-10s ' "$1"
-    test/headless "${K4510_ROM:-rom/kernal.bin}" "load ehbasic.prg
-run
-
-LOAD \"$1\"
-RUN
-" 36000 "SECONDS|Error" 2>/dev/null | grep -E "THIS MACHINE:|TIME:|ACCURACY|RANDOM|PRIMES|Error" | tr '\n' ' '; echo
+    test/headless "${K4510_ROM:-rom/kernal.bin}" "CD /LANG/BASIC/EX
+${1%.BAS}
+" 36000 "ANY KEY|Error" 2>/dev/null | grep -E "THIS MACHINE|TIME:|ACCURACY|RANDOM|PRIMES|Error" | tr '\n' ' '; echo
 }
 run_prg() {   # $1 = .prg in fs/
     printf '%-10s ' "$1"

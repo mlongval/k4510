@@ -214,9 +214,9 @@ int io_fs_hostpath(const char *name, char *out, size_t max)
  * not where we are is looked for along the disk's shape (fs/HOME/README.TXT):
  *   /SYSTEM/BIN/name              the tools
  *   /APPS/STEM/name               a program's own folder  (SKYFIRE -> /APPS/SKYFIRE/skyfire.prg)
- *   /LANG/STEM/name               a language's            (EHBASIC -> /LANG/EHBASIC/ehbasic.prg)
+ *   /LANG/STEM/name               a language's            (LOGO -> /LANG/LOGO/logo.prg)
  *   /HOME/PROJECTS/STEM/name      yours
- *   and by extension: .BAS -> /LANG/EHBASIC/EX, .BBC -> /LANG/BBCBASIC/EX, .RX -> /LANG/RX, .PAS -> /LANG/PASCAL
+ *   and by extension: .BAS -> /LANG/BASIC/EX, .BBC -> /LANG/BBCBASIC/EX, .RX -> /LANG/RX, .PAS -> /LANG/PASCAL
  * where STEM is the name without its extension, uppercased -- the name IS the
  * folder, so this is one stat per step and never a walk. */
 static int fs_path(char *out, size_t max, int search)
@@ -235,7 +235,7 @@ static int fs_path(char *out, size_t max, int search)
         if (sl) { snprintf(dirs[nd++], 40, "/APPS/%.30s", stem); snprintf(dirs[nd++], 40, "/LANG/%.30s", stem); snprintf(dirs[nd++], 40, "/HOME/PROJECTS/%.24s", stem); }
         if (dot) {
             static const struct { const char *ext, *dir; } by_ext[] = {
-                { ".BAS", "/LANG/EHBASIC/EX" }, { ".BBC", "/LANG/BBCBASIC/EX" }, { ".RX", "/LANG/RX" }, { ".PAS", "/LANG/PASCAL" }, { ".C", "/LANG/C" },
+                { ".BAS", "/LANG/BASIC/EX" }, { ".BBC", "/LANG/BBCBASIC/EX" }, { ".RX", "/LANG/RX" }, { ".PAS", "/LANG/PASCAL" }, { ".C", "/LANG/C" },
                 { ".PRG", "/LANG/PASCAL" }, { ".PRG", "/LANG/C" } };   /* the compiled examples, by their bare names */
             for (size_t i = 0; i < sizeof by_ext / sizeof *by_ext; i++)
                 if (!strcasecmp(dot, by_ext[i].ext)) snprintf(dirs[nd++], 40, "%s", by_ext[i].dir);

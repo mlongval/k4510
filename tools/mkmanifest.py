@@ -39,7 +39,7 @@ MARKS = ("essential", "maybe", "nope", "nuke")
 # ship, or no handbook that makes sense.  Everything else starts as `maybe`
 # and waits for Doc.
 ESSENTIAL = {
-    "lang:EHBASIC", "lang:LOGO", "lang:BBCBASIC", "lang:FORTH",
+    "lang:BASIC", "lang:LOGO", "lang:BBCBASIC", "lang:FORTH",
     "bin:vi.prg", "bin:type.prg", "bin:monitor.prg", "bin:book.prg",
     "bin:ranger.prg", "bin:setup.prg", "bin:banner.prg", "bin:bug.prg",
     "chapter:01-machine", "chapter:02-shell", "chapter:03-commands",

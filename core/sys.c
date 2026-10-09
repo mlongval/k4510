@@ -40,8 +40,8 @@ uint8_t io_net = 0xFF, io_net_q;   /* the network, for the bottom band: NET_*, $
  * Doc, 2026-09-14: the top band's left should say "K/OS for the shell,
  * EhBasic for Ehbasic ... and also reflect the basic file being edited ...
  * and if we are in *VI or *EDIT mode".  A stack of entries, a program and
- * the file it has, drawn by the frontend as "EhBASIC PROG.BAS > VI
- * EDITTMP.BAS" (sdl/main.c bands_overlay; K/OS only at the prompt).  The ROM says WHEN -- SYS+$41: 1
+ * the file it has, drawn by the frontend as "LOGO SQUARES.LGO > VI
+ * SQUARES.LGO" (sdl/main.c bands_overlay; K/OS only at the prompt).  The ROM says WHEN -- SYS+$41: 1
  * as it runs a program, 2 when it comes back, 4 at its cold start -- and
  * this file says WHAT: the .prg the file device loaded last is the name the
  * next push takes, and a file of a known kind that the program at the top
@@ -84,7 +84,7 @@ void title_file(const char *p)
 {
     static const char *const kinds[] = { ".BAS", ".LGO", ".BBC", ".PAS", ".C", ".RX", ".GMI", ".TXT", NULL };
     static const struct { const char *stem, *name; } names[] = {
-        { "ehbasic", "EhBASIC" }, { "logo", "LOGO" }, { "rx", "RX" }, { NULL, NULL } };
+        { "logo", "LOGO" }, { "rx", "RX" }, { NULL, NULL } };
     const char *b = strrchr(p, '/'), *dot;
     b = b ? b + 1 : p;
     dot = strrchr(b, '.');
@@ -101,9 +101,6 @@ void title_file(const char *p)
     if (title_depth < 2) return;                      /* the shell's own files (STARTUP.BAT, EXEC) name nothing */
     for (int i = 0; kinds[i]; i++)
         if (!strcasecmp(dot, kinds[i])) {
-            const char *prog = title_stack[title_depth - 1].prog;
-            /* EhBASIC's *VI and *EDIT go by way of EDITTMP.BAS: the program keeps its own name */
-            if (!strcasecmp(b, "EDITTMP.BAS") && strcmp(prog, "VI") && strcmp(prog, "EDIT")) return;
             snprintf(title_stack[title_depth - 1].file, sizeof title_stack[0].file, "%s", b);
             return;
         }
@@ -255,7 +252,7 @@ void sys_reset(void) { sys_frames = 0; title_cmd(4); }   /* the title: back to K
 void sys_state_save(FILE *f) { state_put(f, "SYSR", sys_reg, sizeof sys_reg); }
 int  sys_state_load(FILE *f) { return state_get(f, "SYSR", sys_reg, sizeof sys_reg); }
 
-/* the title as the top band shows it: "EhBASIC PROG.BAS > VI ...", and
+/* the title as the top band shows it: "LOGO SQUARES.LGO > VI ...", and
  * the Tube's program while it runs -- asked of the Tube, not stacked,
  * because a `!ls` ends by itself and nothing would pop it -- in the place
  * it started from, so a *VI from BBC BASIC reads "BBC BASIC > VI ...".

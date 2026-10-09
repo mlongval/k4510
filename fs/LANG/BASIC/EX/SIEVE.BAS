@@ -1,6 +1,6 @@
 ' The BYTE sieve (1981), full size -- K4510 BASIC
 ' EhBASIC could not hold DIM FLAGS(8191) (8192 six-byte floats) and
-' poked bytes through a bank window instead (/LANG/EHBASIC/EX/SIEVE.BAS).
+' poked bytes through a bank window instead.
 ' Compiled, a whole-number array is two bytes an element: 16 KB fits.
 CONST SIZE = 8190
 DIM flags%(SIZE)
@@ -25,7 +25,7 @@ IF t < 0 THEN t = t + 65536
 PRINT count%; " PRIMES"
 PRINT "TIME:"; t; "FRAMES ="; INT(t / 0.6) / 100; "SECONDS  (ONE ITERATION)"
 PRINT "FOR SCALE: A STOCK C64 NEEDS SEVERAL MINUTES FOR ONE ITERATION;"
-PRINT "EHBASIC HERE, AND THE C VERSION (RUN SIEVE IN THE SHELL): TRY THEM."
+PRINT "THE C VERSION IS SIEVE.C IN /LANG/C: CC SIEVE THERE, THEN SIEVE."
 PRINT
 PRINT "ANY KEY...";
 DO: GET k$: LOOP UNTIL k$ <> ""

@@ -55,8 +55,8 @@ void kbd_push(uint8_t ascii)   { kbd_in(ascii); }                    /* a charac
 void kbd_push_machine(uint8_t ascii) { kbd_enqueue(ascii); }            /* past the menu and the second screen (2026-10-07) */
 /* WAIT ($D545, 2026-10-06): a write puts the CPU to sleep until the next
  * interrupt or a key in the queue -- the 45GS02 has no WAI, so it is a
- * register.  The loops that wait for a key or a frame (k_chrin, EhBASIC's
- * line input, wait_vblank, the programs' key loops) say so with it, and an
+ * register.  The loops that wait for a key or a frame (k_chrin, the
+ * interpreters' line input, wait_vblank, the programs' key loops) say so with it, and an
  * idle machine stops costing the host a core's fifth.  A sleep longer than
  * a frame ends anyway: a program that masked the interrupt is not stuck. */
 int cpu65_waiting; static unsigned wait_slept;

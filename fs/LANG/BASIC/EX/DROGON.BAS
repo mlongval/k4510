@@ -2,7 +2,6 @@
 ' projects.drogon.net/retro-basic-benchmarking-with-mandelbrot
 ' Lines 130-310 are his, untouched but for GOTO's labels: they are the
 ' benchmark.  Only the clock is ours (the 60 Hz frame counter).
-' K4510 BASIC compiles it; EhBASIC runs the same in /LANG/EHBASIC/EX.
 PRINT "MANDELBROT - K4510 BASIC (COMPILED) - FP + STRINGS"
 PRINT "START"
 t0 = PEEK(54541) + 256 * PEEK(54542) + 65536 * PEEK(54543)

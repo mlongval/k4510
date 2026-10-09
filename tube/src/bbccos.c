@@ -654,7 +654,7 @@ static int wild (char *ebx, char *edx)
 }
 
 // [K4510] *VI / *EDIT with nothing after them edit the program in memory,
-// as they do in EhBASIC and MS BASIC: LIST it as text to EDITTMP.BBC, have
+// as they did in EhBASIC and MS BASIC: LIST it as text to EDITTMP.BBC, have
 // the machine run the editor on it (K4510W; -- the console answers with an
 // ACK when the editor is done), then type LOAD "EDITTMP.BBC", which reads
 // the text back and tokenises it. Doc, 2026-09-14: "the *VI command does

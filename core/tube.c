@@ -70,8 +70,7 @@ static const char *uci_path(void)
  * reach the console ROM (except MODE, which is executed here AND passed
  * on, because the console must change its text geometry too); everything
  * else flows through untouched. BBC coordinates (1280x1024, origin bottom
- * left) land on a 640x480 8bpp bitmap at $200000 (EhBASIC's GRAPHICS
- * surface), VICKY layer 1; colour 0 stays transparent so the text screen
+ * left) land on a 640x480 8bpp bitmap at $200000, VICKY layer 1; colour 0 stays transparent so the text screen
  * shows through, and BBC logical colours live in palette entries 16-31. */
 #define TULA_GFXB 0x200000u
 #define TULA_W 640

@@ -142,7 +142,7 @@ extern uint8_t io_net, io_net_q;
  *   $89 LDI, then 4 bytes: int32 immediate into FI (6-byte op)
  *   $8A LDMS arg=dst<<4, then 4 bytes: 28-bit address of a Microsoft-format float
  *       (exponent excess-128, mantissa1 with sign in bit 7, mantissa2, mantissa3 --
- *       EhBASIC's packed variable format); converted into Fdst (6-byte op)
+ *       MS BASIC's and EhBASIC's packed variable format); converted into Fdst (6-byte op)
  *   MEGA65-compatible integer unit (same addresses as the MEGA65):
  *   $D770-$D773 MULTINA  $D774-$D777 MULTINB  (unsigned 32-bit, LE)
  *   $D778-$D77F MULTOUT  = A * B, 64-bit

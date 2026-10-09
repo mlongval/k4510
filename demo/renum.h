@@ -4,7 +4,7 @@
  * command for the programming language that launched it (context aware)".
  *
  * The language is the file's: .BBC is BBC BASIC (its *VI file is
- * EDITTMP.BBC), .BAS is EhBASIC, .LGO is LOGO, which has
+ * EDITTMP.BBC), .BAS is K4510 BASIC (its line numbers are labels), .LGO is LOGO, which has
  * no line numbers to renumber.  Two passes, over lines the includer walks:
  *   rn_scan(line)    each line's own number, into a table the includer keeps
  *                    (RN_TAB_PUT / RN_TAB_GET: far memory on the machine)

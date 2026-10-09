@@ -1,5 +1,5 @@
 ' Space Invaders on the text screen -- K4510 BASIC
-' The EhBASIC game (/LANG/EHBASIC/EX/INVADERS.BAS) poked the screen's
+' The EhBASIC game it replaces poked the screen's
 ' memory through a bank window.  This one is written the K4510 BASIC
 ' way: LOCATE, COLOR and PRINT draw, SUBs and FUNCTIONs hold the rules,
 ' and what is where is worked out, not read back from the screen.

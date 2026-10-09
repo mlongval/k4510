@@ -8,8 +8,8 @@
  * straight to the storage device at $D300 (the same chip LOAD and DIR ride on),
  * and View is our own pager. But EDIT and VI we DO reach, through the shell's
  * SWAP: it DMAs our whole $0000-$FFFF and the screen out to far memory, runs
- * the editor over the top, and DMAs us back -- the same trick that lets EhBASIC
- * run a program and return. So F4 hands the selected file to VI or EDIT and
+ * the editor over the top, and DMAs us back -- the same trick that lets an
+ * interpreter run a program and return. So F4 hands the selected file to VI or EDIT and
  * comes home with the panels intact.
  *
  * The screen is cells, sent through JIM (demo/jimcell.h, 2026-10-05; written

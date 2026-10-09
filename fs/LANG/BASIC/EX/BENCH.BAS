@@ -1,6 +1,5 @@
 ' K4510 BASIC benchmarks menu, timed by the 60 Hz frame counter.  Each is
-' its own program, run through the shell; the EhBASIC originals are in
-' /LANG/EHBASIC/EX, for the same programs interpreted.
+' its own program, run through the shell.
 DO
   CLS
   PRINT "K4510 BASIC  BENCHMARKS  (COMPILED; TIMED BY THE 60 HZ FRAME COUNTER)": PRINT

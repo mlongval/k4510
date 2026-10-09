@@ -8,10 +8,10 @@ wait 1
 type CD /HOME\n
 type IDEA a brainshot typed at the prompt by the smoke test\n
 expect "idea kept" 10
-type EHBASIC\n
-expect "Ready" 10
-type *IDEA one from inside EhBASIC\n
+type BBC\n
+expect "R. T. Russell" 15
+type *IDEA one from inside BBC BASIC\n
 expect "idea kept" 10
-shot idea-ehbasic
-type *BYE\n
+shot idea-bbc
+type *QUIT\n
 expect "/HOME]" 10

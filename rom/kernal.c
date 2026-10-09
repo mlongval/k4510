@@ -231,8 +231,8 @@ static uint8_t page_break(void);
  *   $08  destructive: JIM's backspace only steps left, ours rubs out
  *   $0C  clear: cls() keeps the status bands, JIM's own clear would not
  *   $0D  a full newline, as CHROUT has always promised.  LNM (set in video_init)
- *        makes JIM's \n return the column, and CR is folded onto it -- EhBASIC's
- *        glue, BBC BASIC and CP/M all send a bare CR and mean "next line", and
+ *        makes JIM's \n return the column, and CR is folded onto it -- BBC BASIC
+ *        and CP/M (EhBASIC too, until 2026-10-09) send a bare CR and mean "next line", and
  *        JIM's own CR is a carriage return only.  Folding it here keeps every
  *        existing program working; not folding it overprints their output.
  *        And an LF straight after a CR is dropped: CR, LF and CR+LF are each ONE
@@ -283,7 +283,7 @@ static void onoff(uint8_t v) { puts_(v ? "on" : "off"); }
 
 /* ---- keyboard ---------------------------------------------------------- */
 /* CAPSLOCK: when on, letters read from the keyboard come up uppercase, so
- * the language keywords (BBC BASIC, EhBASIC) need no Shift. Digits and
+ * the language keywords (BBC BASIC, LOGO, RX) need no Shift. Digits and
  * symbols are untouched -- a caps lock, not a shift lock. The flag lives
  * here and every key the ROM reads passes through caps(). */
 static uint8_t capslock;
@@ -918,7 +918,7 @@ static void cmd_run(const char *p)
         }
         getname(&p, name);
         st = is_prg(name) ? do_load(name, USER, 0) : 1;
-        if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN ehbasic -> ehbasic.prg */
+        if (st == 1 && !is_prg(name) && strlen(name) < NAMEMAX - 5) { strcat(name, ".prg"); st = do_load(name, USER, 0); }   /* RUN logo -> logo.prg */
         if (st == 1) { error("run: not found"); return; }
         if (st) { error("run: bad file"); return; }
         args_tail = p;
@@ -1278,7 +1278,7 @@ static void cmd_cpm(const char *p)
  * under our feet and the code carries on out of ROM, which never moved.
  *
  * What is NOT saved is far memory: a BASIC's K4SG segments live out there and
- * are simply not touched, which is why EhBASIC survives. The callee must be a
+ * are simply not touched, which is why a caller that keeps its program there survives. The callee must be a
  * plain program that does not claim far segments of its own, and must not use
  * MAP. One level deep. */
 #define SWAPRAM 0x0FD00000UL
@@ -1433,7 +1433,7 @@ static void cmd_caps(const char *p)
     else { error("caps: ON, OFF, or nothing to toggle"); return; }
     puts_("caps lock "); puts_(capslock ? "on" : "off"); newline();
 }
-/* CLG: clear the bitmap, whoever put it there -- EhBASIC's GRAPHICS, the
+/* CLG: clear the bitmap, whoever put it there -- BASIC's GRAPHICS, the
  * Tube ULA's MODE, a program of your own. Layer 1 is the bitmap layer, so
  * its own registers say where the pixels are and how wide a row is; the
  * height comes from the chip's mode, doubled lines meaning half as many. */
@@ -2354,7 +2354,7 @@ static void cmd_compile(const char *tool, const char *p)
     cmd_bang(buf);
 }
 
-/* the SHELL system call ($FF8F): run one command line from a program (EhBASIC's @) */
+/* the SHELL system call ($FF8F): run one command line from a program (RX's ADDRESS, BASIC's SHELL) */
 #pragma code-name (pop)
 #pragma rodata-name (pop)
 /* SHELL from a program: the line is copied into the shell's own buffer first.

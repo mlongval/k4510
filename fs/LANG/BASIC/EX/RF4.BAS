@@ -1,7 +1,6 @@
 ' Rugg/Feldman benchmark 4 (Kilobaud/PCW, 1977) -- K4510 BASIC
 ' The 1977 program, compiled.  It is over almost before the frame
 ' counter moves, so it runs 100 times and the time is divided.
-' EhBASIC runs the same program as /LANG/EHBASIC/EX/RF4.BAS.
 CONST RUNS = 100
 CLS
 PRINT "RUGG/FELDMAN BENCHMARK 4 (1977), COMPILED"
@@ -24,7 +23,6 @@ PRINT
 PRINT "THE SAME PROGRAM ON (STOPWATCH-ERA FIGURES, APPROXIMATE):"
 PRINT "  C64 AND APPLE IIE (1 MHZ, MS BASIC)   19.5 S"
 PRINT "  BBC MICRO B (2 MHZ, BBC BASIC)        8.7 S"
-PRINT "  EHBASIC ON THIS MACHINE: RUN RF4.BAS IN /LANG/EHBASIC/EX"
 PRINT
 PRINT "ANY KEY...";
 DO: GET k$: LOOP UNTIL k$ <> ""

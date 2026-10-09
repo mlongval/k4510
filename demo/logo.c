@@ -84,7 +84,7 @@ static uint8_t getin(void) { return REG(KBD); }   /* 0 when nothing is waiting *
  * screen memory lay past row 30, earlier programs' leftovers (Doc,
  * 2026-09-14, a screenshot with a status band across the middle).  The ROM's
  * MODE lays the console, bands and all, out for 640x480 and clears it, as
- * EhBASIC's GRAPHICS 2 does. */
+ * BASIC's GRAPHICS 2 does. */
 static uint8_t pencol = 1, pendown = 1;
 /* The screen LOGO finds, not one of its own (Doc, 2026-09-15: "logo seems to
  * force mode 1.  it should respect mode it is started in").  It used to put

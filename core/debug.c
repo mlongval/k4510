@@ -90,7 +90,7 @@ int dbg_dump(const char *why)
     fprintf(f, "K/OS BASE PAGE $0600 (its zero page, the B register's; ARGS at $0630):\n"); for (int i = 0; i < 64; i += 32) { fprintf(f, "%04X:", 0x0600 + i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[0x0600 + i + j]); fprintf(f, "\n"); }
     fprintf(f, "K/OS STACK $0700-$07FF:\n"); for (int i = 0x700; i < 0x800; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fprintf(f, "STACK $0100-$01FF:\n"); for (int i = 0x100; i < 0x200; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
-    fprintf(f, "$0300-$04FF (EhBASIC vectors, input buffer, K4510 glue state):\n"); for (int i = 0x300; i < 0x500; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
+    fprintf(f, "$0300-$04FF (the program's page 3, then K/OS's BSS from $0440):\n"); for (int i = 0x300; i < 0x500; i += 32) { fprintf(f, "%04X:", i); for (int j = 0; j < 32; j++) fprintf(f, " %02X", k4510_ram[i + j]); fprintf(f, "\n"); }
     fclose(f);
     fprintf(stderr, "K4510: %s written (%s)\n", name, why);
     return dbg_num;

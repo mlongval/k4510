@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """k4510-bas NAME[.BAS]   compile a K4510 BASIC program into NAME.prg beside it
 
-K4510 BASIC is EhBASIC's language, compiled: k4510-bas translates the
-program into Mad Pascal and hands that to tools/k4510-pas, which turns it
-into a .prg the machine runs.  (K4510-Ed, 2026-10-08.)
+K4510 BASIC is the machine's BASIC, a dialect of its own (docs/KBASIC.md),
+compiled: k4510-bas translates the program into Mad Pascal and hands that
+to tools/k4510-pas, which turns it into a .prg the machine runs.  (K4510-Ed, 2026-10-08.)
 
-The dialect -- EhBASIC's keywords, plus what a program without line
-numbers needs:
+The dialect -- the classic BASIC words and the machine's graphics, sprites
+and sound, plus what a program without line numbers needs:
   * labels ("Bravo:") instead of line numbers; an old program's line
     numbers are labels too, so GOTO 100 still works
   * IF ... THEN ... ELSEIF ... ELSE ... END IF over many lines, and the

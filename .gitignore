@@ -27,7 +27,6 @@ fs/out.bin
 demo/*.o
 demo/*.s
 demo/*.map
-basic/*.o
 test/headless
 test/banktest
 !demo/mark-asm.s

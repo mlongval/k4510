@@ -1149,8 +1149,8 @@ static void bands_tick(int force)
         clk[n] = 0;
         bfill(0, cols, f, b);
         /* What runs on the screen that is up, plain, as the frontend drew it
-         * before the bands were JIM's: K/OS at the prompt, "EhBASIC
-         * INVADER2.BAS", the trail of who started whom; on the second screen,
+         * before the bands were JIM's: K/OS at the prompt, "LOGO
+         * SQUARES.LGO", the trail of who started whom; on the second screen,
          * Terminal.  (2026-10-05 it was a tmux-like tab list, " 1 K/OS  2
          * TERMINAL " with the one up in reverse -- Doc: "a bit too heavy".) */
         {

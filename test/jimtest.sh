@@ -28,31 +28,32 @@ echo "$out" | grep -q "^LINE-THREE" || fail "line after a newline not at column 
 rm -f fs/SYSTEM/LOG/JIMTEST.TXT
 
 # CHROUT has always promised that CR makes a whole newline, and guest programs
-# rely on it -- EhBASIC's glue, BBC BASIC and CP/M all send a bare CR and mean
-# "next line".  JIM's own CR is a carriage return only, so k_chrout folds it
-# onto \n.  When this broke, EhBASIC's output overprinted itself on one row.
-out=$(./test/headless rom/kernal.bin 'EHBASIC
-PRINT "JIMCR-A"
-PRINT "JIMCR-B"
-' 3000 2>&1) || fail "EhBASIC did not run"
+# rely on it -- BBC BASIC and CP/M send a bare CR and mean "next line" (as
+# EhBASIC's glue did).  JIM's own CR is a carriage return only, so k_chrout
+# folds it onto \n.  When this broke, EhBASIC's output overprinted itself on
+# one row.  RX sends the bare CR here, inside one SAY.
+printf "say 'JIMCR-A'||d2c(13)||'JIMCR-B'\n" > fs/HOME/JIMCR.RX
+out=$(./test/headless rom/kernal.bin 'RX /HOME/JIMCR.RX
+' 900 2>&1) || fail "RX did not run"
+rm -f fs/HOME/JIMCR.RX
 echo "$out" | grep -q "^JIMCR-A" || fail "CR is not folded onto newline (output overprints)"
 echo "$out" | grep -q "^JIMCR-B" || fail "second line overprinted the first"
 
 # ANSI mode, driven from a program through CHROUT -- which is the point of it:
 # the console IS the terminal, so a program needs no special access to use
 # escape sequences.  This was ANSIDEMO until 2026-09-20, when that demo was
-# nuked and unlisted (SHIPPING.CFG); EhBASIC does the same job and always
-# ships.  The machine folds a typed letter to upper case, so SGR's lower-case
-# terminator has to come from CHR$(109): typed, it arrives as ESC[1;37M, which
-# is a different command altogether and swallows the title.
-out=$(./test/headless rom/kernal.bin 'EHBASIC
-10 E$=CHR$(27):M$=CHR$(109)
-20 PRINT E$;"[2J";E$;"[1;1H";
-30 PRINT E$;"[1;37";M$;"TITLE-AT-ZERO";E$;"[0";M$
-40 PRINT "0123456789";E$;"[5D";E$;"[K";"END"
-50 PRINT E$;"[3C";"INDENTED"
-RUN
-' 2500 2>&1) || fail "EhBASIC did not run"
+# nuked and unlisted (SHIPPING.CFG), then EhBASIC until 2026-10-09; RX does
+# the same job and always ships.  A script is a file, so SGR's lower-case
+# terminator is written as it is (typed, the machine would fold it to M).
+cat > fs/HOME/JIMANSI.RX <<'EOF2'
+e = d2c(27)
+say e||'[2J'||e||'[1;1H'||e||'[1;37mTITLE-AT-ZERO'||e||'[0m'
+say '0123456789'||e||'[5D'||e||'[K'||'END'
+say e||'[3C'||'INDENTED'
+EOF2
+out=$(./test/headless rom/kernal.bin 'RX /HOME/JIMANSI.RX
+' 900 2>&1) || fail "RX did not run"
+rm -f fs/HOME/JIMANSI.RX
 echo "$out" | grep -q "^TITLE-AT-ZERO" || fail "ANSI: SGR took columns -- the title is not at column 0"
 echo "$out" | grep -q "^01234END"      || fail "ANSI: cursor back five, then erase to end of line"
 echo "$out" | grep -q "^   INDENTED"   || fail "ANSI: cursor forward three"
@@ -113,4 +114,4 @@ top=$(K4510_SYSOPT=0x04 ./test/headless rom/kernal.bin 'mon 30000:58
 ' 80 2>/dev/null | head -1)
 case "$top" in X*) ;; *) fail "without the bands the poke at \$030000 should show on row 0: $top" ;; esac
 
-echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from EhBASIC: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back; the band clock's date; the bands out of the console's reach)"
+echo "jimtest: OK (LNM column reset, CR folded onto newline, ANSI from RX: SGR at column 0, erase to end of line, cursor forward; PETSCII and BANDS hand back; the band clock's date; the bands out of the console's reach)"

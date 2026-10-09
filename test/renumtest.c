@@ -52,7 +52,7 @@ int main(void)
     static const char *const twow[] = { "65270 A", "65279 GOTO 65270" };
     static const char *const none[] = { "PRINT 1" };
 
-    check("EhBASIC / MS BASIC", "PROG.BAS", ms, 8, 100, 10, msw, NULL);
+    check("numbered .BAS (K4510 BASIC, MS BASIC)", "PROG.BAS", ms, 8, 100, 10, msw, NULL);
     check("BBC BASIC", "EDITTMP.BBC", bbc, 4, 100, 5, bbcw, NULL);
     check("out of order", "X.BAS", order, 2, 10, 10, NULL, "renum: line numbers out of order");
     check("past the top", "X.BAS", two, 2, 63990, 10, NULL, "renum: past line 63999");

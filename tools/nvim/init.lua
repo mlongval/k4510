@@ -56,7 +56,7 @@ vim.filetype.add({ extension = both })
 -- what builds each, and what runs each (VI's compiler() and interpreted())
 local langs = {
     c = { tool = "k4510-cc" },   pascal = { tool = "k4510-pas" },
-    rexx = { run = "RX" },       k4510basic = { run = "EHBASIC" },   k4510logo = { run = "LOGO" },
+    rexx = { run = "RX" },       k4510basic = { tool = "k4510-bas" },   k4510logo = { run = "LOGO" },
 }
 
 -- ---- where things are -----------------------------------------------------------
@@ -160,7 +160,7 @@ local function run()
     if not g then note("run: the file is not on the machine's disk", "ErrorMsg"); return end
     if not uv.fs_stat(file) then note("run: " .. g .. " is not on the disk -- :w first", "ErrorMsg"); return end
     local cmd
-    if L.run then cmd = L.run .. " " .. g                   -- REXX, BASIC, LOGO: the interpreter runs the file
+    if L.run then cmd = L.run .. " " .. g                   -- REXX, LOGO: the interpreter runs the file
     else
         local dir = vim.fn.fnamemodify(file, ":p:h")
         local p = project(dir)

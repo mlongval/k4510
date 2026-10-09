@@ -63,7 +63,7 @@ sidebars: $(SIDEBAR_ZIPS)
 .PHONY: sidebars
 # Neovim's syntax files for the machine's languages, from the languages themselves
 NVIM_SYNTAX = tools/nvim/syntax/k4510basic.vim tools/nvim/syntax/k4510logo.vim
-$(NVIM_SYNTAX) &: basic/basic.asm demo/logo.c tools/mknvim.py
+$(NVIM_SYNTAX) &: tools/k4510-bas demo/logo.c tools/mknvim.py
 	python3 tools/mknvim.py
 # and what draws them: sdl/savers.c picks, one scene a file in sdl/sidebars/
 SIDEBAR_C = sdl/savers.c $(wildcard sdl/sidebars/*.c)
@@ -73,7 +73,7 @@ SIDEBAR_O = $(SIDEBAR_C:.c=.o)
 SDL_OBJS = sdl/main.o sdl/panel.o sdl/png.o sdl/hostpage.o
 
 
-all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -217,7 +217,7 @@ test/mathtest: test/mathtest.c $(CORE_OBJS)
 .PHONY: check-artifacts
 # Only what cc65 alone can build: acme (wozmon, demo) and 64tass (forth) are
 # not on every build host, and this must run wherever the tests do.
-check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg rom/kernal.bin $(SIDEBAR_ZIPS)
+check-artifacts: $(DEMOS) rom/kernal.bin $(SIDEBAR_ZIPS)
 	@git diff --quiet -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin || { \
 	  echo "STALE: these tracked binaries are not what their sources build:"; \
 	  git diff --name-only -- fs/SYSTEM/BIN fs/SYSTEM/SIDEBARS fs/APPS fs/LANG rom/kernal.bin rom/wozmon.bin | sed 's/^/  /'; \
@@ -326,8 +326,8 @@ fs/LANG/PASCAL/EX/$1.prg: fs/LANG/PASCAL/EX/$(call uc,$1).PAS fs/LANG/PASCAL/EX/
 	cd fs/LANG/PASCAL/EX && MP_DIR=$$(MP_DIR) MADS=$$(MADS) ../../../../tools/k4510-pas $(call uc,$1) >/dev/null
 endef
 $(foreach n,$(PAS_EX_NAMES),$(eval $(call PAS_EX_RULE,$n)))
-# The K4510 BASIC examples (fs/LANG/BASIC/EX, the EhBASIC ones carried over,
-# 2026-10-08): tools/k4510-bas turns each into Pascal with its runtime
+# The K4510 BASIC examples (fs/LANG/BASIC/EX, 2026-10-08; the machine's
+# BASIC since EhBASIC went, 2026-10-09): tools/k4510-bas turns each into Pascal with its runtime
 # (tools/kbasic/kbasrt.pas) and k4510-pas compiles it, name.prg beside it.
 BAS_EX_NAMES = rf1 rf2 rf3 rf4 rf5 rf6 rf7 rf8 float expr ahl drogon sieve bench \
                lines tris sine stars split graph2d graph3d res invaders invader2 test demos readme
@@ -418,7 +418,6 @@ fs/LANG/C/$1.prg: fs/LANG/C/$(call uc,$1).C tools/k4510-cc demo/k4510.h demo/far
 	cd fs/LANG/C && PATH=$$$$PATH K4510=../../.. ../../../tools/k4510-cc $(call uc,$1) >/dev/null
 endef
 $(foreach n,$(C_EX_NAMES),$(eval $(call C_EX_RULE,$n)))
-# EhBASIC 2.22 as a .prg at $7000 (basic/: Lee Davison's basic.asm + K4510 glue)
 # segmented program (K-03): own header + linker config, overlays at 000
 # skyfire: a Galaxian with Kenney's Pixel Shmup planes (CC0, data/pixelshmup/);
 # tools/mkskyfire.py cuts the sheets and lays the ground, the K4SG header carries them
@@ -460,9 +459,6 @@ fs/APPS/FLUFFY/fluffy.prg: demo/fluffy.c demo/fluffy.h demo/fluffy.bin demo/fluf
 	ld65 -C demo/fluffy.cfg -o $@ demo/prg0.o demo/romcalls.o demo/fluffy_c.o demo/fluffy_h.o none.lib -m demo/fluffy.map
 
 
-fs/LANG/EHBASIC/ehbasic.prg: basic/k4510basic.asm basic/k4510gfx.asm basic/k4510file.asm basic/k4510math.asm basic/k4510expr.asm basic/basic.asm basic/basic.cfg
-	ca65 -g --cpu 65c02 --feature labels_without_colons -o basic/k4510basic.o basic/k4510basic.asm
-	ld65 -C basic/basic.cfg -o $@ basic/k4510basic.o
 # Tali Forth 2 (public domain, vendored unmodified in forth/tali/) as a .prg
 # loaded at $8C00; forth/platform.asm is the whole port (I/O + memory map)
 fs/LANG/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/definitions.asm forth/tali/stringtable.asm forth/tali/forth_words.asc $(wildcard forth/tali/words/*.asm)
@@ -473,7 +469,7 @@ fs/LANG/FORTH/forth.prg: forth/platform.asm forth/tali/taliforth.asm forth/tali/
 cpm/runcpm: cpm/src/main.c $(wildcard cpm/src/*.h)
 	cc -Wall -O2 -Wno-unused-variable -DCCP_INTERNAL -DCPU=\"cpu1.h\" cpm/src/main.c -o $@
 
-demos: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg fs/LANG/FORTH/forth.prg
+demos: $(DEMOS) fs/LANG/FORTH/forth.prg
 .PHONY: demos
 
 # the header lists the compiler wrote (CFLAGS' -MMD -MP, at the top)

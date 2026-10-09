@@ -28,12 +28,12 @@ echo "$out" | grep -q "OPL2BACK" || fail "OPL2 did not return to the shell"
 # playback speed wander.  Two reads a few seconds apart must differ, and the
 # harness runs flat out, so if this were frame-derived it would race far ahead
 # rather than track the clock.
-out=$(./test/headless rom/kernal.bin 'RUN EHBASIC
-~~~PRINT PEEK(54582)+256*PEEK(54583)
-~~~~~~~~~~~~~~~PRINT PEEK(54582)+256*PEEK(54583)
-~~' 3000 2>&1) || fail "EhBASIC did not run"
-a=$(echo "$out" | grep -A1 "PRINT PEEK" | grep -E "^ [0-9]+" | head -1 | tr -d " ")
-b=$(echo "$out" | grep -A1 "PRINT PEEK" | grep -E "^ [0-9]+" | tail -1 | tr -d " ")
+printf 'say "MS" peek(54582)+256*peek(54583)\ncall sleep 300\nsay "MS" peek(54582)+256*peek(54583)\n' > fs/HOME/OPLMS.RX
+out=$(./test/headless rom/kernal.bin 'RX /HOME/OPLMS.RX
+' 1200 2>&1) || fail "RX did not run"
+rm -f fs/HOME/OPLMS.RX
+a=$(echo "$out" | grep -E "^MS [0-9]+" | head -1 | cut -d" " -f2)
+b=$(echo "$out" | grep -E "^MS [0-9]+" | tail -1 | cut -d" " -f2)
 [ -n "$a" ] && [ -n "$b" ] || fail "could not read the millisecond counter at \$D536"
 [ "$a" != "$b" ] || fail "the millisecond counter is not advancing ($a twice)"
 [ "$a" -ne 65535 ] || fail "\$D536 reads as an unimplemented register"

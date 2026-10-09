@@ -2,7 +2,7 @@
  *
  * The Meatloaf rule (the C64's Meatloaf cartridge): a URL is a file name.
  * A name beginning http://, https:// or tnfs:// that reaches the filesystem
- * device ($D300) for reading -- LOAD, TYPE, CP, RUN, EhBASIC's LOAD, BBC
+ * device ($D300) for reading -- LOAD, TYPE, CP, RUN, BBC
  * BASIC's LOAD on the Tube -- is fetched and served like a file. No ROM
  * change: the ROM passes names through untouched and the host fetches.
  *

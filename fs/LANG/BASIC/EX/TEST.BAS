@@ -1,5 +1,5 @@
-' K4510 BASIC self-test (verbose).  The EhBASIC one, /LANG/EHBASIC/EX/TEST.BAS,
-' carried over -- and the things only K4510 BASIC has, tested too.
+' K4510 BASIC self-test (verbose).  EhBASIC's, carried over when that
+' interpreter went (2026-10-09) -- and the things only K4510 BASIC has, tested too.
 ' Goal, expected, a sample result, PASS/FAIL per test.
 CLS
 PRINT "K4510 BASIC SELF-TEST": PRINT

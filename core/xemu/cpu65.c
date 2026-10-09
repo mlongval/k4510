@@ -64,7 +64,7 @@ struct cpu65_st CPU65;
 
 #ifdef CPU_65CE02
 #define	SP_HI CPU65.sphi
-#define	ZP_HI CPU65.bphi
+#define	ZP_HI ((Uint32)CPU65.bphi)
 #define	ZERO_REG	CPU65.z
 #define CPU_TYPE "65CE02"
 #else
@@ -248,7 +248,7 @@ void cpu65_init_mega_specific ( void )
 
 
 static XEMU_INLINE Uint16 readWord ( const Uint16 addr ) {
-	return readByte(addr) | (readByte(addr + 1) << 8);
+	return readByte(addr) | (readByte((Uint16)(addr + 1)) << 8);
 }
 
 
@@ -256,17 +256,17 @@ static XEMU_INLINE Uint16 readWord ( const Uint16 addr ) {
 static inline Uint32 readQuad ( const Uint16 addr ) {
 	return
 		 readByte(addr    )        |
-		(readByte(addr + 1) <<  8) |
-		(readByte(addr + 2) << 16) |
-		(readByte(addr + 3) << 24)
+		(readByte((Uint16)(addr + 1)) <<  8) |
+		(readByte((Uint16)(addr + 2)) << 16) |
+		(readByte((Uint16)(addr + 3)) << 24)
 	;
 }
 
 static inline void writeQuad ( const Uint16 addr, const Uint32 data ) {
 	writeByte(addr    ,  data        & 0xFF);
-	writeByte(addr + 1, (data >>  8) & 0xFF);
-	writeByte(addr + 2, (data >> 16) & 0xFF);
-	writeByte(addr + 3, (data >> 24) & 0xFF);
+	writeByte((Uint16)(addr + 1), (data >>  8) & 0xFF);
+	writeByte((Uint16)(addr + 2), (data >> 16) & 0xFF);
+	writeByte((Uint16)(addr + 3), (data >> 24) & 0xFF);
 }
 #endif
 
@@ -277,7 +277,7 @@ static inline void writeQuad ( const Uint16 addr, const Uint32 data ) {
 
 static XEMU_INLINE void push ( const Uint8 data )
 {
-	writeByte(CPU65.s | CPU65.sphi, data);
+	writeByte((Uint32)(CPU65.s | CPU65.sphi), data);
 	CPU65.s--;
 	if (XEMU_UNLIKELY(CPU65.s == 0xFF && (!CPU65.pf_e))) {
 		CPU65.sphi -= 0x100;
@@ -295,7 +295,7 @@ static XEMU_INLINE Uint8 pop ( void )
 		DEBUG("CPU: 65CE02: SPHI changed to $%04X" NL, CPU65.sphi);
 #endif
 	}
-	return readByte(CPU65.s | CPU65.sphi);
+	return readByte((Uint32)(CPU65.s | CPU65.sphi));
 }
 #else
 #define push(data) writeByte(((Uint8)(CPU65.s--)) | SP_HI, data)
@@ -533,7 +533,7 @@ static XEMU_INLINE void _BRA ( const int cond, const int extra_cycles_if_taken )
 static XEMU_INLINE void _BRA16 ( const int cond, const int extra_cycles_if_taken ) {
 	if (cond) {
 		// Note: 16 bit PC relative stuffs works a bit differently as 8 bit ones, not the same base of the offsets!
-		CPU65.pc += 1 + (Sint16)(readByte(CPU65.pc) | (readByte(CPU65.pc + 1) << 8));
+		CPU65.pc += 1 + (Sint16)(readByte(CPU65.pc) | (readByte((Uint16)(CPU65.pc + 1)) << 8));
 		CPU65.op_cycles += extra_cycles_if_taken;
 	} else
 		CPU65.pc += 2;
@@ -549,11 +549,11 @@ static XEMU_INLINE Uint16 _GET_SP_INDIRECT_ADDR ( void )
 	int tmp = CPU65.s + readByte(CPU65.pc++);
 	if (CPU65.pf_e)		// FIXME: question #1: is E flag affects this addressing mode this way
 		tmp &= 0xFF;
-	tmp2 = readByte((CPU65.sphi + tmp) & 0xFFFF);
+	tmp2 = readByte((Uint32)((CPU65.sphi + tmp) & 0xFFFF));
 	tmp++;
 	if (CPU65.pf_e)		// FIXME: question #2: what happens if lo/hi bytes would be used at exactly at 'wrapping the stack' around case, with 8 bit stack mode?
 		tmp &= 0xFF;
-	tmp2 |= readByte((CPU65.sphi + tmp) & 0xFFFF) << 8;
+	tmp2 |= readByte((Uint32)((CPU65.sphi + tmp) & 0xFFFF)) << 8;
 	return (Uint16)(tmp2 + CPU65.y);
 }
 #endif
@@ -2388,12 +2388,12 @@ static __attribute__((noinline)) int cpu65_step_body (
 #ifdef CPU_65CE02
 			OPC_65CE02("ASW nnnn");
 			int addr = _abs();
-			Uint16 data = readByte(addr) | (readByte(addr + 1) << 8);
+			Uint16 data = readByte(addr) | (readByte((Uint16)(addr + 1)) << 8);
 			CPU65.pf_c = data & 0x8000;
 			data <<= 1;
 			SET_NZ16(data);
 			writeByte(addr, data & 0xFF);
-			writeByte(addr + 1, data >> 8);
+			writeByte((Uint16)(addr + 1), data >> 8);
 #endif
 			}
 			break;
@@ -2661,12 +2661,12 @@ static __attribute__((noinline)) int cpu65_step_body (
 #ifdef CPU_65CE02
 			OPC_65CE02("ROW nnnn");
 			int addr = _abs();
-			int data = ((readByte(addr) | (readByte(addr + 1) << 8)) << 1) | (CPU65.pf_c ? 1 : 0);
+			int data = ((readByte(addr) | (readByte((Uint16)(addr + 1)) << 8)) << 1) | (CPU65.pf_c ? 1 : 0);
 			CPU65.pf_c = data & 0x10000;
 			data &= 0xFFFF;
 			SET_NZ16(data);
 			writeByte(addr, data & 0xFF);
-			writeByte(addr + 1, data >> 8);
+			writeByte((Uint16)(addr + 1), data >> 8);
 #endif
 			}
 			break;

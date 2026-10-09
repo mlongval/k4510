@@ -12259,3 +12259,19 @@ never breaks, a note is rendered one callback after its write, two notes
 28,333.3 wanted, the hand-over keeps the chip, a queued reset silences.
 Not run on the Dell (nothing deployed); the handbook's Appendix C has a
 section on it (source only, not rebuilt).
+
+**2026-10-09: the memory callbacks take a 32-bit address; a third of the CPU's host time back.**
+Found in the K4520 experiment: the core's `cpu65_read_callback` and the two
+write callbacks took `Uint16 addr`, and gcc did the hot path's arithmetic on
+16-bit partial registers (`shr $0xd,%bp`, `and $0xf000,%ax`, a `movzwl`
+before every RAM index), which x86 pays for.  The parameter is `Uint32` now
+(core/xemu/cpu65.h, core/mem.c); the value is the same 16-bit one -- the
+`addr + 1` sites in cpu65.c cast to Uint16 to keep their wrap, ZP_HI and
+the stack address are formed as Uint32.  No behaviour change: a step log
+of 3,000,000 instructions (PC, opcode, cycles, S, the fence's deepest
+address) hashes the same before and after, idle and with the BENCH menu
+(031209a8f706cdf7 / b4f0d42c6757539a, cycles 4431820 / 9407106); a WATCH
+on $07F0 fires at the same step and PC (208778, $EF83); RF1, RF4 and SIEVE
+are frame-identical.  test/bench busy, 900 frames, three runs: cpu
+3.30-3.31 ms/frame before, 2.27-2.28 after; cpu65_read_callback 110 -> 98
+instructions.  make test green, check-artifacts included.

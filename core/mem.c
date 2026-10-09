@@ -277,7 +277,7 @@ int dbg_rec;                             /* the PC recorder costs a store per in
 /* the WATCH write hook (core/io.h): armed rarely, checked cheaply */
 #define WATCH_WR(phys) do { if (XEMU_UNLIKELY(dbg_watch_ctl && ((phys) & K4510_PHYS_MASK) == dbg_watch_addr)) dbg_watch_hit(); \
                             if ((phys) >= 0x10000u || (vicky_low && (phys) >= 0x800u)) vicky_dirty = 1; } while (0)   /* ...and VICKY's idle frames (core/vicky.h) */
-Uint8 cpu65_read_callback(Uint16 addr)
+Uint8 cpu65_read_callback(Uint32 addr)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_UNLIKELY(dbg_rec && addr == cpu65.old_pc)) dbg_pc(addr);   /* opcode fetch: the debug recorder */
@@ -300,7 +300,7 @@ Uint8 cpu65_read_callback(Uint16 addr)
     return k4510_ram[cpu_to_phys(addr)];
 }
 
-void cpu65_write_callback(Uint16 addr, Uint8 data)
+void cpu65_write_callback(Uint32 addr, Uint8 data)
 {
     uint32_t base = block_base[addr >> 13];
     if (XEMU_LIKELY(base == UNMAPPED)) {
@@ -317,7 +317,7 @@ void cpu65_write_callback(Uint16 addr, Uint8 data)
     { uint32_t phys = cpu_to_phys(addr); WATCH_WR(phys); k4510_ram[phys] = data; }
 }
 
-void cpu65_write_rmw_callback(Uint16 addr, Uint8 old_data, Uint8 new_data)
+void cpu65_write_rmw_callback(Uint32 addr, Uint8 old_data, Uint8 new_data)
 {
     (void)old_data;
     cpu65_write_callback(addr, new_data);

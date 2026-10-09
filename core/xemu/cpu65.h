@@ -97,11 +97,16 @@ extern void cpu65_set_timing ( unsigned int mode );
 //extern int cpu_multi_step_stop_trigger;
 
 #ifndef CPU_CUSTOM_MEMORY_FUNCTIONS_H
-extern void  cpu65_write_callback      ( Uint16 addr, Uint8 data );
+/* K4510 (2026-10-09): the address is Uint32, not Uint16 -- the value is the
+ * same 16-bit one (every caller forms it in 16 bits; the "addr + 1" sites
+ * in cpu65.c cast, keeping their wrap), but a Uint16 parameter made gcc do
+ * the hot path's arithmetic on 16-bit partial registers and zero-extend
+ * before every RAM index, a third of the CPU's host time (K4520 found it). */
+extern void  cpu65_write_callback      ( Uint32 addr, Uint8 data );
 #ifndef CPU65_NO_RMW_EMULATION
-extern void  cpu65_write_rmw_callback  ( Uint16 addr, Uint8 old_data, Uint8 new_data );
+extern void  cpu65_write_rmw_callback  ( Uint32 addr, Uint8 old_data, Uint8 new_data );
 #endif
-extern Uint8 cpu65_read_callback       ( Uint16 addr );
+extern Uint8 cpu65_read_callback       ( Uint32 addr );
 #ifdef MEGA65
 extern void  cpu65_write_linear_opcode_callback ( Uint8 data );
 extern Uint8 cpu65_read_linear_opcode_callback  ( void );

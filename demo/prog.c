@@ -659,6 +659,8 @@ static void run_cmd(uint8_t c)
     wantx = cx;
 }
 
+static void busy(void) { status_line("Compiling... please wait", name); }   /* ed_busy: during a compile (Doc, 2026-10-09) */
+
 /* ---- the menus ------------------------------------------------------------ */
 static const char *const mtitle[] = { "File", "Edit", "Search", "Build", "Options", "Help" };
 static const struct item m_file[]   = { { "New", 0, C_NEW, "Ctrl+N" }, { "New Project...", 4, C_NEWPROJ, "" }, { "Open...", 0, C_OPEN, "Ctrl+O" },
@@ -778,7 +780,7 @@ void main(void)
     while (j < na && j < NAMEMAX - 1 && a[j] != ' ') { name[j] = a[j]; j++; }
     name[j] = 0;
     ui_init();
-    ui_titles = mtitle; ui_menus = menus; ui_nmenu = 6; ui_marked = marked; ui_dirtab = 0x0EE00000UL;   /* not 0x07F00000: the eighth buffer's undo journal runs to 0x07F77000 */ ui_name = "PROG ";
+    ui_titles = mtitle; ui_menus = menus; ui_nmenu = 6; ui_marked = marked; ui_dirtab = 0x0EE00000UL;   /* not 0x07F00000: the eighth buffer's undo journal runs to 0x07F77000 */ ui_name = "PROG "; ed_busy = busy;
     ui_relayout = relayout;
     wy = 2; relayout();
     scheme(sys);

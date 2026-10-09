@@ -599,6 +599,7 @@ static unsigned first_e(void)                        /* MAKE.ERR's first error (
 #ifdef ED_HICODE
 #pragma code-name (pop)
 #endif
+static void (*ed_busy)(void);                        /* the front end's "compiling" line, if it has one (PROG) */
 static uint8_t do_make(void)                         /* 1 if it compiled without an error */
 {
     char *c = shline; const char *tool = compiler(), *s; uint8_t i = 0, rc; unsigned e;
@@ -619,6 +620,7 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
         c[i] = 0;
         mkdir_of_name();
     }
+    if (ed_busy) ed_busy();                          /* the front end says so: a long compile is not a hang (Doc, 2026-10-09) */
     rc = rom_shell(c);
     screen_back();
     err_load();

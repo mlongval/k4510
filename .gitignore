@@ -165,3 +165,5 @@ linux/config/includes.chroot/**/__pycache__/
 
 # Python bytecode, wherever a script is run from
 __pycache__/
+test/sidetest
+sdl/libk4510side.so

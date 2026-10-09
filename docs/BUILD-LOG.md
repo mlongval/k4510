@@ -12128,3 +12128,17 @@ clock check stopped expecting 40500 kHz (the governor moves it; it reads the
 three bytes now).  docs/KBASIC.md opens with the dialect charter Doc agreed
 with doc-18; the chapter regenerated (tools/md2tex.py), the memory map has
 the program's far-memory areas.
+
+**2026-10-09: the sidebars for the personalities (libk4510side.so).**
+Doc: "shift all emulators to be shifted left to maximise the sidebar area to
+the right, there is a lot of cool stuff that can be done there".  The
+bmc64port session put the C64/Amiga/X16 pictures flush left (K4510_PLACEMENT,
+its patches); what fills the right is ours: sdl/savers.c and its scenes,
+less Navidrome (it plays into the machine's sound), built as a library with
+no SDL -- the SDL2 emulators and the SDL3 one load the same one.  Four names
+leave it (k4510side_init/draw/quit/api, sdl/k4510side.h); the scenes' own
+stay hidden.  init takes "antfarm day=30m state=DIR", and the colony is kept
+in DIR/antfarm.DAT across runs.  test/sidetest dlopens it in make test; the
+Dell's layer build makes it beside sdl/k4510.  Also the Dell (2026-10-08,
+late): 0.9-a5cdeb0 with the space-bar personality menu (no GRUB), the
+toolchain at ~/Projects/K4510/toolchain in the layer, the lid kept running.

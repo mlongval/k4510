@@ -106,6 +106,13 @@ test/fstest: test/fstest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 test/sidebartest: test/sidebartest.c $(CORE_OBJS) $(SIDEBAR_O)   # the sidebars: the list from the zips, and the scenes
 	$(CC) $(CFLAGS) -o $@ test/sidebartest.c $(SIDEBAR_O) $(CORE_OBJS) $(LDLIBS)
+# the sidebars for the personalities (C64, Amiga, X16): sdl/savers.c and the
+# scenes, less the Navidrome one, as a library with no SDL (sdl/k4510side.h)
+SIDE_LIB_C = sdl/k4510side.c sdl/savers.c $(filter-out sdl/sidebars/navidrome.c,$(wildcard sdl/sidebars/*.c))
+sdl/libk4510side.so: $(SIDE_LIB_C) sdl/k4510side.h sdl/savers.h sdl/sidebars/canvas.h
+	$(CC) $(CFLAGS) -fPIC -shared -fvisibility=hidden -DK4510SIDE_BUILD -o $@ $(SIDE_LIB_C) -lm
+test/sidetest: test/sidetest.c sdl/k4510side.h
+	$(CC) $(CFLAGS) -Isdl -o $@ test/sidetest.c -ldl
 test/ziptest: test/ziptest.c $(CORE_OBJS)   # MOUNT a zip; its fixtures are made by test/ziptest.sh
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)
 
@@ -218,7 +225,7 @@ check-artifacts: $(DEMOS) fs/LANG/EHBASIC/ehbasic.prg rom/kernal.bin $(SIDEBAR_Z
 	  exit 1; }
 	@echo "check-artifacts: tracked binaries match their sources"
 
-test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest test/termtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
+test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest test/fstest test/ziptest test/sidebartest sdl/libk4510side.so test/sidetest test/termtest test/uitest test/statetest test/romtest test/kostest test/mathtest test/renumtest rom/wozmon.bin rom/kernal.bin
 	./test/cputest
 	./test/renumtest
 	sh ./test/errfmttest.sh
@@ -237,6 +244,7 @@ test: check-artifacts fs/SYSTEM/BIN/ranger.prg fs/SYSTEM/BIN/delete.prg test/cpu
 	sh ./test/calctest.sh
 	python3 tools/mksidebar.py --check fs/SYSTEM/SIDEBARS/*.ZIP
 	./test/sidebartest
+	./test/sidetest sdl/libk4510side.so
 	./test/termtest
 	./test/uitest
 	./test/statetest

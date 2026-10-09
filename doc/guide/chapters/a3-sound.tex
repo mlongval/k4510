@@ -301,3 +301,42 @@ machine. So on the K4510's own Linux the volume setting now drives ALSA's
 Master, and the machine's sound is made at full: F12's volume and the
 volume keys are the computer's volume, for everything it plays. On a
 desktop nothing changed.
+
+\section{Decoupled, at last}
+On 9 October 2026 the Dell --- the K4510's own Linux, no sound server,
+the picture on KMSDRM --- played \texttt{PLAY} and \texttt{SOUND} with the
+right notes and a crackle under them, at every clock from 60\,MHz down
+to 10, and the clock changing nothing was the clue: \texttt{PERF.TXT}
+showed the frame loop at 54 frames a second, 18.5\,ms a frame and
+uneven. The sound was still made in step with the frames --- 800 samples
+a frame and a top-up to a 38\,ms lead --- and a frame late by more than
+the lead let two of the card's 21\,ms callbacks drain the ring between
+them. The chips-play-on fix of section~\ref{cha:sound} had decoupled
+the \emph{chip} from a late CPU; it had not decoupled the \emph{making
+of the sound} from the frame loop, which still did the making.
+
+Doc: \emph{decouple it.} Now the OPL2 is rendered on the card's own
+thread, a callback's worth at a time, at the card's rate. The machine's
+thread never renders while the device is open: it queues its register
+writes, each due at a sample of the card's, and the callback performs
+each one at that sample. Within a frame the machine's time is the
+truth (a program that writes the chip at scanline 100 and again at 300
+means 6.9\,ms between them, and gets it); between frames the card's is
+(the frames came when they came). A late frame makes its notes late,
+and bunched if it ran back-to-back with the next; the tone under them
+never stops, because the chip is clocked by the card and not by the
+frame. The device still closes after five seconds of silence, and while
+it is closed the machine's thread has the chip back and performs the
+writes itself, so nothing is lost; under the menu the callback plays
+silence and holds the chip still, and a note resumes where it stopped.
+
+The meters changed meaning with it. Gaps (\texttt{\$D524}) still count
+callbacks the card starved before --- now measured as a callback that
+came more than two blocks after the one before it, since the card holds
+two --- and should read 0 on any host that can run the emulator at all.
+\emph{Filled in} (\texttt{\$D52A}) counted samples the top-up made
+without the machine; there is no top-up, and it now counts the samples
+the sound played on \emph{past a write that was already due} --- the
+machine so late that the card got there first. Same meaning from the
+chair, sound the machine was not there to make; 0 on a host keeping
+up, so BENCH's and SETUP's \emph{nothing filled} rows read as before.

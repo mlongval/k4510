@@ -12216,3 +12216,46 @@ clock.  Not done (proposals for Doc): a DEC state-table parser, the term_t
 refactor, and the remaining compatibility fixes vtconf marks.  The KMSDRM
 wait is untested on the Dell itself (no input devices readable here; a FIFO
 stood in for one).
+
+**2026-10-09: the sound decoupled from the frames.**  The Dell (Debian
+live, ALSA, KMSDRM) played PLAY/SOUND with the right notes and a crackle,
+at every clock from 60 MHz to 10 -- the clock changing nothing was the
+clue; PERF.TXT had the loop at 54 fps, 18.5 ms a frame, uneven.  The
+sound was still made in step with the frames (800 samples a frame in
+machine_frame plus a top-up to a 38 ms lead) and a frame later than the
+lead let two 21 ms callbacks drain the ring.  Doc: "decouple it".  Now
+the OPL2 is rendered on SDL's audio thread, inside audio_cb, a callback's
+worth at the card's rate (core/audio.c audio_pull); the machine's thread
+queues its register writes through core/sndq (the Pi's other-core queue,
+finished at last), each due at a sample of the card's.  The due sample
+comes from a MARK the machine's thread takes at every frame's start --
+its own audio microsecond against the card's position, the latter carried
+between callbacks by the host's clock (audio_set_clock) -- plus a fixed
+margin of one callback: within a frame the machine's time is the truth,
+between frames the card's; a late frame lands late and bunched, after the
+one before (the queue is drained in order, so an ADDR/DATA pair can never
+swap), the tone under it never breaking.  Ownership never overlaps: the
+audio thread has the chip while the device is open (audio_take(OTHER)
+before the device is unpaused), the machine's thread while it is closed
+(audio_take(CPU) after SDL_CloseAudioDevice, which joins the thread, then
+every queued write performed at once); a reset with the audio thread
+rendering is queued as SNDQ_EV_RESET, in its place in the stream; the
+chip's sleep is the renderer's; the device now opens on the first register
+write rather than the first sample (opl2_touched), so it is up for the
+attack.  Under the menu or paused the callback plays zeros and holds the
+chip (snd_frozen).  Headless, the tests and a host with no device keep
+the old path: OWNER_CPU, audio_render a scanline at a time.  The meters:
+$D524 gaps now count callbacks the card starved before (a callback more
+than two blocks after the one before it; SDL does not say), expected 0;
+$D52A fill counts samples played on past a write already due (the machine
+that late), 0 on a host keeping up, so BENCH/SETUP's "nothing filled" rows
+read as before; K4510_RINGLOG prints lead/gaps/filled/dropped.  sndq's
+queue is 16384 deep and drops (counted) when full rather than writing
+through into a chip another thread is rendering.  test/sndtest (in make
+test) runs a pretend loop -- Dell frames with one in five stalled up to
+50 ms, 30 fps, 60 ms bursts -- against a pretend callback: a held note
+never breaks, a note is rendered one callback after its write, two notes
+200 scanlines and 35 frames apart land 28,334 samples apart against
+28,333.3 wanted, the hand-over keeps the chip, a queued reset silences.
+Not run on the Dell (nothing deployed); the handbook's Appendix C has a
+section on it (source only, not rebuilt).

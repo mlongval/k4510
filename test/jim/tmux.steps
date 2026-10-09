@@ -1,0 +1,29 @@
+# nvim on a C file: the workloads of the JIM review (2026-10-09)
+mark open
+wait 2500
+mark ctrl-d
+repeat 8 300 \x04
+mark ctrl-u
+repeat 8 300 \x15
+mark j-held
+repeat 120 33 j
+wait 500
+mark insert
+keys 300 o
+keys 110 if (x == 42) { printf("the quick brown fox\n"); }
+keys 300 \x1b
+wait 300
+mark split
+keys 120 :split\r
+wait 600
+keys 120 :vsplit\r
+wait 600
+repeat 30 33 j
+keys 200 \x17w
+repeat 30 33 k
+wait 300
+mark idle
+wait 6000
+mark quit
+keys 120 :qa!\r
+wait 800

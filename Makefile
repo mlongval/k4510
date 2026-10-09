@@ -459,9 +459,13 @@ fs/APPS/SKYFIRE/skyfire.prg: demo/skyfire.c demo/skyfire.h demo/skyfire.bin demo
 	ca65 --cpu 65c02 -o demo/skyfire_c.o demo/skyfire_c.s
 	ca65 --cpu 65c02 -o demo/skyfire_h.o demo/skyfire-header.s
 	ld65 -C demo/skyfire.cfg -o $@ demo/prg0.o demo/romcalls.o demo/skyfire_c.o demo/skyfire_h.o none.lib -m demo/skyfire.map
-# chess: the KoboChess drawn pieces (Doc's own, data/chess/) as 4 bpp sprites;
-# tools/mkchess.py sorts ink from paper so a palette bank per side colours them
-demo/chess.bin demo/chess.h: tools/mkchess.py $(wildcard data/chess/*.png)
+# chess: the piece sets (data/chess/<set>/) as 4 bpp sprites; tools/mkchess.py
+# sorts ink from paper so a palette bank per side colours them.  The sets are
+# in subdirectories, the Pixel set a text file: both are dependencies, or a
+# checkout keeps a chess.bin from before and builds a chess.prg that is not
+# the committed one (2026-10-09).  The untracked "lines" set only with
+# K4510_CHESS_LINES=1, so every checkout builds the same chess.prg.
+demo/chess.bin demo/chess.h: tools/mkchess.py data/chess/pixel/pieces.txt $(wildcard data/chess/*/*.png)
 	python3 tools/mkchess.py >/dev/null
 fs/APPS/CHESS/chess.prg: demo/chess.c demo/chess.h demo/chess.bin demo/chess-header.s demo/far.h demo/k4510.h demo/prg0.o demo/romcalls.o demo/chess.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/chess.s.tmp demo/chess.c && mv demo/chess.s.tmp demo/chess_c.s

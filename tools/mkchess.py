@@ -13,8 +13,9 @@ a byte, high nibble left:
                          left of it, the piece inside.
 Sets, in order: pixel (data/chess/pixel/pieces.txt, drawn a pixel at a time
 for this board), drawn (KoboChess's own), vecteezy (Vecteezy.com, Free
-License, credited), lines (unknown licence, present only on Doc's machines
--- skipped when the files are missing).  The drawn sets are shrunk to 20 px.
+License, credited), lines (unknown licence, present only on Doc's machines:
+only with K4510_CHESS_LINES=1, so that the committed chess.prg is what every
+checkout builds).  The drawn sets are shrunk to 20 px.
 
 Pixel classes, so a palette bank can colour a side (see classify): 1..5 the
 inside from paper to ink in five steps, 6..8 ink edges at three coverages,
@@ -115,6 +116,8 @@ for folder, label in SETS:
         data += minis
         names.append(label)
         assert len(data) - start == 12 * 512 + 12 * 128
+        continue
+    if folder == "lines" and os.environ.get("K4510_CHESS_LINES") != "1":
         continue
     if not all(os.path.exists(os.path.join(d, f"{s}{k}.png")) for s in "wb" for k in "pnbrqk"):
         print(f"mkchess: no {folder} set here, skipped"); continue

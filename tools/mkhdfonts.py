@@ -62,6 +62,27 @@ def unscii16():
         if len(b) == 16: g[int(k, 16)] = double8(list(b))
     return g
 
+# Doc, 2026-10-09: Terminus's R has its leg start at the stem; ours leaves the
+# bowl at about half its width.  The leg rows, in the source cuts (16x32 and
+# 12x24, before any widening), regular and bold.
+R_LEG = {
+    ("", 32): (18, ["..##...###......", "..##...###......", "..##....###.....", "..##....###.....",
+                    "..##.....###....", "..##......###...", "..##.......###..", "..##........##.."]),
+    ("Bold", 32): (18, [".###..####......", ".###...###......", ".###...####.....", ".###....###.....",
+                        ".###....####....", ".###.....####...", ".###......####..", ".###.......###.."]),
+    ("", 24): (12, [".#...#......", ".#...#......", ".#....#.....", ".#....#.....",
+                    ".#.....#....", ".#......#...", ".#.......#.."]),
+    ("Bold", 24): (12, [".##..##.....", ".##..##.....", ".##...##....", ".##...##....",
+                        ".##....##...", ".##.....##..", ".##......##."]),
+}
+
+def fix_r(rows, weight, h, w):           # the leg of R, from the bowl (R_LEG); rows as the cut has them, w bits wide
+    top, leg = R_LEG[(weight, h)]
+    rows = list(rows)
+    for i, t in enumerate(leg):
+        rows[top + i] = sum(1 << (15 - b) for b, c in enumerate(t) if c == "#")   # psf rows: MSB first in 16 bits
+    return rows
+
 def terminus(d, weight):
     g = {}
     size = "32x16" if K == 2 else "24x12"            # at three times, the 12x24 cut doubled
@@ -74,6 +95,7 @@ def terminus(d, weight):
         for i in range(n):
             e = data.index(b"\xff", p); seq = data[p:e]; p = e + 1
             rows = [glyphs[i][2 * r] << 8 | glyphs[i][2 * r + 1] for r in range(h)]
+            if "R" in seq.split(b"\xfe")[0].decode("utf-8", "ignore"): rows = fix_r(rows, weight, h, w)
             if K == 3: rows = widen([r >> 4 for r in rows], 12, 2)
             for ch in seq.split(b"\xfe")[0].decode("utf-8", "ignore"):
                 g.setdefault(ord(ch), rows)

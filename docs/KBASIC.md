@@ -24,6 +24,7 @@ You write a program in PROG (or VI, or any editor), save it as
 |---|---|
 | At the prompt | `BAS NAME` compiles NAME.BAS into `name.prg`; `NAME` runs it |
 | In PROG | **F9** compiles; **Ctrl-F9** compiles and runs |
+| To see the Pascal | `BAS -p NAME` also leaves `B_NAME.PAS` (and its runtime, `KBASRT.PAS`) beside the program; `PAS B_NAME` compiles it by hand |
 
 There is no "immediate mode" (typing `PRINT 2+2` and getting 4). For a
 quick calculation or a one-line try, use RX: there `PRINT` works like

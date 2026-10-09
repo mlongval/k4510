@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""k4510-bas NAME[.BAS]   compile a K4510 BASIC program into NAME.prg beside it
+"""k4510-bas [-p] NAME[.BAS]   compile a K4510 BASIC program into NAME.prg beside it
+
+  -p   also keep the Pascal it made, beside the program: B_NAME.PAS (the
+       file k4510-pas compiles) and KBASRT.PAS (its runtime), so
+       PAS B_NAME compiles it by hand -- written even when the compile
+       fails.  B_ keeps it off a NAME.PAS of the user's own.
 
 K4510 BASIC is the machine's BASIC, a dialect of its own (docs/KBASIC.md),
 compiled: k4510-bas translates the program into Mad Pascal and hands that
@@ -2143,6 +2148,9 @@ end;
 
 def main():
     args = sys.argv[1:]
+    show = bool(args) and args[0] == "-p"
+    if show:
+        args = args[1:]
     if not args or args[0] in ("-h", "--help"):
         print(__doc__.strip().split("\n\n")[0], file=sys.stderr)
         sys.exit(2)
@@ -2195,11 +2203,18 @@ def main():
     rt = os.path.join(HERE, "kbasrt.pas")
     if not os.path.exists(rt):
         rt = os.path.join(HERE, "kbasic", "kbasrt.pas")
+    pasname = progname.upper() + ".PAS"
+    text = "".join(t + "\n" for t, _ in lines).encode("latin-1")
+    if show:                                           # -p: the Pascal beside the BASIC, before the compile can fail
+        with open(os.path.join(d, pasname), "wb") as f:
+            f.write(text)
+        shutil.copy(rt, os.path.join(d, "KBASRT.PAS"))
+        print("k4510-bas: the Pascal is %s" % pasname, file=sys.stderr)
+        errs.append("-:0:0:I:the Pascal is %s" % pasname)
     tmp = tempfile.mkdtemp(prefix="k4510-bas.")
     try:
-        pasname = progname.upper() + ".PAS"
         with open(os.path.join(tmp, pasname), "wb") as f:
-            f.write("".join(t + "\n" for t, _ in lines).encode("latin-1"))
+            f.write(text)
         shutil.copy(rt, os.path.join(tmp, "KBASRT.PAS"))
         env = dict(os.environ)
         sroot = os.path.join(tmp, "root")              # k4510-pas's MAKE.ERR goes here: ours is written from it

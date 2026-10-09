@@ -49,5 +49,10 @@ for name in "$@"; do
     if [ -n "$miss" ]; then echo "bastest: FAIL $name:$miss"; fail=$((fail+1)); failed="$failed $name"
     else pass=$((pass+1)); fi
 done
+# -p: the Pascal kept beside the program (B_NAME.PAS + KBASRT.PAS)
+rm -rf "$S"; mkdir -p "$S"; cp "$T/MISC.BAS" "$S/"
+K4510_ROOT=$PWD/fs tools/k4510-bas -p /HOME/KBTEST/MISC.BAS >/dev/null 2>&1
+if [ -f "$S/B_MISC.PAS" ] && [ -f "$S/KBASRT.PAS" ] && [ -f "$S/misc.prg" ] && grep -q "^program b_misc" "$S/B_MISC.PAS"; then pass=$((pass+1))
+else echo "bastest: FAIL -p: no B_MISC.PAS/KBASRT.PAS/misc.prg"; fail=$((fail+1)); failed="$failed -p"; fi
 echo "bastest: $pass passed, $fail failed${failed:+ ($failed )}"
 [ $fail -eq 0 ]

@@ -672,13 +672,17 @@ class Translator:
                     self.hard.add(code)
                     return (code, "i")
                 return self.rv(*e)
-            if self.scope == name:
+            if self.scope == name and self.fn_scope():   # a FUNCTION's own name is its result; a SUB's is just a name
                 return self.rv("Result", vtype(name))
             r = self.rv(self.declare(name), vtype(name))
             if r[1] == "i":
                 self.hard.add(r[0])
             return r
         self.err(c.line, t.col, "'%s' cannot start a value" % t.val)
+
+    def fn_scope(self):
+        """inside a FUNCTION (or DEF FN): its name stands for its result"""
+        return bool(self.scope) and self.subs.get(self.scope, ("",))[0] == "FUNCTION"
 
     def rv(self, code, ty):
         """a variable read in an expression: a string one as a handle"""
@@ -730,7 +734,7 @@ class Translator:
             self.err(c.line, t.col, "%s is a CONST: it cannot change" % t.val)
         if c.peek() and c.peek().isop("("):
             return self.element(c, t)
-        if self.scope == t.val:
+        if self.scope == t.val and self.fn_scope():
             return ("Result", vtype(t.val))
         return (self.declare(t.val), vtype(t.val))
 

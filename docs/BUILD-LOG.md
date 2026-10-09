@@ -12171,3 +12171,48 @@ GRAPH3D.BAS now means /LANG/BASIC/EX's, the shipped K4510 BASIC one.  His
 is an EhBASIC program: to keep using it, copy it beside the other and try
 BAS on it (numbered lines are labels; EhBASIC-only words will be named in
 MAKE.ERR).
+
+**2026-10-09: JIM reviewed -- hardened, and its timing fixed.**  Doc: "wait
+for the code review, then merge and fix timing"; serious robustness findings
+were to be fixed in the same pass.  The review (test/vtconf: 129 pass, 27
+known failures marked; test/jimbench on recorded nvim/tmux/mosh streams)
+found JIM's parser fast -- 87-116 MB/s, an update a few microseconds -- and
+the latency elsewhere: the Terminal's pty read at vblank after the picture
+was made (a frame late), the pacer's SDL_Delay (a key waited 8 ms on
+average, 50 ms after two idle seconds), and a full repaint for every
+ESC[?2026l, up to three a frame.  Its robustness findings, fixed:
+- Kitty pictures (core/jimgfx.c): x + w overflowed int and read past the
+  image (SEGV); c= r= of 20 million looped 10^12 times; a key's number
+  overflowed int; 2.2 GB a remote could make JIM hold -- now JIMGFX_BUDGET,
+  64 MB of images in all (the oldest shown goes), a 32 MB payload and a
+  48 MB APC at most, both let go after each command; t=f/t=t read only a
+  regular file, never wait on a FIFO, and t=t unlinks only under /tmp,
+  $TMPDIR or /dev/shm.
+- The parser (core/term.c): an APC past its cap left a stale OSC, so its
+  tail could be ESC ] 4510;kos; ESC in an APC ate the next byte; a save
+  state's parser fields were trusted (oscn 64-254 wrote past T.osc).
+- The Terminal's pty (core/screen2.c): FD_CLOEXEC, a bounded drain after
+  the session ends, and what the pty will not take yet (a big paste) is
+  queued and sent next frame instead of dropped.
+test/jimgfxtest (in make test) has a case for each; `make jimfuzz` runs it,
+termtest, vtconf and the review's fuzzer under ASan + UBSan (clean, 1.3
+million inputs).  The timing: the pty is read at the frame's start
+(io_frame_start, in vicky_begin_frame), so what came during the last frame
+is drawn by this one; the wait between frames is on SDL's queue (pace_wait),
+so a key goes to the pty when it is pressed and the 60 frames a second stay;
+at rest a key or the pty ends the rest at once; on KMSDRM, where SDL cannot
+block, the wait polls /dev/input/event* and the pty, keeping rest's 20
+wakeups a second (98 with slices if the devices cannot be opened); and the
+second screen never repaints for ?2026 -- JIM is fed up to the last update
+not yet ended, and the raster draws the finished one (nvim's j held: 1.8 ms
+an update before, 8 us now); the machine's own JIM paints at most once a
+frame.  Measured under Xvfb with test/jim/latrun.sh (XTest keys at a
+raw-mode child, K4510_LATLOG), median / p95 of 2 x 200 keys:
+key -> pty 8-9 / 16 ms before, 0.4 / 5 ms after; at rest 15-18 / 48 ms
+before, 0.4 / 1 ms after; key -> echo on the glass 35 / 54-59 ms before,
+21 / 32 ms after.  CPU at idle the same, 7.5% (30 s, K/OS prompt and
+Terminal, 10 MHz).  EDIT, PROG and VI screenshots identical but for the
+clock.  Not done (proposals for Doc): a DEC state-table parser, the term_t
+refactor, and the remaining compatibility fixes vtconf marks.  The KMSDRM
+wait is untested on the Dell itself (no input devices readable here; a FIFO
+stood in for one).

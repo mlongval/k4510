@@ -20,7 +20,7 @@
 # that does not ask for one reads none of it.  What the machines save --
 # disks, the A1200's hard drive, the X16's files, settings -- is in ~/personalities/NAME, on
 # the disk with the rest of the home.  Made and deployed by Doc's
-# ~/Projects/K4510-Personnalities (ubuntu-s1).
+# ~/Projects/K4510-Personalities (ubuntu-s1).
 set -e
 RAM=/run/k4510-personalities
 stores() { for d in /run/live/persistence/*/personalities; do [ -d "$d" ] && echo "$d"; done; }

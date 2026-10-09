@@ -144,7 +144,7 @@ no entries for them: Doc wanted the choice made by Debian, not the loader.
 
 | | |
 |---|---|
-| made by | `~/Projects/K4510-Personnalities` on ubuntu-s1 (`tools/make-images.sh`), deployed there too |
+| made by | `~/Projects/K4510-Personalities` on ubuntu-s1 (`tools/make-images.sh`), deployed there too |
 | in the menu | `k4510-boot-menu` (profile.d, tty1) reads the `.list` files; a family shows only while its image is on p4, and with none there it does not wait |
 | run | `k4510-personality NAME`: the family's image is copied to `/run` (RAM) and mounted at `/opt/personalities/<family>` -- only when one is chosen |
 | saves | `~/personalities/NAME/` -- disks, the A1200's hard drive (a directory, Workbench 3.1), `.uae`; VICE's settings in `~/.config/vice`; the X16's drive 8 is `~/personalities/x16` itself (HostFS: plain files), plus `nvram.bin` |

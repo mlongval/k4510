@@ -1,0 +1,263 @@
+Description: Cursor shape (DECSCUSR, CSI Ps SP q) support
+ Stock mosh 1.4.0 swallows "ESC [ Ps SP q", so an application's cursor
+ style (e.g. nvim's bar cursor in INSERT mode) never reaches the local
+ terminal.  This parses DECSCUSR into DrawState::cursor_shape on the
+ server's terminal emulator, carries it through the state sync (it is
+ part of DrawState::operator==, so a shape-only change is a real diff),
+ and re-emits it from Display::new_frame on the client.  Both
+ mosh-server and mosh-client need the patch.
+ .
+ Based on the unmerged upstream PR mobile-shell/mosh#1355 "Cursor shape
+ support" by dabeibao (head 4ead8960e399d2e8861f719185de739bab281ad1),
+ rebased by hand onto the 1.4.0 release, with these changes:
+  - initial/default shape is 0 ("terminal default"), not -1.  With -1, a
+    full reset (RIS) after a shape was set went back to -1 and the client
+    never told the terminal, leaving e.g. a bar cursor behind.  Now any
+    change, including back to 0, is sent as ESC [ Ps SP q.
+  - on a full repaint (initialized == false: first frame, resume after
+    Ctrl-^ Ctrl-Z, Ctrl-L repaint) a non-default shape is re-sent; the
+    PR only sent it on change, so a resumed client lost the shape.
+  - Display::close() takes the last drawn frame and emits ESC [ 0 SP q
+    when the shape is not the default, so the cursor is restored when
+    mosh exits or is suspended.  Nothing is sent if no shape was set.
+  - the new emulation-cursor-shape.test is added to src/tests/Makefile.am
+    (the PR added the file but never ran it), and fixed: it now clears
+    the screen first like the other emulation tests (without that the
+    mosh and direct captures differ by a blank line; it failed even
+    with the escapes replaced by plain text), and a post hook checks
+    the tmux log that mosh-client really sent ESC [ 1..6 SP q, and
+    ESC [ 0 SP q on exit.
+ Used by the K4510 project (github.com/mlongval/k4510): nvim -> tmux ->
+ mosh-server (Ubuntu noble) -> mosh-client (K4510x, Debian trixie) ->
+ JIM, which implements DECSCUSR.
+Origin: other, https://github.com/mobile-shell/mosh/pull/1355
+Forwarded: not-needed
+Last-Update: 2026-10-09
+---
+diff --git a/src/frontend/stmclient.cc b/src/frontend/stmclient.cc
+index e6e9b3a..b7c771f 100644
+--- a/src/frontend/stmclient.cc
++++ b/src/frontend/stmclient.cc
+@@ -207,7 +207,7 @@ void STMClient::shutdown( void )
+   output_new_frame();
+ 
+   /* Restore terminal and terminal-driver state */
+-  swrite( STDOUT_FILENO, display.close().c_str() );
++  swrite( STDOUT_FILENO, display.close( &local_framebuffer ).c_str() );
+   
+   if ( tcsetattr( STDIN_FILENO, TCSANOW, &saved_termios ) < 0 ) {
+     perror( "tcsetattr" );
+@@ -344,7 +344,7 @@ bool STMClient::process_user_input( int fd )
+ 	return false;
+       } else if ( the_byte == 0x1a ) { /* Suspend sequence is escape_key Ctrl-Z */
+ 	/* Restore terminal and terminal-driver state */
+-	swrite( STDOUT_FILENO, display.close().c_str() );
++	swrite( STDOUT_FILENO, display.close( &local_framebuffer ).c_str() );
+ 
+ 	if ( tcsetattr( STDIN_FILENO, TCSANOW, &saved_termios ) < 0 ) {
+ 	  perror( "tcsetattr" );
+diff --git a/src/terminal/terminaldisplay.cc b/src/terminal/terminaldisplay.cc
+index e7595c2..c9ce6f8 100644
+--- a/src/terminal/terminaldisplay.cc
++++ b/src/terminal/terminaldisplay.cc
+@@ -50,9 +50,11 @@ std::string Display::open() const
+   return std::string( smcup ? smcup : "" ) + std::string( "\033[?1h" );
+ }
+ 
+-std::string Display::close() const
++std::string Display::close( const Framebuffer *last ) const
+ {
+-  return std::string( "\033[?1l\033[0m\033[?25h"
++  /* put the cursor style back to the terminal's default if we changed it */
++  return std::string( ( last && last->ds.cursor_shape != 0 ) ? "\033[0 q" : "" ) +
++    std::string( "\033[?1l\033[0m\033[?25h"
+ 		      "\033[?1003l\033[?1002l\033[?1001l\033[?1000l"
+ 		      "\033[?1015l\033[?1006l\033[?1005l" ) +
+     std::string( rmcup ? rmcup : "" );
+@@ -289,6 +291,14 @@ std::string Display::new_frame( bool initialized, const Framebuffer &last, const
+   /* have renditions changed? */
+   frame.update_rendition( f.ds.get_renditions(), !initialized );
+ 
++  /* has cursor style (DECSCUSR) changed? On a full repaint, only
++     send it if it is not the terminal default. */
++  if ( initialized ? ( f.ds.cursor_shape != frame.last_frame.ds.cursor_shape )
++                   : ( f.ds.cursor_shape != 0 ) ) {
++    snprintf( tmp, 64, "\033[%d q", f.ds.cursor_shape );
++    frame.append( tmp );
++  }
++
+   /* has bracketed paste mode changed? */
+   if ( (!initialized)
+        || (f.ds.bracketed_paste != frame.last_frame.ds.bracketed_paste) ) {
+diff --git a/src/terminal/terminaldisplay.h b/src/terminal/terminaldisplay.h
+index 81009b0..8247b54 100644
+--- a/src/terminal/terminaldisplay.h
++++ b/src/terminal/terminaldisplay.h
+@@ -76,7 +76,7 @@ namespace Terminal {
+ 
+   public:
+     std::string open() const;
+-    std::string close() const;
++    std::string close( const Framebuffer *last = NULL ) const;
+ 
+     std::string new_frame( bool initialized, const Framebuffer &last, const Framebuffer &f ) const;
+ 
+diff --git a/src/terminal/terminalframebuffer.cc b/src/terminal/terminalframebuffer.cc
+index 70284a4..76f2731 100644
+--- a/src/terminal/terminalframebuffer.cc
++++ b/src/terminal/terminalframebuffer.cc
+@@ -71,7 +71,7 @@ DrawState::DrawState( int s_width, int s_height )
+     renditions( 0 ), save(),
+     next_print_will_wrap( false ), origin_mode( false ), auto_wrap_mode( true ),
+     insert_mode( false ), cursor_visible( true ), reverse_video( false ),
+-    bracketed_paste( false ), mouse_reporting_mode( MOUSE_REPORTING_NONE ), mouse_focus_event( false ),
++    bracketed_paste( false ), cursor_shape( 0 ), mouse_reporting_mode( MOUSE_REPORTING_NONE ), mouse_focus_event( false ),
+     mouse_alternate_scroll( false ), mouse_encoding_mode( MOUSE_ENCODING_DEFAULT ), application_mode_cursor_keys( false )
+ {
+   reinitialize_tabs( 0 );
+diff --git a/src/terminal/terminalframebuffer.h b/src/terminal/terminalframebuffer.h
+index de93869..40bff08 100644
+--- a/src/terminal/terminalframebuffer.h
++++ b/src/terminal/terminalframebuffer.h
+@@ -283,6 +283,11 @@ namespace Terminal {
+     bool reverse_video;
+     bool bracketed_paste;
+ 
++    /* DECSCUSR (CSI Ps SP q) cursor style, Ps 0-6.
++       0 is "terminal default" and is also the initial state, so a
++       session that never sets a shape never emits DECSCUSR. */
++    int cursor_shape;
++
+     enum MouseReportingMode {
+       MOUSE_REPORTING_NONE = 0,
+       MOUSE_REPORTING_X10 = 9,
+@@ -316,6 +321,13 @@ namespace Terminal {
+     int get_width( void ) const { return width; }
+     int get_height( void ) const { return height; }
+ 
++    void set_cursor_shape( int shape )
++    {
++      if ( shape >= 0 && shape <= 6 ) {
++        cursor_shape = shape;
++      }
++    }
++
+     void set_tab( void );
+     void clear_tab( int col );
+     void clear_default_tabs( void ) { default_tabs = false; }
+@@ -353,7 +365,7 @@ namespace Terminal {
+ 	( reverse_video == x.reverse_video ) && ( renditions == x.renditions ) &&
+   ( bracketed_paste == x.bracketed_paste ) && ( mouse_reporting_mode == x.mouse_reporting_mode ) &&
+   ( mouse_focus_event == x.mouse_focus_event ) && ( mouse_alternate_scroll == x.mouse_alternate_scroll) &&
+-  ( mouse_encoding_mode == x.mouse_encoding_mode );
++  ( mouse_encoding_mode == x.mouse_encoding_mode ) && ( cursor_shape == x.cursor_shape );
+     }
+   };
+ 
+diff --git a/src/terminal/terminalfunctions.cc b/src/terminal/terminalfunctions.cc
+index ca141dd..c801394 100644
+--- a/src/terminal/terminalfunctions.cc
++++ b/src/terminal/terminalfunctions.cc
+@@ -132,6 +132,14 @@ static Function func_CSI_cursormove_D( CSI, "D", CSI_cursormove );
+ static Function func_CSI_cursormove_H( CSI, "H", CSI_cursormove );
+ static Function func_CSI_cursormove_f( CSI, "f", CSI_cursormove );
+ 
++/* DECSCUSR: set cursor style (CSI Ps SP q) */
++static void CSI_DECSCUSR( Framebuffer *fb, Dispatcher *dispatch )
++{
++  fb->ds.set_cursor_shape( dispatch->getparam( 0, 0 ) );
++}
++
++static Function func_CSI_DECSCUSR( CSI, " q", CSI_DECSCUSR );
++
+ /* device attributes */
+ static void CSI_DA( Framebuffer *fb __attribute((unused)), Dispatcher *dispatch )
+ {
+diff --git a/src/tests/Makefile.am b/src/tests/Makefile.am
+index a52f800..c2a7d5b 100644
+--- a/src/tests/Makefile.am
++++ b/src/tests/Makefile.am
+@@ -23,6 +23,7 @@ displaytests = \
+ 	emulation-attributes-bce.test \
+ 	emulation-back-tab.test \
+ 	emulation-cursor-motion.test \
++	emulation-cursor-shape.test \
+ 	emulation-multiline-scroll.test \
+ 	emulation-scroll.test \
+ 	emulation-wrap-across-frames.test \
+diff --git a/src/tests/emulation-cursor-shape.test b/src/tests/emulation-cursor-shape.test
+new file mode 100755
+index 0000000..d572697
+--- /dev/null
++++ b/src/tests/emulation-cursor-shape.test
+@@ -0,0 +1,70 @@
++#!/bin/sh
++
++#
++# This test exercises the cursor shape ascii sequence in Mosh.
++#
++
++# shellcheck source=e2e-test-subrs
++. "$(dirname "$0")/e2e-test-subrs"
++PATH=$PATH:.:$srcdir
++# Top-level wrapper.
++if [ $# -eq 0 ]; then
++    e2e-test "$0" baseline direct verify post
++    exit
++fi
++
++# OK, we have arguments, we're one of the test hooks.
++if [ $# -ne 1 ]; then
++    fail "bad arguments %s\n" "$@"
++fi
++
++baseline()
++{
++    # Clear (like the other emulation tests; without it the mosh and
++    # direct captures differ by a leading blank line)
++    printf '\033[H\033[J'
++    while read -r shape sleep_time text; do
++        printf '\n\033[%d q%s' "$shape" "$text"
++        sleep $sleep_time
++    done <<EOF
++0 2 BlinkBlock0
++1 2 BlinkBlock1
++2 2 SteadyBlock
++3 2 BlinkUnderline
++4 2 SteadyUnderline
++5 2 BlinkBar
++6 2 SteadyBar
++6 0 done
++EOF
++    echo
++}
++
++# The captures only prove the display is not corrupted.  Also check
++# that mosh-client really sent each shape to the outer terminal (tmux
++# logs the client's output), and that it put the default cursor back
++# (ESC [ 0 SP q, ahead of its usual reset sequence) when exiting with
++# the shape still set to 6.
++post()
++{
++    log="$(basename "$0").d/baseline.tmux.log"
++    for n in 1 2 3 4 5 6; do
++        if ! grep -q -F "\\033[$n q" "$log"; then
++            printf "mosh-client never sent cursor shape %s\n" "$n" >&2
++            exit 1
++        fi
++    done
++    if ! grep -q -F '\033[0 q\033[?1l' "$log"; then
++        printf "mosh-client did not restore the cursor shape on exit\n" >&2
++        exit 1
++    fi
++    exit 0
++}
++
++case $1 in
++    baseline|direct)
++        baseline;;
++    post)
++        post;;
++    *)
++        fail "unknown test argument %s\n" "$1";;
++esac

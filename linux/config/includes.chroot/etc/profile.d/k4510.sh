@@ -5,9 +5,8 @@
 # ordinary Debian login, which is the whole difference between K4510 and the
 # bare-metal appliance: the Linux underneath is meant to be reachable.
 #
-# Quitting the emulator (F12 -> Quit) falls out of the exec and back to a login
-# prompt on tty1, because agetty respawns.  That is deliberate: on the Pi that
-# menu entry halts the board; here it should hand you the host.
+# Quitting the emulator (F12 -> Quit) brings up the Personality Chooser
+# (k4510-session, below); until 2026-10-09 it fell back to a login prompt.
 # The machine's tools -- k4510-pas and k4510-cc, which PAS and CC at the
 # prompt run through `!` -- on every tty, so they are the same command in a
 # Linux shell as at the machine's prompt.
@@ -38,31 +37,13 @@ if [ "$(tty)" = "/dev/tty1" ] && [ -z "$K4510_NO_AUTOSTART" ]; then
             sudo -n mount -o remount,async "$m" 2>/dev/null
         fi
     done
-    # The personalities -- the C64, C128, PET, Amiga 500/1200, X16: hold SPACE at
-    # power-on and k4510-boot-menu lists them (it waits one second for the
-    # space, and not at all on a machine without them); quitting the one
-    # chosen falls through to the K4510 below.  k4510.personality=NAME on the
-    # kernel command line starts one without asking, once a boot (the marker
-    # keeps a later tty1 login from starting it again).  Doc, 2026-10-08.
-    P=$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^k4510\.personality=//p' | head -n1)
-    if [ -n "$P" ] && [ ! -e /run/k4510-personality.started ]; then
-        : > /run/k4510-personality.started 2>/dev/null || sudo -n touch /run/k4510-personality.started
-        k4510-personality "$P" >>/tmp/k4510-personality.log 2>&1
-    else
-        k4510-boot-menu 2>>/tmp/k4510-personality.log
-    fi
-    # The same switch keeps the emulator's own account too: its stderr (tube
-    # sessions, every way out, a heartbeat every ten seconds) in
-    # emulator-<time>.log beside the byte log, and a core dump if it crashes --
-    # core_pattern is "core", so ~/k4510/core, which persists.
-    if [ -f "$HOME/k4510/DIAG/TERMLOG" ]; then
-        TS=$(date +%Y%m%d-%H%M%S)
-        export K4510_TERMLOG="$HOME/k4510/DIAG/termlog-$TS.bin"
-        ulimit -c unlimited 2>/dev/null
-        cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510 2>>"$HOME/k4510/DIAG/emulator-$TS.log"
-    fi
-    # Its stderr (the CPU's "RESET, PC=FF70" and the like) goes to a log in
-    # RAM, not onto tty1, where it was the last line of text before the
-    # machine appeared (Doc, 2026-09-13, photos).
-    cd "$HOME/k4510" 2>/dev/null && exec ./sdl/k4510 2>>/tmp/k4510-emulator.log
+    # From here tty1 is k4510-session's (Doc, 2026-10-09): the machine used
+    # last -- the K4510 or a personality (C64, C128, PET, Amiga 500/1200, X16)
+    # -- then, whenever one is quit, the Personality Chooser, round and round.
+    # SPACE held or tapped during the splash shows the Chooser first.  Its
+    # Power off and Restart, and the K4510's own F12 -> Power off, are the
+    # only ways out; Ctrl+Alt+F2 and ssh still give a login.
+    # k4510.personality=NAME on the kernel command line, the DIAG/TERMLOG
+    # switch and the emulator's log in /tmp are all in k4510-session now.
+    exec k4510-session
 fi

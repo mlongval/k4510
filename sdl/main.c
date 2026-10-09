@@ -31,6 +31,7 @@
 #include "../core/hostid.h"
 #include "../core/ui/menu.h"
 #include "../core/ui/ui_draw.h"
+#include "../core/ui/frame.h"
 #include "../core/state.h"
 #include <sys/stat.h>
 #include <dirent.h>
@@ -205,30 +206,10 @@ static char shot_base[64];
  * that number whatever the palette, and the bands' text is near-black or
  * near-white, whichever reads better on it for normal and protan eyes alike.
  * The band lines (vicky_band_lines) are then drawn through fpal, which is the
- * palette with the bands' two entries replaced. */
-static const uint32_t frame_vic[16] = {
-    0x000000, 0xFFFFFF, 0x880000, 0xAAFFEE, 0xCC44CC, 0x00CC55, 0x0000AA, 0xEEEE77,
-    0xDD8855, 0x664400, 0xFF7777, 0x333333, 0x777777, 0xAAFF66, 0x0088FF, 0xBBBBBB,
-};
+ * palette with the bands' two entries replaced.  frame_vic, frame_rgb and the
+ * text's contrast are in core/ui/frame.c, shared with the Personality Chooser. */
 static uint32_t pal[256], mpal[256], fpal[256], fmpal[256];   /* the palette, behind the menu; with the frame's colours */
 static int frame_fixed;                                        /* the band lines go through fpal this frame */
-static double frame_lin(uint32_t c, int sh) { double v = ((c >> sh) & 255) / 255.0; return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4); }
-static double frame_lum(uint32_t c, int protan)
-{
-    double r = frame_lin(c, 16), g = frame_lin(c, 8), b = frame_lin(c, 0);
-    return protan ? 0.1140 * r + 0.7827 * g + 0.1034 * b : 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-static double frame_ratio(uint32_t a, uint32_t b)
-{
-    double m = 99;
-    for (int p = 0; p < 2; p++) { double x = frame_lum(a, p), y = frame_lum(b, p), r = x > y ? (x + 0.05) / (y + 0.05) : (y + 0.05) / (x + 0.05); if (r < m) m = r; }
-    return m;
-}
-static uint32_t frame_rgb(void)                                 /* the border's colour, and the bands' */
-{
-    int i = settings_get(SET_VIDEO_BORDER_COLOUR) & 15;
-    return settings_get(SET_VIDEO_FRAME_FOLLOW) ? vicky_palette_rgb(i) & 0xFFFFFF : frame_vic[i];
-}
 static const uint32_t *row_pal(int y, int menu)                 /* the table line y of the frame is drawn through */
 {
     if (frame_fixed && y >= 0 && y < VICKY_HEIGHT && vicky_band_lines()[y]) return menu ? fmpal : fpal;
@@ -455,6 +436,16 @@ static void radio_cmd(const char *cmd, char *reply, size_t max)
  * this build cannot read (a state from another version) is set aside as
  * .old and the machine boots as usual. */
 #define RESUME_FILE "k4510-resume.k4s"
+/* A power off on its way (F12 -> Power off, Save and power off): the mark the
+ * session loop (k4510-session) looks for when this program ends, so it waits
+ * for the halt instead of showing the Personality Chooser.  F12 -> Quit
+ * leaves none, and the Chooser comes up.  k4510-poweroff writes it too. */
+#define HALTING_FILE "/tmp/k4510-halting"
+static void halting_mark(int on)
+{
+    if (on) { FILE *f = fopen(HALTING_FILE, "w"); if (f) fclose(f); }
+    else remove(HALTING_FILE);
+}
 static const char *slot_path(int n) { static char p[32]; snprintf(p, sizeof p, "k4510-slot%d.k4s", n + 1); return p; }
 static void slot_refresh(int n)                      /* the slot's row: its file's date, or "empty" */
 {
@@ -1724,11 +1715,12 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                               mode_shown = -1; mode_req = 0; break;   /* forget the mode tracking: re-adopt once the ROM is back up */
         case ACT_TUBE_STOP: io_write(IO_TUBE + 3, 2); break;
         case ACT_QUIT: mlog("quit: F12 -> Quit"); running = 0; break;
-        case ACT_SHUTDOWN: mlog("quit: F12 -> Power off"); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
+        case ACT_SHUTDOWN: mlog("quit: F12 -> Power off"); halting_mark(1); shutdown_req = 1; running = 0; break;   /* acted on below, after the settings are saved and SDL has let go of the screen */
         case ACT_SAVE_OFF:                                            /* the machine to RESUME_FILE, then the same power off */
+            halting_mark(1);                                          /* before the save: no Chooser while it is written */
             if (state_save(RESUME_FILE ".tmp") == 0 && rename(RESUME_FILE ".tmp", RESUME_FILE) == 0) {
                 mlog("quit: F12 -> Save and power off"); shutdown_req = 1; running = 0;
-            } else { remove(RESUME_FILE ".tmp"); mlog("Save and power off: the state was not written; still running"); }
+            } else { remove(RESUME_FILE ".tmp"); halting_mark(0); mlog("Save and power off: the state was not written; still running"); }
             break;
         case ACT_NETSETUP: host_net_setup(); break;
         case ACT_SIDEBAR_OPTIONS: {                                   /* F12 -> Video -> Edit options: the sidebar's OPTIONS.CFG in VI */
@@ -1973,7 +1965,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
               }
               memcpy(fpal, pal, sizeof fpal); memcpy(fmpal, mpal, sizeof fmpal);
               if (!fol) {                                                      /* the bands' entries, as term.c chose them */
-                  uint32_t bg = frame_vic[fr], fg = frame_ratio(0xF2F2F2, bg) >= frame_ratio(0x111111, bg) ? 0xF2F2F2 : 0x111111;
+                  uint32_t bg = frame_vic[fr], fg = frame_text_rgb(bg);
                   int fi = fr == 1 ? 0 : 1;
                   fpal[fr] = 0xFF000000u | bg; fpal[fi] = 0xFF000000u | fg;
                   fmpal[fr] = 0xFF000000u | ((bg >> 1) & 0x7F7F7F); fmpal[fi] = 0xFF000000u | ((fg >> 1) & 0x7F7F7F);

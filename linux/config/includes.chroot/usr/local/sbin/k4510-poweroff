@@ -10,4 +10,9 @@
 # how the passwordless telnet login was committed, built, deployed and still
 # asked for a password on 2026-09-16.  Same reasoning as k4510-keymap and
 # k4510-telnet-login beside it.
+#
+# The mark first: the session loop on tty1 (k4510-session) sees it when the
+# emulator or the Chooser ends, and waits for the halt instead of showing the
+# Personality Chooser.  /tmp is in RAM; the next boot starts without it.
+: > /tmp/k4510-halting
 exec sudo -n /usr/local/sbin/k4510-halt

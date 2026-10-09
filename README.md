@@ -77,10 +77,13 @@ A release about the screen and what frames it.
 - **The Terminal screen over mosh** (`k4510-connect`), falling back to ssh:
   what you type shows at once over a phone's hotspot. A K4510 power cycle
   no longer leaves holes in it.
-- **Personalities.** Hold SPACE at power-on for a menu of other machines
-  (Commodore 64, 128 and PET, Amiga 500 and 1200, Commander X16), run
-  from RAM by the same K4510 Linux; quitting one brings up the K4510
-  (`k4510-boot-menu`, `k4510-personality`; `docs/STORAGE.md`). Their
+- **Personalities.** Other machines (Commodore 64, 128 and PET, Amiga
+  500 and 1200, Commander X16), run from RAM by the same K4510 Linux.
+  Power on starts the one used last; quitting any machine, the K4510
+  too, brings up the **Personality Chooser** (`sdl/chooser.c`, in the
+  K4510's palette, frame and font), and SPACE during the splash shows it
+  first (`k4510-session`, `k4510-spacewatch`, `k4510-personality`;
+  `docs/STORAGE.md`). Their
   picture sits on the left and the K4510's sidebar scenes fill the right,
   drawn by `sdl/libk4510side.so`; the C128 shows its 80-column screen
   there. The machines themselves are images built apart from this repo.

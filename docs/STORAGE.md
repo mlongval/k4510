@@ -129,13 +129,20 @@ A stick without persistence has nowhere to keep it.
 
 Doc, 2026-10-08: a boot list of "personalities, like FPGA images" -- the
 K4510 first, then the C64, C128, PET, Amiga and (added the same night) the
-Commander X16.  Hold SPACE at power-on:
-GRUB boots the K4510 as always, and on tty1, just before the emulator,
-`k4510-boot-menu` waits one second for the (autorepeating) space and lists
-them -- the K4510 first and chosen.  The one chosen runs from RAM; quitting
-it brings up the K4510.  No space: the K4510, one second later.  (GRUB has
-no entries for them: Doc wanted the choice made by Debian, not the loader.
-`k4510.personality=NAME` on the kernel command line still starts one.)
+Commander X16.  Since 2026-10-09 (Doc) tty1 is `k4510-session`'s: power on
+starts the machine used last -- the K4510 counts as one -- kept in
+`~/personalities/last` on p4; quitting any machine, the K4510 too, brings up
+the Personality Chooser (`sdl/k4510-chooser`, from `sdl/chooser.c`: the
+K4510's palette, frame and 8x8 font), and the machine picked there runs
+next and is remembered.  SPACE held or tapped during the splash (the logo
+says so) shows the Chooser first: `k4510-spacewatch`, a root service from
+early boot, looks for that one key only -- no log, no keystrokes kept, gone
+once the session starts or after 30 s -- and leaves `/run/k4510-chooser`.
+The Chooser's Power off and Restart and the K4510's F12 -> Power off are
+the ways out; they leave `/tmp/k4510-halting`, so the loop waits for the
+halt rather than showing the Chooser.  GRUB is not involved: it still boots
+the K4510 or Fedora, whichever ran last.  `k4510.personality=NAME` on the
+kernel command line still starts one, once a boot.
 
     /personalities/vice.squashfs    ~5 MB   x64sc, x128, xpet (VICE 3.10, SDL2 UI) + ROMs
     /personalities/amiga.squashfs  ~18 MB   Amiberry 8.3 (SDL3) + Kickstart 1.3 and 3.1
@@ -145,8 +152,8 @@ no entries for them: Doc wanted the choice made by Debian, not the loader.
 | | |
 |---|---|
 | made by | `~/Projects/K4510-Personalities` on ubuntu-s1 (`tools/make-images.sh`), deployed there too |
-| in the menu | `k4510-boot-menu` (profile.d, tty1) reads the `.list` files; a family shows only while its image is on p4, and with none there it does not wait |
+| in the Chooser | `k4510-chooser` lists what `k4510-personality` lists (the `.list` files); a family shows only while its image is on p4; the K4510 is always there, first |
 | run | `k4510-personality NAME`: the family's image is copied to `/run` (RAM) and mounted at `/opt/personalities/<family>` -- only when one is chosen |
 | saves | `~/personalities/NAME/` -- disks, the A1200's hard drive (a directory, Workbench 3.1), `.uae`; VICE's settings in `~/.config/vice`; the X16's drive 8 is `~/personalities/x16` itself (HostFS: plain files), plus `nvram.bin` |
-| quitting | VICE and the Amiga: F12 -> Quit; the X16: Alt+F4, or POWEROFF at its BASIC prompt |
+| quitting | VICE and the Amiga: F12 -> Quit; the X16: Alt+F4, or POWEROFF at its BASIC prompt -- each back to the Chooser |
 | a deploy | of the layer does not touch them |

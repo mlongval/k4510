@@ -28,7 +28,7 @@ FORCE:
 # the I/O page's devices, one file each (core/io_int.h is the map)
 IO_OBJS = core/sys.o core/seq.o core/fred.o core/hostfs.o core/status.o core/tube.o core/screen2.o core/debug.o
 OPL2_OBJS = core/opl2/fmopl.o core/opl2.o core/vice_clk.o core/sndq.o core/audio.o
-CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o $(IO_OBJS) core/vicky.o core/idr.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/jimgfx.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o sdl/host_posix.o $(OPL2_OBJS)
+CORE_OBJS = core/xemu/cpu65.o core/mem.o core/io.o $(IO_OBJS) core/vicky.o core/idr.o core/net.o core/net_posix.o core/zip.o core/sidebars.o core/term.o core/jimgfx.o core/state.o core/hostid.o core/ui/settings.o core/ui/menu.o core/ui/ui_draw.o core/ui/frame.o sdl/host_posix.o $(OPL2_OBJS)
 LDLIBS  = -lm -lutil
 SDL_CFLAGS := $(shell sdl2-config --cflags)
 SDL_LIBS   := $(shell sdl2-config --libs)
@@ -73,7 +73,7 @@ SIDEBAR_O = $(SIDEBAR_C:.c=.o)
 SDL_OBJS = sdl/main.o sdl/panel.o sdl/png.o sdl/hostpage.o
 
 
-all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510
+all: rom/wozmon.bin rom/kernal.bin $(DEMOS) $(SIDEBAR_ZIPS) $(NVIM_SYNTAX) pascal-prgs fs/LANG/FORTH/forth.prg fs/LANG/LOGO/logo.prg cpm/runcpm test/mathtest test/termtest test/uitest test/statetest test/capture test/headless test/fstest test/romtest test/cputest test/woztest test/maptest test/banktest test/dmatest test/vickytest test/seqtest sdl/k4510 sdl/k4510-chooser
 
 rom/wozmon.bin: rom/wozmon.a
 	$(ACME) --cpu m65 -o $@ $<
@@ -186,6 +186,12 @@ sdl/main.o: core/build.h                         # generated: before the first .
 sdl/k4510: $(SDL_OBJS) $(SIDEBAR_O) $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(SDL_OBJS) $(SIDEBAR_O) $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
 	ln -sf sdl/k4510 k4510          # so it starts as ./k4510 from the repo root
+# The Personality Chooser (k4510-session runs it on tty1): the machine's
+# palette, frame and font, so it links the core for settings and VICKY.
+sdl/chooser.o: sdl/chooser.c
+	$(CC) $(CFLAGS) $(SDL_CFLAGS) -c -o $@ $<
+sdl/k4510-chooser: sdl/chooser.o $(CORE_OBJS)
+	$(CC) $(CFLAGS) -o $@ sdl/chooser.o $(CORE_OBJS) $(SDL_LIBS) $(LDLIBS)
 
 test/cputest: test/cputest.c $(CORE_OBJS)
 	$(CC) $(CFLAGS) -o $@ $(filter %.c %.o,$^) $(LDLIBS)

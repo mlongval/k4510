@@ -1,0 +1,88 @@
+#!/bin/bash
+# k4510-session -- tty1's whole life: the last machine, then the Personality
+# Chooser, in a loop (Doc, 2026-10-09).  Run by /etc/profile.d/k4510.sh on
+# tty1 only.
+#
+#   power on -> the machine used last (the K4510, C64, C128, PET, Amiga, X16;
+#               ~/personalities/last, on p4), straight away
+#            -> SPACE held or tapped during the splash (k4510-spacewatch left
+#               /run/k4510-chooser): the Chooser first
+#   quitting any machine, the K4510 too -> the Chooser -> the machine picked
+#               (remembered as the last) -> quitting it -> the Chooser ...
+#   a real power off (F12 -> Power off / Save and power off, the Chooser's
+#               Power off and Restart) leaves /tmp/k4510-halting: the loop
+#               waits for the halt, and no Chooser comes up over it.
+#
+# k4510.personality=NAME on the kernel command line still starts NAME once a
+# boot.  Ctrl+Alt+F2 and ssh are untouched: ordinary logins.
+# The Chooser is ~/k4510/sdl/k4510-chooser (sdl/chooser.c): it prints the name
+# picked, or exits 10 (power off) or 11 (restart).
+
+K=$HOME/k4510
+LAST=$HOME/personalities/last
+HALT=/tmp/k4510-halting
+LOG=/tmp/k4510-personality.log
+
+: > /tmp/k4510-session.started             # k4510-spacewatch: the session has begun, stop watching
+rm -f "$HALT"
+
+known() {                                  # NAME: the K4510, or listed in a personalities .list
+    [ "$1" = k4510 ] && return 0
+    [ -n "$1" ] && k4510-personality 2>/dev/null | grep -q "^  $1	"
+}
+
+run() {                                    # NAME: run it, until it is quit
+    if [ "$1" = k4510 ]; then
+        # The emulator's own account while ~/k4510/DIAG/TERMLOG exists (the
+        # byte log, stderr, a core dump if it crashes): see profile.d/k4510.sh.
+        if [ -f "$K/DIAG/TERMLOG" ]; then
+            TS=$(date +%Y%m%d-%H%M%S)
+            ( ulimit -c unlimited 2>/dev/null
+              export K4510_TERMLOG="$K/DIAG/termlog-$TS.bin"
+              cd "$K" && ./sdl/k4510 2>>"$K/DIAG/emulator-$TS.log" )
+        else
+            ( cd "$K" && ./sdl/k4510 2>>/tmp/k4510-emulator.log )
+        fi
+    else
+        k4510-personality "$1" >>"$LOG" 2>&1
+    fi
+}
+
+halting() {                                # a power off or restart is on its way: wait for it
+    [ -e "$HALT" ] || return 0
+    sleep 60                               # the halt takes seconds and ends this
+    rm -f "$HALT"                          # it never came: the Chooser, rather than a dead screen
+}
+
+remember() {
+    mkdir -p "${LAST%/*}" && printf '%s\n' "$1" > "$LAST.tmp" && mv "$LAST.tmp" "$LAST"
+}
+
+name=$(cat "$LAST" 2>/dev/null)
+known "$name" || name=k4510
+P=$(tr ' ' '\n' < /proc/cmdline | sed -n 's/^k4510\.personality=//p' | head -n1)
+if [ -n "$P" ] && [ ! -e /run/k4510-personality.started ]; then
+    : > /run/k4510-personality.started 2>/dev/null || sudo -n touch /run/k4510-personality.started
+    name=$P; choose=0
+elif [ -e /run/k4510-chooser ]; then
+    choose=1
+else
+    choose=0
+fi
+
+while :; do
+    if [ "$choose" = 1 ]; then
+        pick=$(cd "$K" && ./sdl/k4510-chooser --last "$name" 2>>"$LOG"); rc=$?
+        case $rc in
+        0)  if known "$pick"; then name=$pick; remember "$name"; else continue; fi ;;
+        10) : > "$HALT"; exec /usr/local/sbin/k4510-poweroff ;;
+        11) : > "$HALT"; exec sudo -n /usr/local/sbin/k4510-restart ;;
+        *)  # the Chooser could not start (no screen?): the K4510, as before it existed
+            echo "k4510-session: the Chooser failed ($rc); starting the K4510" >>"$LOG"; sleep 1
+            name=k4510 ;;
+        esac
+    fi
+    run "$name"
+    halting
+    choose=1
+done

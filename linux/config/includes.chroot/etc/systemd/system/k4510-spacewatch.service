@@ -1,0 +1,22 @@
+# SPACE held or tapped while the machine starts: show the Personality Chooser
+# (k4510-session) instead of starting the last machine.  The script's header
+# says exactly what it may do: SPACE only, no log, no keystrokes kept, gone
+# when the session starts or after 30 seconds.  Early, so it covers the splash.
+[Unit]
+Description=K4510: SPACE at power-on shows the Personality Chooser
+DefaultDependencies=no
+After=systemd-udevd.service
+Conflicts=shutdown.target
+Before=shutdown.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/k4510-spacewatch
+PrivateNetwork=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/run
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=sysinit.target

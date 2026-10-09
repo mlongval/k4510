@@ -219,7 +219,7 @@ elif [ "$REBUILD" = 1 ] && [ -d "$ROOT/home/$USER_NAME/k4510" ]; then
     # The .d files name the paths of the last build; a fresh checkout over them
     # is exactly the case where a stale one keeps a changed file from compiling.
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin" \
+        "cd ~/k4510 && find core sdl -name '*.d' -delete && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 sdl/k4510-chooser rom/kernal.bin rom/wozmon.bin" \
         || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
     $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
         || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"
@@ -395,13 +395,17 @@ echo "== shutting the computer down from the F12 menu =="
 # they only ever reached the rootfs on a full build, which is how the telnet
 # login went stale (2026-09-16); these two had not changed yet, so they were
 # the same trap merely unsprung.  Doc: "do the halt and poweroff ones too".
-for f in k4510-poweroff k4510-halt; do
+for f in k4510-poweroff k4510-halt k4510-restart; do
     [ -x "$ROOT/usr/local/sbin/$f" ] || {
         echo "build-live.sh: config/includes.chroot is missing usr/local/sbin/$f"; exit 1; }
 done
 mkdir -p "$ROOT/etc/sudoers.d"
 echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510-halt" > "$ROOT/etc/sudoers.d/k4510-halt"
 chmod 440 "$ROOT/etc/sudoers.d/k4510-halt"
+# The Personality Chooser's Restart (sdl/chooser.c via k4510-session): the
+# same clean stop, then a reboot.  The same rule as the halt's: by name only.
+echo "$USER_NAME ALL=(root) NOPASSWD: /usr/local/sbin/k4510-restart" > "$ROOT/etc/sudoers.d/k4510-restart"
+chmod 440 "$ROOT/etc/sudoers.d/k4510-restart"
 # Passwordless sudo for the user, Doc's call 2026-09-07: the stick is a RAM-only
 # system with the internal drives locked out, and `!` already gives the shell.
 # Note what it does NOT buy: persistence keeps /home only, so `!sudo apt install`
@@ -461,7 +465,7 @@ EOF
 # NOT 'make all': that includes pascal-prgs, whose .prg files are tracked in
 # the repo anyway.  What must be built is what git does not carry.
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c \
-    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 rom/kernal.bin rom/wozmon.bin" \
+    "cd ~/k4510 && make ACME=/usr/bin/acme K4510_BUILD='$BUILD_ID' -j\"\$(nproc)\" sdl/k4510 sdl/k4510-chooser rom/kernal.bin rom/wozmon.bin" \
     || { echo "build-live.sh: THE MACHINE DID NOT BUILD"; exit 1; }
 $CHROOT_ENV chroot "$ROOT" su - $USER_NAME -c 'cd ~/k4510 && make -C tube' \
     || echo "build-live.sh: the Tube (BBC BASIC) did not build; everything else works"

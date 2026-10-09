@@ -1,0 +1,77 @@
+#!/usr/bin/python3 -I
+# k4510-spacewatch -- did someone hold or tap SPACE while the machine started?
+#
+# Started early in the boot (k4510-spacewatch.service), it watches the
+# keyboards from the end of GRUB through the splash, so that SPACE held, or
+# tapped, before the K4510 appears shows the Personality Chooser instead of
+# starting the last machine (Doc, 2026-10-09).  The tty cannot see those keys:
+# Plymouth owns it while the splash is up.
+#
+# What it may do, and nothing more (Doc is strict: this is a children's
+# machine, and nothing on it may spy):
+#   - it looks for ONE key, SPACE, and reads nothing else out of what it sees:
+#     every other key event is thrown away unread, as it arrives;
+#   - it writes no log and keeps no keystrokes, in memory or on disk; the only
+#     thing it ever writes is the empty file /run/k4510-chooser, meaning
+#     "SPACE was pressed";
+#   - it does not grab the keyboards: every key still goes where it would;
+#   - it ends as soon as the session on tty1 has started (k4510-session writes
+#     /tmp/k4510-session.started), or after 30 seconds, whichever is first, or
+#     at the first SPACE.  It never runs again until the next boot.
+# The unit also gives it no network, no view of /home, and nothing to write
+# but /run.
+import os, select, struct, time
+
+LIMIT = 30.0                               # seconds, then it ends whatever happened
+MARK = "/run/k4510-chooser"                # SPACE was pressed: show the Chooser
+STARTED = "/tmp/k4510-session.started"     # the session has begun: too late to matter
+EV_KEY, KEY_SPACE = 1, 57
+EVENT = struct.Struct("llHHi")             # struct input_event on 64-bit Linux
+
+def keyboards():
+    """The input devices that have a SPACE key (bit 57 of their key bitmap)."""
+    found = []
+    for name in os.listdir("/sys/class/input"):
+        if not name.startswith("event"):
+            continue
+        try:
+            with open(f"/sys/class/input/{name}/device/capabilities/key") as f:
+                words = f.read().split()
+        except OSError:
+            continue
+        bits = 0
+        for w in words:                      # most significant word first, 64 bits each
+            bits = (bits << 64) | int(w, 16)
+        if bits >> KEY_SPACE & 1:
+            found.append("/dev/input/" + name)
+    return found
+
+def main():
+    end = time.monotonic() + LIMIT
+    fds = {}
+    while time.monotonic() < end and not os.path.exists(STARTED):
+        for path in keyboards():             # again each round: a USB keyboard can appear late
+            if path not in fds:
+                try:
+                    fds[path] = os.open(path, os.O_RDONLY | os.O_NONBLOCK)
+                except OSError:
+                    pass
+        ready = select.select(list(fds.values()), [], [], 0.25)[0] if fds else time.sleep(0.25) or []
+        for fd in ready:
+            try:
+                data = os.read(fd, EVENT.size * 64)
+            except OSError:
+                for p in [p for p, f in fds.items() if f == fd]:
+                    del fds[p]
+                os.close(fd)
+                continue
+            for i in range(0, len(data) - EVENT.size + 1, EVENT.size):
+                _, _, typ, code, value = EVENT.unpack_from(data, i)
+                if typ == EV_KEY and code == KEY_SPACE and value in (1, 2):   # pressed, or held (repeat)
+                    open(MARK, "w").close()
+                    return
+            del data                         # nothing kept
+    for fd in fds.values():
+        os.close(fd)
+
+main()

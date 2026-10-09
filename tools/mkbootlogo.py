@@ -9,7 +9,10 @@ Made of the machine's own parts, so the boot screen and the machine's face
     bars are not pointy on the real screen, please keep it uniform");
   - "K4510" in the machine's 8x8 font (unscii-8), blown up so its
     height is the bars' height;
-  - FANTASY COMPUTER in the console's yellow, on the console's blue.
+  - FANTASY COMPUTER in the console's yellow, on the console's blue;
+  - at the bottom, "hold SPACE for the Chooser" in light grey (VIC-II 15):
+    SPACE during the splash shows the Personality Chooser instead of the
+    last machine (k4510-spacewatch; Doc, 2026-10-09).
 
     python3 tools/mkbootlogo.py [out.png] [width height]
 
@@ -19,7 +22,7 @@ import sys
 from PIL import Image, ImageDraw
 
 # the VIC-II sixteen as this machine boots them (fs/SYSTEM/ETC/PALETTES/C64.PAL)
-BLUE, WHITE, YELLOW = (0x00, 0x00, 0xAA), (0xFF, 0xFF, 0xFF), (0xEE, 0xEE, 0x77)
+BLUE, WHITE, YELLOW, GREY = (0x00, 0x00, 0xAA), (0xFF, 0xFF, 0xFF), (0xEE, 0xEE, 0x77), (0xBB, 0xBB, 0xBB)
 BARS = [(16, (0x88, 0x00, 0x00)),   # red
         (12, (0xDD, 0x88, 0x55)),   # orange
         (8,  (0xEE, 0xEE, 0x77)),   # yellow
@@ -68,6 +71,10 @@ def main():
     sub = "FANTASY COMPUTER"
     sw = len(sub) * 8 * small
     text(d, font, sub, xn + name_w - sw, y0 + rows + cell, small, YELLOW)
+
+    hint = "hold SPACE for the Chooser"
+    hs = max(1, cell // 10)              # 32 px letters at 1920
+    text(d, font, hint, (W - len(hint) * 8 * hs) // 2, H - 3 * cell, hs, GREY)
 
     img.save(out, optimize=True)
     print("%s: %dx%d" % (out, W, H))

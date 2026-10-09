@@ -1,0 +1,14 @@
+#!/bin/sh
+# The Personality Chooser's Restart, as the k4510 user: the same clean stop as
+# k4510-halt -- flush the persistence partition and take it read-only -- and
+# then a reboot instead of a power off.  sudoers lets the k4510 user run this
+# script by name and nothing else (/etc/sudoers.d/k4510-restart, written by
+# build-live.sh beside k4510-halt's rule).  The caller writes /tmp/k4510-halting
+# first, so the session loop waits for the reboot.
+sync
+for m in /run/live/persistence/*; do
+    [ -d "$m" ] || continue
+    mountpoint -q "$m" && mount -o remount,ro "$m" 2>/dev/null
+done
+sync
+exec systemctl reboot

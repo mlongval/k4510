@@ -1,6 +1,7 @@
 *.o
 test/cputest
 sdl/k4510
+sdl/k4510-chooser
 /k4510
 # experimental rebuilds of the emulator kept beside the normal one, so a
 # machine can run two and compare (hdieu, 2026-08-31: -O3 -ffast-math)

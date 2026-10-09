@@ -6,11 +6,10 @@
 #   k4510-personality NAME [args]   run it, on tty1's display; returns when it quits
 #   k4510-personality               list the ones on this machine
 #
-# SPACE held at power-on does this (k4510-boot-menu, from profile.d/k4510.sh;
-# or k4510.personality=NAME on the kernel command line): the machine comes up
-# as a C64, and quitting the C64 (F12 -> Quit) brings up the K4510.  Each
-# machine's way out: VICE F12 -> Quit, the Amiga F12 -> Quit, the X16 Alt+F4
-# or POWEROFF.
+# k4510-session runs it on tty1 for the machine picked in the Personality
+# Chooser, or used last (or k4510.personality=NAME on the kernel command
+# line); quitting it brings up the Chooser again.  Each machine's way out:
+# VICE F12 -> Quit, the Amiga F12 -> Quit, the X16 Alt+F4 or POWEROFF.
 #
 # The machines live in one squashfs per family on the SAVED partition (p4),
 # personalities/vice.squashfs, amiga.squashfs and x16.squashfs, each with a .list beside it

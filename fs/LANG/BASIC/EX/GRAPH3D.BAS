@@ -1,6 +1,6 @@
 ' GRAPH3D -- an interactive surface plotter, z=f(x,y) as a wireframe -- K4510 BASIC
 ' Arrows rotate, +/- zoom, 1-5 pick the surface, Q quits.
-CONST N = 20                 ' points a side (Doc's 20; EhBASIC managed 14)
+CONST N = 40                 ' points a side (Doc's 40; EhBASIC managed 14)
 CONST D = 6                  ' x and y run from -D to D
 DIM z(N, N), sx(N, N), sy(N, N)
 st = 2 * D / N

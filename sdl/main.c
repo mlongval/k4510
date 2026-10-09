@@ -2000,7 +2000,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             /* A new clock is a new machine to measure: open another PERF window
              * and append it.  This is how the Pi gets swept -- there is no
              * K4510_CPU_HZ on the card, only the menu. */
-            p_n = 0; p_last = 0;
+            p_n = 0; p_last = 0; p_tot = 0;          /* the whole-frame sum too, or every later window divides the run by PERF_FRAMES */
             gov_t0 = 0;                                  /* and a new machine to judge: the governor's window restarts */
             if (!gov_own) gov_restart(&gov);             /* somebody else's change (the menu, SETUP): the quiet count was about another clock */
             gov_own = 0;

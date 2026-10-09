@@ -1,14 +1,17 @@
 /* K4510: CHESS -- the KoboChess board, on this machine.
  *
- * The look is KoboChess's (github.com/mlongval/KoboChess): a big board
- * with the coordinates in the squares, "White to move . Intermediate"
- * above it, the moves below it, a row of buttons -- Game, Undo, Hint,
- * Flip, Options -- along the bottom.  Here the board is 8 x 48 px on a
- * 640x480 screen, with a panel on the right for the whole move list, the
- * engine and the clocks.  The pieces are KoboChess's drawn set (Doc's
- * own), as 4 bpp sprites with a palette bank per side, so Options ->
- * Piece colours can make them classic, wood, red-and-blue or green-and-
- * purple: multicolour pieces, as asked.
+ * The game is KoboChess's (github.com/mlongval/KoboChess): its levels,
+ * its buttons -- Game, Undo, Hint, Flip, Options -- its coordinates in the
+ * squares.  The look, since 2026-10-09, is the Personality Chooser's (Doc:
+ * "The vibe is very 8bit ... redo the Chess game, using the same style"):
+ * 320x240 doubled, the grey bands with the time, the blue glass, the
+ * banner's bars, unscii, 22 px squares and a Pixel piece set drawn for
+ * them.  The panel on the right holds the side to move, the engine, the
+ * moves, the captured pieces and the clocks; the menus are the Chooser's
+ * list.  The pieces are 4 bpp sprites with a palette bank per side, so
+ * Options -> Piece colours can make them classic, wood, red-and-blue or
+ * green-and-purple, and Options -> Piece set still has KoboChess's drawn
+ * set (Doc's own) and the icons.
  *
  * Three engines.  The built-in one is a small alpha-beta with quiescence,
  * material and piece-square tables, the six KoboChess levels (with the
@@ -21,15 +24,15 @@
  *
  *   arrows / pad / mouse   pick a square, then where it goes
  *   Enter or space         select          Esc      undo the pick, or leave
- *   F1 Game  F2 Undo  F3 Hint  F4 Flip  F5 Options   (or click the buttons)
+ *   F1 Game  F2 Undo  F3 Hint  F4 Flip  F5 Options   (or click them in the band)
+ *   in a menu: 1-9, or the arrows and Enter
  */
 #include "k4510.h"
 #include "chess.h"
 
 #define CHESS_PHYS 0x00110000UL
 #define SPRD     CHESS_PHYS
-#define BMP      0x00200000UL           /* 640x480 8 bpp, layer 0 */
-#define TEXTMAP  0x00250000UL           /* 80x60 text8, layer 1 */
+#define BMP      0x00200000UL           /* 320x240 8 bpp, layer 0 */
 #define SPRTAB   0x00252000UL
 #define PGNBUF   ((char *)0x0800)       /* 6 KB below the program: the PGN as it is built */
 #define PGNMAX   0x1700u
@@ -37,7 +40,6 @@
 #define TUBE     0xD800u
 #define NET      0xD900u
 #define MOUSEX   0xD108u
-#define CAPTION_PAL 127
 #define KBDBREAK 0xD103u
 #define KEY_ESC 0x1B
 #define KEY_ENTER 0x0D
@@ -393,7 +395,7 @@ static void judge(void)                              /* after a move: mate, stal
     if (!n) { game_over = 1; result_text = in_check(stm) ? (stm == WHITE ? "Checkmate . Black wins" : "Checkmate . White wins") : "Stalemate . draw"; return; }
     if (half >= 100) { game_over = 1; result_text = "Fifty moves . draw"; return; }
     if (nhist >= MAXHIST - MAXPLY - 2) { game_over = 1; result_text = "Move limit . draw"; return; }   /* hist[] has no other bound; san[] sits right after it */
-    if (insufficient()) { game_over = 1; result_text = "Insufficient material . draw"; }
+    if (insufficient()) { game_over = 1; result_text = "Dead position . draw"; }
 }
 
 /* ---- the UCI engines: the Tube (program 5) or a TCP server on N: ---------- */
@@ -515,27 +517,136 @@ static void load_engine_cfg(void)                    /* /APPS/CHESS/ENGINE.CFG: 
 }
 
 /* ---- drawing: the bitmap, the text layer, the sprites ---------------------- */
+/* ---- the screen: the Personality Chooser's look (Doc, 2026-10-09: "The vibe
+ * is very 8bit ... redo the Chess game, using the same style") ---------------
+ * 320x240, doubled: a grey band above and below with black text, the blue
+ * glass between them, the machine's yellow, white and light blue on it, the
+ * banner's five bars, unscii at 8x8, 8x16 and 8x8 doubled -- the font the
+ * Chooser draws with.  All of it is drawn into the bitmap: a glyph is built
+ * in gbuf and blitted, so text lands on any pixel, as the Chooser's does.
+ * The colours are the machine's first sixteen (a .PAL changes them, as it
+ * changes the Chooser), never written here. */
+#define SW 320
+#define BAND 12                                       /* a band: 8-pixel text with 2 above and below */
+#define GY BAND                                       /* the glass: lines 12..227 */
+#define BBOT (240 - BAND)
+#define SQPX 22
 #define BX 8
-#define BY 40
-#define SQPX 48
-#define PANEL_COL 52                                  /* text column where the panel starts */
-#define C_PAGE 0
-#define C_LIGHT 1
-#define C_DARK 2
-#define C_INK 3
-#define C_RULE 4
-#define C_BTN 5
-#define C_BTNSEL 6
-static void rect(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t c)
+#define BY 32
+#define SOFF 5                                        /* a piece's sprite: 5 px up and left of its square */
+#define PX 196                                        /* the panel's text, 15 columns */
+#define PCOLS 15
+#define C_BLACK 0
+#define C_WHITE 1
+#define C_REDB 2
+#define C_GREEN 5
+#define C_BLUE 6
+#define C_YELLOW 7
+#define C_ORANGE 8
+#define C_LRED 10
+#define C_DGREY 11
+#define C_GREY 12
+#define C_LBLUE 14
+#define C_LGREY 15
+#define C_LIGHT C_LGREY                               /* the squares */
+#define C_DARK C_GREY
+#define F8 0                                          /* text(): the font */
+#define F16 1
+#define F8X2 2
+#define FONT8P  0x00010000UL                          /* unscii-8 and -16, where the frontend puts them */
+#define FONT16P 0x00010800UL
+#pragma bss-name (push, "BSS2")
+static uint8_t f8[96 * 8], f16[96 * 16];              /* ' '..DEL, copied near once */
+#pragma bss-name (pop)
+static uint8_t gbuf[256];
+static void rect(uint16_t x, uint8_t y, uint16_t w, uint8_t h, uint8_t c)
 {
-    uint32_t p = BMP + (uint32_t)y * 640 + x;
-    while (h--) { dma_fill(c, p, w); p += 640; }
+    uint32_t p = BMP + (uint32_t)y * SW + x;
+    while (h--) { dma_fill(c, p, w); p += SW; }
 }
-static void put_str(uint8_t x, uint8_t y, const char *s) { uint32_t p = TEXTMAP + (uint32_t)y * 80 + x; while (*s) far_poke(p++, (uint8_t)*s++); }
-static void put_pad(uint8_t x, uint8_t y, const char *s, uint8_t w) { uint32_t p = TEXTMAP + (uint32_t)y * 80 + x; while (*s && w) { far_poke(p++, (uint8_t)*s++); w--; } while (w--) far_poke(p++, ' '); }
-static void clear_rows(uint8_t x, uint8_t y0, uint8_t y1, uint8_t w) { uint8_t y; for (y = y0; y <= y1; y++) dma_fill(' ', TEXTMAP + (uint32_t)y * 80 + x, w); }
+static void blit(uint16_t x, uint8_t y, uint8_t w, uint8_t h)   /* gbuf, w x h, to the screen */
+{
+    w32(VICKY + 0x70, (uint32_t)(uint16_t)gbuf); w32(VICKY + 0x74, BMP + (uint32_t)y * SW + x);
+    w16(VICKY + 0x78, w); w16(VICKY + 0x7A, h); w16(VICKY + 0x7C, w); w16(VICKY + 0x7E, SW);
+    REG(VICKY + 0x80) = 0; REG(VICKY + 0x81) = 0; REG(VICKY + 0x82) = 1;
+}
+static void fonts_near(void)
+{
+    uint16_t i;
+    for (i = 0; i < sizeof f8; i++) f8[i] = far_peek(FONT8P + 256 + i);
+    for (i = 0; i < sizeof f16; i++) f16[i] = far_peek(FONT16P + 512 + i);
+}
+static uint16_t text(uint16_t x, uint8_t y, const char *s, uint8_t fg, uint8_t bg, uint8_t font)   /* the x after it */
+{
+    uint8_t c, r, b, bits, *g, h = font == F8 ? 8 : 16, w = font == F8X2 ? 16 : 8;
+    const uint8_t *src;
+    for (; *s; s++, x += w) {
+        c = (uint8_t)*s; if (c < 32 || c > 127) c = '?';
+        if (font == F16) src = f16 + (c - 32) * 16; else src = f8 + (c - 32) * 8;
+        g = gbuf;
+        for (r = 0; r < h; r++) {
+            bits = font == F8X2 ? src[r >> 1] : src[r];
+            if (font == F8X2) { for (b = 0x80; b; b >>= 1) { *g++ = (bits & b) ? fg : bg; *g++ = (bits & b) ? fg : bg; } }
+            else for (b = 0x80; b; b >>= 1) *g++ = (bits & b) ? fg : bg;
+        }
+        blit(x, y, w, h);
+    }
+    return x;
+}
 static uint8_t slen(const char *s) { uint8_t n = 0; while (*s++) n++; return n; }
-static void centre_in(uint8_t x0, uint8_t w, uint8_t y, const char *s) { uint8_t n = slen(s); clear_rows(x0, y, y, w); put_str((uint8_t)(x0 + (n >= w ? 0 : (w - n) / 2)), y, s); }
+static void text_fit(uint16_t x, uint8_t y, const char *s, uint8_t n, uint8_t fg, uint8_t bg, uint8_t font)   /* at most n characters */
+{
+    char b[41]; uint8_t i;
+    for (i = 0; i < n && i < 40 && s[i]; i++) b[i] = s[i];
+    b[i] = 0; text(x, y, b, fg, bg, font);
+}
+/* the coordinates: a 3x5 font of their own, small in a corner of the square */
+static const uint8_t TINY[16][5] = {
+    { 2, 6, 2, 2, 7 }, { 6, 1, 2, 4, 7 }, { 6, 1, 2, 1, 6 }, { 5, 5, 7, 1, 1 },   /* 1-4 */
+    { 7, 4, 6, 1, 6 }, { 3, 4, 6, 5, 2 }, { 7, 1, 2, 2, 2 }, { 2, 5, 2, 5, 2 },   /* 5-8 */
+    { 0, 3, 5, 5, 3 }, { 4, 6, 5, 5, 6 }, { 0, 3, 4, 4, 3 }, { 1, 3, 5, 5, 3 },   /* a-d */
+    { 0, 2, 7, 4, 3 }, { 1, 2, 7, 2, 2 }, { 0, 3, 5, 3, 6 }, { 4, 6, 5, 5, 5 },   /* e-h */
+};
+static void tiny(uint16_t x, uint8_t y, uint8_t i, uint8_t fg, uint8_t bg)
+{
+    uint8_t r, b, *g = gbuf;
+    for (r = 0; r < 5; r++) for (b = 4; b; b >>= 1) *g++ = (TINY[i][r] & b) ? fg : bg;
+    blit(x, y, 3, 5);
+}
+static void band_text(uint8_t y, const char *s)        /* centred in a band, black on grey */
+{
+    uint8_t n = slen(s); if (n > 39) n = 39;
+    rect(0, y, SW, BAND, C_LGREY);
+    text_fit((uint16_t)((SW - n * 8) / 2), (uint8_t)(y + 2), s, n, C_BLACK, C_LGREY, F8);
+}
+static const char KEYS[] = "F1 Game F2 Undo F3 Hint F4 Flip F5 Opts";   /* each "Fn Word " is 64 px: a click's button */
+#define KEYS_X 4
+static void draw_keys(void) { band_text(BBOT, KEYS); }
+static void message(const char *s) { band_text(BBOT, s); }
+static uint8_t clock_shown = 0xFF, rtc_read;
+static void rtc_latch(void) { rtc_read = REG(SYS + 4); }   /* a store, not a (void) read: cc65 dropped that, and the RTC was never latched */
+static void put2(char *b, uint8_t v) { b[0] = (char)('0' + v / 10); b[1] = (char)('0' + v % 10); }
+static void draw_top(void)                            /* CHESS on the left, the time on the right, as the Chooser's band */
+{
+    char b[17]; uint16_t y;
+    rtc_latch();
+    clock_shown = REG(SYS + 6);
+    put2(b, REG(SYS + 7)); b[2] = ':'; put2(b + 3, REG(SYS + 6)); b[5] = ' ';
+    put2(b + 6, REG(SYS + 8)); b[8] = '.'; put2(b + 9, REG(SYS + 9)); b[11] = '.';
+    y = REG(SYS + 0x0A) | (REG(SYS + 0x0B) << 8);
+    b[12] = (char)('0' + (y / 1000) % 10); b[13] = (char)('0' + (y / 100) % 10); b[14] = (char)('0' + (y / 10) % 10); b[15] = (char)('0' + y % 10); b[16] = 0;
+    rect(0, 0, SW, BAND, C_LGREY);
+    text(8, 2, "K4510 CHESS", C_BLACK, C_LGREY, F8);
+    text(SW - 8 - 16 * 8, 2, b, C_BLACK, C_LGREY, F8);
+}
+static void tick_top(void) { rtc_latch(); if (REG(SYS + 6) != clock_shown) draw_top(); }
+static void bars(uint16_t x, uint8_t y, uint8_t h, uint8_t w)   /* the banner's five bars */
+{
+    static const uint8_t col[5] = { C_REDB, C_ORANGE, C_YELLOW, C_GREEN, C_LBLUE };
+    static const uint8_t len[5] = { 8, 6, 4, 6, 8 };
+    uint8_t i;
+    for (i = 0; i < 5; i++) rect(x, (uint8_t)(y + i * h), (uint16_t)(len[i] * w), h, col[i]);
+}
 
 static uint8_t view_sq(uint8_t f, uint8_t r, uint8_t *vx, uint8_t *vy)   /* board square -> view column/row (0..7, top-left origin) */
 { *vx = flipped ? (uint8_t)(7 - f) : f; *vy = flipped ? r : (uint8_t)(7 - r); return 1; }
@@ -547,13 +658,13 @@ static void spr(uint8_t i, int16_t x, int16_t y, uint32_t d, uint8_t palofs, uin
     far_poke16(t, (uint16_t)x); far_poke16(t + 2, (uint16_t)y);
     far_poke16(t + 4, (uint16_t)d); far_poke16(t + 6, (uint16_t)(d >> 16));
     far_poke(t + 8, on ? 1 : 0);                      /* 4 bpp, after layer 0 */
-    far_poke(t + 9, 3 | (3 << 2));                    /* 64 x 64 */
+    far_poke(t + 9, 2 | (2 << 2));                    /* 32 x 32 */
     far_poke(t + 10, palofs);
 }
 static void spr_at(uint8_t i, uint8_t sq, uint32_t d, uint8_t palofs, uint8_t on)
 {
     uint8_t vx, vy; view_sq(FILE_OF(sq), RANK_OF(sq), &vx, &vy);
-    spr(i, (int16_t)(BX + vx * SQPX - 8), (int16_t)(BY + vy * SQPX - 8), d, palofs, on);
+    spr(i, (int16_t)(BX + vx * SQPX - SOFF), (int16_t)(BY + vy * SQPX - SOFF), d, palofs, on);
 }
 #define MARK(m) (SPRD + (uint32_t)(m) * CH_SPR_BYTES)
 #define S_PIECE 0                                     /* 64: one per square */
@@ -568,6 +679,7 @@ static void spr_at(uint8_t i, uint8_t sq, uint32_t d, uint8_t palofs, uint8_t on
 #define S_CAP 100                                     /* 28: the two trays of captured pieces, 14 each */
 #define NDOT 28
 #define NCAP 14
+#define CAP_SHOWN 12                                  /* what the panel's width holds */
 static uint8_t cursor_sq = SQ(4, 1), selected = 0xFF, coords_on = 1;
 static uint8_t targets[NDOT], ntargets, captured_on = 1;
 static void draw_pieces(void)
@@ -587,67 +699,58 @@ static void draw_marks(void)
     if (nhist) { spr_at(S_LAST, last_from, MARK(CH_MARK_THIN), 4, 1); spr_at(S_LAST2, last_to, MARK(CH_MARK_THIN), 4, 1); }
     else { far_poke(SPRTAB + S_LAST * 16 + 8, 0); far_poke(SPRTAB + S_LAST2 * 16 + 8, 0); }
     if (!game_over && in_check(stm)) spr_at(S_CHECK, ksq[stm], MARK(CH_MARK_FRAME), 5, 1); else far_poke(SPRTAB + S_CHECK * 16 + 8, 0);
-    spr_at(S_CURSOR, cursor_sq, MARK(CH_MARK_THIN), 6, 1);
+    spr_at(S_CURSOR, cursor_sq, MARK(CH_MARK_FRAME), 6, 1);
     if (hint_from != 0xFF) { spr_at(S_HINT, hint_from, MARK(CH_MARK_FRAME), 7, 1); spr_at(S_HINT2, hint_to, MARK(CH_MARK_FRAME), 7, 1); }
     else { far_poke(SPRTAB + S_HINT * 16 + 8, 0); far_poke(SPRTAB + S_HINT2 * 16 + 8, 0); }
     for (i = 0; i < NDOT; i++) { if (i < ntargets) spr_at((uint8_t)(S_DOT + i), targets[i], MARK(CH_MARK_DOT), 3, 1); else far_poke(SPRTAB + (uint32_t)(S_DOT + i) * 16 + 8, 0); }
 }
 static void draw_board(void)
 {
-    uint8_t vx, vy, f, r;
-    rect(BX - 2, BY - 2, 8 * SQPX + 4, 8 * SQPX + 4, C_INK);
-    for (vy = 0; vy < 8; vy++) for (vx = 0; vx < 8; vx++) rect(BX + vx * SQPX, BY + vy * SQPX, SQPX, SQPX, ((vx + vy) & 1) ? C_DARK : C_LIGHT);
-    /* coordinates, as KoboChess: ranks in the left squares' top-left, files in the bottom squares' bottom-right */
-    clear_rows(1, 5, 52, 48);
+    uint8_t vx, vy, f, r, c;
+    rect(BX - 2, BY - 2, 8 * SQPX + 4, 8 * SQPX + 4, C_LBLUE);
+    for (vy = 0; vy < 8; vy++) for (vx = 0; vx < 8; vx++) rect(BX + vx * SQPX, (uint8_t)(BY + vy * SQPX), SQPX, SQPX, ((vx + vy) & 1) ? C_DARK : C_LIGHT);
     if (!coords_on) return;
-    for (r = 0; r < 8; r++) { char b[2]; view_sq(0, r, &vx, &vy); b[0] = (char)('1' + r); b[1] = 0; put_str((uint8_t)(1 + 6 * (flipped ? 7 : 0)), (uint8_t)(5 + 6 * vy), b); }
-    for (f = 0; f < 8; f++) { char b[2]; view_sq(f, 0, &vx, &vy); b[0] = (char)('a' + f); b[1] = 0; put_str((uint8_t)(1 + 6 * vx + 5), (uint8_t)(5 + 6 * (flipped ? 0 : 7) + 5), b); }
-}
-static const char *const BTN[5] = { "Game", "Undo", "Hint", "Flip", "Options" };
-static void draw_buttons(void)
-{
-    uint8_t i; uint16_t x = BX, w = 76;
-    for (i = 0; i < 5; i++, x += w + 2) {
-        char b[4];
-        rect(x, 448, w, 24, C_INK); rect(x + 2, 450, w - 4, 20, C_BTN);
-        b[0] = 'F'; b[1] = (char)('1' + i); b[2] = 0;
-        put_str((uint8_t)(x / 8 + 1), 57, b); put_str((uint8_t)(x / 8 + 4), 57, BTN[i]);
-    }
+    /* as KoboChess: ranks in the left squares' top-left, files in the bottom squares' bottom-right */
+    for (r = 0; r < 8; r++) { view_sq(0, r, &vx, &vy); c = ((vx + vy) & 1) ? C_LGREY : C_DGREY;
+        tiny(BX + vx * SQPX + 1, (uint8_t)(BY + vy * SQPX + 1), r, c, ((vx + vy) & 1) ? C_DARK : C_LIGHT); }
+    for (f = 0; f < 8; f++) { view_sq(f, 0, &vx, &vy); c = ((vx + vy) & 1) ? C_LGREY : C_DGREY;
+        tiny(BX + vx * SQPX + SQPX - 4, (uint8_t)(BY + vy * SQPX + SQPX - 6), (uint8_t)(8 + f), c, ((vx + vy) & 1) ? C_DARK : C_LIGHT); }
 }
 static void draw_panel_static(void)
 {
-    rect(408, BY - 2, 2, 8 * SQPX + 4, C_RULE);
-    put_str(PANEL_COL, 3, "Moves");
+    rect(0, GY, SW, BBOT - GY, C_BLUE);
+    bars(PX, GY + 14, 3, 3);
+    text(PX + 32, GY + 13, "Chess", C_WHITE, C_BLUE, F8X2);
 }
+#define MOVES_Y (GY + 94)
+#define MOVE_ROWS 8
 static void draw_moves(void)
 {
-    uint16_t i, first = 0, rows = 40; uint8_t y = 5; char b[10];
-    uint16_t pairs = (nhist + 1) / 2;
-    clear_rows(PANEL_COL, 5, 44, 28);
-    if (pairs > rows) first = pairs - rows;
-    for (i = first; i < pairs && y < 45; i++, y++) {
-        uint16_t n = i + 1; uint8_t k = 0;
-        if (n >= 100) b[k++] = (char)('0' + n / 100); if (n >= 10) b[k++] = (char)('0' + (n / 10) % 10); b[k++] = (char)('0' + n % 10); b[k++] = '.'; b[k] = 0;
-        put_str(PANEL_COL, y, b);
-        put_str(PANEL_COL + 5, y, san[i * 2]);
-        if (i * 2 + 1 < nhist) put_str(PANEL_COL + 14, y, san[i * 2 + 1]);
+    uint16_t i, first = 0, pairs = (nhist + 1) / 2; uint8_t y = MOVES_Y, k, hl; char b[24];
+    rect(PX - 2, MOVES_Y - 1, SW - PX + 2, MOVE_ROWS * 9 + 1, C_BLUE);
+    if (pairs > MOVE_ROWS) first = pairs - MOVE_ROWS;
+    for (i = first; i < pairs; i++, y += 9) {
+        uint16_t n = i + 1; const char *p;
+        hl = i + 1 == pairs;                          /* the last move: the Chooser's bar */
+        k = 0;
+        if (n >= 100) b[k++] = (char)('0' + n / 100);
+        b[k++] = n >= 10 ? (char)('0' + (n / 10) % 10) : ' '; b[k++] = (char)('0' + n % 10); b[k++] = ' ';
+        { uint8_t col = (uint8_t)(k + 6);                   /* black's column: a white move of 5 and a space */
+          p = san[i * 2]; while (*p) b[k++] = *p++;
+          if (i * 2 + 1 < nhist) { do b[k++] = ' '; while (k < col); p = san[i * 2 + 1]; while (*p) b[k++] = *p++; } }
+        while (k < PCOLS) b[k++] = ' ';
+        b[k] = 0;
+        if (hl) rect(PX - 2, y - 1, SW - PX - 2, 9, C_LBLUE);
+        text_fit(PX, y, b, PCOLS, hl ? C_BLUE : C_YELLOW, hl ? C_LBLUE : C_BLUE, F8);
     }
-    /* the last moves, under the board, as KoboChess shows them */
-    { uint8_t x = 1; clear_rows(1, 54, 54, 50);
-      i = pairs > 3 ? pairs - 3 : 0;
-      for (; i < pairs; i++) {
-          uint16_t n = i + 1; uint8_t k = 0;
-          if (n >= 100) b[k++] = (char)('0' + n / 100); if (n >= 10) b[k++] = (char)('0' + (n / 10) % 10); b[k++] = (char)('0' + n % 10); b[k++] = '.'; b[k++] = ' '; b[k] = 0;
-          put_str(x, 54, b); x += k; put_str(x, 54, san[i * 2]); x += slen(san[i * 2]) + 1;
-          if (i * 2 + 1 < nhist) { put_str(x, 54, san[i * 2 + 1]); x += slen(san[i * 2 + 1]) + 1; }
-      } }
 }
 /* the captured pieces: what each side has taken, most valuable first, and
- * the material difference -- two trays under the move list, 16x16 minis */
+ * the material difference -- two trays under the move list, 12 px minis */
+#define CAP_Y (MOVES_Y + MOVE_ROWS * 9 + 4)
 static void draw_captured(void)
 {
     uint8_t taken[2][16], n[2] = { 0, 0 }, s, i, j, k; int16_t diff = 0; uint16_t h;
-    clear_rows(PANEL_COL, 46, 47, 28);
+    rect(PX - 2, CAP_Y, SW - PX + 2, 28, C_BLUE);
     for (i = 0; i < NCAP * 2; i++) far_poke(SPRTAB + (uint32_t)(S_CAP + i) * 16 + 8, 0);
     if (!captured_on) return;
     for (h = 0; h < nhist; h++) {
@@ -658,59 +761,64 @@ static void draw_captured(void)
     }
     for (s = 0; s < 2; s++) {
         for (i = 1; i < n[s]; i++) { k = taken[s][i]; for (j = i; j > 0 && VAL[taken[s][j - 1]] < VAL[k]; j--) taken[s][j] = taken[s][j - 1]; taken[s][j] = k; }
-        put_str(PANEL_COL, (uint8_t)(46 + s), s == WHITE ? "W:" : "B:");
         for (i = 0; i < NCAP; i++) {
             uint32_t t = SPRTAB + (uint32_t)(S_CAP + s * NCAP + i) * 16;
-            if (i >= n[s]) continue;
+            if (i >= n[s] || i >= CAP_SHOWN) continue;
             { uint32_t d = SPRD + CH_SET0 + (uint32_t)pieceset * CH_SET_BYTES + CH_MINI_OFF + ((uint32_t)(taken[s][i] - 1 + (s == WHITE ? 6 : 0))) * CH_MINI_BYTES;   /* white took black pieces */
-              far_poke16(t, (uint16_t)(PANEL_COL * 8 + 20 + i * 12)); far_poke16(t + 2, (uint16_t)(368 + s * 16));
+              far_poke16(t, (uint16_t)(PX - 2 + i * 8)); far_poke16(t + 2, (uint16_t)(CAP_Y - 2 + s * 14));
               far_poke16(t + 4, (uint16_t)d); far_poke16(t + 6, (uint16_t)(d >> 16));
               far_poke(t + 8, 1); far_poke(t + 9, 1 | (1 << 2)); far_poke(t + 10, s == WHITE ? 2 : 1); }
         }
         if ((s == WHITE && diff > 0) || (s == BLACK && diff < 0)) {
             char b[6]; uint16_t v = (uint16_t)((diff < 0 ? -diff : diff) / 100); uint8_t q = 0;
             b[q++] = '+'; if (v >= 10) b[q++] = (char)('0' + v / 10); b[q++] = (char)('0' + v % 10); b[q] = 0;
-            put_str(PANEL_COL + 24, (uint8_t)(46 + s), b);
+            text(SW - 4 - q * 8, (uint8_t)(CAP_Y + 2 + s * 14), b, C_WHITE, C_BLUE, F8);
         }
     }
 }
 static uint32_t clock_ms[2]; static uint8_t clock_min; static uint32_t clock_last;
+#define CLOCK_Y (BBOT - 12)
 static void draw_clocks(void)
 {
-    uint8_t s; char b[12];
-    clear_rows(PANEL_COL, 50, 52, 28);
+    uint8_t s; char b[8];
+    rect(PX - 2, CLOCK_Y - 1, SW - PX + 2, 10, C_BLUE);
     if (!two_player || !clock_min) return;
     for (s = 0; s < 2; s++) {
-        uint32_t t = clock_ms[s] / 1000; uint8_t k = 0;
-        b[k++] = (char)('0' + (t / 60) / 10); b[k++] = (char)('0' + (t / 60) % 10); b[k++] = ':'; b[k++] = (char)('0' + (t % 60) / 10); b[k++] = (char)('0' + t % 10); b[k] = 0;
-        put_str(PANEL_COL, (uint8_t)(50 + s), s ? "Black " : "White "); put_str(PANEL_COL + 6, (uint8_t)(50 + s), b);
-        if (s == stm && !game_over) put_str(PANEL_COL + 12, (uint8_t)(50 + s), "<"); 
+        uint32_t t = clock_ms[s] / 1000; uint8_t on = s == stm && !game_over; uint16_t x = PX + s * 64;
+        b[0] = s ? 'B' : 'W'; b[1] = ' '; put2(b + 2, (uint8_t)(t / 60)); b[4] = ':'; put2(b + 5, (uint8_t)(t % 60)); b[7] = 0;
+        if (on) rect(x - 2, CLOCK_Y - 1, 60, 10, C_LBLUE);
+        text(x, CLOCK_Y, b, on ? C_BLUE : C_YELLOW, on ? C_LBLUE : C_BLUE, F8);
     }
+}
+static void status_lines(const char *a, const char *b, uint8_t bcol)
+{
+    rect(PX - 2, GY + 34, SW - PX + 2, 34, C_BLUE);
+    text_fit(PX, GY + 34, a, PCOLS, C_YELLOW, C_BLUE, F16);
+    if (b) text_fit(PX, GY + 50, b, PCOLS, bcol, C_BLUE, F16);
 }
 static void draw_status(void)
 {
-    char b[60]; uint8_t k = 0; const char *p;
-    if (game_over) p = result_text;
-    else {
-        p = stm == WHITE ? "White to move" : "Black to move"; while (*p) b[k++] = *p++;
-        p = " \xFA "; while (*p) b[k++] = *p++;
-        if (two_player) p = "Two players"; else p = LEVELS[level].name;
-        while (*p) b[k++] = *p++;
-        if (!two_player && in_check(stm)) { p = " . Check!"; while (*p) b[k++] = *p++; }
-        else if (two_player && in_check(stm)) { p = " . Check!"; while (*p) b[k++] = *p++; }
-        b[k] = 0; p = b;
-    }
-    centre_in(1, 50, 3, p);
+    if (game_over) {                                  /* "Checkmate . White wins": a line each */
+        char a[24]; const char *p = result_text; uint8_t k = 0;
+        while (*p && !(p[0] == ' ' && p[1] == '.') && k < 23) a[k++] = *p++;
+        a[k] = 0; if (*p) p += 3;
+        status_lines(a, p, C_WHITE);
+    } else status_lines(stm == WHITE ? "White to move" : "Black to move", in_check(stm) ? "Check!" : 0, C_LRED);
+    draw_keys();
 }
 static void draw_engine_line(void)
 {
-    clear_rows(PANEL_COL, 55, 58, 28);
-    put_str(PANEL_COL, 55, "Engine: ");
-    if (two_player) put_pad(PANEL_COL + 8, 55, "none (two players)", 19); else if (eng_kind == 0) put_pad(PANEL_COL + 8, 55, "built-in", 19); else put_pad(PANEL_COL + 8, 55, eng_name, 19);
-    put_str(PANEL_COL, 56, "Level:  "); put_pad(PANEL_COL + 8, 56, LEVELS[level].name, 19);
-    put_str(PANEL_COL, 58, "Esc leaves, F1-F5 buttons");
+    rect(PX - 2, GY + 70, SW - PX + 2, 18, C_BLUE);
+    if (two_player) text_fit(PX, GY + 70, "Two players", PCOLS, C_LBLUE, C_BLUE, F8);
+    else { text_fit(PX, GY + 70, eng_kind == 0 ? "Built-in" : eng_name, PCOLS, C_LBLUE, C_BLUE, F8);
+           text_fit(PX, GY + 79, LEVELS[level].name, PCOLS, C_LBLUE, C_BLUE, F8); }
 }
 static void redraw(void) { draw_pieces(); draw_marks(); draw_status(); draw_moves(); draw_captured(); draw_clocks(); }
+static void repaint(void)                             /* everything: after a menu has had the glass */
+{
+    draw_top(); draw_panel_static(); draw_board(); draw_engine_line(); redraw();
+    REG(V_SPRCTL) = 1;
+}
 
 /* ---- the palette and the colour schemes ------------------------------------ */
 typedef struct { uint8_t w[3][3], b[3][3]; } scheme_t;   /* ink, paper, edge for each side */
@@ -729,7 +837,7 @@ static uint8_t scheme;
 static uint8_t mix(uint8_t a, uint8_t b, uint8_t pct) { return (uint8_t)(((uint16_t)a * pct + (uint16_t)b * (100 - pct)) / 100); }
 static void bank_tones(uint8_t base, const uint8_t ink[3], const uint8_t paper[3])
 {
-    static const uint8_t SQ_MID[3] = { 216, 216, 216 };
+    static const uint8_t SQ_MID[3] = { 153, 153, 153 };
     uint8_t c, t[3];
     static const uint8_t inside[5] = { 0, 25, 50, 75, 100 };            /* % ink */
     static const uint8_t edge_ink[3] = { 75, 50, 25 }, edge_paper[2] = { 75, 50 };
@@ -744,23 +852,20 @@ static void set_scheme(void)
     bank_tones(16, s->w[0], s->w[1]);
     bank_tones(32, s->b[0], s->b[1]);
 }
-static void make_palette(void)
+static void make_palette(void)                        /* the sprites' banks only: 0-15 are the machine's */
 {
-    pal(C_PAGE, 246, 242, 232); pal(C_LIGHT, 255, 255, 255); pal(C_DARK, 178, 178, 178); pal(C_INK, 0, 0, 0);
-    pal(C_RULE, 120, 120, 120); pal(C_BTN, 236, 236, 236); pal(C_BTNSEL, 200, 200, 200);
-    pal(49, 70, 70, 70); pal(50, 110, 110, 110); pal(51, 70, 70, 70);          /* bank 3: selection frame, target dot */
-    pal(65, 140, 140, 140); pal(66, 140, 140, 140); pal(67, 140, 140, 140);    /* bank 4: the last move, thin */
-    pal(81, 200, 40, 40); pal(82, 200, 40, 40); pal(83, 200, 40, 40);          /* bank 5: check */
-    pal(97, 40, 90, 200); pal(98, 40, 90, 200); pal(99, 40, 90, 200);          /* bank 6: the cursor */
-    pal(113, 40, 160, 80); pal(114, 40, 160, 80); pal(115, 40, 160, 80);       /* bank 7: the hint */
-    pal(255, 0, 0, 0);
+    pal(49, 255, 255, 85); pal(50, 255, 255, 85); pal(51, 255, 255, 85);       /* bank 3: selection frame, target dot -- yellow */
+    pal(65, 0, 136, 255); pal(66, 0, 136, 255); pal(67, 0, 136, 255);          /* bank 4: the last move, thin */
+    pal(81, 230, 40, 40); pal(82, 230, 40, 40); pal(83, 230, 40, 40);          /* bank 5: check */
+    pal(97, 0, 0, 170); pal(98, 0, 0, 170); pal(99, 0, 0, 170);                /* bank 6: the cursor, the glass's blue */
+    pal(113, 0, 204, 85); pal(114, 0, 204, 85); pal(115, 0, 204, 85);          /* bank 7: the hint */
     set_scheme();
 }
 
 /* ---- input: keys, the pad, the mouse ------------------------------------------ */
 static uint8_t mouse_btn_last, held_last; static uint8_t held_rep, key_arrow;
-static int16_t mouse_x(void) { return (int16_t)(REG(MOUSEX) | (REG(MOUSEX + 1) << 8)); }
-static int16_t mouse_y(void) { return (int16_t)(REG(MOUSEX + 2) | (REG(MOUSEX + 3) << 8)); }
+static int16_t mouse_x(void) { return (int16_t)(REG(MOUSEX) | (REG(MOUSEX + 1) << 8)) >> 1; }    /* the glass is 640x480: halved to the board's */
+static int16_t mouse_y(void) { return (int16_t)(REG(MOUSEX + 2) | (REG(MOUSEX + 3) << 8)) >> 1; }
 #define EV_NONE 0
 #define EV_UP 1
 #define EV_DOWN 2
@@ -770,7 +875,8 @@ static int16_t mouse_y(void) { return (int16_t)(REG(MOUSEX + 2) | (REG(MOUSEX + 
 #define EV_BACK 6
 #define EV_F1 7                                        /* ..EV_F5 = 11 */
 #define EV_CLICK 12                                    /* on a square: ev_sq */
-#define EV_BTN 13                                      /* a button box: ev_sq = 0..4 */
+#define EV_BTN 13                                      /* a key in the bottom band: ev_sq = 0..4 */
+#define EV_DIGIT 14                                    /* 1-9: ev_sq = 0..8 */
 static uint8_t ev_sq;
 static uint8_t get_event(void)
 {
@@ -779,6 +885,7 @@ static uint8_t get_event(void)
     if (k == KEY_ENTER) return EV_SELECT;
     if (k >= 0x80 && k <= 0x83) { key_arrow = 3; held_last = h; return (uint8_t)(EV_UP + k - 0x80); }   /* the queue's arrows; $D104 will show the same press, so its edge is swallowed */
     if (k >= KEY_F1 && k <= KEY_F1 + 4) return (uint8_t)(EV_F1 + k - KEY_F1);
+    if (k >= '1' && k <= '9') { ev_sq = (uint8_t)(k - '1'); return EV_DIGIT; }
     if (k == 'u' || k == 'U') return EV_F1 + 1; if (k == 'h' || k == 'H') return EV_F1 + 2; if (k == 'f' || k == 'F') return EV_F1 + 3;
     /* the held register: keyboard arrows and space, and the pad, one source; edges, then a slow repeat */
     edge = (uint8_t)(h & ~held_last);
@@ -794,7 +901,7 @@ static uint8_t get_event(void)
             uint8_t vx = (uint8_t)((mx - BX) / SQPX), vy = (uint8_t)((my - BY) / SQPX);
             ev_sq = flipped ? SQ(7 - vx, vy) : SQ(vx, 7 - vy); return EV_CLICK;
         }
-        if (my >= 448 && my < 472 && mx >= BX && mx < BX + 5 * 78) { ev_sq = (uint8_t)((mx - BX) / 78); return EV_BTN; }
+        if (my >= BBOT && mx >= KEYS_X && mx < KEYS_X + 5 * 64) { ev_sq = (uint8_t)((mx - KEYS_X) / 64); return EV_BTN; }
         return EV_NONE;
     }
     if ((mb & 2) && !(mouse_btn_last & 2)) { mouse_btn_last = mb; return EV_BACK; }
@@ -802,30 +909,47 @@ static uint8_t get_event(void)
     return EV_NONE;
 }
 
-/* ---- menus, in the panel ------------------------------------------------------ */
+/* ---- menus: the Chooser's list, over the whole glass --------------------------- */
+#define MENU_Y (GY + 44)
+#define MENU_H 20
+static void menu_row(uint8_t i, const char *s, uint8_t on)
+{
+    uint8_t y = (uint8_t)(MENU_Y + i * MENU_H); char d[2];
+    rect(12, y, SW - 24, MENU_H - 2, on ? C_LBLUE : C_BLUE);
+    rect(18, y + 3, 12, 12, on ? C_BLUE : C_LBLUE);   /* the number box */
+    d[0] = (char)('1' + i); d[1] = 0; text(20, y + 5, d, on ? C_LBLUE : C_BLUE, on ? C_BLUE : C_LBLUE, F8);
+    text_fit(40, y + 1, s, 33, on ? C_BLUE : C_YELLOW, on ? C_LBLUE : C_BLUE, F16);
+}
 static uint8_t menu(const char *title, const char *const *items, uint8_t n, uint8_t cur)   /* index, or 255 */
 {
-    uint8_t i, e, y0 = 5;
+    uint8_t i, e, r = 255;
+    REG(V_SPRCTL) = 0;                                /* the pieces would sit over the list */
+    rect(0, GY, SW, BBOT - GY, C_BLUE);
+    bars(12, GY + 8, 5, 6);
+    text(72, GY + 8, "Chess", C_WHITE, C_BLUE, F8X2);
+    text(72, GY + 28, title, C_YELLOW, C_BLUE, F8);
+    for (i = 0; i < n; i++) menu_row(i, items[i], i == cur);
+    band_text(BBOT, n > 1 ? "1-9 or cursor keys, RETURN picks" : "RETURN picks, ESC backs out");
     for (;;) {
-        clear_rows(PANEL_COL, 5, 48, 28);
-        put_str(PANEL_COL, y0, title);
-        for (i = 0; i < n; i++) { put_str(PANEL_COL, (uint8_t)(y0 + 2 + i), i == cur ? ">" : " "); put_str(PANEL_COL + 2, (uint8_t)(y0 + 2 + i), items[i]); }
-        put_str(PANEL_COL, (uint8_t)(y0 + 3 + n), "Enter picks, Esc backs out");
-        for (;;) {
-            e = get_event();
-            if (e == EV_UP) { cur = (uint8_t)((cur + n - 1) % n); break; }
-            if (e == EV_DOWN) { cur = (uint8_t)((cur + 1) % n); break; }
-            if (e == EV_SELECT) { clear_rows(PANEL_COL, 5, 48, 28); return cur; }
-            if (e == EV_BACK) { clear_rows(PANEL_COL, 5, 48, 28); return 255; }
-            if (e == EV_NONE && (REG(MOUSEX + 4) & 1)) {               /* a click on a row */
-                int16_t mx = mouse_x(), my = mouse_y(); uint8_t row = (uint8_t)(my / 8);
-                if (mx >= PANEL_COL * 8 && row >= y0 + 2 && row < y0 + 2 + n) { while (REG(MOUSEX + 4) & 1) wait_vblank(); mouse_btn_last = 0; clear_rows(PANEL_COL, 5, 48, 28); return (uint8_t)(row - y0 - 2); }
-            }
-            wait_vblank();
+        e = get_event();
+        if (e == EV_UP || e == EV_DOWN) {
+            menu_row(cur, items[cur], 0);
+            cur = (uint8_t)(e == EV_UP ? (cur + n - 1) % n : (cur + 1) % n);
+            menu_row(cur, items[cur], 1);
         }
+        else if (e == EV_SELECT) { r = cur; break; }
+        else if (e == EV_DIGIT && ev_sq < n) { r = ev_sq; break; }
+        else if (e == EV_BACK) break;
+        else if (e == EV_NONE && (REG(MOUSEX + 4) & 1)) {                /* a click on a row */
+            int16_t my = mouse_y();
+            if (my >= MENU_Y && my < MENU_Y + n * MENU_H) { while (REG(MOUSEX + 4) & 1) wait_vblank(); mouse_btn_last = 0; r = (uint8_t)((my - MENU_Y) / MENU_H); break; }
+        }
+        tick_top();
+        wait_vblank();
     }
+    repaint();
+    return r;
 }
-static void message(const char *s) { centre_in(1, 50, 3, s); }
 
 /* ---- the game ----------------------------------------------------------------- */
 static void snd(uint8_t ch, uint8_t now, int8_t vol, uint8_t pitch, uint8_t dur)
@@ -911,7 +1035,7 @@ static void export_pgn(void)
     static const char *const res[] = { "*", "1-0", "0-1", "1/2-1/2" };
     uint8_t rr = 0;
     if (game_over) { if (starts(result_text, "Checkmate . W")) rr = 1; else if (starts(result_text, "Checkmate . B")) rr = 2; else if (starts(result_text, "White resigns")) rr = 2; else if (starts(result_text, "Black resigns")) rr = 1; else rr = 3; }
-    (void) REG(SYS + 4);                                  /* latch the clock before reading the date */
+    rtc_latch();                                          /* before reading the date */
     p = "[Event \"K4510 chess\"]\n[Site \"K4510\"]\n[Date \""; while (*p) *o++ = *p++;
     { unsigned long y = REG(SYS + 0x0A) | ((unsigned long)REG(SYS + 0x0B) << 8);
       *o++ = (char)('0' + (y / 1000) % 10); *o++ = (char)('0' + (y / 100) % 10); *o++ = (char)('0' + (y / 10) % 10); *o++ = (char)('0' + y % 10); *o++ = '.';
@@ -935,7 +1059,7 @@ static void export_pgn(void)
       name[k++] = (char)('0' + REG(SYS + 7) / 10); name[k++] = (char)('0' + REG(SYS + 7) % 10); name[k++] = (char)('0' + REG(SYS + 6) / 10); name[k++] = (char)('0' + REG(SYS + 6) % 10); }
     p = ".PGN"; while (*p) name[k++] = *p++; name[k] = 0;
     zp16(0xF0, (uint16_t)name); zp32(0xF2, (uint32_t)(uint16_t)PGNBUF); zp32(0xF6, (uint32_t)(uint16_t)(o - PGNBUF));
-    if (rom_save()) message("could not write /HOME/GAME-*.PGN (MKDIR /HOME first?)"); else { char b[60]; uint8_t j = 0; p = "saved "; while (*p) b[j++] = *p++; p = name; while (*p) b[j++] = *p++; b[j] = 0; message(b); }
+    if (rom_save()) message("could not save: MKDIR /HOME first?"); else { char b[60]; uint8_t j = 0; p = "saved "; while (*p) b[j++] = *p++; p = name; while (*p) b[j++] = *p++; b[j] = 0; message(b); }
     { uint8_t f = 120; while (f--) wait_vblank(); }
 }
 static void game_menu(void)
@@ -983,26 +1107,25 @@ static void tick_clock(void)
 {
     uint32_t now = ms(), d = now - clock_last; clock_last = now;
     if (!two_player || !clock_min || game_over || !nhist) return;
-    if (clock_ms[stm] <= d) { clock_ms[stm] = 0; game_over = 1; result_text = stm == WHITE ? "White's flag falls . Black wins" : "Black's flag falls . White wins"; snd_end(); redraw(); return; }
+    if (clock_ms[stm] <= d) { clock_ms[stm] = 0; game_over = 1; result_text = stm == WHITE ? "Time out . Black wins" : "Time out . White wins"; snd_end(); redraw(); return; }
     clock_ms[stm] -= d;
     if ((now / 500) != ((now - d) / 500)) draw_clocks();
 }
+static uint8_t ctrl_was;
 static void setup(void)
 {
     uint8_t i;
-    REG(V_CTRL) = 0; REG(V_BGCOL) = C_PAGE;
-    make_palette();
-    dma_fill(C_PAGE, BMP, 640UL * 480);
-    { uint16_t L = V_LAYER(0); REG(L + 1) = 0; w16(L + 2, 0); w16(L + 4, 0); w16(L + 6, 640); w32(L + 8, BMP); w32(L + 12, BMP); REG(L) = 1 | (0 << 1) | (3 << 3); }
-    dma_fill(' ', TEXTMAP, 80 * 60);
-    text8_layer(1, TEXTMAP, 80, CAPTION_PAL);
+    ctrl_was = REG(V_CTRL);
+    REG(V_CTRL) = 0; REG(V_BGCOL) = C_BLACK;           /* a pixel of colour 0 is the ground: black */
+    make_palette(); fonts_near();
+    dma_fill(C_BLUE, BMP, (uint32_t)SW * 240);
+    { uint16_t L = V_LAYER(0); REG(L + 1) = 0; w16(L + 2, 0); w16(L + 4, 0); w16(L + 6, SW); w32(L + 8, BMP); w32(L + 12, BMP); REG(L) = 1 | (0 << 1) | (3 << 3); }
+    REG(V_LAYER(1)) = 0;
     dma_fill(0, SPRTAB, 4096);
-    for (i = 0; i < 128; i++) far_poke(SPRTAB + (uint32_t)i * 16 + 9, 3 | (3 << 2));
+    for (i = 0; i < 128; i++) far_poke(SPRTAB + (uint32_t)i * 16 + 9, 2 | (2 << 2));
     w32(V_SPRTAB, SPRTAB); REG(V_SPRCTL) = 1;
-    REG(V_CTRL) = 1;                                    /* 640 x 480 */
-    centre_in(1, 50, 1, "C h e s s");
-    put_str(PANEL_COL, 1, "K4510 chess");
-    draw_buttons(); draw_panel_static();
+    REG(V_CTRL) = 1 | 2 | 4;                            /* 320 x 240, doubled: the Chooser's chunky pixels */
+    draw_top(); draw_panel_static(); draw_keys();
     load_engine_cfg();
 }
 static void first_engine(void)                        /* after the board is up: an engine may take seconds to answer */
@@ -1010,7 +1133,7 @@ static void first_engine(void)                        /* after the board is up: 
     if (REG(TUBE) & 8) eng_kind = 1; else if (eng_url[0]) eng_kind = 2; else eng_kind = 0;
     if (!eng_kind) return;
     message("starting the engine...");
-    if (eng_start()) eng_level(); else { eng_kind = 0; message("no engine answered: the built-in one plays"); { uint8_t f = 90; while (f--) wait_vblank(); } }
+    if (eng_start()) eng_level(); else { eng_kind = 0; message("no engine answered: built-in plays"); { uint8_t f = 90; while (f--) wait_vblank(); } }
     draw_status(); draw_engine_line();
 }
 
@@ -1241,10 +1364,11 @@ void main(void)
         else if (e == EV_F1 + 2 || (e == EV_BTN && ev_sq == 2)) hint();
         else if (e == EV_F1 + 3 || (e == EV_BTN && ev_sq == 3)) { flipped = !flipped; draw_board(); redraw(); }
         else if (e == EV_F1 + 4 || (e == EV_BTN && ev_sq == 4)) options_menu();
-        tick_clock();
+        tick_clock(); tick_top();
         wait_vblank();
     }
     eng_stop();
     REG(SEQ) = 0x80;
     REG(V_SPRCTL) = 0; REG(V_LAYER(0)) = 0; REG(V_LAYER(1)) = 0;
+    REG(V_CTRL) = ctrl_was;
 }

@@ -60,6 +60,8 @@ void    term_reset(void);          /* power-on: geometry defaults too */
 uint8_t term_read(uint8_t reg);
 void    term_write(uint8_t reg, uint8_t v);
 void    term_tick(void);           /* once a frame: the cursor blink */
+void    term_blink_restart(void);  /* a key: the cursor lit now, its blink from the start */
+int     term_blink_due(void);      /* frames until the blink next changes */
 void    term_host_session(int on); /* the `!` shell's session: UTF-8 on and LNM off; off gives LNM back */
 int     term_cp437_utf8(uint8_t b, char *out);   /* a CP437 byte as UTF-8 (1-3 bytes), for a Unix host */
 /* The bands (JIM's since 2026-10-05) and the second screen (core/io.c runs its

@@ -182,6 +182,7 @@ static void cur_draw(void)
     vicky_dirty = 1;
     cur_undraw();
     if (!T.shown) return;
+    if (T.frames & 16) return;                  /* the blink's dark half: term_tick lights it on time */
     T.cur_at = (uint32_t)(cellp(T.cx, T.cy) - k4510_ram) + 1;
     if (CUR_STYLE == 0) { uint8_t *a = &k4510_ram[T.cur_at]; uint8_t orig = (uint8_t)((*a >> 7) & 1);
                           *a ^= 0x80; T.cur_on = (uint8_t)((T.cur_on & 6) | 9 | (orig << 4)); }
@@ -228,6 +229,27 @@ void term_tick(void)
         if (T.frames & 16) { if (CUR_SHOWN) cur_undraw(); } else if (!CUR_SHOWN) cur_draw();
     }
     tp = &TS[0];
+}
+/* The blink has one clock, term_tick's, and nothing else lights the cursor
+ * (Doc, 2026-10-09: "sometimes it seems to pause, sometimes it is staccato,
+ * ... as if there were differing tempos").  Every byte printed, every move
+ * and every write of $DA0E undrew the cursor and drew it again -- lit, in
+ * either half of the blink -- so a shell's echo, a status line's clock or
+ * mosh's redraws each restarted a light the timer then put out at its own
+ * time.  Now cur_draw keeps to the blink's dark half, and only a key starts
+ * the blink over, lit, the way xterm does: steady while typing. */
+void term_blink_restart(void)
+{
+    term_t *keep = tp; tp = &TS[vis];
+    T.frames = 0;
+    if (T.shown && !CUR_SHOWN) cur_draw();
+    tp = keep;
+}
+int term_blink_due(void)                        /* frames to the next change of the blink */
+{
+    term_t *keep = tp; tp = &TS[vis];
+    int n = T.shown ? 16 - (int)(T.frames & 15) : 99;
+    tp = keep; return n;
 }
 
 /* ---- the reply FIFO -------------------------------------------------------- */

@@ -25,6 +25,7 @@
 #include "../core/opl2.h"
 #include "../core/sndq.h"
 #include "../core/host.h"
+#include "../core/term.h"            /* the cursor blink, steady while typing */
 #include "panel.h"
 #include "png.h"                     /* the screenshots */
 #include "savers.h"                  /* the sidebar-savers that paint whole scenes */
@@ -1375,6 +1376,7 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
                 && vt_away()) continue;                                  /* another console's keys are not the machine's */
             if (e.type == SDL_KEYDOWN || e.type == SDL_KEYUP || e.type == SDL_TEXTINPUT || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN
                 || e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEWHEEL || e.type == SDL_JOYAXISMOTION || e.type == SDL_JOYBUTTONDOWN) input_ms = SDL_GetTicks();
+            if (e.type == SDL_KEYDOWN) term_blink_restart();          /* the cursor steady while typing (core/term.c) */
             switch (e.type) {
             case SDL_QUIT: mlog("quit: SDL_QUIT (the window closed, or a SIGTERM)"); running = 0; break;
             case SDL_WINDOWEVENT:
@@ -2629,8 +2631,12 @@ frame_still:
            * still gets its 60 frames a second, in bursts: 20 wakeups a second
            * for the host instead of 60 (on KMSDRM, 100: pace_wait's slices).
            * A key wakes the wait at once and ends it (2026-10-09; it waited
-           * for the next wakeup, 50 ms at most, before). */
-          int rest = SDL_GetTicks() - input_ms > 2000 && !adev && frame_static && !open && !paused && __builtin_popcountll(drawn_bits) <= 6;
+           * for the next wakeup, 50 ms at most, before).  Not when the cursor's
+           * blink changes within the burst: it would show up to two frames
+           * late, a different late each time, and the blink limped (Doc,
+           * 2026-10-09). */
+          int rest = SDL_GetTicks() - input_ms > 2000 && !adev && frame_static && !open && !paused && __builtin_popcountll(drawn_bits) <= 6
+                     && term_blink_due() > 3;
           drawn_bits <<= 1;
           pace_next = next;                                    /* waited for at the top of the loop, with the events (pace_wait); */
           pace_until = now >= next ? 0 : rest ? next + 2 * per : next;   /* a frame owed runs at once, as it did */

@@ -634,11 +634,12 @@ static uint8_t do_make(void)                         /* 1 if it compiled without
     else { nb_reset(); nb_s("make: failed, rc "); nb_n(rc); nb_s(" -- nothing in MAKE.ERR"); note = nbuf; }
     return 0;
 }
+static uint8_t run_build = 1;                        /* do_run compiles first; PROG's Run (Shift+F9) clears it for one run */
 static void do_run(void)
 {
     char *c = shline; const char *s, *dot = 0; uint8_t i = 0, rc; unsigned keepy = cy; uint8_t keepx = cx;
     const char *tool = compiler(); uint8_t rx = (uint8_t)(tool != 0 && tool[0] == 'R'), interp = interpreted(tool);
-    if (!do_make()) return;
+    if (run_build && !do_make()) return;
     for (s = "SWAP -k "; *s; ) c[i++] = *s++;
     if (interp) {                                    /* REXX, BASIC, LOGO: the interpreter runs the file (REXX's die() writes MAKE.ERR) */
         for (s = tool; *s; ) c[i++] = *s++;

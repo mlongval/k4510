@@ -53,7 +53,7 @@ static void __fastcall__ help_o(uint8_t about);       /* and slot 11 */
 
 enum { C_OPEN = 1, C_SAVE, C_SAVEAS, C_QUIT, C_UNDO, C_REDO, C_CUT, C_COPY, C_PASTE,
        C_FIND, C_NEXT, C_REPL, C_GOTO, C_MAKE, C_RUN, C_MNEXT, C_MPREV, C_RENUM, C_HELP, C_ABOUT,
-       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI, C_TABW };
+       C_NEW, C_CLOSE, C_NEXTF, C_PREVF, C_FINDF, C_NEWPROJ, C_SELALL, C_CLEAR, C_DOS, C_SYS, C_VI, C_TABW, C_RUNONLY };
 
 static uint8_t eh, msgs_due = 1;
 static unsigned mtop;
@@ -589,6 +589,7 @@ static const char helpall[] =
     "\0"
     "F9           save what changed, compile .C (CC) or .PAS (PAS); a .RX: saved\0"
     "Ctrl+F9      compile, then run it (a .RX: RX runs it); a key comes back\0"
+    "Shift+F9     run it as last compiled\0"
     "F4  Shift+F4 the next / previous message -- another file's opens in a tab\0"
     "F10, Alt+letter  the menus                  F1  this page\0"
     "Mouse: the text, a menu, a tab, a message, the scroll bars; the wheel\0"
@@ -640,8 +641,9 @@ static void run_cmd(uint8_t c)
     case C_GOTO:   goto_dlg(); break;
     case C_MAKE:   if (!save_all()) { note = "A file would not save -- nothing compiled"; break; }
                    pj_arm(); do_make(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; full = 1; break;
-    case C_RUN:    if (!save_all()) { note = "A file would not save -- nothing run"; break; }
-                   pj_arm(); ptr_off(); do_run(); ptr_on(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; full = 1; break;
+    case C_RUNONLY: run_build = 0;   /* Run: what was compiled last, as it is (Doc, 2026-10-09); then as C_RUN */
+    case C_RUN:    if (!save_all()) { note = "A file would not save -- nothing run"; run_build = 1; break; }
+                   pj_arm(); ptr_off(); do_run(); run_build = 1; ptr_on(); reload_others(); if (ecur != 0xFFFFu) goto_msg(ecur); msgs_due = 1; full = 1; break;
     case C_MNEXT:  t_end(); if (!nerr) note = "No messages -- F9 compiles";
                    else if (ecur + 1 < nerr || ecur == 0xFFFFu) goto_msg(ecur + 1); else note = "No more messages";
                    break;
@@ -670,6 +672,7 @@ static const struct item m_search[] = { { "Find...", 0, C_FIND, "Ctrl+F" }, { "R
                                         { "Find in Files...", 5, C_FINDF, "Shift+Ctrl+F" }, { "Change...", 0, C_REPL, "Ctrl+R" },
                                         { "Go To Line...", 0, C_GOTO, "Ctrl+G" }, { 0, 0, 0, 0 } };
 static const struct item m_build[]  = { { "Compile", 0, C_MAKE, "F9" }, { "Compile and Run", 12, C_RUN, "Ctrl+F9" },
+                                        { "Run", 1, C_RUNONLY, "Shift+F9" },
                                         { "", 0, C_SEP, "" }, { "Next Message", 0, C_MNEXT, "F4" }, { "Previous Message", 0, C_MPREV, "Shift+F4" },
                                         { 0, 0, 0, 0 } };
 static const struct item m_opt[]    = { { "DOS Colours", 0, C_DOS, "" }, { "System Colours", 0, C_SYS, "" }, { "", 0, C_SEP, "" },
@@ -753,7 +756,7 @@ static void do_key(uint8_t k)
     case KF(3):  run_cmd(C_NEXT); break;
     case KF(4):  run_cmd(shift ? C_MPREV : C_MNEXT); break;
     case KF(6):  run_cmd(shift ? C_PREVF : C_NEXTF); break;
-    case KF(9):  run_cmd(ctrl ? C_RUN : C_MAKE); break;
+    case KF(9):  run_cmd(ctrl ? C_RUN : shift ? C_RUNONLY : C_MAKE); break;
     case KF(10): run_cmd(menu(0)); break;
     }
 }

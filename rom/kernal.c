@@ -1149,6 +1149,8 @@ static void sw_call(uint8_t bank, void (*fn)(const char *), const char *p)
 uint8_t k_shell(const char *p);
 static void shell_line(const char *p);
 static void shell_copy(const char *p);    /* resident (below k_shell): IDEA, in bank 1, hands VI a line through it */
+static uint8_t is_help(const char *p);     /* bank 0's window: HELP word, and a command's -h */
+static void help_page(const char *w);
 static void banner(void);                 /* the logo: sideways window, not resident */
 static void banner_note(void);
 static void cmd_bbcbasic(uint8_t prog);
@@ -1941,7 +1943,7 @@ static void cmd_mode(const char *p)
         else if (c == 'm') { smooth = 1; if (vdiv == VDIV_SOFT) { vsoft |= 0x10; set = 1; } }
         else if (c == 'c') { vsoft |= 0x40; set = 1; }
         else if (c == 'p') { vsoft = 0; set = 1; }
-        else { error("mode: -l, -s N, WxH [-m], -c (--scanlines), -p (--plain), -d, -n, 0-2 5-7"); return; }
+        else { error("mode: not an option of MODE -- MODE -h explains them"); return; }
     }
     p = opt_p;
     if (*p) {
@@ -1961,7 +1963,7 @@ static void cmd_mode(const char *p)
              * way back out, and someone meeting the machine for the first time should
              * not be able to type themselves into a screen they cannot use. VICKY
              * still has them: a program that wants one writes the CTRL bits itself. */
-            if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 640x480, 1 640x240, 2 320x240, 5 6 7 scale 1 2 4; MODE -l"); return; }
+            if (!d || m > 7 || m == 3 || m == 4) { error("mode: 0 1 2 5 6 7, -s N or WxH -- MODE -h explains them"); return; }
             vmode = (uint8_t) m; if (m == 5) vdiv = 1;
         }
         set = 1; opt_p = p; continue;
@@ -2073,7 +2075,7 @@ static void shell_line(const char *p)
     alias_hit = 0; sw_call(3, nav, p); if (alias_hit) return;   /* CD/CHDIR/MOUNT/UMOUNT, bank 3 */
     { const shcmd_t *c;                                   /* DIR, TYPE, RUN, ... (shcmds, above) */
       for (c = shcmds; c->name; c++)
-          if (is_cmd(&p, c->name)) { if (c->bank) sw_call(c->bank, c->fn, p); else c->fn(p); return; } }
+          if (is_cmd(&p, c->name)) { if (is_help(p)) help_page(c->name); else if (c->bank) sw_call(c->bank, c->fn, p); else c->fn(p); return; } }
     if (is_cmd(&p, "RENAME") || is_cmd(&p, "REN") || is_cmd(&p, "MV")) { cmd_two(16, p); return; }
     if (is_cmd(&p, "CP"))    { cmd_two(17, p); return; }
     if (is_cmd(&p, "ECHO"))  { puts_(p); newline(); return; }
@@ -2084,7 +2086,7 @@ static void shell_line(const char *p)
     /* HELP is TYPE.prg on the help file -- the line copied into line[] first:
      * a program reads its ARGS through a pointer, and while it runs the ROM's
      * addresses hold RAM, so a tail left in ROM would read as garbage. */
-    if (is_cmd(&p, "HELP"))  { shell_copy("TYPE /SYSTEM/ETC/HELP"); shell_line(line); return; }
+    if (is_cmd(&p, "HELP"))  { if (*p) help_page(p); else { shell_copy("TYPE /SYSTEM/ETC/HELP"); shell_line(line); } return; }   /* HELP MODE: its page */
     if (is_cmd(&p, "BBCBASIC") || is_cmd(&p, "BBC")) { cmd_bbcbasic(1); return; }
     /* an unknown word: if it names a program, run it (OPLPLAY = RUN oplplay.prg) */
     { char name[NAMEMAX]; const char *q = p0;                 /* REXX-style: an unknown word is a program on disk */
@@ -2372,6 +2374,31 @@ static void shell_copy(const char *p)
     line[i] = 0;
 }
 #pragma code-name (pop)
+#pragma code-name (push, "SWCODE0")    /* bank 0's window, called directly from shell_line; the resident half is full */
+#pragma rodata-name (push, "SWRODATA0")
+/* HELP word, and word -h / --help / ? for a command of the shell's table
+ * (2026-10-09, Doc: "the MODE command really needs better help info"): the
+ * page /SYSTEM/HELP/WORD.TXT, through TYPE as HELP's own file is.  Built in
+ * line[] itself -- no buffer on the ROM's 512-byte stack -- the word moved up
+ * first, since it may be lying in line[] already. */
+static uint8_t is_help(const char *p)
+{
+    return (p[0] == '?' && !p[1]) || (p[0] == '-' && ((p[1] | 0x20) == 'h' ? !p[2] : !strcmp(p + 1, "-help")));
+}
+static void help_page(const char *w)
+{
+    uint8_t n = 0, i;
+    while (w[n] && w[n] != ' ' && n < 24) n++;
+    memmove(line + 18, w, n);
+    memcpy(line, "TYPE /SYSTEM/HELP/", 18);
+    for (i = 18; i < 18 + n; i++) if (line[i] >= 'a' && line[i] <= 'z') line[i] -= 32;
+    strcpy(line + 18 + n, ".TXT");
+    REG(FS + 4) = (uint8_t)(uint16_t)(line + 5); REG(FS + 5) = (uint8_t)((uint16_t)(line + 5) >> 8); REG(FS + 6) = 0; REG(FS + 7) = 0;
+    if (fs_cmd(8)) { line[18 + n] = 0; puts_("help: no page for "); puts_(line + 18); puts_(" -- HELP lists every command"); newline(); return; }
+    shell_line(line);
+}
+#pragma code-name (pop)
+#pragma rodata-name (pop)
 uint8_t k_shell(const char *p) { SHELL_RC = 0; shell_copy(p); shell_line(line); if (cx) newline(); return SHELL_RC; }
 
 /* box-drawing glyphs of the CP437 font */

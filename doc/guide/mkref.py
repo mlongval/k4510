@@ -51,7 +51,7 @@ DESC = {
     "SWAP":    (1, "SWAP [-k] command", "Put the whole 64 KB and the screen away, run the command on a clean machine, and give them back. -k (--keep) keeps the screen the command left."),
     "ALIAS":   (1, "ALIAS [name [text]]", "List, define, or (name alone) remove an alias. Aliases are tried last, so none can hide a real command."),
     "ECHO":    (1, "ECHO text", "Print the text."),
-    "HELP":    (1, "HELP", "The command summary: TYPE /SYSTEM/ETC/HELP."),
+    "HELP":    (1, "HELP [word]", "The command summary: TYPE /SYSTEM/ETC/HELP. With a word, that command's own page from /SYSTEM/HELP (HELP MODE); a command of the shell's followed by -h, --help or ? shows the same page."),
     # screen
     "CLS":     (2, "CLS", "Clear the text screen."),
     "CLG":     (2, "CLG", "Clear the bitmap over the text, whoever drew it."),

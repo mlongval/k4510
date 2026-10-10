@@ -27,4 +27,14 @@ out=$(./test/headless rom/kernal.bin 'HELP
 echo "$out" | grep -q "^BACK"          || fail "Q at -- more -- did not hand the shell back"
 echo "$out" | grep -q -- "-- more --"  && fail "the -- more -- prompt was left on the screen"
 
-echo "typetest: OK (a file, a missing file, no paging under EXEC, HELP pages and Q stops, the prompt taken back)"
+# HELP word and a command's -h: the page in /SYSTEM/HELP; a word without one says so
+for cmd in 'HELP mode' 'MODE -h' 'MODE --help' 'MODE ?'; do
+    out=$(./test/headless rom/kernal.bin "$cmd
+" 900 2>&1) || fail "$cmd did not run"
+    echo "$out" | grep -q "^MODE -- the screen" || fail "$cmd did not show /SYSTEM/HELP/MODE.TXT"
+done
+out=$(./test/headless rom/kernal.bin 'HELP NOSUCH
+' 600 2>&1)
+echo "$out" | grep -q "^help: no page for NOSUCH" || fail "HELP of a word with no page said nothing"
+
+echo "typetest: OK (a file, a missing file, no paging under EXEC, HELP pages and Q stops, the prompt taken back, HELP MODE and MODE -h)"

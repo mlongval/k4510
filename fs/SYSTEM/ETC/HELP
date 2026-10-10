@@ -1,3 +1,5 @@
+help:    HELP word, or word -h: one command's
+         page, from /SYSTEM/HELP (HELP MODE)
 files:   DIR [-a] [-l] [dir|pattern]   LS
          (DIR APPS lists it; DIR *.PAS, DIR ?.TXT
          match here; * any run, ? any one;
@@ -24,15 +26,6 @@ files:   DIR [-a] [-l] [dir|pattern]   LS
          copy VI.SAMPLE there)
          NVIM [name]   Neovim, on the Linux, set
          up for the machine: F9 :make, F10 :Run
-         MODE  the screen.  -l (--list) what this
-         panel offers; -s N (--scale=N) or WxH
-         picks one -- any other WxH is that size
-         at the best whole multiple (-m, --smooth:
-         smoothed instead); -c (--scanlines) scanlines,
-         -p (--plain) none; -d (--double) twice the rows
-         in smaller letters, -n (--normal) back;
-         0 640x480; 5 6 7 scale 1 2 4.  MODE
-         alone says which
          LOAD name [addr]
          SAVE name from.to
          RENAME old new   CP old new
@@ -52,9 +45,9 @@ monitor: MON or WOZ [line]  then:  addr  addr.addr
          FILL from.to value
          COPY from.to dest   (memory, by DMA)
 system:  INFO [-vcmgsft]   TIME   HUSH   RESET
-         MODE [0-2|5-7]
-         (0 640x480, 1 640x240, 2 320x240;
-          5 1440x1080, 6 720x540, 7 360x270)
+         MODE [0-2 | -s N | WxH] [-c|-p] [-d|-n]
+         (the screen's size and look; MODE -l
+         lists the sizes, MODE -h explains all)
          COLOR fg [bg] [!]
          PALETTE [LOAD name|SAVE name|RESET]
          (LOAD GREEN, AMBER, GREY, PEPTO, C64 from

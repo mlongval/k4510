@@ -1,0 +1,52 @@
+MODE -- the screen: its size and look
+=====================================
+
+Where am I?
+  MODE            the mode now: text
+                  grid, pixels, effects
+  MODE -l         every size this screen
+                  shows pixel-perfect,
+                  with its text grids
+
+Pick a size
+  MODE 0          640x480  (80x30 text)
+  MODE 1          640x240
+  MODE 2          320x240  (40 columns)
+  MODE -s N       scale N from the list
+                  (--scale=N): bigger N,
+                  bigger pixels
+  MODE 5 / 6 / 7  the same as -s 1/2/4
+  MODE WxH        a size in pixels, as
+                  MODE 720x540
+
+  A WxH that MODE -l does not list is
+  shown at the largest whole multiple
+  that fits, centred, with a border:
+  sharp pixels.  -m (--smooth) stretches
+  it to fill the screen instead, softer.
+  Bigger than the screen is refused;
+  160x100 is the smallest.
+
+The look -- with a size, or alone
+  -c  --scanlines  a CRT's scanlines
+  -p  --plain      no effects
+  -d  --double     twice the text rows,
+                   smaller letters
+  -n  --normal     the larger letters
+
+Examples
+  MODE -l          what can I have?
+  MODE -s 2        a quarter the pixels
+  MODE 320x200 -c  C64-sized, scanlines
+  MODE 400x300 -m  stretched to fill
+  MODE 2 -p        320x240, plain
+  MODE -d          more rows, same size
+
+Good to know
+  A new size keeps -d and -c, so the
+  normal screen is MODE 0 -n -p.
+  F12 > Video sets the same things
+  from the menu.  A program's own
+  mode ends when the program does.
+  Options may come before or after
+  the size.

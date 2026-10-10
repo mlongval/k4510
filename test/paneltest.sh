@@ -49,7 +49,7 @@ has "MODE 5: 90x67 text, 720x540 pixels, scale 2" "an option after the operand"
 out=$(run 1920x1080 'MODE --bogus
 MODE 999x1
 ')
-has "mode: -l, -s N" "an unknown option says what there is"
+has "mode: not an option of MODE -- MODE -h explains them" "an unknown option points at MODE -h"
 has "mode: WxH, 160x100 at least" "a size too small to be one"
 # Integer Best Fit (2026-10-08): a size the panel does not offer is the program's own,
 # at the largest whole multiple -- smoothed only when asked; larger than the panel refused

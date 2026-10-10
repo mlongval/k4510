@@ -11,10 +11,18 @@
  *
  *   RX name [args]      runs name, name.RX or /LANG/RX/name.RX
  *   name args           the same, when the shell finds name.RX (rom/kernal.c try_rx)
+ *   RX                  immediate mode: an rx> prompt, each line run as it is
+ *                       typed (a block that is still open reads on at ..>)
+ *
+ * Immediate mode is INTERPRET of each line: the line goes into far memory
+ * past the script (there is none) and runs as interpreted text.  Variables
+ * last from line to line; an error is reported and the prompt comes back.
+ * EXIT leaves, and so does Esc at an empty rx> prompt (Esc at ..> drops the
+ * unfinished block).  Up and Down recall the last 8 lines.
  *
  * The subset, honestly: whole numbers only (32-bit; / truncates, % and // as
- * REXX), values up to 255 characters, no INTERPRET, no NUMERIC, no
- * SIGNAL ON.  Everything else people write in scripts is here: SAY PULL
+ * REXX), values up to 159 characters, no NUMERIC, no SIGNAL ON, and no
+ * SIGNAL or labels inside INTERPRET's text.  Everything else people write in scripts is here: SAY PULL
  * PARSE (ARG PULL VAR VALUE SOURCE VERSION, UPPER, templates with words,
  * string patterns, column numbers), IF THEN ELSE, DO (n / var=a TO b BY c /
  * FOREVER / WHILE / UNTIL) END, LEAVE ITERATE, SELECT WHEN OTHERWISE, CALL
@@ -28,7 +36,8 @@
  *
  * Memory: the script lives in far memory (SRC_PHYS) and is read a clause at
  * a time; variables live in a pool that is compacted through far memory
- * when it fills.  The program itself is at $2000 (demo/rexx.cfg). */
+ * when it fills.  The program itself is at $0800, its temporaries and C
+ * stack in the RAM under the ROM (demo/rexx.cfg). */
 #include "k4510.h"
 #include <string.h>
 #include <stdlib.h>
@@ -61,6 +70,7 @@ static uint32_t r32(uint16_t r) { return (uint32_t)REG(r) | ((uint32_t)REG(r + 1
 #define SCRATCH    0x00F10000UL     /* the pool, while it is compacted */
 #define ARGS_PHYS  0x00F20000UL     /* CALL arguments: 8 levels x 8 args x 256 */
 #define SAVE_PHYS  0x00F24000UL    /* the lexer token saved across a CALL, one 256 per level */
+#define HIST_PHYS  0x00F25000UL     /* immediate mode: the last 8 lines, VMAX each */
 #define STREAM_PHYS 0x00F40000UL    /* LINEIN files: 4 x 64 KB */
 #define OUT_PHYS   0x00F80000UL     /* LINEOUT: one file, buffered, 64 KB */
 #define SCR_PHYS   0x00F90000UL     /* the console, kept across a SWAP */
@@ -87,20 +97,30 @@ static uint8_t rlev;                /* which clause buffer: one per nested run l
 #define CL (cbuf[rlev])
 static const char *cp;              /* the parse pointer */
 static uint16_t pos, cstart, srclen;   /* 16-bit: the script is at most 64 KB */
-static char tmp[TMAX][VMAX]; static uint8_t tsp;
+#pragma bss-name (push, "HIBSS")
+static char tmp[TMAX][VMAX];        /* 3.2 KB, in the RAM under the ROM (demo/rexx.cfg) */
+#pragma bss-name (pop)
+static uint8_t tsp;
 #define KMAX 3
 static char kbuf[KMAX][CMAX]; static uint8_t ksp;   /* clause copies: cc65 allows 255 bytes of locals */
 static jmp_buf top;
 unsigned rx_sp(void);                    /* demo/rxasm.s: cc65's C stack pointer */
-static unsigned sp0;                     /* what it was at the start */
-/* The C stack grows DOWN from the top of the program area, straight at this
- * file's own buffers, and nothing but this check stands between them: a
- * recursion that overruns used to corrupt the variable pool and report
- * nonsense (2026-09-07).  Each nested call costs roughly 400 bytes. */
-#define STACK_BUDGET 1500                 /* BSS ends at ~$C8D0 under sp0 = $D000: 2200 refused nothing (review 2026-09-12) */
+/* The C stack grows DOWN from $FF00, straight at the temporaries below it,
+ * and nothing but this check stands between them: a recursion that overruns
+ * used to corrupt the variable pool and report nonsense (2026-09-07).  The
+ * floor is the end of HIBSS, from the linker, plus room for the deepest
+ * stretch between two checks.  (It was a fixed 1500 bytes below $D000, when
+ * the stack was there: written when BSS ended at $C8D0, and by 2026-10 BSS
+ * ended at $CBFA, so the budget reached 540 bytes into it.) */
+extern char _HIBSS_RUN__[], _HIBSS_SIZE__[];
+#define STACK_SLACK 768
+static uint8_t deep(void) { return rx_sp() < (unsigned)_HIBSS_RUN__ + (unsigned)_HIBSS_SIZE__ + STACK_SLACK; }
 static int exit_code;
 static uint8_t call_depth;          /* ARG() levels */
 static uint8_t var_lvl = 1;         /* PROCEDURE levels */
+static uint8_t imm;                 /* immediate mode: no script, no line numbers */
+static uint16_t mainlen;            /* the script's length: past it is INTERPRET's text */
+static uint16_t iat;                /* the INTERPRET clause in the script that an error inside its text belongs to */
 static char env[20] = "COMMAND", env_prev[20] = "COMMAND";
 static char q[NQ][100]; static uint8_t qh, qn;
 static uint32_t rnd_seed;
@@ -120,6 +140,7 @@ static label_t labels[NLAB]; static uint8_t nlabels;
 #define CT_SEL 2
 #define CT_IF 3
 #define CT_CALL 4
+#define CT_INT 5                    /* INTERPRET's text: END, LEAVE and SIGNAL do not reach past it */
 typedef struct { uint8_t type; uint8_t flag; uint8_t rep; uint16_t dopos; uint16_t body; long cnt; long to, by; char var[24]; uint8_t rl; uint8_t vl; } frame_t;
 /* rep: this DO repeats (a count, a control variable, WHILE or UNTIL).  A
  * plain DO ... END is a group, not a loop, and LEAVE and ITERATE step over
@@ -159,8 +180,11 @@ static void err_write(uint16_t line, const char *m)
 }
 static void die(const char *m)
 {
-    outs("RX: line "); outn(line_of(cstart)); outs(": "); outs(m); nl();
-    err_write(line_of(cstart), m);
+    uint16_t ln = line_of(cstart < mainlen ? cstart : iat);
+    outs("RX: ");
+    if (!imm) { outs("line "); outn(ln); outs(": "); }
+    outs(m); nl();
+    if (!imm) err_write(ln, m);
     if (CL[0]) { outs("    "); outs(CL); nl(); }
     exit_code = 1;
     longjmp(top, 1);
@@ -169,7 +193,7 @@ static void die(const char *m)
 /* ---- temporaries -------------------------------------------------------- */
 static char *tpush(void)
 {
-    if (tsp >= TMAX || (unsigned)(sp0 - rx_sp()) > STACK_BUDGET) die("expression too deep");
+    if (tsp >= TMAX || deep()) die("expression too deep");
     tmp[tsp][0] = 0; return tmp[tsp++];
 }
 static void tpop(void) { tsp--; }
@@ -609,24 +633,40 @@ static void eval(const char *p, char *out)
 static long evaln(const char *p) { char *t = tpush(); long v; eval(p, t); v = num(t); tpop(); return v; }
 
 /* ---- input --------------------------------------------------------------- */
-static void readln(char *b, uint8_t max)
+/* A line from the keyboard.  The ROM keeps its line editor for the shell
+ * (a bank of its own, not callable), so this is RX's: Backspace, and Up and
+ * Down through the lines immediate mode kept.  Returns 1 on Esc or Ctrl-C. */
+static uint16_t hist_n;                                 /* lines kept so far; the last 8 are in far memory */
+#define HIST_AT(i) (HIST_PHYS + (uint32_t)((i) & 7) * VMAX)
+static uint8_t readln(char *b)
 {
-    uint8_t n = 0, k;
+    uint8_t n = 0, k; uint16_t hv = hist_n;
     REG(0xDA0Eu) |= 1;                       /* the console cursor: the ROM hides it for programs (2026-09-11) */
     for (;;) {
         k = rom_getin();
         if (!k) { wait_vblank(); continue; }
         if (k == 0x0D) break;
+        if (k == 0x1B || k == 0x03) { b[0] = 0; nl(); return 1; }
+        if ((k == 0x80 || k == 0x81) && (REG(0xD101u) & 0x40)) {     /* Up, Down: KBDST bit 6 says a key, not a glyph */
+            if (k == 0x80 ? (hv && hv + 8 > hist_n) : hv < hist_n) {
+                if (k == 0x80) hv--; else hv++;
+                while (n) { n--; outc(8); outc(' '); outc(8); }
+                if (hv < hist_n) while ((k = far_peek(HIST_AT(hv) + n)) != 0) { b[n++] = (char)k; outc((char)k); }
+            }
+            continue;
+        }
         if (k == 0x08 || k == 0x89) { if (n) { n--; outc(8); outc(' '); outc(8); } continue; }
         if (k >= 0x80 || k < 0x20) continue;
-        if (n < max - 1) { b[n++] = (char)k; outc((char)k); }
+        if (n < VMAX - 1) { b[n++] = (char)k; outc((char)k); }
     }
     b[n] = 0; nl();
+    return 0;
 }
+static void readln_brk(char *b) { if (readln(b)) die("interrupted"); }   /* PULL and PARSE LINEIN: Esc breaks the run */
 static void pull_line(char *b)
 {
     if (qn) { strcpy(b, q[qh]); qh = (uint8_t)((qh + 1) % NQ); qn--; return; }
-    readln(b, VMAX);
+    readln_brk(b);
 }
 static void queue_put(const char *s, uint8_t front)
 {
@@ -950,6 +990,7 @@ static void builtin(const char *f, uint8_t argc, char **argv, char *out)
 /* ---- running clauses ------------------------------------------------------------ */
 static void run_loop(void);
 static void exec_stmt(const char *s);
+static void run_text(uint16_t at, uint16_t end);
 static uint8_t ret_flag;                     /* a RETURN reached the run loop that owns the CALL */
 static char retval[VMAX];
 
@@ -1094,11 +1135,19 @@ static void run_stmt(const char *s, uint8_t owner)   /* owner: push CT_IF first 
     if (owner) { word_at(s, w, 12); if (!strcmp(w, "DO") || !strcmp(w, "SELECT")) push_frame(CT_IF); }
     { char *keep = kpush(); strcpy(keep, s); memmove(CL, keep, strlen(keep) + 1); kpop(); exec_stmt(CL); }
 }
+static void drop_levels(uint8_t to)                           /* PROCEDURE's variables go */
+{
+    uint8_t i;
+    while (var_lvl > to) {
+        for (i = 0; i < nvars; i++) if (vars[i].lvl == var_lvl) vars[i].lvl = 0xFF;
+        var_lvl--;
+    }
+}
 static void call_internal(uint16_t at, uint8_t argc, char **argv, char *out)
 {
     frame_t *f; uint8_t i; const char *save_cp = cp; uint8_t save_tk = tk; uint8_t save_tblank = tblank, save_tfunc = tfunc;
     uint16_t save_pos = pos, save_cstart = cstart;
-    if (rlev + 1 >= RUNMAX || call_depth + 1 >= 8 || (unsigned)(sp0 - rx_sp()) > STACK_BUDGET) die("calls too deep");
+    if (rlev + 1 >= RUNMAX || call_depth + 1 >= 8 || deep()) die("calls too deep");
     { uint16_t k = 0; do { far_poke(SAVE_PHYS + (uint32_t)call_depth * 256 + k, (uint8_t)tv[k]); } while (tv[k++]); }
     f = push_frame(CT_CALL); f->dopos = pos; f->cnt = (long)fsp - 1;
     call_depth++;
@@ -1107,10 +1156,7 @@ static void call_internal(uint16_t at, uint8_t argc, char **argv, char *out)
     pos = at; rlev++; ret_flag = 0; retval[0] = 0;
     run_loop();
     rlev--; call_depth--;
-    while (var_lvl > f->vl) {                                 /* PROCEDURE's variables go */
-        for (i = 0; i < nvars; i++) if (vars[i].lvl == var_lvl) vars[i].lvl = 0xFF;
-        var_lvl--;
-    }
+    drop_levels(f->vl);
     fsp = (uint8_t)f->cnt;
     pos = f->dopos; cstart = save_cstart; if (pos < save_pos) pos = save_pos;
     strcpy(out, retval);
@@ -1182,7 +1228,7 @@ static void parse_cmd(const char *p, uint8_t upper)
     else if ((r = kw(p, "VALUE")) != 0) { char *w = find_kw((char *)r, "WITH"); if (!w) die("WITH missing"); eval(r, src); p = w; }
     else if ((r = kw(p, "SOURCE")) != 0) { strcpy(src, "K4510 COMMAND RX"); p = r; }
     else if ((r = kw(p, "VERSION")) != 0) { strcpy(src, "RX 0.1 K4510 7 Sep 2026"); p = r; }
-    else if ((r = kw(p, "LINEIN")) != 0) { readln(src, VMAX); p = r; }
+    else if ((r = kw(p, "LINEIN")) != 0) { readln_brk(src); p = r; }
     else die("PARSE what?");
     strcpy(tpl, p);
     if (from_args) {                                           /* one template segment per argument */
@@ -1238,7 +1284,7 @@ static void exec_stmt(const char *s)
     if (!strcmp(w, "LEAVE") || !strcmp(w, "ITERATE")) {
         uint8_t i = fsp; char nm[24]; word_at(r, nm, 24);
         while (i) { frame_t *f = &frames[i - 1];
-            if (f->type == CT_CALL) i = 0;
+            if (f->type >= CT_CALL) i = 0;
             else if (f->type == CT_DO && f->rep && (!nm[0] || !strcmp(nm, f->var))) break;
             else i--; }
         if (!i) die(w[0] == 'L' ? "LEAVE outside a loop" : "ITERATE outside a loop");
@@ -1335,7 +1381,7 @@ static void exec_stmt(const char *s)
         { const char *u = kw(r, "VALUE");
           if (u) { char *v = tpush(); eval(u, v); setlen(nm, v, 15); tpop(); } else word_at(r, nm, 32); }
         at = label_at(nm); if (at == 0xFFFF) { outs("RX: no such label: "); outs(nm); nl(); die("SIGNAL"); }
-        while (i && frames[i - 1].type != CT_CALL) i--;
+        while (i && frames[i - 1].type != CT_CALL) { if (frames[--i].type == CT_INT) die("SIGNAL inside INTERPRET"); }
         fsp = i; var_setn("SIGL", line_of(cstart)); pos = at; return;
     }
     if (!strcmp(w, "ADDRESS")) {
@@ -1351,7 +1397,16 @@ static void exec_stmt(const char *s)
     }
     if (!strcmp(w, "TRACE")) { char nm[8]; word_at(r, nm, 8); trace = (nm[0] == 'A' || nm[0] == 'R' || nm[0] == 'I' || nm[0] == 'C'); return; }
     if (!strcmp(w, "NUMERIC") || !strcmp(w, "OPTIONS")) return;
-    if (!strcmp(w, "INTERPRET")) die("INTERPRET is not built");
+    if (!strcmp(w, "INTERPRET")) {
+        /* the value goes into far memory just past the text being read, and
+         * runs from there: positions stay 16-bit, DO loops inside it find
+         * their way back, and an INTERPRET inside it stacks one further on */
+        char *v = tpush(); uint16_t at = srclen + 1, k = 0;
+        eval(r, v);
+        if (at > 0xFFFF - VMAX) die("no room to INTERPRET");
+        do far_poke(SRC_PHYS + at + k, (uint8_t)v[k]); while (v[k++]);
+        tpop(); run_text(at, at + k - 1); return;
+    }
     /* a command for the environment */
     { char *v = tpush(); eval(s, v); command(v); tpop(); }
 }
@@ -1364,6 +1419,63 @@ static void run_loop(void)
     }
     if (rlev) ret_flag = 0;                                     /* consumed by the caller (call_internal) */
     (void)base;
+}
+/* INTERPRET: the clauses at [at, end) run here and now, at this procedure
+ * level and with these variables.  A frame of its own fences the blocks in:
+ * the text must close what it opens.  A RETURN inside it leaves ret_flag set
+ * for the run loop outside, which is the routine the RETURN belongs to. */
+static void run_text(uint16_t at, uint16_t end)
+{
+    uint16_t spos = pos, slen = srclen, scs = cstart; uint8_t f0;
+    if (rlev + 1 >= RUNMAX || deep()) die("INTERPRET too deep");
+    if (scs < mainlen) iat = scs;
+    push_frame(CT_INT); f0 = fsp;
+    pos = at; srclen = end; rlev++;
+    while (!ret_flag && read_clause()) exec_stmt(CL);
+    if (!ret_flag && fsp != f0) die("END missing");
+    rlev--; fsp = f0 - 1; pos = spos; srclen = slen; cstart = scs;
+}
+
+/* ---- immediate mode -------------------------------------------------------------- */
+/* Is the text typed so far [1, srclen) still open?  A DO or SELECT without
+ * its END, an IF or WHEN still waiting for THEN, a THEN, ELSE or OTHERWISE
+ * with nothing after it. */
+static uint8_t still_open(void)
+{
+    int8_t depth = 0; uint8_t dang = 0; char w[12]; const char *c;
+    pos = 1;
+    while (read_clause()) {
+        c = skipsp(stmt_head(CL)); word_at(c, w, 12);
+        dang = !*c || !strcmp(w, "IF") || !strcmp(w, "WHEN");
+        if (!strcmp(w, "DO") || !strcmp(w, "SELECT")) depth++;
+        else if (!strcmp(w, "END")) depth--;
+    }
+    return depth > 0 || dang;
+}
+static uint8_t esc;
+static void immediate(void)
+{
+    imm = 1;
+    outs("RX immediate mode -- EXIT or Esc leaves.  RX name [args] runs a script."); nl();
+    if (setjmp(top) == 2) return;                          /* EXIT; 1 is an error, said by die() */
+    for (;;) {
+        fsp = tsp = ksp = rlev = call_depth = pnest = ret_flag = 0;
+        drop_levels(1);
+        srclen = 1;                                        /* the block grows from 1: 0 is nothing */
+        for (;;) {
+            char *b = tpush(); uint16_t n;
+            outs(srclen > 1 ? "..> " : "rx> ");
+            esc = readln(b); n = strlen(b);
+            if (esc) break;
+            if (n) { uint16_t k = 0; do far_poke(HIST_AT(hist_n) + k, (uint8_t)b[k]); while (b[k++]); hist_n++; }
+            if (srclen > 0xF000) die("block too long");
+            { uint16_t k; for (k = 0; k < n; k++) far_poke(SRC_PHYS + srclen + k, (uint8_t)b[k]); }
+            far_poke(SRC_PHYS + srclen + n, '\n'); srclen += n + 1;
+            tpop();
+            if ((!n || b[n - 1] != ',') && !still_open()) { run_text(1, srclen); break; }
+        }
+        if (esc && srclen == 1) return;
+    }
 }
 
 /* ---- main ---------------------------------------------------------------------- */
@@ -1389,16 +1501,15 @@ void main(void)
 {
     unsigned char n = rom_args();
     const char *a = *(const char **)0xF0; char name[VMAX]; uint8_t k = 0, i;
-    sp0 = rx_sp();                                        /* the floor the guard measures from */
     while (n && *a == ' ') { a++; n--; }
     while (*a && *a != ' ' && k < VMAX - 1) name[k++] = *a++;
     name[k] = 0;
     while (*a == ' ') a++;
-    if (!k) { outs("RX name [arguments]   -- runs name, name.RX or /LANG/RX/name.RX"); nl(); return; }
-    if (!load_script(name)) { outs("RX: not found: "); outs(name); nl(); return; }
-    far_poke(SRC_PHYS + srclen, 0);
     rnd_seed = r32(SYS + 0x36) | 1;
     for (i = 0; i < ARGN; i++) { if (i) arg_put(0, i, ""); else arg_put(0, 0, a); }
+    if (!k) { immediate(); out_flush(); return; }
+    if (!load_script(name)) { outs("RX: not found: "); outs(name); nl(); return; }
+    far_poke(SRC_PHYS + srclen, 0); mainlen = srclen;
     err_write(0, 0);                                      /* an empty MAKE.ERR: no old errors after a clean run */
     scan_labels();
     pos = 0; CL[0] = 0;

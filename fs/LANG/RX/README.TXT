@@ -3,6 +3,7 @@ RX -- REXX on the K4510
 
 RX name [arguments]     runs name, name.RX, or /LANG/RX/name.RX
 name arguments          the same, when name.RX exists (the shell looks)
+RX                      immediate mode: REXX at an rx> prompt
 
 A script is a text file of REXX clauses.  A clause that is not one of the
 words below is worked out as an expression and sent to the current
@@ -12,10 +13,33 @@ environment as a command; RC is what came back.
   IF ... THEN ... ELSE       SELECT / WHEN / OTHERWISE / END
   DO n | var = a TO b BY c | FOREVER | WHILE | UNTIL ... END
   LEAVE  ITERATE  CALL  RETURN  PROCEDURE [EXPOSE]  DROP  UPPER
-  PUSH  QUEUE  SIGNAL  ADDRESS  EXIT  NOP  TRACE
+  PUSH  QUEUE  SIGNAL  ADDRESS  EXIT  NOP  TRACE  INTERPRET
 
 Values are strings; arithmetic is whole numbers (32-bit).  A value holds up
-to 199 characters.  Variables with a dot are compound: A.I uses I's value.
+to 159 characters.  Variables with a dot are compound: A.I uses I's value.
+
+Immediate mode
+  RX on its own gives an rx> prompt.  Each line runs when Enter is pressed,
+  and variables (stems too) last from one line to the next.  A line that
+  opens a block -- DO, SELECT, IF ... THEN with nothing after THEN --
+  changes the prompt to ..> and RX reads on until the block is closed,
+  then runs all of it.  An error is reported and the prompt comes back.
+  Up and Down recall the last 8 lines.  SAY, PULL and commands work as
+  in a script.  Put an ELSE on its IF's line (IF x THEN SAY 1; ELSE SAY 2):
+  a complete line runs before the next is read.
+
+    EXIT              back to K/OS
+    Esc at rx>        back to K/OS (when the line is empty)
+    Esc at ..>        throws the unfinished block away
+    Esc while running stops the line, as in a script
+
+INTERPRET expr
+  Works the expression out and runs the result as REXX clauses, in the
+  current context: the same variables, the same PROCEDURE level.  It may
+  be inside loops and procedures, and its text may hold blocks (it must
+  close what it opens), RETURN, and INTERPRET again.  There are no labels
+  in interpreted text: SIGNAL there is refused, and CALL reaches only the
+  script's own labels.  Immediate mode is INTERPRET of each line.
 
 Functions
   LENGTH SUBSTR LEFT RIGHT CENTRE POS LASTPOS COPIES REVERSE UPPER LOWER

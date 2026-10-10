@@ -22,12 +22,13 @@ system: every serious Amiga program published a port, so ten lines of
 REXX could drive a paint program and a terminal in the same script. The
 second half is why anybody remembers it.
 
-Both halves are here. The language is \pth{demo/rexx.c}, 37\,KB loaded
-at \texttt{\$0800} because it wants nearly the whole program area, and it
+Both halves are here. The language is \pth{demo/rexx.c}, 40\,KB loaded
+at \texttt{\$0800} because it wants nearly the whole program area (its
+temporaries and its C stack are in the RAM under the ROM), and it
 is a real one: strings and whole numbers, \verb|PARSE| with its
 templates, \verb|DO| in all its forms, \verb|SELECT|, internal functions
 with \verb|PROCEDURE EXPOSE| and recursion, compound (stem) variables,
-\verb|SIGNAL|, and about fifty built-in functions.
+\verb|SIGNAL|, \verb|INTERPRET|, and about fifty built-in functions.
 
 The thing that makes it glue is REXX's oldest idea: \textbf{a clause the
 interpreter does not recognise is not an error, it is a command}, sent
@@ -38,6 +39,45 @@ ADDRESS COMMAND
 'DIR APPS'
 IF RC = 0 THEN SAY 'that worked'
 \end{type}
+
+\section{Immediate mode and INTERPRET}
+\verb|RX| with no name is REXX at a prompt. Each line runs as soon as
+Enter is pressed, and the variables --- stems included --- are still
+there for the next one:
+
+\begin{type}
+rx> x = 6
+rx> do i = 1 to 3
+..> say i * x
+..> end
+\end{type}
+
+\noindent A clause that opens a block --- \verb|DO|, \verb|SELECT|, an
+\verb|IF| whose \verb|THEN| has nothing after it --- changes the prompt
+to \verb|..>| and keeps reading until the block is closed; then the
+whole of it runs. An error is reported and the prompt comes back. Up and
+Down bring back the last eight lines, and \verb|PULL|, \verb|SAY| and
+commands work as they do in a script. \verb|EXIT| returns to K/OS, and so
+does Esc at an empty \verb|rx>|; Esc at \verb|..>| throws the unfinished
+block away, and Esc while a line runs stops it. An \verb|ELSE| belongs on
+its \verb|IF|'s line, after a semicolon: a line that is complete runs
+before the next one is typed.
+
+Immediate mode is the classic one: each line is handed to
+\verb|INTERPRET|, which a script can use as well. \verb|INTERPRET expr|
+works the expression out and runs the result as REXX clauses, there and
+then, with the script's variables and at its procedure level:
+
+\begin{type}
+op = '+'
+INTERPRET 'total = 3' op '4'     /* total is 7 */
+\end{type}
+
+\noindent It works inside loops and procedures, and the text may hold
+blocks and further \verb|INTERPRET|s, as long as it closes every block it
+opens. Labels are the one thing it does not have: \verb|SIGNAL| inside
+interpreted text is refused, and a \verb|CALL| from it reaches only the
+script's own labels.
 
 \section{The three environments}
 \begin{center}

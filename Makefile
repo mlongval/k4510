@@ -480,7 +480,7 @@ fs/LANG/LOGO/logo.prg: demo/logo.c demo/k4510.h demo/prg0.o demo/romcalls.o demo
 	cc65 -O -t none --cpu 65c02 -o demo/logo.s.tmp demo/logo.c && mv demo/logo.s.tmp demo/logo_c.s
 	ca65 --cpu 65c02 -o demo/logo_c.o demo/logo_c.s
 	ld65 -C demo/logo.cfg -o $@ demo/prg0.o demo/romcalls.o demo/logo_c.o none.lib -m demo/logo.map
-# rx: the REXX interpreter (demo/rexx.c), a plain .prg at $2000 with its own cfg
+# rx: the REXX interpreter (demo/rexx.c), a plain .prg at $0800 with its own cfg (temporaries and C stack under the ROM)
 fs/LANG/RX/rx.prg: demo/rexx.c demo/rxasm.s demo/k4510.h demo/prg0.o demo/romcalls.o demo/rexx.cfg
 	cc65 -O -t none --cpu 65c02 -o demo/rexx.s.tmp demo/rexx.c && mv demo/rexx.s.tmp demo/rexx_c.s
 	ca65 --cpu 65c02 -o demo/rexx_c.o demo/rexx_c.s

@@ -1,6 +1,6 @@
 # K4510 vs Commander X16 -- results
 
-Written by `compare/x16/run.py` on 2026-10-09, K4510 0fe4ca5, x16emu r49,
+Written by `compare/x16/run.py` on 2026-10-10, K4510 f7858c4, x16emu r49,
 cc65 V2.18 - Ubuntu 2.19-1. Seconds of each machine's own clock (60 Hz ticks: TI on
 the X16, FRAMES on the K4510). Read README.md before comparing
 anything: the two BASICs are not the same kind of thing.
@@ -53,7 +53,31 @@ every figure here.
 | SPRITES | 16 sprites x 100 MOVSPRs | 4.83 | 0.13 | 36.3x |
 | CHORD | a C major chord, not timed | OK | OK | -- |
 
-Sound check: x16 CHORD: x16-chord.wav, peak 22403 of 32767 (489450 samples). The K4510 harness has no audio device;
+## Track 4: graphics in C, each machine's own means
+
+`c/gfx.c`, one source, each drawing word written the way that
+machine does it best from C (`c/gfx.h`): the X16 KERNAL's GRAPH
+routines and VERA's data port; the K4510's blitter, DMA and far
+pokes. Milliseconds for one pass; a test repeats its pass for two
+seconds of the machine's clock. The K4510's blitter and DMA finish
+in the write that starts them, so its figures are the CPU setting
+registers: read README.md before quoting CLEAR or SCROLL.
+
+| Test | One pass | X16 8 MHz (ms) | K4510 40.5 MHz (ms) | K4510 8 MHz (ms) | X16 / K4510@40.5 | X16 / K4510@8 |
+|---|---|---:|---:|---:|---:|---:|
+| CLEAR | the whole 320x240 bitmap filled | 55.0 | 0.0561 | 0.28 | 979.6x | 193.5x |
+| RECTS | 64 filled rectangles, 1-128 x 1-96 | 198.5 | 3.21 | 16.1 | 61.9x | 12.3x |
+| LINES | 64 lines, ends anywhere | 268.8 | 3.95 | 20.0 | 68.0x | 13.4x |
+| PIXELS | 1024 single pixels | 108.8 | 21.3 | 107.9 | 5.1x | 1.0x |
+| IMAGE | 16 pictures of 32x32 from memory | 55.4 | 1.13 | 5.71 | 49.0x | 9.7x |
+| SCROLL | the whole bitmap up one line | 99.2 | 0.0682 | 0.35 | 1454.6x | 287.2x |
+| TEXT | the 40x30 text layer written whole | 23.7 | 12.1 | 61.1 | 2.0x | 0.4x |
+| SPRITES | 32 sprites, each moved once | 5.63 | 1.09 | 5.52 | 5.1x | 1.0x |
+| PALETTE | 240 palette entries | 5.17 | 1.02 | 5.15 | 5.1x | 1.0x |
+
+Test cards in `build/shots/`: x16-gfx.png, k4510-gfx.png.
+
+Sound check: x16 CHORD: x16-chord.wav, peak 22403 of 32767 (492238 samples). The K4510 harness has no audio device;
 its CHORD is checked by running, not by listening.
 
 Screenshots in `build/shots/` (not tracked): fill (x16-fill.png, k4510-fill.png), lines (x16-lines.png, k4510-lines.png), sprites (x16-sprites.png, k4510-sprites.png).

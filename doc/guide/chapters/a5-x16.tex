@@ -90,7 +90,7 @@ five times over; on the X16 the interpreter's garbage
 collector runs inside that time, as it would for anyone.
 
 \begin{center}
-\small
+\footnotesize
 \begin{tabular}{@{}l l r r r@{}}
 \toprule
 \textbf{Program} & \textbf{What} & \textbf{X16 (s)} & \textbf{K4510 (s)} & \textbf{X16 / K4510} \\
@@ -152,10 +152,10 @@ wider registers.
 \end{type}
 
 \begin{center}
-\small
+\footnotesize
 \begin{tabular}{@{}l r r r r r@{}}
 \toprule
-\textbf{Program} & \textbf{X16 8\,MHz} & \textbf{K4510 40.5} & \textbf{K4510 8\,MHz} & \textbf{X16 / 40.5} & \textbf{X16 / 8} \\
+\textbf{Program} & \textbf{X16} & \textbf{K 40.5} & \textbf{K 8} & \textbf{/ 40.5} & \textbf{/ 8} \\
 \midrule
 CSIEVE (10 $\times$ 8191) & 5.57 & 0.88 & 4.43 & 6.3x & 1.3x \\
 CLOOP (200\,000 turns) & 5.83 & 0.87 & 4.35 & 6.7x & 1.3x \\
@@ -164,7 +164,8 @@ CBYTECOPY (256 KB) & 4.53 & 0.72 & 3.65 & 6.3x & 1.2x \\
 \bottomrule
 \end{tabular}
 \end{center}
-\noindent\emph{Seconds. The same cc65 output on both; the K4510 twice.}
+\noindent\emph{Seconds: the X16 at 8\,MHz, the K4510 (K) at 40.5 and at
+8\,MHz, and the X16's time over each. The same cc65 output on both.}
 
 \section{Track 3: graphics and sound}
 Each machine by its natural means, from BASIC. The X16's
@@ -208,7 +209,7 @@ that it is not silence; the K4510's headless harness has no
 audio device, so its chord is checked by running.
 
 \begin{center}
-\small
+\footnotesize
 \begin{tabular}{@{}l l r r r@{}}
 \toprule
 \textbf{Program} & \textbf{What} & \textbf{X16 (s)} & \textbf{K4510 (s)} & \textbf{X16 / K4510} \\
@@ -221,6 +222,76 @@ CHORD & C major, three voices & played & played & -- \\
 \bottomrule
 \end{tabular}
 \end{center}
+
+\section{Track 4: graphics in C}
+Track~3 has BASIC standing between the program and the chip,
+and on the X16 that BASIC is an interpreter. The fourth track
+takes it away. One C program, \pth{compare/x16/c/gfx.c}, draws
+nine tests on both machines: a 320$\times$240 bitmap of 8 bits
+a pixel, a 40$\times$30 text layer over it and 16$\times$16
+sprites over that. A small header, \pth{compare/x16/c/gfx.h},
+gives each drawing word the way a C programmer would write it
+for that machine. On the X16 that is the KERNAL's graphics
+routines (\texttt{GRAPH\_draw\_rect}, \texttt{\_draw\_line},
+\texttt{\_draw\_image}, \texttt{\_move\_rect}), which are 65C02
+code drawing through VERA's data port, and the data port
+itself for pixels, text, sprites and the palette. On the K4510
+it is the blitter for rectangles, lines and images, DMA for the
+scroll, and \texttt{far\_poke} for the rest.
+
+\begin{type}
+static void p_lines(void)       /* one pass of LINES */
+{
+    uint8_t i;
+    for (i = 0; i < 64; i++)
+        g_line(rx[i], ry[i], rx[i + 64], ry[i + 64], rc[i]);
+}
+\end{type}
+
+Each test is a fixed piece of work, a \emph{pass}, with every
+place, size and colour read from tables made before the clock
+starts. A test repeats its pass for two seconds of the
+machine's own clock and reports the time of one. The K4510
+runs at 40.5 and again at 8\,MHz, as in track~2. At the end
+both draw the same test card, and the two pictures come out
+alike.
+
+\begin{center}
+\footnotesize
+\begin{tabular}{@{}l r r r r r@{}}
+\toprule
+\textbf{Test} & \textbf{X16} & \textbf{K 40.5} & \textbf{K 8} & \textbf{/ 40.5} & \textbf{/ 8} \\
+\midrule
+CLEAR & 55.0 & 0.056 & 0.28 & 980x & 194x \\
+RECTS & 198.5 & 3.21 & 16.1 & 62x & 12x \\
+LINES & 268.8 & 3.95 & 20.0 & 68x & 13x \\
+PIXELS & 108.8 & 21.3 & 107.9 & 5.1x & 1.0x \\
+IMAGE & 55.4 & 1.13 & 5.71 & 49x & 9.7x \\
+SCROLL & 99.2 & 0.068 & 0.35 & 1450x & 287x \\
+TEXT & 23.7 & 12.1 & 61.1 & 2.0x & 0.4x \\
+SPRITES & 5.63 & 1.09 & 5.52 & 5.1x & 1.0x \\
+PALETTE & 5.17 & 1.02 & 5.15 & 5.1x & 1.0x \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent\emph{Milliseconds a pass, the 2026-10-10 run: the X16 at
+8\,MHz, the K4510 (K) at 40.5 and at 8, and the X16's time over each. A
+pass is one full-screen fill, 64 rectangles, 64 lines, 1024 pixels,
+16 images of 32$\times$32, one scroll, one 40$\times$30 text screen,
+32 sprite moves, or 240 palette entries.}
+
+\begin{aside}
+\textbf{The blitter is free in the emulator.} VICKY's blitter
+and the DMA finish in the very write that starts them, so the
+K4510's CLEAR, SCROLL, RECTS, LINES and IMAGE are the time the
+CPU takes to set the registers, and the drawing itself costs
+nothing. A blitter made of silicon would not be so kind. At a
+byte a cycle at 40.5\,MHz a full-screen fill would take
+1.9\,ms, about 29 times quicker than the X16 rather than 980,
+and a scroll 2--4\,ms, 26 to 52 times rather than 1450.
+PIXELS, TEXT, SPRITES and PALETTE use no blitter, so their
+figures are real on both machines.
+\end{aside}
 
 \section{What the numbers say}
 \begin{itemize}
@@ -252,6 +323,20 @@ CHORD & C major, three voices & played & played & -- \\
   closer to the BASIC ratio, because a point or a sprite move is one
   register write on either machine: there the BASICs are being
   compared again, not the chips.
+\item \textbf{Without BASIC in the way, the doorways are alike.}
+  In track~4, PIXELS, SPRITES and PALETTE are 5x at 40.5\,MHz and
+  1.0x at 8: a register write is a register write on either chip.
+  The blitter tests are a hundred to fifteen hundred times, which
+  is mostly the emulator's free blitter (see the aside in that
+  section).
+\item \textbf{The X16 wins TEXT clock for clock}, 0.4x at 8\,MHz.
+  VERA's data port steps its own address, so a row of text is one
+  address and eighty stores. The K4510 has no such port: every
+  \texttt{far\_poke} carries a 32-bit address worked out in C, and
+  its see-through text (text8) is one byte a cell where the X16
+  writes two. A program in a hurry builds the row in RAM and DMAs
+  it; a library word that did so, or a stepping port on VICKY,
+  would close the gap.
 \item \textbf{Twenty fills took no frame at all} on the K4510, which
   is why the program does two hundred. Below a sixtieth of a second
   the frame counter cannot see; the Rugg/Feldman programs run their
@@ -271,11 +356,13 @@ what the tables above used):
 \begin{type}
 compare/x16/run.py --x16 /path/to/x16emu-folder
 compare/x16/run.py --only rf1,sieve,csieve
+compare/x16/run.py --only gfx
 \end{type}
 
 It writes \pth{compare/x16/RESULTS.md} and leaves the raw
 output, the binaries, the screenshots and the chord under
-\pth{compare/x16/build/}. On the K4510 itself, \texttt{CD
+\pth{compare/x16/build/}, the two test cards of track~4 among
+them. On the K4510 itself, \texttt{CD
 /LANG/BASIC/EX/X16} and \texttt{RUN FILL} (and so on; the
 \texttt{RUN} matters for \texttt{FILL}, which is otherwise the
 shell's memory fill). The Rugg/Feldman programs, the Sieve and

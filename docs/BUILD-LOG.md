@@ -12613,3 +12613,33 @@ decimal and space for thousands (option off or on)". Cells > Thousands
 (a toggle, off by default) now puts a space between the groups --
 `4 321.00`, `1 234 567.00` -- and the point stays the decimal mark.
 CSV out still writes the bare number. calctest checks it.
+
+### 2026-10-10 -- compare/x16 track 4: a graphics suite in C
+
+Doc: "you did a comparison between K4510 and the X16 for processing, can
+you do a graphics test suite comparison?"  Track 3 drew from BASIC, so an
+interpreter sat inside every X16 figure.  Track 4 is one C source,
+compare/x16/c/gfx.c, with each machine's drawing words in c/gfx.h: the
+X16 KERNAL's GRAPH routines and VERA's data port, the K4510's blitter,
+DMA and far pokes.  Nine tests on 320x240x8 with a 40x30 text layer and
+16x16 sprites (CLEAR, RECTS, LINES, PIXELS, IMAGE, SCROLL, TEXT, SPRITES,
+PALETTE); each repeats a fixed pass for two seconds of the machine's own
+clock and reports one pass.  The K4510 at 40.5 and at 8 MHz.  Both end on
+the same test card, and the two pictures match.  run.py --only gfx.
+
+Found: the blitter tests are 50x-1450x, but VICKY's blitter and the DMA
+take no time in the emulator, so those are the CPU setting registers (a
+real one at a byte a cycle would make CLEAR ~29x, SCROLL 26-52x).
+PIXELS, SPRITES and PALETTE are 5x at 40.5 MHz and 1.0x at 8.  TEXT is
+the X16's clock for clock (0.4x at 8 MHz): VERA's data port steps its own
+address, while each K4510 far_poke builds a 32-bit address in C, and the
+K4510's see-through text is text8 because text32 cells are opaque.
+
+Three traps on the X16 side, all fixed in gfx.h: cc65 2.19 -O compiled
+`(uint8_t) (a >> 16) | inc` to `inc` (every VERA write above $FFFF went
+into the bitmap); its videomode(0x80) left r49 in text, so gfx.h calls
+screen_mode ($FF5F); and run.py killed x16emu with SIGKILL, losing the
+.gif's unflushed tail -- it sends SIGTERM now, which SDL turns into a
+clean quit, and the PNG drops the .gif's transparent colour 0.
+Handbook appendix: a Track 4 section and two bullets; its four tables at
+\footnotesize with short heads, so the appendix has no overfull lines.

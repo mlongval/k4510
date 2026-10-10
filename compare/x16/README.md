@@ -15,6 +15,7 @@ simply faster or simpler.
 
     compare/x16/run.py              runs everything, writes RESULTS.md
     compare/x16/run.py --only rf1,sieve,csieve
+    compare/x16/run.py --only gfx      track 4, the graphics suite
     compare/x16/run.py --x16 DIR    where x16emu and rom.bin are
 
 ## What is here
@@ -25,11 +26,12 @@ simply faster or simpler.
 | `fs/LANG/BASIC/EX/X16/*.BAS` | their K4510 BASIC twins for the new programs, on the machine's disk where a user finds them (`CD /LANG/BASIC/EX/X16`, then `FILL`) |
 | `fs/LANG/BASIC/EX/RF1..RF8, SIEVE, DROGON` | the K4510 twins that already existed: the Rugg/Feldman set, the Byte Sieve, Henderson's Mandelbrot |
 | `c/*.c` + `c/bench.h` | the C programs, one source built for both machines |
+| `c/gfx.c` + `c/gfx.h` | track 4: the graphics suite, and each machine's drawing words |
 | `run.py` | builds, runs both machines, writes `RESULTS.md` |
 | `RESULTS.md` | the last table written here |
 | `build/` | binaries, raw text output, screenshots and the X16's chord as `.wav` (not tracked) |
 
-## Three tracks, and what each one measures
+## Four tracks, and what each one measures
 
 **Track 1, each machine's own BASIC, as a user would write
 it.** Rugg/Feldman benchmarks 1-8 (Kilobaud/PCW 1977), the
@@ -68,6 +70,39 @@ The chord is not timed: a chord is not a race. The X16's is
 recorded to a `.wav` (`-wav ...,auto`) and checked for not
 being silence; the K4510 harness has no audio device, so its
 `CHORD` is checked by running.
+
+**Track 4, graphics in C, each machine's own means.**
+Track 3 has BASIC in the way: a point or a sprite move costs
+an interpreter's line on the X16 and a compiled statement on
+the K4510. `c/gfx.c` takes BASIC out. One C source draws nine
+tests on a 320x240 bitmap of 8 bits a pixel, a 40x30 text
+layer over it and sixteen-pixel sprites over that, on both
+machines; `c/gfx.h` gives each drawing word the way a C
+programmer would write it for that machine:
+
+| Word | Commander X16 (VERA) | K4510 (VICKY) |
+|---|---|---|
+| rectangle, clear | KERNAL `GRAPH_draw_rect`, filled | blitter FILL |
+| line | KERNAL `GRAPH_draw_line` | blitter LINE |
+| pixel | VERA's address registers, then `DATA0` | `far_poke` (`STA [zp],Z`) |
+| image, 32x32 from RAM | KERNAL `GRAPH_draw_image` | blitter COPY |
+| scroll, the whole bitmap up a line | KERNAL `GRAPH_move_rect` | DMA copy |
+| text, 40x30 whole | VERA's data port, char and colour | `far_poke` a byte a cell (text8) |
+| sprite move | VERA's data port, 4 bytes | `far_poke16` twice |
+| palette, 240 entries | VERA's data port, 2 bytes an entry | `PALIDX`, then R, G, B |
+
+Each test is a fixed piece of work (a "pass": one full-screen
+fill, 64 rectangles, 64 lines, 1024 pixels, 16 images, one
+scroll, one text screen, 32 sprite moves, 240 palette
+entries), with every place, size and colour taken from tables
+made before the clock starts. A test repeats its pass until
+two seconds of the machine's own clock have gone and reports
+the time of one pass. The K4510 runs at 40.5 and at 8 MHz,
+as in track 2. At the end both draw the same test card (a
+row of the sixteen colours, a fan of lines, four images,
+thirty-two sprites, a line of text), which `run.py` keeps as
+`build/shots/x16-gfx.png` and `k4510-gfx.png`: the two should
+look alike, and do.
 
 ## The clocks
 
@@ -118,6 +153,31 @@ The X16 runs each once. Both report seconds per run.
   scanline's worth of cycles at a time. Both are models.
   Neither is a board.
 
+- **VICKY's blitter and the DMA take no time in the
+  emulator.** `BLTCMD` is "Instant" (core/vicky.h); the copy
+  or fill is done in the write that starts it. So the K4510's
+  CLEAR, SCROLL, RECTS, LINES and IMAGE in track 4 are the
+  CPU setting the registers, and the work itself is free. A
+  real blitter would not be: at one byte a cycle at 40.5 MHz a
+  full-screen fill is 1.9 ms (about 29x the X16's 55 ms, not
+  980x), a scroll 1.9-3.8 ms by whether a read and a write
+  share a cycle (26-52x, not 1450x). Quote those, not the
+  table's, for what a board would do. PIXELS, TEXT, SPRITES
+  and PALETTE use no blitter and are real on both.
+- **Text over a picture.** VERA's text layer has a colour per
+  cell and lets the bitmap through where the background is 0.
+  VICKY's text32 cells are opaque, so the K4510's see-through
+  text is text8: one byte a cell, the colour the layer's. The
+  X16 writes twice the bytes in TEXT, and still wins it clock
+  for clock (below).
+- **cc65 2.19 and the X16's top 64 KB of VRAM.** `-O` compiled
+  `(uint8_t) (a >> 16) | inc` to `inc` alone, so a VERA
+  address above $FFFF lost its bank bit and the sprites,
+  palette and text map writes landed in the bitmap. gfx.h
+  takes that byte from memory instead. The same release's
+  `videomode(0x80)` left the screen in text on r49's ROM;
+  gfx.h calls `screen_mode` ($FF5F) itself.
+
 ## What the first run found (2026-10-09)
 
 RESULTS.md has the table; the handbook appendix
@@ -142,6 +202,24 @@ RESULTS.md has the table; the handbook appendix
 - Both machines gave the same answers (1899 primes, the same
   checksums), which is the first thing to check of any
   benchmark.
+
+Track 4 (2026-10-10), milliseconds a pass, X16 against the
+K4510 at 40.5 and at 8 MHz:
+
+- The blitter tests, CLEAR 980x, SCROLL 1450x, RECTS 62x,
+  LINES 68x and IMAGE 49x, are the X16 KERNAL's 65C02 loops
+  against register writes that cost the blitter nothing (see
+  the fairness note). At 8 MHz they are still 10x to 290x.
+- PIXELS, SPRITES and PALETTE are about 5x at 40.5 MHz and
+  1.0x at 8 MHz: a register write is a register write, and
+  clock for clock the two chips' doorways are alike.
+- **TEXT is the X16's**: 0.4x at 8 MHz, 2.0x at 40.5. VERA's
+  data port steps its own address, so a row is one address
+  and eighty `STA`s. The K4510's C has no such port: each
+  `far_poke` carries a 32-bit address built in C. A program
+  that wants the K4510's text faster builds the row in RAM
+  and DMAs it, and a library word that did that (or a stepping
+  port on VICKY) would be the place to improve.
 
 ## Where x16emu comes from
 

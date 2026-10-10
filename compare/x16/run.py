@@ -9,13 +9,15 @@ RESULTS.md beside this file:
   2. the same C, cc65 for both  c/*.c, -t cx16 and the K4510's recipe;
                                 the K4510 at 40.5 MHz and again at 8 MHz
   3. graphics and sound         FILL, LINES, SPRITES, CHORD, in BASIC
+  4. graphics in C              c/gfx.c: nine drawing tests, each machine's
+                                own means (c/gfx.h), at 40.5 and 8 MHz
 
 Every time is the machine's own 60 Hz tick (TI on the X16, FRAMES on
 the K4510), read off the machine's text output; the host's clock is
 never used and x16emu never runs with -warp.
 
     compare/x16/run.py                      everything
-    compare/x16/run.py --only rf1,sieve     some, by name (lowercase)
+    compare/x16/run.py --only rf1,sieve     some, by name (lowercase; gfx = track 4)
     compare/x16/run.py --x16 DIR            x16emu + rom.bin live there
     compare/x16/run.py --no-k4510-8mhz      skip the 8 MHz K4510 pass
 
@@ -56,6 +58,17 @@ BASIC = {
     "chord": (3, "CHORD.BAS", "/LANG/BASIC/EX/X16", "CHORD", "a C major chord, not timed"),
 }
 CPROGS = {"csieve": "sieve", "cloop": "loop", "cmemcpy": "memcpy"}   # result name -> source
+GFX = {   # track 4: c/gfx.c's tests, in its order -> what one pass is
+    "clear": "the whole 320x240 bitmap filled",
+    "rects": "64 filled rectangles, 1-128 x 1-96",
+    "lines": "64 lines, ends anywhere",
+    "pixels": "1024 single pixels",
+    "image": "16 pictures of 32x32 from memory",
+    "scroll": "the whole bitmap up one line",
+    "text": "the 40x30 text layer written whole",
+    "sprites": "32 sprites, each moved once",
+    "palette": "240 palette entries",
+}
 K4510_HZ = 40500000
 X16_HZ = 8000000
 
@@ -114,7 +127,11 @@ def run_x16(exe, rom, args, timeout, wav=None, gif=None):
             if p.poll() is not None:
                 break
     finally:
-        p.kill(); p.wait()
+        p.terminate()           # SDL turns SIGTERM into a quit: x16emu closes its .gif and .wav
+        try:
+            p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            p.kill(); p.wait()
     text = buf.decode("latin-1")
     text = re.sub(r"\\X[0-9A-F]{2}", "", text)
     return text
@@ -178,10 +195,33 @@ def gif_to_png(gif):
         from PIL import Image, ImageFile
         ImageFile.LOAD_TRUNCATED_IMAGES = True
         png = gif[:-4] + ".png"
-        Image.open(gif).convert("RGB").save(png)
+        im = Image.open(gif).convert("RGB")
+        im.info.pop("transparency", None)    # the .gif's colour 0 is see-through: black, not a hole
+        im.save(png)
         return png
     except Exception:
         return gif
+
+
+def build_c(src, khome):
+    """c/SRC.c for both: the X16's .prg (returned) and the K4510's, into khome."""
+    c = os.path.join(HERE, "c", src + ".c")
+    xprg = os.path.join(BUILD, "x16", src + ".prg")
+    r = sh(["cl65", "-t", "cx16", "-O", "-o", xprg, c]); assert r.returncode == 0, r.stderr
+    s = os.path.join(BUILD, "k4510", src + ".s"); o = os.path.join(BUILD, "k4510", src + ".o")
+    kprg = os.path.join(khome, src + ".prg")
+    for cmd in (["cc65", "-O", "-t", "none", "--cpu", "65c02", "-I", "demo", "-o", s, c],
+                ["ca65", "--cpu", "65c02", "-o", o, s],
+                ["ld65", "-C", "demo/prg.cfg", "-o", kprg, "demo/prg0.o", "demo/romcalls.o", o, "none.lib"]):
+        r = sh(cmd, cwd=REPO); assert r.returncode == 0, (cmd, r.stderr)
+    return xprg
+
+
+def fmt_ms(x):
+    if x is None:
+        return "--"
+    ms = x * 1000
+    return "%.1f" % ms if ms >= 10 else "%.2f" % ms if ms >= 0.1 else "%.4f" % ms
 
 
 def fmt(x):
@@ -258,15 +298,7 @@ def main():
             for res, src in CPROGS.items():
                 if res not in cnames:
                     continue
-                c = os.path.join(HERE, "c", src + ".c")
-                xprg = os.path.join(BUILD, "x16", src + ".prg")
-                r = sh(["cl65", "-t", "cx16", "-O", "-o", xprg, c]); assert r.returncode == 0, r.stderr
-                s = os.path.join(BUILD, "k4510", src + ".s"); o = os.path.join(BUILD, "k4510", src + ".o")
-                kprg = os.path.join(khome, src + ".prg")
-                for cmd in (["cc65", "-O", "-t", "none", "--cpu", "65c02", "-I", "demo", "-o", s, c],
-                            ["ca65", "--cpu", "65c02", "-o", o, s],
-                            ["ld65", "-C", "demo/prg.cfg", "-o", kprg, "demo/prg0.o", "demo/romcalls.o", o, "none.lib"]):
-                    r = sh(cmd, cwd=REPO); assert r.returncode == 0, (cmd, r.stderr)
+                xprg = build_c(src, khome)
                 log("C %-8s X16 ..." % src)
                 xt = run_x16(exe, rom, ["-prg", xprg], timeout=900)
                 open(os.path.join(BUILD, "x16-c-%s.txt" % src), "w").write(xt)
@@ -285,6 +317,43 @@ def main():
                 for key in sorted(set(xres) | set(kres) | set(k8)):
                     rows_c[key] = (xres.get(key), kres.get(key), k8.get(key))
                 log("   %s" % {k: rows_c[k] for k in rows_c if k in xres or k in kres})
+        finally:
+            shutil.rmtree(khome, ignore_errors=True)
+
+    # ---- track 4: graphics in C
+    rows_g = {}     # test -> (x16, k4510 40.5, k4510 8, passes x16, passes k4510)
+    gshots = None
+    if want("gfx"):
+        khome = os.path.join(REPO, K_HOME)
+        os.makedirs(khome, exist_ok=True)
+        pass_re = re.compile(r"RESULT\s+([A-Z]+)\s+([0-9.]+)\s*S,\s*PASSES\s+(\d+)", re.I)
+        parse = lambda t: {k.lower(): (float(v), int(n)) for k, v, n in pass_re.findall(t)}
+        try:
+            xprg = build_c("gfx", khome)
+            log("C gfx      X16 ...")
+            gif = os.path.join(BUILD, "shots", "x16-gfx.gif")
+            xt = run_x16(exe, rom, ["-prg", xprg], timeout=900, gif=gif)
+            open(os.path.join(BUILD, "x16-c-gfx.txt"), "w").write(xt)
+            xres = parse(xt)
+            keys = "CD /HOME/X16CMP\nRUN GFX\n"
+            log("C gfx      K4510 40.5 MHz ...")
+            kt, kframes, seen = run_k4510(keys, marker="done|Error")
+            open(os.path.join(BUILD, "k4510-c-gfx.txt"), "w").write(kt)
+            kres = parse(kt) if seen else {}
+            if kframes:     # the test card is up for the 120 frames before the results
+                png = os.path.join(BUILD, "shots", "k4510-gfx.png")
+                shot_k4510(keys, kframes - 60, png)
+                gshots = (gif_to_png(gif), png)
+            k8 = {}
+            if not a.no_k4510_8mhz:
+                log("C gfx      K4510 8 MHz ...")
+                kt8, _, seen8 = run_k4510(keys, hz=X16_HZ, marker="done|Error")
+                open(os.path.join(BUILD, "k4510-c8-gfx.txt"), "w").write(kt8)
+                k8 = parse(kt8) if seen8 else {}
+            for t in GFX:
+                x, k, q = xres.get(t), kres.get(t), k8.get(t)
+                rows_g[t] = (x and x[0], k and k[0], q and q[0], x and x[1], k and k[1])
+            log("   %s" % rows_g)
         finally:
             shutil.rmtree(khome, ignore_errors=True)
 
@@ -325,6 +394,18 @@ def main():
             else:
                 L.append("| %s | %s | %s | %s | %s |" % (key, note, fmt(x), fmt(k), ratio(x, k)))
     L.append("")
+    if rows_g:
+        L.append("## Track 4: graphics in C, each machine's own means\n")
+        L.append("`c/gfx.c`, one source, each drawing word written the way that\nmachine does it best from C (`c/gfx.h`): the X16 KERNAL's GRAPH\nroutines and VERA's data port; the K4510's blitter, DMA and far\npokes. Milliseconds for one pass; a test repeats its pass for two\nseconds of the machine's clock. The K4510's blitter and DMA finish\nin the write that starts them, so its figures are the CPU setting\nregisters: read README.md before quoting CLEAR or SCROLL.\n")
+        L.append("| Test | One pass | X16 8 MHz (ms) | K4510 40.5 MHz (ms) | K4510 8 MHz (ms) | X16 / K4510@40.5 | X16 / K4510@8 |")
+        L.append("|---|---|---:|---:|---:|---:|---:|")
+        for t, note in GFX.items():
+            if t in rows_g:
+                x, k, k8, _, _ = rows_g[t]
+                L.append("| %s | %s | %s | %s | %s | %s | %s |" % (t.upper(), note, fmt_ms(x), fmt_ms(k), fmt_ms(k8), ratio(x, k), ratio(x, k8)))
+        L.append("")
+        if gshots:
+            L.append("Test cards in `build/shots/`: %s, %s.\n" % (os.path.basename(gshots[0] or "-"), os.path.basename(gshots[1])))
     if wavnote:
         L.append("Sound check: %s. The K4510 harness has no audio device;\nits CHORD is checked by running, not by listening.\n" % wavnote)
     if shots:

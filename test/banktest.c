@@ -99,6 +99,34 @@ int main(void)
         printf("3. far-call gate: call, return, bank restore, nesting, A passes: ok\n");
     }
 
+    /* 3b. the gate's own "opcode" is not a prefix (doc-76, 2026-10-10): it used
+     * to hand the core $EA, which the 45GS02 takes as the flat-pointer prefix,
+     * so the callee's first instruction and the caller's after the JSR ran as
+     * LDA [zp],Z -- a 32-bit pointer.  Both here are LDA ($F0),Z with a 16-bit
+     * pointer to $0500 and a non-zero third byte that a flat read would use. */
+    {
+        static const uint8_t p[] = {
+            0xA9, 0x00, 0x8D, 0x80, 0xDF,       /* FARTAB = $0200 */
+            0xA9, 0x02, 0x8D, 0x81, 0xDF,
+            0xA9, 0x00, 0x8D, 0x82, 0xDF, 0x8D, 0x83, 0xDF,
+            0xA3, 0x00,                         /* LDZ #0 */
+            0x20, 0x00, 0xDF,                   /* JSR slot 0: the callee starts with LDA ($F0),Z */
+            0xB2, 0xF0,                         /* LDA ($F0),Z, straight after the return */
+            0x8D, 0x01, 0x04,                   /* STA $0401 */
+            0x4C, 0x1C, 0xC0,                   /* JMP * */
+        };
+        static const uint8_t f[] = { 0xB2, 0xF0, 0x8D, 0x00, 0x04, 0x60 };              /* LDA ($F0),Z ; STA $0400 ; RTS */
+        static const uint8_t tab[] = { 0x00, 0x00, 0x10, 0x00, 2, 0, 0x00, 0x40 };      /* slot 0: $100000, block 2, entry $4000 */
+        static const uint8_t zp[] = { 0x00, 0x05, 0x01, 0x00 };                          /* ($F0) = $0500; as a flat pointer $010500 */
+        mem_reset();
+        mem_load(0x100000, f, sizeof f); mem_load(0x200, tab, sizeof tab); mem_load(0xF0, zp, sizeof zp);
+        mem_poke(0x0500, 0x11); mem_poke(0x10500, 0x99); mem_poke(0x400, 0); mem_poke(0x401, 0);
+        boot(p, sizeof p, 400);
+        CHECK(mem_peek(0x400) == 0x11, "callee's first (zp),Z read $%02X (want $11; $99 is a flat read)", mem_peek(0x400));
+        CHECK(mem_peek(0x401) == 0x11, "caller's (zp),Z after the return read $%02X (want $11; $99 is a flat read)", mem_peek(0x401));
+        printf("3b. no flat prefix left over at the callee's entry or after the return: ok\n");
+    }
+
     /* 4. return gate with nothing to return from: acts as RTS, sets error 2 */
     {
         static const uint8_t p[] = { 0x20, 0xF0, 0xDF, 0xAD, 0x85, 0xDF, 0x8D, 0x00, 0x04, 0x4C, 0x09, 0xC0 };

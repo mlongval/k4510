@@ -132,26 +132,27 @@ uint8_t mem_bank_mask(void)                 { uint8_t m = 0; for (int b = 0; b <
  *   0-3 phys base of the code (28-bit)   4 block (0-7) to bank it into
  *   5 flags: bit0 leave banked on return, bit1 do not bank (long jump only)
  *   6-7 entry, a CPU address inside that block
- * An opcode fetch from $DF00+4n (i.e. JSR/JMP there) runs the call; the
- * core sees a NOP and continues at the entry. The callee's RTS returns to
- * $DFF0, which restores the block and returns to the original caller. */
+ * An opcode fetch from $DF00+4n (i.e. JSR/JMP there) runs the call: the
+ * gate pushes the return gate's address and the entry's, and hands the core
+ * an RTS, which pops the entry. The callee's RTS returns to $DFF0, which
+ * restores the block and hands the core another RTS, popping the original
+ * caller's return.  (Until 2026-10-10 the gate handed the core a NOP, $EA --
+ * which the 45GS02 takes as the flat-pointer PREFIX: the callee's first
+ * instruction and the caller's next one ran as LDA [zp],Z, a 32-bit pointer,
+ * if they were a (zp),Z form.  Found by doc-76 in the K4520 POC.) */
 uint32_t far_table; uint8_t far_depth, far_err;
 static struct { uint8_t block, on, flags; uint32_t base; } far_stack[FAR_DEPTH_MAX];
 static void far_push(uint8_t v) { cpu65_write_callback(cpu65.s | cpu65.sphi, v); if (cpu65.s-- == 0 && !cpu65.pf_e) cpu65.sphi -= 0x100; }
-static uint8_t far_pop(void) { if (++cpu65.s == 0 && !cpu65.pf_e) cpu65.sphi += 0x100; return cpu65_read_callback(cpu65.s | cpu65.sphi); }
 static uint8_t far_gate(uint16_t addr)
 {
     if (addr == FAR_RET) {
-        uint16_t ret;
         if (far_depth == 0) { far_err = 2; return 0x60; }              /* nothing to restore: behave as RTS */
         far_depth--;
         if (!(far_stack[far_depth].flags & 1) && !(far_stack[far_depth].flags & 2)) {
             uint8_t b = far_stack[far_depth].block;
             bank_on[b] = far_stack[far_depth].on; bank_reg[b] = far_stack[far_depth].base; map_apply();
         }
-        ret = far_pop(); ret |= (uint16_t)far_pop() << 8;
-        cpu65.pc = ret;                 /* the core increments after the fetch: lands on ret+1 */
-        return 0xEA;
+        return 0x60;                    /* RTS: the caller's own return address is next on the stack */
     }
     if (addr >= FAR_GATE + 4 * FAR_SLOTS || (addr & 3)) { far_err = 3; return 0x60; }
     {
@@ -164,8 +165,8 @@ static uint8_t far_gate(uint16_t addr)
         far_depth++;
         far_push((FAR_RET - 1) >> 8); far_push((FAR_RET - 1) & 0xFF);   /* so the callee's RTS lands on the return gate */
         if (!(flags & 2)) { bank_on[block] = 1; bank_reg[block] = base & K4510_PHYS_MASK; map_apply(); }
-        cpu65.pc = entry - 1;           /* ditto: the NOP we return is "executed" at entry-1 */
-        return 0xEA;
+        far_push((uint16_t)(entry - 1) >> 8); far_push((entry - 1) & 0xFF);   /* and the RTS handed back pops the entry */
+        return 0x60;
     }
 }
 

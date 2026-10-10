@@ -6,6 +6,7 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicky.h"
+#include "../core/state.h"
 #include <stdlib.h>
 static uint8_t fb[640 * 480];                 /* the classic glass: this test draws no HD mode */
 /* K4510_SHOT=dir: write each stage's framebuffer as a PPM there */
@@ -420,6 +421,48 @@ int main(void)
             "a software resolution is clamped to the panel (400x3000 -> 400x800), and is no IDR");
       vicky_set_panel(1920, 1080, 0); vicky_reset();
       printf("14. the panel's integer display resolutions, GLASSCTL, the text grid and its spare columns\n"); }
+
+    /* ---- 15. the scroll latch (2026-10-09): a CPU write mid-frame shows from the
+     * next frame, whole; one made right after vblank (before line 0 is drawn)
+     * belongs to the frame starting; SHEILA's MOVE takes effect from its line;
+     * a read gives what was written; a state loaded mid-frame draws the rest
+     * of the frame from ITS registers. ---- */
+    { uint32_t bmp = 0x200000;
+      mem_reset(); vicky_reset(); W(VR_CTRL, 1); W(VR_BGCOL, 0);
+      for (int y = 0; y < 480; y++) for (int x = 0; x < 640 + 64; x++) mem_poke(bmp + (uint32_t) y * 704 + x, (uint8_t)(1 + ((x >> 4) & 7)));   /* 16-px bands: pixel 0 says the scroll / 16 */
+      W32(VR_LAYER(0) + VL_DATA, bmp); W16(VR_LAYER(0) + VL_STRIDE, 704); W16(VR_LAYER(0) + VL_SCROLLX, 0); W16(VR_LAYER(0) + VL_SCROLLY, 0);
+      W(VR_LAYER(0) + VL_CTRL, 1 | (VL_MODE_BITMAP << 1) | (3 << 3));
+      vicky_render(fb, 640);
+      CHECK(fb[0] == 1 && fb[479 * 640] == 1, "scroll 0: band 1 at the left");
+      vicky_begin_frame(fb, 640);
+      for (int y = 0; y < 480; y++) { if (y == 240) W16(VR_LAYER(0) + VL_SCROLLX, 16); vicky_line(y); }   /* the write lands at line 240 */
+      vicky_end_frame();
+      CHECK(fb[0] == 1 && fb[239 * 640] == 1 && fb[240 * 640] == 1 && fb[479 * 640] == 1, "a mid-frame scroll write leaves the frame whole (%d %d)", fb[239 * 640], fb[240 * 640]);
+      CHECK(R(VR_LAYER(0) + VL_SCROLLX) == 16 && R(VR_LAYER(0) + VL_SCROLLX + 1) == 0, "the register reads back what was written, not the latch");
+      vicky_render(fb, 640);
+      CHECK(fb[0] == 2 && fb[479 * 640] == 2, "the next frame uses the new scroll, whole (%d %d)", fb[0], fb[479 * 640]);
+      vicky_begin_frame(fb, 640); W16(VR_LAYER(0) + VL_SCROLLX, 48);           /* the first line's CPU time: right after vblank */
+      for (int y = 0; y < 480; y++) vicky_line(y);
+      vicky_end_frame();
+      CHECK(fb[0] == 4 && fb[479 * 640] == 4, "a write before line 0 is drawn belongs to the frame starting (%d)", fb[0]);
+      { uint32_t cop = 0x500000;
+        uint8_t prog[] = { 0x01, 100, 0, 0,  0x02, VR_LAYER(0) + VL_SCROLLX, 32, 0,  0x00, 0, 0, 0 };   /* WAIT 100; MOVE SCROLLX lo,32; END */
+        mem_load(cop, prog, sizeof prog);
+        W16(VR_LAYER(0) + VL_SCROLLX, 0); W32(VR_SHEILA, cop); W(VR_SHEILACTL, 1);
+        vicky_render(fb, 640);
+        CHECK(fb[0] == 1 && fb[99 * 640] == 1 && fb[100 * 640] == 3 && fb[479 * 640] == 3, "SHEILA's MOVE scrolls from its line (%d %d)", fb[99 * 640], fb[100 * 640]);
+        CHECK(R(VR_LAYER(0) + VL_SCROLLX) == 32, "and is a write: it reads back");
+        W(VR_SHEILACTL, 0); }
+      { FILE *st = tmpfile();
+        W16(VR_LAYER(0) + VL_SCROLLX, 64); vicky_state_save(st); rewind(st);   /* a state with scroll 64 */
+        W16(VR_LAYER(0) + VL_SCROLLX, 0);
+        vicky_begin_frame(fb, 640);
+        for (int y = 0; y < 480; y++) { if (y == 200) CHECK(vicky_state_load(st) == 0, "state load"); vicky_line(y); }
+        vicky_end_frame(); fclose(st);
+        CHECK(fb[0] == 1 && fb[199 * 640] == 1 && fb[200 * 640] == 5 && fb[479 * 640] == 5, "a state loaded mid-frame latches its own scroll at once (%d %d)", fb[199 * 640], fb[200 * 640]); }
+      shot("15-scroll-latch");
+      vicky_reset();
+      printf("15. the scroll latch: whole frames, the vblank window, SHEILA's MOVE live, readback, a state loaded mid-frame\n"); }
 
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;

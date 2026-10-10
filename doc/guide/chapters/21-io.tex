@@ -93,9 +93,20 @@ its rows, and \texttt{\$DA08}, the rows above it), so it is right with
 the bands up or down. Each instruction is four bytes --- the operation (\texttt{1}
 WAIT, \texttt{2} MOVE, \texttt{0} END), then its operands --- and the
 list is anywhere in memory, a 28-bit address in \texttt{\$D060}--\texttt{\$D063},
-started by \texttt{1} in \texttt{\$D064}. A MOVE is exactly a write by
-the CPU, so any VICKY register can change mid-frame: the mode, the
-scroll, a layer, the palette. Two rules: line numbers count the glass,
+started by \texttt{1} in \texttt{\$D064}. A MOVE is a write by the
+CPU made on the line about to be drawn, so any VICKY register can change
+mid-frame: the mode, the scroll, a layer, the palette. The scroll is the
+one place a MOVE and a CPU write differ. A layer's SCROLLX and SCROLLY
+are \emph{latched} as line~0 is drawn: the CPU may write them whenever
+it likes --- after the vblank, in the middle of a frame, three times
+over --- and the whole of the next frame uses the last value, with no
+seam where the write fell (the machine has no blanking interval, so
+``right after \texttt{\$D710} ticks'' used to land on line~0 or~1 of the
+frame already drawing, and a scrolling ground showed a wandering
+one-pixel step). A read gives back what was written. SHEILA's MOVE is
+in step with the raster by construction, so hers takes effect from its
+line: a parallax, or a scroll split, is a list, not a timed loop. Two
+rules: line numbers count the glass,
 0--479, whatever the mode (in a 240-line mode each line is drawn twice,
 so split on an even one); and \textbf{nothing turns SHEILA off after a
 program}, so a program that turns it on turns it off when it leaves.

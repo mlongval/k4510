@@ -12275,3 +12275,35 @@ on $07F0 fires at the same step and PC (208778, $EF83); RF1, RF4 and SIEVE
 are frame-identical.  test/bench busy, 900 frames, three runs: cpu
 3.30-3.31 ms/frame before, 2.27-2.28 after; cpu65_read_callback 110 -> 98
 instructions.  make test green, check-artifacts included.
+
+**2026-10-09: VICKY latches the scroll registers at the frame's start.**
+Doc's decision, after SKYFIRE's ground showed a wandering one-pixel seam:
+the machine has no vertical blanking interval (vicky_end_frame ticks the
+counter and line 0 is drawn a line of CPU time later), so a scroll write
+made anywhere but in that one line landed mid-frame and tore.  Now every
+layer's SCROLLX/SCROLLY is copied into a latch as line 0 is drawn
+(`scroll_latch`, core/vicky.c) and the frame is rendered from the latch:
+a CPU write at any time shows from the next frame, whole; one made in the
+first line's CPU time (right after vblank) belongs to the frame starting,
+and lifts an idle frame's skip if it changed the scroll.  Reads give what
+was written.  SHEILA's MOVE is the one exception: it writes the latch too
+(`scroll_live`), so a MOVE takes effect on the line about to be drawn as
+the handbook promises of every MOVE -- a parallax or a scroll split is a
+list, not the CPU guessing where the raster is.  Nothing else is latched:
+LCTRL is what SHEILA splits with per line (SPLIT, SPLIT.BAS) and a mode
+change is programmed ctrl-last anyway; DATA/MAP must not be, because a
+page flip written at vblank, with the program at once drawing into the
+other buffer, would show the buffer being drawn for a frame; the sprite
+table is per line on purpose (sprites_gather); PALOFS/STRIDE are set with
+the mode.  The audit found no program writing a scroll register mid-frame
+on purpose (K/OS writes it once in VIDEO, jimgfx once at setup; HEXED,
+FONTED, DOSUI, JIM and SPLIT only read SCROLLY for the HD padding; no
+raster-IRQ user but vickytest), so nothing had to be kept working.  Not
+saved in a state: the load latches from its registers at once, so a load
+mid-frame draws the rest from them.  vicky_repaint keeps the running
+frame's latch.  test/vickytest 15 proves it: the whole frame, the vblank
+window, SHEILA's MOVE from its line, readback, a state loaded mid-frame.
+Cost: test/bench vicky 0.07 ms/frame before and after; vidbench within
+run-to-run noise (16 bytes copied a frame).  Handbook: vicky.h's register
+text (the appendix is generated from it) and chapter 21's SHEILA section,
+source only.  make test green, check-artifacts included; cputest OK.

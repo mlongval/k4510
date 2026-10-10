@@ -131,7 +131,8 @@
  * SHEILA -- the display-list coprocessor (Doc named it, 2026-08-22; the
  * Amiga's copper is the ancestor). 4-byte instructions in main RAM, executed at the start of
  * each scanline until a WAIT blocks. Register writes take effect for the
- * line about to be drawn.
+ * line about to be drawn -- the layers' scroll registers included, which a
+ * CPU write only reaches at the next frame (see SCROLLX).
  *   00 END                       stop until next frame
  *   01 WAIT lo hi                wait for line >= (hi<<8|lo)
  *   02 MOVE reg val              write val to VICKY register reg
@@ -146,8 +147,12 @@
  *                  bits5-6 cell size (tile: 8/16/32/64 px square;
  *                  text: 0 = 8x8, 1 = 8x16)
  *   +1   LPALOFS   palette offset for <8 bpp: index = (value << depth) | pixel
- *   +2,3 SCROLLX   16-bit, pixels
- *   +4,5 SCROLLY   16-bit, pixels
+ *   +2,3 SCROLLX   16-bit, pixels  } LATCHED at the frame's start (as line 0 is
+ *   +4,5 SCROLLY   16-bit, pixels  } drawn, 2026-10-09): a write at any time
+ *                  shows from the next frame, whole -- no seam, whatever line
+ *                  the raster was on.  A read gives what was written.  A SHEILA
+ *                  MOVE to them is the exception: it takes effect on the line
+ *                  about to be drawn, like every MOVE (a split, a parallax).
  *   +6,7 STRIDE    bitmap: bytes per row. tile/text: map entries per row.
  *   +8..+B DATA    28-bit pointer: pixels (bitmap) or glyph/tile set
  *   +C..+F MAP     28-bit pointer: the map

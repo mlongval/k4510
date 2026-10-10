@@ -18,6 +18,25 @@ static uint16_t raster_cmp;
 static uint8_t  owner[VICKY_WIDTH];          /* per-pixel: 0 = layers only, else sprite n+1 */
 static uint8_t  layer_hit[VICKY_WIDTH];      /* per-pixel: a layer drew a non-zero index here */
 static uint8_t  lowres_tmp[VICKY_WIDTH];     /* CTRL bit1: 320x240 rendered here, then doubled */
+/* The scroll registers, LATCHED (Doc, 2026-10-09).  There is no vertical
+ * blanking interval here: vicky_end_frame ticks the counter and the next
+ * frame's line 0 is drawn a line of CPU time later, so a program's scroll
+ * write lands wherever the raster happens to be, and SKYFIRE's ground had
+ * a wandering one-pixel seam to show for it.  Now the lines are drawn from
+ * this copy of every layer's SCROLLX/SCROLLY, taken as line 0 is drawn: a
+ * write made at any time shows from the next frame, whole.  The registers
+ * themselves keep what was written (vicky_read sees no latch).  SHEILA is
+ * the one exception: her MOVE takes effect on the line about to be drawn,
+ * as the handbook promises of every MOVE, so a MOVE to a scroll register
+ * writes the latch too -- the split-screen way stays open, by the chip
+ * that is in step with the raster, not by the CPU guessing where it is. */
+static uint8_t  scr_lat[VICKY_LAYERS][4];    /* [n]: SCROLLX lo, hi, SCROLLY lo, hi */
+static void scroll_latch(void) { for (int n = 0; n < VICKY_LAYERS; n++) memcpy(scr_lat[n], &reg[VR_LAYER(n) + VL_SCROLLX], 4); }
+static void scroll_live(uint8_t r)           /* SHEILA's MOVE: one byte, into the latch at once */
+{
+    int n = (r - VR_LAYER(0)) >> 4, i = r - VR_LAYER(n) - VL_SCROLLX;
+    if (r >= VR_LAYER(0) && n < VICKY_LAYERS && i >= 0 && i < 4) scr_lat[n][i] = reg[r];
+}
 #define OLD_W 640                            /* the classic glass: MODE 0-4 are drawn into 640x480 */
 #define OLD_H 480
 static inline uint16_t rd16(const uint8_t *p);
@@ -151,6 +170,7 @@ void vicky_reset(void)
     pal_gen++; vicky_dirty = 1;
     cur_line = 0;
     sh_wait = -2; raster_cmp = 0xFFFF;
+    scroll_latch();
 }
 
 static void blit(void);
@@ -287,8 +307,9 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     uint32_t data   = rd32(&L[VL_DATA]);
     uint32_t map    = rd32(&L[VL_MAP]);
     uint16_t stride = rd16(&L[VL_STRIDE]);
-    int sy  = y + rd16(&L[VL_SCROLLY]);
-    int sx0 = rd16(&L[VL_SCROLLX]);
+    const uint8_t *S = scr_lat[n];              /* the scroll as latched at line 0 (or MOVEd since), not the registers */
+    int sy  = y + rd16(&S[2]);
+    int sx0 = rd16(&S[0]);
     uint8_t mask = (uint8_t)((1 << bpp) - 1);
 
     if (mode == VL_MODE_BITMAP) {
@@ -338,7 +359,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
      * 3 is 16x32, a glyph row two bytes, MSB first.  TEXT keeps 8 wide. */
     int H = csz == 3 && mode == VL_MODE_TEXT32 ? 32 : csz ? 16 : 8;
     int CW = (csz & 2) && mode == VL_MODE_TEXT32 ? 16 : 8;
-    sy = y + (int16_t) rd16(&L[VL_SCROLLY]);          /* signed for text: the ROM scrolls the HD console DOWN by half its spare lines */
+    sy = y + (int16_t) rd16(&S[2]);                   /* signed for text: the ROM scrolls the HD console DOWN by half its spare lines */
     /* The HD spare lines, above and below the whole rows: a text32 layer
      * paints them with the nearest row's backgrounds and no glyphs, so with
      * the bands up they are the bands' grey and without them the console's
@@ -369,7 +390,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
      * number of cells wide -- 1066 is not): in an HD glass the scroll is signed
      * and the pixels left of the grid, and right of its last column, take the
      * nearest cell's background */
-    int sxt = glass_hd ? (int16_t) rd16(&L[VL_SCROLLX]) : sx0;
+    int sxt = glass_hd ? (int16_t) rd16(&S[0]) : sx0;
     for (int x = 0; x < w; ) {
         int sx = x + sxt, cx = sx / CW, gx0 = sx % CW;
         if (sx < 0 || (glass_hd && stride && cx >= stride)) {
@@ -474,7 +495,7 @@ static void sheila_run(int y)
         switch (op) {
         case 0x00: sh_wait = -2; return;
         case 0x01: { int l = a0 | (a1 << 8); if (y < l) { sh_wait = l; return; } break; }
-        case 0x02: vicky_write(a0, a1); break;
+        case 0x02: vicky_write(a0, a1); scroll_live(a0); break;   /* a MOVE is for the line about to be drawn: the scroll too */
         case 0x03: if (y >= (a0 | (a1 << 8))) sh_pc += 4; break;
         case 0x04: sh_pc = a0 | (a1 << 8) | ((uint32_t)a2 << 16); break;
         case 0x05: reg[VR_IRQSTAT] |= VI_SHEILA; break;
@@ -666,6 +687,12 @@ static void hd_line_draw(int y, uint8_t ctrl)
 void vicky_line(int y)
 {
     cur_line = y;
+    if (y == 0) {                   /* the frame's scroll: here, not in begin_frame -- a line of CPU time runs between the
+                                     * two (sdl/main.c line_begin), and a write made right after vblank belongs to this frame */
+        uint8_t was[sizeof scr_lat]; memcpy(was, scr_lat, sizeof scr_lat);
+        scroll_latch();
+        if (frame_skip && memcmp(was, scr_lat, sizeof scr_lat)) frame_skip = 0;   /* that write came after the idle frame was decided: draw it */
+    }
     sheila_run(y);
     if (y == raster_cmp) reg[VR_IRQSTAT] |= VI_RASTER;
     if (__builtin_expect(frame_skip || term_hold(), 0)) return;   /* an idle frame, or a synchronized update in progress: the line stays as the last frame drew it */
@@ -739,13 +766,14 @@ void vicky_repaint(uint8_t *fb, int pitch)
 {
     uint8_t sreg[sizeof reg]; memcpy(sreg, reg, sizeof reg);
     uint8_t sss[16], ssl[16]; memcpy(sss, col_ss, 16); memcpy(ssl, col_sl, 16);
+    uint8_t slat[sizeof scr_lat]; memcpy(slat, scr_lat, sizeof scr_lat);   /* line 0 latches again: the frame in progress keeps its own */
     uint8_t *sfb = frame_fb; int spitch = frame_pitch, sline = cur_line, swait = sh_wait;
     uint32_t spc = sh_pc; uint16_t scmp = raster_cmp;
     int sskip = frame_skip, sdirty = vicky_dirty;
     repainting = 1; vicky_begin_frame(fb, pitch); repainting = 0;
     frame_skip = 0;                                  /* a repaint draws, whatever */
     for (int y = 0; y < glass_h; y++) vicky_line(y);
-    memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16);
+    memcpy(reg, sreg, sizeof reg); memcpy(col_ss, sss, 16); memcpy(col_sl, ssl, 16); memcpy(scr_lat, slat, sizeof scr_lat);
     frame_fb = sfb; frame_pitch = spitch; cur_line = sline; sh_wait = swait; sh_pc = spc; raster_cmp = scmp;
     frame_skip = sskip; vicky_dirty = sdirty;
 }
@@ -789,6 +817,7 @@ int vicky_state_load(FILE *f)
     if (state_get(f, "VREG", reg, sizeof reg) || state_get(f, "VPAL", pal, sizeof pal) || state_get(f, "VRAS", &raster_cmp, sizeof raster_cmp)
         || state_get(f, "VSHP", &sh_pc, sizeof sh_pc) || state_get(f, "VSHW", &sh_wait, sizeof sh_wait)) return -2;
     memset(col_ss, 0, sizeof col_ss); memset(col_sl, 0, sizeof col_sl);
+    scroll_latch();                 /* not saved: the loaded registers are the truth, and a load mid-frame must not draw the rest of it from the old frame's latch */
     pal_gen++; vicky_dirty = 1;
     return 0;
 }

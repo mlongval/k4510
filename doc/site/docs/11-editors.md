@@ -557,7 +557,7 @@ The sheet is worked out again after every entry, in the order its formulas need:
 
 Shift with an arrow selects a range. Ctrl+X, Ctrl+C and Ctrl+V cut, copy and paste the cell or the range, and a pasted formula’s references move with it — `=A1*2` copied two rows down reads `A3` — while a `$` holds its half still. Ctrl+D fills down and Ctrl+R fills right, from the first row or column of the selection (a lone cell takes from the cell above it, or to its left). Del clears.
 
-The *Cells* menu formats the cell or the range: *General*, *Decimals…* (0 to 9 places), *Thousands*, *Percent*, *Date* (which shows a day count as `2026-10-10` and widens the column to hold it); and *Column Width…* (Ctrl+W) or *All Columns…*. It is called *Cells* and not *Format* because a menu opens by its first letter, and *File* has the F.
+The *Cells* menu formats the cell or the range: *General*, *Decimals…* (0 to 9 places), *Thousands* (on or off; a space between them, `1 234 567.00`, the point for the decimals), *Percent*, *Date* (which shows a day count as `2026-10-10` and widens the column to hold it); and *Column Width…* (Ctrl+W) or *All Columns…*. It is called *Cells* and not *Format* because a menu opens by its first letter, and *File* has the F.
 
 | Key | Does |
 |---|---|

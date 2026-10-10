@@ -125,6 +125,8 @@ out=$(run 'CALC\n~~1\n~\303')
 check "Alt+C opens the Cells menu"    "$(has "$out" 'Thousands')" "1"
 out=$(run 'CALC\n~~Item\tQty\nApples\n~')
 check "Enter after Tabs goes back to the first column" "$(has "$out" '^   2 Apples')" "1"
+out=$(run 'CALC\n~~4321\n~\200\303t~')
+check "Cells > Thousands: a space between them, the point for decimals" "$(has "$out" '4 321\.00')" "1"
 out=$(run 'CALC\n~~46305\n~\200\303a~\007~C5\n~')
 check "Cells > Date shows the days as a date" "$(has "$out" '2026-10-10')" "1"
 check "Ctrl-G goes to the cell named"         "$(has "$out" ' C5 *$')" "1"

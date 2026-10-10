@@ -12605,3 +12605,11 @@ the functions, text and logic, `,` vs `;`, the errors, order and #CIRC!,
 formats, CSV both ways, the menus, Tab/Enter, Go To, a date, leaving.
 Handbook: a CALC section in chapter 11 (tex and the site page), PDF not
 rebuilt.  Captures of CALC beside WORD and EDIT in the session's scratchpad.
+
+### 2026-10-10 -- CALC: thousands spaced
+
+Doc: "Cells is good. default numbering format should be US with dot for
+decimal and space for thousands (option off or on)". Cells > Thousands
+(a toggle, off by default) now puts a space between the groups --
+`4 321.00`, `1 234 567.00` -- and the point stays the decimal mark.
+CSV out still writes the bare number. calctest checks it.

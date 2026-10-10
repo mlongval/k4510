@@ -776,7 +776,7 @@ static const char *fmt_num(fbits v, uint8_t fmt)     /* a number as its format s
     neg = m < 0; if (neg) m = -m;
     do {
         if (i == d && d) t[i++] = '.';
-        if (i > d && th_ && g == 3) { t[i++] = ','; g = 0; }
+        if (i > d && th_ && g == 3) { t[i++] = ' '; g = 0; }   /* Doc: the point for decimals, a space between thousands */
         t[i++] = (char)('0' + m % 10); m /= 10;
         if (i > d) g++;
     } while ((m || i <= d) && i < 15);

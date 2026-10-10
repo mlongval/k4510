@@ -12307,3 +12307,31 @@ Cost: test/bench vicky 0.07 ms/frame before and after; vidbench within
 run-to-run noise (16 bytes copied a frame).  Handbook: vicky.h's register
 text (the appendix is generated from it) and chapter 21's SHEILA section,
 source only.  make test green, check-artifacts included; cputest OK.
+
+**2026-10-09: SKYFIRE -- the ground's seam, and the Chooser's look.**
+Two things from Doc.  (1) The background scroll was jumpy: VICKY reads a
+layer's scroll register per line and the emulator has no vertical blanking,
+so SKYFIRE's `scroll_ground()`, called after the frame's logic and before
+`wait_vblank()`, landed mid-frame at a line that moved with the work -- a
+1 px seam that wandered, the ground out of step with the sprites (which were
+swapped after the vblank).  A per-line register log in a headless harness
+showed every frame drawn with two SCROLLY values, the split wandering between
+machine lines 38 and 45 over 540 frames; a pixel check of a captured frame
+against the tile map found lines 8-42 at scroll 284 and 43-239 at 283.  The
+scroll is now computed before the frame and written right after
+`wait_vblank()`, next to the sprite-table swap: the write lands at machine
+line 1 (under the opaque top band), the ground (lines 24-227) matches one
+scroll value, and the same check finds one value for the whole frame.  The
+same order in the wave-clear wait and the game-over second.  (2) The screen
+is CHESS's and TETRIS's: 320x240 doubled, grey bands (K4510 SKYFIRE and the
+time; the keys), a blue score strip under the top band (SCORE, HI, WAVE and
+E/N/H, the lives as little planes, redrawn only when a number changes), the
+sky and ground between; the title, the pause (new: P) and the end of a game
+are the Chooser's list with the bars and "Skyfire"; the wave clear is a bar
+across the sky.  The chrome is a bitmap on layer 1 over the tile ground and
+the Z 0 sprites, in the machine's sixteen colours -- except the bands' ink,
+palette 253 set to black, because colour 0 is transparent in the bitmap and
+the planes fly under the bands (a diver returning from above showed through
+the clock's digits).  Game, difficulty, SKYFIRE.CFG and the keys unchanged;
+the exit restores CTRL/BGCOL/sprites, calls VIDEO and clears JIM's screen.
+make test green, check-artifacts included.

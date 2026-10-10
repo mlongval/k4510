@@ -1,0 +1,283 @@
+\chapter{The K4510 and the Commander X16}\label{cha:x16}
+
+The Commander X16 is the other new 8-bit machine of this
+decade: a real board, a 65C02 at 8\,MHz, VERA for video and
+PSG sound, a YM2151, and a BASIC that is Commodore's V2 with
+the X16's words added. The K4510 is a machine that never
+existed, with a 45GS02 at 40.5\,MHz, VICKY, MELODY and a
+BASIC that compiles. They were never meant to be compared,
+which is exactly why it is instructive to do so.
+
+This appendix runs the same small programs on both. The
+programs are in the repo under \pth{compare/x16/}; the K4510
+halves are also on the machine in \pth{/LANG/BASIC/EX} and
+\pth{/LANG/BASIC/EX/X16}, where you can run them yourself.
+One script, \pth{compare/x16/run.py}, runs every program on
+both emulators headless and writes the table.
+
+\begin{aside}
+\textbf{Read the caveats first.} Every number here is honest
+and most of them are unfair, in the way all cross-machine
+numbers are. K4510 BASIC is compiled; X16 BASIC is
+interpreted. The K4510's clock is five times the X16's. VICKY
+has a blitter; VERA does not. A ratio of fifty to one in the
+first table says nothing about the two CPUs: it says what a
+person typing the same program into each machine gets back.
+The one place the CPUs meet on equal terms is the second
+table's 8\,MHz column.
+\end{aside}
+
+\section{How the clocks are read}
+Time is always the machine's own clock, never the host's. On
+the X16 it is \texttt{TI}, the jiffy counter at 60\,Hz
+(\texttt{cc65}'s \texttt{clock()} reads the same). On the
+K4510 it is \texttt{FRAMES} in BASIC and the frame counter at
+\texttt{SYS+\$0D} in C, also 60\,Hz. Neither emulator is
+hurried: \texttt{x16emu} never runs with \texttt{-warp} while
+timing, and the K4510's headless harness runs as fast as the
+host allows but counts frames, not seconds. The resolution is
+a sixtieth of a second on both, which is why the K4510's
+Rugg/Feldman programs run their loop a hundred times and
+divide: at 40\,MHz, compiled, one run is over before the
+counter moves.
+
+\section{Track 1: each machine's own BASIC}
+The Rugg/Feldman benchmarks (Kilobaud and \emph{Personal
+Computer World}, 1977), the Byte Sieve (1981), Gordon
+Henderson's text Mandelbrot and a string-handling program,
+each written as a user of that machine would write it. The
+X16 listings are numbered and use \texttt{GOTO}; the K4510
+ones use \texttt{DO}/\texttt{LOOP} and labels, except
+Mandelbrot, which is Henderson's listing untouched on both
+(his benchmark asks for that).
+
+Benchmark 1, on the X16 and then the K4510:
+
+\begin{type}
+100 REM RUGG/FELDMAN BENCHMARK 1 (1977) -- X16 BASIC
+130 PRINT "RUGG/FELDMAN BENCHMARK 1, X16 BASIC"
+200 T=TI
+300 FOR K=1 TO 1000
+310 NEXT K
+900 T=TI-T
+910 PRINT "RESULT RF1";T/60;"S"
+920 PRINT "DONE"
+\end{type}
+
+\begin{type}
+' Rugg/Feldman benchmark 1 (Kilobaud/PCW, 1977) -- K4510 BASIC
+CONST RUNS = 100
+t = PEEK(54541) + 256 * PEEK(54542)   ' the 60 Hz frame counter
+FOR r% = 1 TO RUNS
+  FOR k = 1 TO 1000
+  NEXT k
+NEXT r%
+t = PEEK(54541) + 256 * PEEK(54542) - t
+s = t / 60 / RUNS
+PRINT "THIS MACHINE, ONE RUN: "; STR$(INT(s * 10000 + 0.5) / 10000); " S"
+\end{type}
+
+The Sieve keeps its 8191 flags in an integer array on both
+machines: a float array that size (40\,KB) does not fit in the
+X16's 38\,KB of BASIC memory, and CBM BASIC converts every
+integer-array element to a float and back on each access.
+That is the X16's cost to bear, and it is what a user would
+write. The string program builds a 200-character string one
+\texttt{CHR\$} at a time, reverses it with \texttt{MID\$},
+counts its vowels, does 200 \texttt{STR\$}/\texttt{VAL} round
+trips and 100 \texttt{LEFT\$}/\texttt{RIGHT\$} comparisons,
+five times over; on the X16 the interpreter's garbage
+collector runs inside that time, as it would for anyone.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l r r r@{}}
+\toprule
+\textbf{Program} & \textbf{What} & \textbf{X16 (s)} & \textbf{K4510 (s)} & \textbf{X16 / K4510} \\
+\midrule
+RF1 & 1000 empty FOR/NEXT & 0.18 & 0.0080 & 23x \\
+RF2 & 1000 turns, K=K+1 / IF\ldots GOTO & 1.20 & 0.0077 & 156x \\
+RF3 & + A=K/K*K+K-K & 2.22 & 0.0307 & 72x \\
+RF4 & + A=K/2*3+4-5 & 2.43 & 0.0298 & 82x \\
+RF5 & + GOSUB & 2.67 & 0.0317 & 84x \\
+RF6 & + FOR L=1 TO 5 & 4.10 & 0.0758 & 54x \\
+RF7 & + M(L)=A & 6.55 & 0.159 & 41x \\
+RF8 & 100 $\times$ K\^{}2, LOG, SIN & 1.00 & 0.0067 & 149x \\
+SIEVE & Byte Sieve, 8191 flags, once & 39.40 & 0.32 & 124x \\
+MANDEL & Henderson's text Mandelbrot & 118.08 & 2.25 & 52x \\
+STRINGS & build, reverse, scan, STR\$/VAL & 8.38 & 7.88 & 1.1x \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent\emph{The 2026-10-09 run: x16emu r49, cc65 2.19, both at their
+own 60\,Hz clocks. For scale, the 1977 figures for a C64 are 1.2, 9.3,
+17.6, 19.5, 21.0, 29.5, 47.5 and 11.5 seconds: the X16 is the C64's
+BASIC at eight times the clock, and the table says so.}
+
+Is there an interpreted BASIC on the K4510 that would make a
+fairer pair? Not now. EhBASIC, the machine's first BASIC, was
+retired in October 2026 when K4510 BASIC replaced it. BBC
+BASIC runs on the Tube co-processor, which is a host process
+at host speed, so its times mean nothing against a machine
+clock. RX is an interpreter, but it is not BASIC. So the
+first table stays what it is: the BASIC each machine hands
+you.
+
+\section{Track 2: the same C on both}
+Three C programs, one source each, built by the same
+\texttt{cc65} for both machines: \texttt{cl65 -t cx16 -O} for
+the X16, and for the K4510 the recipe \texttt{CC} uses at the
+prompt (\texttt{cc65 -t none --cpu 65c02 -O}, linked with
+\pth{demo/prg.cfg}). The sieve again (ten iterations, as
+Gilbreath ran it), a tight 16-bit integer loop of 200\,000
+turns, and a memory copy: 256 \texttt{memcpy()}s of 4\,KB by
+the C library (the same generic routine in both libraries),
+then 64 copies of the same block by a plain byte loop. A small
+header, \pth{compare/x16/c/bench.h}, hides the only
+differences: where the clock is, and how a character is
+printed.
+
+The K4510 runs each program twice: at its own 40.5\,MHz, and
+again with the harness told \texttt{K4510\_CPU\_HZ=8000000},
+the X16's clock. The settings menu's own ladder stops at
+10\,MHz; 8 is a harness setting for this purpose. In that
+column the two CPUs run the same 65C02 instructions at the
+same speed, and nothing in the code touches the 45GS02's
+wider registers.
+
+\begin{type}
+    for (j = 0; j < 200; j++)
+        for (i = 0; i < 1000; i++)
+            acc += (i ^ (acc >> 3)) & 0xFF;
+\end{type}
+
+\begin{center}
+\small
+\begin{tabular}{@{}l r r r r r@{}}
+\toprule
+\textbf{Program} & \textbf{X16 8\,MHz} & \textbf{K4510 40.5} & \textbf{K4510 8\,MHz} & \textbf{X16 / 40.5} & \textbf{X16 / 8} \\
+\midrule
+CSIEVE (10 $\times$ 8191) & 5.57 & 0.88 & 4.43 & 6.3x & 1.3x \\
+CLOOP (200\,000 turns) & 5.83 & 0.87 & 4.35 & 6.7x & 1.3x \\
+CMEMCPY (1 MB) & 2.00 & 0.32 & 1.65 & 6.2x & 1.2x \\
+CBYTECOPY (256 KB) & 4.53 & 0.72 & 3.65 & 6.3x & 1.2x \\
+\bottomrule
+\end{tabular}
+\end{center}
+\noindent\emph{Seconds. The same cc65 output on both; the K4510 twice.}
+
+\section{Track 3: graphics and sound}
+Each machine by its natural means, from BASIC. The X16's
+\texttt{SCREEN 128} is 320$\times$240 in 256 colours;
+\texttt{RECT}, \texttt{LINE} and \texttt{PSET} draw on it
+through the KERNAL's graphics routines, a pixel at a time
+through VERA's data port. The K4510's \texttt{GRAPHICS 1} is
+the same 320$\times$240 picture laid over the text;
+\texttt{BOX} and \texttt{LINE} are one blitter operation each.
+Sprites: one 16$\times$16 shape at 8 bits a pixel, poked into
+VRAM (\texttt{VPOKE}) or far memory (\texttt{POKE} above
+65535), sixteen sprites sharing it, a hundred moves of all
+sixteen. On both machines that measures how fast BASIC can
+issue 1600 \texttt{MOVSPR}s, which is not the same as how fast
+the hardware can move pixels; the K4510's \texttt{SPRVEL}
+would let VICKY do it alone.
+
+\begin{type}
+' K4510: a shape in far memory, sixteen sprites on it
+CONST SHAPE = 262144                  ' $040000, sprite page 1024
+FOR i% = 0 TO 255: POKE SHAPE + i%, 16 + (i% AND 15): NEXT
+FOR n% = 0 TO 15: SPRDEF n%, 1024, 16, 16, 8: NEXT
+\end{type}
+
+\begin{type}
+140 REM X16: THE SAME SHAPE IN VRAM AT $1:3000
+140 FOR I=0 TO 255:VPOKE 1,12288+I,16+(I AND 15):NEXT
+160 SPRMEM N,1,12288,1
+170 SPRITE N,3,0,0,1,1,1
+\end{type}
+
+The chord is not timed, because a chord is not a race. The
+X16 plays C~major on three YM2151 channels with
+\texttt{FMCHORD}, then on the VERA PSG with
+\texttt{PSGCHORD}; the K4510 queues a whole note on each of
+three sequencer channels with \texttt{PLAY 1,~"O4 C1"},
+\texttt{PLAY 2,~"O4 E1"}, \texttt{PLAY 3,~"O4 G1"}, and MELODY
+sounds them together while the program goes on. The run
+script records the X16's chord to a \texttt{.wav} and checks
+that it is not silence; the K4510's headless harness has no
+audio device, so its chord is checked by running.
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l r r r@{}}
+\toprule
+\textbf{Program} & \textbf{What} & \textbf{X16 (s)} & \textbf{K4510 (s)} & \textbf{X16 / K4510} \\
+\midrule
+FILL & 200 full-screen fills, 320$\times$240 & 11.85 & 0.017 & 711x \\
+LINES & 500 lines & 6.77 & 0.033 & 203x \\
+POINTS & 5000 points & 9.97 & 0.35 & 28x \\
+SPRITES & 16 sprites $\times$ 100 MOVSPRs & 4.83 & 0.13 & 36x \\
+CHORD & C major, three voices & played & played & -- \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\section{What the numbers say}
+\begin{itemize}
+\item \textbf{Track 1 is a compiler against an interpreter, and it
+  shows.} Forty to a hundred and fifty times on the loop benchmarks;
+  124 times on the Sieve; 52 on Mandelbrot. The X16 figures are
+  themselves about eight times a C64's, which is exactly its clock:
+  X16 BASIC is the C64's BASIC, well run.
+\item \textbf{The X16 holds its own on strings.} STRINGS is 8.4
+  seconds against 7.9: a near draw, and the one place the compiled
+  BASIC's advantage all but vanishes. The reason is where K4510 BASIC
+  keeps its text: every string value is a 256-byte slot in far memory,
+  copied by DMA, so each \texttt{+}, \texttt{MID\$} and
+  \texttt{LEFT\$} is a block copy and a runtime call rather than a few
+  instructions. CBM BASIC's strings are short, in place, and its
+  garbage collector, slow as it is, was not asked to do much here. If
+  the K4510 has a BASIC to improve, this is where.
+\item \textbf{Clock for clock, the 45GS02 is 20--30\% quicker than
+  the 65C02 on the same code.} At 8\,MHz the K4510 runs the C
+  programs in 1.2--1.3 times less time than the X16. That is the
+  4510 family's shorter cycle counts (fewer dead cycles per
+  instruction), as emulated by Xemu's core on one side and x16emu's
+  65C02 on the other. The remaining 5x of the 40.5\,MHz column is the
+  clock, nothing else.
+\item \textbf{A blitter is a different kind of thing.} FILL at 711x
+  and LINES at 203x are VICKY's blitter against the X16 KERNAL
+  drawing through VERA's data port one pixel at a time, with an
+  interpreter issuing the calls. POINTS at 28x and SPRITES at 36x are
+  closer to the BASIC ratio, because a point or a sprite move is one
+  register write on either machine: there the BASICs are being
+  compared again, not the chips.
+\item \textbf{Twenty fills took no frame at all} on the K4510, which
+  is why the program does two hundred. Below a sixtieth of a second
+  the frame counter cannot see; the Rugg/Feldman programs run their
+  loop a hundred times for the same reason.
+\item \textbf{Both machines got the same answers}: 1899 primes, the
+  same STRINGS checksum (200, 50, 60300, 88), the same loop
+  check (48952). A benchmark that disagrees with itself measures
+  nothing.
+\end{itemize}
+
+\section{Running it yourself}
+On a machine with the K4510 checkout, \texttt{cc65} with its
+\texttt{cx16} target, and an \texttt{x16emu} with its
+\texttt{rom.bin} (the official r49 release zip, unpacked, is
+what the tables above used):
+
+\begin{type}
+compare/x16/run.py --x16 /path/to/x16emu-folder
+compare/x16/run.py --only rf1,sieve,csieve
+\end{type}
+
+It writes \pth{compare/x16/RESULTS.md} and leaves the raw
+output, the binaries, the screenshots and the chord under
+\pth{compare/x16/build/}. On the K4510 itself, \texttt{CD
+/LANG/BASIC/EX/X16} and \texttt{RUN FILL} (and so on; the
+\texttt{RUN} matters for \texttt{FILL}, which is otherwise the
+shell's memory fill). The Rugg/Feldman programs, the Sieve and
+Mandelbrot (\texttt{DROGON}) are one directory up, where they
+have always been.

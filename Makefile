@@ -372,6 +372,16 @@ fs/LANG/BASIC/EX/$1.prg: fs/LANG/BASIC/EX/$(call uc,$1).BAS tools/k4510-bas tool
 	MP_DIR=$$(MP_DIR) MADS=$$(MADS) K4510_ROOT=$$(CURDIR)/fs tools/k4510-bas /LANG/BASIC/EX/$(call uc,$1).BAS >/dev/null
 endef
 $(foreach n,$(BAS_EX_NAMES),$(eval $(call BAS_EX_RULE,$n)))
+# The K4510 halves of the Commander X16 comparison (compare/x16, 2026-10-09),
+# in fs/LANG/BASIC/EX/X16 where a user finds them; built the same way.
+BAS_X16_NAMES = strings fill lines sprites chord
+BAS_X16_PRGS = $(foreach n,$(BAS_X16_NAMES),fs/LANG/BASIC/EX/X16/$n.prg)
+pascal-prgs: $(BAS_X16_PRGS)
+define BAS_X16_RULE
+fs/LANG/BASIC/EX/X16/$1.prg: fs/LANG/BASIC/EX/X16/$(call uc,$1).BAS tools/k4510-bas tools/kbasic/kbasrt.pas tools/k4510-pas $$(wildcard pascal/mp/base/k4510/*) $$(wildcard pascal/mp/lib/*)
+	MP_DIR=$$(MP_DIR) MADS=$$(MADS) K4510_ROOT=$$(CURDIR)/fs tools/k4510-bas /LANG/BASIC/EX/X16/$(call uc,$1).BAS >/dev/null
+endef
+$(foreach n,$(BAS_X16_NAMES),$(eval $(call BAS_X16_RULE,$n)))
 
 # Programs in C with cc65, .prg files (4-byte header) loaded by the ROM.
 # Where each lands is where it belongs on the machine's disk (fs/HOME/README.TXT):

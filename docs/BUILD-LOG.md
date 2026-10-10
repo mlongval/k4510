@@ -12452,3 +12452,46 @@ make test: check-artifacts and all green but two that fail only in this
 worktree -- bangtest (the long path wraps pwd at 80 columns) and dirtest
 (no plain file at fs/'s root here; it passes with one).  SHIPPING.CFG:
 app:INVADERS = essential (Doc).
+
+## 2026-10-09 -- The K4510 against the Commander X16 (compare/x16)
+
+The same small programs on both machines, each in its own BASIC, the
+same C through cc65 for both, and graphics and sound by each one's
+natural means -- run headless on ubuntu-s1 by one script, every figure
+read off the machine's own 60 Hz clock (TI on the X16, FRAMES here;
+no -warp, no host time).  `compare/x16/`: `x16/*.BAS` (CBM BASIC V2 +
+X16 words, numbered), `c/{sieve,loop,memcpy}.c` + `bench.h` (one source,
+`-t cx16` and the K4510's `-t none --cpu 65c02` recipe), `run.py`,
+`README.md` (the fairness caveats), `RESULTS.md`; the K4510 halves live
+on the disk in `/LANG/BASIC/EX/X16` (STRINGS FILL LINES SPRITES CHORD,
+built by make like the rest; RF1-8, SIEVE and DROGON one level up are
+the others).  x16emu r49 is the official release zip unpacked to
+`~/Projects/K4510-Personalities/work/x16emu-r49-official` (the
+Personalities build with the F12/placement patches is the fallback),
+driven with `-bas FILE -run -echo` on SDL's dummy drivers and stopped
+when its echo says DONE; `-gif ...,wait` + POKE $9FB5 for a frame,
+`-wav ...,auto` for the chord (the file is read raw: a killed x16emu
+never writes the header's sizes).  `test/headless` gained
+`K4510_CPU_HZ` (as bench.c had) so the C track also runs the K4510 at
+the X16's 8 MHz; the settings ladder still stops at 10.  Programs are
+launched with `RUN NAME`: `FILL` alone is the shell's memory fill.
+
+Figures (seconds; X16 / K4510): RF1-8 0.18/0.008 .. 6.55/0.16 (23x to
+156x; the X16 is a C64 at 8x the clock), SIEVE 39.4/0.32 (124x), MANDEL
+118/2.25 (52x), STRINGS 8.38/7.88 (**1.1x**: K4510 BASIC's strings are
+256-byte far-memory slots copied by DMA on every +, MID$, LEFT$ -- the
+one place the compiled BASIC nearly loses, and the place to improve).
+C: CSIEVE 5.57 / 0.88 / 4.43 at 8 MHz, CLOOP 5.83 / 0.87 / 4.35, CMEMCPY
+2.00 / 0.32 / 1.65, CBYTECOPY 4.53 / 0.72 / 3.65 -- clock for clock the
+45GS02 core is 1.2-1.3x the 65C02 on the same code (the 4510's shorter
+cycle counts), the rest is the clock.  FILL 11.85/0.017 (711x: 200
+blitter BOXes; twenty took no frame at all), LINES 6.77/0.033 (203x),
+POINTS 9.97/0.35 (28x), SPRITES 4.83/0.13 (36x: 1600 MOVSPRs from
+BASIC, the interpreter's speed again), CHORD played on both (X16 wav
+non-silent).  Same answers on both: 1899 primes, STRINGS check 200 50
+60300 88, loop check 48952.  Handbook appendix
+`doc/guide/chapters/a5-x16.tex`, wired in and `chapter:a5-x16 = maybe`
+in SHIPPING.CFG (mkmanifest); PDF not rebuilt.  No interpreted BASIC
+here is a fair match (EhBASIC retired, BBC BASIC on the Tube runs at
+host speed, RX is not BASIC).  make test green, check-artifacts
+included.

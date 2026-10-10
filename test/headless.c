@@ -62,13 +62,19 @@ int main(int argc, char **argv)
     /* K4510_PANEL=WxH[,full]: the panel the frontend would have found (2026-10-07) */
     { const char *pe = getenv("K4510_PANEL"); int pw, ph;
       if (pe && sscanf(pe, "%dx%d", &pw, &ph) == 2) vicky_set_panel(pw, ph, strstr(pe, "full") ? 1 : 0); }
+    /* K4510_CPU_HZ=8000000 runs the machine at another clock (as test/bench.c
+     * does): compare/x16 times the same cc65 code at the X16's 8 MHz.  The
+     * settings ladder stops at 10 MHz; this is the harness, not the menu. */
+    unsigned cpu_hz = getenv("K4510_CPU_HZ") ? (unsigned) atol(getenv("K4510_CPU_HZ")) : 40500000u;
+    if (cpu_hz < 1000000u) cpu_hz = 1000000u;
+    io_set_cpu_khz(cpu_hz / 1000);
     io_reset(); cpu65_reset();
     for (fr = 0; fr < maxf; fr++) {
         /* as the frontend's K4510_KEYS: $80+ is a KEY_* code, $1F makes the next byte a character */
         if (fr >= 5 && ki < kn && fr >= wait_until) { uint8_t k = (uint8_t)keys[ki++]; if (k == '~') wait_until = fr + 30; else if (k == '`') wait_until = fr + 5; else if (k == 0x1F && ki < kn) kbd_push((uint8_t)keys[ki++]); else if (k >= 0x80) kbd_push_key(k); else kbd_push(k == '\n' ? 0x0D : k); }
         vicky_begin_frame(fb, VICKY_WIDTH);
         { int h = vicky_glass_h();                      /* this mode's lines, latched at the frame's start */
-          for (int y = 0; y < h; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(40500000 / 60 / h); vicky_line(y); } }
+          for (int y = 0; y < h; y++) { cpu65.irqLevel = vicky_irq() ? 1 : 0; cpu65_step(cpu_hz / 60 / h); vicky_line(y); } }
         vicky_end_frame();
         if (marker && ki >= kn && marker_seen(marker)) { seen = 1; break; }
     }

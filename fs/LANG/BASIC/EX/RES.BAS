@@ -1,5 +1,5 @@
-' Screen sizes -- a tour of MODE WxH: Integer Best Fit, -m smooth,
-' -c scanlines, -p plain -- K4510 BASIC
+' Screen sizes -- a tour of MODE WxH: -i integer, -m sharp-bilinear,
+' -a native, -c scanlines (-c N how dark), -p plain -- K4510 BASIC
 ' Each step: ask for a size (SHELL "MODE ..."), say what came, draw on it
 ' with GRAPHICS 3 (a bitmap the size of the screen MODE made), wait for a key.
 ' The steps are DATA: the MODE options, then the lines to say, then "-".
@@ -25,10 +25,13 @@ PRINT "the largest WHOLE multiple that fits:"
 PRINT "every pixel the same size, a frame"
 PRINT "round the picture. Integer Best Fit."
 PRINT
+PRINT "How it is shown: -i integer, -m"
+PRINT "sharp-bilinear, -a native (any scale,"
+PRINT "hard pixels); none: F12's Smoothing."
 PRINT "Effects are asked for, never given:"
-PRINT "  -m  smoothed to fill the panel"
-PRINT "  -c  scanlines, as on a CRT"
-PRINT "  -p  plain again"
+PRINT "  -c    scanlines, as on a CRT"
+PRINT "  -c N  ...N percent dark"
+PRINT "  -p    plain again"
 PRINT
 PRINT "Too large for the panel is refused."
 PRINT "When the program ends, the shell gets"
@@ -81,6 +84,11 @@ DATA "Scanlines: the lower half of every", "row dimmed, as a CRT's beam left a"
 DATA "dark gap. Only where a row is two", "panel lines or more.", "-"
 DATA "400x300 -m -c"
 DATA "Smoothed and scanlined together.", "MODE -p would take both off.", "-"
+DATA "400x300 -a -c 100"
+DATA "NATIVE: as large as fits, any scale,", "hard pixels -- some rows taller than"
+DATA "others. And scanlines at 100: black", "gaps. -c N is 1-100; -c alone is F12's.", "-"
+DATA "400x300 -i -p"
+DATA "INTEGER by name: the whole multiple,", "whatever F12 > Smoothing says.", "-"
 DATA "-p -s 1"
 DATA "Scale 1: one machine pixel to one", "panel pixel, on the panel's largest"
 DATA "4:3. MODE -l lists every size it offers.", "-"

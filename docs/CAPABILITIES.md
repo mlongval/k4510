@@ -126,7 +126,9 @@ GONE  MS BASIC        removed 2026-10-07 (Doc): a third BASIC, no graphics.
 ?  256 colours from 24-bit; 16 per sprite/tile, all 256 for text32 and 8bpp
 ?  Five predefined palettes: C64, PEPTO, GREY, AMBER, GREEN (fs/SYSTEM/ETC/PALETTES)
 CUT  Scanline effect  2026-09-14 (Doc: "a nice idea that has limited only nostalgic use")
-       -- back 2026-10-08 as an effect a program ASKS for (MODE -c, GLASSCTL bit6), never a setting
+       -- back 2026-10-08 as an effect a program ASKS for (MODE -c, GLASSCTL bit6), never a setting;
+          how dark it is IS a setting (F12 > Video > Scanline darkness, 2026-10-09), a program's
+          MODE -c N / $D0E0 SCANDK overriding it; SCANLINE in /SYSTEM/BIN is the test picture
 KEEP  Screen font      one: unscii (PD) -- 8x8 for the 240-line modes, 8x16
                       for 640x480 (80x30).  Doc, 2026-09-14: "pick one font
                       and jettison all the rest".  CUT: kernel8, open-roms,

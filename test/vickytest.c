@@ -7,6 +7,7 @@
 #include "../core/io.h"
 #include "../core/vicky.h"
 #include "../core/state.h"
+#include "../core/present.h"
 #include <stdlib.h>
 static uint8_t fb[640 * 480];                 /* the classic glass: this test draws no HD mode */
 /* K4510_SHOT=dir: write each stage's framebuffer as a PPM there */
@@ -463,6 +464,46 @@ int main(void)
       shot("15-scroll-latch");
       vicky_reset();
       printf("15. the scroll latch: whole frames, the vblank window, SHEILA's MOVE live, readback, a state loaded mid-frame\n"); }
+
+    /* ---- 16. how the glass is shown (2026-10-09, core/present.h): the three
+     * ways' rects, which one GLASSCTL bits4-5 and the user's switch choose, the
+     * scanline darkness SCANDK or the user's row gives, and that the registers
+     * take and keep what is written. ---- */
+    { present_rect_t r;
+      r = present_rect(1920, 1080, 640, 480, PRES_INTEGER);
+      CHECK(r.scale == 2.0 && r.whole == 2 && r.w == 1280 && r.h == 960 && r.x == 320 && r.y == 60, "integer: 640x480 on 1080 lines is 2x, 1280x960 at 320,60 (%d %d %d %d)", r.w, r.h, r.x, r.y);
+      r = present_rect(1920, 1080, 640, 480, PRES_FIT);
+      CHECK(r.scale == 2.25 && r.whole == 2 && r.w == 1440 && r.h == 1080 && r.x == 240 && r.y == 0, "fit: 2.25x, 1440x1080 at 240,0, the hard step at 2x (%d %d %d %d)", r.w, r.h, r.x, r.y);
+      r = present_rect(1920, 1080, 640, 480, PRES_NATIVE);
+      CHECK(r.scale == 2.25 && r.w == 1440 && r.h == 1080 && r.x == 240 && r.y == 0, "native: the same rect as fit, 2.25x (%d %d)", r.w, r.h);
+      r = present_rect(1366, 768, 400, 300, PRES_NATIVE);
+      CHECK(r.scale == 2.56 && r.w == 1024 && r.h == 768 && r.x == 171 && r.y == 0, "native 400x300 on 1366x768: the aspect kept, 2.56x by the height (%d %d %d)", r.w, r.h, r.x);
+      r = present_rect(1366, 768, 400, 300, PRES_INTEGER);
+      CHECK(r.scale == 2.0 && r.w == 800 && r.h == 600 && r.x == 283 && r.y == 84, "integer there: 2x, centred (%d %d %d %d)", r.w, r.h, r.x, r.y);
+      { present_rect_t a = present_rect(1280, 960, 640, 480, PRES_INTEGER), b = present_rect(1280, 960, 640, 480, PRES_FIT), c = present_rect(1280, 960, 640, 480, PRES_NATIVE);
+        CHECK(a.w == b.w && a.h == b.h && a.x == b.x && a.y == b.y && b.w == c.w && b.h == c.h && b.x == c.x && b.y == c.y && a.scale == 2.0, "at a whole scale the three agree: nothing to smooth"); }
+      r = present_rect(640, 480, 1440, 1080, PRES_INTEGER);
+      CHECK(r.scale == 1.0 && r.whole == 1 && r.w == 1440, "integer never shrinks below 1x (a glass larger than the panel shows its top-left)");
+      r = present_rect(640, 480, 1440, 1080, PRES_FIT);
+      CHECK(r.w == 640 && r.h == 480 && r.whole == 1, "fit shrinks it to the panel");
+      /* which way: the user's unless the program says */
+      CHECK(present_mode(0, 0) == PRES_INTEGER && present_mode(1, 0) == PRES_FIT, "bits4-5 0: the user's switch, integer or sharp-bilinear");
+      CHECK(present_mode(0, VG_SOFT | VG_PRES_FIT) == PRES_FIT && present_mode(1, VG_SOFT | VG_PRES_INTEGER) == PRES_INTEGER, "a program's fit or integer overrides the user either way");
+      CHECK(present_mode(0, VG_IDR | VG_PRES_NATIVE) == PRES_NATIVE && present_mode(1, VG_PRES_NATIVE) == PRES_NATIVE, "native, with an IDR or CTRL's own glass");
+      CHECK(present_mode(1, VG_SOFT | VG_SCANLINES) == PRES_FIT, "scanlines do not touch the choice");
+      /* how dark */
+      CHECK(present_scan_dark(0, 56) == 56 && present_scan_dark(75, 56) == 75 && present_scan_dark(200, 56) == 100 && present_scan_dark(0, 0) == 0, "SCANDK 0 is the user's row; a value is itself, 100 at most");
+      /* the registers hold what is written, and reset to 0 */
+      mem_reset(); vicky_reset();
+      CHECK(R(VR_GLASSCTL) == 0 && R(VR_SCANDK) == 0, "GLASSCTL and SCANDK reset to 0: the user's way, the user's darkness");
+      W(VR_GLASSCTL, VG_SOFT | VG_PRES_NATIVE | VG_SCANLINES); W(VR_SCANDK, 75);
+      CHECK(R(VR_GLASSCTL) == (VG_SOFT | VG_PRES_NATIVE | VG_SCANLINES) && R(VR_SCANDK) == 75, "they read back (%02x %d)", R(VR_GLASSCTL), R(VR_SCANDK));
+      CHECK(vicky_glass_ctl() == (VG_SOFT | VG_PRES_NATIVE | VG_SCANLINES), "vicky_glass_ctl is the byte, bits4-7 included");
+      W16(VR_SWW, 400); W16(VR_SWH, 300);
+      CHECK((R(VR_GLASSW) | R(VR_GLASSW + 1) << 8) == 400 && R(VR_SCALE) == 0, "the presentation bits do not change the glass itself: 400x300, no whole scale");
+      W(VR_GLASSCTL, 0x80); CHECK(R(VR_GLASSCTL) == 0x80, "bit7 is kept, reserved");
+      vicky_reset();
+      printf("16. how the glass is shown: integer, fit and native rects, the user's switch and a program's bits, SCANDK\n"); }
 
     printf(fails ? "\n%d FAILED\n" : "\nALL OK\n", fails);
     return fails != 0;

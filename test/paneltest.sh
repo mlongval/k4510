@@ -51,12 +51,21 @@ MODE 999x1
 ')
 has "mode: not an option of MODE -- MODE -h explains them" "an unknown option points at MODE -h"
 has "mode: WxH, 160x100 at least" "a size too small to be one"
-# Integer Best Fit (2026-10-08): a size the panel does not offer is the program's own,
-# at the largest whole multiple -- smoothed only when asked; larger than the panel refused
+# a size the panel does not offer is the program's own (2026-10-08), shown as the
+# user's F12 Smoothing has it unless the program says (2026-10-09: -i the whole
+# multiple, -m/-f smoothed, -a native); larger than the panel refused
 out=$(run 1920x1080 'MODE 640x480
 MODE
 ')
-has "MODE 5: 80x30 text, 640x480 pixels, the best whole multiple" "MODE 640x480: Integer Best Fit, 80x30 in 8x16 cells"
+has "MODE 5: 80x30 text, 640x480 pixels, as F12 scales it" "MODE 640x480: the program's own size, 80x30 in 8x16 cells, shown as F12 has it"
+out=$(run 1920x1080 'MODE 640x480 -i
+MODE
+')
+has "640x480 pixels, the best whole multiple" "-i asks for Integer Best Fit by name"
+out=$(run 1920x1080 'MODE 640x480 --native
+MODE
+')
+has "640x480 pixels, native scale" "--native asks for any scale, hard pixels"
 out=$(run 1920x1080 'MODE 800x600 --smooth
 MODE
 ')
@@ -73,10 +82,14 @@ out=$(run 1920x1080 'MODE -c
 MODE 640x480
 MODE
 ')
-has "640x480 pixels, the best whole multiple, scanlines" "a new size keeps the scanlines"
+has "640x480 pixels, as F12 scales it, scanlines" "a new size keeps the scanlines"
+out=$(run 1920x1080 'MODE -c 75
+MODE
+')
+has "scanlines 75%" "MODE -c 75: the darkness is a number (SCANDK)"
 out=$(run 1920x1080 'MODE -c
 MODE -p
 MODE
 ')
 echo "$out" | grep -q "pixels.*scanlines" && fail "MODE -p takes them off"
-echo "paneltest: OK (the list on 1080p, 768p, 4K and the whole panel; MODE -l, -s, --scale=, WxH, -d; the grids and their fallbacks; Integer Best Fit, --smooth, --scanlines and --plain)"
+echo "paneltest: OK (the list on 1080p, 768p, 4K and the whole panel; MODE -l, -s, --scale=, WxH, -d; the grids and their fallbacks; a program's own size -i --smooth --native, --scanlines N and --plain)"

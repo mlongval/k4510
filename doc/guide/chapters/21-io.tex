@@ -41,30 +41,54 @@ program does one of two things:
 \item \textbf{Ask for a size.} \verb|MODE 640x480| --- from the prompt, from
   a program through the shell (\verb|rom_shell| in C, \verb|SetResolution(640, 480, false)| in Pascal's \verb|k4510| unit, \verb|*MODE 640x480| in
   BASIC). If the panel has an integer resolution of that size, that is
-  it. If not, it is \textbf{Integer Best Fit}: exactly 640$\times$480
-  pixels, shown at the largest whole multiple the panel holds, centred,
-  the rest bordered in the frame colour --- on 1920$\times$1080, twice,
-  1280$\times$960 with borders of 320 and 60. Nothing is blurred.
+  it. If not, the machine draws exactly 640$\times$480 pixels and the
+  panel shows them one of three ways. The default is \textbf{integer}:
+  the largest whole multiple the panel holds, centred, the rest bordered
+  in the frame colour --- on 1920$\times$1080, twice, 1280$\times$960 with
+  borders of 320 and 60. Nothing is blurred.
   K/OS lays its text out on it (80$\times$30 in 8$\times$16 cells), and when
   the program ends the shell's own screen comes back.
 \end{itemize}
 
 \begin{sloppypar} % code words this long leave the first line no break
-\noindent \textbf{Effects are asked for, never given.}
-\texttt{MODE 640x480 -{}-smooth} (\verb|-m|; \texttt{SetResolution(640, 480, true)})
-fills the panel instead, by the largest whole multiple and then smoothing
---- sharp-bilinear, soft only at the last step. \verb|MODE -c|
+\noindent \textbf{Three ways to show a size.} Besides integer there is
+\textbf{sharp-bilinear} (\verb|MODE 640x480 -m|, \verb|--smooth|, or
+\verb|-f|, \verb|--fit|; \texttt{SetResolution(640, 480, true)}): the
+panel is filled, by the largest whole multiple and then one smooth step
+for the rest --- on 1080 lines, 2$\times$ hard and then 1.125$\times$ soft, so
+every pixel is the same size and only its edges are soft. And
+\textbf{native} (\verb|-a|, \verb|--native|): as large as fits, keeping
+the aspect, at whatever scale that is, hard pixels --- 2.25$\times$ makes
+some pixels two lines tall and some three, which is the look of a cheap
+upscaler and sometimes what a program wants. \verb|-i| (\verb|--integer|)
+asks for integer by name. Without any of them the user decides, in
+\textsc{F12} $\to$ Video $\to$ Smoothing (off, the default, is integer;
+or sharp-bilinear), and that choice reaches every screen --- the shell's
+own, the HD text modes, a program's size --- until a program asks
+otherwise, for as long as it runs. At a whole scale the three are the
+same picture: 480$\times$360 on 1080 lines is 3$\times$ whichever way,
+pixel for pixel.
+
+\noindent \textbf{Effects are asked for, never given.} \verb|MODE -c|
 (\verb|--scanlines|) lays scanlines over whatever mode is up: the lower
 half of every machine row dimmed, as a CRT's beam left a dark gap between
 lines --- only where a row is two panel lines or more, so not at scale~1.
+How dark is a number: \verb|MODE -c 75| dims the gap to 75\%,
+\verb|-c 100| leaves it black; \verb|-c| alone takes the user's
+\textsc{F12} $\to$ Video $\to$ Scanline darkness, 56\% unless changed.
 A new size keeps them; \verb|MODE -p| (\verb|--plain|) takes every effect
-off. The two combine: \verb|MODE 400x300 -m -c|. A size larger than the
+off. They combine: \verb|MODE 400x300 -m -c 80|. A size larger than the
 panel is refused: no whole multiple fits, and shrinking is not a fit.
 \verb|RES.BAS| in \pth{/LANG/BASIC/EX} tours all of it, drawing on each
-screen with \verb|GRAPHICS 3|.
+screen with \verb|GRAPHICS 3|; \verb|SCANLINE| in \pth{/SYSTEM/BIN} is a
+test picture --- text in four sizes, colour bars, two ramps, a sprite ---
+with keys to step the darkness and switch between the three ways while
+you look.
 Underneath it is VICKY's software resolution: \texttt{\$D0D0} GLASSCTL~2,
-the size in \texttt{\$D0D2}-\texttt{\$D0D5}, bit~4 for smoothing, bit~6
-for scanlines (Appendix~\ref{cha:registers}).
+the size in \texttt{\$D0D2}-\texttt{\$D0D5}, bits~4-5 for how it is shown
+(0 the user's, 1 sharp-bilinear, 2 native, 3 integer), bit~6 for
+scanlines, and \texttt{\$D0E0} SCANDK for their darkness
+(Appendix~\ref{cha:registers}).
 \end{sloppypar}
 
 \section{A split screen: SHEILA}\label{sec:split}

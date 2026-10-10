@@ -138,8 +138,10 @@ carries them: packages.list has them since 2026-10-06).
       (Doc, 2026-10-07): it asks for MODE 0 in an HD mode because its
       bitmap is 640x480; on a panel's own IDRs it should draw at the glass
       it is given (VICKY $D0D6-$D0D9) or ask for a software resolution.
-- [ ] **GLASSCTL's stretch-to-4:3** (bit5) is reserved and fits for now;
-      the frontend's 4:3 box for a software resolution of any shape.
+- [x] **GLASSCTL bits4-5** (done 2026-10-09): value 2 is **native** now --
+      any scale, aspect kept, hard pixels -- not stretch-to-4:3; 3 is
+      integer by name, 0 the user's F12 Smoothing (back as a row).
+      Scanline darkness is `$D0E0` SCANDK / `MODE -c N`; SCANLINE tests it.
 - [x] **k4510-vidcap on the Dell** (run 2026-10-07); SETUP runs it ($D548) and keeps the cap.
 - [x] **FORTH has no break key** (done 2026-10-08: `$D103` at every character printed and every KEY?; test/forthtest.sh).
       (EhBASIC kept its own Ctrl-C until it went, 2026-10-09.)

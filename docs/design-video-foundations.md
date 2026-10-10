@@ -579,6 +579,14 @@ The program picks one, in the register sketch's `GLASSCTL`:
 
 The F12 menu is drawn over all three in whole pixels, as it is now.
 
+**Built 2026-10-09, with one change:** the third way is **native**, not
+stretch -- as large as fits, the aspect kept, any scale, hard pixels
+(Doc's three: native, best integer fit, sharp-bilinear fit).  Bits4-5 of
+GLASSCTL: 0 the user's F12 Smoothing row (integer, or sharp-bilinear),
+1 fit, 2 native, 3 integer; `MODE -m/-f`, `-a`, `-i`.  Scanline
+darkness is `$D0E0` SCANDK, percent, `MODE -c N`, 0 = the user's F12
+row (56 = the 2026-10-08 look).  `core/present.h` is the arithmetic.
+
 ### 4.4 Shaders
 
 There are none to offer today. If a game wants scanlines, they are best

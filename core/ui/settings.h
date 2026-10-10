@@ -20,7 +20,8 @@ typedef enum {
     SET_VIDEO_STATUSBAR,     /* BOOL the status bands; keyed term.bands, and its row lives in the Terminal menu.
                               * The console becomes a scroll region between two bands the ROM draws.
                               * (Key renamed from video.statusbar 2026-09-02; the old name still loads.) */
-    SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window */
+    SET_VIDEO_SMOOTH,        /* ENUM how the picture is scaled to the window: integer, or sharp-bilinear (F12 > Video > Smoothing) */
+    SET_VIDEO_SCANDARK,      /* INT  scanline darkness, percent: the default a program's MODE -c gets (VICKY SCANDK 0) */
     SET_VIDEO_FULLSCREEN,    /* BOOL desktop only */
     SET_VIDEO_VSYNC,         /* BOOL desktop only: present on the vertical blank instead of pacing by hand.
                               * OFF is the machine's own 60 Hz (see sdl/main.c); ON hands the pacing to the
@@ -129,10 +130,14 @@ int  settings_vmode_find(int mode, int div, int csz);   /* the entry the machine
 void settings_video_rebuild(void);              /* VICKY's panel or list changed: the choices again, the choice kept */
 /* (scanlines, a dark line between each of the machine's, went 2026-09-14 --
  * Doc: "a nice idea that has limited only nostalgic use") */
-/* scaling, in the ENUM's order, hard pixels both (Doc, 2026-09-14: "only 2
- * modes, 1: Integer or 2: Fit to display"): a whole-number multiple, every
- * machine pixel the same size on the glass; or as large as the window takes.
- * The old names still load: sharp-fit is Integer, sharp and soft are Fit. */
+/* smoothing, in the ENUM's order (Doc, 2026-09-14: "only 2 modes, 1: Integer
+ * or 2: Fit to display"; back in F12 2026-10-09 as "add the sharp-bilinear
+ * switch"): off is a whole-number multiple, every machine pixel the same size
+ * on the glass; sharp-bilinear is as large as the window takes, hard pixels to
+ * the whole multiple and one smooth step for the rest (core/present.h).  The
+ * old names still load: integer and sharp-fit are off; fit to display, sharp
+ * and soft are sharp-bilinear.  A program's GLASSCTL bits4-5 override it
+ * while the program has the glass. */
 enum { SMOOTH_INTEGER, SMOOTH_FIT, SMOOTH_COUNT };
 enum { PLACE_CENTRE, PLACE_LEFT, PLACE_RIGHT, PLACE_COUNT };
 enum { PANEL_OFF, PANEL_REGS, PANEL_COUNT };

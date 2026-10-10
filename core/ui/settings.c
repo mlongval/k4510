@@ -11,7 +11,7 @@
 #define SETTINGS_VERSION     3
 #define SETTINGS_VERSION_STR "3"
 
-static const char *const smooth_names[]= { "integer", "fit to display" };
+static const char *const smooth_names[]= { "off", "sharp-bilinear" };   /* Smoothing: off is integer scaling (settings.h) */
 static const char *const place_names[] = { "centre", "left", "right" };
 static const char *const panel_names[] = { "off", "registers" };
 /* the sidebars when there are no zips to list them (core/sidebars.c): SIDEBAR_* order */
@@ -47,7 +47,11 @@ static set_desc desc[SET_COUNT] = {        /* not const: the Sidebars choices ar
     { "video.border_colour", "Frame colour",   ST_ENUM, 11, 0, 0, 0, frame_names, 16, SF_LIVE },   /* the border and the bands; dark grey */
     { "video.mode",          "Resolution",     ST_ENUM,  0, 0, 0, 0, NULL, 0, SF_LIVE },   /* choices built at run time: settings_video_rebuild */
     { "term.bands",          "Status bands",   ST_BOOL,  0, 0, 1, 1, 0, 0, SF_LIVE },   /* two static bands frame a scrolling console */
-    { "video.smoothing",     "Scaling",        ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
+    { "video.smoothing",     "Smoothing",      ST_ENUM,  SMOOTH_INTEGER, 0, 0, 0, smooth_names, SMOOTH_COUNT, SF_LIVE },
+    /* Scanlines are an effect a program asks for (MODE -c, GLASSCTL bit6), never
+     * a setting; how DARK they are by default is the user's (2026-10-09, Doc:
+     * "make the darkness adjustable").  56 is the look of 2026-10-08. */
+    { "video.scanlines",     "Scanline darkness", ST_INT, 56, 0, 100, 4, 0, 0, SF_LIVE },
     { "video.fullscreen",    "Full screen",    ST_BOOL,  1, 0, 1, 1, 0, 0, SF_LIVE },   /* fixed on since 2026-10-06 (settings_load) */
     /* Vertical sync, off by default -- which is the machine keeping its own
      * 60 Hz and presenting when it is ready, as it does on the Pi.  Turning it
@@ -247,7 +251,7 @@ const char *settings_text(set_id id, char *buf, int max)
     if (id == SET_VIDEO_MODE) vm_ready();
     if (d->type == ST_ENUM || d->type == ST_CHORD) return d->labels[clampv(id, v)];
     if (d->type == ST_BOOL) return v ? "on" : "off";
-    if (id == SET_AUDIO_VOLUME) snprintf(buf, (size_t) max, "%d%%", v);
+    if (id == SET_AUDIO_VOLUME || id == SET_VIDEO_SCANDARK) snprintf(buf, (size_t) max, "%d%%", v);
     else if (id == SET_VIDEO_BORDER) snprintf(buf, (size_t) max, "%d px", v);
     else snprintf(buf, (size_t) max, "%d", v);
     return buf;
@@ -286,9 +290,9 @@ static int parse_value(set_id id, const char *v)
     const set_desc *d = &desc[id];
     if (id == SET_VIDEO_MODE) { vm_parse(v); return value[id]; }   /* resolved against this panel's list (settings_video_rebuild) */
     if (id == SET_VIDEO_PALETTE) { snprintf(pal_name, sizeof pal_name, "%s", v); return 0; }
-    if (d->labels == smooth_names) {                  /* the names before 2026-09-14 */
-        if (!strcasecmp(v, "sharp-fit")) return SMOOTH_INTEGER;
-        if (!strcasecmp(v, "sharp") || !strcasecmp(v, "soft")) return SMOOTH_FIT;
+    if (d->labels == smooth_names) {                  /* the names before 2026-09-14, and before 2026-10-09 */
+        if (!strcasecmp(v, "sharp-fit") || !strcasecmp(v, "integer")) return SMOOTH_INTEGER;
+        if (!strcasecmp(v, "sharp") || !strcasecmp(v, "soft") || !strcasecmp(v, "fit") || !strcasecmp(v, "fit to display")) return SMOOTH_FIT;
     }
     if (d->type == ST_ENUM || d->type == ST_CHORD) { for (int i = 0; i < d->nlabels; i++) if (!strcasecmp(d->labels[i], v)) return i; return clampv(id, atoi(v)); }
     if (d->type == ST_BOOL) return (!strcasecmp(v, "on") || !strcasecmp(v, "true") || !strcasecmp(v, "yes") || atoi(v)) ? 1 : 0;
@@ -337,11 +341,13 @@ int settings_load(const char *path)
         value[SET_VIDEO_PANEL] = PANEL_OFF; migrated = 1;
     }
     settings_video_rebuild();                     /* the resolution asked for, as this panel has it */
-    /* Fixed since 2026-10-06, their rows gone from F12 (Doc: "scaling --
-     * default is integer always; full screen -- on always"): whatever an older
-     * file says.  Vertical sync keeps its value, unseen. */
-    if (value[SET_VIDEO_SMOOTH] != SMOOTH_INTEGER || !value[SET_VIDEO_FULLSCREEN]) migrated = 1;
-    value[SET_VIDEO_SMOOTH] = SMOOTH_INTEGER; value[SET_VIDEO_FULLSCREEN] = 1;
+    /* Full screen is fixed on since 2026-10-06, its row gone from F12 (Doc:
+     * "full screen -- on always"): whatever an older file says.  Vertical sync
+     * keeps its value, unseen.  Smoothing was forced to integer the same day
+     * and is a row again since 2026-10-09 (Doc: "add the sharp-bilinear
+     * switch"): the file's value stands, integer when it says nothing. */
+    if (!value[SET_VIDEO_FULLSCREEN]) migrated = 1;
+    value[SET_VIDEO_FULLSCREEN] = 1;
     fclose(f); changed = migrated;
     return 0;
 }

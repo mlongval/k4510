@@ -53,4 +53,24 @@ case "$out" in
     *) echo "  FAIL the host's 80x60 bit: got '$out'"; fails=$((fails + 1)) ;;
 esac
 
+# how a size is shown and how dark its scanlines are (2026-10-09): -i -m/-f -a
+# are GLASSCTL bits4-5, -c N is SCANDK, and a WxH after -c is the size, not N
+for pair in "400x300|as F12 scales" "400x300 -i|the best whole multiple" "400x300 -m|smoothed to the panel" "400x300 --fit|smoothed to the panel" "400x300 -a|native scale" "400x300 --native|native scale" "400x300 -c|scanlines" "400x300 -c 75|scanlines 75%" "-c75 400x300|scanlines 75%" "--scanlines=30 400x300|scanlines 30%" "-c 320x240|320x240 pixels" "400x300 -c 250|scanlines 100%" "400x300 -c 75 -p|400x300 pixels, as F12 scales"; do
+    args=${pair%%|*}; want=${pair#*|}
+    out=$(K4510_SYSOPT=0x04 K4510_PANEL=1920x1080 timeout 90 ./test/headless rom/kernal.bin "MODE $args
+~MODE
+~" 900 2>/dev/null | grep -i -A1 "^MODE 5:" | tail -2 | tr -d '\n') || true
+    case "$out" in
+        *"$want"*) echo "  ok   MODE $args: $want" ;;
+        *) echo "  FAIL MODE $args: got '$out', want '$want'"; fails=$((fails + 1)) ;;
+    esac
+done
+out=$(K4510_SYSOPT=0x04 K4510_PANEL=1920x1080 timeout 90 ./test/headless rom/kernal.bin "MODE 400x300 -c 75 -p
+~MODE
+~" 900 2>/dev/null | grep -i -A1 "^MODE 5:" | tail -2 | tr -d '\n') || true
+case "$out" in
+    *scanlines*) echo "  FAIL MODE -p: scanlines still on: '$out'"; fails=$((fails + 1)) ;;
+    *) echo "  ok   MODE -p takes the scanlines and their darkness off" ;;
+esac
+
 if [ $fails -eq 0 ]; then echo "modetest: OK (six modes, both 640x480 screens, each reporting its own size)"; else echo "modetest: $fails FAILED"; exit 1; fi

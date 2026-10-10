@@ -27,7 +27,11 @@ static const item_t video_items[] = {
     { "Canvas",        MI_SETTING, SET_VIDEO_BASE },   /* 4:3 or the whole panel: what the resolutions divide (2026-10-07) */
     { "Font",          MI_SETTING, SET_VIDEO_FONT },   /* the HD text font at 720x540 (2026-10-06) */
     /* Scaling, Full screen and Vertical sync went 2026-10-06: integer and full
-     * screen always (settings_load), vsync as it was */
+     * screen always (settings_load), vsync as it was.  Scaling is back as
+     * Smoothing (2026-10-09, Doc: "add the sharp-bilinear switch"), with the
+     * darkness a program's scanlines get unless it says (core/present.h). */
+    { "Smoothing",     MI_SETTING, SET_VIDEO_SMOOTH },
+    { "Scanline darkness", MI_SETTING, SET_VIDEO_SCANDARK },
     { "Placement",     MI_SETTING, SET_VIDEO_PLACE },
     { "Frame follows palette", MI_SETTING, SET_VIDEO_FRAME_FOLLOW },   /* off: the frame keeps its VIC-II colour under any palette */
     /* the sidebar, and its options in its own file: F12 keeps to these two rows

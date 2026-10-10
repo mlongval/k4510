@@ -50,7 +50,7 @@
  *                  (sprite n hit another sprite this frame). All 16 cleared on read of $90.
  *   $A0-$AF COLSL  read: sprite-layer collision bits (sprite n over a
  *                  non-transparent layer pixel). All 16 cleared on read of $A0.
- *   $C0-$DF THE GLASS (2026-10-07, docs/design-video-foundations.md).  The
+ *   $C0-$E0 THE GLASS (2026-10-07, docs/design-video-foundations.md).  The
  *                  host finds the panel and tells VICKY (vicky_set_panel); she
  *                  works out the canvas -- the panel, or its largest 4:3 -- and
  *                  the integer display resolutions (IDRs) it divides into.
@@ -64,11 +64,20 @@
  *     $D0  GLASSCTL  RW what CTRL bit5's glass is.  bits0-1: 0 CTRL's own
  *                    bits (1, 2, 4 -- the canvas /1, /2, /4: MODE 5-7); 1 the
  *                    IDR at scale IDRSEL; 2 software, SWW x SWH.  bits4-5, how
- *                    software shows: 0 the largest whole scale, 1 fit
- *                    (sharp-bilinear: the whole multiple, then smoothing);
- *                    2, stretched to 4:3, is reserved and fits for now.
+ *                    that glass is shown on the panel (2026-10-09, Doc's three
+ *                    ways): 0 as the user has it (F12 > Video > Smoothing:
+ *                    integer unless sharp-bilinear is chosen); 1 fit
+ *                    (sharp-bilinear: hard pixels to the whole multiple, then
+ *                    smoothing to fill); 2 native (as large as fits, keeping
+ *                    the aspect, any scale, hard pixels: 2.25x makes some
+ *                    pixels two lines tall and some three); 3 integer (the
+ *                    largest whole scale, centred, whatever the user chose).
+ *                    For any glass, CTRL's own included; K/OS writes 0 for
+ *                    its own screens and restores the shell's when a program
+ *                    ends, so a program's choice lasts as long as it runs.
  *                    bit6 scanlines (2026-10-08): the lower half of every
- *                    machine row dimmed, where a row is 2 panel lines or more.
+ *                    machine row dimmed, where a row is 2 panel lines or more;
+ *                    how dark is SCANDK.  bit7 reserved (reads as written).
  *     $D1  IDRSEL    RW the scale wanted: one not offered becomes the next
  *                    larger scale that is, else the largest offered
  *     $D2,D3 SWW     RW a software resolution, 160-1920 wide  } clamped to the
@@ -82,6 +91,11 @@
  *     $DD  TXTROWS   R
  *     $DE  TXTVPAD   R  spare lines above them: half the spare, rounded down
  *     $DF  TXTHPAD   R  spare pixel columns to their left, likewise
+ *     $E0  SCANDK    RW scanline darkness, 1-100 percent (2026-10-09): how
+ *                    dark the dimmed half of each row is; 100 is black.  0, the
+ *                    reset value, is the user's default (F12 > Video > Scanline
+ *                    darkness, 56 unless changed -- the look before this
+ *                    register).  Over 100 counts as 100.  Nothing without bit6.
  *                  A text32 layer paints the spare pixels round a whole grid in
  *                  the nearest cell's background; K/OS scrolls layer 0 by
  *                  -TXTHPAD, -TXTVPAD to centre its console.
@@ -249,6 +263,14 @@
 #define VR_TXTHPAD  0xDF
 #define VG_IDR      1         /* GLASSCTL bits0-1 */
 #define VG_SOFT     2
+#define VG_PRES_MASK    0x30  /* GLASSCTL bits4-5: how the glass is shown (core/present.h) */
+#define VG_PRES_USER    0x00  /* as F12 has it */
+#define VG_PRES_FIT     0x10  /* sharp-bilinear to fill */
+#define VG_PRES_NATIVE  0x20  /* any scale, hard pixels */
+#define VG_PRES_INTEGER 0x30  /* the largest whole scale */
+#define VG_SCANLINES    0x40  /* GLASSCTL bit6 */
+#define VR_SCANDK   0xE0      /* scanline darkness, percent; 0 = the user's */
+#define VICKY_SCANDK_DEFAULT 56   /* alpha 0x90 of 255, the look of 2026-10-08 */
 #define VB_USER     0x01      /* BANDCTL: the F12 switch (host only) */
 #define VB_PROGRAM  0x02      /* BANDCTL: a program has the bands */
 #define VICKY_BAND_MIN_ROWS 10

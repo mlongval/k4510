@@ -22,8 +22,16 @@ int main(void)
     /* 1. the registry and its file */
     f = fopen(cfg, "w"); fputs("# my notes\nvideo.border = 12\naudio.volume=30\nfuture.thing = keep me\nvideo.smoothing = sharp\n", f); fclose(f);
     CHECK(settings_load(cfg) == 0, "load");
-    CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_SMOOTH) == SMOOTH_INTEGER && settings_get(SET_VIDEO_FULLSCREEN), "values read; scaling integer and full screen on whatever the file says (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_SMOOTH));
-    CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F12 && settings_get(SET_TEXT_CODEPAGE) == PAGE_CP437 && settings_changed(), "defaults for the rest (F12, CP437), dirty: the old scaling is written back as integer");
+    CHECK(settings_get(SET_VIDEO_BORDER) == 12 && settings_get(SET_AUDIO_VOLUME) == 30 && settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT && settings_get(SET_VIDEO_FULLSCREEN), "values read; the old name sharp is sharp-bilinear (2026-10-09: no longer forced to integer), full screen on whatever the file says (%d %d %d)", settings_get(SET_VIDEO_BORDER), settings_get(SET_AUDIO_VOLUME), settings_get(SET_VIDEO_SMOOTH));
+    CHECK(settings_get(SET_VIDEO_SCANDARK) == 56, "scanline darkness defaults to 56, the 2026-10-08 look (%d)", settings_get(SET_VIDEO_SCANDARK));
+    { FILE *g = fopen(cfg, "w"); fputs("video.smoothing = fit to display\nvideo.scanlines = 80\n", g); fclose(g); settings_load(cfg);
+      CHECK(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT && settings_get(SET_VIDEO_SCANDARK) == 80, "the 2026-09-14 name loads as sharp-bilinear; the darkness is read (%d %d)", settings_get(SET_VIDEO_SMOOTH), settings_get(SET_VIDEO_SCANDARK));
+      g = fopen(cfg, "w"); fputs("video.smoothing = integer\n", g); fclose(g); settings_load(cfg);
+      CHECK(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_INTEGER, "integer loads as off");
+      g = fopen(cfg, "w"); fputs("video.border = 0\n", g); fclose(g); settings_load(cfg);
+      CHECK(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_INTEGER, "a file that says nothing is integer, the default");
+      g = fopen(cfg, "w"); fputs("# my notes\nvideo.border = 12\naudio.volume=30\nfuture.thing = keep me\nvideo.smoothing = sharp\n", g); fclose(g); settings_load(cfg); }
+    CHECK(settings_get(SET_INPUT_MENU_KEY) == MENUKEY_F12 && settings_get(SET_TEXT_CODEPAGE) == PAGE_CP437 && !settings_changed(), "defaults for the rest (F12, CP437), clean: nothing to migrate (the old scaling is no longer forced, 2026-10-09)");
     settings_set(SET_VIDEO_BORDER, 999); CHECK(settings_get(SET_VIDEO_BORDER) == 64 && settings_changed(), "clamped, dirty");
     settings_step(SET_INPUT_RESET_CHORD, -1); CHECK(settings_get(SET_INPUT_RESET_CHORD) == CHORD_COUNT - 1, "enum wraps");
     CHECK(settings_save(cfg) == 0, "save");

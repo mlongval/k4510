@@ -12512,3 +12512,37 @@ blink with the sound off too), and the title's score table shows the
 colours.  invaders.prg 18,755 -> 19,061 bytes.  check-artifacts and the
 tests green, but for bangtest, which fails in a worktree only (the long
 path wraps pwd); dirtest passes with a plain file at fs/'s root.
+
+**2026-10-09: display scaling -- the sharp-bilinear switch, native, and
+scanlines you can dial.**  Doc: "add the sharp-bilinear switch"; then "make
+the darkness ADJUSTABLE rather than two fixed strengths".  F12 > Video has
+two rows again: **Smoothing** (off = integer, the default; sharp-bilinear),
+no longer forced back to integer at load (`video.smoothing`; the old names
+integer / sharp-fit / fit to display / sharp / soft still read), and
+**Scanline darkness** (`video.scanlines`, 0-100, default 56 = the alpha
+0x90 the effect began with).  The rule is one function, `core/present.h`:
+the user's switch unless GLASSCTL bits4-5 say how -- 0 the user's, 1 fit
+(sharp-bilinear), 2 **native** (as large as fits, aspect kept, any scale,
+hard pixels; it replaces "stretched to 4:3, reserved"), 3 integer by
+name -- for any glass, CTRL's own included, K/OS writing 0 for its own
+screens and restoring the shell's when a program ends.  `present_rect()`
+is the arithmetic the side-panel path now uses and vickytest 16 checks.
+Scanline darkness is VICKY's new `$D0E0` SCANDK (percent; 0 = the user's
+row).  MODE: `-i/--integer`, `-m/--smooth` or `-f/--fit`, `-a/--native`,
+`-c N` (`-c75`, `--scanlines=75`; a WxH after `-c` is still the size);
+`-p` clears the darkness too; the report says which.  `SCANLINE`
+(demo/scanline.c, /SYSTEM/BIN) is the bench: text in four sizes, the
+sixteen as bars, a grey and a sky ramp, one-pixel lines, a moving sprite;
+Left/Right, -/+, 1-9, 0 step the darkness, I S N switch the three ways, U
+the user's own, A sweeps 10..100 every two seconds, Esc puts the registers
+back.  MODE.TXT, chapter 21, RES.BAS (two steps more), TODO, CAPABILITIES
+and the design note updated; PDF not rebuilt.  Captures under Xvfb at
+1920x1080 (`K4510_WINDOW=1920x1080` so the full-screen switch is a no-op --
+without it SDL's viewport stays at the old window size under no WM): at
+3x (480x360) integer and sharp-bilinear are byte-identical, as are F12
+sharp-bilinear and `MODE -m`, and F12 sharp-bilinear with `MODE -i`
+against integer; at 2.25x (640x480) the three differ as they should, the
+smoothed text soft at its edges only, native's rows uneven; the grey
+ramp's dimmed rows read 111 / 62 / 0 against 124 at 10 / 50 / 100%.
+Tests: vickytest 16, modetest (13 flag spellings), uitest (the setting
+loads, nothing migrated).

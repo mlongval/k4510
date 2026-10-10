@@ -20,15 +20,31 @@ Pick a size
                   MODE 720x540
 
   A WxH that MODE -l does not list is
-  shown at the largest whole multiple
-  that fits, centred, with a border:
-  sharp pixels.  -m (--smooth) stretches
-  it to fill the screen instead, softer.
-  Bigger than the screen is refused;
-  160x100 is the smallest.
+  drawn at exactly that size and shown
+  as F12 > Video > Smoothing has it:
+  off, the largest whole multiple that
+  fits, centred, with a border, sharp
+  pixels; or sharp-bilinear, filling
+  the screen.  Bigger than the screen
+  is refused; 160x100 is the smallest.
+
+How it is shown -- with a size, or alone
+  -i  --integer    the whole multiple
+  -m  --smooth     sharp-bilinear: the
+  -f  --fit        whole multiple, then
+                   smoothed to fill
+  -a  --native     as large as fits,
+                   any scale, hard
+                   pixels (some rows
+                   taller than others)
+  Without one, F12's Smoothing decides.
 
 The look -- with a size, or alone
   -c  --scanlines  a CRT's scanlines
+  -c N             ...N percent dark,
+                   1-100; -c alone is
+                   F12's Scanline
+                   darkness (56)
   -p  --plain      no effects
   -d  --double     twice the text rows,
                    smaller letters
@@ -38,15 +54,21 @@ Examples
   MODE -l          what can I have?
   MODE -s 2        a quarter the pixels
   MODE 320x200 -c  C64-sized, scanlines
-  MODE 400x300 -m  stretched to fill
+  MODE 320x200 -c 100  ...black gaps
+  MODE 400x300 -m  smoothed to fill
+  MODE 400x300 -a  2.56x, hard pixels
+  MODE 400x300 -i  2x, a border
   MODE 2 -p        320x240, plain
   MODE -d          more rows, same size
+  SCANLINE         a test picture: step
+                   the darkness, switch
+                   -i -m -a, and look
 
 Good to know
-  A new size keeps -d and -c, so the
-  normal screen is MODE 0 -n -p.
-  F12 > Video sets the same things
-  from the menu.  A program's own
-  mode ends when the program does.
-  Options may come before or after
-  the size.
+  A new size keeps -d, -c and how it
+  is shown, so the normal screen is
+  MODE 0 -n -p.  F12 > Video sets the
+  same things from the menu.  A
+  program's own mode ends when the
+  program does.  Options may come
+  before or after the size.

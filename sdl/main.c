@@ -20,6 +20,7 @@
 #include "../core/mem.h"
 #include "../core/io.h"
 #include "../core/vicky.h"
+#include "../core/present.h"
 #include "../core/build.h"   /* K4510_BUILD, for the frame profile */
 #include "../core/audio.h"
 #include "../core/opl2.h"
@@ -2073,18 +2074,21 @@ SDL_Renderer *ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED);
             if (SDL_RenderSetVSync(ren, vsync_applied) != 0)
                 fprintf(stderr, "vsync: this SDL or driver will not take it (%s)\n", SDL_GetError());
         }
-        /* A software resolution may ask to be FITTED (VICKY's GLASSCTL bit4,
-         * 2026-10-07): sharp-bilinear, the whole multiple then smoothing, for
-         * as long as it is up.  K/OS and every IDR stay integer. */
-        { int gc = vicky_glass_ctl(), want = settings_get(SET_VIDEO_SMOOTH);
-          if ((vicky_read(VR_CTRL) & 0x20) && (gc & 3) == VG_SOFT && (gc & 0x30)) want = SMOOTH_FIT;
+        /* How the glass is shown (core/present.h, 2026-10-09): the user's
+         * Smoothing row -- integer, or sharp-bilinear -- unless a program
+         * says how in GLASSCTL bits4-5 (fit, native, integer), for as long
+         * as it runs.  The same rule for every glass: the K/OS text screen,
+         * the HD text modes, an IDR, a software size. */
+        { int want = present_mode(settings_get(SET_VIDEO_SMOOTH) == SMOOTH_FIT, vicky_glass_ctl());
         if (want != smooth_applied) {
             smooth_applied = want;
-            /* Hard pixels always ("soft", the linear filter, went 2026-09-14);
-             * Integer is a whole-number scale, so every pixel of the
-             * machine is the same size on the glass. */
+            /* Hard pixels always ("soft", the linear filter, went 2026-09-14):
+             * fit's smooth step is drawn below from a whole-multiple texture.
+             * Integer is a whole-number scale, so every pixel of the machine
+             * is the same size on the glass; native lets SDL scale by any
+             * amount, nearest. */
             SDL_SetTextureScaleMode(tex, SDL_ScaleModeNearest);
-            SDL_RenderSetIntegerScale(ren, smooth_applied == SMOOTH_INTEGER ? SDL_TRUE : SDL_FALSE);
+            SDL_RenderSetIntegerScale(ren, smooth_applied == PRES_INTEGER ? SDL_TRUE : SDL_FALSE);
         } }
         /* the palettes, once a frame instead of once a pixel: the machine's
          * colours, the same half-lit behind the menu, and the menu's own; the
@@ -2152,6 +2156,7 @@ tex_done:
           uint32_t sig = 2166136261u;
           #define SIG(v) (sig = (sig ^ (uint32_t)(v)) * 16777619u)
           SIG(gw); SIG(gh); SIG(ow); SIG(oh); SIG(open); SIG(echo_vis); SIG(border_lit); SIG(smooth_applied); SIG(fullscreen_applied);
+          SIG(vicky_glass_ctl()); SIG(vicky_read(VR_SCANDK)); SIG(settings_get(SET_VIDEO_SCANDARK));   /* the effects change the display, not the picture */
           SIG(settings_get(SET_VIDEO_BORDER)); SIG(settings_get(SET_VIDEO_SIDEBARS)); SIG(settings_get(SET_VIDEO_PLACE)); SIG(io_tube_kind());
           #undef SIG
           if (captures < 0) captures = getenv("K4510_GLASS") || getenv("K4510_SHOT") || getenv("K4510_NOSTILL");   /* NOSTILL: every frame drawn, to measure against */
@@ -2258,11 +2263,12 @@ tex_done:
           int custom = place != PLACE_CENTRE && cow > 0 && coh > 0;
           double sc = 1.0; int pic_x = 0, pic_y = 0, pic_w = lw, pic_h = canvas_h;
           if (custom) {
-              sc = (double)cow / lw; if ((double)coh / canvas_h < sc) sc = (double)coh / canvas_h;
-              /* Integer floors the scale.  The panel never shrinks the
-               * picture (Doc, 2026-09-09: "the emulator screen does not need
-               * to be reduced in size"); it takes what is left. */
-              if (smooth_applied == SMOOTH_INTEGER) sc = (double)(int)sc;
+              /* the scale present_rect gives for this mode (Integer floors it).
+               * The panel never shrinks the picture (Doc, 2026-09-09: "the
+               * emulator screen does not need to be reduced in size"); it
+               * takes what is left. */
+              present_rect_t pr = present_rect(cow, coh, lw, canvas_h, smooth_applied);
+              sc = pr.scale;
               if (sc < 1.0) sc = 1.0;
               pic_w = (int)(lw * sc); pic_h = (int)(canvas_h * sc);
               pic_y = (coh - pic_h) / 2; pic_x = place == PLACE_RIGHT ? cow - pic_w : 0;
@@ -2429,7 +2435,7 @@ tex_done:
             int n = (int) eff;
             static SDL_Texture *sbt; static int sbw, sbh;
             int drawn = 0;
-            if (smooth_applied == SMOOTH_FIT && n >= 1 && eff - n > 0.02 && SDL_RenderTargetSupported(ren)) {
+            if (smooth_applied == PRES_FIT && n >= 1 && eff - n > 0.02 && SDL_RenderTargetSupported(ren)) {
                 int tw = gw * n, th = gh * n;
                 if (!sbt || sbw != tw || sbh != th) {
                     if (sbt) SDL_DestroyTexture(sbt);
@@ -2456,20 +2462,24 @@ tex_done:
              * between lines.  Only where a row is two screen lines or more --
              * at scale 1 there is no half to dim.  A 1-wide column of k
              * screen lines a row, laid over the picture: hard at a whole
-             * scale, smoothed at a fitted one. */
-            if (vicky_glass_ctl() & 0x40) {
-                static SDL_Texture *slt; static int slh, slk;
+             * scale, smoothed at a fitted one.  How dark (2026-10-09): SCANDK,
+             * percent, or the user's Scanline darkness row when it is 0 --
+             * 56 is the 0x90 alpha the effect began with. */
+            if (vicky_glass_ctl() & VG_SCANLINES) {
+                static SDL_Texture *slt; static int slh, slk, sla;
                 double rowpx = (double) dr.h * (custom ? 1.0 : esy) / gh;
                 int k = (int)(rowpx + 0.5);
-                if (k >= 2) {
-                    if (!slt || slh != gh || slk != k) {
+                int dark = present_scan_dark(vicky_read(VR_SCANDK), settings_get(SET_VIDEO_SCANDARK));
+                uint32_t alpha = (uint32_t)((dark * 255 + 50) / 100);
+                if (k >= 2 && alpha) {
+                    if (!slt || slh != gh || slk != k || sla != (int) alpha) {
                         if (slt) SDL_DestroyTexture(slt);
                         slt = SDL_CreateTexture(ren, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, 1, gh * k);
-                        slh = gh; slk = k;
+                        slh = gh; slk = k; sla = (int) alpha;
                         void *lp; int lpitch;
                         if (slt && SDL_LockTexture(slt, NULL, &lp, &lpitch) == 0) {
                             for (int y = 0; y < gh * k; y++)
-                                *(uint32_t *)((uint8_t *) lp + y * lpitch) = y % k >= k - k / 2 ? 0x90000000u : 0;
+                                *(uint32_t *)((uint8_t *) lp + y * lpitch) = y % k >= k - k / 2 ? alpha << 24 : 0;
                             SDL_UnlockTexture(slt);
                         }
                         if (slt) SDL_SetTextureBlendMode(slt, SDL_BLENDMODE_BLEND);

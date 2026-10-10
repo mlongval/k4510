@@ -6,13 +6,18 @@
 # the look of EDIT and WORD, Excel's and LibreOffice's manners -- $A$1 and F4,
 # copy and fill that move references, comparisons and IF, text functions,
 # Excel's error values, , and ; between arguments, recalculation in the
-# order the formulas need and #CIRC! for a circle, CSV in and out.
+# order the formulas need and #CIRC! for a circle, CSV in and out.  And
+# (Doc, the same day) "add the swapped-in block for undo and VLOOKUP": Undo
+# and Redo, VLOOKUP HLOOKUP MATCH INDEX, from the overlay (CALO).
 #
 # The runner types a byte a frame, and octal escapes reach the control keys:
 # \003 Ctrl-C  \004 Ctrl-D  \007 Ctrl-G  \016 Ctrl-N  \017 Ctrl-O  \021 Ctrl-Q
-# \023 Ctrl-S  \026 Ctrl-V  \033 Esc  \200-\203 the arrows  \221 F2  \223 F4
-# \231 F10  \303 Alt+C (the Cells menu).  It cannot hold a modifier down, so
-# Shift+arrows (a range), Ctrl-Home and Shift-Tab are not driven here.
+# \023 Ctrl-S  \026 Ctrl-V  \027 Ctrl-W  \030 Ctrl-X  \031 Ctrl-Y  \032 Ctrl-Z
+# \033 Esc  \177 Del  \200-\203 the arrows (up down left right)  \221 F2
+# \223 F4  \231 F10  \303 Alt+C (the Cells menu).  ` waits 5 frames: a key a
+# frame outruns a whole-grid redraw, and keys are lost.  It cannot hold a
+# modifier down, so Shift+arrows (a range), Ctrl-Home and Shift-Tab are not
+# driven here.
 #
 # Every value looked for is an odd one that nothing else on the screen shows.
 set -e
@@ -135,5 +140,61 @@ check "Ctrl-Q with the sheet unsaved asks"    "$(has "$out" 'not saved')" "1"
 out=$(run 'CALC\n~~5\n~\021~\t\n~')
 check "No leaves, and the shell is back"      "$(has "$out" 'HOME\]')" "1"
 
+echo "12. Undo and Redo: Ctrl+Z Ctrl+Y and the Edit menu"
+out=$(run 'CALC\n~~111\n222\n~\032~')
+check "Ctrl-Z takes the last entry back"       "$(seen "$out" '222')$(has "$out" '^   1 *111')$(has "$out" 'Undone')" "011"
+out=$(run 'CALC\n~~111\n222\n~\032~\031~')
+check "Ctrl-Y puts it back"                    "$(has "$out" '^   2 *222')$(has "$out" 'Redone')" "11"
+out=$(run 'CALC\n~~5551\n~\2005552\n~\032~')
+check "an entry over a cell: undo brings the old one back" "$(has "$out" '^   1 *5551')$(seen "$out" '5552')" "10"
+# A1:A3 1000 2000 3000; B1 =A1+7 copied, pasted into B3 (3007); then undone, redone
+out=$(run 'CALC\n~~1000\n2000\n3000\n~\200\200\200\203=A1+7\n~\200\003\201\201\026~\032~')
+check "a paste undone"                         "$(seen "$out" '3007')$(has "$out" '^   1 *1000 *1007')" "01"
+out=$(run 'CALC\n~~1000\n2000\n3000\n~\200\200\200\203=A1+7\n~\200\003\201\201\026~\032~\031~')
+check "and redone"                             "$(has "$out" '^   3 *3000 *3007')" "1"
+out=$(run 'CALC\n~~1000\n2000\n3000\n~\200\200\200\203=A1+7\n\004~\032~')
+check "a fill down undone (B2 empty again)"    "$(seen "$out" '2007')$(has "$out" '^   1 *1000 *1007')" "01"
+out=$(run 'CALC\n~~4441\n~\200\004~\032~')
+check "a fill that fills nothing is no step: Ctrl-Z takes the entry" "$(seen "$out" '4441')" "0"
+out=$(run 'CALC\n~~6661\n~\200\177~\032~')
+check "Del undone"                             "$(has "$out" '^   1 *6661')" "1"
+out=$(run 'CALC\n~~7771\n~\200\030~\032~')
+check "Ctrl-X undone"                          "$(has "$out" '^   1 *7771')" "1"
+out=$(run 'CALC\n~~4321\n~\200\303t~\032~')
+check "Cells > Thousands undone"               "$(has "$out" '^   1 *4321$')$(seen "$out" '4 321')" "10"
+out=$(run 'CALC\n~~1\n~\027~\b20\n~\032~')
+check "a column width undone (Ctrl-W, then Ctrl-Z)" "$(echo "$out" | grep -c '^        A        B        C' || true)" "1"
+out=$(run 'CALC\n~~111\n222\n333\n~\032`\032`\032~')
+check "three steps back"                       "$(seen "$out" '111')$(seen "$out" '222')$(seen "$out" '333')$(has "$out" 'Undone')" "0001"
+out=$(run 'CALC\n~~111\n222\n~\032~333\n~\031~')
+check "a new entry ends what Redo had"         "$(seen "$out" '222')$(has "$out" 'Nothing to redo')" "01"
+out=$(run 'CALC\n~~111\n~\016~\t\n~\032~')
+check "New starts the history afresh"          "$(has "$out" 'Nothing to undo')" "1"
+out=$(run 'CALC\n~~111\n~\231~\203~')
+check "the Edit menu has Undo and Redo"        "$(has "$out" 'Undo  *Ctrl+Z')$(has "$out" 'Redo  *Ctrl+Y')" "11"
+out=$(run 'CALC\n~~111\n222\n~\231~\203~u~')
+check "Edit > Undo"                            "$(seen "$out" '222')$(has "$out" '^   1 *111')" "01"
+# 102 entries, 102 undos: a hundred steps are kept, so A1 and A2 stay
+keys="CALC\n~~9191\n$(for i in $(seq 101); do printf '5\\n`'; done)~$(for i in $(seq 102); do printf '\\032`'; done)~\007~A1\n~"
+out=$(run "$keys" 4000)
+check "a hundred steps back and no more: the oldest go" "$(has "$out" '^   1 *9191')$(has "$out" '^   2 *5')$(has "$out" '^   3 *5')" "110"
+
+echo "13. VLOOKUP, HLOOKUP, MATCH, INDEX (Excel's)"
+# A1:A4 10 50 70 90, B1:B4 gradeF gradeD gradeB gradeA; the formulas down C
+out=$(run 'CALC\n~~10\n50\n70\n90\n~\200\200\200\200\203gradeF\ngradeD\ngradeB\ngradeA\n~\200\200\200\200\203=VLOOKUP(75;A1:B4;2)&"<"\n`=VLOOKUP(90;A1:B4;2;TRUE)&"!"\n`=VLOOKUP(5;A1:B4;2)\n`=VLOOKUP(50;A1:B4;2;FALSE)&"?"\n`=VLOOKUP(51;A1:B4;2;0)\n`=VLOOKUP(50;A1:B4;3;0)\n`=VLOOKUP(50;A1:B4;0)\n`=VLOOKUP("GRADED";B1:B4;1;0)&"#"\n`=HLOOKUP(10;A1:B4;2;0)*11\n`=MATCH(70;A1:A4;0)*111\n`=MATCH(80;A1:A4)*1001\n`=INDEX(A1:B4;4;1)+1\n`=INDEX(A1:B4;5;1)\n`=MATCH(55;A1:B4;0)\n`=INDEX(A1:B1;2)&"%%"\n`=VLOOKUP(VLOOKUP(75;A1:B4;1);A1:B4;2;0)&"^"\n~' 5000)
+check "VLOOKUP sorted: the largest not past 75"   "$(has "$out" 'gradeB<')" "1"
+check "VLOOKUP TRUE, an exact hit at the end"     "$(has "$out" 'gradeA!')" "1"
+check "VLOOKUP exact (FALSE)"                     "$(has "$out" 'gradeD?')" "1"
+check "#N/A below the first, missing exact, MATCH on a block" "$(seen "$out" '#N/A')" "3"
+check "#REF! past the range's columns, INDEX past its rows" "$(seen "$out" '#REF!')" "2"
+check "#VALUE! for a column below 1"              "$(has "$out" '^   7 .*#VALUE!')" "1"
+check "text matches in any case"                  "$(has "$out" 'gradeD#')" "1"
+check "HLOOKUP along the first row"               "$(has "$out" '^   9 .* 550$')" "1"
+check "MATCH exact, and sorted"                   "$(has "$out" '^  10 .* 333$')$(has "$out" '^  11 .* 3003$')" "11"
+check "INDEX by row and column, and along a row"  "$(has "$out" '^  12 .* 91$')$(has "$out" 'gradeF%')" "11"
+check "a lookup inside a lookup"                  "$(has "$out" 'gradeB\^')" "1"
+out=$(run 'CALC\n~~=MATCH(600;B1:B3;-1)*17\n~\200\203900\n500\n100\n~')
+check "MATCH -1 down a falling list"              "$(has "$out" '^   1 *17 *900')" "1"
+
 rm -f $H/CT.CAL $H/CTOLD.CAL $H/CT2.CAL $H/SHEET.CSV $H/CTIN.CSV
-if [ $fails -eq 0 ]; then echo "calctest: OK (entry rules, the functions, text and logic, , and ;, Excel's errors, order and #CIRC!, \$A\$1 with copy fill and F4, a round trip and the old sheets, CSV both ways, the clothes)"; else echo "calctest: $fails FAILED"; exit 1; fi
+if [ $fails -eq 0 ]; then echo "calctest: OK (entry rules, the functions, text and logic, , and ;, Excel's errors, order and #CIRC!, \$A\$1 with copy fill and F4, a round trip and the old sheets, CSV both ways, the clothes, undo and redo, the lookups)"; else echo "calctest: $fails FAILED"; exit 1; fi

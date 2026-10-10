@@ -460,6 +460,17 @@ to a spreadsheet now:
   \verb|TRIM CONCAT VALUE|; \verb|TODAY()| and \verb|NOW()|, which count days
   from 1899-12-30 as Excel does (the machine's clock; the MATH unit's seven
   digits put \verb|NOW| within a few minutes).
+\item the lookups, as Excel has them: \verb|VLOOKUP(value;range;col;[sorted])|
+  looks down the range's first column and answers from column \verb|col|
+  of the row it finds, \verb|HLOOKUP| the same along the first row;
+  \verb|MATCH(value;range;[type])| gives the place in a row or a column
+  (type 1, the default, the largest not past the value in a rising list;
+  0 exact; $-1$ the smallest not below it in a falling one), and
+  \verb|INDEX(range;row;[col])| the cell at that place. With \verb|FALSE|
+  or 0 a lookup wants the value exactly (text in any case); with \verb|TRUE|
+  or nothing the column is taken as sorted and the largest value not past
+  the one sought is the match. Not found is \verb|#N/A|, a column past the
+  range \verb|#REF!|, a column below 1 \verb|#VALUE!|.
 \item arguments part with a comma or a semicolon --- Excel's comma,
   LibreOffice's semicolon in French --- and a formula is kept and shown as
   it was typed.
@@ -482,6 +493,17 @@ it --- \verb|=A1*2| copied two rows down reads \verb|A3| --- while a
 the first row or column of the selection (a lone cell takes from the cell
 above it, or to its left). Del clears.
 
+Ctrl+Z undoes and Ctrl+Y redoes, as in Excel and LibreOffice (\emph{Edit}
+$\rightarrow$ \emph{Undo}, \emph{Redo}): an entry, a clear, a cut, a
+paste, a fill, a format from the \emph{Cells} menu and a column width, the
+whole range at once, and the cursor goes to what changed. The history keeps
+the last hundred steps, or 4~MB of them, the oldest going first; doing
+something new after an undo ends what Redo had, and \emph{New}, \emph{Open}
+and \emph{Import CSV} start it afresh. Undo and the lookups are not in
+CALC's main memory at all: they are an overlay that the far-call gate
+swaps in at \$E000 when one of them is called (EDIT keeps VI's keys the
+same way).
+
 The \emph{Cells} menu formats the cell or the range: \emph{General},
 \emph{Decimals\ldots} (0 to 9 places), \emph{Thousands} (on or off; a space between them, \texttt{1 234 567.00}, the point for the decimals), \emph{Percent},
 \emph{Date} (which shows a day count as \texttt{2026-10-10} and widens the
@@ -500,6 +522,7 @@ Enter, Tab, Esc & keep and go down, keep and go right, drop the entry \\
 F2, F4 & edit the cell in place; \verb|$| on the reference under the cursor \\
 Del, Ctrl+X, Ctrl+C, Ctrl+V & clear, cut, copy, paste \\
 Ctrl+D, Ctrl+R & fill down, fill right \\
+Ctrl+Z, Ctrl+Y & undo, redo \\
 Ctrl+G, Ctrl+W, F9 & go to a cell, the column's width, recalculate \\
 Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q \emph{or} Esc & new, open, save, leave \\
 F1, Shift+F1 & the keys, the formulas \\

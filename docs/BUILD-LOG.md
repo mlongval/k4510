@@ -12656,3 +12656,54 @@ writes brightness 0, because i915's intel_backlight ignores bl_power
 (actual_brightness stayed 2400).  logind's IdleAction=ignore is written out
 so the machine itself never sleeps for idleness.  Tried on the Dell with a
 20 s timeout: dark at 20 s, an injected Shift brought it back to 2400.
+
+### 2026-10-10 -- CALC: undo and the lookups, in a swapped-in block
+
+Doc: "add the swapped-in block for undo and VLOOKUP".  CALC had 1.6 KB
+left in the main image and 300 bytes in HICODE, so both live in an
+overlay, the way EDIT keeps VI's keys (demo/dosvi.h): segment CALO, linked
+for $E000, loaded by the K4SG header (a fourth segment) into far memory at
+$0E000000, and banked in by the far-call gate ($DF00 + 4n) for the length
+of a call, HICODE back on the return.  No new mechanism: the loader, the
+gate and the layout are EDIT's.  Two differences: the gate's table is the
+overlay's own first bytes (segment CALOTAB; main() writes $DF80 once, as
+nothing in CALC runs another program), and the entries are named in
+demo/calc-header.s (`_u_mark = $DF00` ...) so a call is a JSR -- cc65's
+call through a cast pointer cost 25 bytes a site, and HICODE has five.
+The overlay's variables live in it too (segment CALOB, rw), out of the
+main BSS -- not in CALO itself: cc65 puts a function's static locals and
+data at its label, ahead of its code, so the gate's entry landed on zeros
+and the parameter read as garbage ("Nothing to redo" for Ctrl+Z, the first
+run).  The overlay may call anything but HICODE, and points DMA only at
+main memory (its own bytes are at $E000 to the CPU, not to the DMA).
+
+Undo/Redo: Ctrl+Z, Ctrl+Y and Edit > Undo / Redo.  Before a command
+changes the sheet, u_mark(why) keeps the box it is about to change -- each
+cell's 112 bytes and the column widths -- as a step in far memory
+($0F200000, 4 MB); the overlay works the box out itself (the cell, the
+selection, where a paste lands, fill's box, or the widths alone), so each
+call site is a byte and a JSR.  Undo swaps the step with the sheet and Redo
+swaps it back: one swap does both, and the cursor goes to the range that
+changed, selected.  Covered: entries, Del, cut, paste, fill down/right
+(a fill that fills nothing keeps no step), the Cells menu, Column Width /
+All Columns.  A hundred steps or 4 MB, the oldest dropped (one overlap-safe
+DMA down); a step bigger than 4 MB empties the history.  New, Open and
+Import start afresh.
+
+Lookups: VLOOKUP, HLOOKUP, MATCH (1, 0, -1) and INDEX, Excel's rules:
+FALSE/0 exact (text in any case), TRUE/omitted the largest not past the
+value in a sorted column, #N/A not found, #REF! past the range, #VALUE!
+below 1; empty cells, errors and other kinds are passed over; a lookup
+inside a lookup works (o_lookup keeps its locals on the C stack).  They are
+on the recalc path, so measured: 3992 =INDEX($A$1:$A$1;1) formulas take
+285 frames to import and work out over the plain-number baseline, against
+271 for =ABS($A$1)+INT(1) -- the gate is a JSR and two RTS, lost in a
+formula's ~48 000 cycles.
+
+Room left: main image 1353 bytes (was 1608), HICODE 19 (the help's four
+new lines took most), LOCODE 295, BSS 187 (unchanged), the overlay 3.9 KB
+of its 7.75 KB.  test/calctest.sh: 29 more checks, 86 in all (undo of an entry, an
+overwrite, a paste, a fill, Del, cut, Thousands, a width, three steps, Redo
+and its end, New, the menu, the hundred-step bound; the four lookups, their
+errors, case, nesting).  Handbook: chapter 11's CALC section (tex and site),
+PDF not rebuilt.

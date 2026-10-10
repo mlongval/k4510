@@ -18,6 +18,11 @@
  *   IF(c;a;b) AND OR NOT ISERROR IFERROR NA()
  *   LEN LEFT RIGHT MID UPPER LOWER TRIM CONCAT VALUE
  *   TODAY() NOW()          days since 1899-12-30, as Excel counts them
+ *   VLOOKUP(v;range;col[;sorted]) HLOOKUP(v;range;row[;sorted])
+ *   MATCH(v;range[;1|0|-1]) INDEX(range;row[;col])   Excel's: FALSE or 0
+ *                          exact (text in any case), else the largest not
+ *                          past v in a sorted column; #N/A not found, #REF!
+ *                          past the range, #VALUE! below 1
  *
  * Arguments part with , or ; (Excel's comma, LibreOffice's semicolon in
  * French); a formula is kept and shown as it was typed.
@@ -35,6 +40,8 @@
  *   F2 edit the cell (arrows then move in the entry)   F4 $ on a reference
  *   Del clear   Ctrl+X Ctrl+C Ctrl+V cut copy paste (references move with
  *   the cell, $ holds them)   Ctrl+D Ctrl+R fill down / right
+ *   Ctrl+Z undo  Ctrl+Y redo  (entries, Del, cut, paste, the fills, the
+ *   Cells menu and the widths, a range at once; a hundred steps or 4 MB)
  *   Ctrl+G go to  Ctrl+W column width  Ctrl+S save  Ctrl+O open  Ctrl+N new
  *   Ctrl+Q / Esc leave  F9 recalculate  F1 the keys  F10 or Alt the menus
  *   Cells menu: General, Decimals..., Thousands, Percent, Date -- the cell or
@@ -54,10 +61,11 @@
  * and is , on the way out unless Options says ;.  Values are exported, not
  * formulas, as those two do.
  *
- * Far memory ($0E..., nothing else runs with it): the cells' kinds at
- * $0E080000, the cells at $0E100000 (52 x 999 x 112 bytes), the clipboard
- * at $0E700000, the Open dialog's list at $0EE00000, a file being read at
- * $0F000000 (1 MB). */
+ * Far memory ($0E..., nothing else runs with it): the overlay (undo and the
+ * lookups) at $0E000000, the cells' kinds at $0E080000, the cells at
+ * $0E100000 (52 x 999 x 112 bytes), the clipboard at $0E700000, the Open
+ * dialog's list at $0EE00000, a file being read at $0F000000 (1 MB), the
+ * undo history at $0F200000-$0F5FFFFF (4 MB). */
 #include "k4510.h"
 
 void __fastcall__ rom_chrout(unsigned char c);
@@ -86,11 +94,26 @@ static void rom_video(void) { ((void (*)(void))0xFF92)(); }
 #define KIND_VAL   2                            /* a number or a formula: either way it is worked out */
 #define F_GEN   0x0F                         /* the format byte: decimals 0-9 or 15 general; 16 thousands; 32 percent; 64 date */
 #define SHELL_RC (*(volatile uint8_t *)0x03FF)
+/* The overlay (CALO in demo/calc.cfg): undo and the lookups, linked for
+ * $E000 and loaded by the K4SG header into far memory at CALO_P, as EDIT
+ * keeps VI's keys (demo/dosvi.h).  A call goes through the far-call gate
+ * ($DF00 + 4n, core/mem.c), which banks block 7 onto the overlay for the
+ * call and HICODE back on the return; the gate's table is the overlay's own
+ * first bytes.  So the overlay may call anything but HICODE, and points
+ * DMA only at main memory (its own variables are at $E000 to the CPU but
+ * somewhere else to the DMA). */
+#define CALO_P  0x0E000000UL
+#define UNDO    0x0F200000UL                 /* the history: 4 MB, the oldest steps go first */
+#define UNDOMAX 0x00400000UL
+void __fastcall__ u_mark(uint8_t why);        /* the gate's slots 0-3, $DF00 + 4n (named in demo/calc-header.s: */
+uint8_t __fastcall__ u_undo(uint8_t redo);     /* a call through a cast pointer costs 25 bytes, a JSR 3) */
+void u_reset(void);
+enum { U_CELL, U_SEL, U_PASTE, U_FILLD, U_FILLR, U_WIDTH };   /* u_mark's: the cell, the selection, where a paste lands, the fills, the widths alone */
 
 enum { C_NEW = 1, C_OPEN, C_SAVE, C_SAVEAS, C_IMPORT, C_EXPORT, C_EXIT,
        C_CUT, C_COPY, C_PASTE, C_CLEAR, C_FILLD, C_FILLR, C_GOTO, C_RECALC,
        C_FGEN, C_FDEC, C_FTHOU, C_FPCT, C_FDATE, C_WIDTH, C_WIDTHALL,
-       C_DOS, C_SYS, C_SEMI, C_HELP, C_FUNCS, C_ABOUT };
+       C_DOS, C_SYS, C_SEMI, C_HELP, C_FUNCS, C_ABOUT, C_UNDO, C_REDO };
 
 static void fs_w32(uint8_t r, uint32_t v) { REG(FS + r) = (uint8_t) v; REG(FS + r + 1) = (uint8_t)(v >> 8); REG(FS + r + 2) = (uint8_t)(v >> 16); REG(FS + r + 3) = (uint8_t)(v >> 24); }
 static uint32_t fs_r32(uint8_t r) { return (uint32_t) REG(FS + r) | ((uint32_t) REG(FS + r + 1) << 8) | ((uint32_t) REG(FS + r + 2) << 16) | ((uint32_t) REG(FS + r + 3) << 24); }
@@ -223,6 +246,7 @@ static uint16_t sa_put(const char *s, uint16_t n)
     memcpy(sa + san, s, n); sa[san + n] = 0; san = (uint16_t)(san + n + 1);
     return o;
 }
+void lk_call(uint8_t which, val *v);          /* the lookups, in the overlay (slot 3) */
 static void set_num(val *v, fbits n) { v->t = T_NUM; v->n = n; }
 static void set_bool(val *v, uint8_t b) { v->t = T_BOOL; v->n = b ? F1 : F0; }
 static const char *sp;                       /* the parser's place in the formula */
@@ -416,12 +440,12 @@ static const char *const fnames[] = {
     "ABS", "INT", "SQRT", "ROUND", "MOD", "PI",
     "IF", "AND", "OR", "NOT", "ISERROR", "IFERROR", "NA", "TRUE", "FALSE",
     "LEN", "LEFT", "RIGHT", "MID", "UPPER", "LOWER", "TRIM", "CONCAT", "CONCATENATE", "VALUE",
-    "TODAY", "NOW", 0 };
+    "TODAY", "NOW", "VLOOKUP", "HLOOKUP", "MATCH", "INDEX", 0 };
 enum { F_SUM, F_AVERAGE, F_AVG, F_MIN, F_MAX, F_COUNT, F_COUNTA,
        F_ABS, F_INT, F_SQRT, F_ROUND, F_MOD, F_PI,
        F_IF, F_AND, F_OR, F_NOT, F_ISERROR, F_IFERROR, F_NA, F_TRUE, F_FALSE,
        F_LEN, F_LEFT, F_RIGHT, F_MID, F_UPPER, F_LOWER, F_TRIM, F_CONCAT, F_CONCATENATE, F_VALUE,
-       F_TODAY, F_NOW };
+       F_TODAY, F_NOW, F_VLOOKUP };              /* HLOOKUP MATCH INDEX follow: the overlay's, in this order */
 static char ident[14];
 static void function(val *v)                 /* a name and its brackets: SUM(A1:A9), ROUND(B2;2), PI() */
 {
@@ -440,6 +464,7 @@ static void function(val *v)                 /* a name and its brackets: SUM(A1:
     skip();
     if (*sp != '(') { if (!err) err = E_SYNTAX; set_num(v, F0); return; }
     sp++;
+    if (i >= F_VLOOKUP) { lk_call((uint8_t)(i - F_VLOOKUP), v); return; }   /* the lookups: the overlay reads their arguments */
     switch (i) {
     case F_NA: close_paren(); if (!err) err = E_NA; set_num(v, F0); return;
     case F_TODAY: close_paren(); set_num(v, today(0)); return;
@@ -1157,6 +1182,7 @@ static void place(uint32_t src, uint8_t c, uint16_t r, int dc, int dr)
 static void clear_sel(void)
 {
     uint8_t c0, c1, c; uint16_t r0, r1, r;
+    u_mark(U_SEL);
     sel_box(&c0, &r0, &c1, &r1);
     for (r = r0; r <= r1; r++) for (c = c0; c <= c1; c++) if (kind_of(c, r)) put_cell(c, r, "");
     modified = 1; gridall = 1; recalc();
@@ -1165,6 +1191,7 @@ static void paste(void)
 {
     uint8_t c; uint16_t r;
     if (!clip_on) { note = "Nothing copied yet"; return; }
+    u_mark(U_PASTE);
     for (r = 0; r < clip_h && cr + r < NROW; r++) for (c = 0; c < clip_w && cc + c < NCOL; c++)
         place(CLIP + ((uint32_t) r * clip_w + c) * CELLSZ, (uint8_t)(cc + c), (uint16_t)(cr + r), (int) cc - clip_c0, (int) cr - clip_r0);
     if (clip_w > 1 || clip_h > 1) { selon = 1; ac = (uint8_t)(cc + clip_w - 1 < NCOL ? cc + clip_w - 1 : NCOL - 1); ar = (uint16_t)(cr + clip_h - 1 < NROW ? cr + clip_h - 1 : NROW - 1); }
@@ -1175,6 +1202,7 @@ static void fill(uint8_t right)              /* Ctrl+D / Ctrl+R: the first row /
     uint8_t c0, c1, c; uint16_t r0, r1, r;
     sel_box(&c0, &r0, &c1, &r1);
     if (!selon) { if (right) { if (!cc) return; c0--; } else { if (!cr) return; r0--; } }
+    u_mark((uint8_t)(U_FILLD + right));     /* the overlay works out the same box, and keeps nothing when this does nothing */
     if (right) { if (c1 == c0) return; for (r = r0; r <= r1; r++) for (c = (uint8_t)(c0 + 1); c <= c1; c++) place(caddr(c0, r), c, r, c - c0, 0); }
     else { if (r1 == r0) return; for (c = c0; c <= c1; c++) for (r = (uint16_t)(r0 + 1); r <= r1; r++) place(caddr(c, r0), c, r, 0, r - r0); }
     modified = 1; gridall = 1; recalc();
@@ -1182,6 +1210,7 @@ static void fill(uint8_t right)              /* Ctrl+D / Ctrl+R: the first row /
 static void fmt_sel(uint8_t how, uint8_t arg)   /* 0 general, 1 decimals arg, 2 thousands, 3 percent, 4 date -- on the cell or the range */
 {
     uint8_t c0, c1, c, f; uint16_t r0, r1, r;
+    u_mark(U_SEL);
     sel_box(&c0, &r0, &c1, &r1);
     for (r = r0; r <= r1; r++) for (c = c0; c <= c1; c++) {
         f = kind_of(c, r) ? far_peek(caddr(c, r) + 3) : F_GEN;
@@ -1198,6 +1227,177 @@ static void fmt_sel(uint8_t how, uint8_t arg)   /* 0 general, 1 decimals arg, 2 
     modified = 1; gridall = 1;
 }
 
+#pragma code-name (pop)
+
+/* ---- the overlay: undo and the lookups ------------------------------------
+ * In far memory at CALO_P, banked in at $E000 by the gate for a call (see
+ * CALO_P above); nothing in it calls HICODE, and the parser it calls for the
+ * lookups' arguments is all in the main image.  The gate's slots: 0 u_mark,
+ * 1 u_undo, 2 u_reset, 3 lk_call.
+ *
+ * Undo.  Before a command changes the sheet, u_mark keeps the box it is
+ * about to change -- each cell's 112 bytes, and the column widths -- as a
+ * step at the end of the history (UNDO, far memory).  Undo swaps the step
+ * with the sheet, so the step then holds what Undo took away, and Redo
+ * swaps it back: one swap does both.  A new step drops the ones ahead of it
+ * (Redo is gone once something else is done, as in Excel); past ULEV steps
+ * or UNDOMAX bytes the oldest go, and a step bigger than UNDOMAX empties the
+ * history (it cannot be undone).  New, Open and Import start afresh. */
+#pragma code-name (push, "CALO")
+/* the overlay's data and variables are in it too, out of the main image's
+ * BSS -- but in CALOB, not CALO: cc65 puts a function's static data at its
+ * label, ahead of its code, and a call would land on the data */
+#pragma rodata-name (push, "CALOB")
+#pragma data-name (push, "CALOB")
+#pragma bss-name (push, "CALOB")
+#define ULEV 100                             /* steps kept, as Excel keeps */
+#define UHDR 64                              /* a step: c0 c1 r0 r1, the widths (cw, colw), then the cells a row at a time */
+static void o_mark(uint8_t why);
+static uint8_t o_undo(uint8_t redo);
+static void o_reset(void);
+static void o_lookup(uint8_t which, val *v);
+#pragma rodata-name (push, "CALOTAB")       /* the overlay's first bytes: the gate reads them at CALO_P */
+static const struct { uint32_t base; uint8_t block, flags; void *entry; } calo_tab[4] = {
+    { CALO_P, 7, 0, (void *) o_mark }, { CALO_P, 7, 0, (void *) o_undo }, { CALO_P, 7, 0, (void *) o_reset }, { CALO_P, 7, 0, (void *) o_lookup } };
+#pragma rodata-name (pop)
+static uint8_t un, up;                       /* steps kept; how many of them are done (the rest are Redo's) */
+static uint32_t uoff[ULEV + 1];              /* where each step starts in UNDO; uoff[un] is the end */
+static uint8_t uc0, uc1; static uint16_t ur0, ur1;
+static const char m_noundo[] = "Nothing to undo", m_noredo[] = "Nothing to redo", m_undone[] = "Undone", m_redone[] = "Redone";   /* arrays: cc65 pools literals in the main image's RODATA */
+static void o_reset(void) { un = up = 0; }
+static void o_mark(uint8_t why)              /* rec holds the step's head on its way out: DMA cannot reach the overlay's own bytes */
+{
+    uint32_t size, d, p; uint16_t r; uint8_t i, w;
+    sel_box(&uc0, &ur0, &uc1, &ur1);
+    switch (why) {
+    case U_CELL: uc0 = uc1 = cc; ur0 = ur1 = cr; break;
+    case U_PASTE:
+        uc0 = cc; ur0 = cr;
+        uc1 = (uint8_t)(cc + clip_w - 1 < NCOL ? cc + clip_w - 1 : NCOL - 1);
+        ur1 = (uint16_t)(cr + clip_h - 1 < NROW ? cr + clip_h - 1 : NROW - 1);
+        break;
+    case U_FILLD: case U_FILLR:              /* fill()'s box; nothing kept when it does nothing */
+        if (!selon) { if (why == U_FILLR) { if (!cc) return; uc0--; } else { if (!cr) return; ur0--; } }
+        if (why == U_FILLR ? uc1 == uc0 : ur1 == ur0) return;
+        break;
+    case U_WIDTH: uc0 = 0xFF; break;         /* the widths alone */
+    }
+    w = (uint8_t)(uc1 - uc0 + 1);
+    size = uc0 == 0xFF ? UHDR : UHDR + (uint32_t) w * (ur1 - ur0 + 1) * CELLSZ;
+    un = up;                                 /* the steps ahead are gone */
+    if (size > UNDOMAX) { un = up = 0; return; }
+    while (un && (un >= ULEV || uoff[un] + size > UNDOMAX)) {   /* the oldest step goes */
+        d = uoff[1];
+        if (un > 1) dma_copy(UNDO + d, UNDO, uoff[un] - d);   /* the DMA is overlap-safe */
+        for (i = 0; i < un; i++) uoff[i] = uoff[i + 1] - d;
+        un--;
+    }
+    p = UNDO + uoff[un];
+    rec[0] = uc0; rec[1] = uc1; rec[2] = (uint8_t) ur0; rec[3] = (uint8_t)(ur0 >> 8); rec[4] = (uint8_t) ur1; rec[5] = (uint8_t)(ur1 >> 8);
+    rec[6] = cw; memcpy(rec + 7, colw, NCOL);
+    dma_copy((uint32_t)(uint16_t) rec, p, UHDR); p += UHDR;
+    if (uc0 != 0xFF) for (r = ur0; r <= ur1; r++) { dma_copy(caddr(uc0, r), p, (uint32_t) w * CELLSZ); p += (uint32_t) w * CELLSZ; }   /* a row's cells are one run */
+    un++; up = un; uoff[un] = p - UNDO;
+}
+static uint8_t o_undo(uint8_t redo)          /* 1: done -- the caller works the sheet out again and draws it all */
+{
+    uint32_t p; uint16_t r; uint8_t c, k, t;
+    if (redo ? up >= un : !up) { strcpy(cnote, redo ? m_noredo : m_noundo); note = cnote; return 0; }
+    if (!redo) up--;
+    p = UNDO + uoff[up];
+    dma_copy(p, (uint32_t)(uint16_t) rec, UHDR);
+    uc0 = rec[0]; uc1 = rec[1]; ur0 = rec[2] | (rec[3] << 8); ur1 = rec[4] | (rec[5] << 8);
+    t = rec[6]; rec[6] = cw; cw = t;         /* the widths change places with the step's */
+    for (c = 0; c < NCOL; c++) { t = rec[7 + c]; rec[7 + c] = colw[c]; colw[c] = t; }
+    dma_copy((uint32_t)(uint16_t) rec, p, UHDR); p += UHDR;
+    if (uc0 != 0xFF) for (r = ur0; r <= ur1; r++) for (c = uc0; c <= uc1; c++) {   /* and so does each cell */
+        dma_copy(p, (uint32_t)(uint16_t) rrec, CELLSZ);
+        k = kind_of(c, r);
+        dma_copy(caddr(c, r), p, CELLSZ);
+        dma_copy((uint32_t)(uint16_t) rrec, caddr(c, r), CELLSZ);
+        set_state(c, r, rrec[0], 0);
+        if (k && !rrec[0]) rowused[r]--; else if (!k && rrec[0]) rowused[r]++;
+        p += CELLSZ;
+    }
+    if (redo) up++;
+    if (uc0 != 0xFF) { cc = uc0; cr = ur0; ac = uc1; ar = ur1; selon = (uint8_t)(uc1 != uc0 || ur1 != ur0); }   /* the cursor on what changed, a range selected, as Excel does */
+    strcpy(cnote, redo ? m_redone : m_undone); note = cnote;
+    modified = 1;
+    return 1;
+}
+
+/* The lookups.  o_find walks a line of cells -- a column down, or a row
+ * across -- for lk_key: exact (mode 0, text in any case), or the last cell
+ * of an ascending run that is not past it (1), or of a descending one (-1),
+ * as Excel's sorted forms find it.  Empty cells, errors and values of
+ * another kind (a number against a text) are passed over. */
+static uint8_t lk_c, lk_dir; static int8_t lk_mode; static uint16_t lk_r, lk_n; static val lk_key;
+static uint8_t vclass(const val *v) { return (uint8_t)(v->t == T_STR ? 1 : v->t == T_BOOL ? 2 : 0); }
+static uint16_t o_find(void)                 /* the place found, from 0, or 0xFFFF */
+{
+    uint16_t i, hit = 0xFFFF, o, r; uint8_t c, e, kc = vclass(&lk_key); int t; val w;
+    for (i = 0; i < lk_n; i++) {
+        if (lk_dir) { c = (uint8_t)(lk_c + i); r = lk_r; } else { c = lk_c; r = (uint16_t)(lk_r + i); }
+        if (kind_of(c, r) == KIND_EMPTY) continue;
+        o = san; e = err; err = 0;           /* each cell's text let go again: the arena would fill on a long column */
+        cell_val(c, r, &w);
+        if (err || vclass(&w) != kc) { err = e; san = o; continue; }
+        t = cmp_vals(&w, &lk_key);
+        err = e; san = o;
+        if (!lk_mode) { if (!t) return i; }
+        else if (lk_mode > 0 ? t <= 0 : t >= 0) hit = i;
+        else break;
+    }
+    return hit;
+}
+#pragma static-locals (push, off)            /* a lookup's arguments may hold another lookup */
+static void o_lookup(uint8_t which, val *v)  /* 0 VLOOKUP 1 HLOOKUP 2 MATCH 3 INDEX; sp is past the ( */
+{
+    val key, x; uint8_t c0, c1, a, third = 0; uint16_t r0, r1, w, h, i; long k = 1, m = 1; int8_t mode = 1; const char *e;
+    if (which != 3) { expr(&key); if (!more()) goto bad; }
+    if (!range_at(&c0, &r0, &c1, &r1)) {     /* one cell is a range too */
+        skip();
+        if (ref_at(sp, &c0, &r0, &a, &e) == 1) { sp = e; c1 = c0; r1 = r0; }
+        else { expr(&x); if (!err) err = E_VALUE; }
+    }
+    if (which != 2) { if (!more()) goto bad; expr(&x); k = ftoi(f1(MATH_FLOOR, num_of(&x))); }
+    if (more()) {
+        expr(&x); third = 1;
+        if (which == 3) m = ftoi(f1(MATH_FLOOR, num_of(&x)));
+        else if (which == 2) mode = (int8_t) fcmp(num_of(&x), F0);
+        else mode = (int8_t) truth(&x);      /* FALSE or 0: exact */
+    }
+    close_paren();
+    set_num(v, F0);
+    if (err || defer) return;
+    w = (uint16_t)(c1 - c0 + 1); h = (uint16_t)(r1 - r0 + 1);
+    if (which == 3) {                        /* INDEX(range; row; col) */
+        if (!third && h == 1) { m = k; k = 1; }   /* INDEX(A1:E1;3): a row's one number is the column */
+        if (k < 1 || m < 1) { err = E_VALUE; return; }
+        if (k > h || m > w) { err = E_REF; return; }
+        cell_val((uint8_t)(c0 + m - 1), (uint16_t)(r0 + k - 1), v);
+        return;
+    }
+    if (which < 2) {                         /* the column (VLOOKUP) or row (HLOOKUP) to answer from */
+        if (k < 1) { err = E_VALUE; return; }
+        if (k > (which ? h : w)) { err = E_REF; return; }
+    } else if (w != 1 && h != 1) { err = E_NA; return; }   /* MATCH looks along a row or a column */
+    lk_c = c0; lk_r = r0; lk_dir = (uint8_t)(which == 1 || (which == 2 && h == 1)); lk_n = lk_dir ? w : h; lk_mode = mode;
+    lk_key = key; if (key.t == T_EMPTY) set_num(&lk_key, F0);
+    i = o_find();
+    if (i == 0xFFFF) { err = E_NA; return; }
+    if (which == 2) set_num(v, fint((long) i + 1));
+    else if (which) cell_val((uint8_t)(c0 + i), (uint16_t)(r0 + k - 1), v);
+    else cell_val((uint8_t)(c0 + k - 1), (uint16_t)(r0 + i), v);
+    return;
+bad:
+    if (!err) err = E_SYNTAX;
+    set_num(v, F0);
+}
+#pragma static-locals (pop)
+#pragma bss-name (pop)
+#pragma data-name (pop)
+#pragma rodata-name (pop)
 #pragma code-name (pop)
 
 #pragma code-name (push, "LOCODE")
@@ -1232,6 +1432,7 @@ static void begin_entry(uint8_t mode)
 static void commit(void)
 {
     ebuf[en] = 0;
+    u_mark(U_CELL);
     put_cell(cc, cr, ebuf);
     entering = 0; modified = 1; gridall = 1;
     recalc();
@@ -1273,7 +1474,7 @@ static uint8_t may_leave(void)
     if (a == 0) { if (name[0]) { save_sheet(); return (uint8_t)!modified; } return save_as(); }
     return (uint8_t)(a == 1);
 }
-static void fresh(void) { cc = lc = 0; cr = tr = 0; selon = 0; entering = 0; modified = 0; full = 1; lastcr = 0xFFFF; }
+static void fresh(void) { u_reset(); cc = lc = 0; cr = tr = 0; selon = 0; entering = 0; modified = 0; full = 1; lastcr = 0xFFFF; }
 static uint8_t ext_is(const char *n, const char *e)
 {
     const char *d = 0;
@@ -1304,6 +1505,8 @@ static const char helpall[] =
     "Selecting     Shift with an arrow; Del clears, Format applies to it all\0"
     "Clipboard     Ctrl+X Ctrl+C Ctrl+V -- a pasted formula's references move\0"
     "              with it, $ holds them;  Ctrl+D fills down, Ctrl+R right\0"
+    "Undo          Ctrl+Z undoes, Ctrl+Y redoes: entries, clears, pastes,\0"
+    "              fills, formats and widths, a hundred steps back\0"
     "Files         Ctrl+N new, Ctrl+O open, Ctrl+S save, Ctrl+Q exit;\0"
     "              File > Import CSV, Export CSV for LibreOffice and Excel\0"
     "Also          Ctrl+G go to, Ctrl+W column width, F9 recalculate\0"
@@ -1319,6 +1522,8 @@ static const char funcall[] =
     "IF(c;a;b) AND OR NOT ISERROR IFERROR(x;alt) NA()\0"
     "LEN LEFT(s;n) RIGHT(s;n) MID(s;from;n) UPPER LOWER TRIM CONCAT VALUE\0"
     "TODAY() NOW()   days since 1899-12-30; Cells > Date shows them as dates\0"
+    "VLOOKUP(v;range;col[;FALSE]) HLOOKUP(v;range;row[;0])  sorted unless 0\0"
+    "MATCH(v;range[;1|0|-1])  INDEX(range;row[;col])\0"
     "\0"
     "#DIV/0! #REF! #NAME? #VALUE! #N/A #NUM!  as Excel;  #CIRC! a circle;\0"
     "#ERROR! a formula that will not parse;  ##### a number too wide\0"
@@ -1344,6 +1549,7 @@ static void width_dlg(uint8_t all)
     if (!form1(all ? "All Columns" : "Column Width", "Width (3-40):", fbuf, 3, "OK")) return;
     for (i = 0; fbuf[i] >= '0' && fbuf[i] <= '9'; i++) n = (uint8_t)(n * 10 + (fbuf[i] - '0'));
     if (!i || fbuf[i] || n < 3 || n > 40) { note = "A width is 3 to 40"; return; }
+    u_mark(U_WIDTH);
     if (all) { cw = n; for (i = 0; i < NCOL; i++) colw[i] = n; } else colw[cc] = n;
     modified = 1; full = 1; layout(); keep_visible();
 }
@@ -1361,6 +1567,7 @@ static void run_cmd(uint8_t c)
     case C_EXPORT: { uint8_t i; const char *b = base_of(name); for (i = 0; b[i] && b[i] != '.' && i < NAMEMAX - 5; i++) fbuf[i] = b[i]; if (!i) { strcpy(fbuf, "SHEET"); i = 5; } strcpy(fbuf + i, ".CSV"); }
                    if (form1("Export CSV", "File Name:", fbuf, NAMEMAX, "OK") && fbuf[0]) export_csv(fbuf); full = 1; break;
     case C_EXIT:   if (may_leave()) running = 0; break;
+    case C_UNDO: case C_REDO: if (u_undo((uint8_t)(c == C_REDO))) { recalc(); full = 1; layout(); } break;   /* the widths may have changed too */
     case C_CUT:    copy_sel(); clear_sel(); break;
     case C_COPY:   copy_sel(); break;
     case C_PASTE:  paste(); break;
@@ -1388,7 +1595,8 @@ static const char *const mtitle[] = { "File", "Edit", "Cells", "Options", "Help"
 static const struct item m_file[]   = { { "New", 0, C_NEW, "Ctrl+N" }, { "Open...", 0, C_OPEN, "Ctrl+O" }, { "Save", 0, C_SAVE, "Ctrl+S" },
                                         { "Save As...", 5, C_SAVEAS, "" }, { "", 0, C_SEP, "" }, { "Import CSV...", 0, C_IMPORT, "" }, { "Export CSV...", 2, C_EXPORT, "" },
                                         { "", 0, C_SEP, "" }, { "Exit", 1, C_EXIT, "Ctrl+Q" }, { 0, 0, 0, 0 } };
-static const struct item m_edit[]   = { { "Cut", 2, C_CUT, "Ctrl+X" }, { "Copy", 0, C_COPY, "Ctrl+C" }, { "Paste", 0, C_PASTE, "Ctrl+V" },
+static const struct item m_edit[]   = { { "Undo", 0, C_UNDO, "Ctrl+Z" }, { "Redo", 3, C_REDO, "Ctrl+Y" }, { "", 0, C_SEP, "" },   /* Redo's o: R is Fill Right's */
+                                        { "Cut", 2, C_CUT, "Ctrl+X" }, { "Copy", 0, C_COPY, "Ctrl+C" }, { "Paste", 0, C_PASTE, "Ctrl+V" },
                                         { "Clear", 2, C_CLEAR, "Del" }, { "", 0, C_SEP, "" }, { "Fill Down", 5, C_FILLD, "Ctrl+D" }, { "Fill Right", 5, C_FILLR, "Ctrl+R" },
                                         { "", 0, C_SEP, "" }, { "Go To...", 0, C_GOTO, "Ctrl+G" }, { "Recalculate", 3, C_RECALC, "F9" }, { 0, 0, 0, 0 } };
 static const struct item m_fmt[]    = { { "General", 0, C_FGEN, "" }, { "Decimals...", 0, C_FDEC, "" }, { "Thousands", 0, C_FTHOU, "" },
@@ -1489,6 +1697,8 @@ static void do_key(uint8_t k)
         case 0x04: run_cmd(C_FILLD); return;         /* ^D */
         case 0x12: run_cmd(C_FILLR); return;         /* ^R */
         case 0x07: run_cmd(C_GOTO); return;          /* ^G */
+        case 0x1A: run_cmd(C_UNDO); return;          /* ^Z */
+        case 0x19: run_cmd(C_REDO); return;          /* ^Y */
         case 0x17: run_cmd(C_WIDTH); return;         /* ^W */
         case 0x08: case 0x7F: run_cmd(C_CLEAR); return;
         }
@@ -1526,6 +1736,7 @@ void main(void)
     F0 = fint(0); F1 = fint(1); F10 = fint(10); F100 = fint(100); F2E9 = fint(2000000000L);
     FPI = f2(MATH_MUL, f1(MATH_ATAN, fint(1)), fint(4));
     clear_sheet();
+    w32r(0xDF80u, CALO_P);                            /* the far-call gate's table: the overlay's first bytes */
     ui_init();
     ui_titles = mtitle; ui_menus = menus; ui_nmenu = 5; ui_marked = marked; ui_dirtab = 0x0EE00000UL; ui_name = "CALC "; ui_relayout = relayout;
     layout();

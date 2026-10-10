@@ -550,12 +550,15 @@ The spelling is Excel’s and LibreOffice Calc’s, which is what anyone brings 
 - references `A1`, ranges `A1:B9`, and absolute or mixed references `$A$1`, `A$1`, `$A1`. While a formula is being typed, F4 on a reference cycles it through the four forms.
 - `+ - * / ^`, the comparisons `= <> < > <= >=` (which give `TRUE` or `FALSE`), and `&` to join text; text itself goes in double quotes: `="Total: "&A1`.
 - the functions: `SUM AVERAGE MIN MAX COUNT COUNTA` over ranges and lists; `ABS INT SQRT ROUND(x;n) MOD PI()`; `IF(test;then;else) AND OR NOT ISERROR IFERROR NA()`; `LEN LEFT RIGHT MID UPPER LOWER TRIM CONCAT VALUE`; `TODAY()` and `NOW()`, which count days from 1899-12-30 as Excel does (the machine’s clock; the MATH unit’s seven digits put `NOW` within a few minutes).
+- the lookups, as Excel has them: `VLOOKUP(value;range;col;[sorted])` looks down the range’s first column and answers from column `col` of the row it finds, `HLOOKUP` the same along the first row; `MATCH(value;range;[type])` gives the place in a row or a column (type 1, the default, the largest not past the value in a rising list; 0 exact; −1 the smallest not below it in a falling one), and `INDEX(range;row;[col])` the cell at that place. With `FALSE` or 0 a lookup wants the value exactly (text in any case); with `TRUE` or nothing the column is taken as sorted and the largest value not past the one sought is the match. Not found is `#N/A`, a column past the range `#REF!`, a column below 1 `#VALUE!`.
 - arguments part with a comma or a semicolon — Excel’s comma, LibreOffice’s semicolon in French — and a formula is kept and shown as it was typed.
 - the error values: `#DIV/0!`, `#REF!` (a cell off the sheet, or one a paste lost), `#NAME?`, `#VALUE!`, `#N/A`, `#NUM!`, and `#ERROR!` for a formula that will not parse. An error in a cell reaches every formula that uses it.
 
 The sheet is worked out again after every entry, in the order its formulas need: a formula above the cells it uses is simply left for the next pass, and what is still waiting when a pass can do nothing more is a circle — those cells show `#CIRC!` instead of the sheet hanging. F9 works it out again by hand (for `NOW()`).
 
 Shift with an arrow selects a range. Ctrl+X, Ctrl+C and Ctrl+V cut, copy and paste the cell or the range, and a pasted formula’s references move with it — `=A1*2` copied two rows down reads `A3` — while a `$` holds its half still. Ctrl+D fills down and Ctrl+R fills right, from the first row or column of the selection (a lone cell takes from the cell above it, or to its left). Del clears.
+
+Ctrl+Z undoes and Ctrl+Y redoes, as in Excel and LibreOffice (*Edit* → *Undo*, *Redo*): an entry, a clear, a cut, a paste, a fill, a format from the *Cells* menu and a column width, the whole range at once, and the cursor goes to what changed. The history keeps the last hundred steps, or 4 MB of them, the oldest going first; doing something new after an undo ends what Redo had, and *New*, *Open* and *Import CSV* start it afresh. Undo and the lookups are not in CALC’s main memory at all: they are an overlay that the far-call gate swaps in at $E000 when one of them is called (EDIT keeps VI’s keys the same way).
 
 The *Cells* menu formats the cell or the range: *General*, *Decimals…* (0 to 9 places), *Thousands* (on or off; a space between them, `1 234 567.00`, the point for the decimals), *Percent*, *Date* (which shows a day count as `2026-10-10` and widens the column to hold it); and *Column Width…* (Ctrl+W) or *All Columns…*. It is called *Cells* and not *Format* because a menu opens by its first letter, and *File* has the F.
 
@@ -566,6 +569,7 @@ The *Cells* menu formats the cell or the range: *General*, *Decimals…* (0 to 9
 | F2, F4 | edit the cell in place; `$` on the reference under the cursor |
 | Del, Ctrl+X, Ctrl+C, Ctrl+V | clear, cut, copy, paste |
 | Ctrl+D, Ctrl+R | fill down, fill right |
+| Ctrl+Z, Ctrl+Y | undo, redo |
 | Ctrl+G, Ctrl+W, F9 | go to a cell, the column’s width, recalculate |
 | Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q *or* Esc | new, open, save, leave |
 | F1, Shift+F1 | the keys, the formulas |

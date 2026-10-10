@@ -12735,3 +12735,36 @@ text8 because text32 cells were opaque.  The K4510 now has both halves:
 - Handbook: chapter 21 "The data ports: text the X16's way", the memory
   chapter's list, the appendix's TEXT row and bullet; mkregs titles the
   new io.h block.
+
+### 2026-10-10 -- the data ports, put to work
+
+Doc: "ok change what needs to be updated to improve everything".  The
+console was already fast: PRINT, K/OS and every JIM program send a byte
+a character to $DA00, the one-store-a-byte the ports give.  The slow
+places were the ones that walked far memory a byte at a time through
+FarPoke/far_poke, building a 32-bit address for each byte:
+
+- K4510 BASIC (tools/kbasic/kbasrt.pas): every string goes through SPut
+  and SGet, which now set port 0 once and move the bytes with a store
+  each; PRINT# and LINE INPUT# through a port too (FPutS checks the file
+  once for the whole string).  A string loop (LEFT$ + RIGHT$, MID$ + a$,
+  300 times): 62 -> 43 frames.  The rest is Mad Pascal's string code.
+- Pascal: k4510.pas has PORT0_/PORT1_ADDR, _STEP, _DATA and PortAt.
+  GRAPH's OutTextXY reads the glyph through port 1 and walks each row of
+  the picture with port 0, the bit loop in assembler; a letter across an
+  edge takes the old clipped path.  300 lines of 82 letters: 447 -> 101
+  frames (4.4x).
+- demo/dosui.h (EDIT, WORD, CALC): pc() writes the shadow cell through
+  port 1, kept pointing at the next cell, so a string or a box edge sets
+  the address once.  12000 cells: 48 -> 7 frames for the shadow, 59 ->
+  17 with JIM.  PROG is full to the byte (7 free), so it defines
+  DOSUI_FARPOKE and keeps the far_poke16 pc().
+- ROM: the palette snapshot around RUN (768 bytes there and back) and
+  PALETTE SAVE through port 0, left at STEP 1.
+- FLUFFY's put_str through port 0.
+- Handbook: PortAt in chapter 10's table, OutTextXY's paragraph; chapter
+  21 says who uses the ports and that the ROM borrows port 0.
+- Not changed: text8_print in k4510.h (a reference to port_at keeps
+  port_at in every program that includes the header, and PROG has no
+  room); sprite tables (six stores to set a port, dearer than the four
+  saved, as measured for track 4).

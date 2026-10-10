@@ -650,7 +650,9 @@ end;
 procedure EPut(var p: cardinal; const s: string);
 var i: byte;
 begin
-  for i := 1 to length(s) do begin FarPoke(p, ord(s[i])); inc(p); end;
+  PortAt(0, p, 1);
+  for i := 1 to length(s) do PORT0_DATA := ord(s[i]);
+  p := p + length(s);
 end;
 
 // a runtime error: said on the screen, and left in MAKE.ERR for PROG
@@ -948,18 +950,25 @@ begin
   inc(kb_flen[k]);
 end;
 
-procedure KFPrintS(k, h: byte; line: word);
-var u: string; i: byte;
+procedure FPutS(k: byte; const u: string; line: word);   // FPut's checks once, then the bytes through a port
+var i: byte;
 begin
-  u := SGet(h);
-  for i := 1 to length(u) do FPut(k, ord(u[i]), line);
+  if kb_fmode[k] <> 2 then KError(line, 'That file is not open FOR OUTPUT or APPEND');
+  if kb_flen[k] + length(u) > $FFFF then KError(line, 'The file is full (64 KB)');
+  PortAt(0, FBUF + cardinal(k) * $10000 + kb_flen[k], 1);
+  for i := 1 to length(u) do PORT0_DATA := ord(u[i]);
+  kb_flen[k] := kb_flen[k] + length(u);
+end;
+
+procedure KFPrintS(k, h: byte; line: word);
+begin
+  kb_u := SGet(h); FPutS(k, kb_u, line);
 end;
 
 procedure KFPrintN(k: byte; x: single; line: word);
-var u: string; i: byte;
+var u: string;
 begin
-  u := xStrN(x);
-  for i := 1 to length(u) do FPut(k, ord(u[i]), line);
+  u := xStrN(x); FPutS(k, u, line);
 end;
 
 procedure KFComma(k: byte; line: word);
@@ -978,9 +987,10 @@ begin
   if kb_fmode[k] <> 1 then KError(line, 'That file is not open FOR INPUT');
   if not (kb_fpos[k] < kb_flen[k]) then KError(line, 'Past the end of the file (check EOF first)');
   base := FBUF + cardinal(k) * $10000;
+  PortAt(1, base + kb_fpos[k], 1);   // port 1: SPut below takes port 0
   n := 0;
   while kb_fpos[k] < kb_flen[k] do begin
-    c := FarPeek(base + kb_fpos[k]); inc(kb_fpos[k]);
+    c := PORT1_DATA; inc(kb_fpos[k]);
     if c = 10 then break;
     if (c <> 13) and (n < 255) then begin inc(n); t[n] := chr(c); end;
   end;
@@ -1114,8 +1124,9 @@ begin
   inc(kb_sn); if kb_sn = NSLOT then kb_sn := kb_sf;
   a := SLOTS + cardinal(kb_sn) * 256;
   n := length(s);
-  FarPoke(a, n);
-  for i := 1 to n do FarPoke(a + i, ord(s[i]));
+  PortAt(0, a, 1);                 // a data port: the address set once, then a store a byte
+  PORT0_DATA := n;
+  for i := 1 to n do PORT0_DATA := ord(s[i]);
   Result := kb_sn;
 end;
 
@@ -1123,8 +1134,9 @@ function SGet(h: byte): string;
 var a: cardinal; i, n: byte;
 begin
   a := SLOTS + cardinal(h) * 256;
-  n := FarPeek(a);
-  for i := 1 to n do Result[i] := chr(FarPeek(a + i));
+  PortAt(0, a, 1);
+  n := PORT0_DATA;
+  for i := 1 to n do Result[i] := chr(PORT0_DATA);
   Result[0] := chr(n);
 end;
 

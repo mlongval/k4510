@@ -35,6 +35,7 @@ static void ui_start(void);
 #define ED_SCREEN_BACK() ui_start()
 #define ED_HICODE                               /* a little of ed.h at $E000 too */
 #include "ed.h"
+#define DOSUI_FARPOKE                  /* full to the byte: dosui.h's smaller pc() */
 #include "dosui.h"
 #include "dosed.h"
 static uint8_t vimode;                                /* VI's keys: Options, or -v */

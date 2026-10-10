@@ -146,10 +146,24 @@ static void flush(uint8_t y, uint8_t n)               /* row y's first n cells, 
     jc_at(0, y);
     for (x = 0; x < n; x++, p += 4) { jc_col(p[2], p[3]); jc_ch(p[0]); }
 }
+/* The shadow's cells go through data port 1 (k4510.h, 2026-10-10): a row of
+ * cells -- a string, a box's edge -- sets the address once.  pc_x, pc_y are
+ * the cell the port points at next, pc_lo its address's low byte as this
+ * left it: a port moved by someone else is set again.  PROG, full to the
+ * byte, defines DOSUI_FARPOKE for the old way, 100-odd bytes smaller. */
+#ifdef DOSUI_FARPOKE
 static void pc(uint8_t x, uint8_t y, uint8_t ch, uint8_t f, uint8_t b)     /* one cell */
 {
     uint32_t a = rowaddr(y) + ((unsigned)x << 2);
     far_poke16(a, ch); far_poke16(a + 2, (uint16_t)f | ((uint16_t)b << 8));
+#else
+static uint8_t pc_x = 0xFF, pc_y, pc_lo;
+static void pc(uint8_t x, uint8_t y, uint8_t ch, uint8_t f, uint8_t b)     /* one cell */
+{
+    if (x != pc_x || y != pc_y || REG(PORT1) != pc_lo) { w32(PORT1, rowaddr(y) + ((unsigned)x << 2)); w16(PORT1 + 4, 1); pc_y = y; }
+    PORT_DATA(PORT1) = ch; PORT_DATA(PORT1) = 0; PORT_DATA(PORT1) = f; PORT_DATA(PORT1) = b;
+    pc_x = (uint8_t)(x + 1); pc_lo = REG(PORT1);
+#endif
     jc_at(x, y); jc_col(f, b); jc_ch(ch);
 }
 static void pk(uint8_t x, uint8_t y, uint8_t ch, uint8_t k) { pc(x, y, ch, kf[k], kb[k]); }
@@ -220,6 +234,9 @@ static void status_line(const char *s, const char *right)   /* the last row: s, 
 static void ui_init(void)                             /* the window's size, as JIM has it; oy for the mouse */
 {
     cols = REG(TERM + 5); rows = REG(TERM + 6); oy = REG(TERM + 8);
+#ifndef DOSUI_FARPOKE
+    pc_x = 0xFF;
+#endif
     if (!cols) cols = 80;
     if (!rows) rows = 30;
     if (cols > 184) cols = 184;

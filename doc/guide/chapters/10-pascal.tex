@@ -218,6 +218,13 @@ shell's own buffers.
   before the call returns.}
 \cmdentry{DmaFill(dst, len: cardinal; v: byte)}{far memory}{Fills
   \texttt{len} bytes with \texttt{v}.}
+\cmdentry{PortAt(p: byte; a: cardinal; step: smallint)}{far memory}{Points
+  data port \texttt{p} (0 or 1) at \texttt{a}. After it, each read or
+  write of \verb|PORT0_DATA| (or \verb|PORT1_DATA|) is the next byte, the
+  address moving on by \texttt{step}: a row, a column, every fourth
+  byte. The cheap way through a run of far memory, one byte a store
+  (section~\ref{sec:ports}). \verb|PORT0_ADDR| and \verb|PORT0_STEP| are
+  there to set by hand too.}
 \cmdentry{LoadFile(const name: string; dest: cardinal): cardinal}{files}{Reads
   the whole file to far address \texttt{dest} and returns its length;
   0 if it could not (no such file --- or an empty one).}
@@ -505,7 +512,8 @@ triangle by the blitter.
 
 \paragraph{\texttt{OutTextXY(x, y: smallint; s: string)}} Draws \verb|s| into
 the picture with the console's 8 by 8 font, its top left at \verb|x,y|, in the
-current colour.
+current colour. A letter wholly on the picture goes through the data ports, a
+store a pixel; one across an edge is drawn pixel by pixel and clipped.
 
 \noindent Mad Pascal's own generic routines --- \verb|Circle|,
 \verb|Ellipse|, \verb|Rectangle|, \verb|MoveTo| and the rest --- are built on

@@ -177,7 +177,7 @@ static uint8_t at_goal(void)
 }
 
 /* ---- drawing ----------------------------------------------------------------- */
-static void put_str(uint8_t x, uint8_t y, const char *s) { uint32_t p = TEXTMAP + (uint32_t)y * 40 + x; while (*s) far_poke(p++, *s++); }
+static void put_str(uint8_t x, uint8_t y, const char *s) { port_at(PORT0, TEXTMAP + (uint32_t)y * 40 + x, 1); while (*s) PORT_DATA(PORT0) = *s++; }
 static void put_dec(uint8_t x, uint8_t y, uint32_t v, uint8_t w)
 { uint32_t p = TEXTMAP + (uint32_t)y * 40 + x + w; while (w--) { far_poke(--p, (uint8_t)('0' + v % 10)); v /= 10; } }
 static void centre(uint8_t y, const char *s) { uint8_t n = 0; const char *q = s; while (*q++) n++; put_str((uint8_t)(n >= 40 ? 0 : (40 - n) / 2), y, s); }

@@ -1513,16 +1513,24 @@ static uint8_t pal_get(uint8_t i, uint8_t c)     /* c: 0 R, 1 G, 2 B */
  * colours end with the game, and a PALETTE LOAD made on purpose survives it.
  * Only entries that differ are written back. */
 #define PALSNAP 0x0FDFF000UL
+/* Data port 0 (core/io.h, 2026-10-10) walks PALSNAP and PALBUF: the address
+ * set once, then a byte a store.  The ROM takes it only around RUN and the
+ * PALETTE command, and leaves it at STEP 1; a program sets a port before
+ * each use anyway. */
+#define PORT0D REG(DMA + 0x16)
+static void port0(uint32_t a) { w32(DMA + 0x10, a); REG(DMA + 0x14) = 1; REG(DMA + 0x15) = 0; }
 static void pal_snap(const char *p)
 {
-    uint16_t i; uint32_t a = PALSNAP; (void) p;
-    for (i = 0; i < 256; i++) { REG(VICKY + 6) = (uint8_t)i; far_poke(a++, REG(VICKY + 7)); far_poke(a++, REG(VICKY + 8)); far_poke(a++, REG(VICKY + 9)); }
+    uint16_t i; (void) p;
+    port0(PALSNAP);
+    for (i = 0; i < 256; i++) { REG(VICKY + 6) = (uint8_t)i; PORT0D = REG(VICKY + 7); PORT0D = REG(VICKY + 8); PORT0D = REG(VICKY + 9); }
 }
 static void pal_restore(const char *p)
 {
-    uint16_t i; uint32_t a = PALSNAP; (void) p;
-    for (i = 0; i < 256; i++, a += 3) {
-        uint8_t r = far_peek(a), g = far_peek(a + 1), b = far_peek(a + 2);
+    uint16_t i; (void) p;
+    port0(PALSNAP);
+    for (i = 0; i < 256; i++) {
+        uint8_t r = PORT0D, g = PORT0D, b = PORT0D;
         REG(VICKY + 6) = (uint8_t)i;
         if (REG(VICKY + 7) != r || REG(VICKY + 8) != g || REG(VICKY + 9) != b) pal_put((uint8_t)i, r, g, b);
     }
@@ -1624,15 +1632,17 @@ static void pal_save(const char *name)
     char path[NAMEMAX]; uint32_t o = 0; uint8_t i, c;
     const char *hdr = "# K4510 palette -- index rr gg bb, hex\n";
     pal_path(name, path); if (!path[0]) return;
-    while (*hdr) far_poke(PALBUF + o++, (uint8_t)*hdr++);
+    port0(PALBUF);
+    while (*hdr) { PORT0D = (uint8_t)*hdr++; o++; }
     for (i = 0; i < 16; i++) {
-        far_poke(PALBUF + o++, (uint8_t)pal_dig(i));
-        far_poke(PALBUF + o++, ' ');
+        PORT0D = (uint8_t)pal_dig(i);
+        PORT0D = ' ';
         for (c = 0; c < 3; c++) { uint8_t v = pal_get(i, c);
-            far_poke(PALBUF + o++, (uint8_t)pal_dig((uint8_t)(v >> 4)));
-            far_poke(PALBUF + o++, (uint8_t)pal_dig(v));
-            far_poke(PALBUF + o++, ' '); }
-        far_poke(PALBUF + o++, '\n');
+            PORT0D = (uint8_t)pal_dig((uint8_t)(v >> 4));
+            PORT0D = (uint8_t)pal_dig(v);
+            PORT0D = ' '; }
+        PORT0D = '\n';
+        o += 12;
     }
     fs_name(path); w32(FS + 8, PALBUF); w32(FS + 0x0C, o);
     if (fs_cmd(10)) { error("palette: cannot write"); return; }

@@ -67,6 +67,15 @@ shows the layers below it, and any other background still paints.
 Without bit~7 every cell is opaque, which is how the K/OS console
 uses text32.
 
+The machine's own software uses the ports where it walks memory a
+byte at a time. K4510 BASIC moves its strings and file buffers
+through them; the Pascal unit has \verb|PortAt| and GRAPH's
+\verb|OutTextXY| draws through them; EDIT, WORD and CALC lay their
+menus and dialogs through port~1. The ROM borrows port~0 when it
+starts and ends a program and for \texttt{PALETTE SAVE}, and leaves
+STEP at~1. So a program points a port where it wants it before each
+run of bytes, and never counts on where it was left.
+
 \section{Choosing a resolution}\label{sec:resolution}
 A program never assumes a screen. The panel decides what the machine
 shows --- 1920$\times$1080, 1366$\times$768, whatever the computer has --- and

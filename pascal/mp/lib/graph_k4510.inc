@@ -12,6 +12,12 @@ var	gfx_bk, gfx_ctrl: byte;
 	DMAD: cardinal absolute $D204;
 	DMAL: cardinal absolute $D208;
 	DMAC: byte absolute $D20C;
+	PORT0_ADDR: cardinal absolute $D210;	(* the data ports, core/io.h *)
+	PORT0_STEP: smallint absolute $D214;
+	PORT0_DATA: byte absolute $D216;
+	PORT1_ADDR: cardinal absolute $D218;
+	PORT1_STEP: smallint absolute $D21C;
+	PORT1_DATA: byte absolute $D21E;
 
 procedure gfx_blit(op: byte); assembler;   (* the whole bitmap as the blitter's destination, colour as source *)
 asm
@@ -390,14 +396,45 @@ procedure OutTextXY(x,y: smallint; s: string);
 @description:
 Text into the picture, 8x8, the console's font, in the current colour
 *)
-var i, r, b, g: byte;
+var i, r, b, g, c: byte;
+    a: cardinal;
 begin
+	c := GetColor;
+	PORT0_STEP := 1; PORT1_STEP := 1;
 	for i := 1 to length(s) do begin
-		for r := 0 to 7 do begin
-			g := gfx_font($010000 + byte(s[i]) * 8 + r);
-			for b := 0 to 7 do
-				if (g and ($80 shr b)) <> 0 then PutPixel(x + b, y + r);
-		end;
+		if (x >= 0) and (y >= 0) and (x + 8 <= smallint(gfx_width)) and (y + 8 <= smallint(gfx_height)) then begin
+			(* wholly on the glass: the data ports (2026-10-10).  Port 1 reads
+			   the glyph's eight rows, port 0 walks each row of the picture: a
+			   set bit stores the colour, a clear one reads past the pixel *)
+			MULA := y; MULB := gfx_width;
+			a := MULOUT + GFX_BASE + x;
+			PORT1_ADDR := $010000 + byte(s[i]) * 8;
+			for r := 0 to 7 do begin
+				PORT0_ADDR := a;
+				asm
+					lda $D21E		; PORT1_DATA: the glyph's row
+					sta g
+					ldy #8			; Y: X is Mad Pascal's stack
+ot_bit					asl g
+					bcc ot_clr
+					lda c
+					sta $D216		; PORT0_DATA: the pixel, and on
+					dey
+					bne ot_bit
+					beq ot_row
+ot_clr					lda $D216		; past it
+					dey
+					bne ot_bit
+ot_row
+				end;
+				a := a + gfx_width;
+			end;
+		end else
+			for r := 0 to 7 do begin	(* across an edge: pixel by pixel, clipped *)
+				g := gfx_font($010000 + byte(s[i]) * 8 + r);
+				for b := 0 to 7 do
+					if (g and ($80 shr b)) <> 0 then PutPixel(x + b, y + r);
+			end;
 		x := x + 8;
 	end;
 end;

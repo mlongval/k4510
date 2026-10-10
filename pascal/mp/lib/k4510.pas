@@ -34,6 +34,12 @@ var
 	DMA_DST: cardinal absolute $D204;
 	DMA_LEN: cardinal absolute $D208;
 	DMA_CMD: byte absolute $D20C;			(* @var 1 copy, 2 fill (value = SRC byte 0), 3 swap *)
+	PORT0_ADDR: cardinal absolute $D210;		(* @var the data ports (2026-10-10): an address, 28-bit, *)
+	PORT0_STEP: smallint absolute $D214;		(* @var a step (power-on 1), and DATA: each read or write *)
+	PORT0_DATA: byte absolute $D216;		(* @var of DATA is a byte there, and the address moves on *)
+	PORT1_ADDR: cardinal absolute $D218;		(* @var port 1, the same: one for the glyphs, one for the *)
+	PORT1_STEP: smallint absolute $D21C;		(* @var colours, say -- or one to read and one to write *)
+	PORT1_DATA: byte absolute $D21E;
 	FS_CMD: byte absolute $D300;
 	FS_STATUS: byte absolute $D301;
 	FS_NAMEPTR: cardinal absolute $D304;
@@ -71,6 +77,7 @@ function FarPeek(a: cardinal): byte; assembler;
 (* @description: a byte from anywhere in the 256 MB (45GS02 flat load) *)
 procedure FarPoke(a: cardinal; v: byte); assembler;
 (* @description: a byte to anywhere in the 256 MB (45GS02 flat store) *)
+procedure PortAt(p: byte; a: cardinal; step: smallint);
 procedure DmaCopy(src, dst, len: cardinal);
 (* @description: the DMA engine copies len bytes, physical addresses; instant *)
 procedure DmaFill(dst, len: cardinal; v: byte);
@@ -134,6 +141,14 @@ asm
 	dta $A3,$00		; LDZ #0
 	dta $EA,$92,:bp		; NOP prefix + STA (bp),Z = STA [bp],Z
 	stz :bp			; bp's low byte back to 0: Mad Pascal's (:bp),y array code assumes it (2026-10-03)
+end;
+
+(* A data port (0 or 1) to address a, moving step bytes a byte: then each
+   PORTn_DATA is the next byte, with no address built for it. *)
+procedure PortAt(p: byte; a: cardinal; step: smallint);
+begin
+	if p = 0 then begin PORT0_ADDR := a; PORT0_STEP := step; end
+	else begin PORT1_ADDR := a; PORT1_STEP := step; end;
 end;
 
 procedure DmaCopy(src, dst, len: cardinal);

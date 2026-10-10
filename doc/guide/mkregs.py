@@ -48,6 +48,7 @@ TITLES = {
     "Keyboard":            "The keyboard",
     "Names are NUL":       "Storage: the host filesystem",
     "All addresses phys":  "The DMA engine",
+    "The data ports":      "The data ports",
     "The Tube":            "The Tube",
     "VICKY --":            "VICKY",
     "The network, three":  "The N: device",

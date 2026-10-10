@@ -87,7 +87,7 @@ programmer would write it for that machine:
 | pixel | VERA's address registers, then `DATA0` | `far_poke` (`STA [zp],Z`) |
 | image, 32x32 from RAM | KERNAL `GRAPH_draw_image` | blitter COPY |
 | scroll, the whole bitmap up a line | KERNAL `GRAPH_move_rect` | DMA copy |
-| text, 40x30 whole | VERA's data port, char and colour | `far_poke` a byte a cell (text8) |
+| text, 40x30 whole | VERA's data port, char and colour | the data ports, char and colour (text32, see-through) |
 | sprite move | VERA's data port, 4 bytes | `far_poke16` twice |
 | palette, 240 entries | VERA's data port, 2 bytes an entry | `PALIDX`, then R, G, B |
 
@@ -166,10 +166,9 @@ The X16 runs each once. Both report seconds per run.
   and PALETTE use no blitter and are real on both.
 - **Text over a picture.** VERA's text layer has a colour per
   cell and lets the bitmap through where the background is 0.
-  VICKY's text32 cells are opaque, so the K4510's see-through
-  text is text8: one byte a cell, the colour the layer's. The
-  X16 writes twice the bytes in TEXT, and still wins it clock
-  for clock (below).
+  VICKY's text32 does the same since 2026-10-10, with LCTRL
+  bit 7 (see-through). Both machines now write two bytes a
+  cell in TEXT, one store each, through a data port.
 - **cc65 2.19 and the X16's top 64 KB of VRAM.** `-O` compiled
   `(uint8_t) (a >> 16) | inc` to `inc` alone, so a VERA
   address above $FFFF lost its bank bit and the sprites,
@@ -213,13 +212,20 @@ K4510 at 40.5 and at 8 MHz:
 - PIXELS, SPRITES and PALETTE are about 5x at 40.5 MHz and
   1.0x at 8 MHz: a register write is a register write, and
   clock for clock the two chips' doorways are alike.
-- **TEXT is the X16's**: 0.4x at 8 MHz, 2.0x at 40.5. VERA's
-  data port steps its own address, so a row is one address
-  and eighty `STA`s. The K4510's C has no such port: each
-  `far_poke` carries a 32-bit address built in C. A program
-  that wants the K4510's text faster builds the row in RAM
-  and DMAs it, and a library word that did that (or a stepping
-  port on VICKY) would be the place to improve.
+- **TEXT was the X16's**: 0.4x at 8 MHz, 2.0x at 40.5, on the
+  first run. VERA's data port steps its own address, so a row
+  is one address and eighty `STA`s, where the K4510 built a
+  32-bit address in C for every `far_poke`, in text8. Doc asked
+  for the X16's way, and the K4510 has it now (2026-10-10): two
+  data ports at $D210 and $D218 (core/io.h) that move on by a
+  signed STEP after every access, and text32's see-through bit.
+  TEXT went from 12.1 to 5.4 ms at 40.5 MHz (4.4x the X16) and
+  from 61 to 27 ms at 8 MHz (0.9x): a draw, clock for clock.
+  What is left is setting a port, four address bytes and two of
+  step against VERA's three bytes, and text32's four-byte cell
+  needing two ports where VERA's two-byte cell needs one.
+  SPRITES stays on `far_poke16`: six stores to set a port is
+  dearer than the four it would save.
 
 ## Where x16emu comes from
 

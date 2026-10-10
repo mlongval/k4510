@@ -12707,3 +12707,31 @@ overwrite, a paste, a fill, Del, cut, Thousands, a width, three steps, Redo
 and its end, New, the menu, the hundred-step bound; the four lookups, their
 errors, case, nesting).  Handbook: chapter 11's CALC section (tex and site),
 PDF not rebuilt.
+### 2026-10-10 -- the data ports, and see-through text32
+
+Doc: "can you update the K4510 to get better text display like the X16?"
+Track 4 had shown why the X16 won TEXT clock for clock: VERA's DATA0 steps
+its own address, so a row is one address and a store a byte, while a
+K4510 C program built a 32-bit address for every far_poke, and wrote
+text8 because text32 cells were opaque.  The K4510 now has both halves:
+
+- Two data ports in the DMA page (core/io.h, io.c), $D210 and $D218: a
+  28-bit ADDR, a signed 16-bit STEP, and DATA, whose every read or write
+  moves ADDR on by STEP.  Any memory, any stride: a row of a text map, a
+  column of a bitmap, one field of every sprite.  Reset ADDR 0, STEP 1.
+  Saved in states (chunk PORT; the magic is K4510ST3, so an older state
+  is refused rather than misread).
+- LCTRL bit7 on a text32 layer: see-through.  A cell bg of 0 shows the
+  layers below, as VERA's text does; any other bg paints.  The HD glyph
+  redraw is skipped for such a layer, which would otherwise paint the 0.
+- demo/k4510.h: PORT0, PORT1, PORT_DATA(), port_at().
+- Tests: dmatest 5 (a row of char and colour by two ports from CPU code,
+  a column read with STEP 320, STEP -1); vickytest 4b (fg drawn, bg 0
+  shows the layer below, bg 4 still paints, bit7 off paints 0).
+- compare/x16 TEXT: text32 see-through through two ports, two bytes a
+  cell as on the X16.  12.1 -> 5.4 ms at 40.5 MHz (4.4x the X16), 61 ->
+  27 ms at 8 MHz (0.4x -> 0.9x).  SPRITES stays on far_poke16: setting
+  a port is six stores, dearer than the four it saves.
+- Handbook: chapter 21 "The data ports: text the X16's way", the memory
+  chapter's list, the appendix's TEXT row and bullet; mkregs titles the
+  new io.h block.

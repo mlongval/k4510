@@ -930,7 +930,7 @@ Q ops verified. Wozmon runs from ROM.
   |---|---|
   | `$D000-$D0FF` | VICKY registers |
   | `$D100-$D1FF` | keyboard, joysticks, mouse |
-  | `$D200-$D2FF` | DMA (C-18) |
+  | `$D200-$D2FF` | DMA (C-18); the two data ports at `$D210`, `$D218` (2026-10-10) |
   | `$D300-$D3FF` | storage / host filesystem (D-09) |
   | `$D400-$D47F` | SIDs 0-3 (`$20` each, as on the C64) |
   | `$D480-$D4FF` | OPL2, DigiMAX |

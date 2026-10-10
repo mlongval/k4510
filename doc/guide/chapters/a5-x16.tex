@@ -237,7 +237,8 @@ routines (\texttt{GRAPH\_draw\_rect}, \texttt{\_draw\_line},
 code drawing through VERA's data port, and the data port
 itself for pixels, text, sprites and the palette. On the K4510
 it is the blitter for rectangles, lines and images, DMA for the
-scroll, and \texttt{far\_poke} for the rest.
+scroll, the data ports (Chapter~\ref{cha:io}) for text, and
+\texttt{far\_poke} for the rest.
 
 \begin{type}
 static void p_lines(void)       /* one pass of LINES */
@@ -268,7 +269,7 @@ LINES & 268.8 & 3.95 & 20.0 & 68x & 13x \\
 PIXELS & 108.8 & 21.3 & 107.9 & 5.1x & 1.0x \\
 IMAGE & 55.4 & 1.13 & 5.71 & 49x & 9.7x \\
 SCROLL & 99.2 & 0.068 & 0.35 & 1450x & 287x \\
-TEXT & 23.7 & 12.1 & 61.1 & 2.0x & 0.4x \\
+TEXT & 23.7 & 5.36 & 27.0 & 4.4x & 0.9x \\
 SPRITES & 5.63 & 1.09 & 5.52 & 5.1x & 1.0x \\
 PALETTE & 5.17 & 1.02 & 5.15 & 5.1x & 1.0x \\
 \bottomrule
@@ -329,14 +330,14 @@ figures are real on both machines.
   The blitter tests are a hundred to fifteen hundred times, which
   is mostly the emulator's free blitter (see the aside in that
   section).
-\item \textbf{The X16 wins TEXT clock for clock}, 0.4x at 8\,MHz.
-  VERA's data port steps its own address, so a row of text is one
-  address and eighty stores. The K4510 has no such port: every
-  \texttt{far\_poke} carries a 32-bit address worked out in C, and
-  its see-through text (text8) is one byte a cell where the X16
-  writes two. A program in a hurry builds the row in RAM and DMAs
-  it; a library word that did so, or a stepping port on VICKY,
-  would close the gap.
+\item \textbf{TEXT was the X16's, and is now a draw.} On the first
+  run the X16 won it clock for clock, 0.4x at 8\,MHz: VERA's data port
+  steps its own address, so a row of text is one address and eighty
+  stores, where the K4510 worked out a 32-bit address in C for every
+  \texttt{far\_poke}. The K4510 then grew the same thing, two data
+  ports that move themselves, and a see-through bit for text32
+  (Chapter~\ref{cha:io}). TEXT went from 61 to 27\,ms at 8\,MHz, 0.9x,
+  and from 12.1 to 5.4\,ms at the K4510's own clock.
 \item \textbf{Twenty fills took no frame at all} on the K4510, which
   is why the program does two hundred. Below a sixtieth of a second
   the frame counter cannot see; the Rugg/Feldman programs run their

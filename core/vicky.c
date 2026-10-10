@@ -384,6 +384,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
     }
     /* text32 -- layer 0's band rows from BANDMAP when K/OS has the bands there */
     uint32_t rowbase = map + (uint32_t)cy * stride * 4;
+    int see = L[VL_CTRL] & 0x80;           /* see-through: a 0 shows the layers below (and no HD redraw, which would paint it) */
     if (n == 0) { int br = band_row(cy, map); if (br >= 0) { rowbase = rd32(&reg[VR_BANDMAP]) + (uint32_t)br * stride * 4; line_band = 1; }
                   else if (alt_map && map == rd32(&reg[VR_CONMAP])) rowbase = alt_map + (uint32_t)cy * stride * 4; }   /* the second screen */
     /* ...and the spare COLUMNS too (2026-10-07: an IDR need not be a whole
@@ -397,6 +398,7 @@ static void layer_line(int n, int y, uint8_t *line, int w)
             uint32_t pe = rowbase + (uint32_t)(sx < 0 ? 0 : stride - 1) * 4;
             uint8_t pc = (ram(pe + 1) & 0x80) ? ram(pe + 2) : ram(pe + 3);
             int n = sx < 0 ? -sx : w - x;
+            if (see && !pc) { x += n; if (x > w) x = w; continue; }
             for (; n > 0 && x < w; n--, x++) { line[x] = pc; layer_hit[x] = 1; if (hd_on) hd_src[x] = 0; }
             continue;
         }
@@ -415,9 +417,11 @@ static void layer_line(int n, int y, uint8_t *line, int w)
         if (cur && cur_style == 1 && gy < H - (H >= 16 ? H / 8 : 2)) cur = 0;
         for (int gx = gx0; gx < CW && x < w; gx++, x++) {
             int sw = cur && (cur_style == 1 || gx < CW / 4);
-            line[x] = (((row >> (CW - 1 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
-            layer_hit[x] = 1;              /* text32 cells are opaque: every pixel is "a layer drew here" */
-            if (hd_on) { hd_src[x] = (uint8_t)(!pad && CW == 8 ? (H == 16 ? 1 : 2) : 0); hd_g[x] = g; hd_gx[x] = (uint8_t) gx; hd_gy[x] = (uint8_t) gy;
+            uint8_t px = (((row >> (CW - 1 - gx)) & 1) != 0) != (sw != 0) ? fg : bg;
+            if (see && !px) continue;      /* see-through (LCTRL bit7): a 0 shows what is below */
+            line[x] = px;
+            layer_hit[x] = 1;              /* an opaque text32 cell: every pixel is "a layer drew here" */
+            if (hd_on) { hd_src[x] = (uint8_t)(!see && !pad && CW == 8 ? (H == 16 ? 1 : 2) : 0); hd_g[x] = g; hd_gx[x] = (uint8_t) gx; hd_gy[x] = (uint8_t) gy;
                          hd_fg[x] = fg; hd_bg[x] = bg; hd_data[x] = data; hd_cur[x] = (uint8_t)(cur ? 1 + cur_style : 0); }
         }
     }

@@ -131,6 +131,26 @@ static void dma_run(uint8_t cmd)
     }
     dma_reg[12] = 0;   /* instant: idle again before the CPU sees the next instruction */
 }
+/* ---- the data ports ($D210, $D218; core/io.h) -------------------------- */
+static uint8_t port_reg[16];    /* two of ADDR[4] STEP[2] DATA - */
+static void port_reset(void) { memset(port_reg, 0, sizeof port_reg); port_reg[4] = port_reg[12] = 1; }
+static uint32_t port_take(uint8_t *p)   /* the address, and ADDR moved on */
+{
+    uint32_t a = rd32(p) & K4510_PHYS_MASK, n = (a + (uint32_t)(int32_t)(int16_t)(p[4] | p[5] << 8)) & K4510_PHYS_MASK;
+    p[0] = (uint8_t) n; p[1] = (uint8_t)(n >> 8); p[2] = (uint8_t)(n >> 16); p[3] = (uint8_t)(n >> 24);
+    return a;
+}
+static uint8_t port_read(uint8_t r)
+{
+    uint8_t *p = &port_reg[r & 8];
+    return (r & 7) == IO_PORT_DATA ? k4510_ram[port_take(p)] : p[r & 7];
+}
+static void port_write(uint8_t r, uint8_t v)
+{
+    uint8_t *p = &port_reg[r & 8];
+    if ((r & 7) == IO_PORT_DATA) k4510_ram[port_take(p)] = v;
+    else if ((r & 7) < 6) p[r & 7] = v;
+}
 /* Every device back to power-on, in this order: the Tube is stopped before
  * JIM is reset, since its end hands JIM back from a `!` session. */
 void io_reset(void)
@@ -142,7 +162,7 @@ void io_reset(void)
     fred_reset();
     seq_reset();
     kbd_head = kbd_tail = 0; kbd_last = 0;
-    memset(dma_reg, 0, sizeof dma_reg);
+    memset(dma_reg, 0, sizeof dma_reg); port_reset();
     vicky_reset();
     audio_reset();
 }
@@ -236,6 +256,7 @@ static uint8_t io_read_inner(uint16_t addr)
         return term_read(addr & 0xFF);
     case IO_DMA:
         if ((addr & 0xFF) < 16) return dma_reg[addr & 0xFF];
+        if ((addr & 0xFF) < 32) return port_read((uint8_t)((addr & 0xFF) - 16));
         return 0xFF;
     default:
         return 0xFF;
@@ -280,6 +301,7 @@ void io_write(uint16_t addr, uint8_t v)
     case IO_DMA:
         if ((addr & 0xFF) < 12) { dma_reg[addr & 0xFF] = v; return; }
         if (addr == IO_DMA_CMD) { dma_run(v); return; }
+        if ((addr & 0xFF) >= 16 && (addr & 0xFF) < 32) port_write((uint8_t)((addr & 0xFF) - 16), v);
         return;
     case IO_STORAGE:
         hostfs_write(addr & 0xFF, v); return;
@@ -315,6 +337,7 @@ void io_state_save(FILE *f)
     state_put(f, "KBDT", &kbd_tail, sizeof kbd_tail);
     hostfs_state_save(f);
     state_put(f, "DMA ", dma_reg, sizeof dma_reg);
+    state_put(f, "PORT", port_reg, sizeof port_reg);
     fred_state_save(f);
     sys_state_save(f);
     seq_state_save(f);
@@ -325,7 +348,7 @@ int io_state_load(FILE *f)
     if (state_get(f, "SYSF", &sys_frames, sizeof sys_frames) || state_get(f, "KBDQ", kbd_fifo, sizeof kbd_fifo)
         || state_get(f, "KBDH", &kbd_head, sizeof kbd_head) || state_get(f, "KBDT", &kbd_tail, sizeof kbd_tail)
         || hostfs_state_load(f)
-        || state_get(f, "DMA ", dma_reg, sizeof dma_reg) || fred_state_load(f)
+        || state_get(f, "DMA ", dma_reg, sizeof dma_reg) || state_get(f, "PORT", port_reg, sizeof port_reg) || fred_state_load(f)
         || sys_state_load(f) || seq_state_load(f) || tube_state_load(f)) return -2;
     /* the file closed, the network dropped, the Tube stopped.  The OPL2's
      * registers are not carried: a state loads with the chip reset, and the

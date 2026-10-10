@@ -11,6 +11,9 @@ window. The 256\,MB of physical memory is reached three ways:
   the base; byte 3 switches (bit 7 = off).
 \item \textbf{DMA} (\verb|$D200|): copy, fill, swap, line, triangle ---
   instant, physical addresses.
+\item \textbf{Data ports} (\verb|$D210|, \verb|$D218|): set an address and
+  a step once, then every byte read or written there moves the address on
+  (Chapter~\ref{cha:io}, section~\ref{sec:ports}).
 \end{itemize}
 
 \section{The CPU view, unmapped}

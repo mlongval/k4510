@@ -324,6 +324,26 @@ const char *fs_get_cwd(void);
 #define IO_DMA_CMD     (IO_DMA + 0x0C)    /* write: 1 copy, 2 fill (value = SRC byte 0), 3 swap; read: 0 = idle */
 #define IO_DMA_STATUS  (IO_DMA + 0x0D)    /* read: last command, or $FF if bad */
 
+/* The data ports, two doors into memory that move themselves (Doc,
+ * 2026-10-10: "better text display like the X16").  VERA's DATA0 is why the
+ * X16 writes a row of text with one address and a store a byte; a C program
+ * here built a 32-bit address for every far_poke.  A port is set once, and
+ * every read or write of its DATA moves ADDR on by STEP.  Any memory, any
+ * stride: a row of a text map, a column of a bitmap (STEP = the stride), one
+ * field of every sprite (STEP = 16).  Two of them, so one can read while the
+ * other writes, or two fields of a cell go in turn.
+ *   $D210-$D213  P0ADDR  28-bit physical address; writing it does not move it
+ *   $D214,$D215  P0STEP  signed 16-bit, added after each DATA access
+ *   $D216        P0DATA  W: the byte at ADDR := value, then ADDR += STEP
+ *                        R: the byte at ADDR, then ADDR += STEP
+ *   $D217               reserved
+ *   $D218-$D21F  port 1, the same.  Reset: ADDR 0, STEP 1. */
+#define IO_PORT0       (IO_DMA + 0x10)
+#define IO_PORT1       (IO_DMA + 0x18)
+#define IO_PORT_ADDR   0
+#define IO_PORT_STEP   4
+#define IO_PORT_DATA   6
+
 /* --- boot-time data the frontend places in RAM (until the system ROM carries it) --- */
 #define K4510_FONT8_PHYS   0x00010000u   /* unscii-8: 256 glyphs x 8 rows, CP437 order, 2 KB at 64 KB (the 240-line modes) */
 #define K4510_FONT16_PHYS  0x00010800u   /* unscii-16: 256 glyphs x 16 rows, 4 KB (MODE 0, 640x480: 80x30 in 8x16 cells) */

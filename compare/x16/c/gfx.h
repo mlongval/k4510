@@ -11,7 +11,7 @@
  *   g_pixel       VERA's address, then DATA0      far_poke (STA [zp],Z)
  *   g_image       KERNAL GRAPH_draw_image         the blitter, COPY
  *   g_scroll      KERNAL GRAPH_move_rect          DMA copy (memmove)
- *   g_text_row    VERA's data port, 2 bytes/cell  far_poke, 1 byte/cell (text8)
+ *   g_text_row    VERA's data port, 2 bytes/cell  the data ports, 2 bytes/cell
  *   g_sprite      VERA's data port, 4 bytes       far_poke16 x 2
  *   g_palette     VERA's data port, 2 bytes/entry PALIDX, then R G B
  *
@@ -21,9 +21,11 @@
  * is the CPU's, setting the registers.  README.md says what that means.
  *
  * Text over a picture: VERA's text layer has a colour per cell, and its
- * background colour 0 lets the bitmap through.  VICKY's text32 cells are
- * opaque, so the K4510's see-through text is text8: one byte a cell, the
- * colour the layer's.  So the X16 writes two bytes a cell and the K4510 one.
+ * background colour 0 lets the bitmap through.  VICKY's text32 does the same
+ * with LCTRL bit7 (2026-10-10), and the K4510's data ports are VERA's DATA0:
+ * port 0 steps along the cells' characters, port 1 along their colours, so
+ * both machines write two bytes a cell, one store each.  (Until then the
+ * K4510 used text8 and a far_poke a cell, and lost TEXT clock for clock.)
  */
 #ifndef GFX_H
 #define GFX_H
@@ -144,7 +146,7 @@ static void g_done(void)
 /* ---- the K4510 -------------------------------------------------------- */
 #define BLT      0xD070u
 #define BITMAP   0x00200000UL               /* where BREAKOUT and K4510 BASIC's GRAPHICS draw */
-#define TEXTMAP  0x00220000UL               /* text8: a byte a cell, see-through */
+#define TEXTMAP  0x00220000UL               /* text32: char, -, colour, background 0 (see-through) */
 #define SPR_TAB  0x00230000UL               /* 128 x 16 bytes */
 #define SPR_DATA 0x00231000UL
 #define LETTER(i) ((char) ('A' + (i) % 26))
@@ -181,13 +183,13 @@ static void g_scroll(void)
 }
 static void g_text_row(uint8_t r, const char *s, uint8_t c)
 {
-    uint8_t i; uint32_t p = TEXTMAP + (uint32_t) r * 40;
-    (void) c;                               /* text8's colour is the layer's */
-    for (i = 0; i < 40; i++) far_poke(p++, s[i]);
+    uint8_t i; uint32_t p = TEXTMAP + (uint32_t) r * 160;
+    port_at(PORT0, p, 4); port_at(PORT1, p + 2, 4);   /* every cell's char, every cell's colour */
+    for (i = 0; i < 40; i++) { PORT_DATA(PORT0) = s[i]; PORT_DATA(PORT1) = c; }
 }
 static void g_sprite(uint8_t n, uint16_t x, uint16_t y)
 {
-    uint32_t e = SPR_TAB + (uint16_t) n * 16;
+    uint32_t e = SPR_TAB + (uint16_t) n * 16;   /* (a data port is slower here: 6 stores to set it for 4 to send) */
     far_poke16(e, x); far_poke16(e + 2, y);
 }
 static void g_palette(void)
@@ -208,7 +210,7 @@ static void g_init(const uint8_t *shape)
         pal_saved[i * 3] = REG(V_PALR); pal_saved[i * 3 + 1] = REG(V_PALG); pal_saved[i * 3 + 2] = REG(V_PALB);
     }
     dma_fill(0, BITMAP, (uint32_t) GW * GH);
-    dma_fill(' ', TEXTMAP, 40 * 30);
+    dma_fill(0, TEXTMAP, 40 * 30 * 4);
     dma_fill(0, SPR_TAB, 128 * 16);
     for (i = 0; i < 256; i++) far_poke(SPR_DATA + i, shape[i]);
     for (n = 0; n < 32; n++) {              /* on, 8 bpp, over every layer; 16x16; off the screen */
@@ -221,7 +223,9 @@ static void g_init(const uint8_t *shape)
     for (n = 1; n <= 5; n++) REG(V_LAYER(1) + n) = 0;
     w16(V_LAYER(1) + 6, GW); w32(V_LAYER(1) + 8, BITMAP);
     REG(V_LAYER(1)) = 1 | (3 << 3);         /* bitmap, 8 bpp */
-    text8_layer(2, TEXTMAP, 40, 7);         /* colour 7 << 1 | 1 = 15: white */
+    for (n = 1; n <= 5; n++) REG(V_LAYER(2) + n) = 0;
+    w16(V_LAYER(2) + 6, 40); w32(V_LAYER(2) + 8, FONT8); w32(V_LAYER(2) + 12, TEXTMAP);
+    REG(V_LAYER(2)) = 0x80 | 1 | (3 << 1);  /* text32, 8x8 cells, see-through */
     w32(V_SPRTAB, SPR_TAB); REG(V_SPRCTL) = 1;
     REG(BLT + 0x11) = 0;
     REG(V_BGCOL) = 0;

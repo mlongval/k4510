@@ -1,6 +1,6 @@
 # K4510 vs Commander X16 -- results
 
-Written by `compare/x16/run.py` on 2026-10-10, K4510 f7858c4, x16emu r49,
+Written by `compare/x16/run.py` on 2026-10-10, K4510 3de9efb, x16emu r49,
 cc65 V2.18 - Ubuntu 2.19-1. Seconds of each machine's own clock (60 Hz ticks: TI on
 the X16, FRAMES on the K4510). Read README.md before comparing
 anything: the two BASICs are not the same kind of thing.
@@ -69,15 +69,15 @@ registers: read README.md before quoting CLEAR or SCROLL.
 | RECTS | 64 filled rectangles, 1-128 x 1-96 | 198.5 | 3.21 | 16.1 | 61.9x | 12.3x |
 | LINES | 64 lines, ends anywhere | 268.8 | 3.95 | 20.0 | 68.0x | 13.4x |
 | PIXELS | 1024 single pixels | 108.8 | 21.3 | 107.9 | 5.1x | 1.0x |
-| IMAGE | 16 pictures of 32x32 from memory | 55.4 | 1.13 | 5.71 | 49.0x | 9.7x |
+| IMAGE | 16 pictures of 32x32 from memory | 55.4 | 1.13 | 5.71 | 48.9x | 9.7x |
 | SCROLL | the whole bitmap up one line | 99.2 | 0.0682 | 0.35 | 1454.6x | 287.2x |
-| TEXT | the 40x30 text layer written whole | 23.7 | 12.1 | 61.1 | 2.0x | 0.4x |
+| TEXT | the 40x30 text layer written whole | 23.7 | 5.36 | 27.0 | 4.4x | 0.9x |
 | SPRITES | 32 sprites, each moved once | 5.63 | 1.09 | 5.52 | 5.1x | 1.0x |
 | PALETTE | 240 palette entries | 5.17 | 1.02 | 5.15 | 5.1x | 1.0x |
 
 Test cards in `build/shots/`: x16-gfx.png, k4510-gfx.png.
 
-Sound check: x16 CHORD: x16-chord.wav, peak 22403 of 32767 (492238 samples). The K4510 harness has no audio device;
+Sound check: x16 CHORD: x16-chord.wav, peak 22183 of 32767 (492228 samples). The K4510 harness has no audio device;
 its CHORD is checked by running, not by listening.
 
 Screenshots in `build/shots/` (not tracked): fill (x16-fill.png, k4510-fill.png), lines (x16-lines.png, k4510-lines.png), sprites (x16-sprites.png, k4510-sprites.png).

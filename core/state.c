@@ -9,7 +9,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-static const char magic[8] = "K4510ST2";   /* 2: the SID chunks went (2026-09-05) */
+static const char magic[8] = "K4510ST3";   /* 2: the SID chunks went (2026-09-05); 3: the data ports (2026-10-10) */
 
 int state_put(FILE *f, const char *tag, const void *p, size_t n)
 {

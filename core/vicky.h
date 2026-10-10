@@ -160,6 +160,10 @@
  *                  3 text32), bits3-4 bpp (0=1, 1=2, 2=4, 3=8),
  *                  bits5-6 cell size (tile: 8/16/32/64 px square;
  *                  text: 0 = 8x8, 1 = 8x16)
+ *                  bit7 text32 see-through (2026-10-10): a cell's bg of 0
+ *                  lets the layers below show, as VERA's text does, so a
+ *                  text32 layer can lie over a picture with a colour per
+ *                  cell.  Off, the K/OS console's way, every cell is opaque.
  *   +1   LPALOFS   palette offset for <8 bpp: index = (value << depth) | pixel
  *   +2,3 SCROLLX   16-bit, pixels  } LATCHED at the frame's start (as line 0 is
  *   +4,5 SCROLLY   16-bit, pixels  } drawn, 2026-10-09): a write at any time
@@ -181,7 +185,7 @@
  *           byte-wide palette indices per cell. bit7 of glyph hi = reverse.
  *
  * Layer 0 is bottom. Pixel index 0 is transparent in every layer; BGCOL is
- * the ground (text32 bg is never transparent). Changed 2026-08-22 from
+ * the ground (text32 bg is transparent only with LCTRL bit7). Changed 2026-08-22 from
  * "opaque in the lowest layer" so SHEILA backgrounds show under text.
  */
 #ifndef K4510_VICKY_H

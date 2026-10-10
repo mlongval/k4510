@@ -122,6 +122,20 @@ static void put_num(uint32_t map, uint8_t cols, uint8_t x, uint8_t y, uint8_t v)
 static void dma_copy(uint32_t src, uint32_t dst, uint32_t len) { w32(DMA, src); w32(DMA + 4, dst); w32(DMA + 8, len); REG(DMA + 12) = 1; }
 /* DMA: fill len bytes at phys dst with value (taken from SRC register byte 0) */
 static void dma_fill(uint8_t value, uint32_t dst, uint32_t len) { REG(DMA) = value; w32(DMA + 4, dst); w32(DMA + 8, len); REG(DMA + 12) = 2; }
+/* The data ports (core/io.h, 2026-10-10): set a port's address and step
+ * once, then each store to PORT_DATA writes a byte there and moves the
+ * address on by the step -- a row of text, a column of pixels, one field of
+ * every sprite, without building an address each time.  Reading PORT_DATA
+ * likewise reads and moves on. */
+#define PORT0 0xD210u
+#define PORT1 0xD218u
+#define PORT_DATA(p) REG((p) + 6)
+static void port_at(uint16_t p, uint32_t a, int16_t step)    /* the bytes taken from memory: cc65 shifts a long slowly */
+{
+    const uint8_t *b = (const uint8_t *) &a;
+    REG(p) = b[0]; REG(p + 1) = b[1]; REG(p + 2) = b[2]; REG(p + 3) = b[3];
+    REG(p + 4) = (uint8_t) step; REG(p + 5) = (uint8_t) ((uint16_t) step >> 8);
+}
 
 /* A text8 layer (1 byte per cell, 1-bit glyphs, colour = LPALOFS<<1|1); the map is in far memory */
 static void text8_layer(uint8_t n, uint32_t map, uint8_t cols, uint8_t palofs)

@@ -114,6 +114,21 @@ int main(void)
     CHECK(fb[12*640+1] == 9 && fb[12*640+6] == 4, "text32 fg/bg");
     CHECK(fb[12*640+9] == 4 && fb[12*640+14] == 9, "text32 reverse");
     CHECK(fb[15*640+1] == 9 && fb[16*640+1] != 9, "8x16 glyph height");
+    {   /* 4b. see-through (LCTRL bit7): a bg of 0 shows what is below, other bgs stay */
+        uint8_t cell2[4] = { 'A', 0x00, 9, 0 };
+        mem_load(m32 + 8, cell2, 4);
+        W(VR_LAYER(1) + VL_CTRL, 0); vicky_render(fb, 640);
+        uint8_t below = fb[12*640+22];
+        W(VR_LAYER(1) + VL_CTRL, 0x80 | 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));
+        vicky_render(fb, 640);
+        printf("4b. text32 see-through: cell2 fg (17,12)=%d bg (22,12)=%d (below %d) | cell0 bg (6,12)=%d\n",
+               fb[12*640+17], fb[12*640+22], below, fb[12*640+6]);
+        CHECK(fb[12*640+17] == 9 && fb[12*640+22] == below, "see-through: fg drawn, bg 0 shows the layer below");
+        CHECK(fb[12*640+6] == 4, "see-through: a bg that is not 0 still paints");
+        W(VR_LAYER(1) + VL_CTRL, 1 | (VL_MODE_TEXT32 << 1) | (1 << 5));
+        vicky_render(fb, 640);
+        CHECK(fb[12*640+22] == 0, "opaque (bit7 off): bg 0 is painted as colour 0");
+    }
 
     /* ---- sprites ---- */
     mem_reset(); W(VR_CTRL, 1); W(VR_BGCOL, 0);

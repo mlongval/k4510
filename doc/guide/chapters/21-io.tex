@@ -12,7 +12,7 @@ firmware source. This chapter is the map of what lives where:
 \toprule
 \texttt{\$D000} & VICKY   & video: layers, palette, blitter, sprites, SHEILA\\
 \texttt{\$D100} & input   & keyboard FIFO and its status, the held keys, the mouse, break-pending\\
-\texttt{\$D200} & DMA     & copy / fill / swap / line / triangle\\
+\texttt{\$D200} & DMA     & copy / fill / swap; the two data ports at \texttt{\$D210} and \texttt{\$D218}\\
 \texttt{\$D300} & storage & the host filesystem: open, read, dir, chdir\ldots\\
 \texttt{\$D480} & OPL2    & the YM3812: address, data, status --- the AdLib's arrangement\\
 \texttt{\$D500} & system  & clock, RTC, frame counter, DUMP, the settings the ROM reads, the sound sequencer at \texttt{\$D5E0}\\
@@ -26,6 +26,46 @@ firmware source. This chapter is the map of what lives where:
 \bottomrule
 \end{tabular}
 \end{center}
+
+\section{The data ports: text the X16's way}\label{sec:ports}
+A program that writes the screen a character at a time spends most
+of its time working out where each character goes. The Commander
+X16 avoids that with VERA's data port: set an address once, and
+every byte written there lands at that address and moves it on.
+The K4510 has two such doors into memory, in the DMA page:
+
+\begin{center}
+\small
+\begin{tabular}{@{}l l >{\raggedright\arraybackslash}p{0.55\linewidth}@{}}
+\toprule
+\texttt{\$D210--13} & P0ADDR & a 28-bit physical address; writing it does not move it\\
+\texttt{\$D214,15} & P0STEP & signed, 16 bits: added after every DATA access\\
+\texttt{\$D216} & P0DATA & write: the byte goes to ADDR; read: the byte at ADDR. Either way ADDR moves on by STEP\\
+\texttt{\$D218--1E} & port 1 & the same\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+STEP is any stride, so a port walks a row of a text map (4, one
+cell at a time), a column of a 320-wide bitmap (320), or one field
+of every sprite (16). With two ports, two fields of the same cells
+go in turn: port~0 along the characters, port~1 along the colours.
+
+\begin{type}
+port_at(PORT0, map + row * 160, 4);       /* every cell's character */
+port_at(PORT1, map + row * 160 + 2, 4);   /* every cell's colour */
+for (i = 0; i < 40; i++) {
+    PORT_DATA(PORT0) = s[i];
+    PORT_DATA(PORT1) = colour;
+}
+\end{type}
+
+\texttt{port\_at} and \texttt{PORT\_DATA} are in \pth{demo/k4510.h}.
+To lay text over a picture, as the X16 does, set bit~7 of a text32
+layer's LCTRL (see-through). A cell whose background is~0 then
+shows the layers below it, and any other background still paints.
+Without bit~7 every cell is opaque, which is how the K/OS console
+uses text32.
 
 \section{Choosing a resolution}\label{sec:resolution}
 A program never assumes a screen. The panel decides what the machine

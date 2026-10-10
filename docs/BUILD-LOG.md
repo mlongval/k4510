@@ -12335,3 +12335,40 @@ the planes fly under the bands (a diver returning from above showed through
 the clock's digits).  Game, difficulty, SKYFIRE.CFG and the keys unchanged;
 the exit restores CTRL/BGCOL/sprites, calls VIDEO and clears JIM's screen.
 make test green, check-artifacts included.
+
+**2026-10-09: BREAKOUT -- the ball that went wall to wall for ever.**
+Doc: "it gets caught on an edge case where the ball is hit right at the
+extreme left or right.  it just beeps and flashes the ball on each side
+then hangs."  Reproduced headless before touching it: the paddle held
+against the right wall (K4510_HELD=8), Space every 600 frames, the ball's
+variables read from RAM each frame (their addresses from a `cc65 -g` /
+`ld65 --dbgfile` build, byte-identical to the shipped .prg).  At frame 1512
+the ball meets the paddle at x 199, the paddle at 188: off -2, speed 5, and
+vx comes out 4360 -- the ball crosses the field in one step, is clamped
+at the right wall and turned, crosses back to the left, every step, the
+wall's beep each time; it never meets a brick again (the edge columns are
+clear) and comes back down at a wall onto the paddle's end, where the same
+thing happens again.  The cause is the compiler: cc65 2.18 makes `long *
+unsigned char` an *unsigned* long (axulong, tosumuleax, tosudiveax in the
+.s), so `(long) off * speed * 13 / 15` divided a negative product
+unsigned -- every hit left of the paddle's middle.  The old 640-wide game
+had it too (off -18 gave vx 26167; same scenario, frame 931).  Fixed with
+`int sp = speed` and the sums on sp (quicken too), and then made robust:
+after a paddle hit |vx| is 2..13 x speed, never 0 (a hit dead on the
+middle went straight up, and with the paddle at a wall the column was soon
+cleared to the roof: roof, paddle, roof for ever -- the second loop the
+repro found); the walls and the roof set vx's/vy's sign instead of
+flipping it; the paddle test is a crossing (the bottom before the step at
+or above the paddle's foot), not a 5-px window a fast ball could step over;
+speed stops at SPEED_MAX 14 (6.1 px down, 11.4 across a step: no brick or
+paddle is jumped).  A host model of move_ball with int16_t (20 M random
+steps, every paddle position x 40 levels) finds no step ending outside the
+field, no vx 0, no paddle hit not sending it up, no loop; the same headless
+repro after the fix: vx -10 at frame 1512, |vx| never above 39 in 16000
+frames either wall, the game played out to its end.  Also: the play loop
+and wait_key() rest on K_WAIT/wait_vblank instead of spinning (wait_key
+ran the sound's frame ticks at loop speed), the last ball's pip goes at
+the game's end and the lost ball is not drawn again over GAME OVER; and two
+review nits -- the bottom band's keys shortened to fit, "Breakout" and the
+panel 16 px clear of the field's frame.  make test green, check-artifacts
+included.

@@ -3,10 +3,10 @@
  * Eight rows of bricks in the old colours -- yellow, green, orange, red --
  * worth 1, 3, 5 and 7.  The mouse moves the paddle, or the arrow keys do;
  * the button or Space sends the ball.  Where the ball meets the paddle
- * decides where it goes: the middle straight up, the ends out wide.  It
+ * decides where it goes: near the middle steeply up, the ends out wide.  It
  * quickens after 4 and 12 hits and when it first reaches the orange and the
- * red rows.  A cleared wall brings the next one, faster.  Five balls; the
- * five best scores are kept in /APPS/BREAKOUT/HISCORE.DAT.
+ * red rows, up to SPEED_MAX.  A cleared wall brings the next one, faster.
+ * Five balls; the five best scores are kept in /APPS/BREAKOUT/HISCORE.DAT.
  *
  *   mouse or Left/Right   the paddle     button or Space   serve
  *   P pause   M sound on/off   Escape end the game
@@ -74,7 +74,8 @@ static void zp32(uint8_t a, uint32_t v) { REG(a) = v; REG(a + 1) = v >> 8; REG(a
 #define PY    214                            /* the paddle's top */
 #define PH    4
 #define BALL  4
-#define PX    228                            /* the panel */
+#define PX    236                            /* the panel: 16 px clear of the field's frame */
+#define SPEED_MAX 14                         /* a step under 6.2 px down, 11.4 across: no brick (7x14) or paddle is jumped */
 
 static uint8_t brick[BROWS][BCOLS], left;
 static const uint8_t rowcol[BROWS] = { C_RED, C_RED, C_ORANGE, C_ORANGE, C_GREEN, C_GREEN, C_YELLOW, C_YELLOW };
@@ -160,7 +161,7 @@ static void draw_top(void)                   /* the name on the left, the time o
     text(W - 8 - 16 * 8, 2, b, C_BLACK, C_LGREY, F8);
 }
 static void tick_top(void) { rtc_read = REG(SYS + 4); if (REG(SYS + 6) != clock_shown) draw_top(); }
-static const char KEYS[] = "ARROWS/MOUSE  SPACE SERVE  P PAUSE  ESC";
+static const char KEYS[] = "Arrows/mouse  SPACE serves  P pause";
 static void glass(void) { box(0, GY, W, GB - GY, C_BLUE); }
 
 /* ---- the sound ---------------------------------------------------------- */
@@ -284,7 +285,7 @@ static void draw_panel(void)                 /* what does not change in a game *
 {
     box(PX - 4, GY, W - PX + 4, GB - GY, C_BLUE);
     bars(PX, GY + 8, 3, 3);
-    text(PX - 4, GY + 28, "Breakout", C_WHITE, C_BLUE, F16);
+    text(PX, GY + 28, "Breakout", C_WHITE, C_BLUE, F16);
     text(PX, GY + 52, "SCORE", C_LBLUE, C_BLUE, F8);
     text(PX, GY + 84, "LEVEL", C_LBLUE, C_BLUE, F8);
     text(PX, GY + 116, "BALLS", C_LBLUE, C_BLUE, F8);
@@ -309,7 +310,7 @@ static void new_wall(void)
     box(FX0 - 2, FY0, 2, GB - FY0, C_LBLUE); box(FX1, FY0, 2, GB - FY0, C_LBLUE);
     for (r = 0; r < BROWS; r++) for (c = 0; c < BCOLS; c++) { brick[r][c] = 1; draw_brick(r, c); }
     left = BROWS * BCOLS; hits = 0; reached_orange = reached_red = 0;
-    speed = (uint8_t)(3 + level);            /* see launch() */
+    speed = (uint8_t)(level < SPEED_MAX - 3 ? 3 + level : SPEED_MAX);   /* see launch() */
     opx = obx = oby = -1;
 }
 static void serve(void)
@@ -325,9 +326,11 @@ static void launch(void)                     /* sixteenths of a pixel a frame: h
 }
 static void quicken(void)                    /* the same direction, a step faster */
 {
-    speed++;
-    vx = vx < 0 ? -(int)(((long) -vx * speed) / (speed - 1)) : (int)(((long) vx * speed) / (speed - 1));
-    vy = vy < 0 ? -(int)(((long) -vy * speed) / (speed - 1)) : (int)(((long) vy * speed) / (speed - 1));
+    int sp;                                  /* an int: see move_ball() */
+    if (speed >= SPEED_MAX) return;
+    sp = ++speed;
+    vx = vx < 0 ? -(int)(((long) -vx * sp) / (sp - 1)) : (int)(((long) vx * sp) / (sp - 1));
+    vy = vy < 0 ? -(int)(((long) -vy * sp) / (sp - 1)) : (int)(((long) vy * sp) / (sp - 1));
 }
 static uint8_t brick_at(int x, int y, uint8_t *pr, uint8_t *pc)   /* the brick under a pixel, if any */
 {
@@ -354,20 +357,42 @@ static uint8_t hit_brick(int x, int y)       /* any corner of the ball at (x,y) 
     draw_status();
     return 1;
 }
+/* A step moves across, then down, each part checked on its own.  What it
+ * keeps, whatever the speed or the corner (Doc, 2026-10-09: the ball "hit
+ * right at the extreme left or right ... beeps and flashes ... then hangs" --
+ * a hit left of the paddle's middle got a huge vx, see sp below): the ball
+ * ends every step inside the field (FX0 <= x <= FX1-BALL, y >= FY0), |vx| is
+ * 2..13 x speed after a paddle hit and never 0 (one dead on the middle went
+ * straight up, and with the paddle against a wall that column was soon
+ * cleared to the roof: roof, paddle, roof for ever), and a paddle hit always
+ * sends it up.  The walls and the roof set the sign rather than flip it, so a
+ * ball already turned is not turned back into the wall. */
 static void move_ball(void)
 {
-    int nx, ny, x, y, off;
+    int nx, ny, x, y, off, ob, sp;
     nx = bx + vx; x = nx / 16; y = by / 16;
-    if (x < FX0) { nx = FX0 * 16; vx = -vx; sfx(1, N(5, G), 4); }
-    else if (x + BALL > FX1) { nx = (FX1 - BALL) * 16; vx = -vx; sfx(1, N(5, G), 4); }
+    if (x < FX0) { nx = FX0 * 16; if (vx < 0) vx = -vx; sfx(1, N(5, G), 4); }
+    else if (x + BALL > FX1) { nx = (FX1 - BALL) * 16; if (vx > 0) vx = -vx; sfx(1, N(5, G), 4); }
     else if (hit_brick(x, y)) { vx = -vx; nx = bx; }
     bx = nx;
-    ny = by + vy; x = bx / 16; y = ny / 16;
-    if (y < FY0) { ny = FY0 * 16; vy = -vy; sfx(1, N(5, G), 4); }
-    else if (vy > 0 && y + BALL >= PY && y + BALL <= PY + PH && x + BALL > px && x < px + pw) {
-        off = (x + BALL / 2) - (px + pw / 2);            /* -pw/2 .. pw/2 */
-        vy = -(speed * 7);
-        vx = (int)((long) off * speed * 13 / (pw / 2));
+    ny = by + vy; x = bx / 16; y = ny / 16; ob = by / 16 + BALL;   /* ob: the bottom before the step */
+    if (y < FY0) { ny = FY0 * 16; if (vy < 0) vy = -vy; sfx(1, N(5, G), 4); }
+    else if (vy > 0 && y + BALL >= PY && ob <= PY + PH && x + BALL > px && x < px + pw) {   /* crossed the paddle's top this step */
+        off = (x + BALL / 2) - (px + pw / 2);            /* -pw/2 .. pw/2, a little more at the very ends */
+        if (off > pw / 2) off = pw / 2;
+        if (off < -(pw / 2)) off = -(pw / 2);
+        /* sp, an int: cc65 2.18 makes arithmetic with the unsigned char speed
+         * unsigned -- long * speed an unsigned long, so a hit left of the
+         * middle was divided unsigned (off -3 at speed 7 gave vx 4350: the
+         * ball across the field and back every step), and speed * 13 an
+         * unsigned int that a negative vx compares above */
+        sp = speed;
+        vy = -(sp * 7);
+        vx = (int)((long) off * sp * 13 / (pw / 2));
+        if (vx > -2 * sp && vx < 2 * sp)                 /* never straight up: off the middle, out toward the wider side */
+            vx = (vx < 0 || (vx == 0 && x + BALL / 2 > (FX0 + FX1) / 2)) ? -2 * sp : 2 * sp;
+        if (vx > 13 * sp) vx = 13 * sp;                  /* nor wider than the paddle's end gives */
+        if (vx < -13 * sp) vx = -13 * sp;
         ny = (PY - BALL) * 16;
         sfx(1, N(4, C), 5);
     }
@@ -375,11 +400,13 @@ static void move_ball(void)
     else if (y + BALL > GB) {                            /* missed: gone through the floor */
         sfx(2, N(2, C), 25);
         box(obx, oby, BALL, BALL, C_BLUE); obx = -1;
-        if (!--lives) { over = 1; return; }
-        draw_status(); serve();
+        lives--; draw_status();                          /* the last ball's pip goes too */
+        if (!lives) { over = 1; return; }
+        serve();
         return;
     }
     by = ny;
+    if (!vx) vx = speed;                                 /* cannot happen (see above); a guard all the same */
 }
 static void draw_moving(void)
 {
@@ -416,10 +443,10 @@ static void control(void)
 #define PAUSE_Y 130
 static void pause_box(uint8_t on)
 {
-    if (on) { box(PAUSE_X, PAUSE_Y, 120, 32, C_LBLUE); box(PAUSE_X + 2, PAUSE_Y + 2, 116, 28, C_BLUE); center(PAUSE_X, 120, PAUSE_Y + 8, "PAUSED", C_YELLOW, F16); band_text(GB, "P GOES ON   ESC ENDS THE GAME"); }
+    if (on) { box(PAUSE_X, PAUSE_Y, 120, 32, C_LBLUE); box(PAUSE_X + 2, PAUSE_Y + 2, 116, 28, C_BLUE); center(PAUSE_X, 120, PAUSE_Y + 8, "PAUSED", C_YELLOW, F16); band_text(GB, "P resumes, M sound, ESC ends"); }
     else { box(PAUSE_X, PAUSE_Y, 120, 32, C_BLUE); band_text(GB, KEYS); obx = -1; opx = -1; }
 }
-static uint8_t wait_key(void) { uint8_t k; while ((k = key_get()) == 0) { sfx_tick(); tick_top(); } return k; }
+static uint8_t wait_key(void) { uint8_t k; while ((k = key_get()) == 0) { sfx_tick(); tick_top(); wait_vblank(); } return k; }   /* sfx_tick() is a frame's */
 static void play(void)
 {
     uint8_t lf, fc, d, k;
@@ -430,7 +457,7 @@ static void play(void)
     lf = REG(SYS + 0x0D);
     while (!over) {
         fc = REG(SYS + 0x0D);
-        if (fc == lf) continue;
+        if (fc == lf) { K_WAIT(); continue; }       /* the frame not yet over: rest the CPU till it is */
         d = (uint8_t)(fc - lf); lf = fc;
         if (d > 3) d = 3;
         while ((k = key_get()) != 0) {
@@ -451,7 +478,7 @@ static void play(void)
                 new_wall(); draw_status(); serve();
             }
         }
-        draw_moving();
+        if (!over) draw_moving();            /* not the ball that just went through the floor */
     }
 }
 static const char *const AGAIN[2] = { "Play again", "Leave" };

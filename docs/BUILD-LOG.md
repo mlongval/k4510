@@ -12495,3 +12495,20 @@ in SHIPPING.CFG (mkmanifest); PDF not rebuilt.  No interpreted BASIC
 here is a fair match (EhBASIC retired, BBC BASIC on the Tube runs at
 host speed, RX is not BASIC).  make test green, check-artifacts
 included.
+
+**2026-10-09: INVADERS -- a colourful rack.**  Doc: "INVADERS is really
+cool. Can you make the invaders a little more colorful?"  The rack by row,
+from the machine's sixteen: magenta squids (4) with white eyes, cyan crabs
+(3) and yellow octopodes (7) with red ones (2) -- the eyes are the holes in
+each shape's fourth row (the same in both frames), filled through a second
+colour that shape16() now takes for one row.  A lit top edge was tried in
+a mock-up and dropped: at 8 px the legs went white and it read as noise.
+The strips stay coherent: the red lane and the green strip still colour
+what is in them, so an invader that comes down into the green turns green,
+eyes and all; between them the rows' colours stand where the old white
+was.  An invader's explosion is in its own colour; the mystery ship's
+windows are lit yellow, two and two in turn as it moves (by its x, so they
+blink with the sound off too), and the title's score table shows the
+colours.  invaders.prg 18,755 -> 19,061 bytes.  check-artifacts and the
+tests green, but for bangtest, which fails in a worktree only (the long
+path wraps pwd); dirtest passes with a plain file at fs/'s root.

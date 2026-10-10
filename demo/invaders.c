@@ -29,8 +29,12 @@
  * field is the arcade's own width, 224 pixels, and as on the arcade's
  * monitor the colour comes from strips: red across the top where the
  * mystery ship flies, green across the bottom for the bunkers and the
- * cannon, white between -- an invader that comes down far enough turns
- * green.
+ * cannon.  Between them the rack is coloured by row, as the colour
+ * cabinets that came after had it (Doc, 2026-10-09: "a little more
+ * colorful"): magenta squids with white eyes, cyan crabs and yellow
+ * octopodes with red ones.  The green strip still wins: an invader that
+ * comes down into it turns green, eyes and all, like everything else
+ * there.
  *
  * Everything is drawn into one bitmap with the blitter, as the arcade drew
  * into its one: an invader is drawn again only when it steps, the shot, the
@@ -64,6 +68,8 @@ static void zp32(uint8_t a, uint32_t v) { REG(a) = v; REG(a + 1) = v >> 8; REG(a
 #define C_BLACK  0
 #define C_WHITE  1
 #define C_RED    2
+#define C_CYAN   3
+#define C_PURPLE 4
 #define C_GREEN  5
 #define C_BLUE   6
 #define C_YELLOW 7
@@ -103,6 +109,13 @@ static const uint16_t alien_shape[3][2][8] = {
 /* every shape keeps to columns 2..13 of its 16, so two neighbours a step
  * apart in the ripple never draw over each other's pixels */
 static const uint8_t alien_pts[3] = { 30, 20, 10 };
+/* the rack's colours by kind, and the eyes: the holes in the fourth row
+ * (the same in both frames), filled in a second colour */
+static const uint8_t alien_col[3] = { C_PURPLE, C_CYAN, C_YELLOW };
+static const uint8_t eye_col[3] = { C_WHITE, C_RED, C_RED };
+static const uint16_t eye_mask[3] = { 0x0480, 0x0440, 0x0660 };
+#define EYE_ROW 3
+#define UFO_LIGHTS 4                         /* the ship's row of windows */
 static const uint16_t cannon_shape[8] = { 0x0100, 0x0380, 0x0380, 0x3FF8, 0x7FFC, 0x7FFC, 0x7FFC, 0x7FFC };
 static const uint16_t ufo_shape[8] = { 0x0000, 0x07E0, 0x1FF8, 0x3FFC, 0x6DB6, 0xFFFF, 0x399C, 0x1008 };
 static const uint16_t boom_shape[8] = { 0x0440, 0x2288, 0x1010, 0x0820, 0x600C, 0x0820, 0x1290, 0x2448 };
@@ -147,13 +160,14 @@ static void blit_gl(int x, int y, uint8_t w, uint8_t h)     /* gl[], w x h, to t
 /* a 16-wide shape of h rows at x,y, drawn w wide with its left `shift`
  * columns in; the rest of the w x h is the glass, which rubs out where the
  * shape was a step ago */
+static uint8_t sec_r = 255, sec_c; static uint16_t sec_m;   /* a second colour: holes sec_m in row sec_r (eyes, windows) */
 static void shape16(const uint16_t *rows, uint8_t h, int x, int y, uint8_t w, uint8_t shift, uint8_t fg)
 {
-    uint8_t r, c, *g = gl; uint16_t bits, m;
+    uint8_t r, c, *g = gl; uint16_t bits, m, sm;
     for (r = 0; r < h; r++) {
-        bits = rows[r];
+        bits = rows[r]; sm = r == sec_r ? sec_m : 0;
         for (c = 0; c < shift; c++) *g++ = C_BLUE;
-        for (m = 0x8000; m && c < w; m >>= 1, c++) *g++ = (bits & m) ? fg : C_BLUE;
+        for (m = 0x8000; m && c < w; m >>= 1, c++) *g++ = (bits & m) ? fg : (sm & m) ? sec_c : C_BLUE;
         for (; c < w; c++) *g++ = C_BLUE;
     }
     blit_gl(x, y, w, h);
@@ -452,8 +466,27 @@ static void splat(int x, int y, uint8_t w)    /* a shot's or a bomb's explosion 
     }
 }
 static void draw_cannon(void) { shape16(cannon_shape, 8, px - 1, CAN_Y, 18, 1, C_LGREEN); }
-static void draw_ufo(void) { shape16(ufo_shape, 8, ux - 1, UFO_Y, 18, 1, C_LRED); }
-static void draw_alien(uint8_t i) { shape16(alien_shape[kind(i)][frame_of(i)], 8, ax[i], ay[i], 16, 0, ink(ay[i] + 7)); }
+static void draw_ufo(void)                  /* its windows lit yellow, two and two in turn */
+{
+    sec_r = UFO_LIGHTS; sec_m = ux & 8 ? 0x1008 : 0x0240; sec_c = C_YELLOW;
+    shape16(ufo_shape, 8, ux - 1, UFO_Y, 18, 1, C_LRED);
+    sec_r = 255;
+}
+/* an invader's colour: its row's, with eyes -- or the green strip's, if it has come down that far */
+static uint8_t alien_ink(uint8_t i)
+{
+    uint8_t k = kind(i);
+    if (ay[i] + 7 >= GREEN_Y) { sec_r = 255; return C_LGREEN; }
+    sec_r = EYE_ROW; sec_m = eye_mask[k]; sec_c = eye_col[k];
+    return alien_col[k];
+}
+static void alien16(uint8_t i, const uint16_t *rows, int x, int y, uint8_t w, uint8_t shift)
+{
+    uint8_t fg = alien_ink(i);
+    shape16(rows, 8, x, y, w, shift, fg);
+    sec_r = 255;
+}
+static void draw_alien(uint8_t i) { alien16(i, alien_shape[kind(i)][frame_of(i)], ax[i], ay[i], 16, 0); }
 
 /* ---- the panel ------------------------------------------------------------ */
 static void draw_panel(void)                 /* what does not change in a game */
@@ -550,8 +583,8 @@ static void ripple(void)                      /* one invader steps, as the arcad
         x = stepdx > 0 ? ax[i] - stepdx : ax[i];
     }
     cur++;                                   /* frame_of(i) is now this pass's */
-    if (stepdx > 0) shape16(alien_shape[kind(i)][anim], 8, x, y, (uint8_t) w, (uint8_t) stepdx, ink(ay[i] + 7));
-    else if (stepdx < 0) shape16(alien_shape[kind(i)][anim], 8, x, y, (uint8_t) w, 0, ink(ay[i] + 7));
+    if (stepdx > 0) alien16(i, alien_shape[kind(i)][anim], x, y, (uint8_t) w, (uint8_t) stepdx);
+    else if (stepdx < 0) alien16(i, alien_shape[kind(i)][anim], x, y, (uint8_t) w, 0);
     else draw_alien(i);
     if (y + h > BUNK_Y && y < BUNK_Y + BUNK_H) bunker_clear(x, y, w, h);
     if (ay[i] + 8 > CAN_Y && !invaded) { invaded = 1; dying = 1; lives = 1; }   /* they have landed */
@@ -560,9 +593,11 @@ static void ripple(void)                      /* one invader steps, as the arcad
 /* ---- the shot ----------------------------------------------------------- */
 static void kill_alien(uint8_t i)
 {
+    uint8_t k;
     alive[i] = 0; nalive--;
     exp_t = 16; exp_i = i;
-    shape16(boom_shape, 8, ax[i], ay[i], 16, 0, ink(ay[i] + 7));
+    k = alien_ink(i); sec_r = 255;
+    shape16(boom_shape, 8, ax[i], ay[i], 16, 0, k);   /* in its own colour */
     sweep(CH_BOOM, 3, 600, -24, 12);
     add_score(alien_pts[kind(i)]);
 }
@@ -831,8 +866,10 @@ static uint8_t title(void)                   /* 1: play */
     uint8_t j, k;
     header("the arcade of 1978", C_YELLOW);
     text(24, 108, "SCORE ADVANCE TABLE", C_LBLUE, C_BLUE, F8);
+    sec_r = UFO_LIGHTS; sec_m = 0x1248; sec_c = C_YELLOW;
     shape16(ufo_shape, 8, 24, 121, 16, 0, C_LRED);
-    for (j = 0; j < 3; j++) shape16(alien_shape[j][0], 8, 24, 136 + j * 14, 16, 0, C_WHITE);
+    for (j = 0; j < 3; j++) { sec_r = EYE_ROW; sec_m = eye_mask[j]; sec_c = eye_col[j]; shape16(alien_shape[j][0], 8, 24, 136 + j * 14, 16, 0, alien_col[j]); }
+    sec_r = 255;
     for (j = 0; j < 4; j++) text(48, 122 + j * 14, worth[j], j ? C_WHITE : C_LRED, C_BLUE, F8);
     text(200, 108, "THE BEST FIVE", C_LBLUE, C_BLUE, F8);
     for (j = 0; j < 5; j++) hs_line(200, 122 + j * 11, j, C_WHITE);

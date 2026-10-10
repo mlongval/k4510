@@ -12399,3 +12399,56 @@ now shows the exit ladder that play hides.  Levels, the rules, the keys and
 the LEVELnn.TXT format unchanged; LODE has no high scores.  The exit, which
 used to leave CTRL as LODE set it, restores CTRL, the layers, BGCOL and the
 sprites, calls VIDEO and clears JIM's screen.
+
+**2026-10-09: INVADERS -- the 1978 arcade, in the Chooser's look.**
+Doc: "updating our invaders clone to fit the same k4510 design language.
+Would need the 'marching' aliens across the sky and the disintegrating
+bases. as well as traditional sounds".  The three invaders in /LANG stay
+as they are (they teach BASIC, Pascal and BBC BASIC); this is a new app,
+demo/invaders.c -> /APPS/INVADERS/invaders.prg (18,755 bytes; with its BSS it ends at $5A8C
+of the $CC00 the stack leaves), with INVADER2.BAS's arcade shapes.
+- the rack is 5 x 11 (squid 30, crab 20, octopus 10, two frames each) and
+  moves as the arcade's did: one invader a frame from the bottom left, so
+  a pass takes as many frames as there are invaders -- 55 at the start, 1
+  at the end; 2 px a step, 8 down at a wall, the last one 3 px going
+  right; an invader's explosion holds the rack for its 16 frames; one that
+  reaches the cannon's row has landed and the game is over
+- the bunkers are 22 x 16 bytes each in near memory, blitted where they
+  change: a bomb bites from its first pixel down (the arcade's 6x8 shape),
+  a shot from the lowest pixel it meets up (8x8), an invader marching
+  through clears what it draws over; bombs that reach the ground bite the
+  line
+- the rolling bomb aims at the cannon, the plunger and the squiggly drop
+  from the arcade's column tables, one of each at most, taking turns a
+  frame each (4 px, 5 with eight or fewer left); the reload shortens with
+  the score; a shot and a bomb that meet both go
+- the mystery ship every 1536 frames while 8 or more stand, its worth by
+  the shots fired from the arcade's table (the 23rd is the 300); one more
+  cannon at 1500; waves start lower by the arcade's table, scaled
+- MELODY: the march's four notes A2 G2 F2 E2 (fnum 580/517/460/434, block
+  2) are played from the end of each pass of the ripple, so the beat is
+  the step; when the last few step every frame a note goes at most every
+  fifth frame, still on a step.  The shot and an invader's end are noisy
+  falling sweeps (feedback 7), the cannon's a long one, the ship a held
+  tone wobbled 8 frames up and down while it flies
+- the look: 320x240 doubled, the bands (clock latched with a store), the
+  glass, the field the arcade's 224 px framed in light blue, a panel with
+  the score, the best, the wave and the cannons; the overlay's strips as
+  colour by height -- red over the ship's lane, green from the bunkers
+  down (an invader that gets that low turns green), white between.  All
+  of it in the one bitmap, as the arcade's was: no sprites, so nothing
+  passes under the bands and colour 0 is not needed.  The title (with the
+  score advance table), the pause and the end are the Chooser's list;
+  the best five in /APPS/INVADERS/HISCORE.DAT, BREAKOUT's format with an
+  'I' (git-ignored like the others)
+Checked headless: a harness on the capture code with the held keys
+cycling (sweep and fire), lives held up by a poke until the landing, and
+the OPL writes logged: 776 beats in 14000 frames, always A G F E, the gap
+between them the invaders standing (55, 49 ... 11 ... 5) plus 16 for each
+explosion that held the rack, and a 48 kHz render of the chip puts the
+strongest of the four at the right one on every beat.  A full wave cleared
+into wave 2, a landing ("THEY HAVE LANDED"), the ship hit for 100.
+make test: check-artifacts and all green but two that fail only in this
+worktree -- bangtest (the long path wraps pwd at 80 columns) and dirtest
+(no plain file at fs/'s root here; it passes with one).  SHIPPING.CFG:
+app:INVADERS = essential (Doc).

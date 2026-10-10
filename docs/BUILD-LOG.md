@@ -12372,3 +12372,30 @@ the game's end and the lost ball is not drawn again over GAME OVER; and two
 review nits -- the bottom band's keys shortened to fit, "Breakout" and the
 panel 16 px clear of the field's frame.  make test green, check-artifacts
 included.
+
+**2026-10-09: LODE in the Chooser's look.**  As CHESS, TETRIS and SKYFIRE:
+320x240 doubled, grey bands (K4510 LODE and the time; the keys), the blue
+glass, the banner's bars, unscii through the blitter into an 8 bpp bitmap on
+layer 1 (layer 0, the console's, off and left as it was), the machine's
+sixteen colours.  The fit: the grid is 20x15 cells of 16 px, the whole glass,
+and both edge rows are played on -- row 0 holds the exit ladder's top, where
+a level is won, and row 14 is a floor a level of one's own may make of brick
+and dig -- so the bands could not lie over either.  The field is drawn at
+three quarters instead: 12 px cells, 240x180, framed under a strip with the
+bars and "Lode", the old status line now a panel at its right (SCORE, MEN,
+LEVEL n/N, GOLD or GO UP, PACE, GUARDS).  The rules still count in 16 px;
+only the drawing scales (x*3/4).  The cells are bevelled tiles built at the
+start and blitted, only those that changed; the men are the same 16x16 8 bpp
+sprites at Z 1 over the bitmap, the figures taken down to 12x12 (a row of
+the head, of the legs, the blank edges), outlined in palette 253 set to
+black since colour 0 is transparent.  The title, a new P pause (resume, the
+guards, the pace, end the game) and the end of a game (lost, or every level
+cleared) are the Chooser's list; the title has the runner and the guards
+top right, the other two hide the men, and the field is painted again on
+the way out.  (romtest takes LODE's sprites as the sign it is running.)  "Ouch", "Next level" and the editor's
+questions are a bar across the field.  The editor's keys are in the panel
+and its messages in the bottom band; its cursor is a yellow frame, and it
+now shows the exit ladder that play hides.  Levels, the rules, the keys and
+the LEVELnn.TXT format unchanged; LODE has no high scores.  The exit, which
+used to leave CTRL as LODE set it, restores CTRL, the layers, BGCOL and the
+sprites, calls VIDEO and clears JIM's screen.

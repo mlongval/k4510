@@ -12643,3 +12643,16 @@ screen_mode ($FF5F); and run.py killed x16emu with SIGKILL, losing the
 clean quit, and the PNG drops the .gif's transparent colour 0.
 Handbook appendix: a Track 4 section and two bullets; its four tables at
 \footnotesize with short heads, so the appendix has no overfull lines.
+
+### 2026-10-10 -- the Dell's screen goes dark on mains
+
+Doc: "fix the dell so that it stays awake at idle for your tests and
+updates, but that the screen turns off after 10 min.  currently it does not
+go dark".  k4510-brightness's dim/off timers ran only on battery; plugged in
+nothing ever touched the panel.  Now DIM_AFTER_MAINS=0 and
+OFF_AFTER_MAINS=600 in /etc/default/k4510-power: dark after ten minutes
+without a key, touchpad or mouse, any input lights it again.  "Off" also
+writes brightness 0, because i915's intel_backlight ignores bl_power
+(actual_brightness stayed 2400).  logind's IdleAction=ignore is written out
+so the machine itself never sleeps for idleness.  Tried on the Dell with a
+20 s timeout: dark at 20 s, an injected Shift brought it back to 2400.

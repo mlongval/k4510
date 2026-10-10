@@ -12,6 +12,13 @@ DIM_AFTER=120
 DIM_FRAC=0.30
 OFF_AFTER=600
 #
+# On mains (2026-10-10): the machine never sleeps by itself (logind's
+# IdleAction is ignore); only the screen goes dark.
+# DIM_AFTER_MAINS  seconds before it dims, plugged in (0: never)
+# OFF_AFTER_MAINS  seconds before the backlight goes off, plugged in (0: never)
+DIM_AFTER_MAINS=0
+OFF_AFTER_MAINS=600
+#
 # The machine on battery and on mains (k4510-power-policy): intel_pstate's
 # energy preference and the firmware's platform profile
 # (cat /sys/firmware/acpi/platform_profile_choices).

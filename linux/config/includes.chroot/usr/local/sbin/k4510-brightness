@@ -34,6 +34,15 @@ time on battery"), the backlight being the biggest single draw on the Dell:
 Every input device is read for that, as the brightness keys' already were.
 /etc/default/k4510-power can set BATTERY_CAP (a fraction), DIM_AFTER and
 OFF_AFTER (seconds, 0 = never).
+
+On mains too (2026-10-10, Doc: "stays awake at idle for your tests and
+updates, but that the screen turns off after 10 min.  currently it does not
+go dark"): the timeouts above were battery-only, so plugged in the panel
+stayed lit for ever.  DIM_AFTER_MAINS and OFF_AFTER_MAINS are the plugged-in
+pair (0 and 600 by default: no dimming, dark after ten minutes).  Only the
+screen goes off -- the machine keeps running, reachable over ssh.  "Off" is
+brightness 0 as well as bl_power: i915's intel_backlight ignores bl_power
+(actual_brightness stayed 2400 on the Dell), but 0 stops the PWM.
 """
 import errno, glob, os, select, struct, sys, time
 
@@ -54,7 +63,8 @@ MIN_FRAC = 0.02      # never all the way off by the keys: a black screen looks l
 DEBOUNCE = 0.08      # seconds; one press, however many devices report it
 
 # on battery (overridden by /etc/default/k4510-power)
-CFG = {"BATTERY_CAP": 0.60, "DIM_AFTER": 120, "OFF_AFTER": 600, "DIM_FRAC": 0.30}
+CFG = {"BATTERY_CAP": 0.60, "DIM_AFTER": 120, "OFF_AFTER": 600, "DIM_FRAC": 0.30,
+       "DIM_AFTER_MAINS": 0, "OFF_AFTER_MAINS": 600}
 
 
 def load_cfg():
@@ -143,11 +153,14 @@ class Backlight:
             try:
                 with open(self.power, "w") as f:
                     f.write("4" if off else "0")    # FB_BLANK_POWERDOWN / UNBLANK
-                return
             except OSError:
                 pass
-        if off:
-            self.set(self.vmin)
+        if off:                                     # and 0, past vmin: intel_backlight ignores bl_power
+            try:
+                with open(self.path, "w") as f:
+                    f.write("0")
+            except OSError:
+                self.set(self.vmin)
 
 
 def main():
@@ -178,7 +191,8 @@ def main():
             break
         time.sleep(1)
     print(f"k4510-brightness: {d}, step {bl.step} of {bl.vmax}, watching {len(fds)} device(s); "
-          f"on battery: cap {CFG['BATTERY_CAP']:.0%}, dim after {CFG['DIM_AFTER']:.0f} s, off after {CFG['OFF_AFTER']:.0f} s")
+          f"on battery: cap {CFG['BATTERY_CAP']:.0%}, dim after {CFG['DIM_AFTER']:.0f} s, off after {CFG['OFF_AFTER']:.0f} s; "
+          f"on mains: dim after {CFG['DIM_AFTER_MAINS']:.0f} s, off after {CFG['OFF_AFTER_MAINS']:.0f} s")
     sys.stdout.flush()
 
     last_key = 0.0                               # the debounce
@@ -190,6 +204,9 @@ def main():
     if batt and level > bl.vmax * CFG["BATTERY_CAP"]:
         capped_from = level; level = int(bl.vmax * CFG["BATTERY_CAP"]); bl.set(level)
     last_scan = time.monotonic(); last_power = 0.0
+
+    def timeouts():                              # (dim after, off after) for the supply it is on
+        return (CFG["DIM_AFTER"], CFG["OFF_AFTER"]) if batt else (CFG["DIM_AFTER_MAINS"], CFG["OFF_AFTER_MAINS"])
 
     def wake():
         nonlocal state
@@ -203,9 +220,10 @@ def main():
         now = time.monotonic()
         # how long until something is due: the next dim step, or a look at the supply
         timeout = 5.0
-        if batt and state < 2:
-            due = [last_input + CFG["DIM_AFTER"] if state == 0 and CFG["DIM_AFTER"] > 0 else None,
-                   last_input + CFG["OFF_AFTER"] if CFG["OFF_AFTER"] > 0 else None]
+        dim_after, off_after = timeouts()
+        if state < 2:
+            due = [last_input + dim_after if state == 0 and dim_after > 0 else None,
+                   last_input + off_after if off_after > 0 else None]
             due = [t - now for t in due if t is not None]
             if due:
                 timeout = max(0.05, min(timeout, min(due)))
@@ -259,15 +277,15 @@ def main():
                     capped_from = level; level = int(bl.vmax * CFG["BATTERY_CAP"]); bl.set(level)
                 elif not batt and capped_from is not None:
                     level = capped_from; capped_from = None; bl.set(level)
-        if batt:
-            idle = now - last_input
-            if state == 0 and CFG["DIM_AFTER"] > 0 and idle >= CFG["DIM_AFTER"]:
-                cur = bl.get()
-                if cur is not None:
-                    level = cur
-                bl.set(max(bl.vmin, level * CFG["DIM_FRAC"])); state = 1
-            if state < 2 and CFG["OFF_AFTER"] > 0 and idle >= CFG["OFF_AFTER"]:
-                bl.blank(True); state = 2
+        dim_after, off_after = timeouts()
+        idle = now - last_input
+        if state == 0 and dim_after > 0 and idle >= dim_after:
+            cur = bl.get()
+            if cur is not None:
+                level = cur
+            bl.set(max(bl.vmin, level * CFG["DIM_FRAC"])); state = 1
+        if state < 2 and off_after > 0 and idle >= off_after:
+            bl.blank(True); state = 2
 
 
 if __name__ == "__main__":

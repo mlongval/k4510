@@ -5,7 +5,9 @@ one to reach for first: it looks and works like the editor MS-DOS shipped
 from version 5 on, menus, mouse and all, so there is nothing to learn.
 \verb|VI| is for the file too big to think about, and it is modal, so it
 expects you to have met \texttt{vi} before. Under both is the same engine
---- and \verb|PROG| (below) is the third front end on it.
+--- and \verb|PROG| (below) is the third front end on it. \verb|WORD| and
+\verb|CALC|, further down, are not editors --- a reader and a spreadsheet
+--- but they wear the same clothes, so they are kept here with them.
 
 All of them take their keys raw from the ROM --- an arrow arrives as one
 byte rather than an escape sequence to unpick, with a bit beside it saying
@@ -423,6 +425,107 @@ XML itself, on the 45GS10. Pictures, text boxes, footnotes, headers and
 footers, fonts and sizes are passed over. A Word 97--2003 \texttt{.DOC} is
 another kind of file altogether and WORD says so rather than guessing; save
 it as \texttt{.DOCX} in Word first. A \texttt{.TXT} opens too.
+
+\section{CALC}\label{sec:calc}
+\verb|CALC name| is the spreadsheet, in the same clothes as \verb|EDIT| and
+\verb|WORD|: the menu bar, the frame with the sheet's name in it, the scroll
+bars, the status line. Under the frame's top sits the formula bar --- the
+cell's name, what is in it, and what a formula comes to at the right --- then
+the column letters, the rows, 52 columns (A--Z, AA--AZ) by 999 rows.
+\verb|CALC| alone starts an empty sheet; \verb|CALC -s name| is in the
+console's own colours, as \verb|EDIT -s|.
+
+Type into a cell and it is taken for what it looks like: a number is a
+number, an \verb|=| starts a formula, anything else is text, and a leading
+\verb|'| forces text (\verb|'2026| stays a year). Enter keeps the entry and
+goes down, Tab keeps it and goes right, and Enter after a run of Tabs goes
+back to the column the run began in, as Excel does. F2 edits the cell in
+place (the arrows then move inside the entry); Esc drops the entry. Text
+longer than its column runs on into the empty cells beside it; a number
+wider than its column shows \verb|#####|.
+
+The spelling is Excel's and LibreOffice Calc's, which is what anyone brings
+to a spreadsheet now:
+
+\begin{itemize}\itemsep0pt
+\item references \verb|A1|, ranges \verb|A1:B9|, and absolute or mixed
+  references \verb|$A$1|, \verb|A$1|, \verb|$A1|. While a formula is being
+  typed, F4 on a reference cycles it through the four forms.
+\item \verb|+ - * / ^|, the comparisons \verb|= <> < > <= >=| (which give
+  \verb|TRUE| or \verb|FALSE|), and \verb|&| to join text; text itself goes
+  in double quotes: \verb|="Total: "&A1|.
+\item the functions: \verb|SUM AVERAGE MIN MAX COUNT COUNTA| over ranges
+  and lists; \verb|ABS INT SQRT ROUND(x;n) MOD PI()|; \verb|IF(test;then;else)|
+  \verb|AND OR NOT ISERROR IFERROR NA()|; \verb|LEN LEFT RIGHT MID UPPER LOWER|
+  \verb|TRIM CONCAT VALUE|; \verb|TODAY()| and \verb|NOW()|, which count days
+  from 1899-12-30 as Excel does (the machine's clock; the MATH unit's seven
+  digits put \verb|NOW| within a few minutes).
+\item arguments part with a comma or a semicolon --- Excel's comma,
+  LibreOffice's semicolon in French --- and a formula is kept and shown as
+  it was typed.
+\item the error values: \verb|#DIV/0!|, \verb|#REF!| (a cell off the sheet,
+  or one a paste lost), \verb|#NAME?|, \verb|#VALUE!|, \verb|#N/A|, \verb|#NUM!|,
+  and \verb|#ERROR!| for a formula that will not parse. An error in a cell
+  reaches every formula that uses it.
+\end{itemize}
+
+\noindent The sheet is worked out again after every entry, in the order its
+formulas need: a formula above the cells it uses is simply left for the
+next pass, and what is still waiting when a pass can do nothing more is a
+circle --- those cells show \verb|#CIRC!| instead of the sheet hanging. F9
+works it out again by hand (for \verb|NOW()|).
+
+Shift with an arrow selects a range. Ctrl+X, Ctrl+C and Ctrl+V cut, copy
+and paste the cell or the range, and a pasted formula's references move with
+it --- \verb|=A1*2| copied two rows down reads \verb|A3| --- while a
+\verb|$| holds its half still. Ctrl+D fills down and Ctrl+R fills right, from
+the first row or column of the selection (a lone cell takes from the cell
+above it, or to its left). Del clears.
+
+The \emph{Cells} menu formats the cell or the range: \emph{General},
+\emph{Decimals\ldots} (0 to 9 places), \emph{Thousands}, \emph{Percent},
+\emph{Date} (which shows a day count as \texttt{2026-10-10} and widens the
+column to hold it); and \emph{Column Width\ldots} (Ctrl+W) or \emph{All
+Columns\ldots}. It is called \emph{Cells} and not \emph{Format} because a
+menu opens by its first letter, and \emph{File} has the F.
+
+\begin{center}
+\small
+\begin{tabular}{@{}>{\raggedright\arraybackslash}p{0.36\linewidth} >{\raggedright\arraybackslash}p{0.59\linewidth}@{}}
+\toprule
+\textbf{Key} & \textbf{Does} \\
+\midrule
+arrows, PgUp, PgDn, Home, End & move; Ctrl+Home A1, Ctrl+End the last cell used; Shift with any of them selects \\
+Enter, Tab, Esc & keep and go down, keep and go right, drop the entry \\
+F2, F4 & edit the cell in place; \verb|$| on the reference under the cursor \\
+Del, Ctrl+X, Ctrl+C, Ctrl+V & clear, cut, copy, paste \\
+Ctrl+D, Ctrl+R & fill down, fill right \\
+Ctrl+G, Ctrl+W, F9 & go to a cell, the column's width, recalculate \\
+Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q \emph{or} Esc & new, open, save, leave \\
+F1, Shift+F1 & the keys, the formulas \\
+F10, Alt and a letter & the menus; the mouse works the menus, the cells, the scroll bars and the wheel \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\textbf{Files.} A sheet is saved as text, a line a cell ---
+\verb|A1:F:=B2*3| --- so \verb|EDIT| can read one. The header says
+\verb|K4CALC 3|; a format follows the kind letter (\verb|A2:N2,:1234.5| is
+two decimals with thousands, \verb|%| percent, \verb|D| a date) and
+\verb|W:B:12| lines carry the column widths. Sheets from the earlier CALCs
+still open: \verb|K4CALC 2| as it is, and \verb|K4CALC 1| --- the first
+CALC's VisiCalc spelling, \verb|@SUM| and \verb|A1...B3| --- brought over as
+it loads, so the next save is written in the new spelling.
+\emph{File} $\rightarrow$ \emph{Import CSV} and \emph{Export CSV} move a
+sheet to and from LibreOffice and Excel (\verb|CALC name.CSV| imports too).
+Coming in, the separator is told from the file --- comma, semicolon or Tab
+--- quotes are undone and each field is taken for what it looks like; going
+out, values are written and not formulas, as those two do, text is quoted
+where it must be, and the separator is a comma unless \emph{Options},
+\emph{CSV Semicolons} is on. A number with a decimal comma (\texttt{3,5} in a
+French file) comes in as text: the formulas here use the point.
+
+The arithmetic is the MATH unit's: IEEE single precision, seven digits.
 
 \section{Editing from inside a BASIC}\label{sec:editfrombasic}
 This is for an interpreter, BBC BASIC on the Tube; K4510 BASIC is a file

@@ -12546,3 +12546,62 @@ smoothed text soft at its edges only, native's rows uneven; the grey
 ramp's dimmed rows read 111 / 62 / 0 against 124 at 10 / 50 / 100%.
 Tests: vickytest 16, modetest (13 flag spellings), uitest (the setting
 loads, nothing migrated).
+
+**2026-10-10: CALC revamped -- EDIT's clothes, Excel's spelling.**  Doc:
+make CALC look and behave like WORD and EDIT, and go further toward what a
+modern spreadsheet user expects (Excel, LibreOffice Calc).  demo/calc.c is
+now a dosui.h program like its two siblings: the menu bar (File, Edit,
+Cells, Options, Help), the frame with the sheet's name, the formula bar
+under it (the cell's name, its entry, what a formula comes to at the
+right), column letters and row numbers in the menu's grey, scroll bars,
+the status line, EDIT's dialogs (Open with its directory list, Save As,
+Go To, Column Width, Decimals), the mouse, `-s` for the console's colours,
+Ctrl+Q/Esc asking before leaving.  The grid is 52 x 999 (A-Z, AA-AZ) in
+far memory: the kinds at $0E080000, the cells (112 bytes: kind, error,
+result type, format, value, 64 of source, 40 of a text result) at
+$0E100000, the clipboard at $0E700000, the Open list at $0EE00000, a file
+being read at $0F000000; near memory keeps only a count per row, so the
+empty rows cost nothing.  The spelling: `$A$1 A$1 $A1` with F4 cycling the
+reference under the cursor; `= <> < > <= >=` giving TRUE/FALSE, `&`, text
+in quotes; SUM AVERAGE MIN MAX COUNT COUNTA ABS INT SQRT ROUND MOD PI IF
+AND OR NOT ISERROR IFERROR NA LEN LEFT RIGHT MID UPPER LOWER TRIM CONCAT
+VALUE TODAY NOW (Excel's day count, from the SYS clock -- the single's seven
+digits put NOW within minutes); `,` or `;` between arguments, the formula
+kept as typed; #DIV/0! #REF! #NAME? #VALUE! #N/A #NUM! and #ERROR! for a
+formula that will not parse, an error reaching the cells that use it.
+Recalculation is by passes in sheet order: a formula whose cells are not yet
+known this pass is left for the next, and when a pass can do nothing more
+what is left is marked #CIRC! (a self-reference no longer hangs; LibreOffice's
+Err:522).  Ctrl+C/X/V on the cell or a Shift-selected range, with the
+relative references moved and `$` holding; Ctrl+D/Ctrl+R fill; Cells >
+General / Decimals / Thousands / Percent / Date (ISO, the column widened),
+per cell or range, and per-column widths.  Files: `K4CALC 3` adds the format
+after the kind letter (`A2:N2,:1234.5`) and `W:B:12` width lines; K4CALC 2
+opens as it is, K4CALC 1 is still modernised (and a bug there: the `=`
+prepended lost the terminator, so `*100` came over as `*10000` -- the old
+test passed because 150000 contains 1500).  File > Import CSV / Export CSV
+for LibreOffice and Excel: the separator told from the file (, ; Tab),
+quotes undone; out go values, quoted where needed, comma unless Options >
+CSV Semicolons.  Enter after a run of Tabs goes back to the first column,
+as Excel.  The image no longer fitted $0800-$CBFF: calc.prg is a K4SG
+program like EDIT (demo/calc.cfg, demo/calc-header.s): BSS at $0800, the
+image from $2000, the files / CSV / help / fills at $E000 (HICODE), the
+dates and two dialogs at $1A00 (LOCODE); `#pragma static-locals` everywhere
+but the recursive parser.  51 KB.  Three bugs cost the evening: a helper
+that called itself after a global replace (a wrapped 6502 stack, then
+BRKs through zero page -- found by DUMP checkpoints), `(int) t - cc`
+subtracted as bytes by cc65 (the cursor landed in AZ -- moves are
+absolute now), and a void volatile read the compiler dropped (the SYS
+clock never latched: TODAY was 1899); and a fourth, caught from a dump of
+the text layer rather than the eye: CALC's cell kind `K_TEXT` shadowed
+dosui.h's colour role of the same name, so the grid came up blue on grey,
+EDIT's selection colours, and the capture had been read as right.  The
+kinds are `KIND_*` now.  Left for later: VLOOKUP and the
+lookup family, number formats beyond decimals/thousands/percent/date, a
+point-and-click reference while typing a formula, undo, sorting, and
+locale commas as decimals.  test/calctest.sh is 58 checks: the entry rules,
+the functions, text and logic, `,` vs `;`, the errors, order and #CIRC!,
+`$A$1` with copy, fill and F4, a round trip with a format and the two old
+formats, CSV both ways, the menus, Tab/Enter, Go To, a date, leaving.
+Handbook: a CALC section in chapter 11 (tex and the site page), PDF not
+rebuilt.  Captures of CALC beside WORD and EDIT in the session's scratchpad.

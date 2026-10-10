@@ -1,6 +1,6 @@
 # The Editors
 
-Two of them, because they answer different questions. `EDIT` is the one to reach for first: it looks and works like the editor MS-DOS shipped from version 5 on, menus, mouse and all, so there is nothing to learn. `VI` is for the file too big to think about, and it is modal, so it expects you to have met `vi` before. Under both is the same engine — and `PROG` (below) is the third front end on it.
+Two of them, because they answer different questions. `EDIT` is the one to reach for first: it looks and works like the editor MS-DOS shipped from version 5 on, menus, mouse and all, so there is nothing to learn. `VI` is for the file too big to think about, and it is modal, so it expects you to have met `vi` before. Under both is the same engine — and `PROG` (below) is the third front end on it. `WORD` and `CALC`, further down, are not editors — a reader and a spreadsheet — but they wear the same clothes, so they are kept here with them.
 
 All of them take their keys raw from the ROM — an arrow arrives as one byte rather than an escape sequence to unpick, with a bit beside it saying that it *is* an arrow and not the accented letter that shares its code. None needs the Tube: they are programs of this machine.
 
@@ -538,6 +538,42 @@ The page is laid out to the window. Each paragraph is wrapped at a word, centred
 `WORD -s name` is in the console’s own colours, as `EDIT -s`. *View*, *Tab Width…* chooses how many spaces a Tab in the document is drawn as (four unless told, 1 to 16; always spaces, never a tab character), and reads the file again so the change shows.
 
 **How it reads one.** A `.DOCX` is a zip of XML files, and the machine can already `MOUNT` a zip ([Chapter 2, The Shell](02-shell.md)): WORD mounts the document, reads `word/document.xml` — and the styles and list definitions beside it — into far memory, unmounts it, and parses the XML itself, on the 45GS10. Pictures, text boxes, footnotes, headers and footers, fonts and sizes are passed over. A Word 97–2003 `.DOC` is another kind of file altogether and WORD says so rather than guessing; save it as `.DOCX` in Word first. A `.TXT` opens too.
+
+## CALC
+
+`CALC name` is the spreadsheet, in the same clothes as `EDIT` and `WORD`: the menu bar, the frame with the sheet’s name in it, the scroll bars, the status line. Under the frame’s top sits the formula bar — the cell’s name, what is in it, and what a formula comes to at the right — then the column letters, the rows, 52 columns (A–Z, AA–AZ) by 999 rows. `CALC` alone starts an empty sheet; `CALC -s name` is in the console’s own colours, as `EDIT -s`.
+
+Type into a cell and it is taken for what it looks like: a number is a number, an `=` starts a formula, anything else is text, and a leading `'` forces text (`'2026` stays a year). Enter keeps the entry and goes down, Tab keeps it and goes right, and Enter after a run of Tabs goes back to the column the run began in, as Excel does. F2 edits the cell in place (the arrows then move inside the entry); Esc drops the entry. Text longer than its column runs on into the empty cells beside it; a number wider than its column shows `#####`.
+
+The spelling is Excel’s and LibreOffice Calc’s, which is what anyone brings to a spreadsheet now:
+
+- references `A1`, ranges `A1:B9`, and absolute or mixed references `$A$1`, `A$1`, `$A1`. While a formula is being typed, F4 on a reference cycles it through the four forms.
+- `+ - * / ^`, the comparisons `= <> < > <= >=` (which give `TRUE` or `FALSE`), and `&` to join text; text itself goes in double quotes: `="Total: "&A1`.
+- the functions: `SUM AVERAGE MIN MAX COUNT COUNTA` over ranges and lists; `ABS INT SQRT ROUND(x;n) MOD PI()`; `IF(test;then;else) AND OR NOT ISERROR IFERROR NA()`; `LEN LEFT RIGHT MID UPPER LOWER TRIM CONCAT VALUE`; `TODAY()` and `NOW()`, which count days from 1899-12-30 as Excel does (the machine’s clock; the MATH unit’s seven digits put `NOW` within a few minutes).
+- arguments part with a comma or a semicolon — Excel’s comma, LibreOffice’s semicolon in French — and a formula is kept and shown as it was typed.
+- the error values: `#DIV/0!`, `#REF!` (a cell off the sheet, or one a paste lost), `#NAME?`, `#VALUE!`, `#N/A`, `#NUM!`, and `#ERROR!` for a formula that will not parse. An error in a cell reaches every formula that uses it.
+
+The sheet is worked out again after every entry, in the order its formulas need: a formula above the cells it uses is simply left for the next pass, and what is still waiting when a pass can do nothing more is a circle — those cells show `#CIRC!` instead of the sheet hanging. F9 works it out again by hand (for `NOW()`).
+
+Shift with an arrow selects a range. Ctrl+X, Ctrl+C and Ctrl+V cut, copy and paste the cell or the range, and a pasted formula’s references move with it — `=A1*2` copied two rows down reads `A3` — while a `$` holds its half still. Ctrl+D fills down and Ctrl+R fills right, from the first row or column of the selection (a lone cell takes from the cell above it, or to its left). Del clears.
+
+The *Cells* menu formats the cell or the range: *General*, *Decimals…* (0 to 9 places), *Thousands*, *Percent*, *Date* (which shows a day count as `2026-10-10` and widens the column to hold it); and *Column Width…* (Ctrl+W) or *All Columns…*. It is called *Cells* and not *Format* because a menu opens by its first letter, and *File* has the F.
+
+| Key | Does |
+|---|---|
+| arrows, PgUp, PgDn, Home, End | move; Ctrl+Home A1, Ctrl+End the last cell used; Shift with any of them selects |
+| Enter, Tab, Esc | keep and go down, keep and go right, drop the entry |
+| F2, F4 | edit the cell in place; `$` on the reference under the cursor |
+| Del, Ctrl+X, Ctrl+C, Ctrl+V | clear, cut, copy, paste |
+| Ctrl+D, Ctrl+R | fill down, fill right |
+| Ctrl+G, Ctrl+W, F9 | go to a cell, the column’s width, recalculate |
+| Ctrl+N, Ctrl+O, Ctrl+S, Ctrl+Q *or* Esc | new, open, save, leave |
+| F1, Shift+F1 | the keys, the formulas |
+| F10, Alt and a letter | the menus; the mouse works the menus, the cells, the scroll bars and the wheel |
+
+**Files.** A sheet is saved as text, a line a cell — `A1:F:=B2*3` — so `EDIT` can read one. The header says `K4CALC 3`; a format follows the kind letter (`A2:N2,:1234.5` is two decimals with thousands, `%` percent, `D` a date) and `W:B:12` lines carry the column widths. Sheets from the earlier CALCs still open: `K4CALC 2` as it is, and `K4CALC 1` — the first CALC’s VisiCalc spelling, `@SUM` and `A1...B3` — brought over as it loads, so the next save is written in the new spelling. *File* → *Import CSV* and *Export CSV* move a sheet to and from LibreOffice and Excel (`CALC name.CSV` imports too). Coming in, the separator is told from the file — comma, semicolon or Tab — quotes are undone and each field is taken for what it looks like; going out, values are written and not formulas, as those two do, text is quoted where it must be, and the separator is a comma unless *Options*, *CSV Semicolons* is on. A number with a decimal comma (`3,5` in a French file) comes in as text: the formulas here use the point.
+
+The arithmetic is the MATH unit’s: IEEE single precision, seven digits.
 
 ## Editing from inside a BASIC
 

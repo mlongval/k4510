@@ -40,8 +40,8 @@ ACME ?= $(shell command -v acme 2>/dev/null || echo $(HOME)/.local/bin/acme)
 # empty and check-artifacts guarded nothing (review 2026-09-12).
 uc = $(shell echo $1 | tr a-z A-Z)
 BIN_NAMES = ranger kommander vi prog edit word delete setup bench bug say telnet banner petscii bands keytest padtest mousetest chrout type monitor book split hexed fonted codepage nvim status wall mark scanline
-APP_C_NAMES = cube mandel oplplay lode tetris paint tracker calc snake breakout rockfall invaders
-APP_SEG_NAMES = bomber skyfire chess fluffy
+APP_C_NAMES = cube mandel oplplay lode tetris paint tracker snake breakout rockfall invaders
+APP_SEG_NAMES = bomber skyfire chess fluffy calc
 C_EX_NAMES = hello sieve
 BIN_PRGS = $(foreach n,$(BIN_NAMES),fs/SYSTEM/BIN/$n.prg)
 APP_PRGS = $(foreach n,$(APP_C_NAMES) $(APP_SEG_NAMES),fs/APPS/$(call uc,$n)/$n.prg)
@@ -462,6 +462,13 @@ fs/LANG/C/$1.prg: fs/LANG/C/$(call uc,$1).C tools/k4510-cc demo/k4510.h demo/far
 	cd fs/LANG/C && PATH=$$$$PATH K4510=../../.. ../../../tools/k4510-cc $(call uc,$1) >/dev/null
 endef
 $(foreach n,$(C_EX_NAMES),$(eval $(call C_EX_RULE,$n)))
+# CALC: the spreadsheet in EDIT's clothes -- a K4SG program, variables at $0800, the image at $2000,
+# the files and the help at $E000 (demo/calc.cfg, demo/calc-header.s; 2026-10-10)
+fs/APPS/CALC/calc.prg: demo/calc.c demo/dosui.h demo/jimcell.h demo/k4510.h demo/far.h demo/prg0.o demo/romcalls.o demo/calc.cfg demo/calc-header.s
+	cc65 -O -t none --cpu 65c02 -o demo/calc.s demo/calc.c
+	ca65 --cpu 65c02 -o demo/calc.o demo/calc.s
+	ca65 --cpu 65c02 -o demo/calc_h.o demo/calc-header.s
+	ld65 -C demo/calc.cfg -o $@ demo/prg0.o demo/romcalls.o demo/calc_h.o demo/calc.o none.lib -m demo/calc.map
 # segmented program (K-03): own header + linker config, overlays at 000
 # skyfire: a Galaxian with Kenney's Pixel Shmup planes (CC0, data/pixelshmup/);
 # tools/mkskyfire.py cuts the sheets and lays the ground, the K4SG header carries them

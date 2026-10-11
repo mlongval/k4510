@@ -928,6 +928,7 @@ static void cmd_run(const char *p)
 hex:
     a = last_run ? last_run : (last_addr ? last_addr : xam);
     if (*p) a = parsehex(&p, &d);
+    else if (!a) { error("run: nothing loaded"); return; }   /* a bare RUN at boot jumped to $0000 and wedged (K4532's stephash, 2026-10-11) */
     if (a >= 0x10000UL) { error("run: 16-bit address"); return; }
     run_at((uint16_t)a);
 }

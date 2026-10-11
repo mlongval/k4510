@@ -43,6 +43,10 @@ int main(void)
      * a program sees the RAM under the ROM there -- itself.  The stub page is
      * ROM for programs too: that is how they make system calls.  $FF80 is the
      * jump table, JMP s_chrout. */
+    /* A bare RUN before anything was loaded jumped to $0000 and wedged the
+     * machine (found by K4532's stephash, 2026-10-11). */
+    type("run\n");
+    CHECK(find("run: nothing loaded") >= 0, "bare RUN at boot says so");
     type("mon FF80.FF82\n");
     CHECK(find("0000FF80: 4C") >= 0, "examine ROM (the jump table at $FF80: JMP)");
     type("load hello.txt 6000\n");

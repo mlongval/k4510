@@ -12768,3 +12768,12 @@ FarPoke/far_poke, building a 32-bit address for each byte:
   port_at in every program that includes the header, and PROG has no
   room); sprite tables (six stores to set a port, dearer than the four
   saved, as measured for track 4).
+
+### 2026-10-11 -- a bare RUN at boot
+
+Found by K4532's stephash: RUN with nothing loaded fell back to last_run,
+then last_addr, then xam -- all zero at boot -- and jumped to $0000; the
+machine ran through zero page and the I/O window and wedged (`RUN` then
+`ECHO ALIVE` never echoed).  Now it says "run: nothing loaded".  An
+address still works (RUN 3000), and a bare RUN after a LOAD or a program
+runs that, as before.  romtest checks it.

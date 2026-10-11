@@ -1,6 +1,7 @@
 /* The Personality Chooser (Doc, 2026-10-09): which machine this computer is
  * -- the K4510, or one of its personalities (Commodore 64, 128, PET, Amiga
- * 500, 1200, Commander X16; ~/Projects/K4510-Personalities makes them).
+ * 500, 1200, Commander X16, and the K4532 with its RISC-V CPU;
+ * ~/Projects/K4510-Personalities makes them).
  *
  * k4510-session (linux/config/includes.chroot/usr/local/bin) runs it on tty1
  * when a machine is quit, or at power-on when SPACE was held: it prints the
@@ -131,6 +132,12 @@ static const char *const badge_x16[16] = {      /* an X in the banner's colours 
     "......5555......", ".....555555.....", "....555..555....", "...EEE....EEE...",
     "..EEE......EEE..", ".EEE........EEE.", ".EE..........EE.", "................",
 };
+static const char *const badge_k4532[16] = {    /* a chip: the K4510's stripes, and 32 */
+    "................", "...F.F.F.F.F.F..", "..CCCCCCCCCCCCC.", ".FC22222222220CF",
+    "..C88888880000C.", ".FC77777000000CF", "..C55555550000C.", ".FCEEEEEEEEEE0CF",
+    "..C00000000000C.", ".FC00111011100CF", "..C00001000100C.", ".FC00011011100CF",
+    "..C00001010000C.", ".FC00111011100CF", "..CCCCCCCCCCCCC.", "...F.F.F.F.F.F..",
+};
 static const char *const badge_other[16] = {    /* a screen */
     "................", "..CCCCCCCCCCCC..", "..C0000000000C..", "..C0EE000000C...",
     "..C0000000000C..", "..C0EEEE00000C..", "..C0000000000C..", "..C0EEE000000C..",
@@ -156,6 +163,7 @@ static void ball(int x, int y, int a, int b)    /* the Amiga's: a chequered ball
 static void draw_badge(int x, int y, const char *name)
 {
     if (!strcmp(name, "k4510")) badge(x, y, badge_k4510);
+    else if (!strcmp(name, "k4532")) badge(x, y, badge_k4532);
     else if (!strcmp(name, "c64")) badge(x, y, badge_c64);
     else if (!strcmp(name, "c128")) badge(x, y, badge_c128);
     else if (!strcmp(name, "pet")) badge(x, y, badge_pet);
@@ -177,7 +185,7 @@ static void add(const char *name, const char *title)
 }
 static void read_list(const char *file)
 {
-    static const char *const order[] = { "c64", "c128", "pet", "a500", "a1200", "x16" };
+    static const char *const order[] = { "k4532", "c64", "c128", "pet", "a500", "a1200", "x16" };
     machine got[MAXM]; int ng = 0; char line[160];
     FILE *f = file ? fopen(file, "r") : popen("k4510-personality 2>/dev/null", "r");
     while (f && fgets(line, sizeof line, f) && ng < MAXM) {

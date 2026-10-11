@@ -12777,3 +12777,11 @@ machine ran through zero page and the I/O window and wedged (`RUN` then
 `ECHO ALIVE` never echoed).  Now it says "run: nothing loaded".  An
 address still works (RUN 3000), and a bare RUN after a LOAD or a program
 runs that, as before.  romtest checks it.
+
+### 2026-10-11 -- the K4532 in the Personality Chooser
+
+Doc: "we should add a K4532 personality to the dell with appropriate
+launcher entry".  K4510-Personalities builds k4532.squashfs (the K4532
+emulator, its ROM, K32 and the 4532 demos, a seed disk for
+~/personalities/k4532); the Chooser gives it a place right under the
+K4510 and a badge of its own -- a chip with the K4510's stripes and 32.

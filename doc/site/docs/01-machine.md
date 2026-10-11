@@ -1,5 +1,9 @@
 # The Machine
 
+> *“Damn-it Jim! I’m a doctor, not a computer programmer!”*
+>
+> — Dr Leonard “Bones” McCoy
+
 The K4510 is a fantasy computer: a machine that never existed, built the way 1985 might have built it with no budget committee in the room. It is not an emulation of any real computer. Its CPU, video chip, sound, and operating software are its own; the parts it borrows — a 6502-family instruction set, the AdLib’s FM chip — it borrows openly and then outgrows.
 
 ## What is the K4510?
